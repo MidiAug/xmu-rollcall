@@ -58,6 +58,19 @@ class _Adapter implements HttpClientAdapter {
         },
       );
     }
+    if (options.method == 'PUT' &&
+        options.path.contains('answer_qr_rollcall')) {
+      final data = options.data as Map;
+      expect(data['deviceId'], isNotEmpty);
+      expect(data['data'], 'QRDATA');
+      return ResponseBody.fromString(
+        '{"ok":true}',
+        200,
+        headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        },
+      );
+    }
     if (options.method == 'PUT' && options.path.contains('/answer')) {
       final data = options.data as Map;
       expect(data['latitude'], 24.4);
@@ -107,6 +120,9 @@ void main() {
       accuracy: 20,
     );
     expect(radar.ok, isTrue);
+
+    final qr = await repo.answerQr(rollcallId: 3, data: 'QRDATA');
+    expect(qr.ok, isTrue);
 
     final id1 = await identity.getId();
     final id2 = await identity.getId();

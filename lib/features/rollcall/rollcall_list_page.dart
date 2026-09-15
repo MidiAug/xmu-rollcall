@@ -5,6 +5,7 @@ import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
+import 'package:xmu_rollcall/features/rollcall/qr_answer_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_answer_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
@@ -210,8 +211,10 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
   void _openSecondary() {
     final item = widget.item;
     if (item.type == RollcallType.qrcode) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('二维码扫描将在 Phase 3 支持')),
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => QrAnswerPage(item: item),
+        ),
       );
       return;
     }

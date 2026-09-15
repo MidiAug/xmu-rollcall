@@ -37,6 +37,16 @@ class RollcallItem {
 
   bool get isNumber => type == RollcallType.number;
   bool get isRadar => type == RollcallType.radar;
+  bool get isQrcode => type == RollcallType.qrcode;
+
+  /// Best-effort course id from list payload (for assist same-course filter).
+  String? get courseId {
+    for (final k in const ['course_id', 'courseId', 'cid', 'teaching_unit_id']) {
+      final v = raw[k];
+      if (v != null && '$v'.trim().isNotEmpty) return '$v'.trim();
+    }
+    return null;
+  }
 
   String get typeLabel => switch (type) {
         RollcallType.number => '数字',

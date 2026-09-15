@@ -1,0 +1,18 @@
+{
+  "rollcalls": [
+    {
+      "rollcall_id": 9001,
+      "course_id": 501,
+      "course_title": "高等数学A",
+      "created_by_name": "张老师",
+      "department_name": "数统",
+      "is_number": false,
+      "is_radar": false,
+      "is_qrcode": true,
+      "is_expired": false,
+      "status": "absent",
+      "rollcall_status": "on",
+      "scored": false
+    }
+  ]
+}

@@ -64,4 +64,7 @@ abstract final class TronEndpoints {
   static Uri answerRadar(int id) => Uri.parse(
         '$baseUrl/api/rollcall/$id/answer',
       ).replace(queryParameters: {'api_version': apiVersionAnswer});
+
+  static Uri answerQr(int id) =>
+      Uri.parse('$baseUrl/api/rollcall/$id/answer_qr_rollcall');
 }

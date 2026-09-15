@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:cookie_jar/cookie_jar.dart';
@@ -8,50 +7,47 @@ import 'package:path_provider/path_provider.dart';
 import 'package:xmu_rollcall/core/network/backoff_interceptor.dart';
 import 'package:xmu_rollcall/core/network/rate_limiter.dart';
 import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
+import 'package:xmu_rollcall/core/session/cookie_codec.dart';
+import 'package:xmu_rollcall/core/session/session_key.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
-
-Map<String, dynamic> _cookieToJson(Cookie c) => {
-      'name': c.name,
-      'value': c.value,
-      'domain': c.domain,
-      'path': c.path,
-      'secure': c.secure,
-      'httpOnly': c.httpOnly,
-    };
-
-Cookie _cookieFromJson(Map<String, dynamic> json) {
-  return Cookie(json['name'] as String, json['value'] as String)
-    ..domain = json['domain'] as String?
-    ..path = json['path'] as String? ?? '/'
-    ..secure = json['secure'] as bool? ?? false
-    ..httpOnly = json['httpOnly'] as bool? ?? false;
-}
 
 class TronHttpClient {
   TronHttpClient({
     required this.store,
+    this.sessionKey = SessionKey.owner,
     RateLimiter? rateLimiter,
     Dio? dio,
+    CookieJar? cookieJar,
   })  : _limiter = rateLimiter ?? RateLimiter(),
-        _dio = dio ?? Dio();
+        _dio = dio ?? Dio(),
+        _injectedJar = cookieJar;
 
   final SecureStore store;
+  final SessionKey sessionKey;
   final RateLimiter _limiter;
   final Dio _dio;
+  final CookieJar? _injectedJar;
   CookieJar? _jar;
   bool _ready = false;
 
   Dio get dio => _dio;
   CookieJar? get cookieJar => _jar;
+  RateLimiter get rateLimiter => _limiter;
 
   Future<void> init() async {
     if (_ready) return;
-    final dir = await getApplicationSupportDirectory();
-    final cookiePath = Directory('${dir.path}/cookies');
-    if (!await cookiePath.exists()) {
-      await cookiePath.create(recursive: true);
+    if (_injectedJar != null) {
+      _jar = _injectedJar;
+    } else {
+      final dir = await getApplicationSupportDirectory();
+      final cookiePath = Directory(
+        '${dir.path}/cookies/${sessionKey.cookieRelativePath}',
+      );
+      if (!await cookiePath.exists()) {
+        await cookiePath.create(recursive: true);
+      }
+      _jar = PersistCookieJar(storage: FileStorage(cookiePath.path));
     }
-    _jar = PersistCookieJar(storage: FileStorage(cookiePath.path));
     _dio.options
       ..baseUrl = TronEndpoints.baseUrl
       ..connectTimeout = const Duration(seconds: 20)
@@ -69,56 +65,60 @@ class TronHttpClient {
   }
 
   Future<void> _restoreCookiesFromSecureStore() async {
-    final raw = await store.read(SecureStore.keySessionCookies);
+    final raw = await store.read(sessionKey.secureCookieKey);
     if (raw == null || raw.isEmpty || _jar == null) return;
-    try {
-      final list = jsonDecode(raw) as List<dynamic>;
-      final cookies = list
-          .map((e) => _cookieFromJson(Map<String, dynamic>.from(e as Map)))
-          .toList();
-      await _jar!.saveFromResponse(Uri.parse(TronEndpoints.baseUrl), cookies);
-    } catch (_) {
-      // Corrupt blob — ignore; user can re-login.
-    }
+    final cookies = decodeCookies(raw);
+    if (cookies.isEmpty) return;
+    await _jar!.saveFromResponse(Uri.parse(TronEndpoints.baseUrl), cookies);
   }
 
   Future<void> persistCookies() async {
     if (_jar == null) return;
     final cookies =
         await _jar!.loadForRequest(Uri.parse(TronEndpoints.baseUrl));
-    final encoded = jsonEncode(cookies.map(_cookieToJson).toList());
-    await store.write(SecureStore.keySessionCookies, encoded);
+    await store.write(sessionKey.secureCookieKey, encodeCookies(cookies));
   }
 
   Future<void> importCookieHeader(String cookieHeader) async {
     await init();
-    final parts = cookieHeader.split(';');
-    final cookies = <Cookie>[];
-    for (final part in parts) {
-      final trimmed = part.trim();
-      if (trimmed.isEmpty) continue;
-      final eq = trimmed.indexOf('=');
-      if (eq <= 0) continue;
-      final name = trimmed.substring(0, eq).trim();
-      final value = trimmed.substring(eq + 1).trim();
-      cookies.add(
-        Cookie(name, value)
-          ..domain = 'lnt.xmu.edu.cn'
-          ..path = '/',
-      );
-    }
+    final cookies = parseCookieHeader(
+      cookieHeader,
+      domain: 'lnt.xmu.edu.cn',
+    );
     await _jar!.saveFromResponse(Uri.parse(TronEndpoints.baseUrl), cookies);
     await persistCookies();
+  }
+
+  /// Replace jar cookies from a JSON blob (assist import path).
+  Future<void> importCookiesJson(String raw) async {
+    await init();
+    final cookies = decodeCookies(raw);
+    await _jar!.deleteAll();
+    if (cookies.isNotEmpty) {
+      await _jar!.saveFromResponse(Uri.parse(TronEndpoints.baseUrl), cookies);
+    }
+    await persistCookies();
+  }
+
+  Future<String?> exportCookiesJson() async {
+    await init();
+    final cookies =
+        await _jar!.loadForRequest(Uri.parse(TronEndpoints.baseUrl));
+    if (cookies.isEmpty) return null;
+    return encodeCookies(cookies);
   }
 
   Future<void> clearSession() async {
     await init();
     await _jar!.deleteAll();
-    await store.deleteAll([
-      SecureStore.keySessionCookies,
-      SecureStore.keyUserDisplayName,
-      SecureStore.keyUserId,
-    ]);
+    final keys = <String>[sessionKey.secureCookieKey];
+    if (sessionKey.isOwner) {
+      keys.addAll([
+        SecureStore.keyUserDisplayName,
+        SecureStore.keyUserId,
+      ]);
+    }
+    await store.deleteAll(keys);
   }
 
   Future<Response<T>> getUri<T>(Uri uri) {

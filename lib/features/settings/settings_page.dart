@@ -1,10 +1,12 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
+import 'package:xmu_rollcall/features/assist/assist_controller.dart';
+import 'package:xmu_rollcall/features/assist/assist_dialogs.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
@@ -63,6 +65,25 @@ class DiagnosticsController extends StateNotifier<bool> {
   }
 }
 
+void _pushFade(BuildContext context, Widget page) {
+  Navigator.of(context).push(
+    PageRouteBuilder<void>(
+      transitionDuration: AppMotion.duration,
+      reverseTransitionDuration: AppMotion.duration,
+      pageBuilder: (context, animation, secondaryAnimation) => page,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: CurvedAnimation(
+            parent: animation,
+            curve: AppMotion.curve,
+          ),
+          child: child,
+        );
+      },
+    ),
+  );
+}
+
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
@@ -71,6 +92,7 @@ class SettingsPage extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider);
     final themePref = ref.watch(themePreferenceProvider);
     final diagnostics = ref.watch(diagnosticsEnabledProvider);
+    final assist = ref.watch(assistControllerProvider);
     final deviceFuture = ref.watch(deviceIdentityProvider).getId();
     final p = AppPalette.of(context);
     final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
@@ -158,26 +180,86 @@ class SettingsPage extends ConsumerWidget {
                 title: '预设位置',
                 subtitle: '地图添加与管理',
                 trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
-                onTap: () {
-                  Navigator.of(context).push(
-                    PageRouteBuilder<void>(
-                      transitionDuration: AppMotion.duration,
-                      reverseTransitionDuration: AppMotion.duration,
-                      pageBuilder: (context, animation, secondaryAnimation) =>
-                          const SavedLocationsPage(),
-                      transitionsBuilder:
-                          (context, animation, secondaryAnimation, child) {
-                        return FadeTransition(
-                          opacity: CurvedAnimation(
-                            parent: animation,
-                            curve: AppMotion.curve,
-                          ),
-                          child: child,
-                        );
-                      },
-                    ),
-                  );
-                },
+                onTap: () => _pushFade(context, const SavedLocationsPage()),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.stack),
+          SettingsSection(
+            header: '协助身份',
+            footer: Text(
+              '会话凭证≠密码，但仍等于登录态。默认关闭；仅同课二维码协助（Phase 3）。',
+              style: TextStyle(fontSize: 12, height: 1.4, color: p.muted),
+            ),
+            children: [
+              SettingsRow(
+                leading: const Icon(Icons.handshake_outlined),
+                title: '启用协助',
+                subtitle: '默认关；开启前确认风险',
+                trailing: Switch.adaptive(
+                  value: assist.enabled,
+                  onChanged: !assist.ready || assist.busy
+                      ? null
+                      : (v) async {
+                          if (v) {
+                            final ok = await showAssistRiskDialog(context);
+                            if (!ok || !context.mounted) return;
+                          }
+                          await ref
+                              .read(assistControllerProvider.notifier)
+                              .setEnabled(v);
+                        },
+                ),
+              ),
+              SettingsRow(
+                leading: const Icon(Icons.upload_outlined),
+                title: '导出主号凭证',
+                subtitle: auth.isSignedIn ? '口令加密 · 复制 JSON' : '需先登录',
+                trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                onTap: !assist.enabled || !auth.isSignedIn || assist.busy
+                    ? null
+                    : () => showAssistExportDialog(
+                          context,
+                          export: (pass) => ref
+                              .read(assistControllerProvider.notifier)
+                              .exportOwner(pass),
+                        ),
+              ),
+              SettingsRow(
+                leading: const Icon(Icons.download_outlined),
+                title: '导入会话凭证',
+                subtitle: '粘贴对方导出的包',
+                trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                onTap: !assist.enabled || assist.busy
+                    ? null
+                    : () => showAssistImportDialog(
+                          context,
+                          onSubmit: (sealed, pass) async {
+                            final id = await ref
+                                .read(assistControllerProvider.notifier)
+                                .importPackage(
+                                  sealed: sealed,
+                                  passphrase: pass,
+                                );
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('已导入 ${id.displayName}'),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+              ),
+              SettingsRow(
+                leading: const Icon(Icons.group_outlined),
+                title: '已导入名单',
+                subtitle: assist.ready
+                    ? '${assist.identities.length} 人'
+                    : '…',
+                trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                onTap: () =>
+                    _pushFade(context, const AssistIdentitiesPage()),
               ),
             ],
           ),
@@ -192,7 +274,8 @@ class SettingsPage extends ConsumerWidget {
                     leading: const Icon(Icons.devices_outlined),
                     title: '设备 ID（稳定）',
                     subtitleWidget: snap.data == null
-                        ? Text('…', style: TextStyle(color: p.muted, fontSize: 12))
+                        ? Text('…',
+                            style: TextStyle(color: p.muted, fontSize: 12))
                         : SelectableText(
                             snap.data!,
                             style: TextStyle(
@@ -225,7 +308,7 @@ class SettingsPage extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpace.xl),
           Text(
-            'xmu-rollcall 本人到课客户端。默认不开启自动签到、PIN 爆破或假定位代签。',
+            'xmu-rollcall 本人到课客户端。默认不开启自动签到、PIN 爆破、假定位代签或协助能力。',
             style: TextStyle(fontSize: 12, height: 1.45, color: p.muted),
           ),
         ],

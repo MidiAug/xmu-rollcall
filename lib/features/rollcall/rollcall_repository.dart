@@ -305,6 +305,28 @@ class RollcallRepository {
     return _mapAnswer(res);
   }
 
+  /// Student QR answer: `{ data, deviceId }` (data from scan/paste).
+  Future<AnswerResult> answerQr({
+    required int rollcallId,
+    required String data,
+  }) async {
+    final deviceId = await identity.getId();
+    final res = await http.putUri<dynamic>(
+      TronEndpoints.answerQr(rollcallId),
+      data: {
+        'data': data,
+        'deviceId': deviceId,
+      },
+    );
+    return _mapAnswer(res);
+  }
+
+  /// Course id set for the current [http] session (assist same-course filter).
+  Future<Set<String>> fetchCourseIds() async {
+    final courses = await _probeCourses();
+    return courses.map((e) => e['id']!).toSet();
+  }
+
   AnswerResult _mapAnswer(Response<dynamic> res) {
     final status = res.statusCode ?? 0;
     final data = res.data;
