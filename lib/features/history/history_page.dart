@@ -55,21 +55,22 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
               AppSpace.pageX,
               AppSpace.sm,
             ),
-            child: SegmentedButton<HistorySegment>(
-              segments: const [
-                ButtonSegment(
-                  value: HistorySegment.course,
-                  icon: Icon(Icons.school_outlined, size: 16),
-                  label: Text('\u8bfe\u7a0b\u7b7e\u5230'),
-                ),
-                ButtonSegment(
-                  value: HistorySegment.local,
-                  icon: Icon(Icons.phone_android_outlined, size: 16),
-                  label: Text('\u672c\u673a\u63d0\u4ea4'),
-                ),
-              ],
-              selected: {_segment},
-              onSelectionChanged: (s) => setState(() => _segment = s.first),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: AppSegmentedControl<HistorySegment>(
+                value: _segment,
+                onChanged: (s) => setState(() => _segment = s),
+                segments: const [
+                  AppSegment(
+                    value: HistorySegment.course,
+                    label: '课程签到',
+                  ),
+                  AppSegment(
+                    value: HistorySegment.local,
+                    label: '本机提交',
+                  ),
+                ],
+              ),
             ),
           ),
           Expanded(

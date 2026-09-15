@@ -149,28 +149,26 @@ class SettingsPage extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: AppSpace.sm),
-                SegmentedButton<ThemePreference>(
+                AppSegmentedControl<ThemePreference>(
+                  expanded: true,
+                  value: themePref,
+                  onChanged: (v) {
+                    ref.read(themePreferenceProvider.notifier).set(v);
+                  },
                   segments: const [
-                    ButtonSegment(
+                    AppSegment(
                       value: ThemePreference.system,
-                      icon: Icon(Icons.brightness_auto_outlined, size: 16),
-                      label: Text('跟随'),
+                      label: '跟随',
                     ),
-                    ButtonSegment(
+                    AppSegment(
                       value: ThemePreference.dark,
-                      icon: Icon(Icons.dark_mode_outlined, size: 16),
-                      label: Text('暗色'),
+                      label: '暗色',
                     ),
-                    ButtonSegment(
+                    AppSegment(
                       value: ThemePreference.light,
-                      icon: Icon(Icons.light_mode_outlined, size: 16),
-                      label: Text('浅色'),
+                      label: '浅色',
                     ),
                   ],
-                  selected: {themePref},
-                  onSelectionChanged: (s) {
-                    ref.read(themePreferenceProvider.notifier).set(s.first);
-                  },
                 ),
               ],
             ),

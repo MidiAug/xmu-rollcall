@@ -49,26 +49,21 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage> {
               AppSpace.pageX,
               AppSpace.sm,
             ),
-            child: SegmentedButton<RollcallHubSegment>(
-              segments: const [
-                ButtonSegment(
-                  value: RollcallHubSegment.active,
-                  icon: Icon(Icons.list_alt_outlined, size: 16),
-                  label: Text('进行中'),
-                ),
-                ButtonSegment(
-                  value: RollcallHubSegment.poll,
-                  icon: Icon(Icons.radar_outlined, size: 16),
-                  label: Text('轮询'),
-                ),
-              ],
-              selected: {_segment},
-              onSelectionChanged: (s) => setState(() => _segment = s.first),
-              style: ButtonStyle(
-                foregroundColor: WidgetStateProperty.resolveWith((states) {
-                  if (states.contains(WidgetState.selected)) return p.ink;
-                  return p.muted;
-                }),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: AppSegmentedControl<RollcallHubSegment>(
+                value: _segment,
+                onChanged: (s) => setState(() => _segment = s),
+                segments: const [
+                  AppSegment(
+                    value: RollcallHubSegment.active,
+                    label: '进行中',
+                  ),
+                  AppSegment(
+                    value: RollcallHubSegment.poll,
+                    label: '轮询',
+                  ),
+                ],
               ),
             ),
           ),

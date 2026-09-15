@@ -96,8 +96,11 @@ abstract final class AppRadii {
 abstract final class AppLayout {
   static const shellBreakpoint = 600.0;
   static const sidebarWidth = 228.0;
-  static const titleBarHeight = 36.0;
+
+  /// Desktop window chrome / subpage nav share one bar height (no nested bars).
+  static const titleBarHeight = 40.0;
   static const navItemHeight = 36.0;
+  static const segmentHeight = 28.0;
 
   /// Fixed page chrome so Tab switches never shift the title baseline.
   /// Title line (~22) + gap 4 + subtitle line (~18) + vertical padding 16+12.

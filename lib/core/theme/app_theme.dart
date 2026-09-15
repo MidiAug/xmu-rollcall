@@ -119,11 +119,21 @@ abstract final class AppTheme {
         style: ButtonStyle(
           visualDensity: VisualDensity.compact,
           padding: const WidgetStatePropertyAll(
-            EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           ),
           textStyle: const WidgetStatePropertyAll(
             TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           ),
+          // Soft selected pill (ink on surface) — avoid dark fill + checkmark.
+          foregroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return p.ink;
+            return p.muted;
+          }),
+          backgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return p.surface;
+            return Colors.transparent;
+          }),
+          side: WidgetStatePropertyAll(BorderSide(color: p.borderStrong)),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadii.control),

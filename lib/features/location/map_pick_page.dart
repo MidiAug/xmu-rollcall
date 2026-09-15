@@ -20,26 +20,30 @@ class MapPickResult {
   final String? saveNote;
 }
 
-/// Tap map to choose a point. Uses 高德 raster tiles (OSM often blank in CN).
-class MapPickPage extends StatefulWidget {
-  const MapPickPage({
+/// Reusable map picker body (embed in pages; no own chrome).
+class MapPickPanel extends StatefulWidget {
+  const MapPickPanel({
     super.key,
     this.initial,
     this.requireNote = false,
-    this.title = '选择位置',
+    this.confirmLabel,
+    required this.onConfirm,
   });
 
   final LatLng? initial;
   final bool requireNote;
-  final String title;
+  final String? confirmLabel;
+  final ValueChanged<MapPickResult> onConfirm;
 
   @override
-  State<MapPickPage> createState() => _MapPickPageState();
+  State<MapPickPanel> createState() => MapPickPanelState();
 }
 
-class _MapPickPageState extends State<MapPickPage> {
+class MapPickPanelState extends State<MapPickPanel> {
   late LatLng _point;
   final _mapController = MapController();
+
+  LatLng get point => _point;
 
   @override
   void initState() {
@@ -47,7 +51,7 @@ class _MapPickPageState extends State<MapPickPage> {
     _point = widget.initial ?? kDefaultMapCenter;
   }
 
-  Future<void> _confirm() async {
+  Future<void> confirm() async {
     String? saveNote;
     if (widget.requireNote) {
       final noteCtrl = TextEditingController();
@@ -81,7 +85,7 @@ class _MapPickPageState extends State<MapPickPage> {
     }
 
     if (!mounted) return;
-    Navigator.of(context).pop(
+    widget.onConfirm(
       MapPickResult(
         latitude: _point.latitude,
         longitude: _point.longitude,
@@ -95,94 +99,113 @@ class _MapPickPageState extends State<MapPickPage> {
     final p = AppPalette.of(context);
     final coord =
         '${_point.latitude.toStringAsFixed(5)}, ${_point.longitude.toStringAsFixed(5)}';
+    final label = widget.confirmLabel ??
+        (widget.requireNote ? '保存' : '完成');
 
-    return SubpageScaffold(
-      title: widget.title,
-      actions: [
-        TextButton(
-          onPressed: _confirm,
-          child: Text(widget.requireNote ? '保存' : '完成'),
-        ),
-      ],
-      body: Stack(
-        children: [
-          FlutterMap(
-            mapController: _mapController,
-            options: MapOptions(
-              initialCenter: _point,
-              initialZoom: 16,
-              onTap: (_, latLng) => setState(() => _point = latLng),
-            ),
-            children: [
-              TileLayer(
-                urlTemplate:
-                    'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
-                subdomains: const ['1', '2', '3', '4'],
-                userAgentPackageName: 'com.xmu.rollcall',
-              ),
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: _point,
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.topCenter,
-                    child: Icon(
-                      Icons.location_on,
-                      color: p.primary,
-                      size: 40,
-                    ),
-                  ),
-                ],
-              ),
-              const RichAttributionWidget(
-                attributions: [
-                  TextSourceAttribution('高德地图'),
-                ],
-              ),
-            ],
+    return Stack(
+      children: [
+        FlutterMap(
+          mapController: _mapController,
+          options: MapOptions(
+            initialCenter: _point,
+            initialZoom: 16,
+            onTap: (_, latLng) => setState(() => _point = latLng),
           ),
-          Positioned(
-            left: AppSpace.pageX,
-            right: AppSpace.pageX,
-            bottom: AppSpace.md,
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: Material(
-                  elevation: 3,
-                  shadowColor: Colors.black26,
-                  color: p.surface,
-                  borderRadius: BorderRadius.circular(AppRadii.card),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            coord,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: p.ink,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
+          children: [
+            TileLayer(
+              urlTemplate:
+                  'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+              subdomains: const ['1', '2', '3', '4'],
+              userAgentPackageName: 'com.xmu.rollcall',
+            ),
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: _point,
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.topCenter,
+                  child: Icon(
+                    Icons.location_on,
+                    color: p.primary,
+                    size: 40,
+                  ),
+                ),
+              ],
+            ),
+            const RichAttributionWidget(
+              attributions: [
+                TextSourceAttribution('高德地图'),
+              ],
+            ),
+          ],
+        ),
+        Positioned(
+          left: AppSpace.pageX,
+          right: AppSpace.pageX,
+          bottom: AppSpace.md,
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 480),
+              child: Material(
+                elevation: 2,
+                shadowColor: Colors.black26,
+                color: p.surface,
+                borderRadius: BorderRadius.circular(AppRadii.card),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          coord,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: p.ink,
+                            fontFeatures: const [
+                              FontFeature.tabularFigures(),
+                            ],
                           ),
                         ),
-                        FilledButton(
-                          onPressed: _confirm,
-                          child: Text(widget.requireNote ? '保存' : '完成'),
-                        ),
-                      ],
-                    ),
+                      ),
+                      FilledButton(
+                        onPressed: confirm,
+                        child: Text(label),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
-        ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Tap map to choose a point. Uses 高德 raster tiles (OSM often blank in CN).
+class MapPickPage extends StatelessWidget {
+  const MapPickPage({
+    super.key,
+    this.initial,
+    this.requireNote = false,
+    this.title = '选择位置',
+  });
+
+  final LatLng? initial;
+  final bool requireNote;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return SubpageScaffold(
+      title: title,
+      body: MapPickPanel(
+        initial: initial,
+        requireNote: requireNote,
+        onConfirm: (result) => Navigator.of(context).pop(result),
       ),
     );
   }

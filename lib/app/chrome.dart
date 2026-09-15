@@ -25,6 +25,46 @@ class BrandMark extends StatelessWidget {
   }
 }
 
+/// Drag / double-click maximize region for frameless desktop windows.
+///
+/// Fills its parent. Prefer a full-bar [Stack] layer so height is never
+/// clipped to text metrics. Maximized → drag unmaximizes then moves
+/// (native caption behavior that [windowManager.startDragging] alone skips).
+class _WindowDragArea extends StatelessWidget {
+  const _WindowDragArea();
+
+  Future<void> _drag() async {
+    if (!PlatformHooks.isDesktop) return;
+    try {
+      if (await windowManager.isMaximized()) {
+        await windowManager.unmaximize();
+        // Let Win32 apply restore bounds before SC_MOVE.
+        await Future<void>.delayed(const Duration(milliseconds: 16));
+      }
+      await windowManager.startDragging();
+    } catch (_) {}
+  }
+
+  Future<void> _toggleMaximize() async {
+    if (!PlatformHooks.isDesktop) return;
+    if (await windowManager.isMaximized()) {
+      await windowManager.unmaximize();
+    } else {
+      await windowManager.maximize();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onPanStart: (_) => _drag(),
+      onDoubleTap: _toggleMaximize,
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
 class AppTitleBar extends StatelessWidget {
   const AppTitleBar({super.key, required this.title});
 
@@ -36,52 +76,143 @@ class AppTitleBar extends StatelessWidget {
     return Container(
       height: AppLayout.titleBarHeight,
       color: p.surface,
-      child: Row(
+      child: Stack(
         children: [
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onPanStart: (_) {
-                if (PlatformHooks.isDesktop) {
-                  windowManager.startDragging();
-                }
-              },
-              onDoubleTap: () async {
-                if (!PlatformHooks.isDesktop) return;
-                if (await windowManager.isMaximized()) {
-                  await windowManager.unmaximize();
-                } else {
-                  await windowManager.maximize();
-                }
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Row(
-                  children: [
-                    const BrandMark(size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: p.ink,
-                      ),
+          if (PlatformHooks.isDesktop)
+            const Positioned.fill(child: _WindowDragArea()),
+          Row(
+            children: [
+              Expanded(
+                child: IgnorePointer(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        const BrandMark(size: 18),
+                        const SizedBox(width: 8),
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: p.ink,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+              if (PlatformHooks.isDesktop) const _WindowButtons(),
+            ],
           ),
-          if (PlatformHooks.isDesktop) const _WindowButtons(),
         ],
       ),
     );
   }
 }
 
-/// Full-route pages pushed over [AdaptiveShell]. Keeps desktop title bar +
-/// window controls ([TitleBarStyle.hidden] otherwise removes OS chrome).
+/// Compact pill segments — Linear / iOS style (soft track, elevated selected).
+class AppSegment<T> {
+  const AppSegment({required this.value, required this.label});
+
+  final T value;
+  final String label;
+}
+
+class AppSegmentedControl<T> extends StatelessWidget {
+  const AppSegmentedControl({
+    super.key,
+    required this.segments,
+    required this.value,
+    required this.onChanged,
+    this.expanded = false,
+  });
+
+  final List<AppSegment<T>> segments;
+  final T value;
+  final ValueChanged<T> onChanged;
+  final bool expanded;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      height: AppLayout.segmentHeight + 6,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: p.surfaceHigh,
+        borderRadius: BorderRadius.circular(AppRadii.input),
+      ),
+      child: Row(
+        mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
+        children: [
+          for (final s in segments)
+            expanded
+                ? Expanded(child: _seg(context, p, dark, s))
+                : _seg(context, p, dark, s),
+        ],
+      ),
+    );
+  }
+
+  Widget _seg(BuildContext context, AppPalette p, bool dark, AppSegment<T> s) {
+    final selected = s.value == value;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 1),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () {
+            if (!selected) onChanged(s.value);
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 140),
+            curve: Curves.easeOut,
+            height: AppLayout.segmentHeight,
+            padding: EdgeInsets.symmetric(horizontal: expanded ? 10 : 14),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected ? p.surface : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppRadii.control),
+              border: selected
+                  ? Border.all(color: p.borderStrong)
+                  : Border.all(color: Colors.transparent),
+              boxShadow: selected && !dark
+                  ? const [
+                      BoxShadow(
+                        color: Color(0x0A000000),
+                        blurRadius: 2,
+                        offset: Offset(0, 1),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Text(
+              s.label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                letterSpacing: -0.1,
+                color: selected ? p.ink : p.muted,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Full-route pages pushed over [AdaptiveShell].
+///
+/// Desktop: **one** chrome bar — back + title | actions + window controls.
+/// Never puts view-mode segments in the title bar; never stacks a brand bar
+/// under a second tool row. Drag layer covers the full bar height.
 class SubpageScaffold extends StatelessWidget {
   const SubpageScaffold({
     super.key,
@@ -98,35 +229,59 @@ class SubpageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final canPop = Navigator.of(context).canPop();
+    final desktop = PlatformHooks.isDesktop;
+    final barHeight = desktop ? AppLayout.titleBarHeight : 48.0;
 
-    final toolRow = Material(
+    final bar = Material(
       color: p.surface,
       child: SizedBox(
-        height: 48,
-        child: Row(
+        height: barHeight,
+        child: Stack(
           children: [
-            if (canPop)
-              IconButton(
-                tooltip: '返回',
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: Icon(Icons.arrow_back, color: p.ink, size: 20),
-              )
-            else
-              const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: p.ink,
+            if (desktop) const Positioned.fill(child: _WindowDragArea()),
+            Row(
+              children: [
+                if (canPop)
+                  IconButton(
+                    tooltip: '返回',
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: Icon(
+                      Icons.arrow_back_rounded,
+                      color: p.ink,
+                      size: 18,
+                    ),
+                  )
+                else
+                  const SizedBox(width: 12),
+                Expanded(
+                  child: IgnorePointer(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: desktop ? 13 : 15,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.15,
+                          color: p.ink,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+                ...?actions,
+                if (desktop) const _WindowButtons(),
+                if (!desktop) const SizedBox(width: 8),
+              ],
             ),
-            ...?actions,
-            const SizedBox(width: 8),
           ],
         ),
       ),
@@ -137,11 +292,8 @@ class SubpageScaffold extends StatelessWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (PlatformHooks.isDesktop) const AppTitleBar(title: '畅课签到'),
-          if (PlatformHooks.isDesktop)
-            Container(height: 1, color: p.borderStrong),
-          toolRow,
-          Container(height: 1, color: p.border),
+          bar,
+          Container(height: 1, color: p.borderStrong),
           Expanded(child: body),
         ],
       ),
@@ -656,14 +808,17 @@ class Panel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return Container(
-      decoration: BoxDecoration(
-        color: p.surface,
+    return Material(
+      color: p.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.card),
-        border: Border.all(color: p.border),
+        side: BorderSide(color: p.border),
       ),
-      padding: padding ?? const EdgeInsets.all(AppSpace.md),
-      child: child,
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: padding ?? const EdgeInsets.all(AppSpace.md),
+        child: child,
+      ),
     );
   }
 }
