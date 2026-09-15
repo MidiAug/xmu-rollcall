@@ -12,6 +12,8 @@ class RollcallItem {
     required this.scored,
     this.departmentName = '',
     this.raw = const {},
+    this.numberCode,
+    this.numberCodeError,
   });
 
   final int rollcallId;
@@ -25,6 +27,12 @@ class RollcallItem {
   final bool scored;
   final Map<String, dynamic> raw;
 
+  /// Populated for [RollcallType.number] after `student_rollcalls` fetch.
+  final String? numberCode;
+
+  /// Set when number fetch failed or field missing.
+  final String? numberCodeError;
+
   bool get isAnswered => status == 'on_call_fine';
 
   bool get isNumber => type == RollcallType.number;
@@ -36,6 +44,30 @@ class RollcallItem {
         RollcallType.qrcode => '二维码',
         RollcallType.unknown => '未知',
       };
+
+  RollcallItem copyWith({
+    String? numberCode,
+    String? numberCodeError,
+    bool clearNumberCode = false,
+    bool clearNumberCodeError = false,
+  }) {
+    return RollcallItem(
+      rollcallId: rollcallId,
+      courseTitle: courseTitle,
+      createdByName: createdByName,
+      departmentName: departmentName,
+      type: type,
+      status: status,
+      rollcallStatus: rollcallStatus,
+      isExpired: isExpired,
+      scored: scored,
+      raw: raw,
+      numberCode: clearNumberCode ? null : (numberCode ?? this.numberCode),
+      numberCodeError: clearNumberCodeError
+          ? null
+          : (numberCodeError ?? this.numberCodeError),
+    );
+  }
 
   factory RollcallItem.fromJson(Map<String, dynamic> d) {
     final isNumber = d['is_number'] == true;

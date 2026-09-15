@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:xmu_rollcall/core/identity/device_identity.dart';
 import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
+import 'package:xmu_rollcall/features/rollcall/number_code.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 
 class RollcallRepository {
@@ -25,6 +26,52 @@ class RollcallRepository {
         .whereType<Map>()
         .map((e) => RollcallItem.fromJson(Map<String, dynamic>.from(e)))
         .toList();
+  }
+
+  /// List + for number types, fetch `number_code` (does not affect poll stop).
+  Future<List<RollcallItem>> fetchActiveEnriched() async {
+    final items = await fetchActive();
+    if (items.isEmpty) return items;
+    final out = <RollcallItem>[];
+    for (final item in items) {
+      if (!item.isNumber) {
+        out.add(item);
+        continue;
+      }
+      try {
+        final code = await fetchNumberCode(item.rollcallId);
+        if (code == null || code.isEmpty) {
+          out.add(
+            item.copyWith(
+              numberCodeError: '\u672a\u5728 student_rollcalls \u4e2d\u627e\u5230 number_code',
+            ),
+          );
+        } else {
+          out.add(
+            item.copyWith(
+              numberCode: code,
+              clearNumberCodeError: true,
+            ),
+          );
+        }
+      } catch (e) {
+        out.add(item.copyWith(numberCodeError: '$e'));
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+    }
+    return out;
+  }
+
+  Future<String?> fetchNumberCode(int rollcallId) async {
+    final res = await http.getUri<dynamic>(
+      TronEndpoints.studentRollcalls(rollcallId),
+    );
+    if ((res.statusCode ?? 0) != 200) {
+      throw StateError(
+        '\u83b7\u53d6\u7b7e\u5230\u7801\u5931\u8d25 (${res.statusCode})',
+      );
+    }
+    return findNumberCode(res.data);
   }
 
   /// Course rollcall history (gammars / dashboard style). Serial + gap for KB-01.

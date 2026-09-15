@@ -4,6 +4,7 @@ import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_list_page.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 
 enum RollcallHubSegment { active, poll }
 
@@ -26,14 +27,28 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage> {
     return PageScaffold(
       title: '签到',
       subtitle: _segment == RollcallHubSegment.active
-          ? '进行中课堂 · 数字 / 雷达应答'
-          : '可配置轮询 · 不低于 15s + 抖动',
+          ? '数字一键签 · 雷达/二维码二级页'
+          : '空列表时轮询 · 发现即停 · ≥15s + 抖动',
       showHeader: wide,
+      trailing: _segment == RollcallHubSegment.active
+          ? IconButton(
+              tooltip: '刷新',
+              visualDensity: VisualDensity.compact,
+              onPressed: () =>
+                  ref.read(activeRollcallsProvider.notifier).refresh(),
+              icon: Icon(Icons.refresh_rounded, color: p.muted),
+            )
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpace.pageX,
+              0,
+              AppSpace.pageX,
+              AppSpace.sm,
+            ),
             child: SegmentedButton<RollcallHubSegment>(
               segments: const [
                 ButtonSegment(

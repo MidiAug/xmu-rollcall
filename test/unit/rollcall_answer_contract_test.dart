@@ -35,6 +35,16 @@ class _Adapter implements HttpClientAdapter {
     Stream<List<int>>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    if (options.method == 'GET' &&
+        options.path.contains('student_rollcalls')) {
+      return ResponseBody.fromString(
+        '{"student_rollcalls":[{"number_code":"0042"}]}',
+        200,
+        headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        },
+      );
+    }
     if (options.method == 'PUT' &&
         options.path.contains('answer_number_rollcall')) {
       final data = options.data as Map;
@@ -84,6 +94,9 @@ void main() {
     // answer via http.putUri after forcing _ready is private.
     // Use dio directly through a thin path: call repository after stubbing init.
     // Simplest: invoke putUri on client without init (CookieManager not added yet — OK).
+    final code = await repo.fetchNumberCode(1);
+    expect(code, '0042');
+
     final number = await repo.answerNumber(rollcallId: 1, numberCode: '0042');
     expect(number.ok, isTrue);
 

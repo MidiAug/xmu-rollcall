@@ -2,9 +2,27 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/features/rollcall/number_code.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 
 void main() {
+  group('findNumberCode', () {
+    test('reads top-level and nested student_rollcalls', () {
+      expect(findNumberCode({'number_code': '0042'}), '0042');
+      expect(
+        findNumberCode({
+          'status': 'in_progress',
+          'student_rollcalls': [
+            {'student_id': 1, 'number_code': '1234'},
+          ],
+        }),
+        '1234',
+      );
+      expect(findNumberCode({'data': {'number_code': 7}}), '7');
+      expect(findNumberCode({'student_rollcalls': []}), isNull);
+    });
+  });
+
   group('RollcallItem.fromJson', () {
     test('parses number rollcall', () {
       final item = RollcallItem.fromJson({

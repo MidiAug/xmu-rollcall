@@ -172,10 +172,30 @@ class MonitorController extends StateNotifier<MonitorState> {
     try {
       await _ref.read(activeRollcallsProvider.notifier).refresh();
       final list = _ref.read(activeRollcallsProvider).valueOrNull ?? const [];
+      if (list.isNotEmpty) {
+        // Stop as soon as any ongoing rollcall exists — independent of type / code.
+        final entry = PollLogEntry(
+          at: DateTime.now(),
+          ok: true,
+          message: '发现进行中 ${list.length} 条，已停止轮询',
+        );
+        _timer?.cancel();
+        _timer = null;
+        state = state.copyWith(
+          running: false,
+          config: state.config.copyWith(enabled: false),
+          lastPollAt: entry.at,
+          consecutiveFailures: 0,
+          logs: [entry, ...state.logs].take(40).toList(),
+          clearNext: true,
+        );
+        await _persist();
+        return;
+      }
       final entry = PollLogEntry(
         at: DateTime.now(),
         ok: true,
-        message: '拉取成功，进行中 ${list.length} 条',
+        message: '拉取成功，暂无进行中签到',
         nextIn: state.config.nextDelay(),
       );
       state = state.copyWith(

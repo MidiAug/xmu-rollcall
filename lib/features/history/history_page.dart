@@ -49,7 +49,12 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpace.pageX,
+              0,
+              AppSpace.pageX,
+              AppSpace.sm,
+            ),
             child: SegmentedButton<HistorySegment>(
               segments: const [
                 ButtonSegment(
@@ -161,9 +166,14 @@ class _CourseHistoryBody extends ConsumerWidget {
           }
           return ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpace.pageX,
+              AppSpace.xxs,
+              AppSpace.pageX,
+              AppSpace.xl,
+            ),
             itemCount: records.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 8),
+            separatorBuilder: (_, _) => const SizedBox(height: AppSpace.xs),
             itemBuilder: (context, i) => _CourseTile(record: records[i]),
           );
         },
@@ -188,7 +198,10 @@ class _CourseTile extends StatelessWidget {
     final p = AppPalette.of(context);
     final statusColor = _statusColor(p);
     return Panel(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.sm,
+        vertical: AppSpace.sm,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -201,7 +214,7 @@ class _CourseTile extends StatelessWidget {
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppSpace.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,10 +224,11 @@ class _CourseTile extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
+                    letterSpacing: -0.1,
                     color: p.ink,
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: AppSpace.xxs),
                 Text(
                   '${record.typeLabel} \u00b7 ${record.timeLabel}',
                   style: TextStyle(fontSize: 12, color: p.muted),
@@ -229,12 +243,15 @@ class _CourseTile extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppSpace.xs),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.xs,
+              vertical: AppSpace.xxs,
+            ),
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppRadii.control),
             ),
             child: Text(
               record.signedStatus,
@@ -267,20 +284,29 @@ class _LocalHistoryBody extends StatelessWidget {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.pageX,
+        AppSpace.xxs,
+        AppSpace.pageX,
+        AppSpace.xl,
+      ),
       itemCount: entries.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => const SizedBox(height: AppSpace.xs),
       itemBuilder: (context, i) {
         final e = entries[i];
         return Panel(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.sm,
+            vertical: AppSpace.sm,
+          ),
           child: Row(
             children: [
               Icon(
                 e.ok ? Icons.check_circle : Icons.cancel_outlined,
                 color: e.ok ? palette.primary : palette.danger,
+                size: 20,
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpace.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

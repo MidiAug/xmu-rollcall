@@ -1,0 +1,36 @@
+# Canonical text form is LF (repo + working tree). Stops Windows
+# core.autocrlf=true from converting checkout to CRLF and emitting
+# "LF will be replaced by CRLF" warnings. Aligns with DeepTale /
+# deepseek-harness-desktop encoding guidance.
+* text=auto eol=lf
+
+# Windows shells that require CRLF at runtime (repo still stores LF
+# unless these overrides force CRLF in the working tree).
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary — Git must not touch line endings
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.icns binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+*.jar binary
+*.aar binary
+*.apk binary
+*.aab binary
+*.so binary
+*.dll binary
+*.dylib binary
+*.o binary
+*.class binary
+*.keystore binary
+*.jks binary

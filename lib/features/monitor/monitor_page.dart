@@ -20,7 +20,12 @@ class MonitorPage extends ConsumerWidget {
     final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
 
     final body = ListView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpace.pageX,
+        AppSpace.xxs,
+        AppSpace.pageX,
+        AppSpace.xl,
+      ),
       children: [
         Panel(
           child: Row(
@@ -63,7 +68,7 @@ class MonitorPage extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpace.stack),
         Panel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,7 +76,7 @@ class MonitorPage extends ConsumerWidget {
               Row(
                 children: [
                   Icon(Icons.schedule_outlined, size: 16, color: palette.muted),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpace.xs),
                   Text(
                     '\u65f6\u95f4\u7ebf',
                     style: TextStyle(
@@ -82,14 +87,14 @@ class MonitorPage extends ConsumerWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpace.sm),
               _MetaRow(label: '\u4e0a\u6b21\u8f6e\u8be2', value: _fmt(state.lastPollAt)),
-              const SizedBox(height: 6),
+              const SizedBox(height: AppSpace.xs),
               _MetaRow(label: '\u4e0b\u6b21\u9884\u8ba1', value: _fmt(state.nextPollAt)),
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpace.stack),
         Panel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,7 +102,7 @@ class MonitorPage extends ConsumerWidget {
               Row(
                 children: [
                   Icon(Icons.tune_outlined, size: 16, color: palette.muted),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpace.xs),
                   Text(
                     '\u53c2\u6570',
                     style: TextStyle(
@@ -108,10 +113,10 @@ class MonitorPage extends ConsumerWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpace.sm),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: AppSpace.xs,
+                runSpacing: AppSpace.xs,
                 children: [
                   for (final preset in MonitorPreset.values)
                     ChoiceChip(
@@ -133,7 +138,7 @@ class MonitorPage extends ConsumerWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpace.md),
               Text(
                 '\u95f4\u9694 ${c.effectiveIntervalSeconds} \u79d2',
                 style: TextStyle(fontSize: 13, color: palette.ink),
@@ -168,7 +173,7 @@ class MonitorPage extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpace.stack),
         Panel(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,7 +181,7 @@ class MonitorPage extends ConsumerWidget {
               Row(
                 children: [
                   Icon(Icons.list_alt_outlined, size: 16, color: palette.muted),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpace.xs),
                   Text(
                     '\u6700\u8fd1\u65e5\u5fd7',
                     style: TextStyle(
@@ -187,7 +192,7 @@ class MonitorPage extends ConsumerWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpace.xs),
               if (state.logs.isEmpty)
                 Text(
                   '\u5c1a\u65e0\u8f6e\u8be2\u8bb0\u5f55',
@@ -196,7 +201,7 @@ class MonitorPage extends ConsumerWidget {
               else
                 ...state.logs.take(12).map((e) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -207,7 +212,7 @@ class MonitorPage extends ConsumerWidget {
                           size: 18,
                           color: e.ok ? palette.primary : palette.danger,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: AppSpace.xs),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// DSH surfaces, muted steel accent. No loud brand gradients.
+/// Quiet steel surfaces. One muted accent; no loud brand gradients.
 class AppPalette {
   const AppPalette({
     required this.canvas,
@@ -36,46 +36,73 @@ class AppPalette {
   }
 
   static const darkPalette = AppPalette(
-    canvas: Color(0xFF151517),
-    surface: Color(0xFF2C2C2E),
-    surfaceHigh: Color(0xFF353638),
-    content: Color(0xFF18191C),
-    ink: Color(0xFFF9FAFB),
-    muted: Color(0xFFADB2B8),
-    primary: Color(0xFF8B9BB4),
-    danger: Color(0xFFE07070),
-    border: Color(0x14FFFFFF),
-    borderStrong: Color(0x1FFFFFFF),
-    hover: Color(0x14FFFFFF),
-    selected: Color(0x24FFFFFF),
+    canvas: Color(0xFF121214),
+    surface: Color(0xFF1C1C1F),
+    surfaceHigh: Color(0xFF262629),
+    content: Color(0xFF161618),
+    ink: Color(0xFFF4F4F5),
+    muted: Color(0xFFA1A1AA),
+    primary: Color(0xFF7B8FA8),
+    danger: Color(0xFFD97777),
+    border: Color(0x12FFFFFF),
+    borderStrong: Color(0x1AFFFFFF),
+    hover: Color(0x12FFFFFF),
+    selected: Color(0x1FFFFFFF),
   );
 
   static const lightPalette = AppPalette(
-    canvas: Color(0xFFF5F5F7),
+    canvas: Color(0xFFF4F4F5),
     surface: Color(0xFFFFFFFF),
-    surfaceHigh: Color(0xFFECECEF),
-    content: Color(0xFFF0F0F2),
-    ink: Color(0xFF1C1C1E),
-    muted: Color(0xFF6E6E73),
-    primary: Color(0xFF5C6E85),
-    danger: Color(0xFFC44C4C),
-    border: Color(0x14000000),
-    borderStrong: Color(0x1F000000),
-    hover: Color(0x0A000000),
-    selected: Color(0x12000000),
+    surfaceHigh: Color(0xFFECECEE),
+    content: Color(0xFFF7F7F8),
+    ink: Color(0xFF18181B),
+    muted: Color(0xFF71717A),
+    primary: Color(0xFF556B84),
+    danger: Color(0xFFC04444),
+    border: Color(0x0F000000),
+    borderStrong: Color(0x18000000),
+    hover: Color(0x08000000),
+    selected: Color(0x10000000),
   );
 }
 
+/// 4px base rhythm (Linear / M3-aligned). Prefer these over magic numbers.
+abstract final class AppSpace {
+  static const xxs = 4.0;
+  static const xs = 8.0;
+  static const sm = 12.0;
+  static const md = 16.0;
+  static const lg = 20.0;
+  static const xl = 24.0;
+  static const xxl = 32.0;
+
+  /// Horizontal inset shared by page header and scroll bodies.
+  static const pageX = 24.0;
+
+  /// Gap between stacked panels / list rows.
+  static const stack = 12.0;
+}
+
+/// One radius ladder for the whole shell (Shape Consistency Lock).
 abstract final class AppRadii {
-  static const input = 10.0;
-  static const card = 12.0;
-  static const button = 12.0;
-  static const dialog = 20.0;
+  static const control = 6.0;
+  static const input = 8.0;
+  static const button = 8.0;
+  static const card = 10.0;
+  static const nav = 8.0;
+  static const dialog = 14.0;
 }
 
 abstract final class AppLayout {
   static const shellBreakpoint = 600.0;
-  static const sidebarWidth = 220.0;
+  static const sidebarWidth = 228.0;
   static const titleBarHeight = 36.0;
-  static const navItemHeight = 40.0;
+  static const navItemHeight = 36.0;
+
+  /// Fixed page chrome so Tab switches never shift the title baseline.
+  /// Title line (~22) + gap 4 + subtitle line (~18) + vertical padding 16+12.
+  static const pageHeaderHeight = 72.0;
+
+  /// Wide enough for「清空」TextButton; empty tabs keep the same slot.
+  static const pageHeaderTrailingWidth = 72.0;
 }

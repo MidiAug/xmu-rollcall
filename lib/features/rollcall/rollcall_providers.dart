@@ -22,14 +22,24 @@ final activeRollcallsProvider =
 class ActiveRollcallsNotifier extends AsyncNotifier<List<RollcallItem>> {
   @override
   Future<List<RollcallItem>> build() {
-    return ref.read(rollcallRepositoryProvider).fetchActive();
+    return ref.read(rollcallRepositoryProvider).fetchActiveEnriched();
   }
 
   Future<void> refresh() async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(
-      () => ref.read(rollcallRepositoryProvider).fetchActive(),
+      () => ref.read(rollcallRepositoryProvider).fetchActiveEnriched(),
     );
+  }
+
+  /// Replace one row after local answer without full refresh.
+  void patchItem(RollcallItem updated) {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    state = AsyncData([
+      for (final item in current)
+        if (item.rollcallId == updated.rollcallId) updated else item,
+    ]);
   }
 }
 

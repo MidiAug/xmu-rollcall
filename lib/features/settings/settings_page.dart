@@ -7,6 +7,7 @@ import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
+import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
 
 enum ThemePreference { system, dark, light }
 
@@ -79,7 +80,12 @@ class SettingsPage extends ConsumerWidget {
       subtitle: '账号与客户端偏好',
       showHeader: wide,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.pageX,
+          AppSpace.xxs,
+          AppSpace.pageX,
+          AppSpace.xl,
+        ),
         children: [
           Panel(
             child: Row(
@@ -129,7 +135,7 @@ class SettingsPage extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpace.stack),
           Panel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -142,7 +148,7 @@ class SettingsPage extends ConsumerWidget {
                     color: p.ink,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: AppSpace.sm),
                 SegmentedButton<ThemePreference>(
                   segments: const [
                     ButtonSegment(
@@ -169,7 +175,27 @@ class SettingsPage extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpace.stack),
+          Panel(
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.place_outlined, color: p.primary),
+              title: const Text('预设位置'),
+              subtitle: Text(
+                '地图添加与管理',
+                style: TextStyle(fontSize: 12, color: p.muted),
+              ),
+              trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const SavedLocationsPage(),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: AppSpace.stack),
           Panel(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -182,7 +208,7 @@ class SettingsPage extends ConsumerWidget {
                     color: p.ink,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpace.xs),
                 FutureBuilder<String>(
                   future: deviceFuture,
                   builder: (context, snap) {
@@ -192,16 +218,17 @@ class SettingsPage extends ConsumerWidget {
                         fontSize: 12,
                         color: p.muted,
                         fontFamily: 'Consolas',
+                        fontFamilyFallback: const ['Menlo', 'monospace'],
                       ),
                     );
                   },
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: AppSpace.xs),
                 Text(
                   '安装后持久化，不会每次请求随机生成。',
                   style: TextStyle(fontSize: 12, color: p.muted),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpace.sm),
                 Material(
                   color: Colors.transparent,
                   child: SwitchListTile(
@@ -216,7 +243,7 @@ class SettingsPage extends ConsumerWidget {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppSpace.md),
           Text(
             'xmu-rollcall 本人到课客户端。默认不开启自动签到、PIN 爆破或假定位代签。',
             style: TextStyle(fontSize: 12, color: p.muted),

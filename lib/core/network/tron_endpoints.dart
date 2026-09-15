@@ -55,6 +55,9 @@ abstract final class TronEndpoints {
         '$baseUrl/api/radar/rollcalls',
       ).replace(queryParameters: {'api_version': apiVersionList});
 
+  static Uri studentRollcalls(int id) =>
+      Uri.parse('$baseUrl/api/rollcall/$id/student_rollcalls');
+
   static Uri answerNumber(int id) =>
       Uri.parse('$baseUrl/api/rollcall/$id/answer_number_rollcall');
 
