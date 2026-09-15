@@ -242,13 +242,11 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
+        duration: AppMotion.duration,
+        curve: AppMotion.curve,
         decoration: BoxDecoration(
           color: _hover ? palette.surfaceHigh : palette.surface,
           borderRadius: BorderRadius.circular(AppRadii.card),
-          border: Border.all(
-            color: _hover ? palette.selected : palette.border,
-          ),
         ),
         child: Padding(
           padding: const EdgeInsets.all(AppSpace.sm),

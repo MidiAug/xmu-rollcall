@@ -31,15 +31,15 @@ abstract final class AppTheme {
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
-      visualDensity: VisualDensity.compact,
+      visualDensity: VisualDensity.standard,
       scaffoldBackgroundColor: p.canvas,
       colorScheme: scheme.copyWith(
         surfaceContainerHighest: p.surfaceHigh,
-        outline: p.borderStrong,
+        outline: p.border,
       ),
-      // Platform UI font: Segoe on Windows, SF on Apple, Roboto elsewhere.
-      fontFamily: 'Segoe UI',
+      // Platform UI font + CJK fallbacks (no forced Segoe everywhere).
       fontFamilyFallback: const [
+        'Segoe UI',
         'PingFang SC',
         'Microsoft YaHei UI',
         'Noto Sans CJK SC',
@@ -65,12 +65,13 @@ abstract final class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.card),
-          side: BorderSide(color: p.borderStrong),
         ),
+        clipBehavior: Clip.antiAlias,
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: p.surface,
-        elevation: 8,
+        elevation: 6,
+        shadowColor: Colors.black.withValues(alpha: 0.18),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.dialog),
         ),
@@ -124,7 +125,6 @@ abstract final class AppTheme {
           textStyle: const WidgetStatePropertyAll(
             TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           ),
-          // Soft selected pill (ink on surface) — avoid dark fill + checkmark.
           foregroundColor: WidgetStateProperty.resolveWith((states) {
             if (states.contains(WidgetState.selected)) return p.ink;
             return p.muted;
@@ -133,7 +133,7 @@ abstract final class AppTheme {
             if (states.contains(WidgetState.selected)) return p.surface;
             return Colors.transparent;
           }),
-          side: WidgetStatePropertyAll(BorderSide(color: p.borderStrong)),
+          side: const WidgetStatePropertyAll(BorderSide.none),
           shape: WidgetStatePropertyAll(
             RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadii.control),
@@ -145,7 +145,8 @@ abstract final class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.control),
         ),
-        side: BorderSide(color: p.borderStrong),
+        side: BorderSide.none,
+        backgroundColor: p.surfaceHigh,
         labelStyle: TextStyle(fontSize: 12, color: p.ink),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
       ),
@@ -157,11 +158,11 @@ abstract final class AppTheme {
             const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
-          borderSide: BorderSide(color: p.borderStrong),
+          borderSide: BorderSide(color: p.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
-          borderSide: BorderSide(color: p.borderStrong),
+          borderSide: BorderSide(color: p.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
@@ -177,24 +178,26 @@ abstract final class AppTheme {
       listTileTheme: ListTileThemeData(
         iconColor: p.muted,
         textColor: p.ink,
-        dense: true,
+        dense: false,
         contentPadding: EdgeInsets.zero,
         titleTextStyle: TextStyle(
-          fontSize: 14,
+          fontSize: 15,
           fontWeight: FontWeight.w500,
+          letterSpacing: -0.15,
           color: p.ink,
         ),
         subtitleTextStyle: TextStyle(fontSize: 12, color: p.muted),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((s) {
-          return s.contains(WidgetState.selected) ? p.primary : p.muted;
+          return s.contains(WidgetState.selected) ? Colors.white : p.muted;
         }),
         trackColor: WidgetStateProperty.resolveWith((s) {
           return s.contains(WidgetState.selected)
-              ? p.primary.withValues(alpha: 0.35)
+              ? p.primary
               : p.surfaceHigh;
         }),
+        trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
       sliderTheme: SliderThemeData(
         activeTrackColor: p.primary,

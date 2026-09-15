@@ -132,7 +132,7 @@ class MonitorPage extends ConsumerWidget {
                       side: BorderSide(
                         color: c.preset == preset
                             ? palette.primary.withValues(alpha: 0.45)
-                            : palette.borderStrong,
+                            : palette.border,
                       ),
                       backgroundColor: palette.content,
                     ),

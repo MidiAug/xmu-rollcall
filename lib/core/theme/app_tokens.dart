@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Quiet steel surfaces. One muted accent; no loud brand gradients.
+/// Quiet Utility surfaces: cold neutrals + clear indigo accent.
 class AppPalette {
   const AppPalette({
     required this.canvas,
@@ -36,37 +36,37 @@ class AppPalette {
   }
 
   static const darkPalette = AppPalette(
-    canvas: Color(0xFF121214),
-    surface: Color(0xFF1C1C1F),
-    surfaceHigh: Color(0xFF262629),
-    content: Color(0xFF161618),
+    canvas: Color(0xFF0F0F12),
+    surface: Color(0xFF1A1A1F),
+    surfaceHigh: Color(0xFF24242A),
+    content: Color(0xFF141418),
     ink: Color(0xFFF4F4F5),
     muted: Color(0xFFA1A1AA),
-    primary: Color(0xFF7B8FA8),
+    primary: Color(0xFF6B8AFF),
     danger: Color(0xFFD97777),
-    border: Color(0x12FFFFFF),
-    borderStrong: Color(0x1AFFFFFF),
-    hover: Color(0x12FFFFFF),
-    selected: Color(0x1FFFFFFF),
+    border: Color(0x14FFFFFF),
+    borderStrong: Color(0x22FFFFFF),
+    hover: Color(0x14FFFFFF),
+    selected: Color(0x286B8AFF),
   );
 
   static const lightPalette = AppPalette(
-    canvas: Color(0xFFF4F4F5),
+    canvas: Color(0xFFF2F2F4),
     surface: Color(0xFFFFFFFF),
-    surfaceHigh: Color(0xFFECECEE),
-    content: Color(0xFFF7F7F8),
+    surfaceHigh: Color(0xFFE8E8EC),
+    content: Color(0xFFF6F6F8),
     ink: Color(0xFF18181B),
     muted: Color(0xFF71717A),
-    primary: Color(0xFF556B84),
+    primary: Color(0xFF3D5AFE),
     danger: Color(0xFFC04444),
     border: Color(0x0F000000),
     borderStrong: Color(0x18000000),
-    hover: Color(0x08000000),
-    selected: Color(0x10000000),
+    hover: Color(0x0A000000),
+    selected: Color(0x1A3D5AFE),
   );
 }
 
-/// 4px base rhythm (Linear / M3-aligned). Prefer these over magic numbers.
+/// 4px base rhythm. Prefer these over magic numbers.
 abstract final class AppSpace {
   static const xxs = 4.0;
   static const xs = 8.0;
@@ -79,18 +79,46 @@ abstract final class AppSpace {
   /// Horizontal inset shared by page header and scroll bodies.
   static const pageX = 24.0;
 
-  /// Gap between stacked panels / list rows.
-  static const stack = 12.0;
+  /// Gap between stacked sections / panels.
+  static const stack = 20.0;
+
+  /// Gap between section header and inset group.
+  static const sectionGap = 10.0;
 }
 
-/// One radius ladder for the whole shell (Shape Consistency Lock).
+/// Concentric radius ladder (Quiet Utility).
 abstract final class AppRadii {
-  static const control = 6.0;
-  static const input = 8.0;
-  static const button = 8.0;
-  static const card = 10.0;
-  static const nav = 8.0;
-  static const dialog = 14.0;
+  static const control = 10.0;
+  static const input = 12.0;
+  static const button = 12.0;
+  static const nav = 12.0;
+  static const card = 14.0;
+  static const group = 16.0;
+  static const dialog = 20.0;
+}
+
+/// Desktop vs touch row heights (breakpoint = [AppLayout.shellBreakpoint]).
+abstract final class AppDensity {
+  static const desktopRow = 52.0;
+  static const touchRow = 58.0;
+  static const desktopNav = 40.0;
+  static const touchNav = 48.0;
+  static const mobileBar = 56.0;
+
+  static bool isTouch(BuildContext context) =>
+      MediaQuery.sizeOf(context).width < AppLayout.shellBreakpoint;
+
+  static double rowHeight(BuildContext context) =>
+      isTouch(context) ? touchRow : desktopRow;
+
+  static double navItemHeight(BuildContext context) =>
+      isTouch(context) ? touchNav : desktopNav;
+}
+
+/// Restrained motion — navigation / enter only.
+abstract final class AppMotion {
+  static const duration = Duration(milliseconds: 220);
+  static const curve = Curves.easeOutCubic;
 }
 
 abstract final class AppLayout {
@@ -99,7 +127,9 @@ abstract final class AppLayout {
 
   /// Desktop window chrome / subpage nav share one bar height (no nested bars).
   static const titleBarHeight = 40.0;
-  static const navItemHeight = 36.0;
+
+  /// Prefer [AppDensity.navItemHeight]; kept for callers that need a constant.
+  static const navItemHeight = AppDensity.desktopNav;
   static const segmentHeight = 28.0;
 
   /// Fixed page chrome so Tab switches never shift the title baseline.

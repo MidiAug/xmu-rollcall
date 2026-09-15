@@ -16,11 +16,14 @@ class BrandMark extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: p.surfaceHigh,
+        color: p.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(AppRadii.control),
-        border: Border.all(color: p.borderStrong),
       ),
-      child: Icon(Icons.how_to_reg_outlined, size: size * 0.58, color: p.ink),
+      child: Icon(
+        Icons.how_to_reg_outlined,
+        size: size * 0.58,
+        color: p.primary,
+      ),
     );
   }
 }
@@ -169,17 +172,14 @@ class AppSegmentedControl<T> extends StatelessWidget {
             if (!selected) onChanged(s.value);
           },
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 140),
-            curve: Curves.easeOut,
+            duration: AppMotion.duration,
+            curve: AppMotion.curve,
             height: AppLayout.segmentHeight,
             padding: EdgeInsets.symmetric(horizontal: expanded ? 10 : 14),
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: selected ? p.surface : Colors.transparent,
               borderRadius: BorderRadius.circular(AppRadii.control),
-              border: selected
-                  ? Border.all(color: p.borderStrong)
-                  : Border.all(color: Colors.transparent),
               boxShadow: selected && !dark
                   ? const [
                       BoxShadow(
@@ -288,12 +288,12 @@ class SubpageScaffold extends StatelessWidget {
     );
 
     return Scaffold(
-      backgroundColor: p.content,
+      backgroundColor: p.canvas,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           bar,
-          Container(height: 1, color: p.borderStrong),
+          Container(height: 1, color: p.border),
           Expanded(child: body),
         ],
       ),
@@ -536,8 +536,9 @@ class _NavCellState extends State<_NavCell> {
         child: GestureDetector(
           onTap: widget.onTap,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            height: AppLayout.navItemHeight,
+            duration: AppMotion.duration,
+            curve: AppMotion.curve,
+            height: AppDensity.navItemHeight(context),
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
             decoration: BoxDecoration(
               color: fill,
@@ -548,14 +549,15 @@ class _NavCellState extends State<_NavCell> {
                 Icon(
                   _icon(widget.destination),
                   size: 18,
-                  color: selected ? p.ink : p.muted,
+                  color: selected ? p.primary : p.muted,
                 ),
                 const SizedBox(width: 10),
                 Text(
                   widget.destination.label,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                    letterSpacing: -0.1,
                     color: selected ? p.ink : p.muted,
                   ),
                 ),
@@ -569,7 +571,7 @@ class _NavCellState extends State<_NavCell> {
 
   IconData _icon(AppDestination d) => switch (d) {
         AppDestination.rollcall => Icons.how_to_reg_outlined,
-        AppDestination.history => Icons.history,
+        AppDestination.history => Icons.history_outlined,
         AppDestination.settings => Icons.person_outline,
       };
 }
@@ -590,12 +592,12 @@ class AppMobileNav extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: p.surface,
-        border: Border(top: BorderSide(color: p.borderStrong)),
+        border: Border(top: BorderSide(color: p.border)),
       ),
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 56,
+          height: AppDensity.mobileBar,
           child: Row(
             children: [
               for (final d in AppDestination.values)
@@ -628,7 +630,7 @@ class _MobileItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final color = selected ? p.ink : p.muted;
+    final color = selected ? p.primary : p.muted;
     return InkWell(
       onTap: onTap,
       child: Column(
@@ -640,7 +642,7 @@ class _MobileItem extends StatelessWidget {
             destination.label,
             style: TextStyle(
               fontSize: 11,
-              color: color,
+              color: selected ? p.ink : p.muted,
               fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
             ),
           ),
@@ -651,7 +653,7 @@ class _MobileItem extends StatelessWidget {
 
   IconData _icon(AppDestination d) => switch (d) {
         AppDestination.rollcall => Icons.how_to_reg_outlined,
-        AppDestination.history => Icons.history,
+        AppDestination.history => Icons.history_outlined,
         AppDestination.settings => Icons.person_outline,
       };
 }
@@ -677,7 +679,7 @@ class PageScaffold extends StatelessWidget {
     final p = AppPalette.of(context);
     final theme = Theme.of(context).textTheme;
     return ColoredBox(
-      color: p.content,
+      color: p.canvas,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -692,27 +694,33 @@ class PageScaffold extends StatelessWidget {
                   12,
                 ),
                 child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
+                  // Top-align so title baseline is identical with/without trailing.
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
                             title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.titleLarge?.copyWith(color: p.ink),
+                            style: (theme.titleLarge ?? const TextStyle()).copyWith(
+                              color: p.ink,
+                              height: 1.2,
+                              leadingDistribution: TextLeadingDistribution.even,
+                            ),
                           ),
                           const SizedBox(height: AppSpace.xxs),
                           Text(
                             subtitle ?? ' ',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: theme.bodySmall?.copyWith(
+                            style: (theme.bodySmall ?? const TextStyle()).copyWith(
                               color: p.muted,
-                              height: 1.35,
+                              height: 1.3,
+                              leadingDistribution: TextLeadingDistribution.even,
                             ),
                           ),
                         ],
@@ -721,6 +729,7 @@ class PageScaffold extends StatelessWidget {
                     // Fixed trailing slot → title column width identical on every Tab.
                     SizedBox(
                       width: AppLayout.pageHeaderTrailingWidth,
+                      height: 36,
                       child: Align(
                         alignment: Alignment.centerRight,
                         child: trailing == null
@@ -769,9 +778,8 @@ class EmptyHint extends StatelessWidget {
               decoration: BoxDecoration(
                 color: p.surface,
                 borderRadius: BorderRadius.circular(AppRadii.card),
-                border: Border.all(color: p.border),
               ),
-              child: Icon(icon, color: p.muted),
+              child: Icon(icon, color: p.muted, size: 22),
             ),
             const SizedBox(height: AppSpace.md),
             Text(
@@ -800,24 +808,203 @@ class EmptyHint extends StatelessWidget {
 }
 
 class Panel extends StatelessWidget {
-  const Panel({super.key, required this.child, this.padding});
+  const Panel({
+    super.key,
+    required this.child,
+    this.padding,
+    this.outlined = false,
+  });
 
   final Widget child;
   final EdgeInsetsGeometry? padding;
+
+  /// Rare: floating / overlay surfaces that need a hairline edge.
+  final bool outlined;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return Material(
       color: p.surface,
+      elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.card),
-        side: BorderSide(color: p.border),
+        side: outlined
+            ? BorderSide(color: p.borderStrong)
+            : BorderSide.none,
       ),
       clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: padding ?? const EdgeInsets.all(AppSpace.md),
         child: child,
+      ),
+    );
+  }
+}
+
+/// Apple Settings–style group: optional outer header + inset surface.
+class SettingsSection extends StatelessWidget {
+  const SettingsSection({
+    super.key,
+    this.header,
+    required this.children,
+    this.footer,
+  });
+
+  final String? header;
+  final List<Widget> children;
+  final Widget? footer;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (header != null) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpace.xs,
+              0,
+              AppSpace.xs,
+              AppSpace.sectionGap,
+            ),
+            child: Text(
+              header!,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 0.2,
+                color: p.muted,
+              ),
+            ),
+          ),
+        ],
+        Material(
+          color: p.surface,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.group),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < children.length; i++) ...[
+                if (i > 0)
+                  Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: p.border,
+                    indent: AppSpace.md,
+                    endIndent: AppSpace.md,
+                  ),
+                children[i],
+              ],
+            ],
+          ),
+        ),
+        if (footer != null) ...[
+          const SizedBox(height: AppSpace.sectionGap),
+          footer!,
+        ],
+      ],
+    );
+  }
+}
+
+/// One inset row inside [SettingsSection]. Height follows [AppDensity].
+class SettingsRow extends StatelessWidget {
+  const SettingsRow({
+    super.key,
+    this.leading,
+    required this.title,
+    this.subtitle,
+    this.subtitleWidget,
+    this.trailing,
+    this.onTap,
+    this.minHeight,
+  });
+
+  final Widget? leading;
+  final String title;
+  final String? subtitle;
+
+  /// Extra block under [subtitle] (e.g. selectable mono device id).
+  final Widget? subtitleWidget;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final double? minHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final h = minHeight ?? AppDensity.rowHeight(context);
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.md,
+        vertical: AppSpace.sm,
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: h),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (leading != null) ...[
+              IconTheme(
+                data: IconThemeData(color: p.muted, size: 20),
+                child: leading!,
+              ),
+              const SizedBox(width: AppSpace.md),
+            ],
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: -0.15,
+                      color: p.ink,
+                    ),
+                  ),
+                  if (subtitleWidget != null) ...[
+                    const SizedBox(height: AppSpace.xs),
+                    subtitleWidget!,
+                  ],
+                  if (subtitle != null) ...[
+                    SizedBox(height: subtitleWidget != null ? AppSpace.xxs : 4),
+                    Text(
+                      subtitle!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.4,
+                        color: p.muted,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (trailing != null) ...[
+              const SizedBox(width: AppSpace.md),
+              trailing!,
+            ],
+          ],
+        ),
+      ),
+    );
+
+    if (onTap == null) return content;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: content,
       ),
     );
   }

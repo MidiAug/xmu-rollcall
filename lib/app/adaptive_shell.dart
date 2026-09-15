@@ -33,11 +33,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
     if (wide) {
       return Scaffold(
-        backgroundColor: p.content,
+        backgroundColor: p.canvas,
         body: Column(
           children: [
             if (showTitleBar) const AppTitleBar(title: '畅课签到'),
-            if (showTitleBar) Container(height: 1, color: p.borderStrong),
+            if (showTitleBar) Container(height: 1, color: p.border),
             Expanded(
               child: Row(
                 children: [
@@ -52,7 +52,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                       );
                     },
                   ),
-                  Container(width: 1, color: p.borderStrong),
+                  Container(width: 1, color: p.border),
                   Expanded(child: body),
                 ],
               ),
@@ -63,7 +63,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     }
 
     return Scaffold(
-      backgroundColor: p.content,
+      backgroundColor: p.canvas,
       body: Column(
         children: [
           if (showTitleBar) const AppTitleBar(title: '畅课签到'),

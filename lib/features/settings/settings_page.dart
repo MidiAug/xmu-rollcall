@@ -82,74 +82,50 @@ class SettingsPage extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(
           AppSpace.pageX,
-          AppSpace.xxs,
+          AppSpace.md,
           AppSpace.pageX,
           AppSpace.xl,
         ),
         children: [
-          Panel(
-            child: Row(
-              children: [
-                const BrandMark(size: 40),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        auth.isSignedIn
-                            ? (auth.profile?.name ?? '已登录')
-                            : '未登录',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: p.ink,
-                        ),
+          SettingsSection(
+            header: '账号',
+            children: [
+              SettingsRow(
+                leading: const BrandMark(size: 36),
+                title: auth.isSignedIn
+                    ? (auth.profile?.name ?? '已登录')
+                    : '未登录',
+                subtitle: auth.isSignedIn
+                    ? 'ID ${auth.profile?.id ?? "-"}'
+                    : '学号密码登录畅课会话',
+                trailing: auth.isSignedIn
+                    ? TextButton(
+                        onPressed: () async {
+                          await ref
+                              .read(authControllerProvider.notifier)
+                              .signOut();
+                        },
+                        child: const Text('退出'),
+                      )
+                    : FilledButton(
+                        onPressed: () => showLoginDialog(context),
+                        child: const Text('登录'),
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        auth.isSignedIn
-                            ? 'ID ${auth.profile?.id ?? "-"}'
-                            : '学号密码登录畅课会话',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: p.muted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (auth.isSignedIn)
-                  OutlinedButton(
-                    onPressed: () async {
-                      await ref.read(authControllerProvider.notifier).signOut();
-                    },
-                    child: const Text('退出'),
-                  )
-                else
-                  FilledButton.icon(
-                    onPressed: () => showLoginDialog(context),
-                    icon: const Icon(Icons.login, size: 16),
-                    label: const Text('登录'),
-                  ),
-              ],
-            ),
+              ),
+            ],
           ),
           const SizedBox(height: AppSpace.stack),
-          Panel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '外观',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: p.ink,
-                  ),
+          SettingsSection(
+            header: '外观',
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpace.md,
+                  AppSpace.md,
+                  AppSpace.md,
+                  AppSpace.md,
                 ),
-                const SizedBox(height: AppSpace.sm),
-                AppSegmentedControl<ThemePreference>(
+                child: AppSegmentedControl<ThemePreference>(
                   expanded: true,
                   value: themePref,
                   onChanged: (v) {
@@ -170,81 +146,87 @@ class SettingsPage extends ConsumerWidget {
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpace.stack),
-          Panel(
-            child: ListTile(
-              contentPadding: EdgeInsets.zero,
-              leading: Icon(Icons.place_outlined, color: p.primary),
-              title: const Text('预设位置'),
-              subtitle: Text(
-                '地图添加与管理',
-                style: TextStyle(fontSize: 12, color: p.muted),
               ),
-              trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const SavedLocationsPage(),
-                  ),
-                );
-              },
-            ),
+            ],
           ),
           const SizedBox(height: AppSpace.stack),
-          Panel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '设备 ID（稳定）',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: p.ink,
-                  ),
-                ),
-                const SizedBox(height: AppSpace.xs),
-                FutureBuilder<String>(
-                  future: deviceFuture,
-                  builder: (context, snap) {
-                    return SelectableText(
-                      snap.data ?? '…',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: p.muted,
-                        fontFamily: 'Consolas',
-                        fontFamilyFallback: const ['Menlo', 'monospace'],
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: AppSpace.xs),
-                Text(
-                  '安装后持久化，不会每次请求随机生成。',
-                  style: TextStyle(fontSize: 12, color: p.muted),
-                ),
-                const SizedBox(height: AppSpace.sm),
-                Material(
-                  color: Colors.transparent,
-                  child: SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: const Text('诊断日志'),
-                    subtitle: const Text('本地开关；勿把密码写入日志'),
-                    value: diagnostics,
-                    onChanged: (v) =>
-                        ref.read(diagnosticsEnabledProvider.notifier).set(v),
-                  ),
-                ),
-              ],
-            ),
+          SettingsSection(
+            header: '位置',
+            children: [
+              SettingsRow(
+                leading: const Icon(Icons.place_outlined),
+                title: '预设位置',
+                subtitle: '地图添加与管理',
+                trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                onTap: () {
+                  Navigator.of(context).push(
+                    PageRouteBuilder<void>(
+                      transitionDuration: AppMotion.duration,
+                      reverseTransitionDuration: AppMotion.duration,
+                      pageBuilder: (context, animation, secondaryAnimation) =>
+                          const SavedLocationsPage(),
+                      transitionsBuilder:
+                          (context, animation, secondaryAnimation, child) {
+                        return FadeTransition(
+                          opacity: CurvedAnimation(
+                            parent: animation,
+                            curve: AppMotion.curve,
+                          ),
+                          child: child,
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpace.md),
+          const SizedBox(height: AppSpace.stack),
+          SettingsSection(
+            header: '设备与诊断',
+            children: [
+              FutureBuilder<String>(
+                future: deviceFuture,
+                builder: (context, snap) {
+                  return SettingsRow(
+                    leading: const Icon(Icons.devices_outlined),
+                    title: '设备 ID（稳定）',
+                    subtitleWidget: snap.data == null
+                        ? Text('…', style: TextStyle(color: p.muted, fontSize: 12))
+                        : SelectableText(
+                            snap.data!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.35,
+                              letterSpacing: -0.2,
+                              color: p.muted,
+                              fontFamily: 'Consolas',
+                              fontFamilyFallback: const [
+                                'Menlo',
+                                'monospace',
+                              ],
+                            ),
+                          ),
+                    subtitle: '安装后持久化，不会每次请求随机生成。',
+                  );
+                },
+              ),
+              SettingsRow(
+                leading: const Icon(Icons.bug_report_outlined),
+                title: '诊断日志',
+                subtitle: '本地开关；勿把密码写入日志',
+                trailing: Switch.adaptive(
+                  value: diagnostics,
+                  onChanged: (v) =>
+                      ref.read(diagnosticsEnabledProvider.notifier).set(v),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.xl),
           Text(
             'xmu-rollcall 本人到课客户端。默认不开启自动签到、PIN 爆破或假定位代签。',
-            style: TextStyle(fontSize: 12, color: p.muted),
+            style: TextStyle(fontSize: 12, height: 1.45, color: p.muted),
           ),
         ],
       ),

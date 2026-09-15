@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
+import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_list_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
@@ -21,7 +24,6 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage> {
 
   @override
   Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
     final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
 
     return PageScaffold(
@@ -31,13 +33,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage> {
           : '空列表时轮询 · 发现即停 · ≥15s + 抖动',
       showHeader: wide,
       trailing: _segment == RollcallHubSegment.active
-          ? IconButton(
-              tooltip: '刷新',
-              visualDensity: VisualDensity.compact,
-              onPressed: () =>
-                  ref.read(activeRollcallsProvider.notifier).refresh(),
-              icon: Icon(Icons.refresh_rounded, color: p.muted),
-            )
+          ? const _ActiveRefreshTrailing()
           : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -73,6 +69,80 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage> {
                 : const MonitorPage(embedded: true),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Manual refresh, or countdown to next poll when monitoring is running.
+class _ActiveRefreshTrailing extends ConsumerStatefulWidget {
+  const _ActiveRefreshTrailing();
+
+  @override
+  ConsumerState<_ActiveRefreshTrailing> createState() =>
+      _ActiveRefreshTrailingState();
+}
+
+class _ActiveRefreshTrailingState
+    extends ConsumerState<_ActiveRefreshTrailing> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      final m = ref.read(monitorControllerProvider);
+      if (m.running) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() =>
+      ref.read(activeRollcallsProvider.notifier).refresh();
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final monitor = ref.watch(monitorControllerProvider);
+    final next = monitor.nextPollAt;
+
+    if (!monitor.running || next == null) {
+      return IconButton(
+        tooltip: '刷新',
+        onPressed: _refresh,
+        icon: Icon(Icons.refresh_rounded, color: p.muted),
+      );
+    }
+
+    final secs = next.difference(DateTime.now()).inSeconds;
+    final remain = secs < 0 ? 0 : secs;
+    final label = '${remain}s';
+
+    return Tooltip(
+      message: '下次轮询 ${remain}s · 点击立即刷新',
+      child: TextButton(
+        onPressed: _refresh,
+        style: TextButton.styleFrom(
+          foregroundColor: p.primary,
+          minimumSize: const Size(0, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.2,
+            fontFeatures: const [FontFeature.tabularFigures()],
+          ),
+        ),
       ),
     );
   }

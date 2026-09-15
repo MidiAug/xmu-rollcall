@@ -322,7 +322,6 @@ class _EmptyState extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: p.surface,
                   borderRadius: BorderRadius.circular(AppRadii.dialog),
-                  border: Border.all(color: p.borderStrong),
                 ),
                 child: Icon(Icons.place_outlined, size: 28, color: p.primary),
               ),
