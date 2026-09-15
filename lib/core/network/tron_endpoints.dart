@@ -9,9 +9,9 @@ abstract final class TronEndpoints {
   static const apiVersionList = '1.1.0';
   static const apiVersionAnswer = '1.76';
 
-  /// Self-describing UA (KB-01): one profile for the whole app.
+  /// Align with xmulogin type=3 (mobile Chrome). One profile for login + API.
   static const userAgent =
-      'xmu-rollcall/0.1.0 (Flutter; XMU TronClass client)';
+      'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Mobile Safari/537.36';
 
   static Uri oauthAuthorizeUri() {
     return Uri.parse(
@@ -33,6 +33,23 @@ abstract final class TronEndpoints {
       Uri.parse('$baseUrl/api/login?login=access_token');
 
   static Uri profile() => Uri.parse('$baseUrl/api/profile');
+
+  static const courseListPaths = <String>[
+    '/api/my-courses?per_page=1000',
+    '/api/courses?role=student&per_page=1000',
+    '/api/courses?course_role=student&per_page=1000',
+    '/api/my/courses?per_page=1000',
+    '/api/courses?per_page=1000',
+    '/api/courses',
+  ];
+
+  static Uri courseStudentRollcalls({
+    required Object courseId,
+    required Object studentId,
+  }) =>
+      Uri.parse(
+        '$baseUrl/api/course/$courseId/student/$studentId/rollcalls',
+      ).replace(queryParameters: {'page': '1', 'page_size': '100'});
 
   static Uri radarRollcalls() => Uri.parse(
         '$baseUrl/api/radar/rollcalls',

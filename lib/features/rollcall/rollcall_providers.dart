@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
 
@@ -70,5 +71,32 @@ class HistoryController extends StateNotifier<List<RollcallHistoryEntry>> {
     state = const [];
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_key);
+  }
+}
+
+final courseHistoryProvider =
+    AsyncNotifierProvider<CourseHistoryNotifier, List<CourseRollcallRecord>>(
+  CourseHistoryNotifier.new,
+);
+
+class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
+  @override
+  Future<List<CourseRollcallRecord>> build() async {
+    return _load();
+  }
+
+  Future<List<CourseRollcallRecord>> _load() async {
+    final profile = ref.read(authControllerProvider).profile;
+    if (profile == null || profile.id == 0) {
+      throw StateError('\u8bf7\u5148\u767b\u5f55');
+    }
+    return ref.read(rollcallRepositoryProvider).fetchCourseHistory(
+          studentId: profile.id,
+        );
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(_load);
   }
 }

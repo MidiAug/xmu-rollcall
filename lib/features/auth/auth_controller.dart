@@ -25,24 +25,16 @@ class AuthController extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> completeOAuthCode(String code) async {
+  Future<void> signIn({
+    required String username,
+    required String password,
+  }) async {
     state = state.copyWith(status: AuthStatus.loading, clearError: true);
     try {
-      final profile = await _repo.completeOAuthCode(code);
-      state = AuthState(status: AuthStatus.signedIn, profile: profile);
-    } catch (e) {
-      state = AuthState(
-        status: AuthStatus.signedOut,
-        errorMessage: e.toString(),
+      final profile = await _repo.signIn(
+        username: username,
+        password: password,
       );
-      rethrow;
-    }
-  }
-
-  Future<void> importCookies(String cookieHeader) async {
-    state = state.copyWith(status: AuthStatus.loading, clearError: true);
-    try {
-      final profile = await _repo.importCookiesAndProbe(cookieHeader);
       state = AuthState(status: AuthStatus.signedIn, profile: profile);
     } catch (e) {
       state = AuthState(

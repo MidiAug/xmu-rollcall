@@ -112,3 +112,32 @@ class RollcallHistoryEntry {
     );
   }
 }
+
+/// One row from course rollcall history (server).
+class CourseRollcallRecord {
+  const CourseRollcallRecord({
+    required this.courseId,
+    required this.courseTitle,
+    required this.rollcallId,
+    required this.rollcallTime,
+    required this.typeLabel,
+    required this.signedStatus,
+    required this.platformStatus,
+    this.detail = '',
+  });
+
+  final String courseId;
+  final String courseTitle;
+  final String rollcallId;
+  final DateTime? rollcallTime;
+  final String typeLabel;
+  final String signedStatus;
+  final String platformStatus;
+  final String detail;
+
+  String get timeLabel {
+    final t = rollcallTime;
+    if (t == null) return '-';
+    return t.toLocal().toString().substring(0, 19);
+  }
+}

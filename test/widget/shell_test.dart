@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/app/adaptive_shell.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
@@ -32,7 +33,7 @@ class _EmptyRollcalls extends ActiveRollcallsNotifier {
 }
 
 void main() {
-  testWidgets('AdaptiveShell shows bottom nav on narrow width', (tester) async {
+  testWidgets('AdaptiveShell shows mobile nav on narrow width', (tester) async {
     tester.view.physicalSize = const Size(400, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -51,12 +52,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(AppMobileNav), findsOneWidget);
     expect(find.text('签到'), findsWidgets);
-    expect(find.text('监控'), findsWidgets);
+    expect(find.text('记录'), findsWidgets);
+    expect(find.text('我的'), findsWidgets);
   });
 
-  testWidgets('AdaptiveShell shows rail on wide width', (tester) async {
+  testWidgets('AdaptiveShell shows sidebar on wide width', (tester) async {
     tester.view.physicalSize = const Size(1100, 800);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -75,7 +77,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.byType(NavigationRail), findsOneWidget);
-    expect(find.text('xmu-rollcall'), findsOneWidget);
+    expect(find.byType(AppSidebar), findsOneWidget);
+    expect(find.text('畅课签到'), findsWidgets);
   });
 }

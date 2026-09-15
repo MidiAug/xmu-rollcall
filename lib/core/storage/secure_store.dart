@@ -14,6 +14,7 @@ class SecureStore {
   static const keySessionCookies = 'session_cookies_json';
   static const keyUserDisplayName = 'user_display_name';
   static const keyUserId = 'user_id';
+  static const keyLastUsername = 'last_username';
 
   Future<String?> read(String key) => _storage.read(key: key);
 

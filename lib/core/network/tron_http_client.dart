@@ -59,7 +59,6 @@ class TronHttpClient {
       ..headers = {
         'User-Agent': TronEndpoints.userAgent,
         'Accept': 'application/json, text/plain, */*',
-        'Content-Type': 'application/json',
       };
     _dio.interceptors
       ..clear()
@@ -132,5 +131,33 @@ class TronHttpClient {
 
   Future<Response<T>> putUri<T>(Uri uri, {Object? data}) {
     return _limiter.schedule(() => _dio.putUri<T>(uri, data: data));
+  }
+
+  /// Login hops: no follow, accept 3xx, treat body as text.
+  Future<Response<dynamic>> hop(
+    String method,
+    Uri uri, {
+    Object? data,
+    String? contentType,
+  }) {
+    return _limiter.schedule(() {
+      return _dio.requestUri<dynamic>(
+        uri,
+        data: data,
+        options: Options(
+          method: method,
+          followRedirects: false,
+          maxRedirects: 0,
+          responseType: ResponseType.plain,
+          contentType: contentType,
+          validateStatus: (s) => s != null && s < 500,
+          headers: {
+            'User-Agent': TronEndpoints.userAgent,
+            'Accept':
+                'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          },
+        ),
+      );
+    });
   }
 }
