@@ -77,15 +77,17 @@ class AssistService {
       exportedAt: at,
       suggestedExpiresAt: at.add(ttl),
     );
-    return _crypto.seal(plain, passphrase);
+    return _crypto.sealAsync(plain, passphrase);
   }
 
   Future<AssistIdentity> importPackage({
     required String sealed,
     required String passphrase,
     DateTime? now,
+    /// Logged-in owner profile id — importing self is rejected.
+    int? ownerUserId,
   }) async {
-    final plain = _crypto.open(sealed, passphrase);
+    final plain = await _crypto.openAsync(sealed, passphrase);
     final clock = (now ?? DateTime.now()).toUtc();
     if (plain.isSuggestedExpired(clock)) {
       throw SessionCredentialException('凭证包已过建议有效期，请对方重新导出');
@@ -93,12 +95,21 @@ class AssistService {
     if (plain.profileId <= 0) {
       throw AssistException('凭证包缺少有效用户 ID');
     }
+    if (ownerUserId != null &&
+        ownerUserId > 0 &&
+        plain.profileId == ownerUserId) {
+      throw AssistException('不能导入当前登录账号自己的凭证');
+    }
 
     final key = SessionKey.assist(plain.profileId);
     final client = registry.forKey(key);
     await client.importCookiesJson(plain.cookiesJson);
 
     final probed = await _probe(client);
+    if (ownerUserId != null && ownerUserId > 0 && probed.id == ownerUserId) {
+      await registry.disposeAssist(probed.id);
+      throw AssistException('不能导入当前登录账号自己的凭证');
+    }
     final identity = AssistIdentity(
       userId: probed.id,
       displayName: probed.name,

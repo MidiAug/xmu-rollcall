@@ -123,6 +123,123 @@ class AppSegment<T> {
   final String label;
 }
 
+/// One cube in [AppChoiceCubes] (harness theme-cube pattern).
+class AppChoiceCube<T> {
+  const AppChoiceCube({
+    required this.value,
+    required this.label,
+    required this.icon,
+  });
+
+  final T value;
+  final String label;
+  final IconData icon;
+}
+
+/// Equal-width icon+label cubes — aligned with harness `settings-theme-cubes`.
+class AppChoiceCubes<T> extends StatelessWidget {
+  const AppChoiceCubes({
+    super.key,
+    required this.cubes,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final List<AppChoiceCube<T>> cubes;
+  final T value;
+  final ValueChanged<T> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final compact = AppDensity.isTouch(context);
+    final pad = compact
+        ? const EdgeInsets.symmetric(horizontal: 12, vertical: 14)
+        : const EdgeInsets.symmetric(horizontal: 16, vertical: 20);
+
+    return Row(
+      children: [
+        for (var i = 0; i < cubes.length; i++) ...[
+          if (i > 0) const SizedBox(width: AppSpace.xs),
+          Expanded(
+            child: _ChoiceCubeButton<T>(
+              cube: cubes[i],
+              selected: cubes[i].value == value,
+              padding: pad,
+              palette: p,
+              onTap: () {
+                if (cubes[i].value != value) onChanged(cubes[i].value);
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ChoiceCubeButton<T> extends StatelessWidget {
+  const _ChoiceCubeButton({
+    required this.cube,
+    required this.selected,
+    required this.padding,
+    required this.palette,
+    required this.onTap,
+  });
+
+  final AppChoiceCube<T> cube;
+  final bool selected;
+  final EdgeInsets padding;
+  final AppPalette palette;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: AppMotion.duration,
+          curve: AppMotion.curve,
+          padding: padding,
+          decoration: BoxDecoration(
+            color: selected ? palette.surfaceHigh : Colors.transparent,
+            borderRadius: BorderRadius.circular(AppRadii.group),
+            border: Border.all(
+              color: selected ? palette.muted.withValues(alpha: 0.45) : palette.borderStrong,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                cube.icon,
+                size: 20,
+                color: selected ? palette.ink : palette.muted,
+              ),
+              const SizedBox(height: AppSpace.xxs),
+              Text(
+                cube.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.35,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  letterSpacing: -0.1,
+                  color: selected ? palette.ink : palette.muted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class AppSegmentedControl<T> extends StatelessWidget {
   const AppSegmentedControl({
     super.key,
@@ -213,6 +330,9 @@ class AppSegmentedControl<T> extends StatelessWidget {
 /// Desktop: **one** chrome bar — back + title | actions + window controls.
 /// Never puts view-mode segments in the title bar; never stacks a brand bar
 /// under a second tool row. Drag layer covers the full bar height.
+///
+/// Mobile: bar background extends under the status bar; controls sit in
+/// [SafeArea] (see docs/research/17-flutter-safe-area-status-bar.md).
 class SubpageScaffold extends StatelessWidget {
   const SubpageScaffold({
     super.key,
@@ -232,62 +352,67 @@ class SubpageScaffold extends StatelessWidget {
     final desktop = PlatformHooks.isDesktop;
     final barHeight = desktop ? AppLayout.titleBarHeight : 48.0;
 
-    final bar = Material(
-      color: p.surface,
-      child: SizedBox(
-        height: barHeight,
-        child: Stack(
-          children: [
-            if (desktop) const Positioned.fill(child: _WindowDragArea()),
-            Row(
-              children: [
-                if (canPop)
-                  IconButton(
-                    tooltip: '返回',
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    constraints: const BoxConstraints(
-                      minWidth: 36,
-                      minHeight: 36,
-                    ),
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: Icon(
-                      Icons.arrow_back_rounded,
-                      color: p.ink,
-                      size: 18,
-                    ),
-                  )
-                else
-                  const SizedBox(width: 12),
-                Expanded(
-                  child: IgnorePointer(
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: desktop ? 13 : 15,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.15,
-                          color: p.ink,
-                        ),
+    final barInner = SizedBox(
+      height: barHeight,
+      child: Stack(
+        children: [
+          if (desktop) const Positioned.fill(child: _WindowDragArea()),
+          Row(
+            children: [
+              if (canPop)
+                IconButton(
+                  tooltip: '返回',
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: Icon(
+                    Icons.arrow_back_rounded,
+                    color: p.ink,
+                    size: 18,
+                  ),
+                )
+              else
+                const SizedBox(width: 12),
+              Expanded(
+                child: IgnorePointer(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: desktop ? 13 : 15,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: -0.15,
+                        color: p.ink,
                       ),
                     ),
                   ),
                 ),
-                ...?actions,
-                if (desktop) const _WindowButtons(),
-                if (!desktop) const SizedBox(width: 8),
-              ],
-            ),
-          ],
-        ),
+              ),
+              ...?actions,
+              if (desktop) const _WindowButtons(),
+              if (!desktop) const SizedBox(width: 8),
+            ],
+          ),
+        ],
       ),
     );
 
+    final bar = Material(
+      color: p.surface,
+      child: desktop
+          ? barInner
+          : SafeArea(bottom: false, child: barInner),
+    );
+
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: p.canvas,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -589,13 +714,14 @@ class AppMobileNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final bottom = AppDensity.mobileNavBottomInset(context);
     return Container(
       decoration: BoxDecoration(
         color: p.surface,
         border: Border(top: BorderSide(color: p.border)),
       ),
-      child: SafeArea(
-        top: false,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottom),
         child: SizedBox(
           height: AppDensity.mobileBar,
           child: Row(
@@ -687,10 +813,10 @@ class PageScaffold extends StatelessWidget {
             SizedBox(
               height: AppLayout.pageHeaderHeight,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpace.pageX,
+                padding: EdgeInsets.fromLTRB(
+                  AppSpace.pageXOf(context),
                   16,
-                  AppSpace.pageX,
+                  AppSpace.pageXOf(context),
                   12,
                 ),
                 child: Row(
@@ -896,8 +1022,8 @@ class SettingsSection extends StatelessWidget {
                     height: 1,
                     thickness: 1,
                     color: p.border,
-                    indent: AppSpace.md,
-                    endIndent: AppSpace.md,
+                    indent: AppDensity.rowPadding(context).left,
+                    endIndent: AppDensity.rowPadding(context).right,
                   ),
                 children[i],
               ],
@@ -913,7 +1039,7 @@ class SettingsSection extends StatelessWidget {
   }
 }
 
-/// One inset row inside [SettingsSection]. Height follows [AppDensity].
+/// One inset row inside [SettingsSection]. Height / padding follow [AppDensity].
 class SettingsRow extends StatelessWidget {
   const SettingsRow({
     super.key,
@@ -940,11 +1066,9 @@ class SettingsRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final h = minHeight ?? AppDensity.rowHeight(context);
+    final gap = AppDensity.rowInnerGap(context);
     final content = Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpace.md,
-        vertical: AppSpace.sm,
-      ),
+      padding: AppDensity.rowPadding(context),
       child: ConstrainedBox(
         constraints: BoxConstraints(minHeight: h),
         child: Row(
@@ -955,7 +1079,7 @@ class SettingsRow extends StatelessWidget {
                 data: IconThemeData(color: p.muted, size: 20),
                 child: leading!,
               ),
-              const SizedBox(width: AppSpace.md),
+              SizedBox(width: gap),
             ],
             Expanded(
               child: Column(
@@ -990,7 +1114,7 @@ class SettingsRow extends StatelessWidget {
               ),
             ),
             if (trailing != null) ...[
-              const SizedBox(width: AppSpace.md),
+              SizedBox(width: gap),
               trailing!,
             ],
           ],

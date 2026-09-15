@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
@@ -102,10 +103,10 @@ class SettingsPage extends ConsumerWidget {
       subtitle: '账号与客户端偏好',
       showHeader: wide,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpace.pageX,
+        padding: EdgeInsets.fromLTRB(
+          AppSpace.pageXOf(context),
           AppSpace.md,
-          AppSpace.pageX,
+          AppSpace.pageXOf(context),
           AppSpace.xl,
         ),
         children: [
@@ -136,42 +137,39 @@ class SettingsPage extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: AppSpace.stack),
+          SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
             header: '外观',
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpace.md,
-                  AppSpace.md,
-                  AppSpace.md,
-                  AppSpace.md,
-                ),
-                child: AppSegmentedControl<ThemePreference>(
-                  expanded: true,
+                padding: AppDensity.rowPadding(context),
+                child: AppChoiceCubes<ThemePreference>(
                   value: themePref,
                   onChanged: (v) {
                     ref.read(themePreferenceProvider.notifier).set(v);
                   },
-                  segments: const [
-                    AppSegment(
-                      value: ThemePreference.system,
-                      label: '跟随',
-                    ),
-                    AppSegment(
-                      value: ThemePreference.dark,
-                      label: '暗色',
-                    ),
-                    AppSegment(
+                  cubes: const [
+                    AppChoiceCube(
                       value: ThemePreference.light,
                       label: '浅色',
+                      icon: Icons.wb_sunny_outlined,
+                    ),
+                    AppChoiceCube(
+                      value: ThemePreference.dark,
+                      label: '暗色',
+                      icon: Icons.dark_mode_outlined,
+                    ),
+                    AppChoiceCube(
+                      value: ThemePreference.system,
+                      label: '跟随',
+                      icon: Icons.brightness_auto_outlined,
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpace.stack),
+          SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
             header: '位置',
             children: [
@@ -184,7 +182,7 @@ class SettingsPage extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: AppSpace.stack),
+          SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
             header: '协助身份',
             footer: Text(
@@ -242,10 +240,9 @@ class SettingsPage extends ConsumerWidget {
                                   passphrase: pass,
                                 );
                             if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('已导入 ${id.displayName}'),
-                                ),
+                              AppToast.show(
+                                context,
+                                '已导入 ${id.displayName}',
                               );
                             }
                           },
@@ -263,7 +260,7 @@ class SettingsPage extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: AppSpace.stack),
+          SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
             header: '设备与诊断',
             children: [

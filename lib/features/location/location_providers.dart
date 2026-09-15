@@ -88,6 +88,28 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
     ];
     await _persist();
   }
+
+  Future<void> updateCoords(
+    String id, {
+    required double latitude,
+    required double longitude,
+  }) async {
+    state = [
+      for (final e in state)
+        if (e.id == id)
+          SavedLocation(
+            id: e.id,
+            note: e.note,
+            latitude: latitude,
+            longitude: longitude,
+            accuracy: e.accuracy,
+            createdAt: e.createdAt,
+          )
+        else
+          e,
+    ];
+    await _persist();
+  }
 }
 
 class CourseRadarDefaultsController

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 
@@ -124,6 +125,7 @@ class MonitorController extends StateNotifier<MonitorState> {
 
   void start() {
     if (state.running) return;
+    if (!_ref.read(authControllerProvider).isSignedIn) return;
     state = state.copyWith(
       running: true,
       config: state.config.copyWith(enabled: true),
@@ -142,6 +144,12 @@ class MonitorController extends StateNotifier<MonitorState> {
       clearNext: true,
     );
     _persist();
+  }
+
+  /// Fire the next poll immediately (running only).
+  void pollNow() {
+    if (!state.running) return;
+    _schedule(immediate: true);
   }
 
   @override

@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:pointycastle/export.dart';
 import 'package:xmu_rollcall/core/session/session_credential.dart';
 
@@ -24,6 +24,7 @@ class SessionCredentialCrypto {
     return Uint8List.fromList(List.generate(length, (_) => r.nextInt(256)));
   }
 
+  /// Heavy KDF — prefer [sealAsync] on the UI isolate.
   String seal(SessionCredentialPlain plain, String passphrase) {
     if (passphrase.trim().isEmpty) {
       throw SessionCredentialException('口令不能为空');
@@ -31,8 +32,10 @@ class SessionCredentialCrypto {
     final salt = _randomBytes(16);
     final iv = _randomBytes(16);
     final key = _deriveKey(passphrase, salt, iterations);
-    final plaintext = Uint8List.fromList(utf8.encode(jsonEncode(plain.toJson())));
-    final ciphertext = _aesCbc(encrypt: true, key: key, iv: iv, data: plaintext);
+    final plaintext =
+        Uint8List.fromList(utf8.encode(jsonEncode(plain.toJson())));
+    final ciphertext =
+        _aesCbc(encrypt: true, key: key, iv: iv, data: plaintext);
 
     final envelope = {
       'format': formatId,
@@ -45,6 +48,22 @@ class SessionCredentialCrypto {
     return const JsonEncoder.withIndent('  ').convert(envelope);
   }
 
+  /// Runs [seal] on a background isolate (PBKDF2 must not block the UI).
+  Future<String> sealAsync(
+    SessionCredentialPlain plain,
+    String passphrase,
+  ) {
+    return compute(
+      _sealIsolate,
+      _SealArgs(
+        plainJson: plain.toJson(),
+        passphrase: passphrase,
+        iterations: iterations,
+      ),
+    );
+  }
+
+  /// Heavy KDF — prefer [openAsync] on the UI isolate.
   SessionCredentialPlain open(String sealed, String passphrase) {
     if (passphrase.trim().isEmpty) {
       throw SessionCredentialException('口令不能为空');
@@ -85,6 +104,21 @@ class SessionCredentialCrypto {
     } catch (_) {
       throw SessionCredentialException('口令错误或凭证已损坏');
     }
+  }
+
+  Future<SessionCredentialPlain> openAsync(
+    String sealed,
+    String passphrase,
+  ) async {
+    final map = await compute(
+      _openIsolate,
+      _OpenArgs(
+        sealed: sealed,
+        passphrase: passphrase,
+        iterations: iterations,
+      ),
+    );
+    return SessionCredentialPlain.fromJson(map);
   }
 
   Uint8List _deriveKey(String passphrase, Uint8List salt, int iter) {
@@ -133,4 +167,41 @@ class SessionCredentialCrypto {
     }
     return Uint8List.sublistView(data, 0, data.length - pad);
   }
+}
+
+class _SealArgs {
+  const _SealArgs({
+    required this.plainJson,
+    required this.passphrase,
+    required this.iterations,
+  });
+
+  final Map<String, dynamic> plainJson;
+  final String passphrase;
+  final int iterations;
+}
+
+class _OpenArgs {
+  const _OpenArgs({
+    required this.sealed,
+    required this.passphrase,
+    required this.iterations,
+  });
+
+  final String sealed;
+  final String passphrase;
+  final int iterations;
+}
+
+String _sealIsolate(_SealArgs args) {
+  final crypto = SessionCredentialCrypto(iterations: args.iterations);
+  return crypto.seal(
+    SessionCredentialPlain.fromJson(args.plainJson),
+    args.passphrase,
+  );
+}
+
+Map<String, dynamic> _openIsolate(_OpenArgs args) {
+  final crypto = SessionCredentialCrypto(iterations: args.iterations);
+  return crypto.open(args.sealed, args.passphrase).toJson();
 }

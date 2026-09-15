@@ -124,10 +124,12 @@ class AssistController extends StateNotifier<AssistUiState> {
   }) async {
     state = state.copyWith(busy: true, clearError: true);
     try {
+      final ownerId = _ref.read(authControllerProvider).profile?.id;
       final svc = await _service();
       final identity = await svc.importPackage(
         sealed: sealed,
         passphrase: passphrase,
+        ownerUserId: ownerId,
       );
       await refresh();
       return identity;

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:xmu_rollcall/app/app_dialogs.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
@@ -54,33 +56,14 @@ class MapPickPanelState extends State<MapPickPanel> {
   Future<void> confirm() async {
     String? saveNote;
     if (widget.requireNote) {
-      final noteCtrl = TextEditingController();
-      final ok = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('备注名'),
-          content: TextField(
-            controller: noteCtrl,
-            autofocus: true,
-            decoration: const InputDecoration(
-              hintText: '如：翔安教学楼',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('取消'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('保存'),
-            ),
-          ],
-        ),
+      final t = await showAppPromptDialog(
+        context,
+        title: '备注名',
+        hintText: '如：翔安教学楼',
+        labelText: '备注名',
+        confirmLabel: '保存',
       );
-      final t = noteCtrl.text.trim();
-      noteCtrl.dispose();
-      if (ok != true || t.isEmpty || !mounted) return;
+      if (t == null || t.isEmpty || !mounted) return;
       saveNote = t;
     }
 
@@ -141,8 +124,8 @@ class MapPickPanelState extends State<MapPickPanel> {
           ],
         ),
         Positioned(
-          left: AppSpace.pageX,
-          right: AppSpace.pageX,
+          left: AppSpace.pageXOf(context),
+          right: AppSpace.pageXOf(context),
           bottom: AppSpace.md,
           child: Align(
             alignment: Alignment.bottomCenter,
@@ -192,11 +175,13 @@ class MapPickPage extends StatelessWidget {
     this.initial,
     this.requireNote = false,
     this.title = '选择位置',
+    this.confirmLabel,
   });
 
   final LatLng? initial;
   final bool requireNote;
   final String title;
+  final String? confirmLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -205,6 +190,7 @@ class MapPickPage extends StatelessWidget {
       body: MapPickPanel(
         initial: initial,
         requireNote: requireNote,
+        confirmLabel: confirmLabel,
         onConfirm: (result) => Navigator.of(context).pop(result),
       ),
     );
@@ -216,9 +202,7 @@ Future<RadarGeoSelection?> pickSavedLocation(
   List<SavedLocation> locations,
 ) async {
   if (locations.isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('还没有预设点')),
-    );
+    AppToast.show(context, '还没有预设点');
     return null;
   }
   return showModalBottomSheet<RadarGeoSelection>(

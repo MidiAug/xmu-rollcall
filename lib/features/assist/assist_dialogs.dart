@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:xmu_rollcall/app/app_dialogs.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
@@ -19,50 +21,61 @@ Future<void> showAssistImportDialog(
     builder: (ctx) {
       return StatefulBuilder(
         builder: (ctx, setLocal) {
+          final inset = MediaQuery.viewInsetsOf(ctx);
           return AlertDialog(
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 24,
+            ),
             title: const Text('导入协助凭证'),
-            content: Form(
-              key: formKey,
-              child: SizedBox(
-                width: 420,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    TextFormField(
-                      controller: pkgCtrl,
-                      maxLines: 6,
-                      decoration: const InputDecoration(
-                        labelText: '凭证包',
-                        hintText: '粘贴对方导出的 JSON',
-                        alignLabelWithHint: true,
+            content: SingleChildScrollView(
+              padding: EdgeInsets.only(bottom: inset.bottom > 0 ? 8 : 0),
+              child: Form(
+                key: formKey,
+                child: SizedBox(
+                  width: 420,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: pkgCtrl,
+                        maxLines: 6,
+                        decoration: const InputDecoration(
+                          labelText: '凭证包',
+                          hintText: '粘贴对方导出的 JSON',
+                          alignLabelWithHint: true,
+                        ),
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? '请粘贴凭证包' : null,
                       ),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? '请粘贴凭证包' : null,
-                    ),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: () async {
-                          final data =
-                              await Clipboard.getData(Clipboard.kTextPlain);
-                          final text = data?.text;
-                          if (text != null && text.isNotEmpty) {
-                            pkgCtrl.text = text;
-                          }
-                        },
-                        icon: const Icon(Icons.paste, size: 16),
-                        label: const Text('从剪贴板粘贴'),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: submitting
+                              ? null
+                              : () async {
+                                  final data = await Clipboard.getData(
+                                    Clipboard.kTextPlain,
+                                  );
+                                  final text = data?.text;
+                                  if (text != null && text.isNotEmpty) {
+                                    pkgCtrl.text = text;
+                                  }
+                                },
+                          icon: const Icon(Icons.paste, size: 16),
+                          label: const Text('从剪贴板粘贴'),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: passCtrl,
-                      obscureText: true,
-                      decoration: const InputDecoration(labelText: '口令'),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? '请输入口令' : null,
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: passCtrl,
+                        obscureText: true,
+                        decoration: const InputDecoration(labelText: '口令'),
+                        validator: (v) =>
+                            (v == null || v.trim().isEmpty) ? '请输入口令' : null,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -84,9 +97,7 @@ Future<void> showAssistImportDialog(
                           if (ctx.mounted) Navigator.pop(ctx);
                         } catch (e) {
                           if (ctx.mounted) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(content: Text('$e')),
-                            );
+                            AppToast.show(ctx, '$e', error: true);
                           }
                         } finally {
                           if (ctx.mounted) {
@@ -94,7 +105,13 @@ Future<void> showAssistImportDialog(
                           }
                         }
                       },
-                child: const Text('导入'),
+                child: submitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('导入'),
               ),
             ],
           );
@@ -112,7 +129,6 @@ Future<void> showAssistExportDialog(
   required Future<String> Function(String passphrase) export,
 }) async {
   final passCtrl = TextEditingController();
-  final confirmCtrl = TextEditingController();
   final formKey = GlobalKey<FormState>();
   var submitting = false;
 
@@ -122,36 +138,37 @@ Future<void> showAssistExportDialog(
       return StatefulBuilder(
         builder: (ctx, setLocal) {
           final muted = AppPalette.of(ctx).muted;
+          final inset = MediaQuery.viewInsetsOf(ctx);
           return AlertDialog(
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 24,
+            ),
             title: const Text('导出主号会话凭证'),
-            content: Form(
-              key: formKey,
-              child: SizedBox(
-                width: 420,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      '导出的是登录态（非 IDS 密码）。对方导入后可使用该会话。建议短时口令；默认约 24 小时过期。',
-                      style: TextStyle(fontSize: 13, height: 1.4, color: muted),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: passCtrl,
-                      obscureText: true,
-                      decoration: const InputDecoration(labelText: '口令'),
-                      validator: (v) =>
-                          (v == null || v.trim().length < 4) ? '至少 4 位' : null,
-                    ),
-                    TextFormField(
-                      controller: confirmCtrl,
-                      obscureText: true,
-                      decoration: const InputDecoration(labelText: '确认口令'),
-                      validator: (v) =>
-                          v != passCtrl.text ? '两次口令不一致' : null,
-                    ),
-                  ],
+            content: SingleChildScrollView(
+              padding: EdgeInsets.only(bottom: inset.bottom > 0 ? 8 : 0),
+              child: Form(
+                key: formKey,
+                child: SizedBox(
+                  width: 420,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        '导出的是登录态（非 IDS 密码）。对方导入后可使用该会话。建议短时口令；默认约 24 小时过期。',
+                        style: TextStyle(fontSize: 13, height: 1.4, color: muted),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: passCtrl,
+                        obscureText: true,
+                        decoration: const InputDecoration(labelText: '口令'),
+                        validator: (v) =>
+                            (v == null || v.trim().length < 4) ? '至少 4 位' : null,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -173,15 +190,11 @@ Future<void> showAssistExportDialog(
                           await Clipboard.setData(ClipboardData(text: sealed));
                           if (ctx.mounted) {
                             Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('已复制到剪贴板')),
-                            );
+                            AppToast.show(context, '已复制到剪贴板');
                           }
                         } catch (e) {
                           if (ctx.mounted) {
-                            ScaffoldMessenger.of(ctx).showSnackBar(
-                              SnackBar(content: Text('$e')),
-                            );
+                            AppToast.show(ctx, '$e', error: true);
                           }
                         } finally {
                           if (ctx.mounted) {
@@ -189,7 +202,13 @@ Future<void> showAssistExportDialog(
                           }
                         }
                       },
-                child: const Text('导出并复制'),
+                child: submitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('导出并复制'),
               ),
             ],
           );
@@ -199,34 +218,18 @@ Future<void> showAssistExportDialog(
   );
 
   passCtrl.dispose();
-  confirmCtrl.dispose();
 }
 
 Future<bool> showAssistRiskDialog(BuildContext context) async {
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (ctx) {
-      return AlertDialog(
-        title: const Text('启用协助能力？'),
-        content: const Text(
-          '导入他人会话凭证后，本机可使用对方的畅课登录态提交签到（仅限同课二维码场景）。\n\n'
-          '会话≈账号控制权；请仅在知情同意下使用，并遵守校规。对方重新登录可吊销旧会话。\n\n'
-          '默认关闭；开启后请自行管理导入名单。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('我了解，启用'),
-          ),
-        ],
-      );
-    },
+  return showAppConfirmDialog(
+    context,
+    title: '启用协助能力？',
+    message:
+        '导入他人会话凭证后，本机可使用对方的畅课登录态提交签到（仅限同课二维码场景）。\n\n'
+        '会话≈账号控制权；请仅在知情同意下使用，并遵守校规。对方重新登录可吊销旧会话。\n\n'
+        '默认关闭；开启后请自行管理导入名单。',
+    confirmLabel: '我了解，启用',
   );
-  return ok ?? false;
 }
 
 class AssistIdentitiesPage extends ConsumerWidget {
@@ -240,10 +243,10 @@ class AssistIdentitiesPage extends ConsumerWidget {
     return SubpageScaffold(
       title: '协助身份',
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpace.pageX,
+        padding: EdgeInsets.fromLTRB(
+          AppSpace.pageXOf(context),
           AppSpace.md,
-          AppSpace.pageX,
+          AppSpace.pageXOf(context),
           AppSpace.xl,
         ),
         children: [
@@ -271,6 +274,15 @@ class AssistIdentitiesPage extends ConsumerWidget {
                       onPressed: assist.busy
                           ? null
                           : () async {
+                              final ok = await showAppConfirmDialog(
+                                context,
+                                title: '移除协助账号',
+                                message:
+                                    '移除「${id.displayName}」并清除其会话 Cookie？',
+                                confirmLabel: '移除',
+                                destructive: true,
+                              );
+                              if (!ok) return;
                               await ref
                                   .read(assistControllerProvider.notifier)
                                   .removeIdentity(id.userId);

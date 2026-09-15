@@ -121,6 +121,35 @@ void main() {
       );
     });
 
+    test('rejects importing owner self package', () async {
+      final owner = registry.owner();
+      await owner.init();
+      await owner.importCookieHeader('session=1001');
+
+      final sealed = await service.exportOwnerPackage(
+        passphrase: 'secret',
+        profileId: 1001,
+        profileName: '本人',
+        now: DateTime.utc(2026, 9, 15),
+      );
+
+      expect(
+        () => service.importPackage(
+          sealed: sealed,
+          passphrase: 'secret',
+          now: DateTime.utc(2026, 9, 15, 1),
+          ownerUserId: 1001,
+        ),
+        throwsA(
+          isA<AssistException>().having(
+            (e) => e.message,
+            'message',
+            contains('自己的凭证'),
+          ),
+        ),
+      );
+    });
+
     test('rejects expired package', () async {
       final owner = registry.owner();
       await owner.init();

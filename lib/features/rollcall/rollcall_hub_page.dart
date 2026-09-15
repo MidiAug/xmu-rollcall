@@ -4,87 +4,101 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_list_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 
-enum RollcallHubSegment { active, poll }
-
-/// 签到 Tab：进行中列表 + 轮询（原独立监控 Tab）。
-class RollcallHubPage extends ConsumerStatefulWidget {
+/// 签到 Tab：进行中列表为主；轮询为快开子功能 + 二级设置。
+class RollcallHubPage extends ConsumerWidget {
   const RollcallHubPage({super.key});
 
-  @override
-  ConsumerState<RollcallHubPage> createState() => _RollcallHubPageState();
-}
+  void _openSettings(BuildContext context) {
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        transitionDuration: AppMotion.duration,
+        reverseTransitionDuration: AppMotion.duration,
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const MonitorSettingsPage(),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(
+            opacity: CurvedAnimation(
+              parent: animation,
+              curve: AppMotion.curve,
+            ),
+            child: child,
+          );
+        },
+      ),
+    );
+  }
 
-class _RollcallHubPageState extends ConsumerState<RollcallHubPage> {
-  RollcallHubSegment _segment = RollcallHubSegment.active;
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
+    final p = AppPalette.of(context);
 
     return PageScaffold(
       title: '签到',
-      subtitle: _segment == RollcallHubSegment.active
-          ? '数字一键签 · 雷达/二维码二级页'
-          : '空列表时轮询 · 发现即停 · ≥15s + 抖动',
+      subtitle: '数字一键签 · 雷达/二维码二级页',
       showHeader: wide,
-      trailing: _segment == RollcallHubSegment.active
-          ? const _ActiveRefreshTrailing()
+      trailing: wide
+          ? IconButton(
+              tooltip: '刷新',
+              onPressed: () =>
+                  ref.read(activeRollcallsProvider.notifier).refresh(),
+              icon: Icon(Icons.refresh_rounded, color: p.muted),
+            )
           : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpace.pageX,
-              0,
-              AppSpace.pageX,
+            padding: EdgeInsets.fromLTRB(
+              AppSpace.pageXOf(context),
+              wide ? 0 : AppSpace.xxs,
+              AppSpace.pageXOf(context),
               AppSpace.sm,
             ),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: AppSegmentedControl<RollcallHubSegment>(
-                value: _segment,
-                onChanged: (s) => setState(() => _segment = s),
-                segments: const [
-                  AppSegment(
-                    value: RollcallHubSegment.active,
-                    label: '进行中',
-                  ),
-                  AppSegment(
-                    value: RollcallHubSegment.poll,
-                    label: '轮询',
+            child: Row(
+              children: [
+                const Expanded(child: _PollQuickBar()),
+                if (!wide) ...[
+                  const SizedBox(width: AppSpace.xxs),
+                  IconButton(
+                    tooltip: '刷新',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () =>
+                        ref.read(activeRollcallsProvider.notifier).refresh(),
+                    icon: Icon(Icons.refresh_rounded, color: p.muted, size: 22),
                   ),
                 ],
-              ),
+                IconButton(
+                  tooltip: '轮询设置',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => _openSettings(context),
+                  icon: Icon(Icons.tune_outlined, color: p.muted, size: 22),
+                ),
+              ],
             ),
           ),
-          Expanded(
-            child: _segment == RollcallHubSegment.active
-                ? const RollcallListPage(embedded: true)
-                : const MonitorPage(embedded: true),
-          ),
+          const Expanded(child: RollcallListPage(embedded: true)),
         ],
       ),
     );
   }
 }
 
-/// Manual refresh, or countdown to next poll when monitoring is running.
-class _ActiveRefreshTrailing extends ConsumerStatefulWidget {
-  const _ActiveRefreshTrailing();
+/// Idle: 「开始轮询」. Running: capsule with countdown (tap = pollNow) + stop.
+class _PollQuickBar extends ConsumerStatefulWidget {
+  const _PollQuickBar();
 
   @override
-  ConsumerState<_ActiveRefreshTrailing> createState() =>
-      _ActiveRefreshTrailingState();
+  ConsumerState<_PollQuickBar> createState() => _PollQuickBarState();
 }
 
-class _ActiveRefreshTrailingState
-    extends ConsumerState<_ActiveRefreshTrailing> {
+class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
   Timer? _tick;
 
   @override
@@ -92,8 +106,7 @@ class _ActiveRefreshTrailingState
     super.initState();
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      final m = ref.read(monitorControllerProvider);
-      if (m.running) setState(() {});
+      if (ref.read(monitorControllerProvider).running) setState(() {});
     });
   }
 
@@ -103,46 +116,78 @@ class _ActiveRefreshTrailingState
     super.dispose();
   }
 
-  Future<void> _refresh() =>
-      ref.read(activeRollcallsProvider.notifier).refresh();
-
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final monitor = ref.watch(monitorControllerProvider);
-    final next = monitor.nextPollAt;
+    final ctrl = ref.read(monitorControllerProvider.notifier);
+    final signedIn = ref.watch(authControllerProvider).isSignedIn;
 
-    if (!monitor.running || next == null) {
-      return IconButton(
-        tooltip: '刷新',
-        onPressed: _refresh,
-        icon: Icon(Icons.refresh_rounded, color: p.muted),
+    if (!monitor.running) {
+      final enabled = signedIn;
+      final color = enabled ? p.primary : p.muted;
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Tooltip(
+          message: enabled ? '开始轮询' : '请先登录',
+          child: TextButton.icon(
+            onPressed: enabled ? ctrl.start : null,
+            icon: Icon(Icons.radar_outlined, size: 18, color: color),
+            label: Text(
+              '开始轮询',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+        ),
       );
     }
 
-    final secs = next.difference(DateTime.now()).inSeconds;
-    final remain = secs < 0 ? 0 : secs;
-    final label = '${remain}s';
+    final next = monitor.nextPollAt;
+    final secs = next == null
+        ? 0
+        : next.difference(DateTime.now()).inSeconds.clamp(0, 9999);
+    final label = '轮询中 · ${secs}s';
 
-    return Tooltip(
-      message: '下次轮询 ${remain}s · 点击立即刷新',
-      child: TextButton(
-        onPressed: _refresh,
-        style: TextButton.styleFrom(
-          foregroundColor: p.primary,
-          minimumSize: const Size(0, 36),
-          padding: const EdgeInsets.symmetric(horizontal: 6),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.2,
-            fontFeatures: const [FontFeature.tabularFigures()],
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Material(
+            color: p.selected,
+            borderRadius: BorderRadius.circular(AppRadii.control),
+            child: InkWell(
+              onTap: ctrl.pollNow,
+              borderRadius: BorderRadius.circular(AppRadii.control),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: p.primary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+            ),
           ),
-        ),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: '停止轮询',
+            visualDensity: VisualDensity.compact,
+            onPressed: ctrl.stop,
+            icon: Icon(Icons.stop_circle_outlined, color: p.muted, size: 22),
+          ),
+        ],
       ),
     );
   }

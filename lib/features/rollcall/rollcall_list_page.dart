@@ -100,28 +100,31 @@ class RollcallListPage extends ConsumerWidget {
         ),
         data: (items) {
           if (items.isEmpty) {
-            return ListView(
+            return CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              children: const [
-                SizedBox(height: 80),
-                EmptyHint(
-                  icon: Icons.inbox_outlined,
-                  title: '暂无进行中的签到',
-                  detail: '下拉刷新，或切换到「轮询」开启监控',
+              slivers: const [
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: EmptyHint(
+                    icon: Icons.inbox_outlined,
+                    title: '暂无进行中的签到',
+                    detail: '下拉刷新，或切换到「轮询」开启监控',
+                  ),
                 ),
               ],
             );
           }
           return ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(
-              AppSpace.pageX,
+            padding: EdgeInsets.fromLTRB(
+              AppSpace.pageXOf(context),
               AppSpace.xxs,
-              AppSpace.pageX,
+              AppSpace.pageXOf(context),
               AppSpace.xl,
             ),
             itemCount: items.length,
-            separatorBuilder: (_, _) => const SizedBox(height: AppSpace.stack),
+            separatorBuilder: (context, _) =>
+                SizedBox(height: AppSpace.stackOf(context)),
             itemBuilder: (context, i) => _RollcallTile(item: items[i]),
           );
         },

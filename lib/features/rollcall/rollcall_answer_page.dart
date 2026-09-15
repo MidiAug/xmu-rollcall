@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
@@ -56,25 +57,13 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     });
   }
 
-  Future<bool> _confirm(String summary) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('确认提交签到'),
-        content: Text(summary),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('确认提交'),
-          ),
-        ],
-      ),
+  Future<bool> _confirm(String summary) {
+    return showAppConfirmDialog(
+      context,
+      title: '确认提交签到',
+      message: summary,
+      confirmLabel: '确认提交',
     );
-    return ok == true;
   }
 
   Future<void> _submitNumber() async {

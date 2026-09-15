@@ -76,14 +76,26 @@ abstract final class AppSpace {
   static const xl = 24.0;
   static const xxl = 32.0;
 
-  /// Horizontal inset shared by page header and scroll bodies.
+  /// Horizontal inset shared by page header and scroll bodies (desktop).
   static const pageX = 24.0;
 
-  /// Gap between stacked sections / panels.
+  /// Narrow-width page inset (`width < [AppLayout.shellBreakpoint]`).
+  static const pageXCompact = 16.0;
+
+  /// Gap between stacked sections / panels (desktop).
   static const stack = 20.0;
+
+  /// Narrow-width section stack gap.
+  static const stackCompact = 14.0;
 
   /// Gap between section header and inset group.
   static const sectionGap = 10.0;
+
+  static double pageXOf(BuildContext context) =>
+      AppDensity.isTouch(context) ? pageXCompact : pageX;
+
+  static double stackOf(BuildContext context) =>
+      AppDensity.isTouch(context) ? stackCompact : stack;
 }
 
 /// Concentric radius ladder (Quiet Utility).
@@ -97,13 +109,25 @@ abstract final class AppRadii {
   static const dialog = 20.0;
 }
 
-/// Desktop vs touch row heights (breakpoint = [AppLayout.shellBreakpoint]).
+/// Desktop vs touch density (breakpoint = [AppLayout.shellBreakpoint]).
+///
+/// Narrow layouts use **tighter** settings/list density so vertical space
+/// isn't wasted; nav stays slightly taller for thumb targets.
 abstract final class AppDensity {
   static const desktopRow = 52.0;
-  static const touchRow = 58.0;
+  static const touchRow = 48.0;
   static const desktopNav = 40.0;
-  static const touchNav = 48.0;
+  static const touchNav = 44.0;
   static const mobileBar = 56.0;
+
+  /// Extra air trimmed from the home-indicator inset under [AppMobileNav]
+  /// (see docs/research/18-flutter-mobile-nav-bottom-inset.md).
+  static const mobileNavBottomTrim = 8.0;
+
+  static const desktopRowPadH = AppSpace.md;
+  static const desktopRowPadV = AppSpace.sm;
+  static const touchRowPadH = AppSpace.sm;
+  static const touchRowPadV = AppSpace.xs;
 
   static bool isTouch(BuildContext context) =>
       MediaQuery.sizeOf(context).width < AppLayout.shellBreakpoint;
@@ -113,6 +137,27 @@ abstract final class AppDensity {
 
   static double navItemHeight(BuildContext context) =>
       isTouch(context) ? touchNav : desktopNav;
+
+  /// Bottom inset for custom tab bar: full [viewPadding.bottom] minus a small trim.
+  static double mobileNavBottomInset(BuildContext context) {
+    final v = MediaQuery.viewPaddingOf(context).bottom;
+    if (v <= 0) return 0;
+    return (v - mobileNavBottomTrim).clamp(0.0, v);
+  }
+
+  static EdgeInsets rowPadding(BuildContext context) => isTouch(context)
+      ? const EdgeInsets.symmetric(
+          horizontal: touchRowPadH,
+          vertical: touchRowPadV,
+        )
+      : const EdgeInsets.symmetric(
+          horizontal: desktopRowPadH,
+          vertical: desktopRowPadV,
+        );
+
+  /// Leading/trailing gap inside [SettingsRow]-style rows.
+  static double rowInnerGap(BuildContext context) =>
+      isTouch(context) ? AppSpace.sm : AppSpace.md;
 }
 
 /// Restrained motion — navigation / enter only.

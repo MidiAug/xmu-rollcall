@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:xmu_rollcall/app/app_dialogs.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
@@ -11,6 +14,7 @@ import 'package:xmu_rollcall/features/location/map_pick_page.dart';
 /// Interaction model (desktop apps / Maps “Saved places”):
 /// - The page **is** the list — not a list/add mode toggle.
 /// - “添加” is a chrome action that **pushes** [MapPickPage]; save pops back.
+/// - Tap a row to open the same map centered on that point.
 class SavedLocationsPage extends ConsumerStatefulWidget {
   const SavedLocationsPage({super.key});
 
@@ -39,60 +43,52 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
           longitude: result.longitude,
         );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('已保存「$note」')),
+    AppToast.show(context, '已保存「$note」');
+  }
+
+  Future<void> _openOnMap(SavedLocation loc) async {
+    final result = await Navigator.of(context).push<MapPickResult>(
+      MaterialPageRoute(
+        builder: (_) => MapPickPage(
+          initial: LatLng(loc.latitude, loc.longitude),
+          title: loc.note,
+          confirmLabel: '更新坐标',
+        ),
+      ),
     );
+    if (!mounted || result == null) return;
+    await ref.read(savedLocationsProvider.notifier).updateCoords(
+          loc.id,
+          latitude: result.latitude,
+          longitude: result.longitude,
+        );
+    if (!mounted) return;
+    AppToast.show(context, '已更新「${loc.note}」');
   }
 
   Future<void> _rename(SavedLocation loc) async {
-    final ctrl = TextEditingController(text: loc.note);
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('重命名'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: '备注名'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('保存'),
-          ),
-        ],
-      ),
+    final note = await showAppPromptDialog(
+      context,
+      title: '重命名',
+      initialValue: loc.note,
+      labelText: '备注名',
     );
-    final note = ctrl.text.trim();
-    ctrl.dispose();
-    if (ok != true || note.isEmpty) return;
+    if (note == null || note.isEmpty) return;
     await ref.read(savedLocationsProvider.notifier).rename(loc.id, note);
   }
 
   Future<void> _delete(SavedLocation loc) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('删除'),
-        content: Text('删除「${loc.note}」？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
+    final ok = await showAppConfirmDialog(
+      context,
+      title: '删除位置',
+      message: '删除「${loc.note}」？此操作不可撤销。',
+      confirmLabel: '删除',
+      destructive: true,
     );
-    if (ok != true) return;
+    if (!ok) return;
     await ref.read(savedLocationsProvider.notifier).remove(loc.id);
+    if (!mounted) return;
+    AppToast.show(context, '已删除');
   }
 
   @override
@@ -125,10 +121,10 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
           child: empty
               ? _EmptyState(onAdd: _openAdd)
               : ListView(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpace.pageX,
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpace.pageXOf(context),
                     AppSpace.md,
-                    AppSpace.pageX,
+                    AppSpace.pageXOf(context),
                     AppSpace.xl,
                   ),
                   children: [
@@ -140,8 +136,8 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
                       const SizedBox(height: AppSpace.xs),
                       Panel(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpace.sm,
-                          vertical: AppSpace.xs,
+                          horizontal: AppSpace.xxs,
+                          vertical: 2,
                         ),
                         child: Column(
                           children: [
@@ -153,6 +149,7 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
                                 subtitle:
                                     '${list[i].latitude.toStringAsFixed(5)}, '
                                     '${list[i].longitude.toStringAsFixed(5)}',
+                                onOpen: () => _openOnMap(list[i]),
                                 onRename: () => _rename(list[i]),
                                 onDelete: () => _delete(list[i]),
                               ),
@@ -168,8 +165,8 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
                       const SizedBox(height: AppSpace.xs),
                       Panel(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpace.sm,
-                          vertical: AppSpace.xs,
+                          horizontal: AppSpace.xxs,
+                          vertical: 2,
                         ),
                         child: Column(
                           children: [
@@ -179,8 +176,11 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
                               if (i > 0)
                                 Divider(height: 1, color: p.border),
                               ListTile(
+                                dense: true,
+                                visualDensity: VisualDensity.compact,
                                 contentPadding: const EdgeInsets.symmetric(
                                   horizontal: AppSpace.xs,
+                                  vertical: 0,
                                 ),
                                 leading: Icon(
                                   Icons.school_outlined,
@@ -197,6 +197,20 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
                                     color: p.muted,
                                   ),
                                 ),
+                                onTap: () {
+                                  Navigator.of(context).push<void>(
+                                    MaterialPageRoute(
+                                      builder: (_) => MapPickPage(
+                                        initial: LatLng(
+                                          sortedDefaults[i].latitude,
+                                          sortedDefaults[i].longitude,
+                                        ),
+                                        title: sortedDefaults[i].courseTitle,
+                                        confirmLabel: '关闭',
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ],
@@ -247,12 +261,14 @@ class _LocationTile extends StatelessWidget {
   const _LocationTile({
     required this.title,
     required this.subtitle,
+    required this.onOpen,
     required this.onRename,
     required this.onDelete,
   });
 
   final String title;
   final String subtitle;
+  final VoidCallback onOpen;
   final VoidCallback onRename;
   final VoidCallback onDelete;
 
@@ -260,20 +276,24 @@ class _LocationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return ListTile(
+      dense: true,
+      visualDensity: VisualDensity.compact,
       contentPadding: const EdgeInsets.symmetric(horizontal: AppSpace.xs),
+      onTap: onOpen,
       leading: Container(
-        width: 36,
-        height: 36,
+        width: 32,
+        height: 32,
         decoration: BoxDecoration(
           color: p.surfaceHigh,
           borderRadius: BorderRadius.circular(AppRadii.control),
         ),
-        child: Icon(Icons.place_outlined, size: 18, color: p.primary),
+        child: Icon(Icons.place_outlined, size: 16, color: p.primary),
       ),
       title: Text(
         title,
         style: TextStyle(
           fontWeight: FontWeight.w500,
+          fontSize: 14,
           color: p.ink,
         ),
       ),
@@ -286,11 +306,13 @@ class _LocationTile extends StatelessWidget {
         children: [
           IconButton(
             tooltip: '重命名',
+            visualDensity: VisualDensity.compact,
             onPressed: onRename,
             icon: Icon(Icons.edit_outlined, color: p.muted, size: 18),
           ),
           IconButton(
             tooltip: '删除',
+            visualDensity: VisualDensity.compact,
             onPressed: onDelete,
             icon: Icon(Icons.delete_outline, color: p.danger, size: 18),
           ),

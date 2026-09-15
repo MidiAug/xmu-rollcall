@@ -33,6 +33,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
     if (wide) {
       return Scaffold(
+        resizeToAvoidBottomInset: false,
         backgroundColor: p.canvas,
         body: Column(
           children: [
@@ -63,6 +64,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     }
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: p.canvas,
       body: Column(
         children: [

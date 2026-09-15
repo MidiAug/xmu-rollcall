@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
@@ -155,28 +156,15 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
     }
 
     final names = targets.map((t) => t.label).join('、');
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('确认二维码签到'),
-        content: Text(
-          '课程：${widget.item.courseTitle}\n'
+    final ok = await showAppConfirmDialog(
+      context,
+      title: '确认二维码签到',
+      message: '课程：${widget.item.courseTitle}\n'
           '对象（${targets.length}）：$names\n\n'
           '将串行提交同一份二维码 data（非并发）。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('确认提交'),
-          ),
-        ],
-      ),
+      confirmLabel: '确认提交',
     );
-    if (ok != true) return;
+    if (!ok) return;
 
     setState(() {
       _submitting = true;
