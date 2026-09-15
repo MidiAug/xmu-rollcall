@@ -10,6 +10,22 @@ abstract final class PlatformHooks {
     return Platform.isWindows || Platform.isLinux || Platform.isMacOS;
   }
 
+  /// Icon for “跟随系统” appearance — matches current form factor.
+  static IconData systemAppearanceIcon(BuildContext context) {
+    if (kIsWeb) return Icons.language_outlined;
+    if (isDesktop) {
+      if (Platform.isMacOS) return Icons.laptop_mac_outlined;
+      return Icons.desktop_windows_outlined;
+    }
+    final shortest = MediaQuery.sizeOf(context).shortestSide;
+    if (shortest >= 600) {
+      return Platform.isIOS
+          ? Icons.tablet_mac_outlined
+          : Icons.tablet_android_outlined;
+    }
+    return Icons.smartphone_outlined;
+  }
+
   static Future<void> initOptional() async {
     if (!isDesktop) return;
     await windowManager.ensureInitialized();

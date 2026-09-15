@@ -89,7 +89,7 @@ abstract final class AppSpace {
   static const stackCompact = 14.0;
 
   /// Gap between section header and inset group.
-  static const sectionGap = 10.0;
+  static const sectionGap = 6.0;
 
   static double pageXOf(BuildContext context) =>
       AppDensity.isTouch(context) ? pageXCompact : pageX;

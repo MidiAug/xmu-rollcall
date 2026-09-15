@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -23,6 +24,82 @@ class BrandMark extends StatelessWidget {
         Icons.how_to_reg_outlined,
         size: size * 0.58,
         color: p.primary,
+      ),
+    );
+  }
+}
+
+/// Header refresh control — spins while [onRefresh] runs; list stays put.
+class AppRefreshButton extends StatefulWidget {
+  const AppRefreshButton({
+    super.key,
+    required this.onRefresh,
+    this.color,
+    this.iconSize,
+    this.tooltip = '刷新',
+    this.visualDensity,
+  });
+
+  final Future<void> Function() onRefresh;
+  final Color? color;
+  final double? iconSize;
+  final String tooltip;
+  final VisualDensity? visualDensity;
+
+  @override
+  State<AppRefreshButton> createState() => _AppRefreshButtonState();
+}
+
+class _AppRefreshButtonState extends State<AppRefreshButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _spin;
+  var _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _spin = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+  }
+
+  @override
+  void dispose() {
+    _spin.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handle() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    _spin.repeat();
+    try {
+      await widget.onRefresh();
+    } finally {
+      if (mounted) {
+        _spin
+          ..stop()
+          ..value = 0;
+        setState(() => _busy = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return IconButton(
+      tooltip: widget.tooltip,
+      visualDensity: widget.visualDensity,
+      onPressed: _busy ? null : _handle,
+      icon: RotationTransition(
+        turns: _spin,
+        child: Icon(
+          Icons.refresh_rounded,
+          color: widget.color ?? p.muted,
+          size: widget.iconSize,
+        ),
       ),
     );
   }
@@ -204,10 +281,12 @@ class _ChoiceCubeButton<T> extends StatelessWidget {
           curve: AppMotion.curve,
           padding: padding,
           decoration: BoxDecoration(
-            color: selected ? palette.surfaceHigh : Colors.transparent,
+            color: selected ? palette.selected : Colors.transparent,
             borderRadius: BorderRadius.circular(AppRadii.group),
             border: Border.all(
-              color: selected ? palette.muted.withValues(alpha: 0.45) : palette.borderStrong,
+              color: selected
+                  ? palette.primary.withValues(alpha: 0.5)
+                  : palette.borderStrong,
             ),
           ),
           child: Column(
@@ -216,7 +295,7 @@ class _ChoiceCubeButton<T> extends StatelessWidget {
               Icon(
                 cube.icon,
                 size: 20,
-                color: selected ? palette.ink : palette.muted,
+                color: selected ? palette.primary : palette.muted,
               ),
               const SizedBox(height: AppSpace.xxs),
               Text(
@@ -229,7 +308,7 @@ class _ChoiceCubeButton<T> extends StatelessWidget {
                   height: 1.35,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                   letterSpacing: -0.1,
-                  color: selected ? palette.ink : palette.muted,
+                  color: selected ? palette.primary : palette.muted,
                 ),
               ),
             ],
@@ -325,14 +404,16 @@ class AppSegmentedControl<T> extends StatelessWidget {
   }
 }
 
-/// Full-route pages pushed over [AdaptiveShell].
+/// Tab-nested or full-route pages with a back-capable chrome bar.
 ///
-/// Desktop: **one** chrome bar — back + title | actions + window controls.
-/// Never puts view-mode segments in the title bar; never stacks a brand bar
-/// under a second tool row. Drag layer covers the full bar height.
+/// Desktop **root** push (over the whole app): one bar with back + title |
+/// actions + window controls.
 ///
-/// Mobile: bar background extends under the status bar; controls sit in
-/// [SafeArea] (see docs/research/17-flutter-safe-area-status-bar.md).
+/// Desktop **inside** a shell tab [Navigator]: back + title | actions only —
+/// window controls stay on [AppTitleBar] (nested push must not duplicate them).
+///
+/// Mobile: [surface] extends under the status bar via [MediaQuery.viewPadding]
+/// (not ancestor [SafeArea]); controls sit below that inset — see R-23.
 class SubpageScaffold extends StatelessWidget {
   const SubpageScaffold({
     super.key,
@@ -350,13 +431,21 @@ class SubpageScaffold extends StatelessWidget {
     final p = AppPalette.of(context);
     final canPop = Navigator.of(context).canPop();
     final desktop = PlatformHooks.isDesktop;
+    final hostOnRootNavigator =
+        Navigator.of(context, rootNavigator: true) == Navigator.of(context);
+    final showWindowControls = desktop && hostOnRootNavigator;
     final barHeight = desktop ? AppLayout.titleBarHeight : 48.0;
+    // Physical status-bar height — immune to ancestor SafeArea clearing padding.
+    final statusTop =
+        desktop ? 0.0 : MediaQuery.viewPaddingOf(context).top;
+    final overlay = _overlayForSurface(p.surface);
 
     final barInner = SizedBox(
       height: barHeight,
       child: Stack(
         children: [
-          if (desktop) const Positioned.fill(child: _WindowDragArea()),
+          if (showWindowControls)
+            const Positioned.fill(child: _WindowDragArea()),
           Row(
             children: [
               if (canPop)
@@ -396,7 +485,7 @@ class SubpageScaffold extends StatelessWidget {
                 ),
               ),
               ...?actions,
-              if (desktop) const _WindowButtons(),
+              if (showWindowControls) const _WindowButtons(),
               if (!desktop) const SizedBox(width: 8),
             ],
           ),
@@ -404,11 +493,20 @@ class SubpageScaffold extends StatelessWidget {
       ),
     );
 
-    final bar = Material(
-      color: p.surface,
-      child: desktop
-          ? barInner
-          : SafeArea(bottom: false, child: barInner),
+    // Extend surface behind the status bar; inset only the control row (R-23).
+    final bar = AnnotatedRegion<SystemUiOverlayStyle>(
+      value: overlay,
+      child: Material(
+        color: p.surface,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (statusTop > 0) SizedBox(height: statusTop),
+            barInner,
+          ],
+        ),
+      ),
     );
 
     return Scaffold(
@@ -424,6 +522,14 @@ class SubpageScaffold extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Match Material [AppBar]: light surface → dark status icons, and vice versa.
+SystemUiOverlayStyle _overlayForSurface(Color surface) {
+  final brightness = ThemeData.estimateBrightnessForColor(surface);
+  return brightness == Brightness.dark
+      ? SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent)
+      : SystemUiOverlayStyle.dark.copyWith(statusBarColor: Colors.transparent);
 }
 
 class _WindowButtons extends StatelessWidget {
@@ -804,74 +910,85 @@ class PageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final theme = Theme.of(context).textTheme;
+    // Canvas extends under the status bar; inset content only (R-23).
     return ColoredBox(
       color: p.canvas,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (showHeader)
-            SizedBox(
-              height: AppLayout.pageHeaderHeight,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppSpace.pageXOf(context),
-                  16,
-                  AppSpace.pageXOf(context),
-                  12,
-                ),
-                child: Row(
-                  // Top-align so title baseline is identical with/without trailing.
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: (theme.titleLarge ?? const TextStyle()).copyWith(
-                              color: p.ink,
-                              height: 1.2,
-                              leadingDistribution: TextLeadingDistribution.even,
-                            ),
-                          ),
-                          const SizedBox(height: AppSpace.xxs),
-                          Text(
-                            subtitle ?? ' ',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: (theme.bodySmall ?? const TextStyle()).copyWith(
-                              color: p.muted,
-                              height: 1.3,
-                              leadingDistribution: TextLeadingDistribution.even,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Fixed trailing slot → title column width identical on every Tab.
-                    SizedBox(
-                      width: AppLayout.pageHeaderTrailingWidth,
-                      height: 36,
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: trailing == null
-                            ? const SizedBox.shrink()
-                            : IconTheme(
-                                data: IconThemeData(color: p.muted, size: 20),
-                                child: trailing!,
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (showHeader)
+              SizedBox(
+                height: AppLayout.pageHeaderHeight,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpace.pageXOf(context),
+                    16,
+                    AppSpace.pageXOf(context),
+                    12,
+                  ),
+                  child: Row(
+                    // Top-align so title baseline is identical with/without trailing.
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: (theme.titleLarge ?? const TextStyle())
+                                  .copyWith(
+                                color: p.ink,
+                                height: 1.2,
+                                leadingDistribution:
+                                    TextLeadingDistribution.even,
                               ),
+                            ),
+                            const SizedBox(height: AppSpace.xxs),
+                            Text(
+                              subtitle ?? ' ',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: (theme.bodySmall ?? const TextStyle())
+                                  .copyWith(
+                                color: p.muted,
+                                height: 1.3,
+                                leadingDistribution:
+                                    TextLeadingDistribution.even,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      // Fixed trailing slot → title column width identical on every Tab.
+                      SizedBox(
+                        width: AppLayout.pageHeaderTrailingWidth,
+                        height: 36,
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: trailing == null
+                              ? const SizedBox.shrink()
+                              : IconTheme(
+                                  data: IconThemeData(
+                                    color: p.muted,
+                                    size: 20,
+                                  ),
+                                  child: trailing!,
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          Expanded(child: child),
-        ],
+            Expanded(child: child),
+          ],
+        ),
       ),
     );
   }

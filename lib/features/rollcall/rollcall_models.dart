@@ -177,6 +177,9 @@ class CourseRollcallRecord {
   final String platformStatus;
   final String detail;
 
+  bool get isPlaceholder =>
+      rollcallId == '-' || signedStatus.contains('无签到');
+
   String get timeLabel {
     final t = rollcallTime;
     if (t == null) return '-';

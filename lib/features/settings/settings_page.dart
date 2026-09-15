@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
@@ -11,6 +13,7 @@ import 'package:xmu_rollcall/features/assist/assist_dialogs.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
+import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
 enum ThemePreference { system, dark, light }
 
@@ -85,11 +88,31 @@ void _pushFade(BuildContext context, Widget page) {
   );
 }
 
-class SettingsPage extends ConsumerWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends ConsumerState<SettingsPage>
+    with ShellTabAware<SettingsPage> {
+  final _scroll = ScrollController();
+
+  @override
+  AppDestination get shellTab => AppDestination.settings;
+
+  @override
+  ScrollController? get shellScrollController => _scroll;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
     final themePref = ref.watch(themePreferenceProvider);
     final diagnostics = ref.watch(diagnosticsEnabledProvider);
@@ -103,6 +126,7 @@ class SettingsPage extends ConsumerWidget {
       subtitle: '账号与客户端偏好',
       showHeader: wide,
       child: ListView(
+        controller: _scroll,
         padding: EdgeInsets.fromLTRB(
           AppSpace.pageXOf(context),
           AppSpace.md,
@@ -148,21 +172,21 @@ class SettingsPage extends ConsumerWidget {
                   onChanged: (v) {
                     ref.read(themePreferenceProvider.notifier).set(v);
                   },
-                  cubes: const [
-                    AppChoiceCube(
+                  cubes: [
+                    const AppChoiceCube(
                       value: ThemePreference.light,
                       label: '浅色',
                       icon: Icons.wb_sunny_outlined,
                     ),
-                    AppChoiceCube(
+                    const AppChoiceCube(
                       value: ThemePreference.dark,
                       label: '暗色',
                       icon: Icons.dark_mode_outlined,
                     ),
                     AppChoiceCube(
                       value: ThemePreference.system,
-                      label: '跟随',
-                      icon: Icons.brightness_auto_outlined,
+                      label: '系统',
+                      icon: PlatformHooks.systemAppearanceIcon(context),
                     ),
                   ],
                 ),
@@ -185,10 +209,6 @@ class SettingsPage extends ConsumerWidget {
           SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
             header: '协助身份',
-            footer: Text(
-              '会话凭证≠密码，但仍等于登录态。默认关闭；仅同课二维码协助（Phase 3）。',
-              style: TextStyle(fontSize: 12, height: 1.4, color: p.muted),
-            ),
             children: [
               SettingsRow(
                 leading: const Icon(Icons.handshake_outlined),
@@ -302,11 +322,6 @@ class SettingsPage extends ConsumerWidget {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: AppSpace.xl),
-          Text(
-            'xmu-rollcall 本人到课客户端。默认不开启自动签到、PIN 爆破、假定位代签或协助能力。',
-            style: TextStyle(fontSize: 12, height: 1.45, color: p.muted),
           ),
         ],
       ),

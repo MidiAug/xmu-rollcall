@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/destinations.dart';
+import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
@@ -11,8 +13,28 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_list_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 
 /// 签到 Tab：进行中列表为主；轮询为快开子功能 + 二级设置。
-class RollcallHubPage extends ConsumerWidget {
+class RollcallHubPage extends ConsumerStatefulWidget {
   const RollcallHubPage({super.key});
+
+  @override
+  ConsumerState<RollcallHubPage> createState() => _RollcallHubPageState();
+}
+
+class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
+    with ShellTabAware<RollcallHubPage> {
+  final _scroll = ScrollController();
+
+  @override
+  AppDestination get shellTab => AppDestination.rollcall;
+
+  @override
+  ScrollController? get shellScrollController => _scroll;
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
 
   void _openSettings(BuildContext context) {
     Navigator.of(context).push(
@@ -35,7 +57,7 @@ class RollcallHubPage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
     final p = AppPalette.of(context);
 
@@ -44,47 +66,49 @@ class RollcallHubPage extends ConsumerWidget {
       subtitle: '数字一键签 · 雷达/二维码二级页',
       showHeader: wide,
       trailing: wide
-          ? IconButton(
-              tooltip: '刷新',
-              onPressed: () =>
+          ? AppRefreshButton(
+              color: p.muted,
+              onRefresh: () =>
                   ref.read(activeRollcallsProvider.notifier).refresh(),
-              icon: Icon(Icons.refresh_rounded, color: p.muted),
             )
           : null,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              AppSpace.pageXOf(context),
-              wide ? 0 : AppSpace.xxs,
-              AppSpace.pageXOf(context),
-              AppSpace.sm,
-            ),
-            child: Row(
-              children: [
-                const Expanded(child: _PollQuickBar()),
-                if (!wide) ...[
-                  const SizedBox(width: AppSpace.xxs),
+      child: PrimaryScrollController(
+        controller: _scroll,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpace.pageXOf(context),
+                wide ? 0 : AppSpace.xxs,
+                AppSpace.pageXOf(context),
+                AppSpace.sm,
+              ),
+              child: Row(
+                children: [
+                  const Expanded(child: _PollQuickBar()),
+                  if (!wide) ...[
+                    const SizedBox(width: AppSpace.xxs),
+                    AppRefreshButton(
+                      visualDensity: VisualDensity.compact,
+                      color: p.muted,
+                      iconSize: 22,
+                      onRefresh: () =>
+                          ref.read(activeRollcallsProvider.notifier).refresh(),
+                    ),
+                  ],
                   IconButton(
-                    tooltip: '刷新',
+                    tooltip: '轮询设置',
                     visualDensity: VisualDensity.compact,
-                    onPressed: () =>
-                        ref.read(activeRollcallsProvider.notifier).refresh(),
-                    icon: Icon(Icons.refresh_rounded, color: p.muted, size: 22),
+                    onPressed: () => _openSettings(context),
+                    icon: Icon(Icons.tune_outlined, color: p.muted, size: 22),
                   ),
                 ],
-                IconButton(
-                  tooltip: '轮询设置',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => _openSettings(context),
-                  icon: Icon(Icons.tune_outlined, color: p.muted, size: 22),
-                ),
-              ],
+              ),
             ),
-          ),
-          const Expanded(child: RollcallListPage(embedded: true)),
-        ],
+            const Expanded(child: RollcallListPage(embedded: true)),
+          ],
+        ),
       ),
     );
   }

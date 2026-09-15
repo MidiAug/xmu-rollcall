@@ -56,11 +56,13 @@ class MonitorController extends StateNotifier<MonitorState> {
 
   final Ref _ref;
   Timer? _timer;
+  Timer? _persistDebounce;
 
   static const _kEnabled = 'monitor_enabled';
   static const _kPreset = 'monitor_preset';
   static const _kInterval = 'monitor_interval';
   static const _kJitter = 'monitor_jitter';
+  static const _persistDelay = Duration(milliseconds: 400);
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -91,13 +93,27 @@ class MonitorController extends StateNotifier<MonitorState> {
     await prefs.setBool(_kEnabled, c.enabled);
   }
 
+  void _schedulePersist() {
+    _persistDebounce?.cancel();
+    _persistDebounce = Timer(_persistDelay, () {
+      _persist();
+    });
+  }
+
+  /// Flush pending prefs write (call from slider [onChangeEnd]).
+  void commitPersist() {
+    _persistDebounce?.cancel();
+    _persistDebounce = null;
+    _persist();
+  }
+
   void setPreset(MonitorPreset preset) {
     final interval =
         preset == MonitorPreset.custom ? state.config.intervalSeconds : preset.defaultSeconds;
     state = state.copyWith(
       config: state.config.copyWith(preset: preset, intervalSeconds: interval),
     );
-    _persist();
+    commitPersist();
     if (state.running) {
       stop();
       start();
@@ -107,20 +123,26 @@ class MonitorController extends StateNotifier<MonitorState> {
   void setIntervalSeconds(int seconds) {
     final clamped =
         seconds < MonitorConfig.minIntervalSeconds ? MonitorConfig.minIntervalSeconds : seconds;
+    final c = state.config;
+    if (c.intervalSeconds == clamped && c.preset == MonitorPreset.custom) {
+      return;
+    }
     state = state.copyWith(
-      config: state.config.copyWith(
+      config: c.copyWith(
         preset: MonitorPreset.custom,
         intervalSeconds: clamped,
       ),
     );
-    _persist();
+    _schedulePersist();
   }
 
   void setJitterRatio(double ratio) {
+    final next = ratio.clamp(0.0, 0.5);
+    if (state.config.jitterRatio == next) return;
     state = state.copyWith(
-      config: state.config.copyWith(jitterRatio: ratio.clamp(0, 0.5)),
+      config: state.config.copyWith(jitterRatio: next),
     );
-    _persist();
+    _schedulePersist();
   }
 
   void start() {
@@ -154,6 +176,7 @@ class MonitorController extends StateNotifier<MonitorState> {
 
   @override
   void dispose() {
+    _persistDebounce?.cancel();
     _timer?.cancel();
     _timer = null;
     super.dispose();

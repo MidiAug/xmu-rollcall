@@ -91,6 +91,7 @@ Future<void> showAssistImportDialog(
                         if (!(formKey.currentState?.validate() ?? false)) {
                           return;
                         }
+                        FocusManager.instance.primaryFocus?.unfocus();
                         setLocal(() => submitting = true);
                         try {
                           await onSubmit(pkgCtrl.text.trim(), passCtrl.text);
@@ -184,6 +185,7 @@ Future<void> showAssistExportDialog(
                         if (!(formKey.currentState?.validate() ?? false)) {
                           return;
                         }
+                        FocusManager.instance.primaryFocus?.unfocus();
                         setLocal(() => submitting = true);
                         try {
                           final sealed = await export(passCtrl.text);

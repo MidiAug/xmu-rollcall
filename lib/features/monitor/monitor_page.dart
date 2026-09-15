@@ -12,7 +12,7 @@ class MonitorSettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final palette = AppPalette.of(context);
+    final p = AppPalette.of(context);
     final state = ref.watch(monitorControllerProvider);
     final ctrl = ref.read(monitorControllerProvider.notifier);
     final c = state.config;
@@ -28,225 +28,137 @@ class MonitorSettingsPage extends ConsumerWidget {
           AppSpace.xl,
         ),
         children: [
-          Panel(
-            child: Row(
-              children: [
-                Icon(
+          SettingsSection(
+            header: '状态',
+            children: [
+              SettingsRow(
+                leading: Icon(
                   state.running ? Icons.radar : Icons.radar_outlined,
-                  size: 22,
-                  color: state.running ? palette.primary : palette.muted,
+                  color: state.running ? p.primary : p.muted,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '轮询状态',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: palette.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        !signedIn
-                            ? '请先登录'
-                            : (state.running ? '运行中' : '已停止'),
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: !signedIn
-                              ? palette.muted
-                              : (state.running
-                                  ? palette.primary
-                                  : palette.muted),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Switch.adaptive(
+                title: '课堂轮询',
+                subtitle: !signedIn
+                    ? '请先登录'
+                    : (state.running ? '运行中' : '已停止'),
+                trailing: Switch.adaptive(
                   value: state.running,
                   onChanged: !signedIn
                       ? null
                       : (v) => v ? ctrl.start() : ctrl.stop(),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
           SizedBox(height: AppSpace.stackOf(context)),
-          Panel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.schedule_outlined, size: 16, color: palette.muted),
-                    const SizedBox(width: AppSpace.xs),
-                    Text(
-                      '时间线',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: palette.ink,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpace.sm),
-                _MetaRow(label: '上次轮询', value: _fmt(state.lastPollAt)),
-                const SizedBox(height: AppSpace.xs),
-                _MetaRow(label: '下次预计', value: _fmt(state.nextPollAt)),
-              ],
-            ),
+          SettingsSection(
+            header: '时间线',
+            children: [
+              _KvRow(label: '上次轮询', value: _fmt(state.lastPollAt)),
+              _KvRow(label: '下次预计', value: _fmt(state.nextPollAt)),
+            ],
           ),
           SizedBox(height: AppSpace.stackOf(context)),
-          Panel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          SettingsSection(
+            header: '参数',
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpace.md,
+                  AppSpace.md,
+                  AppSpace.md,
+                  AppSpace.sm,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Icon(Icons.tune_outlined, size: 16, color: palette.muted),
-                    const SizedBox(width: AppSpace.xs),
                     Text(
-                      '参数',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: palette.ink,
-                      ),
+                      '预设',
+                      style: TextStyle(fontSize: 12, color: p.muted),
                     ),
-                  ],
-                ),
-                const SizedBox(height: AppSpace.sm),
-                Wrap(
-                  spacing: AppSpace.xs,
-                  runSpacing: AppSpace.xs,
-                  children: [
-                    for (final preset in MonitorPreset.values)
-                      ChoiceChip(
-                        label: Text(preset.label),
-                        selected: c.preset == preset,
-                        onSelected: (_) => ctrl.setPreset(preset),
-                        selectedColor: palette.primary.withValues(alpha: 0.22),
-                        labelStyle: TextStyle(
-                          color:
-                              c.preset == preset ? palette.ink : palette.muted,
-                          fontSize: 13,
-                        ),
-                        side: BorderSide(
-                          color: c.preset == preset
-                              ? palette.primary.withValues(alpha: 0.45)
-                              : palette.border,
-                        ),
-                        backgroundColor: palette.content,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: AppSpace.md),
-                Text(
-                  '间隔 ${c.effectiveIntervalSeconds} 秒',
-                  style: TextStyle(fontSize: 13, color: palette.ink),
-                ),
-                Slider(
-                  min: MonitorConfig.minIntervalSeconds.toDouble(),
-                  max: 120,
-                  divisions: 105,
-                  value: c.effectiveIntervalSeconds.toDouble().clamp(
-                        MonitorConfig.minIntervalSeconds.toDouble(),
-                        120,
-                      ),
-                  label: '${c.effectiveIntervalSeconds}s',
-                  onChanged: (v) => ctrl.setIntervalSeconds(v.round()),
-                ),
-                Text(
-                  '抖动 ${(c.jitterRatio * 100).round()}%',
-                  style: TextStyle(fontSize: 13, color: palette.ink),
-                ),
-                Slider(
-                  min: 0,
-                  max: 0.5,
-                  divisions: 10,
-                  value: c.jitterRatio,
-                  label: '${(c.jitterRatio * 100).round()}%',
-                  onChanged: ctrl.setJitterRatio,
-                ),
-                Text(
-                  '实际间隔 = 基准 ± 抖动，且从不低于 15 秒（对齐 KB-01）。',
-                  style: TextStyle(fontSize: 12, color: palette.muted),
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: AppSpace.stackOf(context)),
-          Panel(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.list_alt_outlined, size: 16, color: palette.muted),
-                    const SizedBox(width: AppSpace.xs),
-                    Text(
-                      '最近日志',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: palette.ink,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpace.xs),
-                if (state.logs.isEmpty)
-                  Text(
-                    '尚无轮询记录',
-                    style: TextStyle(fontSize: 12, color: palette.muted),
-                  )
-                else
-                  ...state.logs.take(12).map((e) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            e.ok
-                                ? Icons.check_circle_outline
-                                : Icons.error_outline,
-                            size: 18,
-                            color: e.ok ? palette.primary : palette.danger,
-                          ),
-                          const SizedBox(width: AppSpace.xs),
+                    const SizedBox(height: AppSpace.sm),
+                    Row(
+                      children: [
+                        for (var i = 0; i < MonitorPreset.values.length; i++) ...[
+                          if (i > 0) const SizedBox(width: AppSpace.xs),
                           Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  e.message,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: palette.ink,
-                                  ),
-                                ),
-                                Text(
-                                  e.at.toLocal().toString().substring(0, 19),
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: palette.muted,
-                                  ),
-                                ),
-                              ],
+                            child: _PresetPill(
+                              label: MonitorPreset.values[i].label,
+                              selected: c.preset == MonitorPreset.values[i],
+                              onTap: () =>
+                                  ctrl.setPreset(MonitorPreset.values[i]),
                             ),
                           ),
                         ],
+                      ],
+                    ),
+                    const SizedBox(height: AppSpace.lg),
+                    _SliderLabel(
+                      label: '间隔',
+                      value: '${c.effectiveIntervalSeconds} 秒',
+                    ),
+                    const SizedBox(height: AppSpace.xxs),
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        overlayShape: SliderComponentShape.noOverlay,
+                        trackHeight: 3,
                       ),
-                    );
-                  }),
-              ],
-            ),
+                      child: Slider(
+                        min: MonitorConfig.minIntervalSeconds.toDouble(),
+                        max: 120,
+                        divisions: 105,
+                        value: c.effectiveIntervalSeconds.toDouble().clamp(
+                              MonitorConfig.minIntervalSeconds.toDouble(),
+                              120,
+                            ),
+                        onChanged: (v) => ctrl.setIntervalSeconds(v.round()),
+                        onChangeEnd: (_) => ctrl.commitPersist(),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.sm),
+                    _SliderLabel(
+                      label: '抖动',
+                      value: '${(c.jitterRatio * 100).round()}%',
+                    ),
+                    const SizedBox(height: AppSpace.xxs),
+                    SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        overlayShape: SliderComponentShape.noOverlay,
+                        trackHeight: 3,
+                      ),
+                      child: Slider(
+                        min: 0,
+                        max: 0.5,
+                        divisions: 10,
+                        value: c.jitterRatio,
+                        onChanged: ctrl.setJitterRatio,
+                        onChangeEnd: (_) => ctrl.commitPersist(),
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.md),
+                    Text(
+                      '实际间隔 = 基准 ± 抖动，且从不低于 15 秒。',
+                      style: TextStyle(fontSize: 12, height: 1.4, color: p.muted),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppSpace.stackOf(context)),
+          SettingsSection(
+            header: '最近日志',
+            children: [
+              if (state.logs.isEmpty)
+                Padding(
+                  padding: AppDensity.rowPadding(context),
+                  child: Text(
+                    '尚无轮询记录',
+                    style: TextStyle(fontSize: 13, color: p.muted),
+                  ),
+                )
+              else
+                for (final e in state.logs.take(12)) _LogRow(entry: e),
+            ],
           ),
         ],
       ),
@@ -254,36 +166,157 @@ class MonitorSettingsPage extends ConsumerWidget {
   }
 
   String _fmt(DateTime? t) {
-    if (t == null) return '-';
+    if (t == null) return '—';
     return t.toLocal().toString().substring(0, 19);
   }
 }
 
-class _MetaRow extends StatelessWidget {
-  const _MetaRow({required this.label, required this.value});
+class _PresetPill extends StatelessWidget {
+  const _PresetPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: AppMotion.duration,
+        curve: AppMotion.curve,
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? p.selected : p.surfaceHigh,
+          borderRadius: BorderRadius.circular(AppRadii.control),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            color: selected ? p.primary : p.muted,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SliderLabel extends StatelessWidget {
+  const _SliderLabel({required this.label, required this.value});
 
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
+    final p = AppPalette.of(context);
     return Row(
       children: [
-        SizedBox(
-          width: 72,
-          child: Text(
-            label,
-            style: TextStyle(fontSize: 12, color: palette.muted),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: TextStyle(fontSize: 12, color: palette.ink),
+        Text(label, style: TextStyle(fontSize: 13, color: p.ink)),
+        const Spacer(),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: p.ink,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _KvRow extends StatelessWidget {
+  const _KvRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Padding(
+      padding: AppDensity.rowPadding(context),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 72,
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 13, color: p.muted),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 13,
+                color: p.ink,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LogRow extends StatelessWidget {
+  const _LogRow({required this.entry});
+
+  final PollLogEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Padding(
+      padding: AppDensity.rowPadding(context),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(
+              entry.ok ? Icons.check_circle_outline : Icons.error_outline,
+              size: 18,
+              color: entry.ok ? p.primary : p.danger,
+            ),
+          ),
+          SizedBox(width: AppDensity.rowInnerGap(context)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.message,
+                  style: TextStyle(fontSize: 13, height: 1.35, color: p.ink),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  entry.at.toLocal().toString().substring(0, 19),
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: p.muted,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

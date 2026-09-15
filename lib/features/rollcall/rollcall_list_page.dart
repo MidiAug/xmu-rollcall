@@ -69,6 +69,8 @@ class RollcallListPage extends ConsumerWidget {
       color: palette.primary,
       onRefresh: () => ref.read(activeRollcallsProvider.notifier).refresh(),
       child: async.when(
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -108,7 +110,7 @@ class RollcallListPage extends ConsumerWidget {
                   child: EmptyHint(
                     icon: Icons.inbox_outlined,
                     title: '暂无进行中的签到',
-                    detail: '下拉刷新，或切换到「轮询」开启监控',
+                    detail: '下拉刷新，或开启轮询监控',
                   ),
                 ),
               ],
@@ -125,7 +127,10 @@ class RollcallListPage extends ConsumerWidget {
             itemCount: items.length,
             separatorBuilder: (context, _) =>
                 SizedBox(height: AppSpace.stackOf(context)),
-            itemBuilder: (context, i) => _RollcallTile(item: items[i]),
+            itemBuilder: (context, i) => _RollcallTile(
+              key: ValueKey(items[i].rollcallId),
+              item: items[i],
+            ),
           );
         },
       ),
@@ -137,11 +142,10 @@ class RollcallListPage extends ConsumerWidget {
       title: '进行中签到',
       subtitle: '数字一键签 · 雷达/二维码进二级页',
       showHeader: wide,
-      trailing: IconButton(
-        tooltip: '刷新',
+      trailing: AppRefreshButton(
         visualDensity: VisualDensity.compact,
-        onPressed: () => ref.read(activeRollcallsProvider.notifier).refresh(),
-        icon: Icon(Icons.refresh_rounded, color: palette.muted),
+        color: palette.muted,
+        onRefresh: () => ref.read(activeRollcallsProvider.notifier).refresh(),
       ),
       child: list,
     );
@@ -149,7 +153,7 @@ class RollcallListPage extends ConsumerWidget {
 }
 
 class _RollcallTile extends ConsumerStatefulWidget {
-  const _RollcallTile({required this.item});
+  const _RollcallTile({super.key, required this.item});
 
   final RollcallItem item;
 
