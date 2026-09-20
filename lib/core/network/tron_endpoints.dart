@@ -67,4 +67,29 @@ abstract final class TronEndpoints {
 
   static Uri answerQr(int id) =>
       Uri.parse('$baseUrl/api/rollcall/$id/answer_qr_rollcall');
+
+  static Uri todos() => Uri.parse('$baseUrl/api/todos');
+
+  static Uri courseHomeworkActivities({
+    required Object courseId,
+    int page = 1,
+    int pageSize = 100,
+  }) =>
+      Uri.parse('$baseUrl/api/courses/$courseId/homework-activities').replace(
+        queryParameters: {
+          'page': '$page',
+          'page_size': '$pageSize',
+        },
+      );
+
+  static Uri courseHomeworkDetail({
+    required Object courseId,
+    required Object activityId,
+  }) =>
+      Uri.parse(
+        '$baseUrl/api/courses/$courseId/homework-activities/$activityId',
+      );
+
+  static Uri activityDetail(Object activityId) =>
+      Uri.parse('$baseUrl/api/activities/$activityId');
 }

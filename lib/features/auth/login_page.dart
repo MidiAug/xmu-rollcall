@@ -39,9 +39,15 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
   }
 
   Future<void> _prefill() async {
-    final last = await ref.read(authRepositoryProvider).lastUsername();
-    if (last != null && last.isNotEmpty && mounted) {
+    final repo = ref.read(authRepositoryProvider);
+    final last = await repo.lastUsername();
+    final saved = await repo.savedPassword();
+    if (!mounted) return;
+    if (last != null && last.isNotEmpty) {
       _userCtrl.text = last;
+    }
+    if (saved != null && saved.isNotEmpty) {
+      _passCtrl.text = saved;
     }
   }
 
@@ -180,11 +186,6 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
                         )
                       : const Text('登录'),
                 ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                '密码只用于本次请求，不会保存在本地。',
-                style: TextStyle(fontSize: 12, color: p.muted),
               ),
             ],
           ),

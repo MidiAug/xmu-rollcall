@@ -12,9 +12,16 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 
 class RollcallAnswerPage extends ConsumerStatefulWidget {
-  const RollcallAnswerPage({super.key, required this.item});
+  const RollcallAnswerPage({
+    super.key,
+    required this.item,
+    this.assistUserId,
+  });
 
   final RollcallItem item;
+
+  /// When set, submit via assist session jar / deviceId.
+  final int? assistUserId;
 
   @override
   ConsumerState<RollcallAnswerPage> createState() => _RollcallAnswerPageState();
@@ -52,7 +59,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
         sourceLabel: def.note.isEmpty ? '本课上次成功点' : '本课上次成功点（${def.note}）',
       );
       _status =
-          '已预填本课上次成功坐标：${def.latitude.toStringAsFixed(5)}, '
+          '已填入本课上次成功位置：${def.latitude.toStringAsFixed(5)}, '
           '${def.longitude.toStringAsFixed(5)}';
     });
   }
@@ -80,7 +87,9 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     if (!confirmed) return;
     setState(() => _submitting = true);
     try {
-      final result = await ref.read(rollcallRepositoryProvider).answerNumber(
+      final result = await ref
+          .read(rollcallRepositoryForProvider(widget.assistUserId))
+          .answerNumber(
             rollcallId: widget.item.rollcallId,
             numberCode: code,
           );
@@ -113,7 +122,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     setState(() => _status = '获取定位…');
     final service = await Geolocator.isLocationServiceEnabled();
     if (!service) {
-      setState(() => _status = '请打开系统定位服务，或改用地图/预设点');
+      setState(() => _status = '请打开系统定位，或改用地图选点 / 预设位置');
       return;
     }
     var permission = await Geolocator.checkPermission();
@@ -190,7 +199,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     final sel = _selection;
     if (sel == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先选择位置（系统 / 地图 / 预设）')),
+        const SnackBar(content: Text('请先选择位置')),
       );
       return;
     }
@@ -202,7 +211,9 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     if (!confirmed) return;
     setState(() => _submitting = true);
     try {
-      final result = await ref.read(rollcallRepositoryProvider).answerRadar(
+      final result = await ref
+          .read(rollcallRepositoryForProvider(widget.assistUserId))
+          .answerRadar(
             rollcallId: widget.item.rollcallId,
             latitude: sel.latitude,
             longitude: sel.longitude,
@@ -234,7 +245,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
       } else {
         setState(() {
           _status =
-              '${result.message ?? "提交失败"}。可换系统定位 / 地图 / 预设后重试。';
+              '${result.message ?? "提交失败"}。可换用系统定位、地图或预设位置后重试。';
         });
       }
     } catch (e) {

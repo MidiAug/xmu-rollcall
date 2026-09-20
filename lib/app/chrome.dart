@@ -802,7 +802,7 @@ class _NavCellState extends State<_NavCell> {
 
   IconData _icon(AppDestination d) => switch (d) {
         AppDestination.rollcall => Icons.how_to_reg_outlined,
-        AppDestination.history => Icons.history_outlined,
+        AppDestination.homework => Icons.assignment_outlined,
         AppDestination.settings => Icons.person_outline,
       };
 }
@@ -865,6 +865,9 @@ class _MobileItem extends StatelessWidget {
     final color = selected ? p.primary : p.muted;
     return InkWell(
       onTap: onTap,
+      hoverColor: p.hover,
+      splashColor: p.hover,
+      highlightColor: Colors.transparent,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -885,7 +888,7 @@ class _MobileItem extends StatelessWidget {
 
   IconData _icon(AppDestination d) => switch (d) {
         AppDestination.rollcall => Icons.how_to_reg_outlined,
-        AppDestination.history => Icons.history_outlined,
+        AppDestination.homework => Icons.assignment_outlined,
         AppDestination.settings => Icons.person_outline,
       };
 }
@@ -1245,6 +1248,9 @@ class SettingsRow extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
+        hoverColor: p.hover,
+        splashColor: p.hover,
+        highlightColor: Colors.transparent,
         child: content,
       ),
     );

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 /// Quiet Utility surfaces: cold neutrals + clear indigo accent.
+///
+/// Card hover must stay brighter than [canvas] in light mode — do **not** use
+/// [surfaceHigh] (recessed gray) as an elevated-card hover fill.
 class AppPalette {
   const AppPalette({
     required this.canvas,
@@ -14,6 +17,7 @@ class AppPalette {
     required this.border,
     required this.borderStrong,
     required this.hover,
+    required this.cardHover,
     required this.selected,
   });
 
@@ -27,7 +31,12 @@ class AppPalette {
   final Color danger;
   final Color border;
   final Color borderStrong;
+
+  /// Soft indigo wash for nav / InkWell overlays (not a solid gray fill).
   final Color hover;
+
+  /// Elevated card hover fill — still brighter than [canvas] in light mode.
+  final Color cardHover;
   final Color selected;
 
   static AppPalette of(BuildContext context) {
@@ -46,7 +55,8 @@ class AppPalette {
     danger: Color(0xFFD97777),
     border: Color(0x14FFFFFF),
     borderStrong: Color(0x22FFFFFF),
-    hover: Color(0x14FFFFFF),
+    hover: Color(0x1A6B8AFF),
+    cardHover: Color(0xFF22222A),
     selected: Color(0x286B8AFF),
   );
 
@@ -61,7 +71,8 @@ class AppPalette {
     danger: Color(0xFFC04444),
     border: Color(0x0F000000),
     borderStrong: Color(0x18000000),
-    hover: Color(0x0A000000),
+    hover: Color(0x143D5AFE),
+    cardHover: Color(0xFFF7F8FF),
     selected: Color(0x1A3D5AFE),
   );
 }

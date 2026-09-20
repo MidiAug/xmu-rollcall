@@ -29,7 +29,7 @@ class _TestAuthController extends AuthController {
 
 class _EmptyRollcalls extends ActiveRollcallsNotifier {
   @override
-  Future<List<RollcallItem>> build() async => const [];
+  Future<List<RollcallItem>> build(int? assistUserId) async => const [];
 }
 
 void main() {
@@ -54,7 +54,7 @@ void main() {
 
     expect(find.byType(AppMobileNav), findsOneWidget);
     expect(find.text('签到'), findsWidgets);
-    expect(find.text('记录'), findsWidgets);
+    expect(find.text('作业'), findsWidgets);
     expect(find.text('我的'), findsWidgets);
   });
 

@@ -9,10 +9,20 @@ class RollcallRepository {
   RollcallRepository({
     required this.http,
     required this.identity,
+    this.deviceIdOverride,
   });
 
   final TronHttpClient http;
   final DeviceIdentity identity;
+
+  /// When set (assist identity), used instead of local [DeviceIdentity].
+  final String? deviceIdOverride;
+
+  Future<String> _deviceId() async {
+    final override = deviceIdOverride?.trim();
+    if (override != null && override.isNotEmpty) return override;
+    return identity.getId();
+  }
 
   Future<List<RollcallItem>> fetchActive() async {
     await http.init();
@@ -133,7 +143,7 @@ class RollcallRepository {
           ),
         );
       }
-      await Future<void>.delayed(const Duration(milliseconds: 120));
+      await Future<void>.delayed(const Duration(milliseconds: 250));
     }
     out.sort((a, b) {
       final at = a.rollcallTime ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -271,7 +281,7 @@ class RollcallRepository {
     required int rollcallId,
     required String numberCode,
   }) async {
-    final deviceId = await identity.getId();
+    final deviceId = await _deviceId();
     final res = await http.putUri<dynamic>(
       TronEndpoints.answerNumber(rollcallId),
       data: {
@@ -288,7 +298,7 @@ class RollcallRepository {
     required double longitude,
     double accuracy = 35,
   }) async {
-    final deviceId = await identity.getId();
+    final deviceId = await _deviceId();
     final res = await http.putUri<dynamic>(
       TronEndpoints.answerRadar(rollcallId),
       data: {
@@ -309,13 +319,16 @@ class RollcallRepository {
   Future<AnswerResult> answerQr({
     required int rollcallId,
     required String data,
+    String? deviceId,
   }) async {
-    final deviceId = await identity.getId();
+    final id = (deviceId != null && deviceId.trim().isNotEmpty)
+        ? deviceId.trim()
+        : await _deviceId();
     final res = await http.putUri<dynamic>(
       TronEndpoints.answerQr(rollcallId),
       data: {
         'data': data,
-        'deviceId': deviceId,
+        'deviceId': id,
       },
     );
     return _mapAnswer(res);

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
+import 'package:xmu_rollcall/core/session/session_credential.dart';
 import 'package:xmu_rollcall/core/session/session_key.dart';
 import 'package:xmu_rollcall/features/assist/assist_qr_batch.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
@@ -7,9 +8,21 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 void main() {
   group('filterAssistForCourse', () {
     test('keeps identities whose course set contains courseId', () {
-      final a = const AssistIdentity(userId: 1, displayName: '甲');
-      final b = const AssistIdentity(userId: 2, displayName: '乙');
-      final c = const AssistIdentity(userId: 3, displayName: '丙');
+      final a = const AssistIdentity(
+        userId: 1,
+        displayName: '甲',
+        kind: AssistCredentialKind.session,
+      );
+      final b = const AssistIdentity(
+        userId: 2,
+        displayName: '乙',
+        kind: AssistCredentialKind.session,
+      );
+      final c = const AssistIdentity(
+        userId: 3,
+        displayName: '丙',
+        kind: AssistCredentialKind.session,
+      );
       final filtered = filterAssistForCourse(
         courseId: '99',
         identities: [a, b, c],
@@ -27,7 +40,11 @@ void main() {
         filterAssistForCourse(
           courseId: null,
           identities: [
-            const AssistIdentity(userId: 1, displayName: '甲'),
+            const AssistIdentity(
+              userId: 1,
+              displayName: '甲',
+              kind: AssistCredentialKind.session,
+            ),
           ],
           courseIdsByUser: {
             1: {'99'},

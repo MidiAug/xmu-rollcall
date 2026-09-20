@@ -1,6 +1,10 @@
+import 'dart:convert';
+
+import 'package:cookie_jar/cookie_jar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
+import 'package:uuid/uuid.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
+import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/core/session/assist_identity_store.dart';
 import 'package:xmu_rollcall/core/session/session_client_registry.dart';
@@ -8,6 +12,7 @@ import 'package:xmu_rollcall/core/session/session_credential.dart';
 import 'package:xmu_rollcall/core/session/session_credential_crypto.dart';
 import 'package:xmu_rollcall/core/session/session_key.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
+import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 
 class AssistProfileSnapshot {
   const AssistProfileSnapshot({required this.id, required this.name});
@@ -19,6 +24,12 @@ typedef AssistProfileProber = Future<AssistProfileSnapshot> Function(
   TronHttpClient client,
 );
 
+typedef AssistAccountLoginFn = Future<AssistProfileSnapshot> Function({
+  required String username,
+  required String password,
+  required TronHttpClient targetClient,
+});
+
 class AssistException implements Exception {
   AssistException(this.message);
   final String message;
@@ -27,26 +38,33 @@ class AssistException implements Exception {
   String toString() => message;
 }
 
-/// Export / import assist sessions (ADR-004 P3b). Discovery stays on owner.
+enum AssistExportKind { session, account }
+
+/// Export / import assist sessions (ADR-004 P3b dual track).
 class AssistService {
   AssistService({
     required SecureStore store,
     required this.registry,
     required this.prefs,
-    SessionCredentialCrypto? crypto,
+    AssistTokenCodec? codec,
     AssistIdentityStore? roster,
     this.probeProfile,
-  })  : _crypto = crypto ?? SessionCredentialCrypto(),
+    this.accountLogin,
+  })  : _store = store,
+        _codec = codec ?? AssistTokenCodec(),
         _roster = roster ?? AssistIdentityStore(store);
 
+  final SecureStore _store;
   final SessionClientRegistry registry;
   final SharedPreferences prefs;
-  final SessionCredentialCrypto _crypto;
+  final AssistTokenCodec _codec;
   final AssistIdentityStore _roster;
   final AssistProfileProber? probeProfile;
+  final AssistAccountLoginFn? accountLogin;
 
   static const prefsEnabledKey = 'assist_enabled';
-  static const defaultTtl = Duration(hours: 24);
+
+  static String accountCredKey(int userId) => 'assist_account_cred_$userId';
 
   Future<bool> isEnabled() async => prefs.getBool(prefsEnabledKey) ?? false;
 
@@ -57,72 +75,235 @@ class AssistService {
   Future<List<AssistIdentity>> listIdentities() => _roster.list();
 
   Future<String> exportOwnerPackage({
-    required String passphrase,
+    required AssistExportKind kind,
     required int profileId,
     required String profileName,
+    required String deviceId,
+    String? username,
+    String? password,
     DateTime? now,
-    Duration ttl = defaultTtl,
   }) async {
-    final owner = registry.owner();
-    await owner.init();
-    final cookies = await owner.exportCookiesJson();
-    if (cookies == null || cookies.isEmpty) {
-      throw AssistException('当前没有可导出的主号会话，请先登录');
-    }
     final at = (now ?? DateTime.now()).toUtc();
-    final plain = SessionCredentialPlain(
-      cookiesJson: cookies,
-      profileId: profileId,
-      profileName: profileName,
-      exportedAt: at,
-      suggestedExpiresAt: at.add(ttl),
-    );
-    return _crypto.sealAsync(plain, passphrase);
+    if (deviceId.trim().isEmpty) {
+      throw AssistException('缺少设备 ID，无法导出');
+    }
+
+    switch (kind) {
+      case AssistExportKind.session:
+        final owner = registry.owner();
+        await owner.init();
+        final cookies = await owner.exportCookiesJson();
+        if (cookies == null || cookies.isEmpty) {
+          throw AssistException('当前没有可导出的登录会话，请先登录');
+        }
+        return _codec.seal(
+          AssistPackagePlain(
+            kind: AssistCredentialKind.session,
+            deviceId: deviceId,
+            profileId: profileId,
+            profileName: profileName,
+            exportedAt: at,
+            cookiesJson: cookies,
+          ),
+        );
+      case AssistExportKind.account:
+        final user = username?.trim() ?? '';
+        final pass = password ?? '';
+        if (user.isEmpty || pass.isEmpty) {
+          throw AssistException('导出凭证需要学号和密码');
+        }
+        return _codec.seal(
+          AssistPackagePlain(
+            kind: AssistCredentialKind.account,
+            deviceId: deviceId,
+            profileId: profileId,
+            profileName: profileName,
+            exportedAt: at,
+            username: user,
+            password: pass,
+          ),
+        );
+    }
   }
 
-  Future<AssistIdentity> importPackage({
-    required String sealed,
-    required String passphrase,
+  /// Import a sealed `xmu2.…` token (session or account).
+  Future<AssistIdentity> importToken(
+    String token, {
     DateTime? now,
-    /// Logged-in owner profile id — importing self is rejected.
     int? ownerUserId,
   }) async {
-    final plain = await _crypto.openAsync(sealed, passphrase);
+    final plain = _codec.open(token);
     final clock = (now ?? DateTime.now()).toUtc();
-    if (plain.isSuggestedExpired(clock)) {
-      throw SessionCredentialException('凭证包已过建议有效期，请对方重新导出');
-    }
-    if (plain.profileId <= 0) {
-      throw AssistException('凭证包缺少有效用户 ID');
-    }
-    if (ownerUserId != null &&
-        ownerUserId > 0 &&
-        plain.profileId == ownerUserId) {
-      throw AssistException('不能导入当前登录账号自己的凭证');
+    return _ingestPackage(plain, clock: clock, ownerUserId: ownerUserId);
+  }
+
+  /// Import plain IDS username/password (no sealed token).
+  Future<AssistIdentity> importPlainAccount({
+    required String username,
+    required String password,
+    DateTime? now,
+    int? ownerUserId,
+    String? deviceId,
+  }) async {
+    final clock = (now ?? DateTime.now()).toUtc();
+    final id = (deviceId != null && deviceId.trim().isNotEmpty)
+        ? deviceId.trim()
+        : const Uuid().v4();
+    final plain = AssistPackagePlain(
+      kind: AssistCredentialKind.account,
+      deviceId: id,
+      profileId: 0,
+      profileName: username.trim(),
+      exportedAt: clock,
+      username: username.trim(),
+      password: password,
+    );
+    return _ingestPackage(plain, clock: clock, ownerUserId: ownerUserId);
+  }
+
+  Future<AssistIdentity> _ingestPackage(
+    AssistPackagePlain plain, {
+    required DateTime clock,
+    int? ownerUserId,
+  }) async {
+    if (plain.kind == AssistCredentialKind.session) {
+      if (plain.profileId <= 0) {
+        throw AssistException('协助码缺少有效用户信息');
+      }
+      _rejectSelf(plain.profileId, ownerUserId);
+      if (plain.cookiesJson == null || plain.cookiesJson!.isEmpty) {
+        throw AssistException('协助码中缺少登录信息');
+      }
+      final key = SessionKey.assist(plain.profileId);
+      final client = registry.forKey(key);
+      await client.importCookiesJson(plain.cookiesJson!);
+      final probed = await _probe(client);
+      _rejectSelf(probed.id, ownerUserId);
+      final identity = AssistIdentity(
+        userId: probed.id,
+        displayName: probed.name,
+        kind: AssistCredentialKind.session,
+        deviceId: plain.deviceId.isNotEmpty ? plain.deviceId : null,
+        importedAt: clock,
+      );
+      await _roster.upsert(identity);
+      await _store.delete(accountCredKey(probed.id));
+      return identity;
     }
 
-    final key = SessionKey.assist(plain.profileId);
-    final client = registry.forKey(key);
-    await client.importCookiesJson(plain.cookiesJson);
-
-    final probed = await _probe(client);
-    if (ownerUserId != null && ownerUserId > 0 && probed.id == ownerUserId) {
-      await registry.disposeAssist(probed.id);
-      throw AssistException('不能导入当前登录账号自己的凭证');
+    // account
+    final user = plain.username?.trim() ?? '';
+    final pass = plain.password ?? '';
+    if (user.isEmpty || pass.isEmpty) {
+      throw AssistException('协助码缺少学号或密码');
     }
+
+    final loginClient = _ephemeralClient();
+    final probed = await _loginAccount(
+      username: user,
+      password: pass,
+      targetClient: loginClient,
+    );
+    _rejectSelf(probed.id, ownerUserId);
+
+    final cookies = await loginClient.exportCookiesJson();
+    if (cookies == null || cookies.isEmpty) {
+      throw AssistException('登录成功但会话未建立，请重试');
+    }
+    final assistClient = registry.forKey(SessionKey.assist(probed.id));
+    await assistClient.importCookiesJson(cookies);
+
+    final deviceId = plain.deviceId.isNotEmpty ? plain.deviceId : const Uuid().v4();
+    await _store.write(
+      accountCredKey(probed.id),
+      jsonEncode({'username': user, 'password': pass}),
+    );
     final identity = AssistIdentity(
       userId: probed.id,
       displayName: probed.name,
+      kind: AssistCredentialKind.account,
+      deviceId: deviceId,
       importedAt: clock,
-      suggestedExpiresAt: plain.suggestedExpiresAt,
     );
     await _roster.upsert(identity);
     return identity;
   }
 
+  void _rejectSelf(int profileId, int? ownerUserId) {
+    if (ownerUserId != null && ownerUserId > 0 && profileId == ownerUserId) {
+      throw AssistException('不能导入当前登录账号自己的凭证');
+    }
+  }
+
+  /// If account cookies died, re-login using stored credentials.
+  Future<void> ensureSession(AssistIdentity identity) async {
+    final client = registry.forKey(SessionKey.assist(identity.userId));
+    await client.init();
+    try {
+      await _probe(client);
+      return;
+    } catch (_) {
+      if (identity.kind != AssistCredentialKind.account) {
+        rethrow;
+      }
+    }
+    final raw = await _store.read(accountCredKey(identity.userId));
+    if (raw == null || raw.isEmpty) {
+      throw AssistException('登录已失效，且没有可用于重新登录的密码，请重新导入');
+    }
+    final map = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    final user = map['username'] as String? ?? '';
+    final pass = map['password'] as String? ?? '';
+    if (user.isEmpty || pass.isEmpty) {
+      throw AssistException('保存的账号信息不完整，请重新导入');
+    }
+    final loginClient = _ephemeralClient();
+    await _loginAccount(
+      username: user,
+      password: pass,
+      targetClient: loginClient,
+    );
+    final cookies = await loginClient.exportCookiesJson();
+    if (cookies == null || cookies.isEmpty) {
+      throw AssistException('重新登录失败，请稍后重试');
+    }
+    await client.importCookiesJson(cookies);
+  }
+
   Future<void> removeIdentity(int userId) async {
     await registry.disposeAssist(userId);
+    await _store.delete(accountCredKey(userId));
     await _roster.remove(userId);
+  }
+
+  TronHttpClient _ephemeralClient() {
+    return TronHttpClient(
+      store: SecureStore.memory(),
+      sessionKey: SessionKey.owner,
+      cookieJar: CookieJar(),
+    );
+  }
+
+  Future<AssistProfileSnapshot> _loginAccount({
+    required String username,
+    required String password,
+    required TronHttpClient targetClient,
+  }) async {
+    final custom = accountLogin;
+    if (custom != null) {
+      return custom(
+        username: username,
+        password: password,
+        targetClient: targetClient,
+      );
+    }
+    await targetClient.init();
+    final auth = AuthRepository(
+      http: targetClient,
+      store: SecureStore.memory(),
+    );
+    final profile = await auth.signIn(username: username, password: password);
+    return AssistProfileSnapshot(id: profile.id, name: profile.name);
   }
 
   Future<AssistProfileSnapshot> _probe(TronHttpClient client) async {
@@ -131,12 +312,12 @@ class AssistService {
     final res =
         await client.getUri<Map<String, dynamic>>(TronEndpoints.profile());
     final data = res.data;
-    if (data == null) throw AssistException('协助会话探活失败：无资料');
+    if (data == null) throw AssistException('协助账号验证失败，请重新导入');
     final id = (data['id'] as num?)?.toInt() ?? 0;
     final name = (data['name'] as String?) ??
         (data['user_name'] as String?) ??
         '用户';
-    if (id <= 0) throw AssistException('协助会话探活失败：无效用户');
+    if (id <= 0) throw AssistException('协助账号无效，请重新导入');
     return AssistProfileSnapshot(id: id, name: name);
   }
 }

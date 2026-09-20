@@ -76,10 +76,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('协助身份'), findsOneWidget);
+    expect(find.text('协助签到'), findsOneWidget);
     expect(find.text('启用协助'), findsOneWidget);
-    expect(find.text('导出主号凭证'), findsOneWidget);
-    expect(find.text('导入会话凭证'), findsOneWidget);
+    expect(find.text('导出协助码'), findsOneWidget);
+    expect(find.text('导入协助身份'), findsOneWidget);
 
     final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
     expect(switches, isNotEmpty);

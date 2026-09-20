@@ -6,7 +6,7 @@ import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
-import 'package:xmu_rollcall/features/history/history_page.dart';
+import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
 import 'package:xmu_rollcall/features/settings/settings_page.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
@@ -72,7 +72,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       index: _current.index,
       children: [
         _tabNavigator(AppDestination.rollcall, const RollcallHubPage()),
-        _tabNavigator(AppDestination.history, const HistoryPage()),
+        _tabNavigator(AppDestination.homework, const HomeworkHubPage()),
         _tabNavigator(AppDestination.settings, const SettingsPage()),
       ],
     );

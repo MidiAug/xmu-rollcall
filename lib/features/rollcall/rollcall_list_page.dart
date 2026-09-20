@@ -11,18 +11,30 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 
 class RollcallListPage extends ConsumerWidget {
-  const RollcallListPage({super.key, this.embedded = false});
+  const RollcallListPage({
+    super.key,
+    this.embedded = false,
+    this.assistUserId,
+    this.enableAssistMulti = true,
+  });
 
-  /// When true, omit outer [PageScaffold] (used inside [RollcallHubPage]).
+  /// When true, omit outer [PageScaffold] (used inside hub pages).
   final bool embedded;
+
+  /// `null` = owner; otherwise assist identity userId.
+  final int? assistUserId;
+
+  /// When false (assist hub), QR page has no multi-person assist UI.
+  final bool enableAssistMulti;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authControllerProvider);
     final palette = AppPalette.of(context);
     final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
+    final forAssist = assistUserId != null;
 
-    if (!auth.isSignedIn) {
+    if (!forAssist && !auth.isSignedIn) {
       final body = Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -64,10 +76,12 @@ class RollcallListPage extends ConsumerWidget {
       );
     }
 
-    final async = ref.watch(activeRollcallsProvider);
+    final scope = assistUserId;
+    final async = ref.watch(activeRollcallsProvider(scope));
     final list = RefreshIndicator(
       color: palette.primary,
-      onRefresh: () => ref.read(activeRollcallsProvider.notifier).refresh(),
+      onRefresh: () =>
+          ref.read(activeRollcallsProvider(scope).notifier).refresh(),
       child: async.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
@@ -81,7 +95,7 @@ class RollcallListPage extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '拉取失败',
+                    '加载失败',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
                       color: palette.ink,
@@ -91,8 +105,9 @@ class RollcallListPage extends ConsumerWidget {
                   Text('$e', style: TextStyle(color: palette.muted)),
                   const SizedBox(height: 12),
                   FilledButton(
-                    onPressed: () =>
-                        ref.read(activeRollcallsProvider.notifier).refresh(),
+                    onPressed: () => ref
+                        .read(activeRollcallsProvider(scope).notifier)
+                        .refresh(),
                     child: const Text('重试'),
                   ),
                 ],
@@ -110,7 +125,7 @@ class RollcallListPage extends ConsumerWidget {
                   child: EmptyHint(
                     icon: Icons.inbox_outlined,
                     title: '暂无进行中的签到',
-                    detail: '下拉刷新，或开启轮询监控',
+                    detail: '下拉刷新，或开启自动检测',
                   ),
                 ),
               ],
@@ -130,6 +145,8 @@ class RollcallListPage extends ConsumerWidget {
             itemBuilder: (context, i) => _RollcallTile(
               key: ValueKey(items[i].rollcallId),
               item: items[i],
+              assistUserId: assistUserId,
+              enableAssistMulti: enableAssistMulti,
             ),
           );
         },
@@ -140,12 +157,12 @@ class RollcallListPage extends ConsumerWidget {
 
     return PageScaffold(
       title: '进行中签到',
-      subtitle: '数字一键签 · 雷达/二维码进二级页',
       showHeader: wide,
       trailing: AppRefreshButton(
         visualDensity: VisualDensity.compact,
         color: palette.muted,
-        onRefresh: () => ref.read(activeRollcallsProvider.notifier).refresh(),
+        onRefresh: () =>
+            ref.read(activeRollcallsProvider(scope).notifier).refresh(),
       ),
       child: list,
     );
@@ -153,9 +170,16 @@ class RollcallListPage extends ConsumerWidget {
 }
 
 class _RollcallTile extends ConsumerStatefulWidget {
-  const _RollcallTile({super.key, required this.item});
+  const _RollcallTile({
+    super.key,
+    required this.item,
+    this.assistUserId,
+    this.enableAssistMulti = true,
+  });
 
   final RollcallItem item;
+  final int? assistUserId;
+  final bool enableAssistMulti;
 
   @override
   ConsumerState<_RollcallTile> createState() => _RollcallTileState();
@@ -184,15 +208,17 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     }
     setState(() => _submitting = true);
     try {
-      final result = await ref.read(rollcallRepositoryProvider).answerNumber(
-            rollcallId: item.rollcallId,
-            numberCode: code,
-          );
+      final repo =
+          ref.read(rollcallRepositoryForProvider(widget.assistUserId));
+      final result = await repo.answerNumber(
+        rollcallId: item.rollcallId,
+        numberCode: code,
+      );
       await ref.read(historyProvider.notifier).add(
             RollcallHistoryEntry(
               rollcallId: item.rollcallId,
               courseTitle: item.courseTitle,
-              typeLabel: '数字',
+              typeLabel: widget.assistUserId == null ? '数字' : '数字·协助',
               ok: result.ok,
               at: DateTime.now(),
               detail: result.message,
@@ -203,7 +229,9 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
         SnackBar(content: Text(result.message ?? (result.ok ? '成功' : '失败'))),
       );
       if (result.ok) {
-        await ref.read(activeRollcallsProvider.notifier).refresh();
+        await ref
+            .read(activeRollcallsProvider(widget.assistUserId).notifier)
+            .refresh();
       }
     } catch (e) {
       if (!mounted) return;
@@ -220,14 +248,21 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     if (item.type == RollcallType.qrcode) {
       Navigator.of(context).push(
         MaterialPageRoute<void>(
-          builder: (_) => QrAnswerPage(item: item),
+          builder: (_) => QrAnswerPage(
+            item: item,
+            assistUserId: widget.assistUserId,
+            enableAssistMulti: widget.enableAssistMulti,
+          ),
         ),
       );
       return;
     }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => RollcallAnswerPage(item: item),
+        builder: (_) => RollcallAnswerPage(
+          item: item,
+          assistUserId: widget.assistUserId,
+        ),
       ),
     );
   }
@@ -255,8 +290,11 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
         duration: AppMotion.duration,
         curve: AppMotion.curve,
         decoration: BoxDecoration(
-          color: _hover ? palette.surfaceHigh : palette.surface,
+          color: _hover ? palette.cardHover : palette.surface,
           borderRadius: BorderRadius.circular(AppRadii.card),
+          border: Border.all(
+            color: _hover ? palette.borderStrong : Colors.transparent,
+          ),
         ),
         child: Padding(
           padding: const EdgeInsets.all(AppSpace.sm),
@@ -432,6 +470,9 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
       child: InkWell(
         onTap: () => _copyCode(code),
         borderRadius: BorderRadius.circular(AppRadii.control),
+        hoverColor: palette.hover,
+        splashColor: palette.hover,
+        highlightColor: Colors.transparent,
         child: Padding(
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpace.sm,
@@ -495,7 +536,7 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
         if (item.type == RollcallType.unknown) ...[
           const SizedBox(height: AppSpace.xs),
           Text(
-            '未知类型，可下拉刷新',
+            '暂不支持此签到类型，可下拉刷新重试',
             style: TextStyle(fontSize: 12, color: palette.muted),
           ),
         ],

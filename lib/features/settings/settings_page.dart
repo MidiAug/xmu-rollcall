@@ -7,10 +7,12 @@ import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
+import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/assist/assist_dialogs.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/core/session/session_credential.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
@@ -123,7 +125,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
 
     return PageScaffold(
       title: '我的',
-      subtitle: '账号与客户端偏好',
       showHeader: wide,
       child: ListView(
         controller: _scroll,
@@ -144,7 +145,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                     : '未登录',
                 subtitle: auth.isSignedIn
                     ? 'ID ${auth.profile?.id ?? "-"}'
-                    : '学号密码登录畅课会话',
+                    : '使用学号密码登录',
                 trailing: auth.isSignedIn
                     ? TextButton(
                         onPressed: () async {
@@ -200,7 +201,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               SettingsRow(
                 leading: const Icon(Icons.place_outlined),
                 title: '预设位置',
-                subtitle: '地图添加与管理',
+                subtitle: '管理常用签到位置',
                 trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
                 onTap: () => _pushFade(context, const SavedLocationsPage()),
               ),
@@ -208,12 +209,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           ),
           SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
-            header: '协助身份',
+            header: '协助签到',
             children: [
               SettingsRow(
                 leading: const Icon(Icons.handshake_outlined),
                 title: '启用协助',
-                subtitle: '默认关；开启前确认风险',
+                subtitle: '代同学签到，开启前需确认',
                 trailing: Switch.adaptive(
                   value: assist.enabled,
                   onChanged: !assist.ready || assist.busy
@@ -231,38 +232,68 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               ),
               SettingsRow(
                 leading: const Icon(Icons.upload_outlined),
-                title: '导出主号凭证',
-                subtitle: auth.isSignedIn ? '口令加密 · 复制 JSON' : '需先登录',
+                title: '导出协助码',
+                subtitle: auth.isSignedIn ? '生成后复制给同学' : '请先登录',
                 trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
                 onTap: !assist.enabled || !auth.isSignedIn || assist.busy
                     ? null
-                    : () => showAssistExportDialog(
+                    : () async {
+                        final store = ref.read(secureStoreProvider);
+                        final lastUser =
+                            await store.read(SecureStore.keyLastUsername);
+                        final savedPass =
+                            await store.read(SecureStore.keyOwnerPassword);
+                        if (!context.mounted) return;
+                        await showAssistExportDialog(
                           context,
-                          export: (pass) => ref
-                              .read(assistControllerProvider.notifier)
-                              .exportOwner(pass),
-                        ),
+                          suggestedUsername: lastUser,
+                          savedPassword: savedPass,
+                          export: ({
+                            required kind,
+                            username,
+                            password,
+                          }) =>
+                              ref
+                                  .read(assistControllerProvider.notifier)
+                                  .exportOwner(
+                                    kind: kind,
+                                    username: username,
+                                    password: password,
+                                  ),
+                        );
+                      },
               ),
               SettingsRow(
                 leading: const Icon(Icons.download_outlined),
-                title: '导入会话凭证',
-                subtitle: '粘贴对方导出的包',
+                title: '导入协助身份',
+                subtitle: '粘贴协助码或输入学号密码',
                 trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
                 onTap: !assist.enabled || assist.busy
                     ? null
                     : () => showAssistImportDialog(
                           context,
-                          onSubmit: (sealed, pass) async {
+                          onImportToken: (token) async {
                             final id = await ref
                                 .read(assistControllerProvider.notifier)
-                                .importPackage(
-                                  sealed: sealed,
-                                  passphrase: pass,
+                                .importToken(token);
+                            if (context.mounted) {
+                              AppToast.show(
+                                context,
+                                '已导入 ${id.displayName}（${id.kind.labelZh}）',
+                              );
+                            }
+                          },
+                          onImportPlain: (user, pass) async {
+                            final id = await ref
+                                .read(assistControllerProvider.notifier)
+                                .importPlainAccount(
+                                  username: user,
+                                  password: pass,
                                 );
                             if (context.mounted) {
                               AppToast.show(
                                 context,
-                                '已导入 ${id.displayName}',
+                                '已导入 ${id.displayName}（${id.kind.labelZh}）',
                               );
                             }
                           },
@@ -289,7 +320,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 builder: (context, snap) {
                   return SettingsRow(
                     leading: const Icon(Icons.devices_outlined),
-                    title: '设备 ID（稳定）',
+                    title: '设备 ID',
                     subtitleWidget: snap.data == null
                         ? Text('…',
                             style: TextStyle(color: p.muted, fontSize: 12))
@@ -307,14 +338,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                               ],
                             ),
                           ),
-                    subtitle: '安装后持久化，不会每次请求随机生成。',
+                    subtitle: '用于识别本机，重装前保持不变',
                   );
                 },
               ),
               SettingsRow(
                 leading: const Icon(Icons.bug_report_outlined),
                 title: '诊断日志',
-                subtitle: '本地开关；勿把密码写入日志',
+                subtitle: '仅保存在本机，请勿记录密码',
                 trailing: Switch.adaptive(
                   value: diagnostics,
                   onChanged: (v) =>

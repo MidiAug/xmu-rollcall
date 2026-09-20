@@ -17,9 +17,20 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
 
 /// QR secondary page: paste/scan data once → serial submit for selected identities.
 class QrAnswerPage extends ConsumerStatefulWidget {
-  const QrAnswerPage({super.key, required this.item});
+  const QrAnswerPage({
+    super.key,
+    required this.item,
+    this.assistUserId,
+    this.enableAssistMulti = true,
+  });
 
   final RollcallItem item;
+
+  /// When set, this page operates for that assist identity only.
+  final int? assistUserId;
+
+  /// Owner QR multi-assist UI; false on assist hub (no「再协助他人」).
+  final bool enableAssistMulti;
 
   @override
   ConsumerState<QrAnswerPage> createState() => _QrAnswerPageState();
@@ -35,10 +46,23 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
   List<AssistQrSubmitResult> _results = const [];
   String? _status;
 
+  bool get _singleAssist =>
+      widget.assistUserId != null || !widget.enableAssistMulti;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadEligible());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_singleAssist) {
+        setState(() {
+          _status = widget.assistUserId != null
+              ? '将以该协助身份提交（不勾选他人）'
+              : null;
+        });
+        return;
+      }
+      _loadEligible();
+    });
   }
 
   @override
@@ -52,7 +76,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
     if (!assist.enabled || assist.identities.isEmpty) {
       setState(() {
         _eligible = const [];
-        _status = assist.enabled ? null : '协助未开启：仅提交主号';
+        _status = assist.enabled ? null : '协助未开启，将只提交本人';
       });
       return;
     }
@@ -60,21 +84,28 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
     if (courseId == null) {
       setState(() {
         _eligible = const [];
-        _status = '列表未带 course_id，无法过滤同课协助（仅主号）';
+        _status = '无法确认同课协助对象，将只提交本人';
       });
       return;
     }
 
     setState(() {
       _loadingEligible = true;
-      _status = '正在核对协助身份课程…';
+      _status = '正在核对协助对象的课程…';
     });
 
     try {
       final registry = ref.read(sessionClientRegistryProvider);
       final identity = ref.read(deviceIdentityProvider);
+      final assistSvc = await ref.read(assistServiceProvider.future);
       final byUser = <int, Set<String>>{};
       for (final a in assist.identities) {
+        try {
+          await assistSvc.ensureSession(a);
+        } catch (_) {
+          byUser[a.userId] = {};
+          continue;
+        }
         final client = registry.forKey(SessionKey.assist(a.userId));
         await client.init();
         final repo = RollcallRepository(http: client, identity: identity);
@@ -127,30 +158,62 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
     }
 
     final targets = <AssistQrTarget>[];
-    if (_includeOwner) {
-      final profile = ref.read(authControllerProvider).profile;
-      targets.add(
-        AssistQrTarget(
-          key: SessionKey.owner,
-          label: profile?.name ?? '我',
-          userId: profile?.id ?? 0,
-        ),
-      );
-    }
-    for (final a in _eligible) {
-      if (_selectedAssist.contains(a.userId)) {
+    if (_singleAssist) {
+      final assistId = widget.assistUserId;
+      if (assistId != null) {
+        final roster = ref.read(assistControllerProvider).identities;
+        AssistIdentity? meta;
+        for (final e in roster) {
+          if (e.userId == assistId) {
+            meta = e;
+            break;
+          }
+        }
         targets.add(
           AssistQrTarget(
-            key: SessionKey.assist(a.userId),
-            label: a.displayName,
-            userId: a.userId,
+            key: SessionKey.assist(assistId),
+            label: meta?.displayName ?? '协助',
+            userId: assistId,
+            deviceId: meta?.deviceId,
           ),
         );
+      } else {
+        final profile = ref.read(authControllerProvider).profile;
+        targets.add(
+          AssistQrTarget(
+            key: SessionKey.owner,
+            label: profile?.name ?? '我',
+            userId: profile?.id ?? 0,
+          ),
+        );
+      }
+    } else {
+      if (_includeOwner) {
+        final profile = ref.read(authControllerProvider).profile;
+        targets.add(
+          AssistQrTarget(
+            key: SessionKey.owner,
+            label: profile?.name ?? '我',
+            userId: profile?.id ?? 0,
+          ),
+        );
+      }
+      for (final a in _eligible) {
+        if (_selectedAssist.contains(a.userId)) {
+          targets.add(
+            AssistQrTarget(
+              key: SessionKey.assist(a.userId),
+              label: a.displayName,
+              userId: a.userId,
+              deviceId: a.deviceId,
+            ),
+          );
+        }
       }
     }
     if (targets.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请至少勾选一个提交对象')),
+        const SnackBar(content: Text('请至少选择一人')),
       );
       return;
     }
@@ -161,7 +224,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
       title: '确认二维码签到',
       message: '课程：${widget.item.courseTitle}\n'
           '对象（${targets.length}）：$names\n\n'
-          '将串行提交同一份二维码 data（非并发）。',
+          '将按顺序为所选对象提交同一份二维码。',
       confirmLabel: '确认提交',
     );
     if (!ok) return;
@@ -173,14 +236,33 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
 
     final registry = ref.read(sessionClientRegistryProvider);
     final identity = ref.read(deviceIdentityProvider);
+    final assistSvc = await ref.read(assistServiceProvider.future);
     final runner = AssistQrBatchRunner(
       submit: (target, data) async {
+        if (!target.key.isOwner) {
+          final roster = ref.read(assistControllerProvider).identities;
+          AssistIdentity? meta;
+          for (final e in roster) {
+            if (e.userId == target.userId) {
+              meta = e;
+              break;
+            }
+          }
+          if (meta != null) {
+            try {
+              await assistSvc.ensureSession(meta);
+            } catch (_) {
+              // Fall through; answer will surface the error.
+            }
+          }
+        }
         final client = registry.forKey(target.key);
         await client.init();
         final repo = RollcallRepository(http: client, identity: identity);
         return repo.answerQr(
           rollcallId: widget.item.rollcallId,
           data: data,
+          deviceId: target.deviceId,
         );
       },
     );
@@ -227,6 +309,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
       final again = await repo.answerQr(
         rollcallId: widget.item.rollcallId,
         data: data,
+        deviceId: failed.target.deviceId,
       );
       if (!mounted) return;
       setState(() {
@@ -273,8 +356,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                '发起人：${item.createdByName}'
-                '${item.courseId != null ? " · 课 ${item.courseId}" : ""}',
+                '发起人：${item.createdByName}',
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               if (_status != null) ...[
@@ -285,55 +367,56 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
                 ),
               ],
               const SizedBox(height: 20),
-              Text(
-                '提交对象',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: p.ink,
+              if (!_singleAssist) ...[
+                Text(
+                  '提交对象',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: p.ink,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              CheckboxListTile(
-                value: _includeOwner,
-                onChanged: _submitting
-                    ? null
-                    : (v) => setState(() => _includeOwner = v ?? true),
-                title: const Text('我（主号）'),
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: EdgeInsets.zero,
-              ),
-              if (_loadingEligible)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: LinearProgressIndicator(minHeight: 2),
-                ),
-              for (final a in _eligible)
+                const SizedBox(height: 8),
                 CheckboxListTile(
-                  value: _selectedAssist.contains(a.userId),
+                  value: _includeOwner,
                   onChanged: _submitting
                       ? null
-                      : (v) {
-                          setState(() {
-                            if (v == true) {
-                              _selectedAssist.add(a.userId);
-                            } else {
-                              _selectedAssist.remove(a.userId);
-                            }
-                          });
-                        },
-                  title: Text(a.displayName),
-                  subtitle: Text('ID ${a.userId}'),
+                      : (v) => setState(() => _includeOwner = v ?? true),
+                  title: const Text('我'),
                   controlAffinity: ListTileControlAffinity.leading,
                   contentPadding: EdgeInsets.zero,
                 ),
-              const SizedBox(height: 16),
+                if (_loadingEligible)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: LinearProgressIndicator(minHeight: 2),
+                  ),
+                for (final a in _eligible)
+                  CheckboxListTile(
+                    value: _selectedAssist.contains(a.userId),
+                    onChanged: _submitting
+                        ? null
+                        : (v) {
+                            setState(() {
+                              if (v == true) {
+                                _selectedAssist.add(a.userId);
+                              } else {
+                                _selectedAssist.remove(a.userId);
+                              }
+                            });
+                          },
+                    title: Text(a.displayName),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                const SizedBox(height: 16),
+              ],
               TextField(
                 controller: _dataCtrl,
                 maxLines: 4,
                 decoration: const InputDecoration(
-                  labelText: '二维码内容 / data',
-                  hintText: '粘贴扫码结果或剪贴板（相机扫码后续接入）',
+                  labelText: '二维码内容',
+                  hintText: '粘贴扫码得到的内容',
                   alignLabelWithHint: true,
                 ),
               ),
@@ -349,7 +432,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: _submitting ? null : _submit,
-                child: Text(_submitting ? '串行提交中…' : '确认并提交'),
+                child: Text(_submitting ? '提交中…' : '确认并提交'),
               ),
               if (_results.isNotEmpty) ...[
                 const SizedBox(height: 24),

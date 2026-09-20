@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/core/session/assist_service.dart';
+import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 
 final assistServiceProvider = FutureProvider<AssistService>((ref) async {
@@ -95,21 +96,33 @@ class AssistController extends StateNotifier<AssistUiState> {
     state = state.copyWith(enabled: value, clearError: true);
   }
 
-  Future<String> exportOwner(String passphrase) async {
+  Future<String> exportOwner({
+    required AssistExportKind kind,
+    String? username,
+    String? password,
+  }) async {
     state = state.copyWith(busy: true, clearError: true);
     try {
       final auth = _ref.read(authControllerProvider);
       final profile = auth.profile;
       if (profile == null) {
-        throw AssistException('请先登录主号再导出');
+        throw AssistException('请先登录后再导出');
       }
+      final deviceId = await _ref.read(deviceIdentityProvider).getId();
+      final store = _ref.read(secureStoreProvider);
+      final lastUser = await store.read(SecureStore.keyLastUsername);
+      final savedPass = await store.read(SecureStore.keyOwnerPassword);
       final svc = await _service();
-      final sealed = await svc.exportOwnerPackage(
-        passphrase: passphrase,
+      return svc.exportOwnerPackage(
+        kind: kind,
         profileId: profile.id,
         profileName: profile.name,
+        deviceId: deviceId,
+        username: username ?? lastUser,
+        password: (password != null && password.isNotEmpty)
+            ? password
+            : savedPass,
       );
-      return sealed;
     } catch (e) {
       state = state.copyWith(errorMessage: e.toString());
       rethrow;
@@ -118,17 +131,36 @@ class AssistController extends StateNotifier<AssistUiState> {
     }
   }
 
-  Future<AssistIdentity> importPackage({
-    required String sealed,
-    required String passphrase,
+  Future<AssistIdentity> importToken(String token) async {
+    state = state.copyWith(busy: true, clearError: true);
+    try {
+      final ownerId = _ref.read(authControllerProvider).profile?.id;
+      final svc = await _service();
+      final identity = await svc.importToken(
+        token,
+        ownerUserId: ownerId,
+      );
+      await refresh();
+      return identity;
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+      rethrow;
+    } finally {
+      state = state.copyWith(busy: false);
+    }
+  }
+
+  Future<AssistIdentity> importPlainAccount({
+    required String username,
+    required String password,
   }) async {
     state = state.copyWith(busy: true, clearError: true);
     try {
       final ownerId = _ref.read(authControllerProvider).profile?.id;
       final svc = await _service();
-      final identity = await svc.importPackage(
-        sealed: sealed,
-        passphrase: passphrase,
+      final identity = await svc.importPlainAccount(
+        username: username,
+        password: password,
         ownerUserId: ownerId,
       );
       await refresh();

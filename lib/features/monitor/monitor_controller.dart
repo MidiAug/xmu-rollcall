@@ -201,14 +201,15 @@ class MonitorController extends StateNotifier<MonitorState> {
   Future<void> _tick() async {
     if (!state.running) return;
     try {
-      await _ref.read(activeRollcallsProvider.notifier).refresh();
-      final list = _ref.read(activeRollcallsProvider).valueOrNull ?? const [];
+      await _ref.read(activeRollcallsProvider(null).notifier).refresh();
+      final list =
+          _ref.read(activeRollcallsProvider(null)).valueOrNull ?? const [];
       if (list.isNotEmpty) {
         // Stop as soon as any ongoing rollcall exists — independent of type / code.
         final entry = PollLogEntry(
           at: DateTime.now(),
           ok: true,
-          message: '发现进行中 ${list.length} 条，已停止轮询',
+          message: '发现进行中 ${list.length} 条，已停止检测',
         );
         _timer?.cancel();
         _timer = null;
@@ -226,7 +227,7 @@ class MonitorController extends StateNotifier<MonitorState> {
       final entry = PollLogEntry(
         at: DateTime.now(),
         ok: true,
-        message: '拉取成功，暂无进行中签到',
+        message: '检测成功，暂无进行中签到',
         nextIn: state.config.nextDelay(),
       );
       state = state.copyWith(

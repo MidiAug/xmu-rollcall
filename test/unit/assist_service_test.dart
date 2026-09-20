@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
@@ -24,10 +22,12 @@ void main() {
         const AssistIdentity(
           userId: 9,
           displayName: '张三',
+          kind: AssistCredentialKind.session,
           importedAt: null,
         ),
       );
       expect((await roster.list()).single.displayName, '张三');
+      expect((await roster.list()).single.kind, AssistCredentialKind.session);
       await roster.remove(9);
       expect(await roster.list(), isEmpty);
     });
@@ -37,12 +37,10 @@ void main() {
     late SecureStore store;
     late SessionClientRegistry registry;
     late AssistService service;
-    late SessionCredentialCrypto crypto;
 
     setUp(() async {
       SharedPreferences.setMockInitialValues({});
       store = SecureStore.memory();
-      crypto = SessionCredentialCrypto(iterations: 1000);
       registry = SessionClientRegistry(
         store: store,
         createClient: ({
@@ -61,10 +59,9 @@ void main() {
       service = AssistService(
         store: store,
         registry: registry,
-        crypto: crypto,
+        codec: AssistTokenCodec(),
         prefs: await SharedPreferences.getInstance(),
         probeProfile: (client) async {
-          // Simulate successful probe using cookies already imported.
           final jar = client.cookieJar!;
           final cookies = await jar.loadForRequest(
             Uri.parse('https://lnt.xmu.edu.cn'),
@@ -82,6 +79,15 @@ void main() {
             name: '导入用户$sid',
           );
         },
+        accountLogin: ({
+          required username,
+          required password,
+          required targetClient,
+        }) async {
+          await targetClient.init();
+          await targetClient.importCookieHeader('session=2002');
+          return const AssistProfileSnapshot(id: 2002, name: '账密用户');
+        },
       );
     });
 
@@ -89,29 +95,26 @@ void main() {
       expect(await service.isEnabled(), isFalse);
     });
 
-    test('export then import adds assist identity without touching owner',
-        () async {
+    test('export session then import without passphrase', () async {
       final owner = registry.owner();
       await owner.init();
       await owner.importCookieHeader('session=1001');
 
       final sealed = await service.exportOwnerPackage(
-        passphrase: 'secret',
+        kind: AssistExportKind.session,
         profileId: 1001,
         profileName: '本人',
-        now: DateTime.utc(2026, 9, 15),
-        ttl: const Duration(hours: 24),
+        deviceId: 'owner-dev',
       );
+      expect(sealed.startsWith('xmu2.'), isTrue);
 
       await owner.clearSession();
       expect(await store.read(SecureStore.keySessionCookies), isNull);
 
-      final identity = await service.importPackage(
-        sealed: sealed,
-        passphrase: 'secret',
-        now: DateTime.utc(2026, 9, 15, 1),
-      );
+      final identity = await service.importToken(sealed);
       expect(identity.userId, 1001);
+      expect(identity.kind, AssistCredentialKind.session);
+      expect(identity.deviceId, 'owner-dev');
       expect(identity.displayName, '导入用户1001');
       expect((await service.listIdentities()).map((e) => e.userId), [1001]);
       expect(await store.read(SecureStore.keySessionCookies), isNull);
@@ -127,19 +130,14 @@ void main() {
       await owner.importCookieHeader('session=1001');
 
       final sealed = await service.exportOwnerPackage(
-        passphrase: 'secret',
+        kind: AssistExportKind.session,
         profileId: 1001,
         profileName: '本人',
-        now: DateTime.utc(2026, 9, 15),
+        deviceId: 'd',
       );
 
       expect(
-        () => service.importPackage(
-          sealed: sealed,
-          passphrase: 'secret',
-          now: DateTime.utc(2026, 9, 15, 1),
-          ownerUserId: 1001,
-        ),
+        () => service.importToken(sealed, ownerUserId: 1001),
         throwsA(
           isA<AssistException>().having(
             (e) => e.message,
@@ -150,42 +148,47 @@ void main() {
       );
     });
 
-    test('rejects expired package', () async {
-      final owner = registry.owner();
-      await owner.init();
-      await owner.importCookieHeader('session=5');
+    test('export account package and import stores creds', () async {
       final sealed = await service.exportOwnerPackage(
-        passphrase: 'x',
-        profileId: 5,
-        profileName: 'A',
-        now: DateTime.utc(2026, 1, 1),
-        ttl: const Duration(hours: 1),
+        kind: AssistExportKind.account,
+        profileId: 1,
+        profileName: '本人',
+        deviceId: 'acc-dev',
+        username: '318xxx',
+        password: 'pw',
       );
+      final identity = await service.importToken(sealed);
+      expect(identity.userId, 2002);
+      expect(identity.kind, AssistCredentialKind.account);
+      expect(identity.deviceId, 'acc-dev');
       expect(
-        () => service.importPackage(
-          sealed: sealed,
-          passphrase: 'x',
-          now: DateTime.utc(2026, 1, 2),
-        ),
-        throwsA(isA<SessionCredentialException>()),
+        await store.read(AssistService.accountCredKey(2002)),
+        isNotNull,
       );
     });
 
-    test('removeIdentity clears jar and roster', () async {
+    test('import plain account', () async {
+      final identity = await service.importPlainAccount(
+        username: '318yyy',
+        password: 'pw',
+        deviceId: 'plain-dev',
+      );
+      expect(identity.kind, AssistCredentialKind.account);
+      expect(identity.deviceId, 'plain-dev');
+      expect(identity.userId, 2002);
+    });
+
+    test('removeIdentity clears jar roster and account creds', () async {
       final owner = registry.owner();
       await owner.init();
       await owner.importCookieHeader('session=8');
       final sealed = await service.exportOwnerPackage(
-        passphrase: 'p',
+        kind: AssistExportKind.session,
         profileId: 8,
         profileName: 'B',
-        now: DateTime.utc(2026, 9, 15),
+        deviceId: 'd',
       );
-      await service.importPackage(
-        sealed: sealed,
-        passphrase: 'p',
-        now: DateTime.utc(2026, 9, 15),
-      );
+      await service.importToken(sealed);
       await service.removeIdentity(8);
       expect(await service.listIdentities(), isEmpty);
       expect(await store.read(SessionKey.assist(8).secureCookieKey), isNull);

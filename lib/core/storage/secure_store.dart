@@ -22,6 +22,9 @@ class SecureStore {
   static const keyUserId = 'user_id';
   static const keyLastUsername = 'last_username';
 
+  /// Owner IDS password (secure storage only; cleared on sign-out).
+  static const keyOwnerPassword = 'owner_ids_password';
+
   /// Prefix for assist session cookie blobs (`assist_session_cookies_<userId>`).
   static const assistSessionCookiePrefix = 'assist_session_cookies_';
 

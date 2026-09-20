@@ -17,4 +17,13 @@ void main() {
     expect(theme.colorScheme.surface, AppPalette.lightPalette.surface);
     expect(theme.scaffoldBackgroundColor, isNot(AppPalette.darkPalette.canvas));
   });
+
+  test('light cardHover stays brighter than canvas (no gray melt)', () {
+    final p = AppPalette.lightPalette;
+    expect(p.cardHover, isNot(p.surfaceHigh));
+    expect(
+      p.cardHover.computeLuminance(),
+      greaterThan(p.canvas.computeLuminance()),
+    );
+  });
 }

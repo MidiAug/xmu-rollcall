@@ -4,34 +4,60 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/core/session/session_key.dart';
+import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
 
-final rollcallRepositoryProvider = Provider<RollcallRepository>((ref) {
+/// [assistUserId] null = owner session; otherwise assist jar + roster deviceId.
+final rollcallRepositoryForProvider =
+    Provider.family<RollcallRepository, int?>((ref, assistUserId) {
+  final registry = ref.watch(sessionClientRegistryProvider);
+  final key = assistUserId == null
+      ? SessionKey.owner
+      : SessionKey.assist(assistUserId);
+  String? deviceOverride;
+  if (assistUserId != null) {
+    for (final e in ref.watch(assistControllerProvider).identities) {
+      if (e.userId == assistUserId) {
+        deviceOverride = e.deviceId;
+        break;
+      }
+    }
+  }
   return RollcallRepository(
-    http: ref.watch(tronHttpClientProvider),
+    http: registry.forKey(key),
     identity: ref.watch(deviceIdentityProvider),
+    deviceIdOverride: deviceOverride,
   );
 });
 
-final activeRollcallsProvider =
-    AsyncNotifierProvider<ActiveRollcallsNotifier, List<RollcallItem>>(
+final rollcallRepositoryProvider = Provider<RollcallRepository>((ref) {
+  return ref.watch(rollcallRepositoryForProvider(null));
+});
+
+/// Family: `null` = owner active list; otherwise that assist userId.
+final activeRollcallsProvider = AsyncNotifierProvider.family<
+    ActiveRollcallsNotifier, List<RollcallItem>, int?>(
   ActiveRollcallsNotifier.new,
 );
 
-class ActiveRollcallsNotifier extends AsyncNotifier<List<RollcallItem>> {
+class ActiveRollcallsNotifier
+    extends FamilyAsyncNotifier<List<RollcallItem>, int?> {
   @override
-  Future<List<RollcallItem>> build() {
-    return ref.read(rollcallRepositoryProvider).fetchActiveEnriched();
+  Future<List<RollcallItem>> build(int? assistUserId) {
+    return ref
+        .read(rollcallRepositoryForProvider(assistUserId))
+        .fetchActiveEnriched();
   }
 
   Future<void> refresh() async {
-    // Keep previous list visible; RefreshIndicator / header button own the spinner.
-    // Merge so unchanged rows keep identity; only inserts/updates replace.
     final previous = state.valueOrNull;
     final next = await AsyncValue.guard(
-      () => ref.read(rollcallRepositoryProvider).fetchActiveEnriched(),
+      () => ref
+          .read(rollcallRepositoryForProvider(arg))
+          .fetchActiveEnriched(),
     );
     if (!next.hasValue) {
       state = next;
@@ -45,7 +71,6 @@ class ActiveRollcallsNotifier extends AsyncNotifier<List<RollcallItem>> {
     state = AsyncData(mergeActiveRollcalls(previous, incoming));
   }
 
-  /// Replace one row after local answer without full refresh.
   void patchItem(RollcallItem updated) {
     final current = state.valueOrNull;
     if (current == null) return;
@@ -56,7 +81,6 @@ class ActiveRollcallsNotifier extends AsyncNotifier<List<RollcallItem>> {
   }
 }
 
-/// Prefer previous instances when fields match — avoids full list rebuild.
 @visibleForTesting
 List<RollcallItem> mergeActiveRollcalls(
   List<RollcallItem> previous,
@@ -144,26 +168,39 @@ final courseHistoryProvider =
 );
 
 class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
+  static const ttl = Duration(minutes: 10);
+
+  List<CourseRollcallRecord>? _cache;
+  DateTime? _fetchedAt;
+
   @override
   Future<List<CourseRollcallRecord>> build() async {
-    return _load();
+    ref.keepAlive();
+    return _load(force: false);
   }
 
-  Future<List<CourseRollcallRecord>> _load() async {
+  Future<List<CourseRollcallRecord>> _load({required bool force}) async {
+    if (!force &&
+        _cache != null &&
+        _fetchedAt != null &&
+        DateTime.now().difference(_fetchedAt!) < ttl) {
+      return _cache!;
+    }
     final profile = ref.read(authControllerProvider).profile;
     if (profile == null || profile.id == 0) {
-      throw StateError('\u8bf7\u5148\u767b\u5f55');
+      throw StateError('请先登录');
     }
-    return ref.read(rollcallRepositoryProvider).fetchCourseHistory(
+    final data = await ref.read(rollcallRepositoryProvider).fetchCourseHistory(
           studentId: profile.id,
         );
+    _cache = data;
+    _fetchedAt = DateTime.now();
+    return data;
   }
 
   Future<void> refresh() async {
-    // Keep previous list visible; RefreshIndicator owns the in-flight spinner.
-    // Merge so unchanged rows keep identity; only inserts/updates replace.
-    final previous = state.valueOrNull;
-    final next = await AsyncValue.guard(_load);
+    final previous = state.valueOrNull ?? _cache;
+    final next = await AsyncValue.guard(() => _load(force: true));
     if (!next.hasValue) {
       state = next;
       return;
@@ -177,7 +214,6 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
   }
 }
 
-/// Prefer previous instances when fields match — avoids full list rebuild.
 @visibleForTesting
 List<CourseRollcallRecord> mergeCourseHistory(
   List<CourseRollcallRecord> previous,

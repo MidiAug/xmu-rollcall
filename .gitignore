@@ -30,6 +30,11 @@ Desktop.ini
 **/info.txt
 **/secrets/
 
+# Browser HTTP dumps (contain live session Cookie / ticket)
+/*_Full.txt
+/docs/research/captures/**/raw/
+.tmp_68_extract/
+
 # ── AI tool caches (rules are tracked) ──
 .claude/
 .codegraph/

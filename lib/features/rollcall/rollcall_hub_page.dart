@@ -7,12 +7,13 @@ import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/history/history_page.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_list_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 
-/// 签到 Tab：进行中列表为主；轮询为快开子功能 + 二级设置。
+/// 签到 Tab：进行中列表为主；轮询为快开子功能 + 二级设置；记录为二级页。
 class RollcallHubPage extends ConsumerStatefulWidget {
   const RollcallHubPage({super.key});
 
@@ -36,13 +37,12 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
     super.dispose();
   }
 
-  void _openSettings(BuildContext context) {
+  void _pushFade(BuildContext context, Widget page) {
     Navigator.of(context).push(
       PageRouteBuilder<void>(
         transitionDuration: AppMotion.duration,
         reverseTransitionDuration: AppMotion.duration,
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const MonitorSettingsPage(),
+        pageBuilder: (context, animation, secondaryAnimation) => page,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(
             opacity: CurvedAnimation(
@@ -56,6 +56,14 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
     );
   }
 
+  void _openSettings(BuildContext context) {
+    _pushFade(context, const MonitorSettingsPage());
+  }
+
+  void _openHistory(BuildContext context) {
+    _pushFade(context, const HistoryPage());
+  }
+
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
@@ -63,13 +71,12 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
 
     return PageScaffold(
       title: '签到',
-      subtitle: '数字一键签 · 雷达/二维码二级页',
       showHeader: wide,
       trailing: wide
           ? AppRefreshButton(
               color: p.muted,
               onRefresh: () =>
-                  ref.read(activeRollcallsProvider.notifier).refresh(),
+                  ref.read(activeRollcallsProvider(null).notifier).refresh(),
             )
           : null,
       child: PrimaryScrollController(
@@ -94,11 +101,17 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                       color: p.muted,
                       iconSize: 22,
                       onRefresh: () =>
-                          ref.read(activeRollcallsProvider.notifier).refresh(),
+                          ref.read(activeRollcallsProvider(null).notifier).refresh(),
                     ),
                   ],
                   IconButton(
-                    tooltip: '轮询设置',
+                    tooltip: '签到记录',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: () => _openHistory(context),
+                    icon: Icon(Icons.history_outlined, color: p.muted, size: 22),
+                  ),
+                  IconButton(
+                    tooltip: '自动检测设置',
                     visualDensity: VisualDensity.compact,
                     onPressed: () => _openSettings(context),
                     icon: Icon(Icons.tune_outlined, color: p.muted, size: 22),
@@ -114,7 +127,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
   }
 }
 
-/// Idle: 「开始轮询」. Running: capsule with countdown (tap = pollNow) + stop.
+/// Idle: 「开始检测」. Running: capsule with countdown (tap = pollNow) + stop.
 class _PollQuickBar extends ConsumerStatefulWidget {
   const _PollQuickBar();
 
@@ -153,12 +166,12 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
       return Align(
         alignment: Alignment.centerLeft,
         child: Tooltip(
-          message: enabled ? '开始轮询' : '请先登录',
+          message: enabled ? '开始自动检测' : '请先登录',
           child: TextButton.icon(
             onPressed: enabled ? ctrl.start : null,
             icon: Icon(Icons.radar_outlined, size: 18, color: color),
             label: Text(
-              '开始轮询',
+              '开始检测',
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 color: color,
@@ -177,7 +190,7 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
     final secs = next == null
         ? 0
         : next.difference(DateTime.now()).inSeconds.clamp(0, 9999);
-    final label = '轮询中 · ${secs}s';
+    final label = '检测中 · ${secs}s';
 
     return Align(
       alignment: Alignment.centerLeft,
@@ -206,7 +219,7 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
           ),
           const SizedBox(width: 4),
           IconButton(
-            tooltip: '停止轮询',
+            tooltip: '停止检测',
             visualDensity: VisualDensity.compact,
             onPressed: ctrl.stop,
             icon: Icon(Icons.stop_circle_outlined, color: p.muted, size: 22),

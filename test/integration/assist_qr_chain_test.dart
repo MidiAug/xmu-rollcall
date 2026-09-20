@@ -10,6 +10,7 @@ import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/core/session/assist_service.dart';
 import 'package:xmu_rollcall/core/session/session_client_registry.dart';
+import 'package:xmu_rollcall/core/session/session_credential.dart';
 import 'package:xmu_rollcall/core/session/session_credential_crypto.dart';
 import 'package:xmu_rollcall/core/session/session_key.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
@@ -171,8 +172,16 @@ void main() {
       final eligible = filterAssistForCourse(
         courseId: active.single.courseId,
         identities: const [
-          AssistIdentity(userId: 1001, displayName: '甲'),
-          AssistIdentity(userId: 2002, displayName: '乙'),
+          AssistIdentity(
+            userId: 1001,
+            displayName: '甲',
+            kind: AssistCredentialKind.session,
+          ),
+          AssistIdentity(
+            userId: 2002,
+            displayName: '乙',
+            kind: AssistCredentialKind.session,
+          ),
         ],
         courseIdsByUser: {1001: coursesA, 2002: coursesB},
       );
@@ -184,7 +193,7 @@ void main() {
         store: store,
         registry: registry,
         prefs: prefs,
-        crypto: SessionCredentialCrypto(iterations: 800),
+        codec: AssistTokenCodec(),
         probeProfile: (client) async {
           final res = await client.getUri<Map<String, dynamic>>(
             Uri.parse('https://lnt.xmu.edu.cn/api/profile'),
@@ -203,22 +212,19 @@ void main() {
       await owner.clearSession();
       await owner.importCookiesJson(assistBlob!);
       final sealed = await svc.exportOwnerPackage(
-        passphrase: 'chain-pass',
+        kind: AssistExportKind.session,
         profileId: 1001,
         profileName: '甲',
-        now: DateTime.utc(2026, 9, 15),
+        deviceId: 'assist-dev-1001',
       );
       await owner.clearSession();
       await owner.importCookiesJson(ownerBlob!);
 
       await registry.disposeAssist(1001);
-      final imported = await svc.importPackage(
-        sealed: sealed,
-        passphrase: 'chain-pass',
-        now: DateTime.utc(2026, 9, 15, 2),
-      );
+      final imported = await svc.importToken(sealed);
       expect(imported.userId, 1001);
       expect(imported.displayName, '同学甲');
+      expect(imported.deviceId, 'assist-dev-1001');
 
       final ownerCookies = await owner.cookieJar!
           .loadForRequest(Uri.parse('https://lnt.xmu.edu.cn'));

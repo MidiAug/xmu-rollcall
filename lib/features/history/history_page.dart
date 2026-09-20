@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/corner_ribbon.dart';
-import 'package:xmu_rollcall/app/destinations.dart';
-import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
@@ -31,6 +29,7 @@ extension on HistoryTypeFilter {
       };
 }
 
+/// 签到二级页：课程签到历史（不再占主 Tab）。
 class HistoryPage extends ConsumerStatefulWidget {
   const HistoryPage({super.key});
 
@@ -38,8 +37,7 @@ class HistoryPage extends ConsumerStatefulWidget {
   ConsumerState<HistoryPage> createState() => _HistoryPageState();
 }
 
-class _HistoryPageState extends ConsumerState<HistoryPage>
-    with ShellTabAware<HistoryPage> {
+class _HistoryPageState extends ConsumerState<HistoryPage> {
   HistorySignedFilter _signed = HistorySignedFilter.all;
   HistoryTypeFilter _type = HistoryTypeFilter.all;
   /// null = closed; only one menu open at a time (overlays list, does not reflow).
@@ -50,12 +48,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
 
   /// Seam between trigger bottom and menu top (not section stack gap).
   static const _menuSeam = AppSpace.xxs;
-
-  @override
-  AppDestination get shellTab => AppDestination.history;
-
-  @override
-  ScrollController? get shellScrollController => _scroll;
 
   @override
   void dispose() {
@@ -69,40 +61,26 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
   }
 
   @override
-  void onShellTabHidden() {
-    super.onShellTabHidden();
-    _closeMenu();
-  }
-
-  @override
-  void onShellTabRetap() {
-    _closeMenu();
-    super.onShellTabRetap();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
     final pageX = AppSpace.pageXOf(context);
     final auth = ref.watch(authControllerProvider);
     final localIds = {
       for (final e in ref.watch(historyProvider)) '${e.rollcallId}',
     };
 
-    return PageScaffold(
-      title: '记录',
-      subtitle: '课程签到历史',
-      showHeader: wide,
-      trailing: auth.isSignedIn
-          ? IconButton(
-              tooltip: '刷新',
-              onPressed: () =>
-                  ref.read(courseHistoryProvider.notifier).refresh(),
-              icon: Icon(Icons.refresh_rounded, color: p.muted),
-            )
-          : null,
-      child: PrimaryScrollController(
+    return SubpageScaffold(
+      title: '签到记录',
+      actions: [
+        if (auth.isSignedIn)
+          IconButton(
+            tooltip: '刷新',
+            visualDensity: VisualDensity.compact,
+            onPressed: () =>
+                ref.read(courseHistoryProvider.notifier).refresh(),
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+      ],
+      body: PrimaryScrollController(
         controller: _scroll,
         child: LayoutBuilder(
           builder: (context, constraints) {

@@ -19,7 +19,7 @@ class MonitorSettingsPage extends ConsumerWidget {
     final signedIn = ref.watch(authControllerProvider).isSignedIn;
 
     return SubpageScaffold(
-      title: '轮询设置',
+      title: '自动检测',
       body: ListView(
         padding: EdgeInsets.fromLTRB(
           AppSpace.pageXOf(context),
@@ -36,7 +36,7 @@ class MonitorSettingsPage extends ConsumerWidget {
                   state.running ? Icons.radar : Icons.radar_outlined,
                   color: state.running ? p.primary : p.muted,
                 ),
-                title: '课堂轮询',
+                title: '自动检测签到',
                 subtitle: !signedIn
                     ? '请先登录'
                     : (state.running ? '运行中' : '已停止'),
@@ -51,15 +51,15 @@ class MonitorSettingsPage extends ConsumerWidget {
           ),
           SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
-            header: '时间线',
+            header: '最近检测',
             children: [
-              _KvRow(label: '上次轮询', value: _fmt(state.lastPollAt)),
+              _KvRow(label: '上次检测', value: _fmt(state.lastPollAt)),
               _KvRow(label: '下次预计', value: _fmt(state.nextPollAt)),
             ],
           ),
           SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
-            header: '参数',
+            header: '间隔设置',
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(
@@ -116,7 +116,7 @@ class MonitorSettingsPage extends ConsumerWidget {
                     ),
                     const SizedBox(height: AppSpace.sm),
                     _SliderLabel(
-                      label: '抖动',
+                      label: '随机波动',
                       value: '${(c.jitterRatio * 100).round()}%',
                     ),
                     const SizedBox(height: AppSpace.xxs),
@@ -136,7 +136,7 @@ class MonitorSettingsPage extends ConsumerWidget {
                     ),
                     const SizedBox(height: AppSpace.md),
                     Text(
-                      '实际间隔 = 基准 ± 抖动，且从不低于 15 秒。',
+                      '实际间隔会在设定值附近小幅变化，最短 15 秒。',
                       style: TextStyle(fontSize: 12, height: 1.4, color: p.muted),
                     ),
                   ],
@@ -146,13 +146,13 @@ class MonitorSettingsPage extends ConsumerWidget {
           ),
           SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
-            header: '最近日志',
+            header: '最近记录',
             children: [
               if (state.logs.isEmpty)
                 Padding(
                   padding: AppDensity.rowPadding(context),
                   child: Text(
-                    '尚无轮询记录',
+                    '尚无检测记录',
                     style: TextStyle(fontSize: 13, color: p.muted),
                   ),
                 )

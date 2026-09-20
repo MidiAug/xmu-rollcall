@@ -7,11 +7,13 @@ class AssistQrTarget {
     required this.key,
     required this.label,
     required this.userId,
+    this.deviceId,
   });
 
   final SessionKey key;
   final String label;
   final int userId;
+  final String? deviceId;
 }
 
 class AssistQrSubmitResult {
