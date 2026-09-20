@@ -26,10 +26,7 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
   Future<void> _openAdd() async {
     final result = await Navigator.of(context).push<MapPickResult>(
       MaterialPageRoute(
-        builder: (_) => const MapPickPage(
-          requireNote: true,
-          title: '添加位置',
-        ),
+        builder: (_) => const MapPickPage(requireNote: true, title: '添加位置'),
       ),
     );
     if (!mounted || result == null) return;
@@ -37,7 +34,9 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
     final note = result.saveNote?.trim() ?? '';
     if (note.isEmpty) return;
 
-    await ref.read(savedLocationsProvider.notifier).add(
+    await ref
+        .read(savedLocationsProvider.notifier)
+        .add(
           note: note,
           latitude: result.latitude,
           longitude: result.longitude,
@@ -57,7 +56,9 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
       ),
     );
     if (!mounted || result == null) return;
-    await ref.read(savedLocationsProvider.notifier).updateCoords(
+    await ref
+        .read(savedLocationsProvider.notifier)
+        .updateCoords(
           loc.id,
           latitude: result.latitude,
           longitude: result.longitude,
@@ -129,10 +130,7 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
                   ),
                   children: [
                     if (list.isNotEmpty) ...[
-                      _SectionLabel(
-                        label: '我的位置',
-                        count: list.length,
-                      ),
+                      _SectionLabel(label: '我的位置', count: list.length),
                       const SizedBox(height: AppSpace.xs),
                       Panel(
                         padding: const EdgeInsets.symmetric(
@@ -142,8 +140,7 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
                         child: Column(
                           children: [
                             for (var i = 0; i < list.length; i++) ...[
-                              if (i > 0)
-                                Divider(height: 1, color: p.border),
+                              if (i > 0) Divider(height: 1, color: p.border),
                               _LocationTile(
                                 title: list[i].note,
                                 subtitle:
@@ -159,8 +156,7 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
                       ),
                     ],
                     if (sortedDefaults.isNotEmpty) ...[
-                      if (list.isNotEmpty)
-                        const SizedBox(height: AppSpace.lg),
+                      if (list.isNotEmpty) const SizedBox(height: AppSpace.lg),
                       const _SectionLabel(label: '各课默认点'),
                       const SizedBox(height: AppSpace.xs),
                       Panel(
@@ -170,11 +166,8 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
                         ),
                         child: Column(
                           children: [
-                            for (var i = 0;
-                                i < sortedDefaults.length;
-                                i++) ...[
-                              if (i > 0)
-                                Divider(height: 1, color: p.border),
+                            for (var i = 0; i < sortedDefaults.length; i++) ...[
+                              if (i > 0) Divider(height: 1, color: p.border),
                               ListTile(
                                 dense: true,
                                 visualDensity: VisualDensity.compact,
@@ -191,7 +184,7 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
                                 subtitle: Text(
                                   '${sortedDefaults[i].latitude.toStringAsFixed(5)}, '
                                   '${sortedDefaults[i].longitude.toStringAsFixed(5)}'
-                                  '${sortedDefaults[i].note.isEmpty ? "" : " · ${sortedDefaults[i].note}"}',
+                                  '${sortedDefaults[i].labelSnapshot.isEmpty ? "" : " · ${sortedDefaults[i].labelSnapshot}"}',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: p.muted,
@@ -247,10 +240,7 @@ class _SectionLabel extends StatelessWidget {
         ),
         if (count != null) ...[
           const SizedBox(width: AppSpace.xs),
-          Text(
-            '$count',
-            style: TextStyle(fontSize: 12, color: p.muted),
-          ),
+          Text('$count', style: TextStyle(fontSize: 12, color: p.muted)),
         ],
       ],
     );
@@ -297,10 +287,7 @@ class _LocationTile extends StatelessWidget {
           color: p.ink,
         ),
       ),
-      subtitle: Text(
-        subtitle,
-        style: TextStyle(fontSize: 12, color: p.muted),
-      ),
+      subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: p.muted)),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -361,11 +348,7 @@ class _EmptyState extends StatelessWidget {
               Text(
                 '在地图上点选并命名，雷达签到时可直接选用',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.45,
-                  color: p.muted,
-                ),
+                style: TextStyle(fontSize: 13, height: 1.45, color: p.muted),
               ),
               const SizedBox(height: AppSpace.lg),
               FilledButton.icon(

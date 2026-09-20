@@ -10,6 +10,11 @@ import 'package:xmu_rollcall/features/location/location_models.dart';
 /// 厦门大学翔安校区（高德 GCJ-02，约 24.6084, 118.3097）。
 const LatLng kDefaultMapCenter = LatLng(24.608429, 118.309669);
 
+const String kAmapTileUrlTemplate =
+    'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}';
+
+const List<String> kAmapTileSubdomains = ['1', '2', '3', '4'];
+
 class MapPickResult {
   const MapPickResult({
     required this.latitude,
@@ -82,8 +87,7 @@ class MapPickPanelState extends State<MapPickPanel> {
     final p = AppPalette.of(context);
     final coord =
         '${_point.latitude.toStringAsFixed(5)}, ${_point.longitude.toStringAsFixed(5)}';
-    final label = widget.confirmLabel ??
-        (widget.requireNote ? '保存' : '完成');
+    final label = widget.confirmLabel ?? (widget.requireNote ? '保存' : '完成');
 
     return Stack(
       children: [
@@ -96,9 +100,8 @@ class MapPickPanelState extends State<MapPickPanel> {
           ),
           children: [
             TileLayer(
-              urlTemplate:
-                  'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
-              subdomains: const ['1', '2', '3', '4'],
+              urlTemplate: kAmapTileUrlTemplate,
+              subdomains: kAmapTileSubdomains,
               userAgentPackageName: 'com.xmu.rollcall',
             ),
             MarkerLayer(
@@ -108,18 +111,12 @@ class MapPickPanelState extends State<MapPickPanel> {
                   width: 40,
                   height: 40,
                   alignment: Alignment.topCenter,
-                  child: Icon(
-                    Icons.location_on,
-                    color: p.primary,
-                    size: 40,
-                  ),
+                  child: Icon(Icons.location_on, color: p.primary, size: 40),
                 ),
               ],
             ),
             const RichAttributionWidget(
-              attributions: [
-                TextSourceAttribution('高德地图'),
-              ],
+              attributions: [TextSourceAttribution('高德地图')],
             ),
           ],
         ),
@@ -146,16 +143,11 @@ class MapPickPanelState extends State<MapPickPanel> {
                           style: TextStyle(
                             fontSize: 13,
                             color: p.ink,
-                            fontFeatures: const [
-                              FontFeature.tabularFigures(),
-                            ],
+                            fontFeatures: const [FontFeature.tabularFigures()],
                           ),
                         ),
                       ),
-                      FilledButton(
-                        onPressed: confirm,
-                        child: Text(label),
-                      ),
+                      FilledButton(onPressed: confirm, child: Text(label)),
                     ],
                   ),
                 ),
@@ -207,16 +199,19 @@ Future<RadarGeoSelection?> pickSavedLocation(
   }
   return showModalBottomSheet<RadarGeoSelection>(
     context: context,
+    useRootNavigator: true,
     showDragHandle: true,
     builder: (ctx) {
       final p = AppPalette.of(ctx);
+      final pageX = AppSpace.pageXOf(ctx);
       return ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+        padding: EdgeInsets.fromLTRB(pageX, 0, pageX, 24),
         itemCount: locations.length,
         separatorBuilder: (_, _) => const Divider(height: 1),
         itemBuilder: (_, i) {
           final loc = locations[i];
           return ListTile(
+            contentPadding: EdgeInsets.zero,
             title: Text(loc.note),
             subtitle: Text(
               '${loc.latitude.toStringAsFixed(5)}, '
@@ -229,7 +224,10 @@ Future<RadarGeoSelection?> pickSavedLocation(
                 latitude: loc.latitude,
                 longitude: loc.longitude,
                 accuracy: loc.accuracy,
-                sourceLabel: loc.note,
+                obtainedVia: RadarObtainedVia.place,
+                placeId: loc.id,
+                label: loc.note,
+                filledFrom: RadarFilledFrom.user,
               ),
             ),
           );

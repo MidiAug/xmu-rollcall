@@ -7,14 +7,16 @@ import 'package:xmu_rollcall/features/location/location_models.dart';
 
 final savedLocationsProvider =
     StateNotifierProvider<SavedLocationsController, List<SavedLocation>>((ref) {
-  return SavedLocationsController();
-});
+      return SavedLocationsController();
+    });
 
 final courseRadarDefaultsProvider =
-    StateNotifierProvider<CourseRadarDefaultsController,
-        Map<String, CourseRadarDefault>>((ref) {
-  return CourseRadarDefaultsController();
-});
+    StateNotifierProvider<
+      CourseRadarDefaultsController,
+      Map<String, CourseRadarPref>
+    >((ref) {
+      return CourseRadarDefaultsController();
+    });
 
 class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
   SavedLocationsController() : super(const []) {
@@ -113,7 +115,7 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
 }
 
 class CourseRadarDefaultsController
-    extends StateNotifier<Map<String, CourseRadarDefault>> {
+    extends StateNotifier<Map<String, CourseRadarPref>> {
   CourseRadarDefaultsController() : super(const {}) {
     _load();
   }
@@ -129,7 +131,7 @@ class CourseRadarDefaultsController
       state = {
         for (final e in map.entries)
           if (e.value is Map)
-            e.key: CourseRadarDefault.fromJson(
+            e.key: CourseRadarPref.fromJson(
               Map<String, dynamic>.from(e.value as Map),
             ),
       };
@@ -140,35 +142,54 @@ class CourseRadarDefaultsController
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       _key,
-      jsonEncode({
-        for (final e in state.entries) e.key: e.value.toJson(),
-      }),
+      jsonEncode({for (final e in state.entries) e.key: e.value.toJson()}),
     );
   }
 
-  CourseRadarDefault? forCourse(String courseTitle) {
-    final key = courseTitle.trim();
-    if (key.isEmpty) return null;
-    return state[key];
+  CourseRadarPref? forCourse({String? courseId, String courseTitle = ''}) {
+    final id = courseId?.trim() ?? '';
+    if (id.isNotEmpty) {
+      final byId = state['id:$id'] ?? state[id];
+      if (byId != null) return byId;
+    }
+    final title = courseTitle.trim();
+    if (title.isEmpty) return null;
+    return state['t:$title'] ?? state[title];
   }
 
   Future<void> rememberSuccess({
     required String courseTitle,
+    String? courseId,
     required double latitude,
     required double longitude,
     double accuracy = 35,
-    String note = '',
+    String placeId = '',
+    required RadarObtainedVia obtainedVia,
+    String labelSnapshot = '',
   }) async {
-    final key = courseTitle.trim();
+    final title = courseTitle.trim();
+    final id = courseId?.trim() ?? '';
+    final key = courseRadarStorageKey(courseId: id, courseTitle: title);
     if (key.isEmpty) return;
-    final next = Map<String, CourseRadarDefault>.from(state);
-    next[key] = CourseRadarDefault(
-      courseTitle: key,
+
+    final pref = CourseRadarPref(
+      courseTitle: title.isEmpty ? key : title,
+      courseId: id,
       latitude: latitude,
       longitude: longitude,
       accuracy: accuracy.clamp(5, 100),
-      note: note,
+      placeId: placeId,
+      obtainedVia: obtainedVia.storageKey,
+      labelSnapshot: labelSnapshot,
     );
+
+    final next = Map<String, CourseRadarPref>.from(state);
+    next[key] = pref;
+    // Drop legacy bare-title key once we have a stable id key.
+    if (id.isNotEmpty && title.isNotEmpty) {
+      next.remove(title);
+      next.remove('t:$title');
+    }
     state = next;
     await _persist();
   }
