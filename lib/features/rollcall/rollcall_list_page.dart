@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
@@ -35,36 +36,14 @@ class RollcallListPage extends ConsumerWidget {
     final forAssist = assistUserId != null;
 
     if (!forAssist && !auth.isSignedIn) {
-      final body = Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const BrandMark(size: 48),
-              const SizedBox(height: 16),
-              Text(
-                '尚未登录',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: palette.ink,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '使用学号与统一身份认证密码登录畅课',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: palette.muted),
-              ),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: () => showLoginDialog(context),
-                icon: const Icon(Icons.login, size: 18),
-                label: const Text('登录'),
-              ),
-            ],
-          ),
+      final body = EmptyHint(
+        icon: Icons.lock_outline,
+        title: '尚未登录',
+        detail: '使用学号与统一身份认证密码登录畅课',
+        action: FilledButton.icon(
+          onPressed: () => showLoginDialog(context),
+          icon: const Icon(Icons.login, size: 18),
+          label: const Text('登录'),
         ),
       );
       if (embedded) return body;
@@ -78,7 +57,7 @@ class RollcallListPage extends ConsumerWidget {
 
     final scope = assistUserId;
     final async = ref.watch(activeRollcallsProvider(scope));
-    final list = RefreshIndicator(
+    final list = AppPullToRefresh(
       color: palette.primary,
       onRefresh: () =>
           ref.read(activeRollcallsProvider(scope).notifier).refresh(),
@@ -522,12 +501,12 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
               ),
             ),
             if (item.isRadar)
-              FilledButton.tonal(
+              FilledButton(
                 onPressed: item.isAnswered ? null : _openSecondary,
                 child: const Text('选择位置'),
               ),
             if (item.type == RollcallType.qrcode)
-              FilledButton.tonal(
+              FilledButton(
                 onPressed: item.isAnswered ? null : _openSecondary,
                 child: const Text('扫描'),
               ),

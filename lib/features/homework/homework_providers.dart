@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/homework/homework_models.dart';
 import 'package:xmu_rollcall/features/homework/homework_repository.dart';
@@ -16,37 +17,86 @@ final homeworkTodosProvider =
 class HomeworkTodosNotifier extends AsyncNotifier<List<HomeworkItem>> {
   static const ttl = Duration(minutes: 10);
 
-  List<HomeworkItem>? _cache;
   DateTime? _fetchedAt;
+  var _revalidateScheduled = false;
+
+  String? get _cacheSuffix {
+    final id = ref.read(authControllerProvider).profile?.id;
+    if (id == null || id == 0) return null;
+    return 'homework_todos_$id';
+  }
 
   @override
   Future<List<HomeworkItem>> build() async {
     ref.keepAlive();
     final signedIn = ref.watch(authControllerProvider).isSignedIn;
     if (!signedIn) {
-      _cache = null;
       _fetchedAt = null;
+      _revalidateScheduled = false;
       return const [];
     }
-    return _load(force: false);
+
+    final suffix = _cacheSuffix;
+    if (suffix != null) {
+      final snap = await JsonDiskCache.readList(suffix);
+      if (snap != null) {
+        _fetchedAt = snap.fetchedAt;
+        final items = [
+          for (final m in snap.items) HomeworkItem.fromJson(m),
+        ];
+        if (!snap.isFresh(ttl)) {
+          _scheduleRevalidate();
+        }
+        return items;
+      }
+    }
+    return _fetchAndPersist();
   }
 
-  Future<List<HomeworkItem>> _load({required bool force}) async {
-    if (!force &&
-        _cache != null &&
-        _fetchedAt != null &&
-        DateTime.now().difference(_fetchedAt!) < ttl) {
-      return _cache!;
+  void _scheduleRevalidate() {
+    if (_revalidateScheduled) return;
+    _revalidateScheduled = true;
+    Future.microtask(() async {
+      try {
+        await _revalidate();
+      } finally {
+        _revalidateScheduled = false;
+      }
+    });
+  }
+
+  Future<void> _revalidate() async {
+    final previous = state.valueOrNull;
+    final next = await AsyncValue.guard(_fetchAndPersist);
+    if (next.hasValue) {
+      state = AsyncData(next.requireValue);
+    } else if (previous == null) {
+      state = next;
     }
+  }
+
+  Future<List<HomeworkItem>> _fetchAndPersist() async {
     final data = await ref.read(homeworkRepositoryProvider).fetchTodos();
-    _cache = data;
     _fetchedAt = DateTime.now();
+    final suffix = _cacheSuffix;
+    if (suffix != null) {
+      await JsonDiskCache.writeList(
+        suffix,
+        [for (final e in data) e.toJson()],
+        fetchedAt: _fetchedAt,
+      );
+    }
     return data;
   }
 
   Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() => _load(force: true));
+    final previous = state.valueOrNull;
+    final next = await AsyncValue.guard(_fetchAndPersist);
+    if (next.hasValue) {
+      state = AsyncData(next.requireValue);
+    } else if (previous == null) {
+      state = next;
+    }
   }
 }
 
@@ -59,32 +109,80 @@ class CourseHomeworkNotifier
     extends FamilyAsyncNotifier<List<HomeworkItem>, int> {
   static const ttl = Duration(minutes: 10);
 
-  List<HomeworkItem>? _cache;
   DateTime? _fetchedAt;
+  var _revalidateScheduled = false;
+
+  String? get _cacheSuffix {
+    final id = ref.read(authControllerProvider).profile?.id;
+    if (id == null || id == 0) return null;
+    return 'course_homework_${id}_$arg';
+  }
 
   @override
   Future<List<HomeworkItem>> build(int courseId) async {
     ref.keepAlive();
-    return _load(force: false);
+    final suffix = _cacheSuffix;
+    if (suffix != null) {
+      final snap = await JsonDiskCache.readList(suffix);
+      if (snap != null) {
+        _fetchedAt = snap.fetchedAt;
+        final items = [
+          for (final m in snap.items) HomeworkItem.fromJson(m),
+        ];
+        if (!snap.isFresh(ttl)) {
+          _scheduleRevalidate();
+        }
+        return items;
+      }
+    }
+    return _fetchAndPersist();
   }
 
-  Future<List<HomeworkItem>> _load({required bool force}) async {
-    if (!force &&
-        _cache != null &&
-        _fetchedAt != null &&
-        DateTime.now().difference(_fetchedAt!) < ttl) {
-      return _cache!;
+  void _scheduleRevalidate() {
+    if (_revalidateScheduled) return;
+    _revalidateScheduled = true;
+    Future.microtask(() async {
+      try {
+        await _revalidate();
+      } finally {
+        _revalidateScheduled = false;
+      }
+    });
+  }
+
+  Future<void> _revalidate() async {
+    final previous = state.valueOrNull;
+    final next = await AsyncValue.guard(_fetchAndPersist);
+    if (next.hasValue) {
+      state = AsyncData(next.requireValue);
+    } else if (previous == null) {
+      state = next;
     }
+  }
+
+  Future<List<HomeworkItem>> _fetchAndPersist() async {
     final data =
         await ref.read(homeworkRepositoryProvider).fetchCourseHomework(arg);
-    _cache = data;
     _fetchedAt = DateTime.now();
+    final suffix = _cacheSuffix;
+    if (suffix != null) {
+      await JsonDiskCache.writeList(
+        suffix,
+        [for (final e in data) e.toJson()],
+        fetchedAt: _fetchedAt,
+      );
+    }
     return data;
   }
 
   Future<void> refresh() async {
-    state = const AsyncLoading();
-    state = await AsyncValue.guard(() => _load(force: true));
+    final previous = state.valueOrNull;
+    final next = await AsyncValue.guard(_fetchAndPersist);
+    if (next.hasValue) {
+      state = AsyncData(next.requireValue);
+    } else if (previous == null) {
+      state = next;
+    }
   }
 }
 

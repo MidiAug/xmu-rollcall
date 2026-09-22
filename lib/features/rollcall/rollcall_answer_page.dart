@@ -324,77 +324,80 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
 
     return SubpageScaffold(
       title: widget.previewMode ? '雷达签到（预览）' : '${item.typeLabel}签到',
-      body: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              Text(
-                item.courseTitle,
-                style: Theme.of(context).textTheme.titleLarge,
+      body: AppContentColumn(
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(
+            AppSpace.pageXOf(context),
+            AppSpace.md,
+            AppSpace.pageXOf(context),
+            AppSpace.xl,
+          ),
+          children: [
+            Text(
+              item.courseTitle,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.15,
+                color: p.ink,
               ),
-              const SizedBox(height: 8),
+            ),
+            const SizedBox(height: AppSpace.xs),
+            Text(
+              '发起人：${item.createdByName}',
+              style: TextStyle(fontSize: 12, color: p.muted),
+            ),
+            if (widget.previewMode) ...[
+              const SizedBox(height: AppSpace.xs),
               Text(
-                '发起人：${item.createdByName}',
-                style: Theme.of(context).textTheme.bodySmall,
+                '开发预览：不调用签到 API',
+                style: TextStyle(fontSize: 12, color: p.muted),
               ),
-              if (widget.previewMode) ...[
-                const SizedBox(height: 8),
+            ],
+            const SizedBox(height: AppSpace.lg),
+            if (item.isNumber) ...[
+              TextField(
+                controller: _codeCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: '数字签到码',
+                  hintText: '老师口述的码',
+                ),
+              ),
+              const SizedBox(height: AppSpace.md),
+              FilledButton(
+                onPressed: _submitting ? null : _submitNumber,
+                child: Text(_submitting ? '提交中…' : '确认并提交'),
+              ),
+            ] else if (item.isRadar) ...[
+              RadarPlaceCard(
+                selection: _selection,
+                onChange: _submitting ? null : _changeLocation,
+              ),
+              if (_status != null) ...[
+                const SizedBox(height: AppSpace.sm),
                 Text(
-                  '开发预览：不调用签到 API',
+                  _status!,
                   style: TextStyle(fontSize: 12, color: p.muted),
                 ),
               ],
-              const SizedBox(height: 24),
-              if (item.isNumber) ...[
-                TextField(
-                  controller: _codeCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: '数字签到码',
-                    hintText: '老师口述的码',
+              const SizedBox(height: AppSpace.md),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: (_submitting || _selection == null)
+                      ? null
+                      : _submitRadar,
+                  child: Text(
+                    _submitting
+                        ? '提交中…'
+                        : (widget.previewMode ? '预览确认' : '用此位置签到'),
                   ),
                 ),
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed: _submitting ? null : _submitNumber,
-                  child: Text(_submitting ? '提交中…' : '确认并提交'),
-                ),
-              ] else if (item.isRadar) ...[
-                RadarPlaceCard(
-                  selection: _selection,
-                  onChange: _submitting ? null : _changeLocation,
-                ),
-                if (_status != null) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    _status!,
-                    style: TextStyle(fontSize: 12, color: p.muted),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: (_submitting || _selection == null)
-                        ? null
-                        : _submitRadar,
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size.fromHeight(44),
-                    ),
-                    child: Text(
-                      _submitting
-                          ? '提交中…'
-                          : (widget.previewMode ? '预览确认' : '用此位置签到'),
-                    ),
-                  ),
-                ),
-              ] else
-                const Text('暂不支持此签到类型'),
-            ],
-          ),
+              ),
+            ] else
+              const Text('暂不支持此签到类型'),
+          ],
         ),
       ),
     );

@@ -120,20 +120,20 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     final assist = ref.watch(assistControllerProvider);
     final deviceFuture = ref.watch(deviceIdentityProvider).getId();
     final p = AppPalette.of(context);
-    final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
 
     return PageScaffold(
       title: '我的',
-      showHeader: wide,
-      child: ListView(
-        controller: _scroll,
-        padding: EdgeInsets.fromLTRB(
-          AppSpace.pageXOf(context),
-          AppSpace.md,
-          AppSpace.pageXOf(context),
-          AppSpace.xl,
-        ),
-        children: [
+      showHeader: false,
+      child: AppContentColumn(
+        child: ListView(
+          controller: _scroll,
+          padding: EdgeInsets.fromLTRB(
+            AppSpace.pageXOf(context),
+            AppSpace.md,
+            AppSpace.pageXOf(context),
+            AppSpace.xl,
+          ),
+          children: [
           SettingsSection(
             header: '账号',
             children: [
@@ -386,6 +386,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
             ),
           ],
         ],
+        ),
       ),
     );
   }

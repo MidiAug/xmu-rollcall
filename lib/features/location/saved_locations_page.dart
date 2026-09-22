@@ -115,13 +115,10 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
           ),
         ),
       ],
-      body: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 640),
-          child: empty
-              ? _EmptyState(onAdd: _openAdd)
-              : ListView(
+      body: AppContentColumn(
+        child: empty
+            ? _EmptyState(onAdd: _openAdd)
+            : ListView(
                   padding: EdgeInsets.fromLTRB(
                     AppSpace.pageXOf(context),
                     AppSpace.md,
@@ -212,7 +209,6 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
                     ],
                   ],
                 ),
-        ),
       ),
     );
   }
@@ -316,49 +312,14 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpace.xl),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 320),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: p.surface,
-                  borderRadius: BorderRadius.circular(AppRadii.dialog),
-                ),
-                child: Icon(Icons.place_outlined, size: 28, color: p.primary),
-              ),
-              const SizedBox(height: AppSpace.md),
-              Text(
-                '还没有预设位置',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.2,
-                  color: p.ink,
-                ),
-              ),
-              const SizedBox(height: AppSpace.xs),
-              Text(
-                '在地图上点选并命名，雷达签到时可直接选用',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, height: 1.45, color: p.muted),
-              ),
-              const SizedBox(height: AppSpace.lg),
-              FilledButton.icon(
-                onPressed: onAdd,
-                icon: const Icon(Icons.add_rounded, size: 18),
-                label: const Text('添加位置'),
-              ),
-            ],
-          ),
-        ),
+    return EmptyHint(
+      icon: Icons.place_outlined,
+      title: '还没有预设位置',
+      detail: '在地图上点选并命名，雷达签到时可直接选用',
+      action: FilledButton.icon(
+        onPressed: onAdd,
+        icon: const Icon(Icons.add_rounded, size: 18),
+        label: const Text('添加位置'),
       ),
     );
   }

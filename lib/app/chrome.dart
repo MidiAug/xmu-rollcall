@@ -29,6 +29,24 @@ class BrandMark extends StatelessWidget {
   }
 }
 
+/// Isolates a tooltip / icon-button anchor for Windows accessibility.
+///
+/// Adjacent [Tooltip] overlays can drop their traversal-parent id when
+/// semantics configs merge; the Windows embedder then rejects the whole
+/// AXTree update (`Nodes left pending…`, flutter/flutter#182444). Each
+/// tooltip anchor needs its own semantics container on desktop.
+class AppTooltipAnchor extends StatelessWidget {
+  const AppTooltipAnchor({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!PlatformHooks.isDesktop) return child;
+    return Semantics(container: true, child: child);
+  }
+}
+
 /// Header refresh control — spins while [onRefresh] runs; list stays put.
 class AppRefreshButton extends StatefulWidget {
   const AppRefreshButton({
@@ -89,49 +107,36 @@ class _AppRefreshButtonState extends State<AppRefreshButton>
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return IconButton(
-      tooltip: widget.tooltip,
-      visualDensity: widget.visualDensity,
-      onPressed: _busy ? null : _handle,
-      icon: RotationTransition(
-        turns: _spin,
-        child: Icon(
-          Icons.refresh_rounded,
-          color: widget.color ?? p.muted,
-          size: widget.iconSize,
+    return AppTooltipAnchor(
+      child: IconButton(
+        tooltip: widget.tooltip,
+        visualDensity: widget.visualDensity,
+        onPressed: _busy ? null : _handle,
+        icon: RotationTransition(
+          turns: _spin,
+          child: Icon(
+            Icons.refresh_rounded,
+            color: widget.color ?? p.muted,
+            size: widget.iconSize,
+          ),
         ),
       ),
     );
   }
 }
 
-/// Drag / double-click maximize region for frameless desktop windows.
+/// Drag region for frameless desktop windows (maximize disabled — size capped).
 ///
 /// Fills its parent. Prefer a full-bar [Stack] layer so height is never
-/// clipped to text metrics. Maximized → drag unmaximizes then moves
-/// (native caption behavior that [windowManager.startDragging] alone skips).
+/// clipped to text metrics.
 class _WindowDragArea extends StatelessWidget {
   const _WindowDragArea();
 
   Future<void> _drag() async {
     if (!PlatformHooks.isDesktop) return;
     try {
-      if (await windowManager.isMaximized()) {
-        await windowManager.unmaximize();
-        // Let Win32 apply restore bounds before SC_MOVE.
-        await Future<void>.delayed(const Duration(milliseconds: 16));
-      }
       await windowManager.startDragging();
     } catch (_) {}
-  }
-
-  Future<void> _toggleMaximize() async {
-    if (!PlatformHooks.isDesktop) return;
-    if (await windowManager.isMaximized()) {
-      await windowManager.unmaximize();
-    } else {
-      await windowManager.maximize();
-    }
   }
 
   @override
@@ -139,7 +144,6 @@ class _WindowDragArea extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onPanStart: (_) => _drag(),
-      onDoubleTap: _toggleMaximize,
       child: const SizedBox.expand(),
     );
   }
@@ -547,18 +551,6 @@ class _WindowButtons extends StatelessWidget {
           color: p.muted,
         ),
         _WinBtn(
-          icon: Icons.crop_square,
-          iconSize: 12,
-          onTap: () async {
-            if (await windowManager.isMaximized()) {
-              await windowManager.unmaximize();
-            } else {
-              await windowManager.maximize();
-            }
-          },
-          color: p.muted,
-        ),
-        _WinBtn(
           icon: Icons.close,
           onTap: () => windowManager.close(),
           color: p.muted,
@@ -577,7 +569,6 @@ class _WinBtn extends StatefulWidget {
     required this.color,
     this.hover,
     this.hoverIcon,
-    this.iconSize = 16,
   });
 
   final IconData icon;
@@ -585,7 +576,6 @@ class _WinBtn extends StatefulWidget {
   final Color color;
   final Color? hover;
   final Color? hoverIcon;
-  final double iconSize;
 
   @override
   State<_WinBtn> createState() => _WinBtnState();
@@ -608,7 +598,7 @@ class _WinBtnState extends State<_WinBtn> {
           color: bg,
           child: Icon(
             widget.icon,
-            size: widget.iconSize,
+            size: 16,
             color: _over && widget.hoverIcon != null
                 ? widget.hoverIcon
                 : widget.color,
@@ -647,35 +637,35 @@ class AppSidebar extends StatelessWidget {
               AppSpace.sm,
               AppSpace.xs,
             ),
-            child: Row(
-              children: [
-                const BrandMark(size: 28),
-                const SizedBox(width: AppSpace.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '畅课签到',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.15,
-                          color: p.ink,
-                        ),
-                      ),
-                      Text(
-                        'XMU TronClass',
-                        style: TextStyle(
-                          fontSize: 11,
-                          height: 1.3,
-                          color: p.muted,
-                        ),
-                      ),
-                    ],
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpace.sm,
+                vertical: AppSpace.xs,
+              ),
+              decoration: BoxDecoration(
+                color: p.hover,
+                borderRadius: BorderRadius.circular(AppRadii.nav),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    userLabel != null
+                        ? Icons.person_outline
+                        : Icons.person_off_outlined,
+                    size: 14,
+                    color: p.muted,
                   ),
-                ),
-              ],
+                  const SizedBox(width: AppSpace.xs),
+                  Expanded(
+                    child: Text(
+                      userLabel ?? '未登录',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: p.muted),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           Padding(
@@ -692,39 +682,6 @@ class AppSidebar extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          if (userLabel != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpace.sm,
-                0,
-                AppSpace.sm,
-                AppSpace.md,
-              ),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpace.sm,
-                  vertical: AppSpace.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: p.hover,
-                  borderRadius: BorderRadius.circular(AppRadii.nav),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.person_outline, size: 14, color: p.muted),
-                    const SizedBox(width: AppSpace.xs),
-                    Expanded(
-                      child: Text(
-                        userLabel!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontSize: 12, color: p.muted),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -893,6 +850,385 @@ class _MobileItem extends StatelessWidget {
       };
 }
 
+/// Pill select — Quiet Utility twin of xmu-sports `.shell-select`.
+///
+/// Self-contained overlay; opening one closes others via a light registry.
+class AppShellSelect<T> extends StatefulWidget {
+  const AppShellSelect({
+    super.key,
+    required this.value,
+    required this.items,
+    required this.labelOf,
+    required this.onChanged,
+    this.width = 132,
+  });
+
+  final T value;
+  final List<T> items;
+  final String Function(T) labelOf;
+  final ValueChanged<T> onChanged;
+  final double width;
+
+  static final List<VoidCallback> _closeHooks = [];
+
+  static void _register(VoidCallback close) => _closeHooks.add(close);
+
+  static void _unregister(VoidCallback close) => _closeHooks.remove(close);
+
+  static void _closeOthers(VoidCallback keep) {
+    for (final h in List<VoidCallback>.of(_closeHooks)) {
+      if (!identical(h, keep)) h();
+    }
+  }
+
+  @override
+  State<AppShellSelect<T>> createState() => _AppShellSelectState<T>();
+}
+
+class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
+  final _link = LayerLink();
+  final _portal = OverlayPortalController();
+  late final VoidCallback _closeHook;
+  var _hover = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _closeHook = _hide;
+    AppShellSelect._register(_closeHook);
+  }
+
+  @override
+  void dispose() {
+    AppShellSelect._unregister(_closeHook);
+    if (_portal.isShowing) _portal.hide();
+    super.dispose();
+  }
+
+  void _hide() {
+    if (!_portal.isShowing) return;
+    _portal.hide();
+    if (mounted) setState(() {});
+  }
+
+  void _toggle() {
+    if (_portal.isShowing) {
+      _hide();
+      return;
+    }
+    AppShellSelect._closeOthers(_closeHook);
+    _portal.show();
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final open = _portal.isShowing;
+    return CompositedTransformTarget(
+      link: _link,
+      child: OverlayPortal(
+        controller: _portal,
+        overlayChildBuilder: (context) {
+          final dark = Theme.of(context).brightness == Brightness.dark;
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _hide,
+                  child: const ColoredBox(color: Colors.transparent),
+                ),
+              ),
+              CompositedTransformFollower(
+                link: _link,
+                showWhenUnlinked: false,
+                targetAnchor: Alignment.bottomLeft,
+                followerAnchor: Alignment.topLeft,
+                offset: const Offset(0, AppSpace.xs),
+                child: Material(
+                  color: p.surface,
+                  elevation: 8,
+                  shadowColor:
+                      Colors.black.withValues(alpha: dark ? 0.45 : 0.16),
+                  borderRadius: BorderRadius.circular(AppRadii.input),
+                  child: Container(
+                    width: widget.width,
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AppRadii.input),
+                      border: Border.all(color: p.borderStrong),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (var i = 0; i < widget.items.length; i++) ...[
+                          if (i > 0) const SizedBox(height: 4),
+                          _AppShellSelectOption(
+                            label: widget.labelOf(widget.items[i]),
+                            selected: widget.items[i] == widget.value,
+                            onTap: () {
+                              widget.onChanged(widget.items[i]);
+                              _hide();
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+        child: SizedBox(
+          width: widget.width,
+          child: MouseRegion(
+            onEnter: (_) => setState(() => _hover = true),
+            onExit: (_) => setState(() => _hover = false),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _toggle,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                curve: Curves.easeOut,
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                decoration: BoxDecoration(
+                  color: _hover ? p.cardHover : p.surface,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: _hover || open ? p.borderStrong : p.border,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.labelOf(widget.value),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          height: 22 / 14,
+                          fontWeight: FontWeight.w500,
+                          color: p.ink,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    AnimatedRotation(
+                      turns: open ? 0.5 : 0,
+                      duration: const Duration(milliseconds: 120),
+                      curve: Curves.easeOut,
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 18,
+                        color: p.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AppShellSelectOption extends StatefulWidget {
+  const _AppShellSelectOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  State<_AppShellSelectOption> createState() => _AppShellSelectOptionState();
+}
+
+class _AppShellSelectOptionState extends State<_AppShellSelectOption> {
+  var _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final Color bg;
+    if (widget.selected) {
+      bg = _hover
+          ? Color.alphaBlend(p.primary.withValues(alpha: 0.08), p.selected)
+          : p.selected;
+    } else if (_hover) {
+      bg = p.hover;
+    } else {
+      bg = Colors.transparent;
+    }
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOut,
+          constraints: const BoxConstraints(minHeight: 38),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(AppRadii.control),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 22 / 14,
+                    fontWeight:
+                        widget.selected ? FontWeight.w500 : FontWeight.w400,
+                    color: p.ink,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 18,
+                child: widget.selected
+                    ? Icon(Icons.check_rounded, size: 16, color: p.primary)
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Desktop: centered column capped at [maxWidth]. Touch: full-bleed pass-through.
+///
+/// Keeps list hubs readable on wide windows without a second layout tree.
+class AppContentColumn extends StatelessWidget {
+  const AppContentColumn({
+    super.key,
+    required this.child,
+    this.maxWidth = AppLayout.contentMaxWidth,
+  });
+
+  final Widget child;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    if (AppDensity.isTouch(context)) return child;
+    return Align(
+      alignment: Alignment.topCenter,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: SizedBox(
+          width: double.infinity,
+          height: double.infinity,
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+/// Soft pill strip for grouped icon actions (desktop toolbars).
+class AppIconCluster extends StatelessWidget {
+  const AppIconCluster({super.key, required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Container(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      decoration: BoxDecoration(
+        color: p.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: p.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: children,
+      ),
+    );
+  }
+}
+
+/// List / tile surface: color lift + hairline **on hover only** (Quiet Utility).
+class AppHoverSurface extends StatefulWidget {
+  const AppHoverSurface({
+    super.key,
+    required this.child,
+    this.padding,
+    this.borderRadius,
+    this.onTap,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final BorderRadius? borderRadius;
+  final VoidCallback? onTap;
+
+  @override
+  State<AppHoverSurface> createState() => _AppHoverSurfaceState();
+}
+
+class _AppHoverSurfaceState extends State<AppHoverSurface> {
+  var _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final radius =
+        widget.borderRadius ?? BorderRadius.circular(AppRadii.card);
+    final body = AnimatedContainer(
+      duration: AppMotion.duration,
+      curve: AppMotion.curve,
+      padding: widget.padding,
+      decoration: BoxDecoration(
+        color: _hover ? p.cardHover : p.surface,
+        borderRadius: radius,
+        border: Border.all(
+          color: _hover ? p.borderStrong : Colors.transparent,
+        ),
+      ),
+      child: widget.child,
+    );
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      cursor: widget.onTap != null
+          ? SystemMouseCursors.click
+          : SystemMouseCursors.basic,
+      child: widget.onTap == null
+          ? body
+          : GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: widget.onTap,
+              child: body,
+            ),
+    );
+  }
+}
+
 class PageScaffold extends StatelessWidget {
   const PageScaffold({
     super.key,
@@ -1003,11 +1339,13 @@ class EmptyHint extends StatelessWidget {
     required this.icon,
     required this.title,
     this.detail,
+    this.action,
   });
 
   final IconData icon;
   final String title;
   final String? detail;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -1019,11 +1357,12 @@ class EmptyHint extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 52,
-              height: 52,
+              width: 56,
+              height: 56,
               decoration: BoxDecoration(
                 color: p.surface,
-                borderRadius: BorderRadius.circular(AppRadii.card),
+                shape: BoxShape.circle,
+                border: Border.all(color: p.border),
               ),
               child: Icon(icon, color: p.muted, size: 22),
             ),
@@ -1043,8 +1382,12 @@ class EmptyHint extends StatelessWidget {
               Text(
                 detail!,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: p.muted),
+                style: TextStyle(fontSize: 13, height: 1.35, color: p.muted),
               ),
+            ],
+            if (action != null) ...[
+              const SizedBox(height: AppSpace.md),
+              action!,
             ],
           ],
         ),

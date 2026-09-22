@@ -68,7 +68,7 @@ void main() {
         );
       }
     },
-    skip: live && cookie != null && cookie!.isNotEmpty
+    skip: live && cookie != null && cookie.isNotEmpty
         ? false
         : 'Need LIVE_XMU=1 and LIVE_XMU_COOKIE',
   );

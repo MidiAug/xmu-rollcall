@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/session/session_key.dart';
+import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
@@ -170,22 +171,63 @@ final courseHistoryProvider =
 class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
   static const ttl = Duration(minutes: 10);
 
-  List<CourseRollcallRecord>? _cache;
   DateTime? _fetchedAt;
+  var _revalidateScheduled = false;
+
+  String? get _cacheSuffix {
+    final id = ref.read(authControllerProvider).profile?.id;
+    if (id == null || id == 0) return null;
+    return 'course_history_$id';
+  }
 
   @override
   Future<List<CourseRollcallRecord>> build() async {
     ref.keepAlive();
-    return _load(force: false);
+    final suffix = _cacheSuffix;
+    if (suffix != null) {
+      final snap = await JsonDiskCache.readList(suffix);
+      if (snap != null) {
+        _fetchedAt = snap.fetchedAt;
+        final items = [
+          for (final m in snap.items) CourseRollcallRecord.fromJson(m),
+        ];
+        if (!snap.isFresh(ttl)) {
+          _scheduleRevalidate();
+        }
+        return items;
+      }
+    }
+    return _fetchAndPersist();
   }
 
-  Future<List<CourseRollcallRecord>> _load({required bool force}) async {
-    if (!force &&
-        _cache != null &&
-        _fetchedAt != null &&
-        DateTime.now().difference(_fetchedAt!) < ttl) {
-      return _cache!;
+  void _scheduleRevalidate() {
+    if (_revalidateScheduled) return;
+    _revalidateScheduled = true;
+    Future.microtask(() async {
+      try {
+        await _revalidate();
+      } finally {
+        _revalidateScheduled = false;
+      }
+    });
+  }
+
+  Future<void> _revalidate() async {
+    final previous = state.valueOrNull;
+    final next = await AsyncValue.guard(_fetchAndPersist);
+    if (next.hasValue) {
+      final incoming = next.requireValue;
+      if (previous == null) {
+        state = AsyncData(incoming);
+      } else {
+        state = AsyncData(mergeCourseHistory(previous, incoming));
+      }
+    } else if (previous == null) {
+      state = next;
     }
+  }
+
+  Future<List<CourseRollcallRecord>> _fetchAndPersist() async {
     final profile = ref.read(authControllerProvider).profile;
     if (profile == null || profile.id == 0) {
       throw StateError('请先登录');
@@ -193,16 +235,23 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
     final data = await ref.read(rollcallRepositoryProvider).fetchCourseHistory(
           studentId: profile.id,
         );
-    _cache = data;
     _fetchedAt = DateTime.now();
+    final suffix = _cacheSuffix;
+    if (suffix != null) {
+      await JsonDiskCache.writeList(
+        suffix,
+        [for (final e in data) e.toJson()],
+        fetchedAt: _fetchedAt,
+      );
+    }
     return data;
   }
 
   Future<void> refresh() async {
-    final previous = state.valueOrNull ?? _cache;
-    final next = await AsyncValue.guard(() => _load(force: true));
+    final previous = state.valueOrNull;
+    final next = await AsyncValue.guard(_fetchAndPersist);
     if (!next.hasValue) {
-      state = next;
+      if (previous == null) state = next;
       return;
     }
     final incoming = next.requireValue;

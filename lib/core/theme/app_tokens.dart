@@ -194,4 +194,12 @@ abstract final class AppLayout {
 
   /// Wide enough for「清空」TextButton; empty tabs keep the same slot.
   static const pageHeaderTrailingWidth = 72.0;
+
+  /// Desktop list / settings column max width (includes call-site [AppSpace.pageX]).
+  /// Touch layouts ignore this and stay full-bleed.
+  static const contentMaxWidth = 720.0;
+
+  /// Fixed desktop window size ([PlatformHooks.initOptional]; not resizable).
+  /// ≈ sidebar + centered content column with modest chrome.
+  static const Size windowSize = Size(960, 720);
 }

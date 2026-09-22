@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 abstract final class PlatformHooks {
   static bool get isDesktop {
@@ -29,14 +30,21 @@ abstract final class PlatformHooks {
   static Future<void> initOptional() async {
     if (!isDesktop) return;
     await windowManager.ensureInitialized();
-    const options = WindowOptions(
-      size: Size(1280, 800),
-      minimumSize: Size(720, 520),
+    final options = WindowOptions(
+      size: AppLayout.windowSize,
+      minimumSize: AppLayout.windowSize,
+      maximumSize: AppLayout.windowSize,
       title: '畅课签到',
       titleBarStyle: TitleBarStyle.hidden,
       backgroundColor: Colors.transparent,
     );
     await windowManager.waitUntilReadyToShow(options, () async {
+      // Fixed frame: no resize / maximize (re-assert after ready on some platforms).
+      await windowManager.setMinimumSize(AppLayout.windowSize);
+      await windowManager.setMaximumSize(AppLayout.windowSize);
+      await windowManager.setSize(AppLayout.windowSize);
+      await windowManager.setResizable(false);
+      await windowManager.setMaximizable(false);
       await windowManager.show();
       await windowManager.focus();
     });

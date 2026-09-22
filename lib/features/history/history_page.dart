@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/corner_ribbon.dart';
+import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
@@ -40,24 +41,14 @@ class HistoryPage extends ConsumerStatefulWidget {
 class _HistoryPageState extends ConsumerState<HistoryPage> {
   HistorySignedFilter _signed = HistorySignedFilter.all;
   HistoryTypeFilter _type = HistoryTypeFilter.all;
-  /// null = closed; only one menu open at a time (overlays list, does not reflow).
-  _FilterKind? _openMenu;
-  final _signedLink = LayerLink();
-  final _typeLink = LayerLink();
   final _scroll = ScrollController();
 
-  /// Seam between trigger bottom and menu top (not section stack gap).
-  static const _menuSeam = AppSpace.xxs;
+  static const _selectW = 132.0;
 
   @override
   void dispose() {
     _scroll.dispose();
     super.dispose();
-  }
-
-  void _closeMenu() {
-    if (_openMenu == null) return;
-    setState(() => _openMenu = null);
   }
 
   @override
@@ -80,242 +71,50 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             icon: const Icon(Icons.refresh_rounded),
           ),
       ],
-      body: PrimaryScrollController(
-        controller: _scroll,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final triggerW =
-                (constraints.maxWidth - pageX * 2 - AppSpace.xs) / 2;
-            return Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+      body: AppContentColumn(
+        child: PrimaryScrollController(
+          controller: _scroll,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  pageX,
+                  AppSpace.md,
+                  pageX,
+                  AppSpace.sm,
+                ),
+                child: Wrap(
+                  spacing: AppSpace.xs,
+                  runSpacing: AppSpace.xs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        pageX,
-                        AppSpace.md,
-                        pageX,
-                        AppSpace.sm,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: CompositedTransformTarget(
-                              link: _signedLink,
-                              child: _FilterTrigger(
-                                label: _signed.label,
-                                open: _openMenu == _FilterKind.signed,
-                                onTap: () => setState(() {
-                                  _openMenu = _openMenu == _FilterKind.signed
-                                      ? null
-                                      : _FilterKind.signed;
-                                }),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: AppSpace.xs),
-                          Expanded(
-                            child: CompositedTransformTarget(
-                              link: _typeLink,
-                              child: _FilterTrigger(
-                                label: _type.label,
-                                open: _openMenu == _FilterKind.type,
-                                onTap: () => setState(() {
-                                  _openMenu = _openMenu == _FilterKind.type
-                                      ? null
-                                      : _FilterKind.type;
-                                }),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                    AppShellSelect<HistorySignedFilter>(
+                      width: _selectW,
+                      value: _signed,
+                      items: HistorySignedFilter.values,
+                      labelOf: (v) => v.label,
+                      onChanged: (v) => setState(() => _signed = v),
                     ),
-                    Expanded(
-                      child: _CourseHistoryBody(
-                        signedIn: auth.isSignedIn,
-                        signedFilter: _signed,
-                        typeFilter: _type,
-                        localRollcallIds: localIds,
-                      ),
+                    AppShellSelect<HistoryTypeFilter>(
+                      width: _selectW,
+                      value: _type,
+                      items: HistoryTypeFilter.values,
+                      labelOf: (v) => v.label,
+                      onChanged: (v) => setState(() => _type = v),
                     ),
                   ],
                 ),
-                if (_openMenu != null) ...[
-                  Positioned.fill(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _closeMenu,
-                      child: const ColoredBox(color: Colors.transparent),
-                    ),
-                  ),
-                  CompositedTransformFollower(
-                    link: _openMenu == _FilterKind.signed
-                        ? _signedLink
-                        : _typeLink,
-                    showWhenUnlinked: false,
-                    targetAnchor: Alignment.bottomLeft,
-                    followerAnchor: Alignment.topLeft,
-                    offset: const Offset(0, _menuSeam),
-                    child: SizedBox(
-                      width: triggerW,
-                      child: _openMenu == _FilterKind.signed
-                          ? _FilterPanel<HistorySignedFilter>(
-                              value: _signed,
-                              items: HistorySignedFilter.values,
-                              labelOf: (v) => v.label,
-                              onChanged: (v) => setState(() {
-                                _signed = v;
-                                _openMenu = null;
-                              }),
-                            )
-                          : _FilterPanel<HistoryTypeFilter>(
-                              value: _type,
-                              items: HistoryTypeFilter.values,
-                              labelOf: (v) => v.label,
-                              onChanged: (v) => setState(() {
-                                _type = v;
-                                _openMenu = null;
-                              }),
-                            ),
-                    ),
-                  ),
-                ],
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-enum _FilterKind { signed, type }
-
-class _FilterTrigger extends StatelessWidget {
-  const _FilterTrigger({
-    required this.label,
-    required this.open,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool open;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: p.surface,
-          borderRadius: BorderRadius.circular(AppRadii.control),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: p.ink,
+              ),
+              Expanded(
+                child: _CourseHistoryBody(
+                  signedIn: auth.isSignedIn,
+                  signedFilter: _signed,
+                  typeFilter: _type,
+                  localRollcallIds: localIds,
                 ),
               ),
-            ),
-            AnimatedRotation(
-              turns: open ? 0.5 : 0,
-              duration: AppMotion.duration,
-              curve: AppMotion.curve,
-              child: Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 20,
-                color: p.muted,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _FilterPanel<T> extends StatelessWidget {
-  const _FilterPanel({
-    required this.value,
-    required this.items,
-    required this.labelOf,
-    required this.onChanged,
-  });
-
-  final T value;
-  final List<T> items;
-  final String Function(T) labelOf;
-  final ValueChanged<T> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return Material(
-      color: p.surface,
-      elevation: 6,
-      shadowColor: Colors.black.withValues(alpha: 0.18),
-      borderRadius: BorderRadius.circular(AppRadii.card),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < items.length; i++) ...[
-            if (i > 0) Divider(height: 1, thickness: 1, color: p.border),
-            _FilterMenuRow(
-              label: labelOf(items[i]),
-              selected: items[i] == value,
-              onTap: () => onChanged(items[i]),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _FilterMenuRow extends StatelessWidget {
-  const _FilterMenuRow({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: ColoredBox(
-        color: selected ? p.selected : Colors.transparent,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-              color: selected ? p.primary : p.ink,
-            ),
+            ],
           ),
         ),
       ),
@@ -378,32 +177,20 @@ class _CourseHistoryBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final p = AppPalette.of(context);
     if (!signedIn) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.lock_outline, size: 40, color: p.muted),
-              const SizedBox(height: 12),
-              Text(
-                '登录后可查看课程签到历史',
-                style: TextStyle(color: p.ink, fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: 16),
-              FilledButton.icon(
-                onPressed: () => showLoginDialog(context),
-                icon: const Icon(Icons.login, size: 18),
-                label: const Text('登录'),
-              ),
-            ],
-          ),
+      return EmptyHint(
+        icon: Icons.lock_outline,
+        title: '尚未登录',
+        detail: '登录后可查看课程签到历史',
+        action: FilledButton.icon(
+          onPressed: () => showLoginDialog(context),
+          icon: const Icon(Icons.login, size: 18),
+          label: const Text('登录'),
         ),
       );
     }
 
     final async = ref.watch(courseHistoryProvider);
-    return RefreshIndicator(
+    return AppPullToRefresh(
       color: p.primary,
       onRefresh: () => ref.read(courseHistoryProvider.notifier).refresh(),
       child: async.when(
@@ -521,17 +308,11 @@ class _CourseTile extends StatelessWidget {
     final title = record.courseTitle.trim().isEmpty
         ? '未命名课程'
         : record.courseTitle;
-    return Panel(
-      padding: EdgeInsets.zero,
+    return AppHoverSurface(
       child: Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpace.sm,
-              AppSpace.sm,
-              AppSpace.sm,
-              AppSpace.sm,
-            ),
+            padding: const EdgeInsets.all(AppSpace.sm),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

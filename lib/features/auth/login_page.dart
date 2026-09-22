@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
-import 'package:xmu_rollcall/features/auth/auth_models.dart';
 
 Future<void> showLoginDialog(BuildContext context) {
   return showDialog<void>(
@@ -81,8 +80,7 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final auth = ref.watch(authControllerProvider);
-    final loading = _submitting || auth.status == AuthStatus.loading;
+    final loading = _submitting;
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 400),
@@ -171,21 +169,18 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
                 ),
               ],
               const SizedBox(height: 18),
-              SizedBox(
-                height: 42,
-                child: FilledButton(
-                  onPressed: loading ? null : _submit,
-                  child: loading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('登录'),
-                ),
+              FilledButton(
+                onPressed: loading ? null : _submit,
+                child: loading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('登录'),
               ),
             ],
           ),

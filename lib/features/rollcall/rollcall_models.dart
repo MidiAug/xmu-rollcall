@@ -185,4 +185,28 @@ class CourseRollcallRecord {
     if (t == null) return '-';
     return t.toLocal().toString().substring(0, 19);
   }
+
+  Map<String, dynamic> toJson() => {
+        'courseId': courseId,
+        'courseTitle': courseTitle,
+        'rollcallId': rollcallId,
+        'rollcallTime': rollcallTime?.toIso8601String(),
+        'typeLabel': typeLabel,
+        'signedStatus': signedStatus,
+        'platformStatus': platformStatus,
+        'detail': detail,
+      };
+
+  factory CourseRollcallRecord.fromJson(Map<String, dynamic> j) {
+    return CourseRollcallRecord(
+      courseId: '${j['courseId'] ?? ''}',
+      courseTitle: j['courseTitle'] as String? ?? '',
+      rollcallId: '${j['rollcallId'] ?? ''}',
+      rollcallTime: DateTime.tryParse(j['rollcallTime'] as String? ?? ''),
+      typeLabel: j['typeLabel'] as String? ?? '',
+      signedStatus: j['signedStatus'] as String? ?? '',
+      platformStatus: j['platformStatus'] as String? ?? '',
+      detail: j['detail'] as String? ?? '',
+    );
+  }
 }

@@ -22,6 +22,8 @@ abstract final class AppTheme {
       onPrimary: Colors.white,
       secondary: p.muted,
       onSecondary: p.ink,
+      secondaryContainer: p.selected,
+      onSecondaryContainer: p.primary,
       error: p.danger,
       onError: Colors.white,
       surface: p.surface,
@@ -78,27 +80,22 @@ abstract final class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size(0, 36),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadii.button),
-          ),
-          backgroundColor: p.primary,
-          foregroundColor: Colors.white,
+          minimumSize: const Size(64, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          shape: const StadiumBorder(),
+          elevation: 0,
           textStyle: const TextStyle(
             fontSize: 13,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
             letterSpacing: -0.1,
           ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(0, 34),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadii.button),
-          ),
+          minimumSize: const Size(64, 36),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          shape: const StadiumBorder(),
           side: BorderSide(color: p.borderStrong),
           foregroundColor: p.ink,
           textStyle: const TextStyle(
@@ -110,6 +107,8 @@ abstract final class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: p.primary,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          shape: const StadiumBorder(),
           textStyle: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w500,
@@ -152,10 +151,16 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: p.content,
+        fillColor: p.surfaceHigh.withValues(
+          alpha: brightness == Brightness.dark ? 0.55 : 1,
+        ),
         isDense: true,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        hintStyle: TextStyle(color: p.muted, fontSize: 13),
+        labelStyle: TextStyle(color: p.muted, fontSize: 13),
+        prefixIconColor: p.muted,
+        suffixIconColor: p.muted,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
           borderSide: BorderSide(color: p.border),
@@ -167,6 +172,14 @@ abstract final class AppTheme {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
           borderSide: BorderSide(color: p.primary, width: 1.2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.input),
+          borderSide: BorderSide(color: p.danger),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.input),
+          borderSide: BorderSide(color: p.danger, width: 1.2),
         ),
       ),
       dividerColor: p.border,

@@ -123,36 +123,38 @@ class _AssistRollcallHubPageState extends ConsumerState<AssistRollcallHubPage> {
                     ],
                   ),
                 )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        AppSpace.pageXOf(context),
-                        wide ? AppSpace.xxs : AppSpace.xxs,
-                        AppSpace.pageXOf(context),
-                        AppSpace.sm,
+              : AppContentColumn(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          AppSpace.pageXOf(context),
+                          wide ? AppSpace.xxs : AppSpace.xxs,
+                          AppSpace.pageXOf(context),
+                          AppSpace.sm,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _AssistPollQuickBar(monitor: _monitor),
+                            ),
+                            Text(
+                              id.kind.labelZh,
+                              style: TextStyle(fontSize: 12, color: p.muted),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: _AssistPollQuickBar(monitor: _monitor),
-                          ),
-                          Text(
-                            id.kind.labelZh,
-                            style: TextStyle(fontSize: 12, color: p.muted),
-                          ),
-                        ],
+                      Expanded(
+                        child: RollcallListPage(
+                          embedded: true,
+                          assistUserId: id.userId,
+                          enableAssistMulti: false,
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: RollcallListPage(
-                        embedded: true,
-                        assistUserId: id.userId,
-                        enableAssistMulti: false,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
     );
   }

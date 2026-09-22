@@ -59,6 +59,7 @@ class _BootstrapAuthState extends ConsumerState<_BootstrapAuth> {
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
+    // Only bootstrap uses AuthStatus.loading; sign-in must not tear down the shell.
     if (auth.status == AuthStatus.unknown ||
         auth.status == AuthStatus.loading) {
       return const Scaffold(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_models.dart';
@@ -61,124 +62,121 @@ class HomeworkCoursePage extends ConsumerWidget {
           icon: const Icon(Icons.refresh_rounded),
         ),
       ],
-      body: RefreshIndicator(
-        color: p.primary,
-        onRefresh: () =>
-            ref.read(courseHomeworkProvider(courseId).notifier).refresh(),
-        child: async.when(
-          skipLoadingOnReload: true,
-          skipLoadingOnRefresh: true,
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.all(pageX),
-            children: [
-              Panel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '拉取失败',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: p.ink,
+      body: AppContentColumn(
+        child: AppPullToRefresh(
+          color: p.primary,
+          onRefresh: () =>
+              ref.read(courseHomeworkProvider(courseId).notifier).refresh(),
+          child: async.when(
+            skipLoadingOnReload: true,
+            skipLoadingOnRefresh: true,
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: EdgeInsets.all(pageX),
+              children: [
+                Panel(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '拉取失败',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: p.ink,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text('$e', style: TextStyle(color: p.muted)),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: () => ref
-                          .read(courseHomeworkProvider(courseId).notifier)
-                          .refresh(),
-                      child: const Text('重试'),
+                      const SizedBox(height: 8),
+                      Text('$e', style: TextStyle(color: p.muted)),
+                      const SizedBox(height: 12),
+                      FilledButton(
+                        onPressed: () => ref
+                            .read(courseHomeworkProvider(courseId).notifier)
+                            .refresh(),
+                        child: const Text('重试'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            data: (items) {
+              if (items.isEmpty) {
+                return CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: const [
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: EmptyHint(
+                        icon: Icons.assignment_outlined,
+                        title: '本课暂无作业',
+                        detail: '下拉刷新',
+                      ),
                     ),
                   ],
-                ),
-              ),
-            ],
-          ),
-          data: (items) {
-            if (items.isEmpty) {
-              return CustomScrollView(
+                );
+              }
+              return ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
-                slivers: const [
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: EmptyHint(
-                      icon: Icons.assignment_outlined,
-                      title: '本课暂无作业',
-                      detail: '下拉刷新',
-                    ),
-                  ),
-                ],
-              );
-            }
-            return ListView.builder(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding:
-                  EdgeInsets.fromLTRB(pageX, AppSpace.md, pageX, AppSpace.xl),
-              itemCount: items.length,
-              itemBuilder: (context, i) {
-                final item = items[i];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpace.xs),
-                  child: Material(
-                    color: p.surface,
-                    borderRadius: BorderRadius.circular(AppRadii.control),
-                    child: InkWell(
+                padding: EdgeInsets.fromLTRB(
+                  pageX,
+                  AppSpace.md,
+                  pageX,
+                  AppSpace.xl,
+                ),
+                itemCount: items.length,
+                itemBuilder: (context, i) {
+                  final item = items[i];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpace.xs),
+                    child: AppHoverSurface(
                       onTap: () => _openDetail(context, item),
-                      borderRadius: BorderRadius.circular(AppRadii.control),
-                      hoverColor: p.hover,
-                      splashColor: p.hover,
-                      highlightColor: Colors.transparent,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.title.isEmpty ? '未命名作业' : item.title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: p.ink,
-                                    ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.title.isEmpty ? '未命名作业' : item.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: p.ink,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    [
-                                      item.dueLabel,
-                                      if (item.status.isNotEmpty) item.status,
-                                      if (item.type.isNotEmpty) item.type,
-                                    ].join('  '),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: item.isOverdue ? p.danger : p.muted,
-                                    ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  [
+                                    item.dueLabel,
+                                    if (item.status.isNotEmpty) item.status,
+                                    if (item.type.isNotEmpty) item.type,
+                                  ].join('  '),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color:
+                                        item.isOverdue ? p.danger : p.muted,
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                            Icon(Icons.chevron_right_rounded, color: p.muted),
-                          ],
-                        ),
+                          ),
+                          Icon(Icons.chevron_right_rounded, color: p.muted),
+                        ],
                       ),
                     ),
-                  ),
-                );
-              },
-            );
-          },
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
     );

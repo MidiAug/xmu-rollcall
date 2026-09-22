@@ -116,6 +116,17 @@ class HomeworkItem {
       raw: d,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        if (courseId != null) 'course_id': courseId,
+        'course_name': courseName,
+        'type': type,
+        'status': status,
+        if (dueAt != null) 'due_at': dueAt!.toIso8601String(),
+        'description': description,
+      };
 }
 
 int? _asInt(Map<String, dynamic> m, List<String> keys) {

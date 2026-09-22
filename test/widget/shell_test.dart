@@ -78,6 +78,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(AppSidebar), findsOneWidget);
-    expect(find.text('畅课签到'), findsWidgets);
+    expect(find.text('签到'), findsWidgets);
+    expect(find.text('作业'), findsWidgets);
+    expect(find.text('我的'), findsWidgets);
+    expect(find.text('XMU TronClass'), findsNothing);
   });
 }

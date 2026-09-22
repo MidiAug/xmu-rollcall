@@ -343,132 +343,139 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
 
     return SubpageScaffold(
       title: '二维码签到',
-      body: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              Text(
-                item.courseTitle,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '发起人：${item.createdByName}',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              if (_status != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  _status!,
-                  style: TextStyle(fontSize: 13, height: 1.4, color: p.muted),
-                ),
-              ],
-              const SizedBox(height: 20),
-              if (!_singleAssist) ...[
-                Text(
-                  '提交对象',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: p.ink,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                CheckboxListTile(
-                  value: _includeOwner,
-                  onChanged: _submitting
-                      ? null
-                      : (v) => setState(() => _includeOwner = v ?? true),
-                  title: const Text('我'),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                if (_loadingEligible)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: LinearProgressIndicator(minHeight: 2),
-                  ),
-                for (final a in _eligible)
-                  CheckboxListTile(
-                    value: _selectedAssist.contains(a.userId),
-                    onChanged: _submitting
-                        ? null
-                        : (v) {
-                            setState(() {
-                              if (v == true) {
-                                _selectedAssist.add(a.userId);
-                              } else {
-                                _selectedAssist.remove(a.userId);
-                              }
-                            });
-                          },
-                    title: Text(a.displayName),
-                    controlAffinity: ListTileControlAffinity.leading,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                const SizedBox(height: 16),
-              ],
-              TextField(
-                controller: _dataCtrl,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: '二维码内容',
-                  hintText: '粘贴扫码得到的内容',
-                  alignLabelWithHint: true,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: _submitting ? null : _pasteClipboard,
-                  icon: const Icon(Icons.paste, size: 16),
-                  label: const Text('从剪贴板粘贴'),
-                ),
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: _submitting ? null : _submit,
-                child: Text(_submitting ? '提交中…' : '确认并提交'),
-              ),
-              if (_results.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                Text(
-                  '结果',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: p.ink,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SettingsSection(
-                  children: [
-                    for (final r in _results)
-                      SettingsRow(
-                        leading: Icon(
-                          r.ok ? Icons.check_circle_outline : Icons.error_outline,
-                          color: r.ok ? p.primary : p.danger,
-                        ),
-                        title: r.target.label,
-                        subtitle: r.message ?? (r.ok ? '成功' : '失败'),
-                        trailing: r.ok
-                            ? null
-                            : TextButton(
-                                onPressed: _submitting
-                                    ? null
-                                    : () => _retryTarget(r),
-                                child: const Text('重试'),
-                              ),
-                      ),
-                  ],
-                ),
-              ],
-            ],
+      body: AppContentColumn(
+        child: ListView(
+          padding: EdgeInsets.fromLTRB(
+            AppSpace.pageXOf(context),
+            AppSpace.md,
+            AppSpace.pageXOf(context),
+            AppSpace.xl,
           ),
+          children: [
+            Text(
+              item.courseTitle,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.15,
+                color: p.ink,
+              ),
+            ),
+            const SizedBox(height: AppSpace.xs),
+            Text(
+              '发起人：${item.createdByName}',
+              style: TextStyle(fontSize: 12, color: p.muted),
+            ),
+            if (_status != null) ...[
+              const SizedBox(height: AppSpace.sm),
+              Text(
+                _status!,
+                style: TextStyle(fontSize: 13, height: 1.4, color: p.muted),
+              ),
+            ],
+            const SizedBox(height: AppSpace.lg),
+            if (!_singleAssist) ...[
+              SettingsSection(
+                header: '提交对象',
+                children: [
+                  SettingsRow(
+                    leading: const Icon(Icons.person_outline),
+                    title: '我',
+                    onTap: _submitting
+                        ? null
+                        : () => setState(() => _includeOwner = !_includeOwner),
+                    trailing: IgnorePointer(
+                      child: Checkbox(
+                        value: _includeOwner,
+                        onChanged: (_) {},
+                      ),
+                    ),
+                  ),
+                  if (_loadingEligible)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      child: LinearProgressIndicator(minHeight: 2),
+                    ),
+                  for (final a in _eligible)
+                    SettingsRow(
+                      leading: const Icon(Icons.handshake_outlined),
+                      title: a.displayName,
+                      onTap: _submitting
+                          ? null
+                          : () {
+                              setState(() {
+                                if (_selectedAssist.contains(a.userId)) {
+                                  _selectedAssist.remove(a.userId);
+                                } else {
+                                  _selectedAssist.add(a.userId);
+                                }
+                              });
+                            },
+                      trailing: IgnorePointer(
+                        child: Checkbox(
+                          value: _selectedAssist.contains(a.userId),
+                          onChanged: (_) {},
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: AppSpace.md),
+            ],
+            TextField(
+              controller: _dataCtrl,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                labelText: '二维码内容',
+                hintText: '粘贴扫码得到的内容',
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: AppSpace.xs),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _submitting ? null : _pasteClipboard,
+                icon: const Icon(Icons.paste, size: 16),
+                label: const Text('从剪贴板粘贴'),
+              ),
+            ),
+            const SizedBox(height: AppSpace.md),
+            FilledButton(
+              onPressed: _submitting ? null : _submit,
+              child: Text(_submitting ? '提交中…' : '确认并提交'),
+            ),
+            if (_results.isNotEmpty) ...[
+              const SizedBox(height: AppSpace.lg),
+              SettingsSection(
+                header: '结果',
+                children: [
+                  for (final r in _results)
+                    SettingsRow(
+                      leading: Icon(
+                        r.ok
+                            ? Icons.check_circle_outline
+                            : Icons.error_outline,
+                        color: r.ok ? p.primary : p.danger,
+                      ),
+                      title: r.target.label,
+                      subtitle: r.message ?? (r.ok ? '成功' : '失败'),
+                      trailing: r.ok
+                          ? null
+                          : TextButton(
+                              onPressed: _submitting
+                                  ? null
+                                  : () => _retryTarget(r),
+                              child: const Text('重试'),
+                            ),
+                    ),
+                ],
+              ),
+            ],
+          ],
         ),
       ),
     );

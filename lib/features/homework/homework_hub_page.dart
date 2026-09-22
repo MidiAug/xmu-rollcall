@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
+import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
@@ -56,25 +57,18 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
 
   @override
   Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
-    final p = AppPalette.of(context);
     final signedIn = ref.watch(authControllerProvider).isSignedIn;
 
     return PageScaffold(
       title: '作业',
-      showHeader: wide,
-      trailing: signedIn
-          ? AppRefreshButton(
-              color: p.muted,
-              onRefresh: () =>
-                  ref.read(homeworkTodosProvider.notifier).refresh(),
-            )
-          : null,
-      child: PrimaryScrollController(
-        controller: _scroll,
-        child: !signedIn
-            ? _SignedOutHint(onLogin: () => showLoginDialog(context))
-            : _TodosBody(onOpen: _openDetail),
+      showHeader: false,
+      child: AppContentColumn(
+        child: PrimaryScrollController(
+          controller: _scroll,
+          child: !signedIn
+              ? _SignedOutHint(onLogin: () => showLoginDialog(context))
+              : _TodosBody(onOpen: _openDetail),
+        ),
       ),
     );
   }
@@ -87,27 +81,14 @@ class _SignedOutHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.lock_outline, size: 40, color: p.muted),
-            const SizedBox(height: 12),
-            Text(
-              '登录后可查看待办作业',
-              style: TextStyle(color: p.ink, fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 16),
-            FilledButton.icon(
-              onPressed: onLogin,
-              icon: const Icon(Icons.login, size: 18),
-              label: const Text('登录'),
-            ),
-          ],
-        ),
+    return EmptyHint(
+      icon: Icons.lock_outline,
+      title: '尚未登录',
+      detail: '登录后可查看待办作业',
+      action: FilledButton.icon(
+        onPressed: onLogin,
+        icon: const Icon(Icons.login, size: 18),
+        label: const Text('登录'),
       ),
     );
   }
@@ -124,7 +105,7 @@ class _TodosBody extends ConsumerWidget {
     final pageX = AppSpace.pageXOf(context);
     final async = ref.watch(homeworkTodosProvider);
 
-    return RefreshIndicator(
+    return AppPullToRefresh(
       color: p.primary,
       onRefresh: () => ref.read(homeworkTodosProvider.notifier).refresh(),
       child: async.when(
@@ -239,61 +220,51 @@ class _TodoTile extends StatelessWidget {
     final p = AppPalette.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpace.xs),
-      child: Material(
-        color: p.surface,
-        borderRadius: BorderRadius.circular(AppRadii.control),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(AppRadii.control),
-          hoverColor: p.hover,
-          splashColor: p.hover,
-          highlightColor: Colors.transparent,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.title.isEmpty ? '未命名作业' : item.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: p.ink,
-                        ),
-                      ),
-                      if (item.courseName.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          item.courseName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, color: p.muted),
-                        ),
-                      ],
-                      const SizedBox(height: 2),
-                      Text(
-                        [
-                          item.dueLabel,
-                          if (item.status.isNotEmpty) item.status,
-                        ].join('  '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: overdue ? p.danger : p.muted,
-                        ),
-                      ),
-                    ],
+      child: AppHoverSurface(
+        onTap: onTap,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.title.isEmpty ? '未命名作业' : item.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: p.ink,
+                    ),
                   ),
-                ),
-                Icon(Icons.chevron_right_rounded, color: p.muted),
-              ],
+                  if (item.courseName.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      item.courseName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: p.muted),
+                    ),
+                  ],
+                  const SizedBox(height: 2),
+                  Text(
+                    [
+                      item.dueLabel,
+                      if (item.status.isNotEmpty) item.status,
+                    ].join('  '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: overdue ? p.danger : p.muted,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+            Icon(Icons.chevron_right_rounded, color: p.muted),
+          ],
         ),
       ),
     );

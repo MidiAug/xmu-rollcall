@@ -30,7 +30,6 @@ class RadarPlaceCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.card),
-        side: BorderSide(color: p.borderStrong),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(

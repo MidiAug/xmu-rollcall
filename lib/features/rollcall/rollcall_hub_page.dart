@@ -71,63 +71,72 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
 
     return PageScaffold(
       title: '签到',
-      showHeader: wide,
-      trailing: wide
-          ? AppRefreshButton(
-              color: p.muted,
-              onRefresh: () =>
-                  ref.read(activeRollcallsProvider(null).notifier).refresh(),
-            )
-          : null,
-      child: PrimaryScrollController(
-        controller: _scroll,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                AppSpace.pageXOf(context),
-                wide ? 0 : AppSpace.xxs,
-                AppSpace.pageXOf(context),
-                AppSpace.sm,
-              ),
-              child: Row(
-                children: [
-                  const Expanded(child: _PollQuickBar()),
-                  if (!wide) ...[
-                    const SizedBox(width: AppSpace.xxs),
-                    AppRefreshButton(
-                      visualDensity: VisualDensity.compact,
-                      color: p.muted,
-                      iconSize: 22,
-                      onRefresh: () =>
-                          ref.read(activeRollcallsProvider(null).notifier).refresh(),
+      showHeader: false,
+      child: AppContentColumn(
+        child: PrimaryScrollController(
+          controller: _scroll,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpace.pageXOf(context),
+                  wide ? AppSpace.sm : AppSpace.xxs,
+                  AppSpace.pageXOf(context),
+                  AppSpace.sm,
+                ),
+                child: Row(
+                  children: [
+                    const Expanded(child: _PollQuickBar()),
+                    AppIconCluster(
+                      children: [
+                        AppRefreshButton(
+                          visualDensity: VisualDensity.compact,
+                          color: p.muted,
+                          iconSize: 20,
+                          onRefresh: () => ref
+                              .read(activeRollcallsProvider(null).notifier)
+                              .refresh(),
+                        ),
+                        AppTooltipAnchor(
+                          child: IconButton(
+                            tooltip: '自动检测设置',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => _openSettings(context),
+                            icon: Icon(
+                              Icons.tune_outlined,
+                              color: p.muted,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                        AppTooltipAnchor(
+                          child: IconButton(
+                            tooltip: '签到记录',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => _openHistory(context),
+                            icon: Icon(
+                              Icons.history_outlined,
+                              color: p.muted,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
-                  IconButton(
-                    tooltip: '签到记录',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => _openHistory(context),
-                    icon: Icon(Icons.history_outlined, color: p.muted, size: 22),
-                  ),
-                  IconButton(
-                    tooltip: '自动检测设置',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: () => _openSettings(context),
-                    icon: Icon(Icons.tune_outlined, color: p.muted, size: 22),
-                  ),
-                ],
+                ),
               ),
-            ),
-            const Expanded(child: RollcallListPage(embedded: true)),
-          ],
+              const Expanded(child: RollcallListPage(embedded: true)),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// Idle: 「开始检测」. Running: capsule with countdown (tap = pollNow) + stop.
+/// Idle: 「开始检测」pill. Running: capsule with countdown (tap = pollNow) + stop.
 class _PollQuickBar extends ConsumerStatefulWidget {
   const _PollQuickBar();
 
@@ -162,24 +171,44 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
 
     if (!monitor.running) {
       final enabled = signedIn;
-      final color = enabled ? p.primary : p.muted;
       return Align(
         alignment: Alignment.centerLeft,
-        child: Tooltip(
-          message: enabled ? '开始自动检测' : '请先登录',
-          child: TextButton.icon(
-            onPressed: enabled ? ctrl.start : null,
-            icon: Icon(Icons.radar_outlined, size: 18, color: color),
-            label: Text(
-              '开始检测',
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                color: color,
+        child: AppTooltipAnchor(
+          child: Tooltip(
+            message: enabled ? '开始自动检测' : '请先登录',
+            child: Material(
+              color: enabled ? p.selected : p.surfaceHigh,
+              borderRadius: BorderRadius.circular(18),
+              child: InkWell(
+                onTap: enabled ? ctrl.start : null,
+                borderRadius: BorderRadius.circular(18),
+                hoverColor: p.hover,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.radar_outlined,
+                        size: 16,
+                        color: enabled ? p.primary : p.muted,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '开始检测',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: enabled ? p.primary : p.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              visualDensity: VisualDensity.compact,
             ),
           ),
         ),
@@ -199,12 +228,16 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
         children: [
           Material(
             color: p.selected,
-            borderRadius: BorderRadius.circular(AppRadii.control),
+            borderRadius: BorderRadius.circular(18),
             child: InkWell(
               onTap: ctrl.pollNow,
-              borderRadius: BorderRadius.circular(AppRadii.control),
+              borderRadius: BorderRadius.circular(18),
+              hoverColor: p.hover,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 child: Text(
                   label,
                   style: TextStyle(
@@ -217,12 +250,14 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
               ),
             ),
           ),
-          const SizedBox(width: 4),
-          IconButton(
-            tooltip: '停止检测',
-            visualDensity: VisualDensity.compact,
-            onPressed: ctrl.stop,
-            icon: Icon(Icons.stop_circle_outlined, color: p.muted, size: 22),
+          const SizedBox(width: 6),
+          AppTooltipAnchor(
+            child: IconButton(
+              tooltip: '停止检测',
+              visualDensity: VisualDensity.compact,
+              onPressed: ctrl.stop,
+              icon: Icon(Icons.stop_circle_outlined, color: p.muted, size: 22),
+            ),
           ),
         ],
       ),
