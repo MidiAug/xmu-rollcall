@@ -30,6 +30,11 @@ typedef AssistAccountLoginFn = Future<AssistProfileSnapshot> Function({
   required TronHttpClient targetClient,
 });
 
+/// Returns course catalog for a session (owner or assist).
+typedef AssistCourseCatalogFn = Future<List<AssistSharedCourse>> Function(
+  TronHttpClient client,
+);
+
 class AssistException implements Exception {
   AssistException(this.message);
   final String message;
@@ -50,6 +55,7 @@ class AssistService {
     AssistIdentityStore? roster,
     this.probeProfile,
     this.accountLogin,
+    this.courseCatalog,
   })  : _store = store,
         _codec = codec ?? AssistTokenCodec(),
         _roster = roster ?? AssistIdentityStore(store);
@@ -61,6 +67,7 @@ class AssistService {
   final AssistIdentityStore _roster;
   final AssistProfileProber? probeProfile;
   final AssistAccountLoginFn? accountLogin;
+  final AssistCourseCatalogFn? courseCatalog;
 
   static const prefsEnabledKey = 'assist_enabled';
 
@@ -188,7 +195,7 @@ class AssistService {
       );
       await _roster.upsert(identity);
       await _store.delete(accountCredKey(probed.id));
-      return identity;
+      return _syncSharedCoursesBestEffort(probed.id);
     }
 
     // account
@@ -226,13 +233,80 @@ class AssistService {
       importedAt: clock,
     );
     await _roster.upsert(identity);
-    return identity;
+    return _syncSharedCoursesBestEffort(probed.id);
   }
 
   void _rejectSelf(int profileId, int? ownerUserId) {
     if (ownerUserId != null && ownerUserId > 0 && profileId == ownerUserId) {
       throw AssistException('不能导入当前登录账号自己的凭证');
     }
+  }
+
+  Future<AssistIdentity> _syncSharedCoursesBestEffort(int assistUserId) async {
+    try {
+      return await syncSharedCourses(assistUserId);
+    } catch (_) {
+      final list = await _roster.list();
+      return list.firstWhere(
+        (e) => e.userId == assistUserId,
+        orElse: () => AssistIdentity(
+          userId: assistUserId,
+          displayName: '用户',
+          kind: AssistCredentialKind.session,
+        ),
+      );
+    }
+  }
+
+  /// Owner ∩ assist courses → persist on identity (import / manual refresh).
+  Future<AssistIdentity> syncSharedCourses(int assistUserId) async {
+    final catalog = courseCatalog;
+    if (catalog == null) {
+      throw AssistException('未配置课程目录探测，无法同步同课');
+    }
+    final list = await _roster.list();
+    AssistIdentity? identity;
+    for (final e in list) {
+      if (e.userId == assistUserId) {
+        identity = e;
+        break;
+      }
+    }
+    if (identity == null) {
+      throw AssistException('协助身份不存在');
+    }
+
+    await ensureSession(identity);
+
+    final owner = registry.owner();
+    await owner.init();
+    final ownerCourses = await catalog(owner);
+    final ownerIds = {for (final c in ownerCourses) c.id};
+
+    final assistClient = registry.forKey(SessionKey.assist(assistUserId));
+    await assistClient.init();
+    final assistCourses = await catalog(assistClient);
+
+    String titleFor(AssistSharedCourse c) {
+      if (c.title.isNotEmpty) return c.title;
+      for (final o in ownerCourses) {
+        if (o.id == c.id && o.title.isNotEmpty) return o.title;
+      }
+      return '';
+    }
+
+    final shared = <AssistSharedCourse>[
+      for (final c in assistCourses)
+        if (ownerIds.contains(c.id))
+          AssistSharedCourse(id: c.id, title: titleFor(c)),
+    ];
+
+    final updated = identity.copyWith(
+      sharedCourses: shared,
+      sharedCoursesSyncedAt: DateTime.now().toUtc(),
+    );
+    await _roster.upsert(updated);
+    return updated;
   }
 
   /// If account cookies died, re-login using stored credentials.

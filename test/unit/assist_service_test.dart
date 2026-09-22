@@ -61,6 +61,32 @@ void main() {
         registry: registry,
         codec: AssistTokenCodec(),
         prefs: await SharedPreferences.getInstance(),
+        courseCatalog: (client) async {
+          final jar = client.cookieJar!;
+          final cookies = await jar.loadForRequest(
+            Uri.parse('https://lnt.xmu.edu.cn'),
+          );
+          String? sid;
+          for (final c in cookies) {
+            if (c.name == 'session') {
+              sid = c.value;
+              break;
+            }
+          }
+          if (sid == null || sid.isEmpty) return const [];
+          if (sid == '1001' || sid == '8') {
+            return const [
+              AssistSharedCourse(id: '501', title: '高等数学A'),
+              AssistSharedCourse(id: '502', title: '大学英语'),
+            ];
+          }
+          if (sid == '2002') {
+            return const [
+              AssistSharedCourse(id: '501', title: '高等数学A'),
+            ];
+          }
+          return const [];
+        },
         probeProfile: (client) async {
           final jar = client.cookieJar!;
           final cookies = await jar.loadForRequest(
@@ -116,12 +142,20 @@ void main() {
       expect(identity.kind, AssistCredentialKind.session);
       expect(identity.deviceId, 'owner-dev');
       expect(identity.displayName, '导入用户1001');
+      // Owner jar was cleared above → sync cannot intersect; shared stays empty.
+      expect(identity.sharedCourses, isEmpty);
       expect((await service.listIdentities()).map((e) => e.userId), [1001]);
       expect(await store.read(SecureStore.keySessionCookies), isNull);
       expect(
         await store.read(SessionKey.assist(1001).secureCookieKey),
         isNotNull,
       );
+
+      // Re-login owner then refresh shared courses.
+      await owner.importCookieHeader('session=1001');
+      final synced = await service.syncSharedCourses(1001);
+      expect(synced.sharedCourses.map((e) => e.id), ['501', '502']);
+      expect(synced.sharedCoursesSyncedAt, isNotNull);
     });
 
     test('rejects importing owner self package', () async {

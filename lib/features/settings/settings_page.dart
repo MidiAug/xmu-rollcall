@@ -273,7 +273,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                           if (context.mounted) {
                             AppToast.show(
                               context,
-                              '已导入 ${id.displayName}（${id.kind.labelZh}）',
+                              '已导入 ${id.displayName}（${id.kind.labelZh}，同课 ${id.sharedCourses.length} 门）',
                             );
                           }
                         },
@@ -287,7 +287,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                           if (context.mounted) {
                             AppToast.show(
                               context,
-                              '已导入 ${id.displayName}（${id.kind.labelZh}）',
+                              '已导入 ${id.displayName}（${id.kind.labelZh}，同课 ${id.sharedCourses.length} 门）',
                             );
                           }
                         },

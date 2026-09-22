@@ -4,6 +4,8 @@
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>雷达签到需要获取当前位置并经你确认后提交</string>
+	<key>NSCameraUsageDescription</key>
+	<string>二维码签到需要使用相机扫描老师展示的二维码</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

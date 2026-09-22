@@ -9,6 +9,7 @@ import 'package:xmu_rollcall/core/session/session_credential.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/assist/assist_rollcall_hub_page.dart';
+import 'package:xmu_rollcall/features/assist/assist_shared_course_chip.dart';
 
 /// Import assist identity. Controllers live in [State] (not outside [StatefulBuilder])
 /// and we never pad with [MediaQuery.viewInsets] — see R-19.
@@ -489,6 +490,17 @@ class AssistIdentitiesPage extends ConsumerWidget {
                     ),
                     title: id.displayName,
                     subtitle: '${id.kind.labelZh} · 点击进入签到',
+                    subtitleWidget: Align(
+                      alignment: Alignment.centerLeft,
+                      child: AssistSharedCourseChip(
+                        identity: id,
+                        onTap: () => showAssistSharedCoursesSheet(
+                          context,
+                          identity: id,
+                          ref: ref,
+                        ),
+                      ),
+                    ),
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute<void>(
@@ -497,26 +509,60 @@ class AssistIdentitiesPage extends ConsumerWidget {
                         ),
                       );
                     },
-                    trailing: IconButton(
-                      tooltip: '删除',
-                      onPressed: assist.busy
-                          ? null
-                          : () async {
-                              final ok = await showAppConfirmDialog(
-                                context,
-                                title: '移除协助账号',
-                                message:
-                                    '移除「${id.displayName}」并清除其本地登录信息'
-                                    '${id.kind == AssistCredentialKind.account ? '与保存的密码' : ''}？',
-                                confirmLabel: '移除',
-                                destructive: true,
-                              );
-                              if (!ok) return;
-                              await ref
-                                  .read(assistControllerProvider.notifier)
-                                  .removeIdentity(id.userId);
-                            },
-                      icon: Icon(Icons.delete_outline, color: p.muted),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: '刷新同课',
+                          onPressed: assist.busy
+                              ? null
+                              : () async {
+                                  try {
+                                    final updated = await ref
+                                        .read(
+                                          assistControllerProvider.notifier,
+                                        )
+                                        .refreshSharedCourses(id.userId);
+                                    if (context.mounted) {
+                                      AppToast.show(
+                                        context,
+                                        '同课 ${updated.sharedCourses.length} 门',
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (context.mounted) {
+                                      AppToast.show(
+                                        context,
+                                        '$e',
+                                        error: true,
+                                      );
+                                    }
+                                  }
+                                },
+                          icon: Icon(Icons.sync, color: p.muted, size: 20),
+                        ),
+                        IconButton(
+                          tooltip: '删除',
+                          onPressed: assist.busy
+                              ? null
+                              : () async {
+                                  final ok = await showAppConfirmDialog(
+                                    context,
+                                    title: '移除协助账号',
+                                    message:
+                                        '移除「${id.displayName}」并清除其本地登录信息'
+                                        '${id.kind == AssistCredentialKind.account ? '与保存的密码' : ''}？',
+                                    confirmLabel: '移除',
+                                    destructive: true,
+                                  );
+                                  if (!ok) return;
+                                  await ref
+                                      .read(assistControllerProvider.notifier)
+                                      .removeIdentity(id.userId);
+                                },
+                          icon: Icon(Icons.delete_outline, color: p.muted),
+                        ),
+                      ],
                     ),
                   ),
               ],

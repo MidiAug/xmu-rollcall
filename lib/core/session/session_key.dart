@@ -15,6 +15,8 @@ sealed class SessionKey {
 
   bool get isOwner => this is OwnerSessionKey;
 
+  bool get isAssist => this is AssistSessionKey;
+
   static const SessionKey owner = OwnerSessionKey();
 
   factory SessionKey.assist(int userId) = AssistSessionKey;

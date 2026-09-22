@@ -8,17 +8,17 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 void main() {
   group('filterAssistForCourse', () {
     test('keeps identities whose course set contains courseId', () {
-      final a = const AssistIdentity(
+      const a = AssistIdentity(
         userId: 1,
         displayName: '甲',
         kind: AssistCredentialKind.session,
       );
-      final b = const AssistIdentity(
+      const b = AssistIdentity(
         userId: 2,
         displayName: '乙',
         kind: AssistCredentialKind.session,
       );
-      final c = const AssistIdentity(
+      const c = AssistIdentity(
         userId: 3,
         displayName: '丙',
         kind: AssistCredentialKind.session,
@@ -51,6 +51,77 @@ void main() {
           },
         ),
         isEmpty,
+      );
+    });
+  });
+
+  group('filterAssistBySharedCache', () {
+    test('uses AssistIdentity.sharedCourses', () {
+      const a = AssistIdentity(
+        userId: 1,
+        displayName: '甲',
+        kind: AssistCredentialKind.session,
+        sharedCourses: [
+          AssistSharedCourse(id: '99', title: '高数'),
+        ],
+      );
+      const b = AssistIdentity(
+        userId: 2,
+        displayName: '乙',
+        kind: AssistCredentialKind.session,
+      );
+      expect(
+        filterAssistBySharedCache(courseId: '99', identities: [a, b])
+            .map((e) => e.userId),
+        [1],
+      );
+    });
+  });
+
+  group('eligibilityFromActiveList', () {
+    RollcallItem item({
+      required int id,
+      required String status,
+    }) {
+      return RollcallItem(
+        rollcallId: id,
+        courseTitle: 'c',
+        createdByName: 't',
+        type: RollcallType.qrcode,
+        status: status,
+        rollcallStatus: 'open',
+        isExpired: false,
+        scored: false,
+      );
+    }
+
+    test('unsigned when present and not answered', () {
+      expect(
+        eligibilityFromActiveList(
+          rollcallId: 5,
+          active: [item(id: 5, status: 'on_call')],
+        ),
+        AssistQrEligibility.unsigned,
+      );
+    });
+
+    test('signed when on_call_fine', () {
+      expect(
+        eligibilityFromActiveList(
+          rollcallId: 5,
+          active: [item(id: 5, status: 'on_call_fine')],
+        ),
+        AssistQrEligibility.signedOrDone,
+      );
+    });
+
+    test('signedOrDone when absent from active list', () {
+      expect(
+        eligibilityFromActiveList(
+          rollcallId: 5,
+          active: [item(id: 9, status: 'on_call')],
+        ),
+        AssistQrEligibility.signedOrDone,
       );
     });
   });

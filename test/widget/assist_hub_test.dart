@@ -91,12 +91,89 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('同学甲'), findsOneWidget);
+    expect(find.text('未同步'), findsOneWidget);
     await tester.tap(find.text('同学甲'));
     await tester.pump(); // start route
     await tester.pump(const Duration(milliseconds: 500)); // nav + bootstrap
 
     expect(find.byType(AssistRollcallHubPage), findsOneWidget);
     expect(find.text('开始检测'), findsOneWidget);
+  });
+
+  testWidgets('roster shared-course chip opens sheet', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final memory = SecureStore.memory();
+    final identity = AssistIdentity(
+      userId: 42,
+      displayName: '同学乙',
+      kind: AssistCredentialKind.session,
+      deviceId: 'dev-b',
+      sharedCourses: const [
+        AssistSharedCourse(id: '9', title: '高等数学'),
+      ],
+      sharedCoursesSyncedAt: DateTime.utc(2026, 9, 1),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          secureStoreProvider.overrideWithValue(memory),
+          deviceIdentityProvider.overrideWith((ref) => DeviceIdentity(memory)),
+          sessionClientRegistryProvider.overrideWith(
+            (ref) => SessionClientRegistry(
+              store: memory,
+              createClient: ({
+                required store,
+                required sessionKey,
+                required rateLimiter,
+              }) {
+                return TronHttpClient(
+                  store: store,
+                  sessionKey: sessionKey,
+                  rateLimiter: rateLimiter,
+                  cookieJar: CookieJar(),
+                );
+              },
+            ),
+          ),
+          assistServiceProvider.overrideWith((ref) async {
+            final prefs = await SharedPreferences.getInstance();
+            return AssistService(
+              store: memory,
+              registry: ref.watch(sessionClientRegistryProvider),
+              prefs: prefs,
+              probeProfile: (_) async =>
+                  const AssistProfileSnapshot(id: 42, name: '同学乙'),
+            );
+          }),
+          assistControllerProvider.overrideWith(
+            (ref) => AssistController(
+              ref,
+              initial: AssistUiState(
+                enabled: true,
+                ready: true,
+                identities: [identity],
+              ),
+              bootstrap: false,
+            ),
+          ),
+          activeRollcallsProvider.overrideWith(_EmptyRollcalls.new),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.dark(),
+          home: const AssistIdentitiesPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('同课 1'), findsOneWidget);
+    await tester.tap(find.text('同课 1'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('高等数学'), findsOneWidget);
+    expect(find.text('刷新同课'), findsOneWidget);
+    expect(find.byType(AssistRollcallHubPage), findsNothing);
   });
 
   testWidgets('QR with enableAssistMulti false hides 提交对象', (tester) async {

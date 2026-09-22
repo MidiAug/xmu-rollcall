@@ -33,7 +33,7 @@ typedef AssistQrSubmitFn = Future<AnswerResult> Function(
   String qrData,
 );
 
-/// Pure filter: keep assists enrolled in [courseId].
+/// Pure filter: keep assists enrolled in [courseId] (live map).
 List<AssistIdentity> filterAssistForCourse({
   required String? courseId,
   required List<AssistIdentity> identities,
@@ -43,6 +43,40 @@ List<AssistIdentity> filterAssistForCourse({
   return identities
       .where((e) => courseIdsByUser[e.userId]?.contains(courseId) ?? false)
       .toList();
+}
+
+/// Prefer import-time [AssistIdentity.sharedCourses] cache.
+List<AssistIdentity> filterAssistBySharedCache({
+  required String? courseId,
+  required List<AssistIdentity> identities,
+}) {
+  if (courseId == null || courseId.isEmpty) return const [];
+  return identities.where((e) => e.sharesCourse(courseId)).toList();
+}
+
+enum AssistQrEligibility {
+  /// Same course and this rollcall still needs an answer.
+  unsigned,
+
+  /// Already answered or no longer in active list.
+  signedOrDone,
+
+  /// Probe failed.
+  unknown,
+}
+
+AssistQrEligibility eligibilityFromActiveList({
+  required int rollcallId,
+  required List<RollcallItem> active,
+}) {
+  for (final item in active) {
+    if (item.rollcallId != rollcallId) continue;
+    return item.isAnswered
+        ? AssistQrEligibility.signedOrDone
+        : AssistQrEligibility.unsigned;
+  }
+  // Not in active list → treat as done / not actionable.
+  return AssistQrEligibility.signedOrDone;
 }
 
 /// Serial multi-identity QR submit (KB-01: no concurrent blast).

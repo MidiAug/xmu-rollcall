@@ -5,13 +5,19 @@ import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/core/session/assist_service.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
 
 final assistServiceProvider = FutureProvider<AssistService>((ref) async {
   final prefs = await SharedPreferences.getInstance();
+  final identity = ref.watch(deviceIdentityProvider);
   return AssistService(
     store: ref.watch(secureStoreProvider),
     registry: ref.watch(sessionClientRegistryProvider),
     prefs: prefs,
+    courseCatalog: (client) async {
+      final repo = RollcallRepository(http: client, identity: identity);
+      return repo.fetchCourses();
+    },
   );
 });
 
@@ -179,6 +185,21 @@ class AssistController extends StateNotifier<AssistUiState> {
       final svc = await _service();
       await svc.removeIdentity(userId);
       await refresh();
+    } catch (e) {
+      state = state.copyWith(errorMessage: e.toString());
+      rethrow;
+    } finally {
+      state = state.copyWith(busy: false);
+    }
+  }
+
+  Future<AssistIdentity> refreshSharedCourses(int userId) async {
+    state = state.copyWith(busy: true, clearError: true);
+    try {
+      final svc = await _service();
+      final updated = await svc.syncSharedCourses(userId);
+      await refresh();
+      return updated;
     } catch (e) {
       state = state.copyWith(errorMessage: e.toString());
       rethrow;

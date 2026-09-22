@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:xmu_rollcall/core/identity/device_identity.dart';
 import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
+import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/features/rollcall/number_code.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 
@@ -336,8 +337,17 @@ class RollcallRepository {
 
   /// Course id set for the current [http] session (assist same-course filter).
   Future<Set<String>> fetchCourseIds() async {
+    final courses = await fetchCourses();
+    return courses.map((e) => e.id).toSet();
+  }
+
+  /// Course catalog for shared-course intersection (import-time cache).
+  Future<List<AssistSharedCourse>> fetchCourses() async {
     final courses = await _probeCourses();
-    return courses.map((e) => e['id']!).toSet();
+    return [
+      for (final e in courses)
+        AssistSharedCourse(id: e['id']!, title: e['title'] ?? ''),
+    ];
   }
 
   AnswerResult _mapAnswer(Response<dynamic> res) {
