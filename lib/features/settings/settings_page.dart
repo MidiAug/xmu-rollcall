@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
-import 'package:xmu_rollcall/app/app_switch.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
@@ -167,35 +166,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
             header: '协助签到',
-            footer: Text(
-              '代同学签到，开启前需确认',
-              style: TextStyle(fontSize: 12, height: 1.35, color: p.muted),
-            ),
             children: [
-              SettingsRow(
-                leading: const Icon(Icons.handshake_outlined),
-                title: '启用协助',
-                trailing: AppSwitch(
-                  value: assist.enabled,
-                  onChanged: !assist.ready || assist.busy
-                      ? null
-                      : (v) async {
-                          if (v) {
-                            final ok = await showAssistRiskDialog(context);
-                            if (!ok || !context.mounted) return;
-                          }
-                          await ref
-                              .read(assistControllerProvider.notifier)
-                              .setEnabled(v);
-                        },
-                ),
-              ),
               SettingsRow(
                 leading: const Icon(Icons.upload_outlined),
                 title: '导出协助码',
                 subtitle: auth.isSignedIn ? '生成后复制给同学' : '请先登录',
                 trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
-                onTap: !assist.enabled || !auth.isSignedIn || assist.busy
+                onTap: !auth.isSignedIn || assist.busy
                     ? null
                     : () async {
                         final store = ref.read(secureStoreProvider);
@@ -225,7 +202,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 title: '导入协助身份',
                 subtitle: '粘贴协助码或输入学号密码',
                 trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
-                onTap: !assist.enabled || assist.busy
+                onTap: assist.busy
                     ? null
                     : () => showAssistImportDialog(
                         context,

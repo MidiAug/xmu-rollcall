@@ -33,7 +33,9 @@ class _TestAuthController extends AuthController {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('assist section shows with switch default off', (tester) async {
+  testWidgets('assist section shows import export without master switch', (
+    tester,
+  ) async {
     SharedPreferences.setMockInitialValues({});
     final memory = SecureStore.memory();
 
@@ -63,7 +65,7 @@ void main() {
           assistControllerProvider.overrideWith(
             (ref) => AssistController(
               ref,
-              initial: const AssistUiState(enabled: false, ready: true),
+              initial: const AssistUiState(ready: true),
               bootstrap: false,
             ),
           ),
@@ -77,12 +79,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('协助签到'), findsOneWidget);
-    expect(find.text('启用协助'), findsOneWidget);
+    expect(find.text('启用协助'), findsNothing);
     expect(find.text('导出协助码'), findsOneWidget);
     expect(find.text('导入协助身份'), findsOneWidget);
-
-    final switches = tester.widgetList<Switch>(find.byType(Switch)).toList();
-    expect(switches, isNotEmpty);
-    expect(switches.every((s) => s.value == false), isTrue);
+    expect(find.byType(Switch), findsNothing);
   });
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -23,10 +24,18 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   int _retapEpoch = 0;
   AppDestination? _retapDestination;
 
+  final _chrome = DesktopShellChromeController();
+
   final _navKeys = List<GlobalKey<NavigatorState>>.generate(
     AppDestination.values.length,
     (_) => GlobalKey<NavigatorState>(),
   );
+
+  @override
+  void dispose() {
+    _chrome.dispose();
+    super.dispose();
+  }
 
   void _onSelect(AppDestination d) {
     FocusManager.instance.primaryFocus?.unfocus();
@@ -39,17 +48,21 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       return;
     }
     setState(() => _current = d);
+    _chrome.current = d;
   }
 
   Widget _tabNavigator(AppDestination d, Widget home) {
-    return Navigator(
-      key: _navKeys[d.index],
-      onGenerateRoute: (settings) {
-        return MaterialPageRoute<void>(
-          settings: settings,
-          builder: (_) => home,
-        );
-      },
+    return ShellTabDestination(
+      destination: d,
+      child: Navigator(
+        key: _navKeys[d.index],
+        onGenerateRoute: (settings) {
+          return MaterialPageRoute<void>(
+            settings: settings,
+            builder: (_) => home,
+          );
+        },
+      ),
     );
   }
 
@@ -130,18 +143,21 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
             ),
           );
 
-    return ShellTabScope(
-      current: _current,
-      retapEpoch: _retapEpoch,
-      retapDestination: _retapDestination,
-      child: PopScope(
-        // Nested tab stacks are not visible to the root navigator; handle
-        // back here with a live canPop check (build-time canPop would be stale).
-        canPop: false,
-        onPopInvokedWithResult: (didPop, _) {
-          if (!didPop) _onSystemBack();
-        },
-        child: scaffold,
+    return DesktopShellChromeScope(
+      controller: _chrome,
+      child: ShellTabScope(
+        current: _current,
+        retapEpoch: _retapEpoch,
+        retapDestination: _retapDestination,
+        child: PopScope(
+          // Nested tab stacks are not visible to the root navigator; handle
+          // back here with a live canPop check (build-time canPop would be stale).
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _onSystemBack();
+          },
+          child: scaffold,
+        ),
       ),
     );
   }

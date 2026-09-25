@@ -4,6 +4,27 @@
 
 #include "flutter/generated_plugin_registrant.h"
 
+namespace {
+
+// Flutter Windows accessibility bridge desyncs on scroll / tab / tooltip
+// (flutter/flutter#182444: "N will not be in the tree and is not the new root").
+// Once WM_GETOBJECT activates the bridge, every semantics update can spam ERROR.
+// Swallow probes so the native AXTree never comes up. Narrator/UIA will not see
+// this window; fine for this utility until upstream is fixed.
+constexpr UINT kWmGetObject = 0x003D;
+
+WNDPROC g_flutter_view_proc = nullptr;
+
+LRESULT CALLBACK FlutterViewProcGuard(HWND hwnd, UINT message, WPARAM wparam,
+                                      LPARAM lparam) {
+  if (message == kWmGetObject) {
+    return 0;
+  }
+  return CallWindowProc(g_flutter_view_proc, hwnd, message, wparam, lparam);
+}
+
+}  // namespace
+
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
@@ -27,6 +48,11 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
+  // Intercept MSAA/UIA on the Flutter view HWND (top-level alone is not enough).
+  HWND view = flutter_controller_->view()->GetNativeWindow();
+  g_flutter_view_proc = reinterpret_cast<WNDPROC>(SetWindowLongPtr(
+      view, GWLP_WNDPROC, reinterpret_cast<LONG_PTR>(FlutterViewProcGuard)));
+
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
   });
@@ -43,6 +69,7 @@ void FlutterWindow::OnDestroy() {
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
   }
+  g_flutter_view_proc = nullptr;
 
   Win32Window::OnDestroy();
 }
@@ -51,6 +78,10 @@ LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,
                               LPARAM const lparam) noexcept {
+  if (message == kWmGetObject) {
+    return 0;
+  }
+
   // Give Flutter, including plugins, an opportunity to handle window messages.
   if (flutter_controller_) {
     std::optional<LRESULT> result =

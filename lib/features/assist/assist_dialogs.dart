@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/session/assist_service.dart';
@@ -435,18 +434,6 @@ class _AssistExportDialogState extends State<_AssistExportDialog> {
   }
 }
 
-Future<bool> showAssistRiskDialog(BuildContext context) async {
-  return showAppConfirmDialog(
-    context,
-    title: '启用协助签到？',
-    message:
-        '开启后可以：导入同学的协助码或学号密码；从名单进入其签到页代为签到；在二维码签到时一次提交多人。\n\n'
-        '「临时会话」会在对方重新登录后失效；「账号密码」相当于分享密码，对方改密后才会失效。\n\n'
-        '请仅在双方知情同意下使用，并遵守校规。',
-    confirmLabel: '我了解，启用',
-  );
-}
-
 class AssistIdentitiesPage extends ConsumerWidget {
   const AssistIdentitiesPage({super.key});
 
@@ -458,49 +445,43 @@ class AssistIdentitiesPage extends ConsumerWidget {
     return SubpageScaffold(
       title: '协助身份',
       body: AppContentColumn(
-        child: !assist.enabled
+        child: assist.identities.isEmpty
             ? EmptyHint(
-                icon: Icons.group_off_outlined,
-                title: '协助功能已关闭',
-                detail: '可在「我的」中开启后再管理名单。',
+                icon: Icons.person_add_alt_1_outlined,
+                title: '还没有协助对象',
+                detail: '请先导入协助身份，再点姓名进入其签到页。',
               )
-            : assist.identities.isEmpty
-                ? EmptyHint(
-                    icon: Icons.person_add_alt_1_outlined,
-                    title: '还没有协助对象',
-                    detail: '请先导入协助身份，再点姓名进入其签到页。',
-                  )
-                : ListView(
-                    padding: EdgeInsets.fromLTRB(
-                      AppSpace.pageXOf(context),
-                      AppSpace.sm,
-                      AppSpace.pageXOf(context),
-                      AppSpace.xl,
+            : ListView(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpace.pageXOf(context),
+                  AppSpace.sm,
+                  AppSpace.pageXOf(context),
+                  AppSpace.xl,
+                ),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpace.xs,
+                      0,
+                      AppSpace.xs,
+                      AppSpace.xs,
                     ),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpace.xs,
-                          0,
-                          AppSpace.xs,
-                          AppSpace.xs,
-                        ),
-                        child: Text(
-                          '已导入 ${assist.identities.length}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: p.muted,
-                          ),
-                        ),
+                    child: Text(
+                      '已导入 ${assist.identities.length}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: p.muted,
                       ),
-                      for (final id in assist.identities)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: AppSpace.xs),
-                          child: AssistIdentityCard(identity: id),
-                        ),
-                    ],
+                    ),
                   ),
+                  for (final id in assist.identities)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpace.xs),
+                      child: AssistIdentityCard(identity: id),
+                    ),
+                ],
+              ),
       ),
     );
   }

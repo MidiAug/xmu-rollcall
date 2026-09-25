@@ -11,6 +11,7 @@ import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
 class _TestAuthController extends AuthController {
   _TestAuthController()
@@ -30,6 +31,11 @@ class _TestAuthController extends AuthController {
 class _EmptyRollcalls extends ActiveRollcallsNotifier {
   @override
   Future<List<RollcallItem>> build(int? assistUserId) async => const [];
+}
+
+class _EmptyCourseHistory extends CourseHistoryNotifier {
+  @override
+  Future<List<CourseRollcallRecord>> build() async => const [];
 }
 
 void main() {
@@ -83,4 +89,49 @@ void main() {
     expect(find.text('我的'), findsWidgets);
     expect(find.text('XMU TronClass'), findsNothing);
   });
+
+  testWidgets(
+    'desktop nested subpage hosts chrome in AppTitleBar',
+    (tester) async {
+      tester.view.physicalSize = const Size(1100, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authControllerProvider.overrideWith((ref) => _TestAuthController()),
+            activeRollcallsProvider.overrideWith(_EmptyRollcalls.new),
+            courseHistoryProvider.overrideWith(_EmptyCourseHistory.new),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.dark(),
+            home: const AdaptiveShell(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('畅课签到'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('签到记录'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('签到记录'), findsWidgets);
+      expect(find.byTooltip('返回'), findsOneWidget);
+      expect(find.text('畅课签到'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(AppTitleBar),
+          matching: find.byTooltip('返回'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byTooltip('返回'));
+      await tester.pumpAndSettle();
+      expect(find.text('畅课签到'), findsOneWidget);
+    },
+    skip: !PlatformHooks.isDesktop,
+  );
 }

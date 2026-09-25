@@ -60,11 +60,9 @@ void main() {
             ),
           ),
           assistServiceProvider.overrideWith((ref) async {
-            final prefs = await SharedPreferences.getInstance();
             return AssistService(
               store: memory,
               registry: ref.watch(sessionClientRegistryProvider),
-              prefs: prefs,
               probeProfile: (_) async =>
                   const AssistProfileSnapshot(id: 42, name: '同学甲'),
             );
@@ -73,7 +71,6 @@ void main() {
             (ref) => AssistController(
               ref,
               initial: const AssistUiState(
-                enabled: true,
                 ready: true,
                 identities: [identity],
               ),
@@ -138,11 +135,9 @@ void main() {
             ),
           ),
           assistServiceProvider.overrideWith((ref) async {
-            final prefs = await SharedPreferences.getInstance();
             return AssistService(
               store: memory,
               registry: ref.watch(sessionClientRegistryProvider),
-              prefs: prefs,
               probeProfile: (_) async =>
                   const AssistProfileSnapshot(id: 42, name: '同学乙'),
             );
@@ -151,7 +146,6 @@ void main() {
             (ref) => AssistController(
               ref,
               initial: AssistUiState(
-                enabled: true,
                 ready: true,
                 identities: [identity],
               ),
@@ -199,7 +193,7 @@ void main() {
           assistControllerProvider.overrideWith(
             (ref) => AssistController(
               ref,
-              initial: const AssistUiState(enabled: true, ready: true),
+              initial: const AssistUiState(ready: true),
               bootstrap: false,
             ),
           ),

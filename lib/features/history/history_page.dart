@@ -63,12 +63,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       title: '签到记录',
       actions: [
         if (auth.isSignedIn)
-          IconButton(
-            tooltip: '刷新',
-            visualDensity: VisualDensity.compact,
-            onPressed: () =>
+          AppRefreshButton(
+            onRefresh: () =>
                 ref.read(courseHistoryProvider.notifier).refresh(),
-            icon: const Icon(Icons.refresh_rounded),
           ),
       ],
       body: AppContentColumn(

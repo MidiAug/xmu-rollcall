@@ -112,10 +112,10 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
 
   Future<void> _prepareEligible() async {
     final assist = ref.read(assistControllerProvider);
-    if (!assist.enabled || assist.identities.isEmpty) {
+    if (assist.identities.isEmpty) {
       setState(() {
         _rows = const [];
-        _status = assist.enabled ? null : '协助未开启，将只提交本人';
+        _status = null;
         _includeOwner = true;
         _selectedAssist.clear();
       });

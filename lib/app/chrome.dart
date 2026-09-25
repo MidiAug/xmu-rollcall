@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
@@ -149,14 +150,20 @@ class _WindowDragArea extends StatelessWidget {
   }
 }
 
+/// Desktop window chrome. Brand mode, or nested-subpage mode (back + title |
+/// actions) when a tab claims [DesktopShellChromeController] — Fluent single bar.
 class AppTitleBar extends StatelessWidget {
   const AppTitleBar({super.key, required this.title});
 
+  /// Brand title when no nested subpage claim is active.
   final String title;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final chrome = DesktopShellChromeScope.maybeOf(context);
+    final claim = chrome?.activeClaim;
+
     return Container(
       height: AppLayout.titleBarHeight,
       color: p.surface,
@@ -166,27 +173,70 @@ class AppTitleBar extends StatelessWidget {
             const Positioned.fill(child: _WindowDragArea()),
           Row(
             children: [
-              Expanded(
-                child: IgnorePointer(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Row(
-                      children: [
-                        const BrandMark(size: 18),
-                        const SizedBox(width: 8),
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            color: p.ink,
-                          ),
-                        ),
-                      ],
+              if (claim != null) ...[
+                AppTooltipAnchor(
+                  child: IconButton(
+                    tooltip: '返回',
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
+                    onPressed: claim.onBack,
+                    icon: Icon(
+                      Icons.arrow_back_rounded,
+                      color: p.ink,
+                      size: 18,
                     ),
                   ),
                 ),
-              ),
+                Expanded(
+                  child: IgnorePointer(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        claim.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.15,
+                          color: p.ink,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // Isolate each action (often IconButton+Tooltip) — Windows AXTree
+                // desyncs when adjacent tooltip overlays share a merged parent
+                // (flutter/flutter#182444); hosting chrome makes this acute.
+                if (claim.actions != null)
+                  for (final action in claim.actions!)
+                    AppTooltipAnchor(child: action),
+              ] else
+                Expanded(
+                  child: IgnorePointer(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          const BrandMark(size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: p.ink,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               if (PlatformHooks.isDesktop) const _WindowButtons(),
             ],
           ),
@@ -416,12 +466,12 @@ class AppSegmentedControl<T> extends StatelessWidget {
 /// Desktop **root** push (over the whole app): one bar with back + title |
 /// actions + window controls.
 ///
-/// Desktop **inside** a shell tab [Navigator]: back + title | actions only —
-/// window controls stay on [AppTitleBar] (nested push must not duplicate them).
+/// Desktop **inside** a shell tab [Navigator]: chrome is hosted by
+/// [AppTitleBar] via [DesktopShellChromeController] (no second bar).
 ///
 /// Mobile: [surface] extends under the status bar via [MediaQuery.viewPadding]
 /// (not ancestor [SafeArea]); controls sit below that inset — see R-23.
-class SubpageScaffold extends StatelessWidget {
+class SubpageScaffold extends StatefulWidget {
   const SubpageScaffold({
     super.key,
     required this.title,
@@ -434,8 +484,91 @@ class SubpageScaffold extends StatelessWidget {
   final List<Widget>? actions;
 
   @override
+  State<SubpageScaffold> createState() => _SubpageScaffoldState();
+}
+
+class _SubpageScaffoldState extends State<SubpageScaffold> {
+  final Object _owner = Object();
+  DesktopShellChromeController? _chrome;
+  AppDestination? _tab;
+  var _claimed = false;
+
+  bool get _hostInTitleBar {
+    if (!PlatformHooks.isDesktop) return false;
+    final onRoot =
+        Navigator.of(context, rootNavigator: true) == Navigator.of(context);
+    if (onRoot) return false;
+    return DesktopShellChromeScope.maybeOf(context, listen: false) != null &&
+        ShellTabDestination.maybeOf(context) != null;
+  }
+
+  void _syncChromeClaim() {
+    if (!_hostInTitleBar) {
+      _releaseChrome();
+      return;
+    }
+    final chrome = DesktopShellChromeScope.of(context, listen: false);
+    final tab = ShellTabDestination.maybeOf(context)!;
+    _chrome = chrome;
+    _tab = tab;
+    chrome.claim(
+      tab: tab,
+      owner: _owner,
+      title: widget.title,
+      onBack: () {
+        if (context.mounted) Navigator.of(context).maybePop();
+      },
+      actions: widget.actions,
+    );
+    _claimed = true;
+  }
+
+  void _releaseChrome() {
+    if (!_claimed) return;
+    final chrome = _chrome;
+    final tab = _tab;
+    if (chrome != null && tab != null) {
+      chrome.release(tab: tab, owner: _owner);
+    }
+    _claimed = false;
+    _chrome = null;
+    _tab = null;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncChromeClaim();
+  }
+
+  @override
+  void didUpdateWidget(covariant SubpageScaffold oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.title != widget.title ||
+        oldWidget.actions != widget.actions) {
+      _syncChromeClaim();
+    }
+  }
+
+  @override
+  void dispose() {
+    _releaseChrome();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final hostInTitleBar = _hostInTitleBar;
+
+    if (hostInTitleBar) {
+      return Scaffold(
+        resizeToAvoidBottomInset: false,
+        backgroundColor: p.canvas,
+        body: widget.body,
+      );
+    }
+
     final canPop = Navigator.of(context).canPop();
     final desktop = PlatformHooks.isDesktop;
     final hostOnRootNavigator =
@@ -443,8 +576,7 @@ class SubpageScaffold extends StatelessWidget {
     final showWindowControls = desktop && hostOnRootNavigator;
     final barHeight = desktop ? AppLayout.titleBarHeight : 48.0;
     // Physical status-bar height — immune to ancestor SafeArea clearing padding.
-    final statusTop =
-        desktop ? 0.0 : MediaQuery.viewPaddingOf(context).top;
+    final statusTop = desktop ? 0.0 : MediaQuery.viewPaddingOf(context).top;
     final overlay = _overlayForSurface(p.surface);
 
     final barInner = SizedBox(
@@ -456,19 +588,21 @@ class SubpageScaffold extends StatelessWidget {
           Row(
             children: [
               if (canPop)
-                IconButton(
-                  tooltip: '返回',
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  constraints: const BoxConstraints(
-                    minWidth: 36,
-                    minHeight: 36,
-                  ),
-                  onPressed: () => Navigator.of(context).maybePop(),
-                  icon: Icon(
-                    Icons.arrow_back_rounded,
-                    color: p.ink,
-                    size: 18,
+                AppTooltipAnchor(
+                  child: IconButton(
+                    tooltip: '返回',
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: Icon(
+                      Icons.arrow_back_rounded,
+                      color: p.ink,
+                      size: 18,
+                    ),
                   ),
                 )
               else
@@ -478,7 +612,7 @@ class SubpageScaffold extends StatelessWidget {
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      title,
+                      widget.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -491,7 +625,9 @@ class SubpageScaffold extends StatelessWidget {
                   ),
                 ),
               ),
-              ...?actions,
+              if (widget.actions != null)
+                for (final action in widget.actions!)
+                  AppTooltipAnchor(child: action),
               if (showWindowControls) const _WindowButtons(),
               if (!desktop) const SizedBox(width: 8),
             ],
@@ -524,7 +660,7 @@ class SubpageScaffold extends StatelessWidget {
         children: [
           bar,
           Container(height: 1, color: p.border),
-          Expanded(child: body),
+          Expanded(child: widget.body),
         ],
       ),
     );

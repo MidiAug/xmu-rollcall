@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:cookie_jar/cookie_jar.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
@@ -50,7 +49,6 @@ class AssistService {
   AssistService({
     required SecureStore store,
     required this.registry,
-    required this.prefs,
     AssistTokenCodec? codec,
     AssistIdentityStore? roster,
     this.probeProfile,
@@ -62,22 +60,13 @@ class AssistService {
 
   final SecureStore _store;
   final SessionClientRegistry registry;
-  final SharedPreferences prefs;
   final AssistTokenCodec _codec;
   final AssistIdentityStore _roster;
   final AssistProfileProber? probeProfile;
   final AssistAccountLoginFn? accountLogin;
   final AssistCourseCatalogFn? courseCatalog;
 
-  static const prefsEnabledKey = 'assist_enabled';
-
   static String accountCredKey(int userId) => 'assist_account_cred_$userId';
-
-  Future<bool> isEnabled() async => prefs.getBool(prefsEnabledKey) ?? false;
-
-  Future<void> setEnabled(bool value) async {
-    await prefs.setBool(prefsEnabledKey, value);
-  }
 
   Future<List<AssistIdentity>> listIdentities() => _roster.list();
 

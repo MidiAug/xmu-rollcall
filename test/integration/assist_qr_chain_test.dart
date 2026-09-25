@@ -188,11 +188,9 @@ void main() {
       expect(eligible.map((e) => e.userId), [1001]);
 
       // Export assist cookies via temporary owner swap; restore owner after.
-      final prefs = await SharedPreferences.getInstance();
       final svc = AssistService(
         store: store,
         registry: registry,
-        prefs: prefs,
         codec: AssistTokenCodec(),
         probeProfile: (client) async {
           final res = await client.getUri<Map<String, dynamic>>(

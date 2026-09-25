@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/core/session/assist_identity_store.dart';
@@ -39,7 +38,6 @@ void main() {
     late AssistService service;
 
     setUp(() async {
-      SharedPreferences.setMockInitialValues({});
       store = SecureStore.memory();
       registry = SessionClientRegistry(
         store: store,
@@ -60,7 +58,6 @@ void main() {
         store: store,
         registry: registry,
         codec: AssistTokenCodec(),
-        prefs: await SharedPreferences.getInstance(),
         courseCatalog: (client) async {
           final jar = client.cookieJar!;
           final cookies = await jar.loadForRequest(
@@ -115,10 +112,6 @@ void main() {
           return const AssistProfileSnapshot(id: 2002, name: '账密用户');
         },
       );
-    });
-
-    test('assistEnabled defaults to false', () async {
-      expect(await service.isEnabled(), isFalse);
     });
 
     test('export session then import without passphrase', () async {

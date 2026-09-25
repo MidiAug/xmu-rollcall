@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
@@ -9,12 +8,10 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
 
 final assistServiceProvider = FutureProvider<AssistService>((ref) async {
-  final prefs = await SharedPreferences.getInstance();
   final identity = ref.watch(deviceIdentityProvider);
   return AssistService(
     store: ref.watch(secureStoreProvider),
     registry: ref.watch(sessionClientRegistryProvider),
-    prefs: prefs,
     courseCatalog: (client) async {
       final repo = RollcallRepository(http: client, identity: identity);
       return repo.fetchCourses();
@@ -24,21 +21,18 @@ final assistServiceProvider = FutureProvider<AssistService>((ref) async {
 
 class AssistUiState {
   const AssistUiState({
-    this.enabled = false,
     this.identities = const [],
     this.busy = false,
     this.errorMessage,
     this.ready = false,
   });
 
-  final bool enabled;
   final List<AssistIdentity> identities;
   final bool busy;
   final String? errorMessage;
   final bool ready;
 
   AssistUiState copyWith({
-    bool? enabled,
     List<AssistIdentity>? identities,
     bool? busy,
     String? errorMessage,
@@ -46,7 +40,6 @@ class AssistUiState {
     bool? ready,
   }) {
     return AssistUiState(
-      enabled: enabled ?? this.enabled,
       identities: identities ?? this.identities,
       busy: busy ?? this.busy,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
@@ -75,10 +68,8 @@ class AssistController extends StateNotifier<AssistUiState> {
   Future<void> _bootstrap() async {
     try {
       final svc = await _service();
-      final enabled = await svc.isEnabled();
       final identities = await svc.listIdentities();
       state = AssistUiState(
-        enabled: enabled,
         identities: identities,
         ready: true,
       );
@@ -92,10 +83,8 @@ class AssistController extends StateNotifier<AssistUiState> {
     AppLog.event('assist.roster.refresh');
     try {
       final svc = await _service();
-      final enabled = await svc.isEnabled();
       final identities = await svc.listIdentities();
       state = state.copyWith(
-        enabled: enabled,
         identities: identities,
         clearError: true,
         ready: true,
@@ -105,7 +94,6 @@ class AssistController extends StateNotifier<AssistUiState> {
         fields: {
           'ok': true,
           'count': identities.length,
-          'enabled': enabled,
           'durationMs': DateTime.now().difference(started).inMilliseconds,
         },
       );
@@ -121,12 +109,6 @@ class AssistController extends StateNotifier<AssistUiState> {
       );
       rethrow;
     }
-  }
-
-  Future<void> setEnabled(bool value) async {
-    final svc = await _service();
-    await svc.setEnabled(value);
-    state = state.copyWith(enabled: value, clearError: true);
   }
 
   Future<String> exportOwner({
