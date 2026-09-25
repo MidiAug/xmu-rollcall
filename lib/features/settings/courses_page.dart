@@ -350,7 +350,6 @@ class _TimetableGrid extends StatelessWidget {
   void _showBlockDetail(BuildContext context, TimetablePlacedBlock b) {
     final p = AppPalette.of(context);
     final c = b.course;
-    final color = timetableColorForCourseId(c.id);
     final title = timetableCourseTitle(c);
 
     showModalBottomSheet<void>(
@@ -365,52 +364,46 @@ class _TimetableGrid extends StatelessWidget {
               color: p.surface,
               borderRadius: BorderRadius.circular(AppRadii.dialog),
               clipBehavior: Clip.antiAlias,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Container(height: 4, color: color),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                            color: p.ink,
-                            height: 1.25,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _DetailRow(
-                          icon: Icons.schedule_outlined,
-                          text:
-                              '${weekdayLabel(b.weekday)} ${b.block.sectionLabel}'
-                              '（${formatHm(b.block.coreStart)}-${formatHm(b.block.coreEnd)}）',
-                          muted: p.muted,
-                          ink: p.ink,
-                        ),
-                        if (c.instructorsLabel.isNotEmpty)
-                          _DetailRow(
-                            icon: Icons.person_outline,
-                            text: c.instructorsLabel,
-                            muted: p.muted,
-                            ink: p.ink,
-                          ),
-                        if (c.location != null && c.location!.isNotEmpty)
-                          _DetailRow(
-                            icon: Icons.place_outlined,
-                            text: c.location!,
-                            muted: p.muted,
-                            ink: p.ink,
-                          ),
-                      ],
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                        color: p.ink,
+                        height: 1.25,
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    _DetailRow(
+                      icon: Icons.schedule_outlined,
+                      text:
+                          '${weekdayLabel(b.weekday)} ${b.block.sectionLabel}'
+                          '（${formatHm(b.block.coreStart)}-${formatHm(b.block.coreEnd)}）',
+                      muted: p.muted,
+                      ink: p.ink,
+                    ),
+                    if (c.instructorsLabel.isNotEmpty)
+                      _DetailRow(
+                        icon: Icons.person_outline,
+                        text: c.instructorsLabel,
+                        muted: p.muted,
+                        ink: p.ink,
+                      ),
+                    if (c.location != null && c.location!.isNotEmpty)
+                      _DetailRow(
+                        icon: Icons.place_outlined,
+                        text: c.location!,
+                        muted: p.muted,
+                        ink: p.ink,
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

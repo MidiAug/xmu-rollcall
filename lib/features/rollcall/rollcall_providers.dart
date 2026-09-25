@@ -384,19 +384,18 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
       );
     }
 
-    final forceAll = reason == EnsureFreshReason.updateAll ||
-        reason == EnsureFreshReason.pullToRefresh;
+    // Cold (no successful course fetch yet): full scan once.
+    // Appear / pull otherwise: incremental candidates only (R-35).
+    final cold = historyNeedsFullScan(_courseSnaps.values);
     final List<HistoryCandidate> candidates;
-    if (forceAll) {
-      final ids = titles.keys.isNotEmpty
-          ? titles.keys
-          : _courseSnaps.keys;
+    if (cold) {
+      final ids = titles.keys.isNotEmpty ? titles.keys : _courseSnaps.keys;
       candidates = [
         for (final id in ids.take(CachePolicy.updateAllMaxCourses))
           HistoryCandidate(
             courseId: id,
             courseTitle: titles[id] ?? _courseSnaps[id]?.courseTitle ?? '',
-            reason: reason.name,
+            reason: 'cold_${reason.name}',
           ),
       ];
     } else {
@@ -423,6 +422,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
       'history.ensureFresh',
       fields: {
         'reason': reason.name,
+        'cold': cold,
         'candidates': candidates.length,
       },
     );
@@ -485,9 +485,6 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
     await _fetchOne(uid, courseId, title);
     if (_boundUserId == uid) state = AsyncData(_flatten());
   }
-
-  Future<void> updateAll() =>
-      ensureFresh(reason: EnsureFreshReason.updateAll);
 }
 
 @visibleForTesting

@@ -103,6 +103,33 @@ void main() {
     });
   });
 
+  group('historyNeedsFullScan', () {
+    test('true when empty or all never-checked', () {
+      expect(historyNeedsFullScan(const []), isTrue);
+      expect(
+        historyNeedsFullScan(const [
+          CourseRollcallsSnapshot(courseId: 'a', courseTitle: 'A'),
+          null,
+        ]),
+        isTrue,
+      );
+    });
+
+    test('false once any course has lastSuccessfulFetch', () {
+      expect(
+        historyNeedsFullScan([
+          const CourseRollcallsSnapshot(courseId: 'a', courseTitle: 'A'),
+          CourseRollcallsSnapshot(
+            courseId: 'b',
+            courseTitle: 'B',
+            lastSuccessfulFetch: DateTime.utc(2026, 9, 1),
+          ),
+        ]),
+        isFalse,
+      );
+    });
+  });
+
   group('selectHistoryCandidates', () {
     test('in-progress bypasses floor; fresh skipped; period-ended included', () {
       final now = DateTime(2026, 9, 25, 16, 0);

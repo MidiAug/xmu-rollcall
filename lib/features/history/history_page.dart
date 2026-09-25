@@ -64,32 +64,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     super.dispose();
   }
 
-  Future<void> _confirmUpdateAll() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('更新全部记录？'),
-        content: const Text(
-          '将按课程串行拉取签到史（每课最多约 100 条，不保证完整学期史），'
-          '请求较多，请确认网络与时间充裕。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('更新全部'),
-          ),
-        ],
-      ),
-    );
-    if (ok == true && mounted) {
-      await ref.read(courseHistoryProvider.notifier).updateAll();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final pageX = AppSpace.pageXOf(context);
@@ -100,18 +74,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 
     return SubpageScaffold(
       title: '签到记录',
-      actions: [
-        if (auth.isSignedIn) ...[
-          TextButton(
-            onPressed: _confirmUpdateAll,
-            child: const Text('更新全部'),
-          ),
-          AppRefreshButton(
-            onRefresh: () =>
-                ref.read(courseHistoryProvider.notifier).refresh(),
-          ),
-        ],
-      ],
       body: AppContentColumn(
         child: PrimaryScrollController(
           controller: _scroll,
@@ -444,7 +406,7 @@ class _MetaColumns extends StatelessWidget {
       runSpacing: AppSpace.xxs,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        _Chip(label: type, foreground: p.ink, background: p.surfaceHigh),
+        _TypeChip(label: type, foreground: p.ink, background: p.surfaceHigh),
         _Chip(
           label: status,
           foreground: statusColor,
@@ -457,6 +419,63 @@ class _MetaColumns extends StatelessWidget {
           style: TextStyle(fontSize: 12, height: 1.25, color: p.muted),
         ),
       ],
+    );
+  }
+}
+
+/// Fixed-width type chip so 二维码 / 数字 / 雷达 share one box.
+/// Two-glyph labels use edge-to-edge [Row] (not letterSpacing — that leaves a
+/// trailing gap and looks off-center).
+class _TypeChip extends StatelessWidget {
+  const _TypeChip({
+    required this.label,
+    required this.foreground,
+    required this.background,
+  });
+
+  final String label;
+  final Color foreground;
+  final Color background;
+
+  /// Three CJK glyphs at 11sp + horizontal padding (8×2).
+  static const _width = 11.0 * 3 + 16;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = TextStyle(
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      height: 1.2,
+      color: foreground,
+    );
+    final Widget body;
+    if (label.length == 2) {
+      // 数····字  align with 二····码 edges inside the same content box.
+      body = Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label[0], style: style),
+          Text(label[1], style: style),
+        ],
+      );
+    } else {
+      body = Text(
+        label,
+        maxLines: 1,
+        textAlign: TextAlign.center,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+    }
+    return Container(
+      width: _width,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(AppRadii.control),
+      ),
+      child: body,
     );
   }
 }

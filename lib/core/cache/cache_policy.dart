@@ -6,7 +6,7 @@ abstract final class CachePolicy {
   /// Serial gap between course history fetches (KB-01).
   static const courseFetchGap = Duration(milliseconds: 250);
 
-  /// Soft cap for "update all" (user-confirmed).
+  /// Soft cap when cold-starting a full history scan (no successful fetch yet).
   static const updateAllMaxCourses = 80;
 }
 
@@ -14,5 +14,4 @@ enum EnsureFreshReason {
   appear,
   pullToRefresh,
   manualCourse,
-  updateAll,
 }

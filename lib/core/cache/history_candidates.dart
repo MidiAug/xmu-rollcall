@@ -2,6 +2,15 @@ import 'package:xmu_rollcall/core/cache/cache_policy.dart';
 import 'package:xmu_rollcall/core/cache/course_rollcalls_store.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 
+/// True when no course has ever been successfully fetched — cold / empty cache.
+/// Appear + pull then scan all courses (capped); otherwise use [selectHistoryCandidates].
+bool historyNeedsFullScan(Iterable<CourseRollcallsSnapshot?> snaps) {
+  for (final s in snaps) {
+    if (s?.lastSuccessfulFetch != null) return false;
+  }
+  return true;
+}
+
 /// One course considered for incremental history refresh (R-35 §3.3).
 class HistoryCandidate {
   const HistoryCandidate({
