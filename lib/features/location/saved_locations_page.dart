@@ -15,6 +15,9 @@ import 'package:xmu_rollcall/features/location/map_pick_page.dart';
 /// - The page **is** the list — not a list/add mode toggle.
 /// - “添加” is a chrome action that **pushes** [MapPickPage]; save pops back.
 /// - Tap a row to open the same map centered on that point.
+///
+/// Per-course last-success memory ([courseRadarDefaultsProvider]) is autofill
+/// only — it lives on the radar confirm card, not on this settings surface.
 class SavedLocationsPage extends ConsumerStatefulWidget {
   const SavedLocationsPage({super.key});
 
@@ -95,11 +98,7 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
   @override
   Widget build(BuildContext context) {
     final list = ref.watch(savedLocationsProvider);
-    final courseDefaults = ref.watch(courseRadarDefaultsProvider);
-    final sortedDefaults = courseDefaults.values.toList()
-      ..sort((a, b) => a.courseTitle.compareTo(b.courseTitle));
     final p = AppPalette.of(context);
-    final empty = list.isEmpty && sortedDefaults.isEmpty;
 
     return SubpageScaffold(
       title: '预设位置',
@@ -116,129 +115,41 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
         ),
       ],
       body: AppContentColumn(
-        child: empty
+        child: list.isEmpty
             ? _EmptyState(onAdd: _openAdd)
             : ListView(
-                  padding: EdgeInsets.fromLTRB(
-                    AppSpace.pageXOf(context),
-                    AppSpace.md,
-                    AppSpace.pageXOf(context),
-                    AppSpace.xl,
-                  ),
-                  children: [
-                    if (list.isNotEmpty) ...[
-                      _SectionLabel(label: '我的位置', count: list.length),
-                      const SizedBox(height: AppSpace.xs),
-                      Panel(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpace.xxs,
-                          vertical: 2,
-                        ),
-                        child: Column(
-                          children: [
-                            for (var i = 0; i < list.length; i++) ...[
-                              if (i > 0) Divider(height: 1, color: p.border),
-                              _LocationTile(
-                                title: list[i].note,
-                                subtitle:
-                                    '${list[i].latitude.toStringAsFixed(5)}, '
-                                    '${list[i].longitude.toStringAsFixed(5)}',
-                                onOpen: () => _openOnMap(list[i]),
-                                onRename: () => _rename(list[i]),
-                                onDelete: () => _delete(list[i]),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                    if (sortedDefaults.isNotEmpty) ...[
-                      if (list.isNotEmpty) const SizedBox(height: AppSpace.lg),
-                      const _SectionLabel(label: '各课默认点'),
-                      const SizedBox(height: AppSpace.xs),
-                      Panel(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpace.xxs,
-                          vertical: 2,
-                        ),
-                        child: Column(
-                          children: [
-                            for (var i = 0; i < sortedDefaults.length; i++) ...[
-                              if (i > 0) Divider(height: 1, color: p.border),
-                              ListTile(
-                                dense: true,
-                                visualDensity: VisualDensity.compact,
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpace.xs,
-                                  vertical: 0,
-                                ),
-                                leading: Icon(
-                                  Icons.school_outlined,
-                                  size: 20,
-                                  color: p.muted,
-                                ),
-                                title: Text(sortedDefaults[i].courseTitle),
-                                subtitle: Text(
-                                  '${sortedDefaults[i].latitude.toStringAsFixed(5)}, '
-                                  '${sortedDefaults[i].longitude.toStringAsFixed(5)}'
-                                  '${sortedDefaults[i].labelSnapshot.isEmpty ? "" : " · ${sortedDefaults[i].labelSnapshot}"}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: p.muted,
-                                  ),
-                                ),
-                                onTap: () {
-                                  Navigator.of(context).push<void>(
-                                    MaterialPageRoute(
-                                      builder: (_) => MapPickPage(
-                                        initial: LatLng(
-                                          sortedDefaults[i].latitude,
-                                          sortedDefaults[i].longitude,
-                                        ),
-                                        title: sortedDefaults[i].courseTitle,
-                                        confirmLabel: '关闭',
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
+                padding: EdgeInsets.fromLTRB(
+                  AppSpace.pageXOf(context),
+                  AppSpace.md,
+                  AppSpace.pageXOf(context),
+                  AppSpace.xl,
                 ),
+                children: [
+                  Panel(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpace.xxs,
+                      vertical: 2,
+                    ),
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < list.length; i++) ...[
+                          if (i > 0) Divider(height: 1, color: p.border),
+                          _LocationTile(
+                            title: list[i].note,
+                            subtitle:
+                                '${list[i].latitude.toStringAsFixed(5)}, '
+                                '${list[i].longitude.toStringAsFixed(5)}',
+                            onOpen: () => _openOnMap(list[i]),
+                            onRename: () => _rename(list[i]),
+                            onDelete: () => _delete(list[i]),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
       ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label, this.count});
-
-  final String label;
-  final int? count;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return Row(
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.2,
-            color: p.muted,
-          ),
-        ),
-        if (count != null) ...[
-          const SizedBox(width: AppSpace.xs),
-          Text('$count', style: TextStyle(fontSize: 12, color: p.muted)),
-        ],
-      ],
     );
   }
 }
