@@ -5,11 +5,9 @@ import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/session/assist_service.dart';
-import 'package:xmu_rollcall/core/session/session_credential.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
-import 'package:xmu_rollcall/features/assist/assist_rollcall_hub_page.dart';
-import 'package:xmu_rollcall/features/assist/assist_shared_course_chip.dart';
+import 'package:xmu_rollcall/features/assist/assist_identity_card.dart';
 
 /// Import assist identity. Controllers live in [State] (not outside [StatefulBuilder])
 /// and we never pad with [MediaQuery.viewInsets] — see R-19.
@@ -459,115 +457,50 @@ class AssistIdentitiesPage extends ConsumerWidget {
 
     return SubpageScaffold(
       title: '协助身份',
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(
-          AppSpace.pageXOf(context),
-          AppSpace.md,
-          AppSpace.pageXOf(context),
-          AppSpace.xl,
-        ),
-        children: [
-          if (!assist.enabled)
-            Text(
-              '协助功能已关闭。可在「我的」中开启后再管理名单。',
-              style: TextStyle(color: p.muted, height: 1.4),
-            )
-          else if (assist.identities.isEmpty)
-            Text(
-              '还没有协助对象。请先导入协助身份，再点姓名进入其签到页。',
-              style: TextStyle(color: p.muted, height: 1.4),
-            )
-          else
-            SettingsSection(
-              header: '已导入',
-              children: [
-                for (final id in assist.identities)
-                  SettingsRow(
-                    leading: Icon(
-                      id.kind == AssistCredentialKind.account
-                          ? Icons.key_outlined
-                          : Icons.cookie_outlined,
+      body: AppContentColumn(
+        child: !assist.enabled
+            ? EmptyHint(
+                icon: Icons.group_off_outlined,
+                title: '协助功能已关闭',
+                detail: '可在「我的」中开启后再管理名单。',
+              )
+            : assist.identities.isEmpty
+                ? EmptyHint(
+                    icon: Icons.person_add_alt_1_outlined,
+                    title: '还没有协助对象',
+                    detail: '请先导入协助身份，再点姓名进入其签到页。',
+                  )
+                : ListView(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpace.pageXOf(context),
+                      AppSpace.sm,
+                      AppSpace.pageXOf(context),
+                      AppSpace.xl,
                     ),
-                    title: id.displayName,
-                    subtitle: '${id.kind.labelZh} · 点击进入签到',
-                    subtitleWidget: Align(
-                      alignment: Alignment.centerLeft,
-                      child: AssistSharedCourseChip(
-                        identity: id,
-                        onTap: () => showAssistSharedCoursesSheet(
-                          context,
-                          identity: id,
-                          ref: ref,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpace.xs,
+                          0,
+                          AppSpace.xs,
+                          AppSpace.xs,
+                        ),
+                        child: Text(
+                          '已导入 ${assist.identities.length}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: p.muted,
+                          ),
                         ),
                       ),
-                    ),
-                    onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) =>
-                              AssistRollcallHubPage(identity: id),
+                      for (final id in assist.identities)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpace.xs),
+                          child: AssistIdentityCard(identity: id),
                         ),
-                      );
-                    },
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          tooltip: '刷新同课',
-                          onPressed: assist.busy
-                              ? null
-                              : () async {
-                                  try {
-                                    final updated = await ref
-                                        .read(
-                                          assistControllerProvider.notifier,
-                                        )
-                                        .refreshSharedCourses(id.userId);
-                                    if (context.mounted) {
-                                      AppToast.show(
-                                        context,
-                                        '同课 ${updated.sharedCourses.length} 门',
-                                      );
-                                    }
-                                  } catch (e) {
-                                    if (context.mounted) {
-                                      AppToast.show(
-                                        context,
-                                        '$e',
-                                        error: true,
-                                      );
-                                    }
-                                  }
-                                },
-                          icon: Icon(Icons.sync, color: p.muted, size: 20),
-                        ),
-                        IconButton(
-                          tooltip: '删除',
-                          onPressed: assist.busy
-                              ? null
-                              : () async {
-                                  final ok = await showAppConfirmDialog(
-                                    context,
-                                    title: '移除协助账号',
-                                    message:
-                                        '移除「${id.displayName}」并清除其本地登录信息'
-                                        '${id.kind == AssistCredentialKind.account ? '与保存的密码' : ''}？',
-                                    confirmLabel: '移除',
-                                    destructive: true,
-                                  );
-                                  if (!ok) return;
-                                  await ref
-                                      .read(assistControllerProvider.notifier)
-                                      .removeIdentity(id.userId);
-                                },
-                          icon: Icon(Icons.delete_outline, color: p.muted),
-                        ),
-                      ],
-                    ),
+                    ],
                   ),
-              ],
-            ),
-        ],
       ),
     );
   }

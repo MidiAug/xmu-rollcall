@@ -91,7 +91,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('同学甲'), findsOneWidget);
-    expect(find.text('未同步'), findsOneWidget);
+    expect(find.text('临时会话'), findsOneWidget);
+    expect(find.byIcon(Icons.more_horiz_rounded), findsOneWidget);
     await tester.tap(find.text('同学甲'));
     await tester.pump(); // start route
     await tester.pump(const Duration(milliseconds: 500)); // nav + bootstrap
@@ -100,7 +101,7 @@ void main() {
     expect(find.text('开始检测'), findsOneWidget);
   });
 
-  testWidgets('roster shared-course chip opens sheet', (tester) async {
+  testWidgets('roster overflow menu opens shared-course sheet', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final memory = SecureStore.memory();
     final identity = AssistIdentity(
@@ -167,8 +168,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('同课 1'), findsOneWidget);
-    await tester.tap(find.text('同课 1'));
+    expect(find.text('同课 1'), findsNothing);
+    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('查看同课'));
     await tester.pumpAndSettle();
 
     expect(find.text('高等数学'), findsOneWidget);
