@@ -6,6 +6,7 @@ import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/features/rollcall/number_code.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
+import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 
 class RollcallRepository {
   RollcallRepository({
@@ -84,6 +85,114 @@ class RollcallRepository {
       );
     }
     return findNumberCode(res.data);
+  }
+
+  /// Single-course student rollcalls (for session prior; KB-01: one request).
+  Future<List<CourseRollcallRecord>> fetchCourseRollcalls({
+    required Object courseId,
+    required int studentId,
+    String courseTitle = '',
+  }) async {
+    await http.init();
+    final cid = '$courseId'.trim();
+    final res = await http.getUri<dynamic>(
+      TronEndpoints.courseStudentRollcalls(
+        courseId: cid,
+        studentId: studentId,
+      ),
+    );
+    final rollcalls = _unwrapList(
+      res.data,
+      const ['rollcalls', 'activities', 'data', 'items', 'list', 'results'],
+    );
+    if (rollcalls.isEmpty) return const [];
+    final out = <CourseRollcallRecord>[];
+    for (final raw in rollcalls) {
+      if (raw is! Map) continue;
+      out.add(
+        _normalizeCourseRollcall(
+          cid,
+          courseTitle,
+          Map<String, dynamic>.from(raw),
+        ),
+      );
+    }
+    out.sort((a, b) {
+      final at = a.rollcallTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bt = b.rollcallTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bt.compareTo(at);
+    });
+    return out;
+  }
+
+  /// Per-course weekday → slots from `POST /api/my-courses` (timetables).
+  ///
+  /// Returns empty map on failure (caller shows unscoped).
+  Future<Map<String, Map<int, List<TimetableSlot>>>> fetchCourseTimetables() async {
+    await http.init();
+    try {
+      final res = await http.postUri<dynamic>(
+        TronEndpoints.myCourses(),
+        data: const {
+          'fields':
+              'id,name,course_code,timetables,instructors(id,name),department(id,name)',
+          'conditions': {
+            'classify_type': 'recently_started',
+            'role': [
+              'student',
+              'student_assistant',
+              'instructor',
+              'instructor_assistant',
+            ],
+            'status': ['ongoing', 'not_started'],
+          },
+        },
+      );
+      final list = _unwrapList(
+        res.data,
+        const ['courses', 'data', 'items', 'list', 'results'],
+      );
+      final out = <String, Map<int, List<TimetableSlot>>>{};
+      for (final item in list) {
+        if (item is! Map) continue;
+        final m = Map<String, dynamic>.from(item);
+        final id = _first(m, const ['id', 'course_id', 'courseId', 'cid']);
+        if (id == null) continue;
+        final tables = parseTimetables(m['timetables']);
+        if (tables.isNotEmpty) out[id] = tables;
+      }
+      if (out.isNotEmpty) return out;
+    } catch (_) {
+      // fall through to GET probe
+    }
+    return _timetablesFromGetProbe();
+  }
+
+  Future<Map<String, Map<int, List<TimetableSlot>>>> _timetablesFromGetProbe() async {
+    final out = <String, Map<int, List<TimetableSlot>>>{};
+    for (final path in TronEndpoints.courseListPaths) {
+      try {
+        final uri = Uri.parse('${TronEndpoints.baseUrl}$path');
+        final res = await http.getUri<dynamic>(uri);
+        if ((res.statusCode ?? 0) != 200) continue;
+        final list = _unwrapList(
+          res.data,
+          const ['courses', 'data', 'items', 'list', 'results'],
+        );
+        for (final item in list) {
+          if (item is! Map) continue;
+          final m = Map<String, dynamic>.from(item);
+          final id = _first(m, const ['id', 'course_id', 'courseId', 'cid']);
+          if (id == null) continue;
+          final tables = parseTimetables(m['timetables']);
+          if (tables.isNotEmpty) out[id] = tables;
+        }
+        if (out.isNotEmpty) return out;
+      } catch (_) {
+        // try next path
+      }
+    }
+    return out;
   }
 
   /// Course rollcall history (gammars / dashboard style). Serial + gap for KB-01.

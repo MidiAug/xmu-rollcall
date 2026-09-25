@@ -11,6 +11,8 @@ import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
+import 'package:xmu_rollcall/features/rollcall/session_block.dart';
+import 'package:xmu_rollcall/features/rollcall/session_prior.dart';
 
 /// [assistUserId] null = owner session; otherwise assist jar + roster deviceId.
 final rollcallRepositoryForProvider =
@@ -266,7 +268,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
   Future<List<CourseRollcallRecord>> _fetchAndPersist() async {
     final profile = ref.read(authControllerProvider).profile;
     if (profile == null || profile.id == 0) {
-      throw StateError('请先登录');
+      throw StateError('????');
     }
     final data = await ref.read(rollcallRepositoryProvider).fetchCourseHistory(
           studentId: profile.id,
@@ -357,4 +359,103 @@ List<CourseRollcallRecord> mergeCourseHistory(
     if (allSame) return previous;
   }
   return merged;
+}
+
+/// UI model for the session-prior panel under an active rollcall card.
+class SessionPriorState {
+  const SessionPriorState({
+    this.snapshot,
+    this.unscoped = false,
+    this.nowMinutes,
+  });
+
+  final SessionPriorSnapshot? snapshot;
+  final bool unscoped;
+  final int? nowMinutes;
+}
+
+/// Course id ? weekday ? slots (owner session). Kept alive across cards.
+final courseTimetablesProvider =
+    FutureProvider<Map<String, Map<int, List<TimetableSlot>>>>((ref) async {
+  ref.keepAlive();
+  return ref.read(rollcallRepositoryProvider).fetchCourseTimetables();
+});
+
+/// Session prior for one course (owner only). [courseId] from [RollcallItem.courseId].
+final sessionPriorProvider =
+    FutureProvider.autoDispose.family<SessionPriorState, String>((ref, courseId) async {
+  final profile = ref.watch(authControllerProvider).profile;
+  if (profile == null || profile.id == 0) {
+    return const SessionPriorState(unscoped: true);
+  }
+  final cid = courseId.trim();
+  if (cid.isEmpty) return const SessionPriorState(unscoped: true);
+
+  final now = DateTime.now();
+  Map<int, List<TimetableSlot>>? byDay;
+  try {
+    final tables = await ref.watch(courseTimetablesProvider.future);
+    byDay = tables[cid];
+  } catch (_) {
+    return const SessionPriorState(unscoped: true);
+  }
+  final slots = byDay?[now.weekday];
+  if (slots == null || slots.isEmpty) {
+    return const SessionPriorState(unscoped: true);
+  }
+  final blocks = splitContiguousBlocks(slots);
+  final block = resolveBlock(blocks, now);
+  if (block == null) {
+    return const SessionPriorState(unscoped: true);
+  }
+
+  final history = await _fetchCourseRollcallsCached(
+    ref: ref,
+    courseId: cid,
+    studentId: profile.id,
+  );
+  final snap = buildSessionPrior(
+    block: block,
+    weekday: now.weekday,
+    history: history,
+  );
+  return SessionPriorState(
+    snapshot: snap,
+    nowMinutes: minutesOfDay(now),
+  );
+});
+
+Future<List<CourseRollcallRecord>> _fetchCourseRollcallsCached({
+  required Ref ref,
+  required String courseId,
+  required int studentId,
+}) async {
+  const ttl = Duration(minutes: 10);
+  final suffix = 'course_rollcalls_${studentId}_$courseId';
+  final snap = await JsonDiskCache.readList(suffix);
+  if (snap != null && snap.isFresh(ttl)) {
+    return [
+      for (final m in snap.items) CourseRollcallRecord.fromJson(m),
+    ];
+  }
+  try {
+    final data =
+        await ref.read(rollcallRepositoryProvider).fetchCourseRollcalls(
+              courseId: courseId,
+              studentId: studentId,
+            );
+    await JsonDiskCache.writeList(
+      suffix,
+      [for (final e in data) e.toJson()],
+      fetchedAt: DateTime.now(),
+    );
+    return data;
+  } catch (_) {
+    if (snap != null) {
+      return [
+        for (final m in snap.items) CourseRollcallRecord.fromJson(m),
+      ];
+    }
+    rethrow;
+  }
 }

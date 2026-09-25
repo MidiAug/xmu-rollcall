@@ -12,6 +12,7 @@ import 'package:xmu_rollcall/features/rollcall/qr_answer_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_answer_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+import 'package:xmu_rollcall/features/rollcall/session_prior_panel.dart';
 
 class RollcallListPage extends ConsumerWidget {
   const RollcallListPage({
@@ -305,34 +306,77 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
         ),
         child: Padding(
           padding: const EdgeInsets.all(AppSpace.md),
-          child: item.isNumber
-              ? (wide
-                  ? _numberDesktopD1(palette, item, title)
-                  : _numberMobile(palette, item, title))
-              : _nonNumberBody(palette, item, title),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _identifyHeader(palette, item, title),
+              if (item.isNumber) ...[
+                const SizedBox(height: AppSpace.sm),
+                _numberTaskStrip(palette, item, wide: wide),
+              ],
+              if (item.type == RollcallType.unknown) ...[
+                const SizedBox(height: AppSpace.xs),
+                Text(
+                  '暂不支持此签到类型，可下拉刷新重试',
+                  style: TextStyle(fontSize: 12, height: 1.35, color: palette.muted),
+                ),
+              ],
+              if (widget.assistUserId == null &&
+                  (item.courseId?.isNotEmpty ?? false))
+                SessionPriorPanel(
+                  courseId: item.courseId!,
+                  currentType: item.type,
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _typeChip(AppPalette palette, RollcallItem item) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: palette.surfaceHigh,
-        borderRadius: BorderRadius.circular(AppRadii.control),
-      ),
-      child: Text(
-        item.typeLabel,
-        style: TextStyle(
-          color: palette.ink,
-          fontWeight: FontWeight.w600,
-          fontSize: 11,
-          letterSpacing: 0.2,
-          height: 1.2,
+  /// Identify: course title + muted meta; non-number CTA on the right.
+  Widget _identifyHeader(
+    AppPalette palette,
+    RollcallItem item,
+    String title,
+  ) {
+    final cta = _secondaryCta(item);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: _titleStyle(palette)),
+              const SizedBox(height: AppSpace.xxs),
+              _metaLine(palette, item),
+            ],
+          ),
         ),
-      ),
+        if (cta != null) ...[
+          const SizedBox(width: AppSpace.sm),
+          cta,
+        ],
+      ],
     );
+  }
+
+  Widget? _secondaryCta(RollcallItem item) {
+    if (item.isNumber) return null;
+    if (item.isRadar) {
+      return FilledButton(
+        onPressed: item.isAnswered ? null : _openSecondary,
+        child: const Text('选择位置'),
+      );
+    }
+    if (item.type == RollcallType.qrcode) {
+      return FilledButton(
+        onPressed: item.isAnswered ? null : _openSecondary,
+        child: const Text('扫描'),
+      );
+    }
+    return null;
   }
 
   Widget _statusChip(AppPalette palette, RollcallItem item) {
@@ -371,6 +415,11 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
 
   Widget _metaLine(AppPalette palette, RollcallItem item) {
     final teacher = item.createdByName.trim();
+    final metaStyle = TextStyle(
+      fontSize: 12,
+      height: 1.3,
+      color: palette.muted,
+    );
     return Row(
       children: [
         if (teacher.isNotEmpty) ...[
@@ -379,19 +428,21 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
               teacher,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, height: 1.3, color: palette.muted),
+              style: metaStyle,
             ),
           ),
           const SizedBox(width: AppSpace.xs),
         ],
+        Text(item.typeLabel, style: metaStyle),
+        const SizedBox(width: AppSpace.xs),
         _statusChip(palette, item),
       ],
     );
   }
 
-  TextStyle _titleStyle(AppPalette palette, {required bool compact}) {
+  TextStyle _titleStyle(AppPalette palette) {
     return TextStyle(
-      fontSize: compact ? 14 : 15,
+      fontSize: 15,
       fontWeight: FontWeight.w600,
       letterSpacing: -0.2,
       height: 1.25,
@@ -399,191 +450,76 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     );
   }
 
-  /// Wide D1: left course · center large copyable code · right CTA.
-  Widget _numberDesktopD1(
-    AppPalette palette,
-    RollcallItem item,
-    String title,
-  ) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          flex: 3,
-          child: Row(
-            children: [
-              _typeChip(palette, item),
-              const SizedBox(width: AppSpace.sm),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: _titleStyle(palette, compact: false)),
-                    const SizedBox(height: AppSpace.xxs),
-                    _metaLine(palette, item),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          flex: 2,
-          child: Center(child: _codeBlock(palette, item, large: true)),
-        ),
-        SizedBox(
-          width: 128,
-          child: FilledButton(
-            onPressed: (_submitting || item.isAnswered) ? null : _oneClickNumber,
-            child: Text(_submitting ? '提交中…' : '一键签到'),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Narrow: title row, then left code + right button.
-  Widget _numberMobile(
-    AppPalette palette,
-    RollcallItem item,
-    String title,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            _typeChip(palette, item),
-            const SizedBox(width: AppSpace.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: _titleStyle(palette, compact: true)),
-                  const SizedBox(height: AppSpace.xxs),
-                  _metaLine(palette, item),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpace.sm),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(child: _codeBlock(palette, item, large: false)),
-            const SizedBox(width: AppSpace.sm),
-            FilledButton(
-              onPressed:
-                  (_submitting || item.isAnswered) ? null : _oneClickNumber,
-              child: Text(_submitting ? '提交中…' : '一键签到'),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _codeBlock(
+  /// Task strip: large copyable code + primary CTA.
+  Widget _numberTaskStrip(
     AppPalette palette,
     RollcallItem item, {
-    required bool large,
+    required bool wide,
   }) {
-    final code = item.numberCode;
-    final err = item.numberCodeError;
-    if (code == null || code.isEmpty) {
-      return Align(
-        alignment: large ? Alignment.center : Alignment.centerLeft,
-        child: Text(
-          err ?? '正在获取签到码…',
-          style: TextStyle(fontSize: 12, color: palette.muted),
-        ),
-      );
-    }
-    final text = Text(
-      code,
-      style: TextStyle(
-        fontSize: large ? 26 : 20,
-        fontWeight: FontWeight.w600,
-        letterSpacing: large ? 3.5 : 2,
-        color: palette.ink,
-        fontFeatures: const [FontFeature.tabularFigures()],
-      ),
-    );
-    final body = large
-        ? Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              text,
-              const SizedBox(width: AppSpace.xs),
-              Icon(Icons.copy_rounded, size: 15, color: palette.muted),
-            ],
-          )
-        : text;
-
-    final framed = Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: large ? AppSpace.sm : AppSpace.xs,
-        vertical: large ? AppSpace.xs : 2,
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        AppSpace.sm,
+        wide ? AppSpace.xs : 6,
+        AppSpace.xs,
+        wide ? AppSpace.xs : 6,
       ),
       decoration: BoxDecoration(
         color: palette.surfaceHigh,
         borderRadius: BorderRadius.circular(AppRadii.control),
       ),
-      child: body,
+      child: Row(
+        children: [
+          Expanded(child: _codeAnchor(palette, item, wide: wide)),
+          const SizedBox(width: AppSpace.sm),
+          FilledButton(
+            onPressed: (_submitting || item.isAnswered) ? null : _oneClickNumber,
+            child: Text(_submitting ? '提交中…' : '一键签到'),
+          ),
+        ],
+      ),
     );
+  }
 
-    if (!large) return Align(alignment: Alignment.centerLeft, child: framed);
+  Widget _codeAnchor(
+    AppPalette palette,
+    RollcallItem item, {
+    required bool wide,
+  }) {
+    final code = item.numberCode;
+    final err = item.numberCodeError;
+    if (code == null || code.isEmpty) {
+      return Text(
+        err ?? '正在获取签到码…',
+        style: TextStyle(fontSize: 13, height: 1.35, color: palette.muted),
+      );
+    }
+    final text = Text(
+      code,
+      style: TextStyle(
+        fontSize: wide ? 28 : 22,
+        fontWeight: FontWeight.w600,
+        letterSpacing: wide ? 4 : 2.5,
+        height: 1.15,
+        color: palette.ink,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+    );
     return Tooltip(
       message: '点击复制',
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
           onTap: () => _copyCode(code),
-          child: framed,
-        ),
-      ),
-    );
-  }
-
-  Widget _nonNumberBody(
-    AppPalette palette,
-    RollcallItem item,
-    String title,
-  ) {
-    return Row(
-      children: [
-        _typeChip(palette, item),
-        const SizedBox(width: AppSpace.sm),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          behavior: HitTestBehavior.opaque,
+          child: Row(
             children: [
-              Text(title, style: _titleStyle(palette, compact: true)),
-              const SizedBox(height: AppSpace.xxs),
-              _metaLine(palette, item),
-              if (item.type == RollcallType.unknown) ...[
-                const SizedBox(height: AppSpace.xs),
-                Text(
-                  '暂不支持此签到类型，可下拉刷新重试',
-                  style: TextStyle(fontSize: 12, color: palette.muted),
-                ),
-              ],
+              Flexible(child: text),
+              const SizedBox(width: AppSpace.xs),
+              Icon(Icons.copy_rounded, size: 15, color: palette.muted),
             ],
           ),
         ),
-        const SizedBox(width: AppSpace.sm),
-        if (item.isRadar)
-          FilledButton(
-            onPressed: item.isAnswered ? null : _openSecondary,
-            child: const Text('选择位置'),
-          ),
-        if (item.type == RollcallType.qrcode)
-          FilledButton(
-            onPressed: item.isAnswered ? null : _openSecondary,
-            child: const Text('扫描'),
-          ),
-      ],
+      ),
     );
   }
 }

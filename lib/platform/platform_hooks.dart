@@ -16,6 +16,11 @@ abstract final class PlatformHooks {
     return Platform.isAndroid;
   }
 
+  static bool get isWindows {
+    if (kIsWeb) return false;
+    return Platform.isWindows;
+  }
+
   /// Optional hook: main monitor discovered [count] ongoing rollcalls and stopped.
   static Future<void> Function(int count)? onRollcallsDiscovered;
 

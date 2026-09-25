@@ -58,6 +58,14 @@ class XmuRollcallApp extends ConsumerWidget {
       );
     }
 
+    // Windows AX bridge (flutter#182444) desyncs on tooltip/scroll/tab and
+    // spams "N will not be in the tree…". Runner already swallows WM_GETOBJECT;
+    // once the bridge is up (Cursor/devtools/hot-reload), stop emitting trees.
+    // Narrator/UIA stay dark — accepted for this Quiet Utility (see runner).
+    if (PlatformHooks.isWindows) {
+      app = ExcludeSemantics(child: app);
+    }
+
     return app;
   }
 }

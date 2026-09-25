@@ -17,6 +17,7 @@ import 'package:xmu_rollcall/core/session/session_credential.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
 import 'package:xmu_rollcall/features/rollcall/radar_preview.dart';
+import 'package:xmu_rollcall/features/rollcall/session_prior_preview.dart';
 import 'package:xmu_rollcall/features/settings/close_prefs_controller.dart';
 import 'package:xmu_rollcall/features/settings/recent_logs_page.dart';
 import 'package:xmu_rollcall/platform/android_monitor_shell.dart';
@@ -361,6 +362,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                     ref,
                     RadarPreviewScenario.prefDevice,
                   ),
+                ),
+                SettingsRow(
+                  leading: const Icon(Icons.insights_outlined),
+                  title: '上课段先验',
+                  subtitle: '符合 / 突然数字 / 样本不足 / 无课表',
+                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  onTap: () => openSessionPriorPreview(context),
                 ),
                 if (PlatformHooks.isDesktop || PlatformHooks.isAndroid) ...[
                   SettingsRow(

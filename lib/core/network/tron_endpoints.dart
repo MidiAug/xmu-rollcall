@@ -51,6 +51,9 @@ abstract final class TronEndpoints {
         '$baseUrl/api/course/$courseId/student/$studentId/rollcalls',
       ).replace(queryParameters: {'page': '1', 'page_size': '100'});
 
+  /// Web-style course list (includes `timetables` in practice).
+  static Uri myCourses() => Uri.parse('$baseUrl/api/my-courses');
+
   static Uri radarRollcalls() => Uri.parse(
         '$baseUrl/api/radar/rollcalls',
       ).replace(queryParameters: {'api_version': apiVersionList});
