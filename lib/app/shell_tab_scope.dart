@@ -60,6 +60,9 @@ mixin ShellTabAware<T extends StatefulWidget> on State<T> {
     if (scope == null) return;
 
     final active = scope.isActive(shellTab);
+    if (_wasActive != true && active) {
+      onShellTabVisible();
+    }
     if (_wasActive == true && !active) {
       onShellTabHidden();
     }
@@ -76,6 +79,9 @@ mixin ShellTabAware<T extends StatefulWidget> on State<T> {
       onShellTabRetap();
     }
   }
+
+  /// Tab became visible (including first mount under IndexedStack).
+  void onShellTabVisible() {}
 
   /// Tab became inactive — close menus / unfocus; keep durable state.
   void onShellTabHidden() {

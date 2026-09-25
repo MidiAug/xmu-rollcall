@@ -9,7 +9,7 @@ import 'package:xmu_rollcall/features/homework/homework_models.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 
 /// 某课全部作业（只读，按需拉取）。
-class HomeworkCoursePage extends ConsumerWidget {
+class HomeworkCoursePage extends ConsumerStatefulWidget {
   const HomeworkCoursePage({
     super.key,
     required this.courseId,
@@ -19,7 +19,28 @@ class HomeworkCoursePage extends ConsumerWidget {
   final int courseId;
   final String courseName;
 
-  void _openDetail(BuildContext context, HomeworkItem item) {
+  @override
+  ConsumerState<HomeworkCoursePage> createState() => _HomeworkCoursePageState();
+}
+
+class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
+  var _appeared = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _appeared) return;
+      _appeared = true;
+      ref
+          .read(courseHomeworkProvider(widget.courseId).notifier)
+          .ensureFresh();
+    });
+  }
+
+  void _openDetail(HomeworkItem item) {
+    final courseId = widget.courseId;
+    final courseName = widget.courseName;
     final seeded = item.courseId == null
         ? item.copyWith(courseId: courseId, courseName: courseName)
         : (item.courseName.isEmpty && courseName.isNotEmpty
@@ -29,29 +50,28 @@ class HomeworkCoursePage extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final pageX = AppSpace.pageXOf(context);
     final title =
-        courseName.isEmpty ? '课程作业' : courseName;
-    final async = ref.watch(courseHomeworkProvider(courseId));
+        widget.courseName.isEmpty ? '课程作业' : widget.courseName;
+    final async = ref.watch(courseHomeworkProvider(widget.courseId));
 
     return SubpageScaffold(
       title: title,
       actions: [
-        IconButton(
-          tooltip: '刷新',
-          visualDensity: VisualDensity.compact,
-          onPressed: () =>
-              ref.read(courseHomeworkProvider(courseId).notifier).refresh(),
-          icon: const Icon(Icons.refresh_rounded),
+        AppRefreshButton(
+          onRefresh: () => ref
+              .read(courseHomeworkProvider(widget.courseId).notifier)
+              .refresh(),
         ),
       ],
       body: AppContentColumn(
         child: AppPullToRefresh(
           color: p.primary,
-          onRefresh: () =>
-              ref.read(courseHomeworkProvider(courseId).notifier).refresh(),
+          onRefresh: () => ref
+              .read(courseHomeworkProvider(widget.courseId).notifier)
+              .refresh(),
           child: async.when(
             skipLoadingOnReload: true,
             skipLoadingOnRefresh: true,
@@ -76,7 +96,9 @@ class HomeworkCoursePage extends ConsumerWidget {
                       const SizedBox(height: 12),
                       FilledButton(
                         onPressed: () => ref
-                            .read(courseHomeworkProvider(courseId).notifier)
+                            .read(
+                              courseHomeworkProvider(widget.courseId).notifier,
+                            )
                             .refresh(),
                         child: const Text('重试'),
                       ),
@@ -115,7 +137,7 @@ class HomeworkCoursePage extends ConsumerWidget {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: AppSpace.xs),
                     child: AppHoverSurface(
-                      onTap: () => _openDetail(context, item),
+                      onTap: () => _openDetail(item),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 12,

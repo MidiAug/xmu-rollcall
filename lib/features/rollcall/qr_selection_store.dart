@@ -2,17 +2,30 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Remembers QR assist checkboxes per course (AC-ASSIST-05c).
+/// Remembers QR assist checkboxes per owner user + course (AC-ASSIST-05c · R-35 S1).
 class QrSelectionStore {
-  QrSelectionStore(this._prefs);
+  QrSelectionStore(this._prefs, {required this.userId});
 
   final SharedPreferences _prefs;
+  final int userId;
 
-  static String _key(String courseId) => 'qr_assist_sel_v1_$courseId';
+  static String _key(int userId, String courseId) =>
+      'qr_assist_sel_v1_${userId}_$courseId';
+
+  static String _legacyKey(String courseId) => 'qr_assist_sel_v1_$courseId';
 
   Future<QrSelectionSnapshot?> read(String courseId) async {
-    if (courseId.isEmpty) return null;
-    final raw = _prefs.getString(_key(courseId));
+    if (courseId.isEmpty || userId == 0) return null;
+    final key = _key(userId, courseId);
+    var raw = _prefs.getString(key);
+    if (raw == null || raw.isEmpty) {
+      final legacy = _prefs.getString(_legacyKey(courseId));
+      if (legacy != null && legacy.isNotEmpty) {
+        await _prefs.setString(key, legacy);
+        await _prefs.remove(_legacyKey(courseId));
+        raw = legacy;
+      }
+    }
     if (raw == null || raw.isEmpty) return null;
     try {
       final map = Map<String, dynamic>.from(jsonDecode(raw) as Map);
@@ -34,9 +47,9 @@ class QrSelectionStore {
   }
 
   Future<void> write(String courseId, QrSelectionSnapshot snap) async {
-    if (courseId.isEmpty) return;
+    if (courseId.isEmpty || userId == 0) return;
     await _prefs.setString(
-      _key(courseId),
+      _key(userId, courseId),
       jsonEncode({
         'includeOwner': snap.includeOwner,
         'assistUserIds': snap.assistUserIds.toList()..sort(),

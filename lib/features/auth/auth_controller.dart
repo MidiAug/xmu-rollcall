@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
-import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 
@@ -65,7 +64,7 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<void> signOut() async {
     await _repo.signOut();
-    await JsonDiskCache.clearAll();
+    // Disk mirrors kept (R-35 S2); memory cleared via [sessionLifecycleProvider].
     state = const AuthState(status: AuthStatus.signedOut);
   }
 }

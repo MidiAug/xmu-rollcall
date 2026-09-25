@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/identity/device_identity.dart';
 import 'package:xmu_rollcall/core/logging/rollcall_log.dart';
 import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
@@ -132,17 +133,15 @@ class RollcallRepository {
     return out;
   }
 
-  /// Per-course weekday → slots from `POST /api/my-courses` (timetables).
-  ///
-  /// Returns empty map on failure (caller shows unscoped).
-  Future<Map<String, Map<int, List<TimetableSlot>>>> fetchCourseTimetables() async {
+  /// Sticky CourseCatalog: courses + timetables (+ optional semester ids).
+  Future<CourseCatalogSnapshot> fetchCourseCatalog() async {
     await http.init();
     try {
       final res = await http.postUri<dynamic>(
         TronEndpoints.myCourses(),
         data: const {
           'fields':
-              'id,name,course_code,timetables,instructors(id,name),department(id,name)',
+              'id,name,course_code,timetables,instructors(id,name),department(id,name),semester(id),academic_year(id),academic_year_id,semester_id',
           'conditions': {
             'classify_type': 'recently_started',
             'role': [
@@ -155,51 +154,96 @@ class RollcallRepository {
           },
         },
       );
-      final list = _unwrapList(
-        res.data,
-        const ['courses', 'data', 'items', 'list', 'results'],
-      );
-      final out = <String, Map<int, List<TimetableSlot>>>{};
-      for (final item in list) {
-        if (item is! Map) continue;
-        final m = Map<String, dynamic>.from(item);
-        final id = _first(m, const ['id', 'course_id', 'courseId', 'cid']);
-        if (id == null) continue;
-        final tables = parseTimetables(m['timetables']);
-        if (tables.isNotEmpty) out[id] = tables;
-      }
-      if (out.isNotEmpty) return out;
+      final parsed = _catalogFromPayload(res.data);
+      if (parsed.courses.isNotEmpty) return parsed;
     } catch (_) {
-      // fall through to GET probe
+      // fall through
     }
-    return _timetablesFromGetProbe();
+    return _catalogFromGetProbe();
   }
 
-  Future<Map<String, Map<int, List<TimetableSlot>>>> _timetablesFromGetProbe() async {
-    final out = <String, Map<int, List<TimetableSlot>>>{};
+  /// Per-course weekday → slots (prefers [fetchCourseCatalog]).
+  Future<Map<String, Map<int, List<TimetableSlot>>>> fetchCourseTimetables() async {
+    final snap = await fetchCourseCatalog();
+    return snap.timetablesByCourse;
+  }
+
+  CourseCatalogSnapshot _catalogFromPayload(dynamic data) {
+    final list = _unwrapList(
+      data,
+      const ['courses', 'data', 'items', 'list', 'results'],
+    );
+    final courses = <CatalogCourse>[];
+    String? semesterId;
+    String? academicYearId;
+    for (final item in list) {
+      if (item is! Map) continue;
+      final m = Map<String, dynamic>.from(item);
+      final id = _first(m, const ['id', 'course_id', 'courseId', 'cid']);
+      final title = _first(
+        m,
+        const ['name', 'title', 'course_title', 'course_name', 'display_name'],
+      );
+      if (id == null) continue;
+      courses.add(
+        CatalogCourse(
+          id: id,
+          title: title ?? '',
+          timetables: parseTimetables(m['timetables']),
+        ),
+      );
+      semesterId ??= _nestedId(m, const ['semester_id', 'semester']);
+      academicYearId ??=
+          _nestedId(m, const ['academic_year_id', 'academic_year']);
+    }
+    return CourseCatalogSnapshot(
+      fetchedAt: DateTime.now(),
+      courses: courses,
+      semesterId: semesterId,
+      academicYearId: academicYearId,
+    );
+  }
+
+  Future<CourseCatalogSnapshot> _catalogFromGetProbe() async {
+    final courses = <CatalogCourse>[];
     for (final path in TronEndpoints.courseListPaths) {
       try {
         final uri = Uri.parse('${TronEndpoints.baseUrl}$path');
         final res = await http.getUri<dynamic>(uri);
         if ((res.statusCode ?? 0) != 200) continue;
-        final list = _unwrapList(
-          res.data,
-          const ['courses', 'data', 'items', 'list', 'results'],
-        );
-        for (final item in list) {
-          if (item is! Map) continue;
-          final m = Map<String, dynamic>.from(item);
-          final id = _first(m, const ['id', 'course_id', 'courseId', 'cid']);
-          if (id == null) continue;
-          final tables = parseTimetables(m['timetables']);
-          if (tables.isNotEmpty) out[id] = tables;
-        }
-        if (out.isNotEmpty) return out;
+        final parsed = _catalogFromPayload(res.data);
+        if (parsed.courses.isNotEmpty) return parsed;
       } catch (_) {
-        // try next path
+        // try next
       }
     }
-    return out;
+    if (courses.isEmpty) {
+      // Last resort: id/title only via legacy probe.
+      final probed = await _probeCourses();
+      return CourseCatalogSnapshot(
+        fetchedAt: DateTime.now(),
+        courses: [
+          for (final e in probed)
+            CatalogCourse(id: e['id']!, title: e['title'] ?? ''),
+        ],
+      );
+    }
+    return CourseCatalogSnapshot(fetchedAt: DateTime.now(), courses: courses);
+  }
+
+  String? _nestedId(Map<String, dynamic> m, List<String> keys) {
+    for (final k in keys) {
+      final v = m[k];
+      if (v == null) continue;
+      if (v is Map) {
+        final id = _first(Map<String, dynamic>.from(v), const ['id']);
+        if (id != null) return id;
+      } else {
+        final s = '$v'.trim();
+        if (s.isNotEmpty) return s;
+      }
+    }
+    return null;
   }
 
   /// Course rollcall history (gammars / dashboard style). Serial + gap for KB-01.

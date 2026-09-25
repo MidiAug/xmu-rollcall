@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
 
 final savedLocationsProvider =
@@ -16,7 +17,8 @@ final courseRadarDefaultsProvider =
       CourseRadarDefaultsController,
       Map<String, CourseRadarPref>
     >((ref) {
-      return CourseRadarDefaultsController();
+      final uid = ref.watch(authControllerProvider.select((s) => s.profile?.id));
+      return CourseRadarDefaultsController(userId: uid);
     });
 
 class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
@@ -149,16 +151,40 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
 
 class CourseRadarDefaultsController
     extends StateNotifier<Map<String, CourseRadarPref>> {
-  CourseRadarDefaultsController() : super(const {}) {
+  CourseRadarDefaultsController({this.userId}) : super(const {}) {
     _load();
   }
 
-  static const _key = 'course_radar_defaults';
+  final int? userId;
+
+  static const _legacyKey = 'course_radar_defaults';
+
+  String? get _key {
+    final id = userId;
+    if (id == null || id == 0) return null;
+    return 'course_radar_defaults_$id';
+  }
 
   Future<void> _load() async {
+    final key = _key;
+    if (key == null) {
+      state = const {};
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_key);
-    if (raw == null || raw.isEmpty) return;
+    var raw = prefs.getString(key);
+    if (raw == null || raw.isEmpty) {
+      final legacy = prefs.getString(_legacyKey);
+      if (legacy != null && legacy.isNotEmpty) {
+        await prefs.setString(key, legacy);
+        await prefs.remove(_legacyKey);
+        raw = legacy;
+      }
+    }
+    if (raw == null || raw.isEmpty) {
+      state = const {};
+      return;
+    }
     try {
       final map = jsonDecode(raw) as Map<String, dynamic>;
       state = {
@@ -168,13 +194,17 @@ class CourseRadarDefaultsController
               Map<String, dynamic>.from(e.value as Map),
             ),
       };
-    } catch (_) {}
+    } catch (_) {
+      state = const {};
+    }
   }
 
   Future<void> _persist() async {
+    final key = _key;
+    if (key == null) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
-      _key,
+      key,
       jsonEncode({for (final e in state.entries) e.key: e.value.toJson()}),
     );
   }

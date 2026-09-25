@@ -4,6 +4,7 @@ import 'package:xmu_rollcall/app/adaptive_shell.dart';
 import 'package:xmu_rollcall/app/app_brand.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/core/cache/session_lifecycle.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
@@ -22,6 +23,7 @@ class XmuRollcallApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themePref = ref.watch(themePreferenceProvider);
     final bootstrap = ref.watch(appBootstrapProvider);
+    ref.watch(sessionLifecycleProvider);
 
     final themeMode = switch (themePref) {
       ThemePreference.system => ThemeMode.system,

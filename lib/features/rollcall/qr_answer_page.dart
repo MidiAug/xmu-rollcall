@@ -104,10 +104,11 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
   }
 
   Future<QrSelectionStore> _store() async {
+    final uid = ref.read(authControllerProvider).profile?.id ?? 0;
     final existing = _selStore;
-    if (existing != null) return existing;
+    if (existing != null && existing.userId == uid) return existing;
     final prefs = await SharedPreferences.getInstance();
-    return _selStore = QrSelectionStore(prefs);
+    return _selStore = QrSelectionStore(prefs, userId: uid);
   }
 
   Future<void> _prepareEligible() async {

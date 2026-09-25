@@ -31,6 +31,13 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
   ScrollController? get shellScrollController => _scroll;
 
   @override
+  void onShellTabVisible() {
+    if (ref.read(authControllerProvider).isSignedIn) {
+      ref.read(homeworkTodosProvider.notifier).ensureFresh();
+    }
+  }
+
+  @override
   void dispose() {
     _scroll.dispose();
     super.dispose();

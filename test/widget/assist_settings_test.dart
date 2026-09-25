@@ -39,6 +39,10 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     final memory = SecureStore.memory();
 
+    // Tall surface so ListView builds sections below the fold (课程与缓存).
+    await tester.binding.setSurfaceSize(const Size(400, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [

@@ -35,7 +35,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('尚未选择位置'), findsOneWidget);
-      expect(find.text('更换位置'), findsOneWidget);
+      expect(find.text('选择位置'), findsOneWidget);
       expect(find.text('用此位置签到'), findsOneWidget);
       expect(find.text('定位'), findsNothing);
       expect(find.text('地图'), findsNothing);

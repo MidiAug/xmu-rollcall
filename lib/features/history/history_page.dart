@@ -42,13 +42,52 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   HistorySignedFilter _signed = HistorySignedFilter.all;
   HistoryTypeFilter _type = HistoryTypeFilter.all;
   final _scroll = ScrollController();
+  var _appeared = false;
 
   static const _selectW = 132.0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _appeared) return;
+      _appeared = true;
+      if (ref.read(authControllerProvider).isSignedIn) {
+        ref.read(courseHistoryProvider.notifier).ensureFresh();
+      }
+    });
+  }
 
   @override
   void dispose() {
     _scroll.dispose();
     super.dispose();
+  }
+
+  Future<void> _confirmUpdateAll() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('更新全部记录？'),
+        content: const Text(
+          '将按课程串行拉取签到史（每课最多约 100 条，不保证完整学期史），'
+          '请求较多，请确认网络与时间充裕。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('更新全部'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) {
+      await ref.read(courseHistoryProvider.notifier).updateAll();
+    }
   }
 
   @override
@@ -62,11 +101,16 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
     return SubpageScaffold(
       title: '签到记录',
       actions: [
-        if (auth.isSignedIn)
+        if (auth.isSignedIn) ...[
+          TextButton(
+            onPressed: _confirmUpdateAll,
+            child: const Text('更新全部'),
+          ),
           AppRefreshButton(
             onRefresh: () =>
                 ref.read(courseHistoryProvider.notifier).refresh(),
           ),
+        ],
       ],
       body: AppContentColumn(
         child: PrimaryScrollController(
@@ -141,8 +185,8 @@ class _CourseHistoryBody extends ConsumerWidget {
 
   bool _matchSigned(CourseRollcallRecord r) {
     if (r.isPlaceholder) {
-      return signedFilter == HistorySignedFilter.all ||
-          signedFilter == HistorySignedFilter.unsigned;
+      // Keep status rows visible under "all"; hide under signed/unsigned filters.
+      return signedFilter == HistorySignedFilter.all;
     }
     switch (signedFilter) {
       case HistorySignedFilter.all:

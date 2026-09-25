@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/core/cache/cache_policy.dart';
 import 'package:xmu_rollcall/core/logging/fetch_log.dart';
 import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
@@ -16,13 +17,14 @@ final homeworkTodosProvider =
 );
 
 class HomeworkTodosNotifier extends AsyncNotifier<List<HomeworkItem>> {
-  static const ttl = Duration(minutes: 10);
+  static const ttl = CachePolicy.enterSwrFreshFor;
 
+  int? _boundUserId;
   DateTime? _fetchedAt;
-  var _revalidateScheduled = false;
+  Future<void>? _inFlight;
 
   String? get _cacheSuffix {
-    final id = ref.read(authControllerProvider).profile?.id;
+    final id = _boundUserId;
     if (id == null || id == 0) return null;
     return 'homework_todos_$id';
   }
@@ -30,47 +32,73 @@ class HomeworkTodosNotifier extends AsyncNotifier<List<HomeworkItem>> {
   @override
   Future<List<HomeworkItem>> build() async {
     ref.keepAlive();
-    final signedIn = ref.watch(authControllerProvider).isSignedIn;
-    if (!signedIn) {
+    final auth = ref.watch(authControllerProvider);
+    final profile = auth.profile;
+    if (!auth.isSignedIn || profile == null || profile.id == 0) {
+      _boundUserId = null;
       _fetchedAt = null;
-      _revalidateScheduled = false;
       return const [];
     }
+    _boundUserId = profile.id;
 
     final suffix = _cacheSuffix;
     if (suffix != null) {
       final snap = await JsonDiskCache.readList(suffix);
       if (snap != null) {
         _fetchedAt = snap.fetchedAt;
-        final items = [
+        return [
           for (final m in snap.items) HomeworkItem.fromJson(m),
         ];
-        if (!snap.isFresh(ttl)) {
-          _scheduleRevalidate();
-        }
-        return items;
       }
     }
     return _fetchAndPersist(trigger: 'cold');
   }
 
-  void _scheduleRevalidate() {
-    if (_revalidateScheduled) return;
-    _revalidateScheduled = true;
-    Future.microtask(() async {
-      try {
-        await _revalidate();
-      } finally {
-        _revalidateScheduled = false;
-      }
-    });
+  Future<void> ensureFresh({
+    EnsureFreshReason reason = EnsureFreshReason.appear,
+  }) async {
+    final existing = _inFlight;
+    if (existing != null) {
+      await existing;
+      return;
+    }
+    final future = _ensureBody(reason);
+    _inFlight = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_inFlight, future)) _inFlight = null;
+    }
   }
 
-  Future<void> _revalidate() async {
+  Future<void> _ensureBody(EnsureFreshReason reason) async {
+    final uid = _boundUserId ?? ref.read(authControllerProvider).profile?.id;
+    if (uid == null || uid == 0) return;
+
+    final force = reason == EnsureFreshReason.pullToRefresh;
+    if (!force && _fetchedAt != null) {
+      final age = DateTime.now().difference(_fetchedAt!);
+      if (!age.isNegative && age < ttl) return;
+    }
+    if (!force) {
+      final suffix = 'homework_todos_$uid';
+      final snap = await JsonDiskCache.readList(suffix);
+      if (snap != null && snap.isFresh(ttl)) {
+        _fetchedAt = snap.fetchedAt;
+        if (_boundUserId == uid) {
+          state = AsyncData([
+            for (final m in snap.items) HomeworkItem.fromJson(m),
+          ]);
+        }
+        return;
+      }
+    }
+
     final previous = state.valueOrNull;
     final next = await AsyncValue.guard(
-      () => _fetchAndPersist(trigger: 'swr'),
+      () => _fetchAndPersist(trigger: reason.name),
     );
+    if (_boundUserId != uid) return;
     if (next.hasValue) {
       state = AsyncData(next.requireValue);
     } else if (previous == null) {
@@ -79,11 +107,13 @@ class HomeworkTodosNotifier extends AsyncNotifier<List<HomeworkItem>> {
   }
 
   Future<List<HomeworkItem>> _fetchAndPersist({required String trigger}) {
+    final uid = _boundUserId;
     return FetchLog.run(
       event: 'homework.todos.refresh',
       trigger: trigger,
       fetch: () async {
         final data = await ref.read(homeworkRepositoryProvider).fetchTodos();
+        if (_boundUserId != uid) return data;
         _fetchedAt = DateTime.now();
         final suffix = _cacheSuffix;
         if (suffix != null) {
@@ -98,17 +128,8 @@ class HomeworkTodosNotifier extends AsyncNotifier<List<HomeworkItem>> {
     );
   }
 
-  Future<void> refresh() async {
-    final previous = state.valueOrNull;
-    final next = await AsyncValue.guard(
-      () => _fetchAndPersist(trigger: 'user'),
-    );
-    if (next.hasValue) {
-      state = AsyncData(next.requireValue);
-    } else if (previous == null) {
-      state = next;
-    }
-  }
+  Future<void> refresh() =>
+      ensureFresh(reason: EnsureFreshReason.pullToRefresh);
 }
 
 final courseHomeworkProvider = AsyncNotifierProvider.family<
@@ -118,13 +139,14 @@ final courseHomeworkProvider = AsyncNotifierProvider.family<
 
 class CourseHomeworkNotifier
     extends FamilyAsyncNotifier<List<HomeworkItem>, int> {
-  static const ttl = Duration(minutes: 10);
+  static const ttl = CachePolicy.enterSwrFreshFor;
 
+  int? _boundUserId;
   DateTime? _fetchedAt;
-  var _revalidateScheduled = false;
+  Future<void>? _inFlight;
 
   String? get _cacheSuffix {
-    final id = ref.read(authControllerProvider).profile?.id;
+    final id = _boundUserId;
     if (id == null || id == 0) return null;
     return 'course_homework_${id}_$arg';
   }
@@ -132,40 +154,59 @@ class CourseHomeworkNotifier
   @override
   Future<List<HomeworkItem>> build(int courseId) async {
     ref.keepAlive();
+    final auth = ref.watch(authControllerProvider);
+    final profile = auth.profile;
+    if (!auth.isSignedIn || profile == null || profile.id == 0) {
+      _boundUserId = null;
+      return const [];
+    }
+    _boundUserId = profile.id;
+
     final suffix = _cacheSuffix;
     if (suffix != null) {
       final snap = await JsonDiskCache.readList(suffix);
       if (snap != null) {
         _fetchedAt = snap.fetchedAt;
-        final items = [
+        return [
           for (final m in snap.items) HomeworkItem.fromJson(m),
         ];
-        if (!snap.isFresh(ttl)) {
-          _scheduleRevalidate();
-        }
-        return items;
       }
     }
     return _fetchAndPersist(trigger: 'cold');
   }
 
-  void _scheduleRevalidate() {
-    if (_revalidateScheduled) return;
-    _revalidateScheduled = true;
-    Future.microtask(() async {
-      try {
-        await _revalidate();
-      } finally {
-        _revalidateScheduled = false;
-      }
-    });
+  Future<void> ensureFresh({
+    EnsureFreshReason reason = EnsureFreshReason.appear,
+  }) async {
+    final existing = _inFlight;
+    if (existing != null) {
+      await existing;
+      return;
+    }
+    final future = _ensureBody(reason);
+    _inFlight = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_inFlight, future)) _inFlight = null;
+    }
   }
 
-  Future<void> _revalidate() async {
+  Future<void> _ensureBody(EnsureFreshReason reason) async {
+    final uid = _boundUserId ?? ref.read(authControllerProvider).profile?.id;
+    if (uid == null || uid == 0) return;
+
+    final force = reason == EnsureFreshReason.pullToRefresh;
+    if (!force && _fetchedAt != null) {
+      final age = DateTime.now().difference(_fetchedAt!);
+      if (!age.isNegative && age < ttl) return;
+    }
+
     final previous = state.valueOrNull;
     final next = await AsyncValue.guard(
-      () => _fetchAndPersist(trigger: 'swr'),
+      () => _fetchAndPersist(trigger: reason.name),
     );
+    if (_boundUserId != uid) return;
     if (next.hasValue) {
       state = AsyncData(next.requireValue);
     } else if (previous == null) {
@@ -174,6 +215,7 @@ class CourseHomeworkNotifier
   }
 
   Future<List<HomeworkItem>> _fetchAndPersist({required String trigger}) {
+    final uid = _boundUserId;
     return FetchLog.run(
       event: 'homework.course.refresh',
       trigger: trigger,
@@ -181,6 +223,7 @@ class CourseHomeworkNotifier
       fetch: () async {
         final data =
             await ref.read(homeworkRepositoryProvider).fetchCourseHomework(arg);
+        if (_boundUserId != uid) return data;
         _fetchedAt = DateTime.now();
         final suffix = _cacheSuffix;
         if (suffix != null) {
@@ -195,22 +238,14 @@ class CourseHomeworkNotifier
     );
   }
 
-  Future<void> refresh() async {
-    final previous = state.valueOrNull;
-    final next = await AsyncValue.guard(
-      () => _fetchAndPersist(trigger: 'user'),
-    );
-    if (next.hasValue) {
-      state = AsyncData(next.requireValue);
-    } else if (previous == null) {
-      state = next;
-    }
-  }
+  Future<void> refresh() =>
+      ensureFresh(reason: EnsureFreshReason.pullToRefresh);
 }
 
 final homeworkDetailProvider = FutureProvider.autoDispose
     .family<HomeworkItem, HomeworkDetailKey>((ref, key) async {
   final seed = key.seed;
+  final uid = ref.watch(authControllerProvider).profile?.id;
   return FetchLog.run(
     event: 'homework.detail.fetch',
     trigger: 'user',
@@ -224,6 +259,9 @@ final homeworkDetailProvider = FutureProvider.autoDispose
               activityId: key.activityId,
               courseId: key.courseId,
             );
+        if (ref.read(authControllerProvider).profile?.id != uid) {
+          return remote;
+        }
         if (seed == null) return remote;
         return remote.copyWith(
           title: remote.title.isEmpty ? seed.title : remote.title,

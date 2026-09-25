@@ -10,6 +10,8 @@ import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
+import 'package:xmu_rollcall/core/cache/session_lifecycle.dart';
+import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/assist/assist_dialogs.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
@@ -19,6 +21,7 @@ import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
 import 'package:xmu_rollcall/features/rollcall/radar_preview.dart';
 import 'package:xmu_rollcall/features/rollcall/session_prior_preview.dart';
 import 'package:xmu_rollcall/features/settings/close_prefs_controller.dart';
+import 'package:xmu_rollcall/features/settings/courses_page.dart';
 import 'package:xmu_rollcall/features/settings/recent_logs_page.dart';
 import 'package:xmu_rollcall/platform/android_monitor_shell.dart';
 import 'package:xmu_rollcall/platform/close_prefs.dart';
@@ -203,6 +206,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 subtitle: '管理常用签到位置',
                 trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
                 onTap: () => AppPageRoutes.push(context, const SavedLocationsPage()),
+              ),
+            ],
+          ),
+          SettingsSection(
+            header: '课程与缓存',
+            children: [
+              SettingsRow(
+                leading: const Icon(Icons.school_outlined),
+                title: '课程',
+                subtitle: auth.isSignedIn ? '本学期课表缓存（Sticky）' : '请先登录',
+                trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                onTap: !auth.isSignedIn
+                    ? null
+                    : () => AppPageRoutes.push(context, const CoursesPage()),
+              ),
+              SettingsRow(
+                leading: const Icon(Icons.cleaning_services_outlined),
+                title: '清缓存',
+                subtitle: '清除课表/作业/签到史镜像；保留设备 ID、主题与命名地点',
+                trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                onTap: () => _confirmClearCache(context),
               ),
             ],
           ),
@@ -403,5 +427,33 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
         ),
       ),
     );
+  }
+
+  Future<void> _confirmClearCache(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('清除缓存？'),
+        content: const Text(
+          '将删除课表、作业与签到史等账号镜像缓存。'
+          '设备 ID、主题偏好与命名地点会保留。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('清除'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await JsonDiskCache.clearAll();
+    invalidateOwnerRemoteMemoryFromWidget(ref);
+    if (!context.mounted) return;
+    AppToast.show(context, '已清除缓存');
   }
 }

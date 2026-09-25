@@ -61,10 +61,10 @@ void main() {
   });
 
   group('QrSelectionStore', () {
-    test('read write per courseId', () async {
+    test('read write per owner userId + courseId', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
-      final store = QrSelectionStore(prefs);
+      final store = QrSelectionStore(prefs, userId: 7);
       await store.write(
         '501',
         const QrSelectionSnapshot(
@@ -76,6 +76,20 @@ void main() {
       expect(snap!.includeOwner, isFalse);
       expect(snap.assistUserIds, {2, 9});
       expect(await store.read('other'), isNull);
+      expect(await QrSelectionStore(prefs, userId: 8).read('501'), isNull);
+    });
+
+    test('migrates legacy course-only key', () async {
+      SharedPreferences.setMockInitialValues({
+        'qr_assist_sel_v1_501':
+            '{"includeOwner":true,"assistUserIds":[3]}',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final store = QrSelectionStore(prefs, userId: 11);
+      final snap = await store.read('501');
+      expect(snap!.assistUserIds, {3});
+      expect(prefs.getString('qr_assist_sel_v1_501'), isNull);
+      expect(prefs.getString('qr_assist_sel_v1_11_501'), isNotNull);
     });
   });
 }

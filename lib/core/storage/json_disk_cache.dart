@@ -66,7 +66,9 @@ abstract final class JsonDiskCache {
     await prefs.remove(key(suffix));
   }
 
-  /// Drop all SWR entries (call on sign-out).
+  /// Drop all SWR / account-mirror entries (settings「清缓存」).
+  ///
+  /// Do **not** call on sign-out (R-35: disk mirrors survive logout).
   static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     final keys = prefs.getKeys().where((k) => k.startsWith(keyPrefix)).toList();
