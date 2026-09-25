@@ -51,6 +51,9 @@ Desktop.ini
 *.iws
 .idea/
 
+# Local tool caches (portable NSIS, etc.)
+.tools/
+
 # Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
@@ -72,7 +75,7 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Local install packages (APK / MSIX)
+# Local install packages (APK / NSIS setup)
 /dist/
 
 # Platform ephemeral
