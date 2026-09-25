@@ -13,6 +13,7 @@ class RollcallRepository {
     required this.http,
     required this.identity,
     this.deviceIdOverride,
+    this.requireExplicitDeviceId = false,
   });
 
   final TronHttpClient http;
@@ -21,9 +22,15 @@ class RollcallRepository {
   /// When set (assist identity), used instead of local [DeviceIdentity].
   final String? deviceIdOverride;
 
+  /// Assist sessions must never fall back to the owner install id.
+  final bool requireExplicitDeviceId;
+
   Future<String> _deviceId() async {
     final override = deviceIdOverride?.trim();
     if (override != null && override.isNotEmpty) return override;
+    if (requireExplicitDeviceId) {
+      throw StateError('协助身份缺少 deviceId，请重新导入或刷新协助名单');
+    }
     return identity.getId();
   }
 

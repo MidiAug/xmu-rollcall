@@ -68,7 +68,32 @@ class AssistService {
 
   static String accountCredKey(int userId) => 'assist_account_cred_$userId';
 
-  Future<List<AssistIdentity>> listIdentities() => _roster.list();
+  Future<List<AssistIdentity>> listIdentities() async {
+    final list = await _roster.list();
+    final out = <AssistIdentity>[];
+    for (final e in list) {
+      out.add(await ensureDeviceId(e));
+    }
+    return out;
+  }
+
+  /// Never reuse the owner install [DeviceIdentity] for assists (same rollcall
+  /// multi-student collision). Empty → mint and persist a stable UUID.
+  Future<AssistIdentity> ensureDeviceId(AssistIdentity identity) async {
+    final existing = identity.deviceId?.trim() ?? '';
+    if (existing.isNotEmpty) return identity;
+    final next = identity.copyWith(deviceId: _newDeviceId());
+    await _roster.upsert(next);
+    return next;
+  }
+
+  static String _newDeviceId() => const Uuid().v4();
+
+  static String _nonEmptyDeviceId(String? raw) {
+    final t = raw?.trim() ?? '';
+    if (t.isNotEmpty) return t;
+    return _newDeviceId();
+  }
 
   Future<String> exportOwnerPackage({
     required AssistExportKind kind,
@@ -142,9 +167,7 @@ class AssistService {
     String? deviceId,
   }) async {
     final clock = (now ?? DateTime.now()).toUtc();
-    final id = (deviceId != null && deviceId.trim().isNotEmpty)
-        ? deviceId.trim()
-        : const Uuid().v4();
+    final id = _nonEmptyDeviceId(deviceId);
     final plain = AssistPackagePlain(
       kind: AssistCredentialKind.account,
       deviceId: id,
@@ -179,7 +202,7 @@ class AssistService {
         userId: probed.id,
         displayName: probed.name,
         kind: AssistCredentialKind.session,
-        deviceId: plain.deviceId.isNotEmpty ? plain.deviceId : null,
+        deviceId: _nonEmptyDeviceId(plain.deviceId),
         importedAt: clock,
       );
       await _roster.upsert(identity);
@@ -209,7 +232,7 @@ class AssistService {
     final assistClient = registry.forKey(SessionKey.assist(probed.id));
     await assistClient.importCookiesJson(cookies);
 
-    final deviceId = plain.deviceId.isNotEmpty ? plain.deviceId : const Uuid().v4();
+    final deviceId = _nonEmptyDeviceId(plain.deviceId);
     await _store.write(
       accountCredKey(probed.id),
       jsonEncode({'username': user, 'password': pass}),
@@ -265,6 +288,7 @@ class AssistService {
       throw AssistException('协助身份不存在');
     }
 
+    identity = await ensureDeviceId(identity);
     await ensureSession(identity);
 
     final owner = registry.owner();
@@ -299,7 +323,9 @@ class AssistService {
   }
 
   /// If account cookies died, re-login using stored credentials.
+  /// Heals a missing assist [AssistIdentity.deviceId] before probing.
   Future<void> ensureSession(AssistIdentity identity) async {
+    identity = await ensureDeviceId(identity);
     final client = registry.forKey(SessionKey.assist(identity.userId));
     await client.init();
     try {

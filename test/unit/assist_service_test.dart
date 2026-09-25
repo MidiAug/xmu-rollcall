@@ -194,6 +194,52 @@ void main() {
       );
     });
 
+    test('import plain account without deviceId mints a stable uuid', () async {
+      final identity = await service.importPlainAccount(
+        username: '318zzz',
+        password: 'pw',
+      );
+      expect(identity.deviceId, isNotNull);
+      expect(identity.deviceId!.trim(), isNotEmpty);
+      expect(identity.deviceId!.contains('-'), isTrue);
+
+      final again = await service.listIdentities();
+      expect(again.single.deviceId, identity.deviceId);
+    });
+
+    test('listIdentities heals roster rows missing deviceId', () async {
+      final roster = AssistIdentityStore(store);
+      await roster.upsert(
+        const AssistIdentity(
+          userId: 42,
+          displayName: '缺设备',
+          kind: AssistCredentialKind.session,
+          importedAt: null,
+        ),
+      );
+      expect((await roster.list()).single.deviceId, isNull);
+
+      final listed = await service.listIdentities();
+      expect(listed.single.userId, 42);
+      expect(listed.single.deviceId, isNotNull);
+      expect(listed.single.deviceId!.trim(), isNotEmpty);
+
+      final listed2 = await service.listIdentities();
+      expect(listed2.single.deviceId, listed.single.deviceId);
+    });
+
+    test('ensureDeviceId is idempotent once minted', () async {
+      final raw = const AssistIdentity(
+        userId: 7,
+        displayName: 'A',
+        kind: AssistCredentialKind.session,
+      );
+      final a = await service.ensureDeviceId(raw);
+      final b = await service.ensureDeviceId(a);
+      expect(b.deviceId, a.deviceId);
+      expect(a.deviceId, isNot(equals('')));
+    });
+
     test('import plain account', () async {
       final identity = await service.importPlainAccount(
         username: '318yyy',

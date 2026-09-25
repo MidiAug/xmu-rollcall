@@ -34,6 +34,7 @@ final rollcallRepositoryForProvider =
     http: registry.forKey(key),
     identity: ref.watch(deviceIdentityProvider),
     deviceIdOverride: deviceOverride,
+    requireExplicitDeviceId: assistUserId != null,
   );
 });
 

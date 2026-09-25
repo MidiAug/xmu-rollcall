@@ -367,6 +367,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
             assistUserId: assistUid,
             batchOpId: batchOpId,
           );
+          String? submitDeviceId = target.deviceId;
           if (target.key.isAssist) {
             final roster = ref.read(assistControllerProvider).identities;
             AssistIdentity? meta;
@@ -380,15 +381,26 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
               try {
                 await assistSvc.ensureSession(meta);
               } catch (_) {}
+              meta = await assistSvc.ensureDeviceId(meta);
+              submitDeviceId = meta.deviceId;
+              final hadEmpty =
+                  (target.deviceId?.trim() ?? '').isEmpty;
+              if (hadEmpty) {
+                await ref.read(assistControllerProvider.notifier).refresh();
+              }
             }
           }
           final client = registry.forKey(target.key);
           await client.init();
-          final repo = RollcallRepository(http: client, identity: identity);
+          final repo = RollcallRepository(
+            http: client,
+            identity: identity,
+            requireExplicitDeviceId: target.key.isAssist,
+          );
           final result = await repo.answerQr(
             rollcallId: widget.item.rollcallId,
             data: data,
-            deviceId: target.deviceId,
+            deviceId: submitDeviceId,
             opId: opId,
           );
           ok = result.ok;
@@ -471,13 +483,34 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
       );
       final registry = ref.read(sessionClientRegistryProvider);
       final identity = ref.read(deviceIdentityProvider);
+      var submitDeviceId = failed.target.deviceId;
+      if (failed.target.key.isAssist) {
+        final assistSvc = await ref.read(assistServiceProvider.future);
+        final roster = ref.read(assistControllerProvider).identities;
+        AssistIdentity? meta;
+        for (final e in roster) {
+          if (e.userId == failed.target.userId) {
+            meta = e;
+            break;
+          }
+        }
+        if (meta != null) {
+          meta = await assistSvc.ensureDeviceId(meta);
+          submitDeviceId = meta.deviceId;
+          await ref.read(assistControllerProvider.notifier).refresh();
+        }
+      }
       final client = registry.forKey(failed.target.key);
       await client.init();
-      final repo = RollcallRepository(http: client, identity: identity);
+      final repo = RollcallRepository(
+        http: client,
+        identity: identity,
+        requireExplicitDeviceId: failed.target.key.isAssist,
+      );
       final again = await repo.answerQr(
         rollcallId: widget.item.rollcallId,
         data: data,
-        deviceId: failed.target.deviceId,
+        deviceId: submitDeviceId,
         opId: opId,
       );
       ok = again.ok;
