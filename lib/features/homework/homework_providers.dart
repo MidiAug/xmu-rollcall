@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/core/logging/fetch_log.dart';
 import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/homework/homework_models.dart';
@@ -50,7 +51,7 @@ class HomeworkTodosNotifier extends AsyncNotifier<List<HomeworkItem>> {
         return items;
       }
     }
-    return _fetchAndPersist();
+    return _fetchAndPersist(trigger: 'cold');
   }
 
   void _scheduleRevalidate() {
@@ -67,7 +68,9 @@ class HomeworkTodosNotifier extends AsyncNotifier<List<HomeworkItem>> {
 
   Future<void> _revalidate() async {
     final previous = state.valueOrNull;
-    final next = await AsyncValue.guard(_fetchAndPersist);
+    final next = await AsyncValue.guard(
+      () => _fetchAndPersist(trigger: 'swr'),
+    );
     if (next.hasValue) {
       state = AsyncData(next.requireValue);
     } else if (previous == null) {
@@ -75,23 +78,31 @@ class HomeworkTodosNotifier extends AsyncNotifier<List<HomeworkItem>> {
     }
   }
 
-  Future<List<HomeworkItem>> _fetchAndPersist() async {
-    final data = await ref.read(homeworkRepositoryProvider).fetchTodos();
-    _fetchedAt = DateTime.now();
-    final suffix = _cacheSuffix;
-    if (suffix != null) {
-      await JsonDiskCache.writeList(
-        suffix,
-        [for (final e in data) e.toJson()],
-        fetchedAt: _fetchedAt,
-      );
-    }
-    return data;
+  Future<List<HomeworkItem>> _fetchAndPersist({required String trigger}) {
+    return FetchLog.run(
+      event: 'homework.todos.refresh',
+      trigger: trigger,
+      fetch: () async {
+        final data = await ref.read(homeworkRepositoryProvider).fetchTodos();
+        _fetchedAt = DateTime.now();
+        final suffix = _cacheSuffix;
+        if (suffix != null) {
+          await JsonDiskCache.writeList(
+            suffix,
+            [for (final e in data) e.toJson()],
+            fetchedAt: _fetchedAt,
+          );
+        }
+        return data;
+      },
+    );
   }
 
   Future<void> refresh() async {
     final previous = state.valueOrNull;
-    final next = await AsyncValue.guard(_fetchAndPersist);
+    final next = await AsyncValue.guard(
+      () => _fetchAndPersist(trigger: 'user'),
+    );
     if (next.hasValue) {
       state = AsyncData(next.requireValue);
     } else if (previous == null) {
@@ -135,7 +146,7 @@ class CourseHomeworkNotifier
         return items;
       }
     }
-    return _fetchAndPersist();
+    return _fetchAndPersist(trigger: 'cold');
   }
 
   void _scheduleRevalidate() {
@@ -152,7 +163,9 @@ class CourseHomeworkNotifier
 
   Future<void> _revalidate() async {
     final previous = state.valueOrNull;
-    final next = await AsyncValue.guard(_fetchAndPersist);
+    final next = await AsyncValue.guard(
+      () => _fetchAndPersist(trigger: 'swr'),
+    );
     if (next.hasValue) {
       state = AsyncData(next.requireValue);
     } else if (previous == null) {
@@ -160,24 +173,33 @@ class CourseHomeworkNotifier
     }
   }
 
-  Future<List<HomeworkItem>> _fetchAndPersist() async {
-    final data =
-        await ref.read(homeworkRepositoryProvider).fetchCourseHomework(arg);
-    _fetchedAt = DateTime.now();
-    final suffix = _cacheSuffix;
-    if (suffix != null) {
-      await JsonDiskCache.writeList(
-        suffix,
-        [for (final e in data) e.toJson()],
-        fetchedAt: _fetchedAt,
-      );
-    }
-    return data;
+  Future<List<HomeworkItem>> _fetchAndPersist({required String trigger}) {
+    return FetchLog.run(
+      event: 'homework.course.refresh',
+      trigger: trigger,
+      fields: {'courseId': arg},
+      fetch: () async {
+        final data =
+            await ref.read(homeworkRepositoryProvider).fetchCourseHomework(arg);
+        _fetchedAt = DateTime.now();
+        final suffix = _cacheSuffix;
+        if (suffix != null) {
+          await JsonDiskCache.writeList(
+            suffix,
+            [for (final e in data) e.toJson()],
+            fetchedAt: _fetchedAt,
+          );
+        }
+        return data;
+      },
+    );
   }
 
   Future<void> refresh() async {
     final previous = state.valueOrNull;
-    final next = await AsyncValue.guard(_fetchAndPersist);
+    final next = await AsyncValue.guard(
+      () => _fetchAndPersist(trigger: 'user'),
+    );
     if (next.hasValue) {
       state = AsyncData(next.requireValue);
     } else if (previous == null) {
@@ -189,27 +211,39 @@ class CourseHomeworkNotifier
 final homeworkDetailProvider = FutureProvider.autoDispose
     .family<HomeworkItem, HomeworkDetailKey>((ref, key) async {
   final seed = key.seed;
-  try {
-    final remote = await ref.read(homeworkRepositoryProvider).fetchDetail(
-          activityId: key.activityId,
-          courseId: key.courseId,
+  return FetchLog.run(
+    event: 'homework.detail.fetch',
+    trigger: 'user',
+    fields: {
+      'activityId': key.activityId,
+      if (key.courseId != null) 'courseId': key.courseId,
+    },
+    fetch: () async {
+      try {
+        final remote = await ref.read(homeworkRepositoryProvider).fetchDetail(
+              activityId: key.activityId,
+              courseId: key.courseId,
+            );
+        if (seed == null) return remote;
+        return remote.copyWith(
+          title: remote.title.isEmpty ? seed.title : remote.title,
+          courseId: remote.courseId ?? seed.courseId,
+          courseName: remote.courseName.isEmpty
+              ? seed.courseName
+              : remote.courseName,
+          type: remote.type.isEmpty ? seed.type : remote.type,
+          status: remote.status.isEmpty ? seed.status : remote.status,
+          dueAt: remote.dueAt ?? seed.dueAt,
+          description: remote.description.isEmpty
+              ? seed.description
+              : remote.description,
         );
-    if (seed == null) return remote;
-    return remote.copyWith(
-      title: remote.title.isEmpty ? seed.title : remote.title,
-      courseId: remote.courseId ?? seed.courseId,
-      courseName:
-          remote.courseName.isEmpty ? seed.courseName : remote.courseName,
-      type: remote.type.isEmpty ? seed.type : remote.type,
-      status: remote.status.isEmpty ? seed.status : remote.status,
-      dueAt: remote.dueAt ?? seed.dueAt,
-      description:
-          remote.description.isEmpty ? seed.description : remote.description,
-    );
-  } catch (_) {
-    if (seed != null) return seed;
-    rethrow;
-  }
+      } catch (_) {
+        if (seed != null) return seed;
+        rethrow;
+      }
+    },
+  );
 });
 
 class HomeworkDetailKey {

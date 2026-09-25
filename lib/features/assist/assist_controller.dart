@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/core/session/assist_service.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
@@ -87,13 +88,39 @@ class AssistController extends StateNotifier<AssistUiState> {
   }
 
   Future<void> refresh() async {
-    final svc = await _service();
-    state = state.copyWith(
-      enabled: await svc.isEnabled(),
-      identities: await svc.listIdentities(),
-      clearError: true,
-      ready: true,
-    );
+    final started = DateTime.now();
+    AppLog.event('assist.roster.refresh');
+    try {
+      final svc = await _service();
+      final enabled = await svc.isEnabled();
+      final identities = await svc.listIdentities();
+      state = state.copyWith(
+        enabled: enabled,
+        identities: identities,
+        clearError: true,
+        ready: true,
+      );
+      AppLog.event(
+        'assist.roster.refresh',
+        fields: {
+          'ok': true,
+          'count': identities.length,
+          'enabled': enabled,
+          'durationMs': DateTime.now().difference(started).inMilliseconds,
+        },
+      );
+    } catch (e) {
+      AppLog.event(
+        'assist.roster.refresh',
+        level: 'W',
+        fields: {
+          'ok': false,
+          'errorType': e.runtimeType.toString(),
+          'durationMs': DateTime.now().difference(started).inMilliseconds,
+        },
+      );
+      rethrow;
+    }
   }
 
   Future<void> setEnabled(bool value) async {
