@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
@@ -18,10 +19,24 @@ class AuthController extends StateNotifier<AuthState> {
 
   Future<void> bootstrap() async {
     state = state.copyWith(status: AuthStatus.loading, clearError: true);
+    AppLog.event('auth.restore.start');
+    final hasCookie = await _repo.hasStoredCookies();
     final profile = await _repo.tryRestoreSession();
     if (profile != null) {
+      AppLog.event(
+        'auth.restore.ok',
+        fields: {'userId': profile.id},
+      );
       state = AuthState(status: AuthStatus.signedIn, profile: profile);
     } else {
+      AppLog.event(
+        'auth.restore.fail',
+        level: 'W',
+        fields: {
+          'errorType': 'restore_failed',
+          'hasCookieBlob': hasCookie,
+        },
+      );
       state = const AuthState(status: AuthStatus.signedOut);
     }
   }

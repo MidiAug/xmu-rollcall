@@ -4,6 +4,7 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:xmu_rollcall/core/logging/app_log_dio_interceptor.dart';
 import 'package:xmu_rollcall/core/network/backoff_interceptor.dart';
 import 'package:xmu_rollcall/core/network/rate_limiter.dart';
 import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
@@ -59,7 +60,8 @@ class TronHttpClient {
     _dio.interceptors
       ..clear()
       ..add(CookieManager(_jar!))
-      ..add(BackoffInterceptor(_dio));
+      ..add(BackoffInterceptor(_dio))
+      ..add(AppLogDioInterceptor());
     await _restoreCookiesFromSecureStore();
     _ready = true;
   }
@@ -121,16 +123,18 @@ class TronHttpClient {
     await store.deleteAll(keys);
   }
 
-  Future<Response<T>> getUri<T>(Uri uri) {
-    return _limiter.schedule(() => _dio.getUri<T>(uri));
+  Future<Response<T>> getUri<T>(Uri uri, {Options? options}) {
+    return _limiter.schedule(() => _dio.getUri<T>(uri, options: options));
   }
 
-  Future<Response<T>> postUri<T>(Uri uri, {Object? data}) {
-    return _limiter.schedule(() => _dio.postUri<T>(uri, data: data));
+  Future<Response<T>> postUri<T>(Uri uri, {Object? data, Options? options}) {
+    return _limiter
+        .schedule(() => _dio.postUri<T>(uri, data: data, options: options));
   }
 
-  Future<Response<T>> putUri<T>(Uri uri, {Object? data}) {
-    return _limiter.schedule(() => _dio.putUri<T>(uri, data: data));
+  Future<Response<T>> putUri<T>(Uri uri, {Object? data, Options? options}) {
+    return _limiter
+        .schedule(() => _dio.putUri<T>(uri, data: data, options: options));
   }
 
   /// Login hops: no follow, accept 3xx, treat body as text.

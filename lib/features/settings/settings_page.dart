@@ -17,6 +17,7 @@ import 'package:xmu_rollcall/core/session/session_credential.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
 import 'package:xmu_rollcall/features/rollcall/radar_preview.dart';
+import 'package:xmu_rollcall/features/settings/recent_logs_page.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
 enum ThemePreference { system, dark, light }
@@ -44,32 +45,6 @@ class ThemePreferenceController extends StateNotifier<ThemePreference> {
     state = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_key, value.index);
-  }
-}
-
-final diagnosticsEnabledProvider =
-    StateNotifierProvider<DiagnosticsController, bool>((ref) {
-      return DiagnosticsController();
-    });
-
-class DiagnosticsController extends StateNotifier<bool> {
-  DiagnosticsController() : super(false) {
-    _load();
-  }
-
-  static const _key = 'diagnostics_enabled';
-
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    state = prefs.getBool(_key) ?? false;
-    AppLog.enabled = state;
-  }
-
-  Future<void> set(bool value) async {
-    state = value;
-    AppLog.enabled = value;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_key, value);
   }
 }
 
@@ -116,7 +91,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
     final themePref = ref.watch(themePreferenceProvider);
-    final diagnostics = ref.watch(diagnosticsEnabledProvider);
     final assist = ref.watch(assistControllerProvider);
     final deviceFuture = ref.watch(deviceIdentityProvider).getId();
     final p = AppPalette.of(context);
@@ -333,14 +307,31 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 },
               ),
               SettingsRow(
-                leading: const Icon(Icons.bug_report_outlined),
-                title: '诊断日志',
-                subtitle: '仅保存在本机，请勿记录密码',
-                trailing: Switch.adaptive(
-                  value: diagnostics,
-                  onChanged: (v) =>
-                      ref.read(diagnosticsEnabledProvider.notifier).set(v),
-                ),
+                leading: const Icon(Icons.receipt_long_outlined),
+                title: '最近日志',
+                subtitle: '本机诊断事件，可按 opId / 签到 ID 搜索',
+                trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                onTap: () => _pushFade(context, const RecentLogsPage()),
+              ),
+              SettingsRow(
+                leading: const Icon(Icons.ios_share_outlined),
+                title: '导出日志',
+                subtitle: '打包 NDJSON + manifest，经系统分享',
+                trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                onTap: () async {
+                  try {
+                    final result = await AppLog.exportLogs(share: true);
+                    if (!context.mounted) return;
+                    if (result == null) {
+                      AppToast.show(context, '暂无日志可导出', error: true);
+                    } else {
+                      AppToast.show(context, '已打开系统分享');
+                    }
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    AppToast.show(context, '导出失败：$e', error: true);
+                  }
+                },
               ),
             ],
           ),

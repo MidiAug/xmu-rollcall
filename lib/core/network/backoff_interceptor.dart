@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
 
 /// On 429 / 5xx, delay then retry using the same [Dio] (keeps CookieJar).
 class BackoffInterceptor extends Interceptor {
@@ -25,7 +26,22 @@ class BackoffInterceptor extends Interceptor {
     }
 
     final delay = baseDelay * (1 << prior);
-    await Future<void>.delayed(delay + Duration(milliseconds: 100 * prior));
+    final delayMs = delay.inMilliseconds + 100 * prior;
+
+    AppLog.event(
+      'http.retry',
+      level: 'W',
+      opId: err.requestOptions.extra['opId'] as String?,
+      fields: {
+        'attempt': prior + 1,
+        'status': status,
+        'delayMs': delayMs,
+        'method': err.requestOptions.method,
+        'path': err.requestOptions.uri.path,
+      },
+    );
+
+    await Future<void>.delayed(Duration(milliseconds: delayMs));
 
     final opts = err.requestOptions;
     opts.extra['backoff_attempt'] = prior + 1;

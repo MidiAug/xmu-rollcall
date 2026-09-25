@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
+import 'package:xmu_rollcall/core/session/session_key.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/ids_password.dart';
@@ -18,6 +20,11 @@ class AuthRepository {
 
   Future<String?> savedPassword() => store.read(SecureStore.keyOwnerPassword);
 
+  Future<bool> hasStoredCookies() async {
+    final raw = await store.read(SessionKey.owner.secureCookieKey);
+    return raw != null && raw.isNotEmpty;
+  }
+
   /// xmulogin type=3: IDS form POST → OAuth code → token → TronClass session.
   Future<UserProfile> signIn({
     required String username,
@@ -26,8 +33,14 @@ class AuthRepository {
     await http.init();
     await http.clearSession();
 
+    AppLog.event('login.step', fields: {'step': 'fetch_form'});
     final form = await _fetchLoginForm();
     if (idsFormLooksLikeCaptcha(form.html)) {
+      AppLog.event(
+        'login.step',
+        level: 'W',
+        fields: {'step': 'captcha'},
+      );
       throw AuthException('登录页出现验证码，请稍后再试，勿连续重试');
     }
     final fields = parseIdsLoginForm(form.html);
@@ -35,6 +48,7 @@ class AuthRepository {
       throw AuthException('登录页面异常，请稍后再试');
     }
 
+    AppLog.event('login.step', fields: {'step': 'post_ids'});
     final encrypted = encryptIdsPassword(password, fields.salt);
     final posted = await http.hop(
       'POST',
@@ -56,15 +70,31 @@ class AuthRepository {
     if (postLoc == null || postLoc.isEmpty) {
       final body = posted.data?.toString() ?? '';
       if (idsFormLooksLikeCaptcha(body)) {
+        AppLog.event(
+          'login.step',
+          level: 'W',
+          fields: {'step': 'captcha', 'status': posted.statusCode},
+        );
         throw AuthException('需要验证码，请稍后再试');
       }
+      AppLog.event(
+        'login.step',
+        level: 'W',
+        fields: {'step': 'bad_credentials', 'status': posted.statusCode},
+      );
       throw AuthException('学号或密码不正确');
     }
 
+    AppLog.event('login.step', fields: {'step': 'follow_code'});
     final code = await _followToAuthCode(form.url.resolve(postLoc));
+    AppLog.event('login.step', fields: {'step': 'oauth_token'});
     final profile = await completeOAuthCode(code);
     await store.write(SecureStore.keyLastUsername, username);
     await store.write(SecureStore.keyOwnerPassword, password);
+    AppLog.event(
+      'login.step',
+      fields: {'step': 'done', 'userId': profile.id},
+    );
     return profile;
   }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
@@ -200,6 +201,7 @@ class MonitorController extends StateNotifier<MonitorState> {
 
   Future<void> _tick() async {
     if (!state.running) return;
+    final intervalMs = state.config.nextDelay().inMilliseconds;
     try {
       await _ref.read(activeRollcallsProvider(null).notifier).refresh();
       final list =
@@ -210,6 +212,14 @@ class MonitorController extends StateNotifier<MonitorState> {
           at: DateTime.now(),
           ok: true,
           message: '发现进行中 ${list.length} 条，已停止检测',
+        );
+        AppLog.event(
+          'poll.tick',
+          fields: {
+            'count': list.length,
+            'intervalMs': intervalMs,
+            'ok': true,
+          },
         );
         _timer?.cancel();
         _timer = null;
@@ -230,12 +240,30 @@ class MonitorController extends StateNotifier<MonitorState> {
         message: '检测成功，暂无进行中签到',
         nextIn: state.config.nextDelay(),
       );
+      AppLog.event(
+        'poll.tick',
+        fields: {
+          'count': 0,
+          'intervalMs': intervalMs,
+          'ok': true,
+        },
+      );
       state = state.copyWith(
         lastPollAt: entry.at,
         consecutiveFailures: 0,
         logs: [entry, ...state.logs].take(40).toList(),
       );
     } catch (e) {
+      AppLog.event(
+        'poll.tick',
+        level: 'W',
+        fields: {
+          'count': 0,
+          'intervalMs': intervalMs,
+          'ok': false,
+          'errorType': e.runtimeType.toString(),
+        },
+      );
       final entry = PollLogEntry(
         at: DateTime.now(),
         ok: false,

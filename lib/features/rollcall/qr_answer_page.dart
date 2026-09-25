@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/core/logging/rollcall_log.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/core/session/session_key.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -329,34 +333,81 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
     });
     await _persistSelection();
 
+    final batchOpId = RollcallLog.newOpId();
+    final hashPrefix =
+        sha256.convert(utf8.encode(qrData)).toString().substring(0, 8);
+    RollcallLog.qrPayloadHashed(
+      opId: batchOpId,
+      payloadLen: qrData.length,
+      payloadSha256Prefix: hashPrefix,
+    );
+    RollcallLog.qrBatch(
+      batchOpId: batchOpId,
+      targetCount: targets.length,
+    );
+
     final registry = ref.read(sessionClientRegistryProvider);
     final identity = ref.read(deviceIdentityProvider);
     final assistSvc = await ref.read(assistServiceProvider.future);
     final runner = AssistQrBatchRunner(
       submit: (target, data) async {
-        if (target.key.isAssist) {
-          final roster = ref.read(assistControllerProvider).identities;
-          AssistIdentity? meta;
-          for (final e in roster) {
-            if (e.userId == target.userId) {
-              meta = e;
-              break;
+        final opId = RollcallLog.newOpId();
+        final started = DateTime.now();
+        final session = target.key.isOwner ? 'owner' : 'assist';
+        final assistUid = target.key.isOwner ? null : target.userId;
+        bool? ok;
+        try {
+          RollcallLog.start(
+            opId: opId,
+            type: 'qr',
+            rollcallId: widget.item.rollcallId,
+            courseTitle: widget.item.courseTitle,
+            session: session,
+            assistUserId: assistUid,
+            batchOpId: batchOpId,
+          );
+          if (target.key.isAssist) {
+            final roster = ref.read(assistControllerProvider).identities;
+            AssistIdentity? meta;
+            for (final e in roster) {
+              if (e.userId == target.userId) {
+                meta = e;
+                break;
+              }
+            }
+            if (meta != null) {
+              try {
+                await assistSvc.ensureSession(meta);
+              } catch (_) {}
             }
           }
-          if (meta != null) {
-            try {
-              await assistSvc.ensureSession(meta);
-            } catch (_) {}
-          }
+          final client = registry.forKey(target.key);
+          await client.init();
+          final repo = RollcallRepository(http: client, identity: identity);
+          final result = await repo.answerQr(
+            rollcallId: widget.item.rollcallId,
+            data: data,
+            deviceId: target.deviceId,
+            opId: opId,
+          );
+          ok = result.ok;
+          return result;
+        } catch (e, st) {
+          RollcallLog.exception(
+            opId: opId,
+            rollcallId: widget.item.rollcallId,
+            error: e,
+            stackTrace: st,
+          );
+          rethrow;
+        } finally {
+          RollcallLog.end(
+            opId: opId,
+            rollcallId: widget.item.rollcallId,
+            durationMs: DateTime.now().difference(started).inMilliseconds,
+            ok: ok,
+          );
         }
-        final client = registry.forKey(target.key);
-        await client.init();
-        final repo = RollcallRepository(http: client, identity: identity);
-        return repo.answerQr(
-          rollcallId: widget.item.rollcallId,
-          data: data,
-          deviceId: target.deviceId,
-        );
       },
     );
 
@@ -396,8 +447,27 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
 
   Future<void> _retryTarget(AssistQrSubmitResult failed) async {
     setState(() => _submitting = true);
+    final opId = RollcallLog.newOpId();
+    final started = DateTime.now();
+    bool? ok;
     try {
       final data = parseQrRollcallData(_dataCtrl.text);
+      final hashPrefix =
+          sha256.convert(utf8.encode(data)).toString().substring(0, 8);
+      RollcallLog.qrPayloadHashed(
+        opId: opId,
+        payloadLen: data.length,
+        payloadSha256Prefix: hashPrefix,
+      );
+      RollcallLog.start(
+        opId: opId,
+        type: 'qr',
+        rollcallId: widget.item.rollcallId,
+        courseTitle: widget.item.courseTitle,
+        session: failed.target.key.isOwner ? 'owner' : 'assist',
+        assistUserId:
+            failed.target.key.isOwner ? null : failed.target.userId,
+      );
       final registry = ref.read(sessionClientRegistryProvider);
       final identity = ref.read(deviceIdentityProvider);
       final client = registry.forKey(failed.target.key);
@@ -407,7 +477,9 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
         rollcallId: widget.item.rollcallId,
         data: data,
         deviceId: failed.target.deviceId,
+        opId: opId,
       );
+      ok = again.ok;
       if (!mounted) return;
       setState(() {
         _results = [
@@ -423,12 +495,24 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
               x,
         ];
       });
-    } catch (e) {
+    } catch (e, st) {
+      RollcallLog.exception(
+        opId: opId,
+        rollcallId: widget.item.rollcallId,
+        error: e,
+        stackTrace: st,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('$e')),
       );
     } finally {
+      RollcallLog.end(
+        opId: opId,
+        rollcallId: widget.item.rollcallId,
+        durationMs: DateTime.now().difference(started).inMilliseconds,
+        ok: ok,
+      );
       if (mounted) setState(() => _submitting = false);
     }
   }

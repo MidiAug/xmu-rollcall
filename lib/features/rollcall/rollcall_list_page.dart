@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/pull_to_refresh.dart';
+import 'package:xmu_rollcall/core/logging/rollcall_log.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
@@ -186,13 +187,29 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
       return;
     }
     setState(() => _submitting = true);
+    final opId = RollcallLog.newOpId();
+    final started = DateTime.now();
+    final session =
+        widget.assistUserId == null ? 'owner' : 'assist';
+    bool? ok;
     try {
+      RollcallLog.start(
+        opId: opId,
+        type: 'number',
+        rollcallId: item.rollcallId,
+        courseTitle: item.courseTitle,
+        session: session,
+        assistUserId: widget.assistUserId,
+      );
+      RollcallLog.numberCode(opId: opId, numberCode: code);
       final repo =
           ref.read(rollcallRepositoryForProvider(widget.assistUserId));
       final result = await repo.answerNumber(
         rollcallId: item.rollcallId,
         numberCode: code,
+        opId: opId,
       );
+      ok = result.ok;
       await ref.read(historyProvider.notifier).add(
             RollcallHistoryEntry(
               rollcallId: item.rollcallId,
@@ -212,12 +229,24 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
             .read(activeRollcallsProvider(widget.assistUserId).notifier)
             .refresh();
       }
-    } catch (e) {
+    } catch (e, st) {
+      RollcallLog.exception(
+        opId: opId,
+        rollcallId: item.rollcallId,
+        error: e,
+        stackTrace: st,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('提交异常：$e')),
       );
     } finally {
+      RollcallLog.end(
+        opId: opId,
+        rollcallId: item.rollcallId,
+        durationMs: DateTime.now().difference(started).inMilliseconds,
+        ok: ok,
+      );
       if (mounted) setState(() => _submitting = false);
     }
   }

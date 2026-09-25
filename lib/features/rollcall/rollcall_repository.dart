@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:xmu_rollcall/core/identity/device_identity.dart';
+import 'package:xmu_rollcall/core/logging/rollcall_log.dart';
 import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
@@ -281,16 +282,24 @@ class RollcallRepository {
   Future<AnswerResult> answerNumber({
     required int rollcallId,
     required String numberCode,
+    String? opId,
   }) async {
     final deviceId = await _deviceId();
+    final opts = Options(
+      extra: {
+        if (opId != null) 'opId': opId,
+        'rollcallId': rollcallId,
+      },
+    );
     final res = await http.putUri<dynamic>(
       TronEndpoints.answerNumber(rollcallId),
       data: {
         'deviceId': deviceId,
         'numberCode': numberCode,
       },
+      options: opts,
     );
-    return _mapAnswer(res);
+    return _mapAnswer(res, opId: opId, rollcallId: rollcallId);
   }
 
   Future<AnswerResult> answerRadar({
@@ -298,8 +307,15 @@ class RollcallRepository {
     required double latitude,
     required double longitude,
     double accuracy = 35,
+    String? opId,
   }) async {
     final deviceId = await _deviceId();
+    final opts = Options(
+      extra: {
+        if (opId != null) 'opId': opId,
+        'rollcallId': rollcallId,
+      },
+    );
     final res = await http.putUri<dynamic>(
       TronEndpoints.answerRadar(rollcallId),
       data: {
@@ -312,8 +328,9 @@ class RollcallRepository {
         'longitude': longitude,
         'speed': null,
       },
+      options: opts,
     );
-    return _mapAnswer(res);
+    return _mapAnswer(res, opId: opId, rollcallId: rollcallId);
   }
 
   /// Student QR answer: `{ data, deviceId }` (data from scan/paste).
@@ -321,18 +338,26 @@ class RollcallRepository {
     required int rollcallId,
     required String data,
     String? deviceId,
+    String? opId,
   }) async {
     final id = (deviceId != null && deviceId.trim().isNotEmpty)
         ? deviceId.trim()
         : await _deviceId();
+    final opts = Options(
+      extra: {
+        if (opId != null) 'opId': opId,
+        'rollcallId': rollcallId,
+      },
+    );
     final res = await http.putUri<dynamic>(
       TronEndpoints.answerQr(rollcallId),
       data: {
         'data': data,
         'deviceId': id,
       },
+      options: opts,
     );
-    return _mapAnswer(res);
+    return _mapAnswer(res, opId: opId, rollcallId: rollcallId);
   }
 
   /// Course id set for the current [http] session (assist same-course filter).
@@ -350,19 +375,41 @@ class RollcallRepository {
     ];
   }
 
-  AnswerResult _mapAnswer(Response<dynamic> res) {
+  AnswerResult _mapAnswer(
+    Response<dynamic> res, {
+    String? opId,
+    int? rollcallId,
+  }) {
     final status = res.statusCode ?? 0;
     final data = res.data;
     final map = data is Map
         ? Map<String, dynamic>.from(data)
         : <String, dynamic>{'raw': data};
+    AnswerResult result;
     if (status >= 200 && status < 300) {
-      return AnswerResult(ok: true, message: '提交成功', raw: map);
+      result = AnswerResult(ok: true, message: '提交成功', raw: map, status: status);
+    } else {
+      final distance = map['distance'];
+      final msg = distance != null
+          ? '未成功，距离约 $distance'
+          : (map['message']?.toString() ?? '提交失败 ($status)');
+      result = AnswerResult(
+        ok: false,
+        message: msg,
+        raw: map,
+        status: status,
+      );
     }
-    final distance = map['distance'];
-    final msg = distance != null
-        ? '未成功，距离约 $distance'
-        : (map['message']?.toString() ?? '提交失败 ($status)');
-    return AnswerResult(ok: false, message: msg, raw: map);
+    if (opId != null && rollcallId != null) {
+      RollcallLog.result(
+        opId: opId,
+        rollcallId: rollcallId,
+        ok: result.ok,
+        status: status,
+        message: result.message,
+        distance: map['distance'],
+      );
+    }
+    return result;
   }
 }

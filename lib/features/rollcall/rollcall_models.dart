@@ -110,11 +110,13 @@ class AnswerResult {
     required this.ok,
     this.message,
     this.raw = const {},
+    this.status,
   });
 
   final bool ok;
   final String? message;
   final Map<String, dynamic> raw;
+  final int? status;
 }
 
 class RollcallHistoryEntry {

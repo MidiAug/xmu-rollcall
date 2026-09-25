@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
 
 final savedLocationsProvider =
@@ -64,12 +65,29 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
     );
     state = [loc, ...state];
     await _persist();
+    AppLog.event(
+      'location.preset.add',
+      fields: {
+        'idSuffix': loc.id.length <= 6 ? loc.id : loc.id.substring(loc.id.length - 6),
+        'noteLen': trimmed.length,
+        'latitude': double.parse(latitude.toStringAsFixed(5)),
+        'longitude': double.parse(longitude.toStringAsFixed(5)),
+        'count': state.length,
+      },
+    );
     return loc;
   }
 
   Future<void> remove(String id) async {
     state = state.where((e) => e.id != id).toList();
     await _persist();
+    AppLog.event(
+      'location.preset.remove',
+      fields: {
+        'idSuffix': id.length <= 6 ? id : id.substring(id.length - 6),
+        'count': state.length,
+      },
+    );
   }
 
   Future<void> rename(String id, String note) async {
@@ -89,6 +107,13 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
           e,
     ];
     await _persist();
+    AppLog.event(
+      'location.preset.rename',
+      fields: {
+        'idSuffix': id.length <= 6 ? id : id.substring(id.length - 6),
+        'noteLen': trimmed.length,
+      },
+    );
   }
 
   Future<void> updateCoords(
@@ -111,6 +136,14 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
           e,
     ];
     await _persist();
+    AppLog.event(
+      'location.preset.update_coords',
+      fields: {
+        'idSuffix': id.length <= 6 ? id : id.substring(id.length - 6),
+        'latitude': double.parse(latitude.toStringAsFixed(5)),
+        'longitude': double.parse(longitude.toStringAsFixed(5)),
+      },
+    );
   }
 }
 

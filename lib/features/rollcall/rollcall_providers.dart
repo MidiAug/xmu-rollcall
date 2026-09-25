@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/session/session_key.dart';
 import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
@@ -55,16 +56,44 @@ class ActiveRollcallsNotifier
 
   Future<void> refresh() async {
     final previous = state.valueOrNull;
+    final started = DateTime.now();
+    AppLog.event(
+      'rollcall.list.refresh',
+      fields: {
+        'session': arg == null ? 'owner' : 'assist',
+        if (arg != null) 'assistUserId': arg,
+      },
+    );
     final next = await AsyncValue.guard(
       () => ref
           .read(rollcallRepositoryForProvider(arg))
           .fetchActiveEnriched(),
     );
+    final ms = DateTime.now().difference(started).inMilliseconds;
     if (!next.hasValue) {
+      AppLog.event(
+        'rollcall.list.refresh',
+        level: 'W',
+        fields: {
+          'ok': false,
+          'durationMs': ms,
+          'errorType': next.error?.runtimeType.toString() ?? 'unknown',
+          'session': arg == null ? 'owner' : 'assist',
+        },
+      );
       state = next;
       return;
     }
     final incoming = next.requireValue;
+    AppLog.event(
+      'rollcall.list.refresh',
+      fields: {
+        'ok': true,
+        'count': incoming.length,
+        'durationMs': ms,
+        'session': arg == null ? 'owner' : 'assist',
+      },
+    );
     if (previous == null) {
       state = AsyncData(incoming);
       return;
@@ -249,12 +278,32 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
 
   Future<void> refresh() async {
     final previous = state.valueOrNull;
+    final started = DateTime.now();
+    AppLog.event('history.list.refresh');
     final next = await AsyncValue.guard(_fetchAndPersist);
+    final ms = DateTime.now().difference(started).inMilliseconds;
     if (!next.hasValue) {
+      AppLog.event(
+        'history.list.refresh',
+        level: 'W',
+        fields: {
+          'ok': false,
+          'durationMs': ms,
+          'errorType': next.error?.runtimeType.toString() ?? 'unknown',
+        },
+      );
       if (previous == null) state = next;
       return;
     }
     final incoming = next.requireValue;
+    AppLog.event(
+      'history.list.refresh',
+      fields: {
+        'ok': true,
+        'count': incoming.length,
+        'durationMs': ms,
+      },
+    );
     if (previous == null) {
       state = AsyncData(incoming);
       return;

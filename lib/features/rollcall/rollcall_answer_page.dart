@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/core/logging/rollcall_log.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/location/coord_transform.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
@@ -103,15 +104,44 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
       ).showSnackBar(const SnackBar(content: Text('请输入数字签到码')));
       return;
     }
+    final opId = RollcallLog.newOpId();
+    final session =
+        widget.assistUserId == null ? 'owner' : 'assist';
     final confirmed = await _confirm(
       '课程：${widget.item.courseTitle}\n类型：数字\n签到码：$code\n\n仅本人到课操作。',
     );
-    if (!confirmed) return;
+    if (!confirmed) {
+      RollcallLog.cancel(
+        opId: opId,
+        type: 'number',
+        rollcallId: widget.item.rollcallId,
+        courseTitle: widget.item.courseTitle,
+        session: session,
+        assistUserId: widget.assistUserId,
+      );
+      return;
+    }
     setState(() => _submitting = true);
+    final started = DateTime.now();
+    bool? ok;
     try {
+      RollcallLog.start(
+        opId: opId,
+        type: 'number',
+        rollcallId: widget.item.rollcallId,
+        courseTitle: widget.item.courseTitle,
+        session: session,
+        assistUserId: widget.assistUserId,
+      );
+      RollcallLog.numberCode(opId: opId, numberCode: code);
       final result = await ref
           .read(rollcallRepositoryForProvider(widget.assistUserId))
-          .answerNumber(rollcallId: widget.item.rollcallId, numberCode: code);
+          .answerNumber(
+            rollcallId: widget.item.rollcallId,
+            numberCode: code,
+            opId: opId,
+          );
+      ok = result.ok;
       await ref
           .read(historyProvider.notifier)
           .add(
@@ -129,12 +159,24 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
         SnackBar(content: Text(result.message ?? (result.ok ? '成功' : '失败'))),
       );
       if (result.ok) Navigator.of(context).pop();
-    } catch (e) {
+    } catch (e, st) {
+      RollcallLog.exception(
+        opId: opId,
+        rollcallId: widget.item.rollcallId,
+        error: e,
+        stackTrace: st,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('提交异常：$e')));
     } finally {
+      RollcallLog.end(
+        opId: opId,
+        rollcallId: widget.item.rollcallId,
+        durationMs: DateTime.now().difference(started).inMilliseconds,
+        ok: ok,
+      );
       if (mounted) setState(() => _submitting = false);
     }
   }
@@ -143,6 +185,10 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     setState(() => _status = '获取定位…');
     final service = await Geolocator.isLocationServiceEnabled();
     if (!service) {
+      RollcallLog.locationFail(
+        opId: RollcallLog.newOpId(),
+        reason: 'service_off',
+      );
       setState(() => _status = '请打开系统定位，或改用地图选点 / 已保存地点');
       return;
     }
@@ -150,26 +196,47 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
+    if (permission == LocationPermission.denied) {
+      RollcallLog.locationFail(
+        opId: RollcallLog.newOpId(),
+        reason: 'permission_denied',
+      );
       setState(() => _status = '定位权限被拒绝，可改用地图选点或已保存地点');
       return;
     }
-    final pos = await Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-    );
-    if (!mounted) return;
-    // Geolocator is WGS-84; Amap tiles + campus radar use GCJ-02 in China.
-    final gcj = wgs84ToGcj02(pos.latitude, pos.longitude);
-    _pin(
-      RadarGeoSelection(
-        latitude: gcj.latitude,
-        longitude: gcj.longitude,
-        accuracy: pos.accuracy.clamp(5, 100),
-        obtainedVia: RadarObtainedVia.device,
-        filledFrom: RadarFilledFrom.user,
-      ),
-    );
+    if (permission == LocationPermission.deniedForever) {
+      RollcallLog.locationFail(
+        opId: RollcallLog.newOpId(),
+        reason: 'permission_denied_forever',
+      );
+      setState(() => _status = '定位权限被拒绝，可改用地图选点或已保存地点');
+      return;
+    }
+    try {
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings:
+            const LocationSettings(accuracy: LocationAccuracy.high),
+      );
+      if (!mounted) return;
+      // Geolocator is WGS-84; Amap tiles + campus radar use GCJ-02 in China.
+      final gcj = wgs84ToGcj02(pos.latitude, pos.longitude);
+      _pin(
+        RadarGeoSelection(
+          latitude: gcj.latitude,
+          longitude: gcj.longitude,
+          accuracy: pos.accuracy.clamp(5, 100),
+          obtainedVia: RadarObtainedVia.device,
+          filledFrom: RadarFilledFrom.user,
+        ),
+      );
+    } catch (e) {
+      RollcallLog.locationFail(
+        opId: RollcallLog.newOpId(),
+        reason: 'position_error',
+        error: e,
+      );
+      if (mounted) setState(() => _status = '定位失败，可改用地图选点或已保存地点');
+    }
   }
 
   Future<void> _useMapPick() async {
@@ -244,13 +311,26 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
       ).showSnackBar(const SnackBar(content: Text('请先选择位置')));
       return;
     }
+    final opId = RollcallLog.newOpId();
+    final session =
+        widget.assistUserId == null ? 'owner' : 'assist';
     final confirmed = await _confirm(
       '课程：${widget.item.courseTitle}\n'
       '${sel.confirmLine}\n'
       '${sel.latitude.toStringAsFixed(5)}, ${sel.longitude.toStringAsFixed(5)}'
       '${widget.previewMode ? "\n\n（预览模式，不会提交到服务器）" : ""}',
     );
-    if (!confirmed) return;
+    if (!confirmed) {
+      RollcallLog.cancel(
+        opId: opId,
+        type: 'radar',
+        rollcallId: widget.item.rollcallId,
+        courseTitle: widget.item.courseTitle,
+        session: session,
+        assistUserId: widget.assistUserId,
+      );
+      return;
+    }
     if (!mounted) return;
 
     if (widget.previewMode) {
@@ -261,7 +341,29 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     }
 
     setState(() => _submitting = true);
+    final started = DateTime.now();
+    bool? ok;
     try {
+      RollcallLog.start(
+        opId: opId,
+        type: 'radar',
+        rollcallId: widget.item.rollcallId,
+        courseTitle: widget.item.courseTitle,
+        session: session,
+        assistUserId: widget.assistUserId,
+      );
+      final source = switch (sel.obtainedVia) {
+        RadarObtainedVia.device => 'system',
+        RadarObtainedVia.map => 'map',
+        RadarObtainedVia.place => 'preset',
+      };
+      RollcallLog.location(
+        opId: opId,
+        source: source,
+        latitude: sel.latitude,
+        longitude: sel.longitude,
+        accuracyM: sel.accuracy.clamp(5, 100),
+      );
       final result = await ref
           .read(rollcallRepositoryForProvider(widget.assistUserId))
           .answerRadar(
@@ -269,7 +371,9 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
             latitude: sel.latitude,
             longitude: sel.longitude,
             accuracy: sel.accuracy.clamp(5, 100),
+            opId: opId,
           );
+      ok = result.ok;
       await ref
           .read(historyProvider.notifier)
           .add(
@@ -305,12 +409,24 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
           _status = '${result.message ?? "提交失败"}。可更换位置后重试。';
         });
       }
-    } catch (e) {
+    } catch (e, st) {
+      RollcallLog.exception(
+        opId: opId,
+        rollcallId: widget.item.rollcallId,
+        error: e,
+        stackTrace: st,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('提交异常：$e')));
     } finally {
+      RollcallLog.end(
+        opId: opId,
+        rollcallId: widget.item.rollcallId,
+        durationMs: DateTime.now().difference(started).inMilliseconds,
+        ok: ok,
+      );
       if (mounted) setState(() => _submitting = false);
     }
   }
