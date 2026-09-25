@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
+import 'package:xmu_rollcall/app/app_switch.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
@@ -46,22 +48,6 @@ class ThemePreferenceController extends StateNotifier<ThemePreference> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_key, value.index);
   }
-}
-
-void _pushFade(BuildContext context, Widget page) {
-  Navigator.of(context).push(
-    PageRouteBuilder<void>(
-      transitionDuration: AppMotion.duration,
-      reverseTransitionDuration: AppMotion.duration,
-      pageBuilder: (context, animation, secondaryAnimation) => page,
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        return FadeTransition(
-          opacity: CurvedAnimation(parent: animation, curve: AppMotion.curve),
-          child: child,
-        );
-      },
-    ),
-  );
 }
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -174,19 +160,22 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 title: '预设位置',
                 subtitle: '管理常用签到位置',
                 trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
-                onTap: () => _pushFade(context, const SavedLocationsPage()),
+                onTap: () => AppPageRoutes.push(context, const SavedLocationsPage()),
               ),
             ],
           ),
           SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
             header: '协助签到',
+            footer: Text(
+              '代同学签到，开启前需确认',
+              style: TextStyle(fontSize: 12, height: 1.35, color: p.muted),
+            ),
             children: [
               SettingsRow(
                 leading: const Icon(Icons.handshake_outlined),
                 title: '启用协助',
-                subtitle: '代同学签到，开启前需确认',
-                trailing: Switch.adaptive(
+                trailing: AppSwitch(
                   value: assist.enabled,
                   onChanged: !assist.ready || assist.busy
                       ? null
@@ -272,7 +261,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 title: '已导入名单',
                 subtitle: assist.ready ? '${assist.identities.length} 人' : '…',
                 trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
-                onTap: () => _pushFade(context, const AssistIdentitiesPage()),
+                onTap: () => AppPageRoutes.push(context, const AssistIdentitiesPage()),
               ),
             ],
           ),
@@ -311,7 +300,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 title: '最近日志',
                 subtitle: '本机诊断事件，可按 opId / 签到 ID 搜索',
                 trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
-                onTap: () => _pushFade(context, const RecentLogsPage()),
+                onTap: () => AppPageRoutes.push(context, const RecentLogsPage()),
               ),
               SettingsRow(
                 leading: const Icon(Icons.ios_share_outlined),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
@@ -37,31 +38,12 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
     super.dispose();
   }
 
-  void _pushFade(BuildContext context, Widget page) {
-    Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        transitionDuration: AppMotion.duration,
-        reverseTransitionDuration: AppMotion.duration,
-        pageBuilder: (context, animation, secondaryAnimation) => page,
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: CurvedAnimation(
-              parent: animation,
-              curve: AppMotion.curve,
-            ),
-            child: child,
-          );
-        },
-      ),
-    );
-  }
-
   void _openSettings(BuildContext context) {
-    _pushFade(context, const MonitorSettingsPage());
+    AppPageRoutes.push(context, const MonitorSettingsPage());
   }
 
   void _openHistory(BuildContext context) {
-    _pushFade(context, const HistoryPage());
+    AppPageRoutes.push(context, const HistoryPage());
   }
 
   @override
@@ -176,38 +158,28 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
         child: AppTooltipAnchor(
           child: Tooltip(
             message: enabled ? '开始自动检测' : '请先登录',
-            child: Material(
-              color: enabled ? p.selected : p.surfaceHigh,
-              borderRadius: BorderRadius.circular(18),
-              child: InkWell(
-                onTap: enabled ? ctrl.start : null,
-                borderRadius: BorderRadius.circular(18),
-                hoverColor: p.hover,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
+            child: AppQuietPill(
+              onTap: enabled ? ctrl.start : null,
+              background: enabled ? p.selected : p.surfaceHigh,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.radar_outlined,
+                    size: 16,
+                    color: enabled ? p.primary : p.muted,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.radar_outlined,
-                        size: 16,
-                        color: enabled ? p.primary : p.muted,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        '开始检测',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: enabled ? p.primary : p.muted,
-                        ),
-                      ),
-                    ],
+                  const SizedBox(width: 6),
+                  Text(
+                    '开始检测',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.1,
+                      color: enabled ? p.primary : p.muted,
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
           ),
@@ -226,23 +198,18 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Material(
-            color: p.selected,
-            borderRadius: BorderRadius.circular(18),
-            child: InkWell(
-              onTap: ctrl.pollNow,
-              borderRadius: BorderRadius.circular(18),
-              hoverColor: p.hover,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
+          AppTooltipAnchor(
+            child: Tooltip(
+              message: '立即检测一次',
+              child: AppQuietPill(
+                onTap: ctrl.pollNow,
+                background: p.selected,
                 child: Text(
                   label,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
+                    letterSpacing: -0.1,
                     color: p.primary,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),

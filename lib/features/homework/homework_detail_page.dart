@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/homework/homework_course_page.dart';
@@ -13,22 +14,9 @@ class HomeworkDetailPage extends ConsumerWidget {
   final HomeworkItem seed;
 
   void _openCourse(BuildContext context, int courseId, String courseName) {
-    Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        transitionDuration: AppMotion.duration,
-        reverseTransitionDuration: AppMotion.duration,
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            HomeworkCoursePage(courseId: courseId, courseName: courseName),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: CurvedAnimation(
-              parent: animation,
-              curve: AppMotion.curve,
-            ),
-            child: child,
-          );
-        },
-      ),
+    AppPageRoutes.push(
+      context,
+      HomeworkCoursePage(courseId: courseId, courseName: courseName),
     );
   }
 

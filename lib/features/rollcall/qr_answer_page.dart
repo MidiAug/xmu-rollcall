@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/logging/rollcall_log.dart';
@@ -284,7 +285,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
   Future<void> _scanAndSubmit() async {
     if (_cameraSupported) {
       final raw = await Navigator.of(context).push<String>(
-        MaterialPageRoute(builder: (_) => const QrScanCameraPage()),
+        AppPageRoutes.build(const QrScanCameraPage()),
       );
       if (raw == null || raw.isEmpty) return;
       setState(() => _dataCtrl.text = raw);

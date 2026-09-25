@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -28,8 +29,8 @@ class SavedLocationsPage extends ConsumerStatefulWidget {
 class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
   Future<void> _openAdd() async {
     final result = await Navigator.of(context).push<MapPickResult>(
-      MaterialPageRoute(
-        builder: (_) => const MapPickPage(requireNote: true, title: '添加位置'),
+      AppPageRoutes.build(
+        const MapPickPage(requireNote: true, title: '添加位置'),
       ),
     );
     if (!mounted || result == null) return;
@@ -50,8 +51,8 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
 
   Future<void> _openOnMap(SavedLocation loc) async {
     final result = await Navigator.of(context).push<MapPickResult>(
-      MaterialPageRoute(
-        builder: (_) => MapPickPage(
+      AppPageRoutes.build(
+        MapPickPage(
           initial: LatLng(loc.latitude, loc.longitude),
           title: loc.note,
           confirmLabel: '更新坐标',

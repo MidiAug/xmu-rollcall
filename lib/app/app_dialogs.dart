@@ -17,8 +17,11 @@ Future<bool> showAppConfirmDialog(
       final p = AppPalette.of(ctx);
       return Dialog(
         insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
+        backgroundColor: p.surface,
+        elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.dialog),
+          side: BorderSide(color: p.border),
         ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 360),
@@ -33,6 +36,7 @@ Future<bool> showAppConfirmDialog(
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
                     color: p.ink,
                   ),
                 ),

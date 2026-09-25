@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 /// Quiet Utility surfaces: cold neutrals + clear indigo accent.
 ///
-/// Card hover must stay brighter than [canvas] in light mode — do **not** use
-/// [surfaceHigh] (recessed gray) as an elevated-card hover fill.
+/// Hover is **luminance**, never indigo wash. Light mode sits white cards on
+/// gray [canvas] — do **not** darken fills toward canvas (they melt). Prefer:
+/// keep white + hairline ([cardHover] ≈ [surface]), or a fill still **lighter**
+/// than [canvas] (e.g. [content] / [hover] solid).
 class AppPalette {
   const AppPalette({
     required this.canvas,
@@ -32,12 +34,18 @@ class AppPalette {
   final Color border;
   final Color borderStrong;
 
-  /// Soft indigo wash for nav / InkWell overlays (not a solid gray fill).
+  /// Inset-row / chrome hover fill. Light: solid, still lighter than [canvas].
+  /// Dark: translucent white lift.
   final Color hover;
 
-  /// Elevated card hover fill — still brighter than [canvas] in light mode.
+  /// Elevated card hover fill. Light: same as [surface] (identity via hairline).
+  /// Dark: slight lift above [surface].
   final Color cardHover;
   final Color selected;
+
+  /// Transparent twin of [c] so [AnimatedContainer] color lerps stay in-family
+  /// (lerping from [Colors.transparent]/black@0 → light gray flashes dark).
+  static Color clearOf(Color c) => c.withValues(alpha: 0);
 
   static AppPalette of(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
@@ -55,7 +63,7 @@ class AppPalette {
     danger: Color(0xFFD97777),
     border: Color(0x14FFFFFF),
     borderStrong: Color(0x22FFFFFF),
-    hover: Color(0x1A6B8AFF),
+    hover: Color(0x14FFFFFF),
     cardHover: Color(0xFF22222A),
     selected: Color(0x286B8AFF),
   );
@@ -71,8 +79,10 @@ class AppPalette {
     danger: Color(0xFFC04444),
     border: Color(0x0F000000),
     borderStrong: Color(0x18000000),
-    hover: Color(0x143D5AFE),
-    cardHover: Color(0xFFF7F8FF),
+    // Solid — still lighter than canvas (#F2F2F4); not black@α (that melts).
+    hover: Color(0xFFF6F6F8),
+    // Stay white; AppHoverSurface / list cards signal via hairline only.
+    cardHover: Color(0xFFFFFFFF),
     selected: Color(0x1A3D5AFE),
   );
 }
@@ -125,8 +135,8 @@ abstract final class AppRadii {
 /// Narrow layouts use **tighter** settings/list density so vertical space
 /// isn't wasted; nav stays slightly taller for thumb targets.
 abstract final class AppDensity {
-  static const desktopRow = 52.0;
-  static const touchRow = 48.0;
+  static const desktopRow = 44.0;
+  static const touchRow = 44.0;
   static const desktopNav = 40.0;
   static const touchNav = 44.0;
   static const mobileBar = 56.0;
@@ -136,7 +146,7 @@ abstract final class AppDensity {
   static const mobileNavBottomTrim = 8.0;
 
   static const desktopRowPadH = AppSpace.md;
-  static const desktopRowPadV = AppSpace.sm;
+  static const desktopRowPadV = AppSpace.xs;
   static const touchRowPadH = AppSpace.sm;
   static const touchRowPadV = AppSpace.xs;
 
@@ -171,10 +181,29 @@ abstract final class AppDensity {
       isTouch(context) ? AppSpace.sm : AppSpace.md;
 }
 
-/// Restrained motion — navigation / enter only.
+/// Restrained motion ladder (Quiet Utility visual polish).
+///
+/// Prefer the named tokens. [duration] / [curve] alias [page] for older call sites.
 abstract final class AppMotion {
-  static const duration = Duration(milliseconds: 220);
-  static const curve = Curves.easeOutCubic;
+  /// Selected state, segment thumb, switch thumb.
+  static const instant = Duration(milliseconds: 110);
+  static const instantCurve = Curves.easeOut;
+
+  /// Hover fill, list-row lift.
+  static const fast = Duration(milliseconds: 170);
+  static const fastCurve = Curves.easeOutCubic;
+
+  /// Subpage push / pop (slide + fade).
+  static const page = Duration(milliseconds: 270);
+  static const pageCurve = Curves.easeOutCubic;
+
+  /// First paint / empty-state enter.
+  static const enter = Duration(milliseconds: 210);
+  static const enterCurve = Curves.easeOut;
+
+  /// Alias of [page] — prefer named tokens in new code.
+  static const duration = page;
+  static const curve = pageCurve;
 }
 
 abstract final class AppLayout {

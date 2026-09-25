@@ -30,13 +30,14 @@ class RadarPlaceCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.card),
+        side: BorderSide(color: p.border),
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(
           AppSpace.md,
           AppSpace.md,
+          AppSpace.md,
           AppSpace.sm,
-          AppSpace.xs,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -44,23 +45,28 @@ class RadarPlaceCard extends StatelessWidget {
             if (current == null) ...[
               Text(
                 '尚未选择位置',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                style: TextStyle(
+                  fontSize: 15,
                   fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
                   color: p.ink,
                 ),
               ),
               const SizedBox(height: AppSpace.xxs),
               Text(
                 '签到前先确认要用的位置',
-                style: TextStyle(fontSize: 13, color: p.muted),
+                style: TextStyle(fontSize: 13, height: 1.35, color: p.muted),
               ),
             ] else ...[
               _SourceBadge(label: copy!.badge),
               const SizedBox(height: AppSpace.xs),
               Text(
                 copy.title,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                style: TextStyle(
+                  fontSize: 15,
                   fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                  height: 1.3,
                   color: p.ink,
                 ),
               ),
@@ -68,7 +74,7 @@ class RadarPlaceCard extends StatelessWidget {
                 const SizedBox(height: AppSpace.xxs),
                 Text(
                   copy.subtitle!,
-                  style: TextStyle(fontSize: 12, color: p.muted),
+                  style: TextStyle(fontSize: 12, height: 1.35, color: p.muted),
                 ),
               ],
               const SizedBox(height: AppSpace.sm),
@@ -87,9 +93,13 @@ class RadarPlaceCard extends StatelessWidget {
                 ),
               ),
             ],
+            const SizedBox(height: AppSpace.sm),
             Align(
               alignment: Alignment.centerRight,
-              child: TextButton(onPressed: onChange, child: const Text('更换位置')),
+              child: OutlinedButton(
+                onPressed: onChange,
+                child: Text(current == null ? '选择位置' : '更换位置'),
+              ),
             ),
           ],
         ),
@@ -107,17 +117,19 @@ class _SourceBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: p.selected,
+        color: p.surfaceHigh,
         borderRadius: BorderRadius.circular(AppRadii.control),
       ),
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: FontWeight.w600,
-          color: p.primary,
+          letterSpacing: 0.2,
+          height: 1.2,
+          color: p.ink,
         ),
       ),
     );
@@ -180,8 +192,9 @@ class _PointPreview extends StatelessWidget {
               bottom: 6,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: p.surface.withValues(alpha: 0.88),
-                  borderRadius: BorderRadius.circular(4),
+                  color: p.surface.withValues(alpha: 0.9),
+                  borderRadius: BorderRadius.circular(AppRadii.control),
+                  border: Border.all(color: p.border),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -208,22 +221,31 @@ Future<RadarLocationAction?> showRadarLocationSheet(BuildContext context) {
     useRootNavigator: true,
     isScrollControlled: true,
     showDragHandle: true,
+    backgroundColor: AppPalette.of(context).surface,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(AppRadii.dialog),
+      ),
+    ),
     builder: (ctx) {
       final p = AppPalette.of(ctx);
       final pageX = AppSpace.pageXOf(ctx);
       return SafeArea(
         child: Padding(
-          padding: EdgeInsets.fromLTRB(pageX, 0, pageX, AppSpace.sm),
+          padding: EdgeInsets.fromLTRB(pageX, 0, pageX, AppSpace.md),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.only(bottom: AppSpace.sm),
                 child: Text(
                   '更换位置',
-                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
+                  style: TextStyle(
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
+                    letterSpacing: -0.2,
+                    color: p.ink,
                   ),
                 ),
               ),
@@ -231,21 +253,18 @@ Future<RadarLocationAction?> showRadarLocationSheet(BuildContext context) {
                 icon: Icons.my_location_outlined,
                 title: '使用当前定位',
                 subtitle: '读取这台设备现在的位置',
-                muted: p.muted,
                 onTap: () => Navigator.pop(ctx, RadarLocationAction.device),
               ),
               _SheetAction(
                 icon: Icons.map_outlined,
                 title: '在地图上选择',
                 subtitle: '在地图上点一个位置',
-                muted: p.muted,
                 onTap: () => Navigator.pop(ctx, RadarLocationAction.map),
               ),
               _SheetAction(
                 icon: Icons.bookmark_outline,
                 title: '已保存的地点',
                 subtitle: '使用带备注名的预设位置',
-                muted: p.muted,
                 onTap: () => Navigator.pop(ctx, RadarLocationAction.preset),
               ),
             ],
@@ -256,30 +275,84 @@ Future<RadarLocationAction?> showRadarLocationSheet(BuildContext context) {
   );
 }
 
-class _SheetAction extends StatelessWidget {
+class _SheetAction extends StatefulWidget {
   const _SheetAction({
     required this.icon,
     required this.title,
     required this.subtitle,
-    required this.muted,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
   final String subtitle;
-  final Color muted;
   final VoidCallback onTap;
 
   @override
+  State<_SheetAction> createState() => _SheetActionState();
+}
+
+class _SheetActionState extends State<_SheetAction> {
+  var _hover = false;
+
+  @override
   Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      minLeadingWidth: 28,
-      leading: Icon(icon),
-      title: Text(title),
-      subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: muted)),
-      onTap: onTap,
+    final p = AppPalette.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AppSpace.xs),
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: AppMotion.fast,
+            curve: AppMotion.fastCurve,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.sm,
+              vertical: AppSpace.sm,
+            ),
+            decoration: BoxDecoration(
+              color: _hover ? p.hover : AppPalette.clearOf(p.hover),
+              borderRadius: BorderRadius.circular(AppRadii.card),
+              border: Border.all(color: p.border),
+            ),
+            child: Row(
+              children: [
+                Icon(widget.icon, size: 20, color: p.muted),
+                const SizedBox(width: AppSpace.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.15,
+                          color: p.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.subtitle,
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.35,
+                          color: p.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right_rounded, size: 18, color: p.muted),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

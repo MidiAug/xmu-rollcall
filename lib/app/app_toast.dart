@@ -61,9 +61,10 @@ abstract final class AppToast {
                       message,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         height: 1.35,
                         fontWeight: FontWeight.w500,
+                        letterSpacing: -0.1,
                         color: error ? Colors.white : const Color(0xFFF4F4F5),
                       ),
                     ),

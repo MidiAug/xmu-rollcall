@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
 import 'package:xmu_rollcall/features/location/location_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_answer_page.dart';
@@ -80,10 +81,8 @@ Future<void> openRadarPreview(
   }
 
   if (!context.mounted) return;
-  await Navigator.of(context).push<void>(
-    MaterialPageRoute(
-      builder: (_) =>
-          RollcallAnswerPage(item: radarPreviewItem(), previewMode: true),
-    ),
+  await AppPageRoutes.push<void>(
+    context,
+    RollcallAnswerPage(item: radarPreviewItem(), previewMode: true),
   );
 }

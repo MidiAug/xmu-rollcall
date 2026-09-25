@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'package:xmu_rollcall/core/logging/rollcall_log.dart';
@@ -254,23 +255,21 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
   void _openSecondary() {
     final item = widget.item;
     if (item.type == RollcallType.qrcode) {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => QrAnswerPage(
-            item: item,
-            assistUserId: widget.assistUserId,
-            enableAssistMulti: widget.enableAssistMulti,
-          ),
+      AppPageRoutes.push(
+        context,
+        QrAnswerPage(
+          item: item,
+          assistUserId: widget.assistUserId,
+          enableAssistMulti: widget.enableAssistMulti,
         ),
       );
       return;
     }
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => RollcallAnswerPage(
-          item: item,
-          assistUserId: widget.assistUserId,
-        ),
+    AppPageRoutes.push(
+      context,
+      RollcallAnswerPage(
+        item: item,
+        assistUserId: widget.assistUserId,
       ),
     );
   }
@@ -295,17 +294,17 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: AnimatedContainer(
-        duration: AppMotion.duration,
-        curve: AppMotion.curve,
+        duration: AppMotion.fast,
+        curve: AppMotion.fastCurve,
         decoration: BoxDecoration(
           color: _hover ? palette.cardHover : palette.surface,
           borderRadius: BorderRadius.circular(AppRadii.card),
           border: Border.all(
-            color: _hover ? palette.borderStrong : Colors.transparent,
+            color: _hover ? palette.borderStrong : palette.border,
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(AppSpace.sm),
+          padding: const EdgeInsets.all(AppSpace.md),
           child: item.isNumber
               ? (wide
                   ? _numberDesktopD1(palette, item, title)
@@ -318,30 +317,85 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
 
   Widget _typeChip(AppPalette palette, RollcallItem item) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpace.xs,
-        vertical: AppSpace.xxs,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: palette.primary.withValues(alpha: 0.14),
+        color: palette.surfaceHigh,
         borderRadius: BorderRadius.circular(AppRadii.control),
       ),
       child: Text(
         item.typeLabel,
         style: TextStyle(
-          color: palette.primary,
+          color: palette.ink,
           fontWeight: FontWeight.w600,
-          fontSize: 12,
+          fontSize: 11,
+          letterSpacing: 0.2,
+          height: 1.2,
+        ),
+      ),
+    );
+  }
+
+  Widget _statusChip(AppPalette palette, RollcallItem item) {
+    final answered = item.isAnswered;
+    final expired = item.isExpired;
+    final label = expired ? '已结束' : (answered ? '已签到' : '待签到');
+    final Color fg;
+    final Color bg;
+    if (expired) {
+      fg = palette.muted;
+      bg = palette.surfaceHigh;
+    } else if (answered) {
+      fg = palette.primary;
+      bg = palette.selected;
+    } else {
+      fg = palette.ink;
+      bg = palette.hover;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AppRadii.control),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: fg,
+          fontWeight: FontWeight.w600,
+          fontSize: 11,
+          height: 1.2,
         ),
       ),
     );
   }
 
   Widget _metaLine(AppPalette palette, RollcallItem item) {
-    return Text(
-      '${item.createdByName} · ${item.isAnswered ? "已签到" : "待签到"}'
-      '${item.isExpired ? " · 已结束" : ""}',
-      style: TextStyle(fontSize: 12, color: palette.muted),
+    final teacher = item.createdByName.trim();
+    return Row(
+      children: [
+        if (teacher.isNotEmpty) ...[
+          Flexible(
+            child: Text(
+              teacher,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, height: 1.3, color: palette.muted),
+            ),
+          ),
+          const SizedBox(width: AppSpace.xs),
+        ],
+        _statusChip(palette, item),
+      ],
+    );
+  }
+
+  TextStyle _titleStyle(AppPalette palette, {required bool compact}) {
+    return TextStyle(
+      fontSize: compact ? 14 : 15,
+      fontWeight: FontWeight.w600,
+      letterSpacing: -0.2,
+      height: 1.25,
+      color: palette.ink,
     );
   }
 
@@ -364,15 +418,7 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: -0.1,
-                        color: palette.ink,
-                      ),
-                    ),
+                    Text(title, style: _titleStyle(palette, compact: false)),
                     const SizedBox(height: AppSpace.xxs),
                     _metaLine(palette, item),
                   ],
@@ -413,15 +459,7 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: -0.1,
-                      color: palette.ink,
-                    ),
-                  ),
+                  Text(title, style: _titleStyle(palette, compact: true)),
                   const SizedBox(height: AppSpace.xxs),
                   _metaLine(palette, item),
                 ],
@@ -465,35 +503,44 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     final text = Text(
       code,
       style: TextStyle(
-        fontSize: large ? 28 : 22,
+        fontSize: large ? 26 : 20,
         fontWeight: FontWeight.w600,
-        letterSpacing: large ? 4 : 2,
+        letterSpacing: large ? 3.5 : 2,
         color: palette.ink,
         fontFeatures: const [FontFeature.tabularFigures()],
       ),
     );
-    if (!large) return text;
-    return Tooltip(
-      message: '点击复制',
-      child: InkWell(
-        onTap: () => _copyCode(code),
-        borderRadius: BorderRadius.circular(AppRadii.control),
-        hoverColor: palette.hover,
-        splashColor: palette.hover,
-        highlightColor: Colors.transparent,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpace.sm,
-            vertical: AppSpace.xs,
-          ),
-          child: Row(
+    final body = large
+        ? Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               text,
               const SizedBox(width: AppSpace.xs),
-              Icon(Icons.copy_rounded, size: 16, color: palette.muted),
+              Icon(Icons.copy_rounded, size: 15, color: palette.muted),
             ],
-          ),
+          )
+        : text;
+
+    final framed = Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: large ? AppSpace.sm : AppSpace.xs,
+        vertical: large ? AppSpace.xs : 2,
+      ),
+      decoration: BoxDecoration(
+        color: palette.surfaceHigh,
+        borderRadius: BorderRadius.circular(AppRadii.control),
+      ),
+      child: body,
+    );
+
+    if (!large) return Align(alignment: Alignment.centerLeft, child: framed);
+    return Tooltip(
+      message: '点击复制',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () => _copyCode(code),
+          child: framed,
         ),
       ),
     );
@@ -504,50 +551,38 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     RollcallItem item,
     String title,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Row(
       children: [
-        Row(
-          children: [
-            _typeChip(palette, item),
-            const SizedBox(width: AppSpace.sm),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: -0.1,
-                      color: palette.ink,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpace.xxs),
-                  _metaLine(palette, item),
-                ],
-              ),
-            ),
-            if (item.isRadar)
-              FilledButton(
-                onPressed: item.isAnswered ? null : _openSecondary,
-                child: const Text('选择位置'),
-              ),
-            if (item.type == RollcallType.qrcode)
-              FilledButton(
-                onPressed: item.isAnswered ? null : _openSecondary,
-                child: const Text('扫描'),
-              ),
-          ],
-        ),
-        if (item.type == RollcallType.unknown) ...[
-          const SizedBox(height: AppSpace.xs),
-          Text(
-            '暂不支持此签到类型，可下拉刷新重试',
-            style: TextStyle(fontSize: 12, color: palette.muted),
+        _typeChip(palette, item),
+        const SizedBox(width: AppSpace.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: _titleStyle(palette, compact: true)),
+              const SizedBox(height: AppSpace.xxs),
+              _metaLine(palette, item),
+              if (item.type == RollcallType.unknown) ...[
+                const SizedBox(height: AppSpace.xs),
+                Text(
+                  '暂不支持此签到类型，可下拉刷新重试',
+                  style: TextStyle(fontSize: 12, color: palette.muted),
+                ),
+              ],
+            ],
           ),
-        ],
+        ),
+        const SizedBox(width: AppSpace.sm),
+        if (item.isRadar)
+          FilledButton(
+            onPressed: item.isAnswered ? null : _openSecondary,
+            child: const Text('选择位置'),
+          ),
+        if (item.type == RollcallType.qrcode)
+          FilledButton(
+            onPressed: item.isAnswered ? null : _openSecondary,
+            child: const Text('扫描'),
+          ),
       ],
     );
   }

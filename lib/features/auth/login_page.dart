@@ -8,11 +8,20 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 Future<void> showLoginDialog(BuildContext context) {
   return showDialog<void>(
     context: context,
-    barrierColor: Colors.black.withValues(alpha: 0.48),
-    builder: (ctx) => const Dialog(
-      insetPadding: EdgeInsets.symmetric(horizontal: 28, vertical: 28),
-      child: LoginDialog(),
-    ),
+    barrierColor: Colors.black.withValues(alpha: 0.4),
+    builder: (ctx) {
+      final p = AppPalette.of(ctx);
+      return Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
+        backgroundColor: p.surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.dialog),
+          side: BorderSide(color: p.border),
+        ),
+        child: const LoginDialog(),
+      );
+    },
   );
 }
 
@@ -85,7 +94,7 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 400),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 16, 22, 22),
+        padding: const EdgeInsets.fromLTRB(24, 18, 16, 24),
         child: Form(
           key: _formKey,
           child: Column(
@@ -94,31 +103,35 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
             children: [
               Row(
                 children: [
-                  const BrandMark(),
+                  const BrandMark(size: 22),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       '登录畅课',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: 17,
                         fontWeight: FontWeight.w600,
+                        letterSpacing: -0.3,
                         color: p.ink,
                       ),
                     ),
                   ),
                   IconButton(
                     tooltip: '关闭',
+                    visualDensity: VisualDensity.compact,
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(Icons.close, size: 18, color: p.muted),
+                    icon: Icon(Icons.close_rounded, size: 18, color: p.muted),
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                '使用学号与统一身份认证密码',
-                style: TextStyle(fontSize: 13, color: p.muted),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: Text(
+                  '使用学号与统一身份认证密码',
+                  style: TextStyle(fontSize: 13, height: 1.35, color: p.muted),
+                ),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 20),
               TextFormField(
                 controller: _userCtrl,
                 enabled: !loading,
@@ -165,22 +178,25 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
                 const SizedBox(height: 12),
                 Text(
                   _error!,
-                  style: TextStyle(color: p.danger, fontSize: 13),
+                  style: TextStyle(color: p.danger, fontSize: 13, height: 1.35),
                 ),
               ],
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: loading ? null : _submit,
-                child: loading
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('登录'),
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilledButton(
+                  onPressed: loading ? null : _submit,
+                  child: loading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('登录'),
+                ),
               ),
             ],
           ),

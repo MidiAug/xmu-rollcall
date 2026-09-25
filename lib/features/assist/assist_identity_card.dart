@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
@@ -53,10 +54,9 @@ class AssistIdentityCard extends ConsumerWidget {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => AssistRollcallHubPage(identity: identity),
-                  ),
+                AppPageRoutes.push(
+                  context,
+                  AssistRollcallHubPage(identity: identity),
                 );
               },
               child: Row(

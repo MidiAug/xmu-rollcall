@@ -278,19 +278,24 @@ class _AssistPollQuickBarState extends State<_AssistPollQuickBar> {
     if (!m.running) {
       return Align(
         alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          onPressed: m.start,
-          icon: Icon(Icons.radar_outlined, size: 18, color: p.primary),
-          label: Text(
-            '开始检测',
-            style: TextStyle(
-              fontWeight: FontWeight.w600,
-              color: p.primary,
-            ),
-          ),
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            visualDensity: VisualDensity.compact,
+        child: AppQuietPill(
+          onTap: m.start,
+          background: p.selected,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.radar_outlined, size: 16, color: p.primary),
+              const SizedBox(width: 6),
+              Text(
+                '开始检测',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.1,
+                  color: p.primary,
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -306,24 +311,17 @@ class _AssistPollQuickBarState extends State<_AssistPollQuickBar> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Material(
-            color: p.selected,
-            borderRadius: BorderRadius.circular(AppRadii.control),
-            child: InkWell(
-              onTap: m.pollNow,
-              borderRadius: BorderRadius.circular(AppRadii.control),
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                child: Text(
-                  '检测中 · ${secs}s',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: p.primary,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
+          AppQuietPill(
+            onTap: m.pollNow,
+            background: p.selected,
+            child: Text(
+              '检测中 · ${secs}s',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.1,
+                color: p.primary,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ),

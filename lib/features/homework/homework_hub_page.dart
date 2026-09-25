@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/pull_to_refresh.dart';
@@ -36,23 +37,7 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
   }
 
   void _openDetail(HomeworkItem item) {
-    Navigator.of(context).push(
-      PageRouteBuilder<void>(
-        transitionDuration: AppMotion.duration,
-        reverseTransitionDuration: AppMotion.duration,
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            HomeworkDetailPage(seed: item),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: CurvedAnimation(
-              parent: animation,
-              curve: AppMotion.curve,
-            ),
-            child: child,
-          );
-        },
-      ),
-    );
+    AppPageRoutes.push(context, HomeworkDetailPage(seed: item));
   }
 
   @override
@@ -197,7 +182,8 @@ class _SectionLabel extends StatelessWidget {
       label,
       style: TextStyle(
         fontSize: 12,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.2,
         color: p.muted,
       ),
     );
@@ -219,10 +205,10 @@ class _TodoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpace.xs),
+      padding: EdgeInsets.only(bottom: AppSpace.stackOf(context) * 0.55),
       child: AppHoverSurface(
         onTap: onTap,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
         child: Row(
           children: [
             Expanded(
@@ -234,7 +220,10 @@ class _TodoTile extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
+                      fontSize: 14,
                       fontWeight: FontWeight.w600,
+                      letterSpacing: -0.2,
+                      height: 1.3,
                       color: p.ink,
                     ),
                   ),
@@ -244,10 +233,14 @@ class _TodoTile extends StatelessWidget {
                       item.courseName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12, color: p.muted),
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.3,
+                        color: p.muted,
+                      ),
                     ),
                   ],
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     [
                       item.dueLabel,
@@ -257,13 +250,15 @@ class _TodoTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
+                      height: 1.3,
+                      fontWeight: overdue ? FontWeight.w600 : FontWeight.w400,
                       color: overdue ? p.danger : p.muted,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: p.muted),
+            Icon(Icons.chevron_right_rounded, size: 18, color: p.muted),
           ],
         ),
       ),

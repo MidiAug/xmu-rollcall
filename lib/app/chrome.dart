@@ -281,15 +281,18 @@ class _ChoiceCubeButton<T> extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
-          duration: AppMotion.duration,
-          curve: AppMotion.curve,
+          // Snap accent fill — avoid gray↔indigo Color.lerp flash.
+          duration: selected ? Duration.zero : AppMotion.instant,
+          curve: AppMotion.instantCurve,
           padding: padding,
           decoration: BoxDecoration(
-            color: selected ? palette.selected : Colors.transparent,
+            color: selected
+                ? palette.selected
+                : AppPalette.clearOf(palette.selected),
             borderRadius: BorderRadius.circular(AppRadii.group),
             border: Border.all(
               color: selected
-                  ? palette.primary.withValues(alpha: 0.5)
+                  ? palette.primary.withValues(alpha: 0.45)
                   : palette.borderStrong,
             ),
           ),
@@ -372,13 +375,13 @@ class AppSegmentedControl<T> extends StatelessWidget {
             if (!selected) onChanged(s.value);
           },
           child: AnimatedContainer(
-            duration: AppMotion.duration,
-            curve: AppMotion.curve,
+            duration: AppMotion.instant,
+            curve: AppMotion.instantCurve,
             height: AppLayout.segmentHeight,
             padding: EdgeInsets.symmetric(horizontal: expanded ? 10 : 14),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: selected ? p.surface : Colors.transparent,
+              color: selected ? p.surface : AppPalette.clearOf(p.surface),
               borderRadius: BorderRadius.circular(AppRadii.control),
               boxShadow: selected && !dark
                   ? const [
@@ -643,7 +646,7 @@ class AppSidebar extends StatelessWidget {
                 vertical: AppSpace.xs,
               ),
               decoration: BoxDecoration(
-                color: p.hover,
+                color: p.surfaceHigh,
                 borderRadius: BorderRadius.circular(AppRadii.nav),
               ),
               child: Row(
@@ -710,11 +713,7 @@ class _NavCellState extends State<_NavCell> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final selected = widget.selected;
-    final fill = selected
-        ? p.selected
-        : _hover
-            ? p.hover
-            : Colors.transparent;
+    final radius = BorderRadius.circular(AppRadii.nav);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
@@ -723,33 +722,47 @@ class _NavCellState extends State<_NavCell> {
         onExit: (_) => setState(() => _hover = false),
         child: GestureDetector(
           onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: AppMotion.duration,
-            curve: AppMotion.curve,
+          child: SizedBox(
             height: AppDensity.navItemHeight(context),
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-            decoration: BoxDecoration(
-              color: fill,
-              borderRadius: BorderRadius.circular(AppRadii.nav),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  _icon(widget.destination),
-                  size: 18,
-                  color: selected ? p.primary : p.muted,
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  widget.destination.label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                    letterSpacing: -0.1,
-                    color: selected ? p.ink : p.muted,
+            child: ClipRRect(
+              borderRadius: radius,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Neutral hover: opacity only (no Color.lerp across accent).
+                  AnimatedOpacity(
+                    opacity: !selected && _hover ? 1 : 0,
+                    duration: AppMotion.instant,
+                    curve: AppMotion.instantCurve,
+                    child: ColoredBox(color: p.hover),
                   ),
-                ),
-              ],
+                  // Selected accent: snap on/off — never lerp with gray.
+                  if (selected) ColoredBox(color: p.selected),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _icon(widget.destination),
+                          size: 18,
+                          color: selected ? p.primary : p.muted,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          widget.destination.label,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight:
+                                selected ? FontWeight.w600 : FontWeight.w400,
+                            letterSpacing: -0.1,
+                            color: selected ? p.ink : p.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -805,7 +818,7 @@ class AppMobileNav extends StatelessWidget {
   }
 }
 
-class _MobileItem extends StatelessWidget {
+class _MobileItem extends StatefulWidget {
   const _MobileItem({
     required this.destination,
     required this.selected,
@@ -817,28 +830,44 @@ class _MobileItem extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
+  State<_MobileItem> createState() => _MobileItemState();
+}
+
+class _MobileItemState extends State<_MobileItem> {
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final selected = widget.selected;
     final color = selected ? p.primary : p.muted;
-    return InkWell(
-      onTap: onTap,
-      hoverColor: p.hover,
-      splashColor: p.hover,
-      highlightColor: Colors.transparent,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(_icon(destination), size: 22, color: color),
-          const SizedBox(height: 2),
-          Text(
-            destination.label,
-            style: TextStyle(
-              fontSize: 11,
-              color: selected ? p.ink : p.muted,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedContainer(
+        duration: AppMotion.instant,
+        curve: AppMotion.instantCurve,
+        color: _pressed && !selected
+            ? p.hover
+            : AppPalette.clearOf(p.hover),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(_icon(widget.destination), size: 22, color: color),
+            const SizedBox(height: 2),
+            Text(
+              widget.destination.label,
+              style: TextStyle(
+                fontSize: 11,
+                color: selected ? p.ink : p.muted,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1068,7 +1097,7 @@ class _AppShellSelectOptionState extends State<_AppShellSelectOption> {
     } else if (_hover) {
       bg = p.hover;
     } else {
-      bg = Colors.transparent;
+      bg = AppPalette.clearOf(p.hover);
     }
 
     return MouseRegion(
@@ -1147,6 +1176,53 @@ class AppContentColumn extends StatelessWidget {
 }
 
 /// Soft pill strip for grouped icon actions (desktop toolbars).
+/// Soft stadium control without Material ripple (poll / quick actions).
+class AppQuietPill extends StatelessWidget {
+  const AppQuietPill({
+    super.key,
+    required this.child,
+    this.onTap,
+    this.background,
+    this.border = true,
+    this.padding = const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+  });
+
+  final Widget child;
+  final VoidCallback? onTap;
+  final Color? background;
+  final bool border;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final enabled = onTap != null;
+    return MouseRegion(
+      cursor:
+          enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedOpacity(
+          duration: AppMotion.instant,
+          curve: AppMotion.instantCurve,
+          opacity: enabled ? 1 : 0.72,
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: background ?? p.surfaceHigh,
+              borderRadius: BorderRadius.circular(18),
+              border: border
+                  ? Border.all(color: p.border)
+                  : null,
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class AppIconCluster extends StatelessWidget {
   const AppIconCluster({super.key, required this.children});
 
@@ -1156,11 +1232,11 @@ class AppIconCluster extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return Container(
-      height: 36,
+      height: 34,
       padding: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(
         color: p.surface,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(17),
         border: Border.all(color: p.border),
       ),
       child: Row(
@@ -1192,21 +1268,23 @@ class AppHoverSurface extends StatefulWidget {
 
 class _AppHoverSurfaceState extends State<AppHoverSurface> {
   var _hover = false;
+  var _pressed = false;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final radius =
         widget.borderRadius ?? BorderRadius.circular(AppRadii.card);
+    final lift = _pressed || _hover;
     final body = AnimatedContainer(
-      duration: AppMotion.duration,
-      curve: AppMotion.curve,
+      duration: AppMotion.fast,
+      curve: AppMotion.fastCurve,
       padding: widget.padding,
       decoration: BoxDecoration(
-        color: _hover ? p.cardHover : p.surface,
+        color: lift ? p.cardHover : p.surface,
         borderRadius: radius,
         border: Border.all(
-          color: _hover ? p.borderStrong : Colors.transparent,
+          color: lift ? p.borderStrong : p.border,
         ),
       ),
       child: widget.child,
@@ -1222,6 +1300,9 @@ class _AppHoverSurfaceState extends State<AppHoverSurface> {
           ? body
           : GestureDetector(
               behavior: HitTestBehavior.opaque,
+              onTapDown: (_) => setState(() => _pressed = true),
+              onTapUp: (_) => setState(() => _pressed = false),
+              onTapCancel: () => setState(() => _pressed = false),
               onTap: widget.onTap,
               child: body,
             ),
@@ -1360,9 +1441,8 @@ class EmptyHint extends StatelessWidget {
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: p.surface,
+                color: p.surfaceHigh,
                 shape: BoxShape.circle,
-                border: Border.all(color: p.border),
               ),
               child: Icon(icon, color: p.muted, size: 22),
             ),
@@ -1371,9 +1451,10 @@ class EmptyHint extends StatelessWidget {
               title,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                letterSpacing: -0.1,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.2,
+                height: 1.25,
                 color: p.ink,
               ),
             ),
@@ -1382,7 +1463,7 @@ class EmptyHint extends StatelessWidget {
               Text(
                 detail!,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, height: 1.35, color: p.muted),
+                style: TextStyle(fontSize: 13, height: 1.4, color: p.muted),
               ),
             ],
             if (action != null) ...[
@@ -1474,6 +1555,7 @@ class SettingsSection extends StatelessWidget {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.group),
+            side: BorderSide(color: p.border),
           ),
           clipBehavior: Clip.antiAlias,
           child: Column(
@@ -1495,7 +1577,10 @@ class SettingsSection extends StatelessWidget {
         ),
         if (footer != null) ...[
           const SizedBox(height: AppSpace.sectionGap),
-          footer!,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpace.xs),
+            child: footer!,
+          ),
         ],
       ],
     );
@@ -1503,7 +1588,7 @@ class SettingsSection extends StatelessWidget {
 }
 
 /// One inset row inside [SettingsSection]. Height / padding follow [AppDensity].
-class SettingsRow extends StatelessWidget {
+class SettingsRow extends StatefulWidget {
   const SettingsRow({
     super.key,
     this.leading,
@@ -1526,21 +1611,37 @@ class SettingsRow extends StatelessWidget {
   final double? minHeight;
 
   @override
+  State<SettingsRow> createState() => _SettingsRowState();
+}
+
+class _SettingsRowState extends State<SettingsRow> {
+  var _hover = false;
+  var _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final h = minHeight ?? AppDensity.rowHeight(context);
+    final h = widget.minHeight ?? AppDensity.rowHeight(context);
     final gap = AppDensity.rowInnerGap(context);
-    final content = Padding(
+    final interactive = widget.onTap != null;
+    final wash = interactive && (_pressed || _hover)
+        ? p.hover
+        : AppPalette.clearOf(p.hover);
+
+    final content = AnimatedContainer(
+      duration: AppMotion.fast,
+      curve: AppMotion.fastCurve,
+      color: wash,
       padding: AppDensity.rowPadding(context),
       child: ConstrainedBox(
         constraints: BoxConstraints(minHeight: h),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            if (leading != null) ...[
+            if (widget.leading != null) ...[
               IconTheme(
                 data: IconThemeData(color: p.muted, size: 20),
-                child: leading!,
+                child: widget.leading!,
               ),
               SizedBox(width: gap),
             ],
@@ -1550,7 +1651,7 @@ class SettingsRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    title,
+                    widget.title,
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
@@ -1558,14 +1659,18 @@ class SettingsRow extends StatelessWidget {
                       color: p.ink,
                     ),
                   ),
-                  if (subtitleWidget != null) ...[
+                  if (widget.subtitleWidget != null) ...[
                     const SizedBox(height: AppSpace.xs),
-                    subtitleWidget!,
+                    widget.subtitleWidget!,
                   ],
-                  if (subtitle != null) ...[
-                    SizedBox(height: subtitleWidget != null ? AppSpace.xxs : 4),
+                  if (widget.subtitle != null) ...[
+                    SizedBox(
+                      height: widget.subtitleWidget != null
+                          ? AppSpace.xxs
+                          : 4,
+                    ),
                     Text(
-                      subtitle!,
+                      widget.subtitle!,
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.4,
@@ -1576,24 +1681,27 @@ class SettingsRow extends StatelessWidget {
                 ],
               ),
             ),
-            if (trailing != null) ...[
+            if (widget.trailing != null) ...[
               SizedBox(width: gap),
-              trailing!,
+              widget.trailing!,
             ],
           ],
         ),
       ),
     );
 
-    if (onTap == null) return content;
+    if (!interactive) return content;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        hoverColor: p.hover,
-        splashColor: p.hover,
-        highlightColor: Colors.transparent,
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTap: widget.onTap,
         child: content,
       ),
     );

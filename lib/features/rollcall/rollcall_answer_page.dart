@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/logging/rollcall_log.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -244,8 +245,8 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
         ? null
         : LatLng(_selection!.latitude, _selection!.longitude);
     final result = await Navigator.of(context).push<MapPickResult>(
-      MaterialPageRoute(
-        builder: (_) => MapPickPage(initial: initial, title: '选择位置'),
+      AppPageRoutes.build(
+        MapPickPage(initial: initial, title: '选择位置'),
       ),
     );
     if (result == null || !mounted) return;

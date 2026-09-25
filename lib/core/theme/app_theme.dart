@@ -34,6 +34,10 @@ abstract final class AppTheme {
       useMaterial3: true,
       brightness: brightness,
       visualDensity: VisualDensity.standard,
+      splashFactory: NoSplash.splashFactory,
+      highlightColor: Colors.transparent,
+      splashColor: Colors.transparent,
+      hoverColor: p.hover,
       scaffoldBackgroundColor: p.canvas,
       colorScheme: scheme.copyWith(
         surfaceContainerHighest: p.surfaceHigh,
@@ -200,6 +204,12 @@ abstract final class AppTheme {
           color: p.ink,
         ),
         subtitleTextStyle: TextStyle(fontSize: 12, color: p.muted),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          highlightColor: Colors.transparent,
+          hoverColor: p.hover,
+        ),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((s) {

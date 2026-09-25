@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:xmu_rollcall/app/app_switch.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
@@ -40,7 +41,7 @@ class MonitorSettingsPage extends ConsumerWidget {
                 subtitle: !signedIn
                     ? '请先登录'
                     : (state.running ? '运行中' : '已停止'),
-                trailing: Switch.adaptive(
+                trailing: AppSwitch(
                   value: state.running,
                   onChanged: !signedIn
                       ? null

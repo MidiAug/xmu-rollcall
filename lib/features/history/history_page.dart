@@ -266,7 +266,8 @@ class _CourseHistoryBody extends ConsumerWidget {
               AppSpace.xl,
             ),
             itemCount: filtered.length,
-            separatorBuilder: (_, _) => const SizedBox(height: AppSpace.xs),
+            separatorBuilder: (_, _) =>
+                SizedBox(height: AppSpace.stackOf(context) * 0.55),
             itemBuilder: (context, i) {
               final r = filtered[i];
               return _CourseTile(
@@ -312,7 +313,7 @@ class _CourseTile extends StatelessWidget {
       child: Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.all(AppSpace.sm),
+            padding: const EdgeInsets.all(AppSpace.md),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -336,12 +337,14 @@ class _CourseTile extends StatelessWidget {
                           title,
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.2,
+                            height: 1.3,
                             color: p.ink,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: AppSpace.xs),
                       if (record.isPlaceholder)
                         Text(
                           '本课暂无签到记录',
@@ -352,12 +355,17 @@ class _CourseTile extends StatelessWidget {
                           type: record.typeLabel,
                           status: record.signedStatus,
                           time: record.timeLabel,
+                          statusColor: statusColor,
                         ),
                       if (!record.isPlaceholder && record.detail.isNotEmpty) ...[
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(
                           record.detail,
-                          style: TextStyle(fontSize: 11, color: p.muted),
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 1.35,
+                            color: p.muted,
+                          ),
                         ),
                       ],
                     ],
@@ -373,57 +381,75 @@ class _CourseTile extends StatelessWidget {
   }
 }
 
-/// Compact fixed columns — no middot separators.
+/// Compact meta — type / status chips + time.
 class _MetaColumns extends StatelessWidget {
   const _MetaColumns({
     required this.type,
     required this.status,
     required this.time,
+    required this.statusColor,
   });
 
   final String type;
   final String status;
   final String time;
-
-  static const _typeW = 40.0;
-  static const _statusW = 44.0;
-  static const _gap = 10.0;
+  final Color statusColor;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final style = TextStyle(fontSize: 12, color: p.muted, height: 1.25);
-    return Row(
+    return Wrap(
+      spacing: AppSpace.xs,
+      runSpacing: AppSpace.xxs,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        SizedBox(
-          width: _typeW,
-          child: Text(
-            type,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: style,
-          ),
+        _Chip(label: type, foreground: p.ink, background: p.surfaceHigh),
+        _Chip(
+          label: status,
+          foreground: statusColor,
+          background: statusColor.withValues(alpha: 0.12),
         ),
-        const SizedBox(width: _gap),
-        SizedBox(
-          width: _statusW,
-          child: Text(
-            status,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: style,
-          ),
-        ),
-        const SizedBox(width: _gap),
-        Expanded(
-          child: Text(
-            time,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: style,
-          ),
+        Text(
+          time,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(fontSize: 12, height: 1.25, color: p.muted),
         ),
       ],
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({
+    required this.label,
+    required this.foreground,
+    required this.background,
+  });
+
+  final String label;
+  final Color foreground;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(AppRadii.control),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          height: 1.2,
+          color: foreground,
+        ),
+      ),
     );
   }
 }
