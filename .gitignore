@@ -14,13 +14,8 @@ migrate_working_dir/
 Thumbs.db
 Desktop.ini
 
-# ── Reference clones (local only) ──
-/reference/xmu-rollcall/
-/reference/login-sdk/
-/reference/tronclass-ecosystem/
-/reference/tools/
-!/reference/README.md
-!/reference/local-notes/
+# ── Reference clones (local only; never track) ──
+/reference/
 
 # ── Secrets ──
 .env
