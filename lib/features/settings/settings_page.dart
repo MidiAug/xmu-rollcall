@@ -9,7 +9,6 @@ import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
-import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/assist/assist_dialogs.dart';
@@ -18,8 +17,11 @@ import 'package:xmu_rollcall/core/session/session_credential.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
 import 'package:xmu_rollcall/features/rollcall/radar_preview.dart';
+import 'package:xmu_rollcall/features/settings/close_prefs_controller.dart';
 import 'package:xmu_rollcall/features/settings/recent_logs_page.dart';
+import 'package:xmu_rollcall/platform/close_prefs.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
+import 'package:xmu_rollcall/platform/shell_debug_preview.dart';
 
 enum ThemePreference { system, dark, light }
 
@@ -94,6 +96,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           ),
           children: [
           SettingsSection(
+            padTop: false,
             header: '账号',
             children: [
               SettingsRow(
@@ -118,9 +121,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               ),
             ],
           ),
-          SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
             header: '外观',
+            hasLeading: false,
             children: [
               Padding(
                 padding: AppDensity.rowPadding(context),
@@ -150,7 +153,26 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               ),
             ],
           ),
-          SizedBox(height: AppSpace.stackOf(context)),
+          if (PlatformHooks.isDesktop)
+            SettingsSection(
+              header: '窗口',
+              children: [
+                SettingsRow(
+                  leading: const Icon(Icons.desktop_windows_outlined),
+                  title: '关闭窗口时',
+                  subtitle: '询问 / 托盘 / 退出',
+                  trailing: AppShellSelect<CloseMode>(
+                    value: ref.watch(closePrefsProvider).mode,
+                    items: CloseMode.values,
+                    labelOf: (m) => m.label,
+                    width: 148,
+                    onChanged: (m) {
+                      ref.read(closePrefsProvider.notifier).setMode(m);
+                    },
+                  ),
+                ),
+              ],
+            ),
           SettingsSection(
             header: '位置',
             children: [
@@ -163,7 +185,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               ),
             ],
           ),
-          SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
             header: '协助签到',
             children: [
@@ -174,28 +195,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
                 onTap: !auth.isSignedIn || assist.busy
                     ? null
-                    : () async {
-                        final store = ref.read(secureStoreProvider);
-                        final lastUser = await store.read(
-                          SecureStore.keyLastUsername,
-                        );
-                        final savedPass = await store.read(
-                          SecureStore.keyOwnerPassword,
-                        );
-                        if (!context.mounted) return;
-                        await showAssistExportDialog(
+                    : () => showAssistExportDialog(
                           context,
-                          suggestedUsername: lastUser,
-                          savedPassword: savedPass,
-                          export: ({required kind, username, password}) => ref
+                          export: (kind) => ref
                               .read(assistControllerProvider.notifier)
-                              .exportOwner(
-                                kind: kind,
-                                username: username,
-                                password: password,
-                              ),
-                        );
-                      },
+                              .exportOwner(kind: kind),
+                        ),
               ),
               SettingsRow(
                 leading: const Icon(Icons.download_outlined),
@@ -242,7 +247,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               ),
             ],
           ),
-          SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
             header: '设备与诊断',
             children: [
@@ -301,8 +305,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               ),
             ],
           ),
-          if (kDebugMode) ...[
-            SizedBox(height: AppSpace.stackOf(context)),
+          if (kDebugMode)
             SettingsSection(
               header: '开发预览',
               children: [
@@ -339,9 +342,29 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                     RadarPreviewScenario.prefDevice,
                   ),
                 ),
+                if (PlatformHooks.isDesktop) ...[
+                  SettingsRow(
+                    leading: const Icon(Icons.notifications_outlined),
+                    title: '托盘 · 立即测试通知',
+                    subtitle: '最小化后发一条发现通知（L1）',
+                    trailing:
+                        Icon(Icons.chevron_right, color: p.muted, size: 18),
+                    onTap: () => ShellDebugPreview.notifyNow(context),
+                  ),
+                  SettingsRow(
+                    leading: const Icon(Icons.timer_outlined),
+                    title: '托盘 · 10s 模拟发现',
+                    subtitle: '假列表 + 停检测 + 通知（L2）',
+                    trailing:
+                        Icon(Icons.chevron_right, color: p.muted, size: 18),
+                    onTap: () => ShellDebugPreview.scheduleDiscovery(
+                      context,
+                      ref,
+                    ),
+                  ),
+                ],
               ],
             ),
-          ],
         ],
         ),
       ),

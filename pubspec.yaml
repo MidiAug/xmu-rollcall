@@ -30,11 +30,34 @@ dependencies:
   archive: ^4.3.0
   package_info_plus: ^9.0.1
   crypto: ^3.0.7
+  tray_manager: 0.5.2
+  local_notifier: ^0.1.6
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/icon/app_icon.png
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: assets/icon/app_icon_foreground.png
+  adaptive_icon_foreground_inset: 16
+  remove_alpha_ios: true
+  background_color_ios: "#FFFFFF"
+  windows:
+    generate: true
+    image_path: assets/icon/app_icon.png
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: assets/icon/app_icon.png
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/tray/tray_icon.ico
+    - assets/tray/tray_icon.png

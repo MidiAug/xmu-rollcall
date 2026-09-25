@@ -6,6 +6,10 @@ import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/settings/settings_page.dart';
+import 'package:xmu_rollcall/platform/desktop_shell.dart';
+import 'package:xmu_rollcall/platform/platform_hooks.dart';
+
+final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 class XmuRollcallApp extends ConsumerWidget {
   const XmuRollcallApp({super.key});
@@ -21,7 +25,8 @@ class XmuRollcallApp extends ConsumerWidget {
       ThemePreference.light => ThemeMode.light,
     };
 
-    return MaterialApp(
+    Widget app = MaterialApp(
+      navigatorKey: _rootNavigatorKey,
       title: 'xmu-rollcall',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
@@ -37,6 +42,15 @@ class XmuRollcallApp extends ConsumerWidget {
         data: (_) => const _BootstrapAuth(),
       ),
     );
+
+    if (PlatformHooks.isDesktop) {
+      app = DesktopShellBinder(
+        navigatorKey: _rootNavigatorKey,
+        child: app,
+      );
+    }
+
+    return app;
   }
 }
 

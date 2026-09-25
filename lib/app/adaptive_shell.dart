@@ -5,6 +5,7 @@ import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
+import 'package:xmu_rollcall/app/shell_navigation.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
@@ -32,9 +33,28 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   );
 
   @override
+  void initState() {
+    super.initState();
+    ShellNavigation.instance.bind(_openDestination);
+  }
+
+  @override
   void dispose() {
+    ShellNavigation.instance.unbind(_openDestination);
     _chrome.dispose();
     super.dispose();
+  }
+
+  void _openDestination(AppDestination d, {bool popToRoot = false}) {
+    if (!mounted) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    if (d != _current) {
+      setState(() => _current = d);
+      _chrome.current = d;
+    }
+    if (popToRoot) {
+      _navKeys[d.index].currentState?.popUntil((route) => route.isFirst);
+    }
   }
 
   void _onSelect(AppDestination d) {

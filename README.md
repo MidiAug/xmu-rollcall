@@ -41,7 +41,7 @@ lib/
   app/           # MaterialApp、AdaptiveShell
   core/          # theme / network / storage / identity
   features/      # auth / rollcall / monitor / history / settings
-  platform/      # Phase 3 通知/托盘占位
+  platform/      # 桌面关窗三态 / 托盘 / 发现通知
 ```
 
 ## 登录说明
@@ -56,4 +56,4 @@ lib/
 | 0 | 文档 / reference / 脚手架 | ✅ |
 | 1 | 壳 + 主题 + 登录会话 | 🔄 待真网 AC |
 | 2 | 签到 + 监控轮询 | 🔄 待真网 AC |
-| 3 | 通知 / 托盘 / 二维码 | ❌ |
+| 3 | 托盘/关窗/发现通知 + 二维码 | 🔄 托盘切片已合；QR/真网 AC 待勾 |

@@ -109,6 +109,13 @@ class ActiveRollcallsNotifier
         if (item.rollcallId == updated.rollcallId) updated else item,
     ]);
   }
+
+  /// Debug-only: replace owner active list without hitting the network.
+  void debugSeed(List<RollcallItem> items) {
+    assert(kDebugMode, 'debugSeed is debug-only');
+    if (!kDebugMode) return;
+    state = AsyncData(List<RollcallItem>.of(items));
+  }
 }
 
 @visibleForTesting

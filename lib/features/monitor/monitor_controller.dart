@@ -1,11 +1,14 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
 class MonitorState {
   const MonitorState({
@@ -58,6 +61,7 @@ class MonitorController extends StateNotifier<MonitorState> {
   final Ref _ref;
   Timer? _timer;
   Timer? _persistDebounce;
+  Timer? _debugDiscoveryTimer;
 
   static const _kEnabled = 'monitor_enabled';
   static const _kPreset = 'monitor_preset';
@@ -178,9 +182,111 @@ class MonitorController extends StateNotifier<MonitorState> {
   @override
   void dispose() {
     _persistDebounce?.cancel();
+    _debugDiscoveryTimer?.cancel();
     _timer?.cancel();
     _timer = null;
     super.dispose();
+  }
+
+  /// Debug: mark monitor running without hitting the network (for tray busy / L2).
+  void debugArmRunning() {
+    assert(kDebugMode, 'debugArmRunning is debug-only');
+    if (!kDebugMode) return;
+    _timer?.cancel();
+    _timer = null;
+    state = state.copyWith(
+      running: true,
+      config: state.config.copyWith(enabled: true),
+      consecutiveFailures: 0,
+      clearNext: true,
+    );
+  }
+
+  /// Debug L2: after [delay], seed a fake active rollcall and take the real
+  /// discovery-stop + notify path (same as a successful poll with non-empty list).
+  void debugScheduleDiscovery({
+    Duration delay = const Duration(seconds: 10),
+    int count = 1,
+  }) {
+    assert(kDebugMode, 'debugScheduleDiscovery is debug-only');
+    if (!kDebugMode) return;
+    debugArmRunning();
+    _debugDiscoveryTimer?.cancel();
+    _debugDiscoveryTimer = Timer(delay, () {
+      unawaited(_debugFireDiscovery(count: count));
+    });
+    AppLog.event(
+      'poll.debug_schedule',
+      fields: {'delayMs': delay.inMilliseconds, 'count': count},
+    );
+  }
+
+  void debugCancelScheduledDiscovery() {
+    _debugDiscoveryTimer?.cancel();
+    _debugDiscoveryTimer = null;
+  }
+
+  Future<void> _debugFireDiscovery({required int count}) async {
+    final items = <RollcallItem>[
+      for (var i = 0; i < count; i++)
+        RollcallItem(
+          rollcallId: -9100 - i,
+          courseTitle: '调试签到（预览 ${i + 1}）',
+          createdByName: '开发预览',
+          type: RollcallType.number,
+          status: 'on_call',
+          rollcallStatus: 'on_call',
+          isExpired: false,
+          scored: false,
+          raw: const {'course_id': 'preview-debug-course'},
+          numberCode: '1234',
+        ),
+    ];
+    _ref.read(activeRollcallsProvider(null).notifier).debugSeed(items);
+    await _finishDiscovery(
+      count: items.length,
+      intervalMs: 0,
+      logMessage: '发现进行中 ${items.length} 条，已停止检测（调试）',
+    );
+  }
+
+  Future<void> _finishDiscovery({
+    required int count,
+    required int intervalMs,
+    required String logMessage,
+  }) async {
+    final entry = PollLogEntry(
+      at: DateTime.now(),
+      ok: true,
+      message: logMessage,
+    );
+    AppLog.event(
+      'poll.tick',
+      fields: {
+        'count': count,
+        'intervalMs': intervalMs,
+        'ok': true,
+      },
+    );
+    _timer?.cancel();
+    _timer = null;
+    _debugDiscoveryTimer?.cancel();
+    _debugDiscoveryTimer = null;
+    state = state.copyWith(
+      running: false,
+      config: state.config.copyWith(enabled: false),
+      lastPollAt: entry.at,
+      consecutiveFailures: 0,
+      logs: [entry, ...state.logs].take(40).toList(),
+      clearNext: true,
+    );
+    await _persist();
+    final notify = PlatformHooks.onRollcallsDiscovered;
+    if (notify != null) {
+      try {
+        await notify(count);
+      } catch (_) {}
+    }
   }
 
   void _schedule({bool immediate = false}) {
@@ -207,31 +313,11 @@ class MonitorController extends StateNotifier<MonitorState> {
       final list =
           _ref.read(activeRollcallsProvider(null)).valueOrNull ?? const [];
       if (list.isNotEmpty) {
-        // Stop as soon as any ongoing rollcall exists — independent of type / code.
-        final entry = PollLogEntry(
-          at: DateTime.now(),
-          ok: true,
-          message: '发现进行中 ${list.length} 条，已停止检测',
+        await _finishDiscovery(
+          count: list.length,
+          intervalMs: intervalMs,
+          logMessage: '发现进行中 ${list.length} 条，已停止检测',
         );
-        AppLog.event(
-          'poll.tick',
-          fields: {
-            'count': list.length,
-            'intervalMs': intervalMs,
-            'ok': true,
-          },
-        );
-        _timer?.cancel();
-        _timer = null;
-        state = state.copyWith(
-          running: false,
-          config: state.config.copyWith(enabled: false),
-          lastPollAt: entry.at,
-          consecutiveFailures: 0,
-          logs: [entry, ...state.logs].take(40).toList(),
-          clearNext: true,
-        );
-        await _persist();
         return;
       }
       final entry = PollLogEntry(
