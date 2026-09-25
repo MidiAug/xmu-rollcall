@@ -141,7 +141,7 @@ class RollcallRepository {
         TronEndpoints.myCourses(),
         data: const {
           'fields':
-              'id,name,course_code,timetables,instructors(id,name),department(id,name),semester(id),academic_year(id),academic_year_id,semester_id',
+              'id,name,course_code,timetables,instructors(id,name),course_attributes(teaching_class_name),department(id,name),semester(id),academic_year(id),academic_year_id,semester_id',
           'conditions': {
             'classify_type': 'recently_started',
             'role': [
@@ -190,6 +190,9 @@ class RollcallRepository {
           id: id,
           title: title ?? '',
           timetables: parseTimetables(m['timetables']),
+          instructorNames: _instructorNames(m),
+          teachingClassName: _teachingClassName(m),
+          location: _courseLocation(m),
         ),
       );
       semesterId ??= _nestedId(m, const ['semester_id', 'semester']);
@@ -242,6 +245,39 @@ class RollcallRepository {
         final s = '$v'.trim();
         if (s.isNotEmpty) return s;
       }
+    }
+    return null;
+  }
+
+  List<String> _instructorNames(Map<String, dynamic> m) {
+    final raw = m['instructors'];
+    if (raw is! List) return const [];
+    final names = <String>[];
+    for (final e in raw) {
+      if (e is! Map) continue;
+      final n = e['name'];
+      if (n is String && n.trim().isNotEmpty) names.add(n.trim());
+    }
+    return names;
+  }
+
+  String? _teachingClassName(Map<String, dynamic> m) {
+    final attrs = m['course_attributes'];
+    if (attrs is Map) {
+      final n = attrs['teaching_class_name'];
+      if (n is String && n.trim().isNotEmpty) return n.trim();
+    }
+    return null;
+  }
+
+  String? _courseLocation(Map<String, dynamic> m) {
+    for (final k in const ['classroom', 'location', 'place']) {
+      final v = m[k];
+      if (v is String && v.trim().isNotEmpty) return v.trim();
+    }
+    final schedule = m['classroom_schedule'];
+    if (schedule is String && schedule.trim().isNotEmpty) {
+      return schedule.trim();
     }
     return null;
   }

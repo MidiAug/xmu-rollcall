@@ -80,6 +80,7 @@ void main() {
           CatalogCourse(
             id: '10',
             title: '高等数学',
+            instructorNames: const ['李老师'],
             timetables: {
               1: [
                 TimetableSlot(
@@ -96,6 +97,7 @@ void main() {
       final back = await CourseCatalogStore.read(42);
       expect(back, isNotNull);
       expect(back!.courses.single.title, '高等数学');
+      expect(back.courses.single.instructorNames, ['李老师']);
       expect(back.timetablesByCourse['10']![1]!.single.sequence, 1);
       expect(back.semesterId, 's1');
     });

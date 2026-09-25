@@ -10,6 +10,9 @@ class CatalogCourse {
     required this.id,
     required this.title,
     this.timetables = const {},
+    this.instructorNames = const [],
+    this.teachingClassName,
+    this.location,
   });
 
   final String id;
@@ -18,9 +21,24 @@ class CatalogCourse {
   /// Weekday (1–7) → slots.
   final Map<int, List<TimetableSlot>> timetables;
 
+  /// Instructor display names (may be empty).
+  final List<String> instructorNames;
+
+  /// Teaching class label, e.g. 信息1班.
+  final String? teachingClassName;
+
+  /// Classroom / place when the API provides one.
+  final String? location;
+
+  String get instructorsLabel => instructorNames.join('、');
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
+        if (instructorNames.isNotEmpty) 'instructorNames': instructorNames,
+        if (teachingClassName != null && teachingClassName!.isNotEmpty)
+          'teachingClassName': teachingClassName,
+        if (location != null && location!.isNotEmpty) 'location': location,
         if (timetables.isNotEmpty)
           'timetables': {
             for (final e in timetables.entries)
@@ -36,12 +54,33 @@ class CatalogCourse {
     if (raw != null) {
       tables = parseTimetables(raw);
     }
+    final instructors = <String>[];
+    final rawInstructors = j['instructorNames'] ?? j['instructors'];
+    if (rawInstructors is List) {
+      for (final e in rawInstructors) {
+        if (e is String && e.trim().isNotEmpty) {
+          instructors.add(e.trim());
+        } else if (e is Map) {
+          final n = e['name'];
+          if (n is String && n.trim().isNotEmpty) instructors.add(n.trim());
+        }
+      }
+    }
     return CatalogCourse(
       id: '${j['id'] ?? ''}',
       title: j['title'] as String? ?? '',
       timetables: tables,
+      instructorNames: instructors,
+      teachingClassName: _optionalString(j['teachingClassName']),
+      location: _optionalString(j['location']),
     );
   }
+}
+
+String? _optionalString(dynamic v) {
+  if (v is! String) return null;
+  final s = v.trim();
+  return s.isEmpty ? null : s;
 }
 
 class CourseCatalogSnapshot {
