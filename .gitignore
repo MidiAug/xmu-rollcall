@@ -31,15 +31,19 @@ Desktop.ini
 **/info.txt
 **/secrets/
 
-# Browser HTTP dumps (contain live session Cookie / ticket)
+# ── Local product docs / research (keep on disk; not for public remote) ──
+/docs/
+
+# Browser HTTP dumps at repo root (contain live session Cookie / ticket)
 /*_Full.txt
-/docs/research/captures/**/raw/
 .tmp_68_extract/
 
-# ── AI tool caches (rules are tracked) ──
+# ── AI tool caches (rules under .cursor/rules are tracked) ──
 .claude/
 .codegraph/
 .cursor/*.log
+.cursor/settings.local.json
+.claude/settings.local.json
 
 # IntelliJ related
 *.iml
@@ -67,6 +71,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local install packages (APK / MSIX)
+/dist/
 
 # Platform ephemeral
 **/windows/flutter/ephemeral/
