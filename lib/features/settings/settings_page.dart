@@ -19,6 +19,7 @@ import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
 import 'package:xmu_rollcall/features/rollcall/radar_preview.dart';
 import 'package:xmu_rollcall/features/settings/close_prefs_controller.dart';
 import 'package:xmu_rollcall/features/settings/recent_logs_page.dart';
+import 'package:xmu_rollcall/platform/android_monitor_shell.dart';
 import 'package:xmu_rollcall/platform/close_prefs.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:xmu_rollcall/platform/shell_debug_preview.dart';
@@ -170,6 +171,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                       ref.read(closePrefsProvider.notifier).setMode(m);
                     },
                   ),
+                ),
+              ],
+            ),
+          if (PlatformHooks.isAndroid)
+            SettingsSection(
+              header: '后台检测',
+              children: [
+                SettingsRow(
+                  leading: const Icon(Icons.notifications_active_outlined),
+                  title: '常驻通知',
+                  subtitle: '开启自动检测后，通知栏显示倒计时；发现签到会另发提醒',
+                ),
+                SettingsRow(
+                  leading: const Icon(Icons.battery_saver_outlined),
+                  title: '忽略电池优化',
+                  subtitle: '部分机型需允许，否则回桌后可能停检',
+                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  onTap: () => AndroidMonitorShell.instance
+                      .openBatteryOptimizationSettings(),
                 ),
               ],
             ),
@@ -342,18 +362,24 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                     RadarPreviewScenario.prefDevice,
                   ),
                 ),
-                if (PlatformHooks.isDesktop) ...[
+                if (PlatformHooks.isDesktop || PlatformHooks.isAndroid) ...[
                   SettingsRow(
                     leading: const Icon(Icons.notifications_outlined),
-                    title: '托盘 · 立即测试通知',
-                    subtitle: '最小化后发一条发现通知（L1）',
+                    title: PlatformHooks.isDesktop
+                        ? '托盘 · 立即测试通知'
+                        : 'Android · 立即测试发现通知',
+                    subtitle: PlatformHooks.isDesktop
+                        ? '最小化后发一条发现通知（L1）'
+                        : '前台按设计可能不弹；优先用下方 L2',
                     trailing:
                         Icon(Icons.chevron_right, color: p.muted, size: 18),
                     onTap: () => ShellDebugPreview.notifyNow(context),
                   ),
                   SettingsRow(
                     leading: const Icon(Icons.timer_outlined),
-                    title: '托盘 · 10s 模拟发现',
+                    title: PlatformHooks.isDesktop
+                        ? '托盘 · 10s 模拟发现'
+                        : 'Android · 10s 模拟发现',
                     subtitle: '假列表 + 停检测 + 通知（L2）',
                     trailing:
                         Icon(Icons.chevron_right, color: p.muted, size: 18),

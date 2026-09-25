@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
@@ -159,7 +160,28 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
           child: Tooltip(
             message: enabled ? '开始自动检测' : '请先登录',
             child: AppQuietPill(
-              onTap: enabled ? ctrl.start : null,
+              onTap: enabled
+                  ? () async {
+                      final r = await ctrl.startAsync();
+                      if (!context.mounted) return;
+                      switch (r) {
+                        case StartMonitorResult.notificationDenied:
+                          AppToast.show(
+                            context,
+                            '需要通知权限才能在后台检测',
+                            error: true,
+                          );
+                        case StartMonitorResult.fgsFailed:
+                          AppToast.show(
+                            context,
+                            '无法启动后台检测通知',
+                            error: true,
+                          );
+                        default:
+                          break;
+                      }
+                    }
+                  : null,
               background: enabled ? p.selected : p.surfaceHigh,
               child: Row(
                 mainAxisSize: MainAxisSize.min,

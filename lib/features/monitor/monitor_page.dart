@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_switch.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/platform/android_monitor_shell.dart';
+import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
 /// Secondary page: poll interval / jitter / presets / logs.
 class MonitorSettingsPage extends ConsumerWidget {
@@ -46,11 +49,48 @@ class MonitorSettingsPage extends ConsumerWidget {
                   value: state.running,
                   onChanged: !signedIn
                       ? null
-                      : (v) => v ? ctrl.start() : ctrl.stop(),
+                      : (v) async {
+                          if (!v) {
+                            ctrl.stop();
+                            return;
+                          }
+                          final r = await ctrl.startAsync();
+                          if (!context.mounted) return;
+                          switch (r) {
+                            case StartMonitorResult.notificationDenied:
+                              AppToast.show(
+                                context,
+                                '需要通知权限才能在后台检测',
+                                error: true,
+                              );
+                            case StartMonitorResult.fgsFailed:
+                              AppToast.show(
+                                context,
+                                '无法启动后台检测通知',
+                                error: true,
+                              );
+                            default:
+                              break;
+                          }
+                        },
                 ),
               ),
             ],
           ),
+          if (PlatformHooks.isAndroid)
+            SettingsSection(
+              header: '后台保活',
+              children: [
+                SettingsRow(
+                  leading: const Icon(Icons.battery_saver_outlined),
+                  title: '忽略电池优化',
+                  subtitle: '与「我的 → 后台检测」相同入口；部分机型需允许',
+                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  onTap: () => AndroidMonitorShell.instance
+                      .openBatteryOptimizationSettings(),
+                ),
+              ],
+            ),
           SettingsSection(
             header: '最近检测',
             hasLeading: false,

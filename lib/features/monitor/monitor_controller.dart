@@ -8,7 +8,16 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+import 'package:xmu_rollcall/platform/android_monitor_shell.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
+
+enum StartMonitorResult {
+  started,
+  alreadyRunning,
+  notSignedIn,
+  notificationDenied,
+  fgsFailed,
+}
 
 class MonitorState {
   const MonitorState({
@@ -121,7 +130,7 @@ class MonitorController extends StateNotifier<MonitorState> {
     commitPersist();
     if (state.running) {
       stop();
-      start();
+      unawaited(startAsync());
     }
   }
 
@@ -151,15 +160,39 @@ class MonitorController extends StateNotifier<MonitorState> {
   }
 
   void start() {
-    if (state.running) return;
-    if (!_ref.read(authControllerProvider).isSignedIn) return;
+    unawaited(startAsync());
+  }
+
+  /// Starts monitor; on Android requests notification permission + FGS.
+  Future<StartMonitorResult> startAsync() async {
+    if (state.running) return StartMonitorResult.alreadyRunning;
+    if (!_ref.read(authControllerProvider).isSignedIn) {
+      return StartMonitorResult.notSignedIn;
+    }
+
+    if (PlatformHooks.isAndroid) {
+      final allowed = await AndroidMonitorShell.instance.prepareStart();
+      if (!allowed) return StartMonitorResult.notificationDenied;
+    }
+
     state = state.copyWith(
       running: true,
       config: state.config.copyWith(enabled: true),
       consecutiveFailures: 0,
     );
-    _persist();
+    await _persist();
     _schedule(immediate: true);
+
+    if (PlatformHooks.isAndroid) {
+      final ok = await AndroidMonitorShell.instance.startOngoing(
+        nextPollAt: state.nextPollAt,
+      );
+      if (!ok) {
+        stop();
+        return StartMonitorResult.fgsFailed;
+      }
+    }
+    return StartMonitorResult.started;
   }
 
   void stop() {
@@ -171,6 +204,9 @@ class MonitorController extends StateNotifier<MonitorState> {
       clearNext: true,
     );
     _persist();
+    if (PlatformHooks.isAndroid) {
+      unawaited(AndroidMonitorShell.instance.stopOngoing());
+    }
   }
 
   /// Fire the next poll immediately (running only).
@@ -200,6 +236,9 @@ class MonitorController extends StateNotifier<MonitorState> {
       consecutiveFailures: 0,
       clearNext: true,
     );
+    if (PlatformHooks.isAndroid) {
+      unawaited(AndroidMonitorShell.instance.startOngoing());
+    }
   }
 
   /// Debug L2: after [delay], seed a fake active rollcall and take the real
@@ -210,6 +249,17 @@ class MonitorController extends StateNotifier<MonitorState> {
   }) {
     assert(kDebugMode, 'debugScheduleDiscovery is debug-only');
     if (!kDebugMode) return;
+    unawaited(_debugScheduleDiscovery(delay: delay, count: count));
+  }
+
+  Future<void> _debugScheduleDiscovery({
+    required Duration delay,
+    required int count,
+  }) async {
+    if (PlatformHooks.isAndroid) {
+      final allowed = await AndroidMonitorShell.instance.prepareStart();
+      if (!allowed) return;
+    }
     debugArmRunning();
     _debugDiscoveryTimer?.cancel();
     _debugDiscoveryTimer = Timer(delay, () {
@@ -281,6 +331,9 @@ class MonitorController extends StateNotifier<MonitorState> {
       clearNext: true,
     );
     await _persist();
+    if (PlatformHooks.isAndroid) {
+      await AndroidMonitorShell.instance.stopOngoing();
+    }
     final notify = PlatformHooks.onRollcallsDiscovered;
     if (notify != null) {
       try {
@@ -301,6 +354,9 @@ class MonitorController extends StateNotifier<MonitorState> {
     }
     final nextAt = DateTime.now().add(delay);
     state = state.copyWith(nextPollAt: nextAt);
+    if (PlatformHooks.isAndroid) {
+      unawaited(AndroidMonitorShell.instance.syncNextPollAt(nextAt));
+    }
 
     _timer = Timer(delay, _tick);
   }

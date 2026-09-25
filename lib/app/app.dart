@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/adaptive_shell.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
+import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/settings/settings_page.dart';
+import 'package:xmu_rollcall/platform/android_monitor_shell.dart';
 import 'package:xmu_rollcall/platform/desktop_shell.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
@@ -48,9 +51,46 @@ class XmuRollcallApp extends ConsumerWidget {
         navigatorKey: _rootNavigatorKey,
         child: app,
       );
+    } else if (PlatformHooks.isAndroid) {
+      app = _AndroidMonitorBinder(
+        navigatorKey: _rootNavigatorKey,
+        child: app,
+      );
     }
 
     return app;
+  }
+}
+
+class _AndroidMonitorBinder extends ConsumerStatefulWidget {
+  const _AndroidMonitorBinder({
+    required this.navigatorKey,
+    required this.child,
+  });
+
+  final GlobalKey<NavigatorState> navigatorKey;
+  final Widget child;
+
+  @override
+  ConsumerState<_AndroidMonitorBinder> createState() =>
+      _AndroidMonitorBinderState();
+}
+
+class _AndroidMonitorBinderState
+    extends ConsumerState<_AndroidMonitorBinder> {
+  @override
+  Widget build(BuildContext context) {
+    return AndroidMonitorShellBinder(
+      stopMonitor: () {
+        ref.read(monitorControllerProvider.notifier).stop();
+      },
+      onUserMessage: (message) {
+        final ctx = widget.navigatorKey.currentContext;
+        if (ctx == null || !ctx.mounted) return;
+        AppToast.show(ctx, message);
+      },
+      child: widget.child,
+    );
   }
 }
 
