@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
+import 'package:xmu_rollcall/app/user_check_icon.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
@@ -21,11 +22,8 @@ class BrandMark extends StatelessWidget {
         color: p.primary.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(AppRadii.control),
       ),
-      child: Icon(
-        Icons.how_to_reg_outlined,
-        size: size * 0.58,
-        color: p.primary,
-      ),
+      alignment: Alignment.center,
+      child: UserCheckIcon(size: size * 0.58, color: p.primary),
     );
   }
 }
@@ -1150,6 +1148,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
         child: SizedBox(
           width: widget.width,
           child: MouseRegion(
+            cursor: SystemMouseCursors.click,
             onEnter: (_) => setState(() => _hover = true),
             onExit: (_) => setState(() => _hover = false),
             child: GestureDetector(
@@ -1237,6 +1236,7 @@ class _AppShellSelectOptionState extends State<_AppShellSelectOption> {
     }
 
     return MouseRegion(
+      cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
@@ -1649,76 +1649,99 @@ class Panel extends StatelessWidget {
 }
 
 /// Apple Settings–style group: optional outer header + inset surface.
+///
+/// Vertical rhythm (proximity): caption hugs its card ([AppSpace.sectionGap]);
+/// groups separate via [AppSpace.settingsGroupTopOf] when [padTop] is true
+/// (default). Pass [padTop]: false for the first group on a page.
 class SettingsSection extends StatelessWidget {
   const SettingsSection({
     super.key,
     this.header,
     required this.children,
     this.footer,
+    this.padTop = true,
+    this.hasLeading = true,
   });
 
   final String? header;
   final List<Widget> children;
   final Widget? footer;
 
+  /// Insert space above this group (card → next caption). Off for page-first.
+  final bool padTop;
+
+  /// When rows have leading icons, indent dividers to the title column.
+  final bool hasLeading;
+
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (header != null) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpace.xs,
-              0,
-              AppSpace.xs,
-              AppSpace.sectionGap,
-            ),
-            child: Text(
-              header!,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 0.2,
-                color: p.muted,
+    final rowPad = AppDensity.rowPadding(context);
+    final dividerIndent = rowPad.left +
+        (hasLeading ? 20 + AppDensity.rowInnerGap(context) : 0);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        top: padTop ? AppSpace.settingsGroupTopOf(context) : 0,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (header != null) ...[
+            Padding(
+              // Caption aligns to card inset — same for every group (not past icons).
+              padding: EdgeInsets.fromLTRB(
+                AppSpace.sm,
+                0,
+                AppSpace.sm,
+                AppSpace.sectionGap,
+              ),
+              child: Text(
+                header!,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  height: 18 / 13,
+                  letterSpacing: 0.15,
+                  color: p.muted,
+                ),
               ),
             ),
-          ),
-        ],
-        Material(
-          color: p.surface,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadii.group),
-            side: BorderSide(color: p.border),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (var i = 0; i < children.length; i++) ...[
-                if (i > 0)
-                  Divider(
-                    height: 1,
-                    thickness: 1,
-                    color: p.border,
-                    indent: AppDensity.rowPadding(context).left,
-                    endIndent: AppDensity.rowPadding(context).right,
-                  ),
-                children[i],
+          ],
+          Material(
+            color: p.surface,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadii.group),
+              side: BorderSide(color: p.border),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < children.length; i++) ...[
+                  if (i > 0)
+                    Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: p.border,
+                      indent: dividerIndent,
+                      endIndent: rowPad.right,
+                    ),
+                  children[i],
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-        if (footer != null) ...[
-          const SizedBox(height: AppSpace.sectionGap),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpace.xs),
-            child: footer!,
-          ),
+          if (footer != null) ...[
+            const SizedBox(height: AppSpace.sectionGap),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
+              child: footer!,
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }

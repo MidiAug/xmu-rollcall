@@ -30,6 +30,7 @@ class MonitorSettingsPage extends ConsumerWidget {
         ),
         children: [
           SettingsSection(
+            padTop: false,
             header: '状态',
             children: [
               SettingsRow(
@@ -50,17 +51,17 @@ class MonitorSettingsPage extends ConsumerWidget {
               ),
             ],
           ),
-          SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
             header: '最近检测',
+            hasLeading: false,
             children: [
               _KvRow(label: '上次检测', value: _fmt(state.lastPollAt)),
               _KvRow(label: '下次预计', value: _fmt(state.nextPollAt)),
             ],
           ),
-          SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
             header: '间隔设置',
+            hasLeading: false,
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(
@@ -145,9 +146,9 @@ class MonitorSettingsPage extends ConsumerWidget {
               ),
             ],
           ),
-          SizedBox(height: AppSpace.stackOf(context)),
           SettingsSection(
             header: '最近记录',
+            hasLeading: false,
             children: [
               if (state.logs.isEmpty)
                 Padding(

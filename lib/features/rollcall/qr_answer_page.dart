@@ -564,6 +564,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
             const SizedBox(height: AppSpace.lg),
             if (!_singleAssist) ...[
               SettingsSection(
+                padTop: false,
                 header: '提交对象',
                 children: [
                   SettingsRow(
@@ -668,6 +669,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
             if (_results.isNotEmpty) ...[
               const SizedBox(height: AppSpace.lg),
               SettingsSection(
+                padTop: false,
                 header: '结果',
                 children: [
                   for (final r in _results)

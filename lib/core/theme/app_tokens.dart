@@ -109,14 +109,25 @@ abstract final class AppSpace {
   /// Narrow-width section stack gap.
   static const stackCompact = 14.0;
 
-  /// Gap between section header and inset group.
-  static const sectionGap = 6.0;
+  /// Gap between settings caption and its inset card (Cupertino header→rows ≈ 6).
+  /// Slightly above 6 so CJK captions don’t sit on the card edge.
+  static const sectionGap = 8.0;
+
+  /// Space above a settings group (previous card → next caption).
+  /// Mirrors Cupertino insetGrouped header top (~16) with Quiet Utility air.
+  static const settingsGroupTop = 28.0;
+
+  /// Narrow-width settings group top gap.
+  static const settingsGroupTopCompact = 22.0;
 
   static double pageXOf(BuildContext context) =>
       AppDensity.isTouch(context) ? pageXCompact : pageX;
 
   static double stackOf(BuildContext context) =>
       AppDensity.isTouch(context) ? stackCompact : stack;
+
+  static double settingsGroupTopOf(BuildContext context) =>
+      AppDensity.isTouch(context) ? settingsGroupTopCompact : settingsGroupTop;
 }
 
 /// Concentric radius ladder (Quiet Utility).

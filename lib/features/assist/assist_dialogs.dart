@@ -224,84 +224,36 @@ class _AssistImportDialogState extends State<_AssistImportDialog> {
   }
 }
 
-/// Export assist token. Same keyboard rules as import (R-19).
+/// Export assist token: pick kind, then export (no credential form).
 Future<void> showAssistExportDialog(
   BuildContext context, {
-  required Future<String> Function({
-    required AssistExportKind kind,
-    String? username,
-    String? password,
-  }) export,
-  String? suggestedUsername,
-  String? savedPassword,
+  required Future<String> Function(AssistExportKind kind) export,
 }) {
   return showDialog<void>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.48),
-    builder: (ctx) => _AssistExportDialog(
-      export: export,
-      suggestedUsername: suggestedUsername,
-      savedPassword: savedPassword,
-    ),
+    builder: (ctx) => _AssistExportDialog(export: export),
   );
 }
 
 class _AssistExportDialog extends StatefulWidget {
-  const _AssistExportDialog({
-    required this.export,
-    this.suggestedUsername,
-    this.savedPassword,
-  });
+  const _AssistExportDialog({required this.export});
 
-  final Future<String> Function({
-    required AssistExportKind kind,
-    String? username,
-    String? password,
-  }) export;
-  final String? suggestedUsername;
-  final String? savedPassword;
+  final Future<String> Function(AssistExportKind kind) export;
 
   @override
   State<_AssistExportDialog> createState() => _AssistExportDialogState();
 }
 
 class _AssistExportDialogState extends State<_AssistExportDialog> {
-  late final TextEditingController _userCtrl;
-  final _passCtrl = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
   var _kind = AssistExportKind.session;
   var _submitting = false;
 
-  bool get _hasSavedPassword =>
-      widget.savedPassword != null && widget.savedPassword!.isNotEmpty;
-
-  @override
-  void initState() {
-    super.initState();
-    _userCtrl = TextEditingController(text: widget.suggestedUsername ?? '');
-  }
-
-  @override
-  void dispose() {
-    _userCtrl.dispose();
-    _passCtrl.dispose();
-    super.dispose();
-  }
-
   Future<void> _submit() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
     FocusManager.instance.primaryFocus?.unfocus();
     setState(() => _submitting = true);
     try {
-      final sealed = await widget.export(
-        kind: _kind,
-        username: _kind == AssistExportKind.account
-            ? _userCtrl.text.trim()
-            : null,
-        password: _kind == AssistExportKind.account
-            ? (_hasSavedPassword ? widget.savedPassword : _passCtrl.text)
-            : null,
-      );
+      final sealed = await widget.export(_kind);
       await Clipboard.setData(ClipboardData(text: sealed));
       if (!mounted) return;
       AppToast.show(context, '已复制到剪贴板');
@@ -323,110 +275,72 @@ class _AssistExportDialogState extends State<_AssistExportDialog> {
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
-        child: SingleChildScrollView(
-          // Do not pad with viewInsets — dialog route already clears the IME (R-19).
+        child: Padding(
           padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  '导出协助码',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: p.ink,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                '导出协助码',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: p.ink,
+                ),
+              ),
+              const SizedBox(height: 14),
+              SegmentedButton<AssistExportKind>(
+                segments: const [
+                  ButtonSegment(
+                    value: AssistExportKind.session,
+                    label: Text('临时会话'),
+                    icon: Icon(Icons.cookie_outlined, size: 16),
                   ),
-                ),
-                const SizedBox(height: 14),
-                SegmentedButton<AssistExportKind>(
-                  segments: const [
-                    ButtonSegment(
-                      value: AssistExportKind.session,
-                      label: Text('临时会话'),
-                      icon: Icon(Icons.cookie_outlined, size: 16),
-                    ),
-                    ButtonSegment(
-                      value: AssistExportKind.account,
-                      label: Text('账号密码'),
-                      icon: Icon(Icons.key_outlined, size: 16),
-                    ),
-                  ],
-                  selected: {_kind},
-                  onSelectionChanged: _submitting
-                      ? null
-                      : (s) => setState(() => _kind = s.first),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _kind == AssistExportKind.session
-                      ? '把当前登录状态做成协助码发给同学。过期后需重新导出，或改用「账号密码」。'
-                      : _hasSavedPassword
-                          ? '将使用本机保存的学号与密码生成协助码。退出登录后会清除保存的密码。'
-                          : '把学号和密码做成协助码发给同学，对方可长期代为登录；你改密码后即失效。',
-                  style: TextStyle(fontSize: 13, height: 1.4, color: p.muted),
-                ),
-                if (_kind == AssistExportKind.account) ...[
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _userCtrl,
-                    enabled: !_submitting,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: '学号'),
-                    validator: (v) => _kind == AssistExportKind.account &&
-                            (v == null || v.trim().isEmpty)
-                        ? '请输入学号'
-                        : null,
+                  ButtonSegment(
+                    value: AssistExportKind.account,
+                    label: Text('账号密码'),
+                    icon: Icon(Icons.key_outlined, size: 16),
                   ),
-                  if (!_hasSavedPassword) ...[
-                    const SizedBox(height: 8),
-                    TextFormField(
-                      controller: _passCtrl,
-                      enabled: !_submitting,
-                      obscureText: true,
-                      textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _submit(),
-                      decoration: const InputDecoration(
-                        labelText: '密码',
-                        hintText: '本次登录未保存密码时需填写',
-                      ),
-                      validator: (v) => _kind == AssistExportKind.account &&
-                              (v == null || v.isEmpty)
-                          ? '请输入密码'
-                          : null,
-                    ),
-                  ],
                 ],
-                const SizedBox(height: 18),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed:
-                            _submitting ? null : () => Navigator.pop(context),
-                        child: const Text('取消'),
-                      ),
+                selected: {_kind},
+                onSelectionChanged: _submitting
+                    ? null
+                    : (s) => setState(() => _kind = s.first),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _kind == AssistExportKind.session
+                    ? '把当前登录状态做成协助码发给同学。过期后需重新导出，或改用「账号密码」。'
+                    : '将使用本机保存的学号与密码生成协助码，对方可长期代为登录；你改密码或退出登录后需重新导出。',
+                style: TextStyle(fontSize: 13, height: 1.4, color: p.muted),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed:
+                          _submitting ? null : () => Navigator.pop(context),
+                      child: const Text('取消'),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: _submitting ? null : _submit,
-                        child: _submitting
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('导出并复制'),
-                      ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _submitting ? null : _submit,
+                      child: _submitting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('导出并复制'),
                     ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
