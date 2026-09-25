@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_notifier/local_notifier.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:xmu_rollcall/app/app_brand.dart';
 import 'package:xmu_rollcall/app/close_ask_dialog.dart';
 import 'package:xmu_rollcall/app/shell_navigation.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
@@ -39,7 +40,7 @@ class DesktopShell with WindowListener, TrayListener, LocalNotificationListener 
 
     try {
       await localNotifier.setup(
-        appName: '畅课签到',
+        appName: kAppDisplayName,
         shortcutPolicy: ShortcutPolicy.requireCreate,
       );
       localNotifier.addListener(this);
@@ -64,7 +65,7 @@ class DesktopShell with WindowListener, TrayListener, LocalNotificationListener 
         ? 'assets/tray/tray_icon.ico'
         : 'assets/tray/tray_icon.png';
     await trayManager.setIcon(icon);
-    await trayManager.setToolTip('畅课签到');
+    await trayManager.setToolTip(kAppDisplayName);
     await trayManager.setContextMenu(
       Menu(
         items: [
@@ -121,7 +122,7 @@ class DesktopShell with WindowListener, TrayListener, LocalNotificationListener 
       if (visible) return;
       final n = LocalNotification(
         identifier: discoveryNotificationId,
-        title: '畅课签到',
+        title: kAppDisplayName,
         body: '发现进行中签到 $count 条，检测已停止',
       );
       n.onClick = showRollcallFromNotification;

@@ -19,7 +19,7 @@ ManifestDPIAware true
   !error "OUT_FILE must be defined"
 !endif
 
-!define PRODUCT_NAME "XMU Rollcall"
+!define PRODUCT_NAME "厦大签到"
 !define PRODUCT_FOLDER "xmu-rollcall"
 !define MAIN_EXE "xmu_rollcall.exe"
 !define UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_FOLDER}"

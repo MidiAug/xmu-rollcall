@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:xmu_rollcall/app/app_brand.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 abstract final class PlatformHooks {
@@ -47,7 +48,7 @@ abstract final class PlatformHooks {
       size: AppLayout.windowSize,
       minimumSize: AppLayout.windowSize,
       maximumSize: AppLayout.windowSize,
-      title: '畅课签到',
+      title: kAppDisplayName,
       titleBarStyle: TitleBarStyle.hidden,
       backgroundColor: Colors.transparent,
     );

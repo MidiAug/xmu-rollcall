@@ -181,7 +181,7 @@ class _MockRollcallCard extends StatelessWidget {
     final isNumber = numberCode != null;
     final metaStyle = TextStyle(
       fontSize: 12,
-      height: 1.3,
+      height: 1.35,
       color: palette.muted,
     );
 
@@ -203,32 +203,32 @@ class _MockRollcallCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.2,
-                          height: 1.25,
-                          color: palette.ink,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpace.xxs),
                       Row(
                         children: [
                           Flexible(
                             child: Text(
-                              teacher,
+                              title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: metaStyle,
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: -0.2,
+                                height: 1.25,
+                                color: palette.ink,
+                              ),
                             ),
                           ),
                           const SizedBox(width: AppSpace.xs),
-                          Text(rollcallTypeZh(type), style: metaStyle),
-                          const SizedBox(width: AppSpace.xs),
-                          _chip(palette, statusLabel),
+                          _statusChip(palette, statusLabel),
                         ],
+                      ),
+                      const SizedBox(height: AppSpace.xxs),
+                      Text(
+                        '$teacher  ${rollcallTypeZh(type)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: metaStyle,
                       ),
                     ],
                   ),
@@ -290,7 +290,7 @@ class _MockRollcallCard extends StatelessWidget {
     );
   }
 
-  Widget _chip(AppPalette palette, String label) {
+  Widget _statusChip(AppPalette palette, String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(

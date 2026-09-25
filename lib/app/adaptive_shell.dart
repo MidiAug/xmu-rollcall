@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:xmu_rollcall/app/app_brand.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
@@ -117,7 +118,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
             backgroundColor: p.canvas,
             body: Column(
               children: [
-                if (showTitleBar) const AppTitleBar(title: '畅课签到'),
+                if (showTitleBar) const AppTitleBar(title: kAppDisplayName),
                 if (showTitleBar) Container(height: 1, color: p.border),
                 Expanded(
                   child: Row(
@@ -146,7 +147,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
             backgroundColor: p.canvas,
             body: Column(
               children: [
-                if (showTitleBar) const AppTitleBar(title: '畅课签到'),
+                if (showTitleBar) const AppTitleBar(title: kAppDisplayName),
                 Expanded(
                   child: SafeArea(
                     // Top inset owned by PageScaffold / SubpageScaffold (R-23).

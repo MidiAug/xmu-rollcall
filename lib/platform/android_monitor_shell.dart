@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:xmu_rollcall/app/app_brand.dart';
 import 'package:xmu_rollcall/app/shell_navigation.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/platform/android_monitor_task.dart';
@@ -138,7 +139,7 @@ class AndroidMonitorShell {
     final result = await FlutterForegroundTask.startService(
       serviceId: _ongoingServiceId,
       serviceTypes: const [ForegroundServiceTypes.dataSync],
-      notificationTitle: '畅课检测中',
+      notificationTitle: '厦大签到检测中',
       notificationText: formatMonitorCountdown(nextPollAt),
       callback: androidMonitorTaskCallback,
     );
@@ -163,7 +164,7 @@ class AndroidMonitorShell {
       FlutterForegroundTask.sendDataToTask({'nextPollAtMs': ms});
     }
     await FlutterForegroundTask.updateService(
-      notificationTitle: '畅课检测中',
+      notificationTitle: '厦大签到检测中',
       notificationText: formatMonitorCountdown(nextPollAt),
     );
   }
@@ -198,7 +199,7 @@ class AndroidMonitorShell {
       );
       await _plugin.show(
         id: _discoveryNotificationId,
-        title: '畅课签到',
+        title: kAppDisplayName,
         body: '发现进行中签到 $count 条，检测已停止',
         notificationDetails: details,
         payload: _discoveryPayload,

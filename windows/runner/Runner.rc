@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "cn.edu.xmu.rollcall" "\0"
-            VALUE "FileDescription", "xmu_rollcall" "\0"
+            VALUE "FileDescription", "厦大签到" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "xmu_rollcall" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 cn.edu.xmu.rollcall. All rights reserved." "\0"
             VALUE "OriginalFilename", "xmu_rollcall.exe" "\0"
-            VALUE "ProductName", "xmu_rollcall" "\0"
+            VALUE "ProductName", "厦大签到" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

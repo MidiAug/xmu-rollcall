@@ -334,13 +334,19 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     );
   }
 
-  /// Identify: course title + muted meta; non-number CTA on the right.
+  /// Identify: title + status chip on L1; teacher + type (space, no `·`) on L2.
   Widget _identifyHeader(
     AppPalette palette,
     RollcallItem item,
     String title,
   ) {
     final cta = _secondaryCta(item);
+    final teacher = item.createdByName.trim();
+    final metaStyle = TextStyle(
+      fontSize: 12,
+      height: 1.35,
+      color: palette.muted,
+    );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -348,9 +354,32 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: _titleStyle(palette)),
-              const SizedBox(height: AppSpace.xxs),
-              _metaLine(palette, item),
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _titleStyle(palette),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpace.xs),
+                  _statusChip(palette, item),
+                ],
+              ),
+              if (teacher.isNotEmpty || item.typeLabel.isNotEmpty) ...[
+                const SizedBox(height: AppSpace.xxs),
+                Text(
+                  [
+                    if (teacher.isNotEmpty) teacher,
+                    if (item.typeLabel.isNotEmpty) item.typeLabel,
+                  ].join('  '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: metaStyle,
+                ),
+              ],
             ],
           ),
         ),
@@ -410,33 +439,6 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
           height: 1.2,
         ),
       ),
-    );
-  }
-
-  Widget _metaLine(AppPalette palette, RollcallItem item) {
-    final teacher = item.createdByName.trim();
-    final metaStyle = TextStyle(
-      fontSize: 12,
-      height: 1.3,
-      color: palette.muted,
-    );
-    return Row(
-      children: [
-        if (teacher.isNotEmpty) ...[
-          Flexible(
-            child: Text(
-              teacher,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: metaStyle,
-            ),
-          ),
-          const SizedBox(width: AppSpace.xs),
-        ],
-        Text(item.typeLabel, style: metaStyle),
-        const SizedBox(width: AppSpace.xs),
-        _statusChip(palette, item),
-      ],
     );
   }
 

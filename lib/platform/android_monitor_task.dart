@@ -67,7 +67,7 @@ class AndroidMonitorTaskHandler extends TaskHandler {
 
   void _refreshNotification() {
     FlutterForegroundTask.updateService(
-      notificationTitle: '畅课检测中',
+      notificationTitle: '厦大签到检测中',
       notificationText: formatMonitorCountdown(_nextPollAt),
     );
   }

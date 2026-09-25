@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/adaptive_shell.dart';
+import 'package:xmu_rollcall/app/app_brand.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
@@ -30,7 +31,7 @@ class XmuRollcallApp extends ConsumerWidget {
 
     Widget app = MaterialApp(
       navigatorKey: _rootNavigatorKey,
-      title: 'xmu-rollcall',
+      title: kAppDisplayName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),

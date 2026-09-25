@@ -112,14 +112,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('畅课签到'), findsOneWidget);
+      expect(find.text('厦大签到'), findsOneWidget);
 
       await tester.tap(find.byTooltip('签到记录'));
       await tester.pumpAndSettle();
 
       expect(find.text('签到记录'), findsWidgets);
       expect(find.byTooltip('返回'), findsOneWidget);
-      expect(find.text('畅课签到'), findsNothing);
+      expect(find.text('厦大签到'), findsNothing);
       expect(
         find.descendant(
           of: find.byType(AppTitleBar),
@@ -130,7 +130,7 @@ void main() {
 
       await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
-      expect(find.text('畅课签到'), findsOneWidget);
+      expect(find.text('厦大签到'), findsOneWidget);
     },
     skip: !PlatformHooks.isDesktop,
   );
