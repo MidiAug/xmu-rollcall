@@ -1,11 +1,23 @@
 import 'dart:convert';
 
 /// Final redaction / scrub / UTF-8 truncate before Memory or File sink.
+///
+/// Policy **denylist_v1** (2026-09-29): drop secret keys; scrub patterns in
+/// strings; never invent `[omit]` placeholders for unknown fields.
 abstract final class LogRedactor {
+  /// Default envelope / small-field budget.
   static const maxUtf8Bytes = 2048;
 
-  static const _sensitiveKeyFragments = [
+  /// Budget for list/HTTP projection maps (radar items, etc.).
+  static const maxProjectionUtf8Bytes = 8192;
+
+  /// Exact key names (case-insensitive). Do not use over-broad fragments
+  /// like `data` / `qr` that drop diagnostic fields.
+  static const _sensitiveKeys = {
     'cookie',
+    'cookies',
+    'set-cookie',
+    'set_cookie',
     'authorization',
     'token',
     'access_token',
@@ -13,10 +25,9 @@ abstract final class LogRedactor {
     'password',
     'passwd',
     'credential',
+    'credentials',
     'secret',
-    'qr',
-    'data',
-  ];
+  };
 
   static final _scrubPatterns = <RegExp>[
     RegExp(r'cookie\s*=\s*[^\s;&]+', caseSensitive: false),
@@ -24,18 +35,22 @@ abstract final class LogRedactor {
     RegExp(r'Bearer\s+[A-Za-z0-9\-._~+/]+=*', caseSensitive: false),
     RegExp(r'token\s*=\s*[^\s;&]+', caseSensitive: false),
     RegExp(r'password\s*=\s*[^\s;&]+', caseSensitive: false),
-    RegExp(r'[?&](code|password|token|access_token)=[^&\s]+', caseSensitive: false),
+    RegExp(
+      r'[?&](code|password|token|access_token)=[^&\s]+',
+      caseSensitive: false,
+    ),
   ];
 
-  /// Redact [fields] in place (returns new map). Never throws to caller — on
-  /// failure returns a minimal `{event}`-safe map via [fallbackEvent].
+  /// Redact [fields] (returns new map). Never throws — on failure returns a
+  /// minimal `{event}`-safe map via [fallbackEvent].
   static Map<String, dynamic> redactFields(
     Map<String, dynamic>? fields, {
     String? fallbackEvent,
+    int maxBytes = maxUtf8Bytes,
   }) {
     try {
       if (fields == null || fields.isEmpty) return {};
-      return _redactValue(fields) as Map<String, dynamic>;
+      return _redactValue(fields, maxBytes: maxBytes) as Map<String, dynamic>;
     } catch (_) {
       return fallbackEvent == null
           ? <String, dynamic>{}
@@ -64,10 +79,10 @@ abstract final class LogRedactor {
       final need = (b & 0xE0) == 0xC0
           ? 2
           : (b & 0xF0) == 0xE0
-              ? 3
-              : (b & 0xF8) == 0xF0
-                  ? 4
-                  : 1;
+          ? 3
+          : (b & 0xF8) == 0xF0
+          ? 4
+          : 1;
       if (end - 1 + need > maxBytes) {
         end--;
       }
@@ -83,9 +98,7 @@ abstract final class LogRedactor {
     String? message,
     String? source,
   }) {
-    final fields = <String, dynamic>{
-      'errorType': error.runtimeType.toString(),
-    };
+    final fields = <String, dynamic>{'errorType': error.runtimeType.toString()};
     if (status != null) fields['status'] = status;
     if (message != null && message.isNotEmpty) {
       fields['message'] = scrubString(message);
@@ -99,25 +112,24 @@ abstract final class LogRedactor {
     return fields;
   }
 
-  static dynamic _redactValue(dynamic value) {
+  static dynamic _redactValue(dynamic value, {required int maxBytes}) {
     if (value is Map) {
       final out = <String, dynamic>{};
       for (final entry in value.entries) {
         final key = entry.key.toString();
         if (_isSensitiveKey(key)) {
-          // Drop value entirely for sensitive keys (design: 未知字段默认丢弃值).
           continue;
         }
-        out[key] = _redactValue(entry.value);
+        out[key] = _redactValue(entry.value, maxBytes: maxBytes);
       }
       final encoded = utf8.encode(jsonEncode(out));
-      if (encoded.length > maxUtf8Bytes) {
-        return _truncateMap(out);
+      if (encoded.length > maxBytes) {
+        return _truncateMap(out, maxBytes: maxBytes);
       }
       return out;
     }
     if (value is List) {
-      return value.map(_redactValue).toList();
+      return value.map((e) => _redactValue(e, maxBytes: maxBytes)).toList();
     }
     if (value is String) {
       return scrubString(value);
@@ -126,14 +138,20 @@ abstract final class LogRedactor {
   }
 
   static bool _isSensitiveKey(String key) {
-    final lower = key.toLowerCase();
-    return _sensitiveKeyFragments.contains(lower);
+    final lower = key.toLowerCase().trim();
+    if (_sensitiveKeys.contains(lower)) return true;
+    // Compound keys like "Set-Cookie" already covered; also "foo_password".
+    if (lower.endsWith('_password') || lower.endsWith('_token')) return true;
+    if (lower.contains('cookie') && !lower.contains('hascookie')) return true;
+    return false;
   }
 
-  static Map<String, dynamic> _truncateMap(Map<String, dynamic> map) {
-    // Prefer keeping short keys; drop longest string values until under limit.
+  static Map<String, dynamic> _truncateMap(
+    Map<String, dynamic> map, {
+    required int maxBytes,
+  }) {
     final out = Map<String, dynamic>.from(map);
-    while (utf8.encode(jsonEncode(out)).length > maxUtf8Bytes && out.isNotEmpty) {
+    while (utf8.encode(jsonEncode(out)).length > maxBytes && out.isNotEmpty) {
       String? longestKey;
       var longestLen = -1;
       for (final e in out.entries) {
@@ -147,8 +165,11 @@ abstract final class LogRedactor {
         out.remove(out.keys.last);
       } else {
         final s = out[longestKey] as String;
-        out[longestKey] = truncateUtf8(s, (s.length / 2).ceil().clamp(1, maxUtf8Bytes));
-        if (utf8.encode(jsonEncode(out)).length > maxUtf8Bytes) {
+        out[longestKey] = truncateUtf8(
+          s,
+          (s.length / 2).ceil().clamp(1, maxBytes),
+        );
+        if (utf8.encode(jsonEncode(out)).length > maxBytes) {
           out.remove(longestKey);
         }
       }

@@ -12,9 +12,11 @@ import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
 import 'package:xmu_rollcall/features/settings/close_prefs_controller.dart';
 import 'package:xmu_rollcall/features/settings/courses_page.dart';
+import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
+import 'package:xmu_rollcall/features/settings/desktop_notification_settings_page.dart';
 import 'package:xmu_rollcall/features/settings/settings_assist_page.dart';
 import 'package:xmu_rollcall/features/settings/settings_data_page.dart';
-import 'package:xmu_rollcall/platform/android_monitor_shell.dart';
+import 'package:xmu_rollcall/features/settings/about_page.dart';
 import 'package:xmu_rollcall/platform/close_prefs.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
@@ -77,11 +79,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     final p = AppPalette.of(context);
 
     final accountSubtitle = !auth.isSignedIn
-        ? '使用学号密码登录'
+        ? (auth.errorMessage ?? '使用学号密码登录')
         : (auth.profile?.studentNo ??
-            (auth.profile?.email?.isNotEmpty == true
-                ? auth.profile!.email!
-                : '已登录'));
+              (auth.profile?.email?.isNotEmpty == true
+                  ? auth.profile!.email!
+                  : '已登录'));
 
     return PageScaffold(
       title: '我的',
@@ -102,8 +104,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               children: [
                 SettingsRow(
                   leading: const BrandMark(size: 36),
-                  title:
-                      auth.isSignedIn ? (auth.profile?.name ?? '已登录') : '未登录',
+                  title: auth.isSignedIn
+                      ? (auth.profile?.name ?? '已登录')
+                      : '未登录',
                   subtitle: accountSubtitle,
                   trailing: auth.isSignedIn
                       ? TextButton(
@@ -183,38 +186,39 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
                   onTap: !auth.isSignedIn
                       ? null
-                      : () =>
-                          AppPageRoutes.push(context, const CoursesPage()),
+                      : () => AppPageRoutes.push(context, const CoursesPage()),
                 ),
                 SettingsRow(
                   leading: const Icon(Icons.place_outlined),
                   title: '常用地点',
                   subtitle: '管理签到时常用的位置',
                   trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
-                  onTap: () => AppPageRoutes.push(
-                    context,
-                    const SavedLocationsPage(),
-                  ),
+                  onTap: () =>
+                      AppPageRoutes.push(context, const SavedLocationsPage()),
                 ),
               ],
             ),
-            if (PlatformHooks.isAndroid)
+            if (PlatformHooks.isAndroid || PlatformHooks.isDesktop)
               SettingsSection(
                 header: '检测',
                 children: [
                   SettingsRow(
                     leading: const Icon(Icons.notifications_active_outlined),
-                    title: '后台提醒',
-                    subtitle: '开启自动检测后，通知栏显示倒计时；发现签到会另发提醒',
-                  ),
-                  SettingsRow(
-                    leading: const Icon(Icons.battery_saver_outlined),
-                    title: '省电白名单',
-                    subtitle: '部分手机需允许，否则回桌后可能停检',
-                    trailing:
-                        Icon(Icons.chevron_right, color: p.muted, size: 18),
-                    onTap: () => AndroidMonitorShell.instance
-                        .openBatteryOptimizationSettings(),
+                    title: PlatformHooks.isDesktop ? '桌面提醒' : '后台提醒',
+                    subtitle: PlatformHooks.isDesktop
+                        ? '测试系统通知，检查托盘状态'
+                        : '自动检查，一次确认锁屏提醒',
+                    trailing: Icon(
+                      Icons.chevron_right,
+                      color: p.muted,
+                      size: 18,
+                    ),
+                    onTap: () => AppPageRoutes.push(
+                      context,
+                      PlatformHooks.isDesktop
+                          ? const DesktopNotificationSettingsPage()
+                          : const NotificationSettingsPage(),
+                    ),
                   ),
                 ],
               ),
@@ -228,20 +232,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                       ? '已导入 ${assist.identities.length} 人'
                       : '导出或导入协助身份',
                   trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
-                  onTap: () => AppPageRoutes.push(
-                    context,
-                    const SettingsAssistPage(),
-                  ),
+                  onTap: () =>
+                      AppPageRoutes.push(context, const SettingsAssistPage()),
                 ),
                 SettingsRow(
                   leading: const Icon(Icons.storage_outlined),
                   title: '数据与诊断',
                   subtitle: '清除课程数据、本机标识与日志',
                   trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
-                  onTap: () => AppPageRoutes.push(
-                    context,
-                    const SettingsDataPage(),
-                  ),
+                  onTap: () =>
+                      AppPageRoutes.push(context, const SettingsDataPage()),
+                ),
+                SettingsRow(
+                  leading: const Icon(Icons.info_outline_rounded),
+                  title: '关于',
+                  subtitle: '软件介绍与版本信息',
+                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  onTap: () => AppPageRoutes.push(context, const AboutPage()),
                 ),
               ],
             ),

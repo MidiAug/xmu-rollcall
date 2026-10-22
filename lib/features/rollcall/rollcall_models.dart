@@ -1,5 +1,38 @@
 enum RollcallType { number, radar, qrcode, unknown }
 
+RollcallType resolveRollcallType(Map<String, dynamic> data) {
+  bool enabled(String key) =>
+      data[key] == true || data[key] == 1 || data[key] == 'true';
+  if (enabled('is_radar')) return RollcallType.radar;
+  if (enabled('is_number')) return RollcallType.number;
+  if (enabled('is_qrcode') || enabled('is_qr') || enabled('is_qr_code')) {
+    return RollcallType.qrcode;
+  }
+  for (final key in ['type', 'source', 'rollcall_type']) {
+    final value = '${data[key] ?? ''}'.trim().toLowerCase().replaceAll(
+      '-',
+      '_',
+    );
+    if (const {
+      'qr',
+      'qrcode',
+      'qr_code',
+      'qr_rollcall',
+      'qrcode_rollcall',
+      'qr_code_rollcall',
+    }.contains(value)) {
+      return RollcallType.qrcode;
+    }
+    if (const {'radar', 'radar_rollcall'}.contains(value)) {
+      return RollcallType.radar;
+    }
+    if (const {'number', 'number_rollcall'}.contains(value)) {
+      return RollcallType.number;
+    }
+  }
+  return RollcallType.unknown;
+}
+
 class RollcallItem {
   const RollcallItem({
     required this.rollcallId,
@@ -27,7 +60,7 @@ class RollcallItem {
   final bool scored;
   final Map<String, dynamic> raw;
 
-  /// Populated for [RollcallType.number] after `student_rollcalls` fetch.
+  /// Populated for [RollcallType.number] after the timetable rollcall fetch.
   final String? numberCode;
 
   /// Set when number fetch failed or field missing.
@@ -39,9 +72,29 @@ class RollcallItem {
   bool get isRadar => type == RollcallType.radar;
   bool get isQrcode => type == RollcallType.qrcode;
 
+  Map<String, dynamic> toMonitorJson() => {
+    ...raw,
+    'rollcall_id': rollcallId,
+    'course_title': courseTitle,
+    'created_by_name': createdByName,
+    'department_name': departmentName,
+    'is_number': isNumber,
+    'is_radar': isRadar,
+    'is_qrcode': isQrcode,
+    'status': status,
+    'rollcall_status': rollcallStatus,
+    'is_expired': isExpired,
+    'scored': scored,
+  };
+
   /// Best-effort course id from list payload (for assist same-course filter).
   String? get courseId {
-    for (final k in const ['course_id', 'courseId', 'cid', 'teaching_unit_id']) {
+    for (final k in const [
+      'course_id',
+      'courseId',
+      'cid',
+      'teaching_unit_id',
+    ]) {
       final v = raw[k];
       if (v != null && '$v'.trim().isNotEmpty) return '$v'.trim();
     }
@@ -49,11 +102,11 @@ class RollcallItem {
   }
 
   String get typeLabel => switch (type) {
-        RollcallType.number => '数字',
-        RollcallType.radar => '雷达',
-        RollcallType.qrcode => '二维码',
-        RollcallType.unknown => '未知',
-      };
+    RollcallType.number => '数字',
+    RollcallType.radar => '雷达',
+    RollcallType.qrcode => '二维码',
+    RollcallType.unknown => '未知',
+  };
 
   RollcallItem copyWith({
     String? numberCode,
@@ -80,15 +133,7 @@ class RollcallItem {
   }
 
   factory RollcallItem.fromJson(Map<String, dynamic> d) {
-    final isNumber = d['is_number'] == true;
-    final isRadar = d['is_radar'] == true;
-    final type = isRadar
-        ? RollcallType.radar
-        : isNumber
-            ? RollcallType.number
-            : (d['is_qrcode'] == true
-                ? RollcallType.qrcode
-                : RollcallType.unknown);
+    final type = resolveRollcallType(d);
 
     return RollcallItem(
       rollcallId: (d['rollcall_id'] as num).toInt(),
@@ -137,13 +182,13 @@ class RollcallHistoryEntry {
   final String? detail;
 
   Map<String, dynamic> toJson() => {
-        'rollcallId': rollcallId,
-        'courseTitle': courseTitle,
-        'typeLabel': typeLabel,
-        'ok': ok,
-        'at': at.toIso8601String(),
-        'detail': detail,
-      };
+    'rollcallId': rollcallId,
+    'courseTitle': courseTitle,
+    'typeLabel': typeLabel,
+    'ok': ok,
+    'at': at.toIso8601String(),
+    'detail': detail,
+  };
 
   factory RollcallHistoryEntry.fromJson(Map<String, dynamic> j) {
     return RollcallHistoryEntry(
@@ -179,8 +224,7 @@ class CourseRollcallRecord {
   final String platformStatus;
   final String detail;
 
-  bool get isPlaceholder =>
-      rollcallId == '-' || signedStatus.contains('无签到');
+  bool get isPlaceholder => rollcallId == '-' || signedStatus.contains('无签到');
 
   String get timeLabel {
     final t = rollcallTime;
@@ -189,15 +233,15 @@ class CourseRollcallRecord {
   }
 
   Map<String, dynamic> toJson() => {
-        'courseId': courseId,
-        'courseTitle': courseTitle,
-        'rollcallId': rollcallId,
-        'rollcallTime': rollcallTime?.toIso8601String(),
-        'typeLabel': typeLabel,
-        'signedStatus': signedStatus,
-        'platformStatus': platformStatus,
-        'detail': detail,
-      };
+    'courseId': courseId,
+    'courseTitle': courseTitle,
+    'rollcallId': rollcallId,
+    'rollcallTime': rollcallTime?.toIso8601String(),
+    'typeLabel': typeLabel,
+    'signedStatus': signedStatus,
+    'platformStatus': platformStatus,
+    'detail': detail,
+  };
 
   factory CourseRollcallRecord.fromJson(Map<String, dynamic> j) {
     return CourseRollcallRecord(

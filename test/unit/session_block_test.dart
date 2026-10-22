@@ -40,7 +40,7 @@ void main() {
 
   test('overlap / big break 16:15 prefers next block 7-8', () {
     final blocks = _afternoonTwoBlocks();
-    // 5-6 window ends 16:15; 7-8 window starts 16:15
+    // 5-6 window ends 16:35; 7-8 window starts 16:15
     expect(resolveBlock(blocks, _t(16, 15))?.id, '7-8');
   });
 

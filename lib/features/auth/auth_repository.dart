@@ -3,15 +3,13 @@ import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/session/session_key.dart';
+import 'package:xmu_rollcall/core/session/cookie_codec.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/ids_password.dart';
 
 class AuthRepository {
-  AuthRepository({
-    required this.http,
-    required this.store,
-  });
+  AuthRepository({required this.http, required this.store});
 
   final TronHttpClient http;
   final SecureStore store;
@@ -19,16 +17,21 @@ class AuthRepository {
   Future<String?> lastUsername() => store.read(SecureStore.keyLastUsername);
 
   Future<String?> savedPassword() => store.read(SecureStore.keyOwnerPassword);
+  Future<bool> remembersPassword() async =>
+      await store.read(SecureStore.keyRememberPassword) == 'true' ||
+      (await store.read(SecureStore.keyRememberPassword) == null &&
+          await savedPassword() != null);
 
   Future<bool> hasStoredCookies() async {
     final raw = await store.read(SessionKey.owner.secureCookieKey);
-    return raw != null && raw.isNotEmpty;
+    return raw != null && decodeCookies(raw).isNotEmpty;
   }
 
   /// xmulogin type=3: IDS form POST → OAuth code → token → TronClass session.
   Future<UserProfile> signIn({
     required String username,
     required String password,
+    bool rememberPassword = false,
   }) async {
     await http.init();
     await http.clearSession();
@@ -36,11 +39,7 @@ class AuthRepository {
     AppLog.event('login.step', fields: {'step': 'fetch_form'});
     final form = await _fetchLoginForm();
     if (idsFormLooksLikeCaptcha(form.html)) {
-      AppLog.event(
-        'login.step',
-        level: 'W',
-        fields: {'step': 'captcha'},
-      );
+      AppLog.event('login.step', level: 'W', fields: {'step': 'captcha'});
       throw AuthException('登录页出现验证码，请稍后再试，勿连续重试');
     }
     final fields = parseIdsLoginForm(form.html);
@@ -90,11 +89,13 @@ class AuthRepository {
     AppLog.event('login.step', fields: {'step': 'oauth_token'});
     final profile = await completeOAuthCode(code);
     await store.write(SecureStore.keyLastUsername, username);
-    await store.write(SecureStore.keyOwnerPassword, password);
-    AppLog.event(
-      'login.step',
-      fields: {'step': 'done', 'userId': profile.id},
-    );
+    await store.write(SecureStore.keyRememberPassword, '$rememberPassword');
+    if (rememberPassword) {
+      await store.write(SecureStore.keyOwnerPassword, password);
+    } else {
+      await store.delete(SecureStore.keyOwnerPassword);
+    }
+    AppLog.event('login.step', fields: {'step': 'done', 'userId': profile.id});
     return profile;
   }
 
@@ -136,8 +137,8 @@ class AuthRepository {
 
   Future<UserProfile> completeOAuthCode(String code) async {
     await http.init();
-    final tokenRes = await http.dio.post<Map<String, dynamic>>(
-      TronEndpoints.tokenUri().toString(),
+    final tokenRes = await http.postUri<Map<String, dynamic>>(
+      TronEndpoints.tokenUri(),
       data: {
         'client_id': TronEndpoints.clientId,
         'grant_type': 'authorization_code',
@@ -167,20 +168,36 @@ class AuthRepository {
     await http.init();
     try {
       return await fetchProfile();
-    } on DioException {
-      return null;
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 401 ||
+          error.response?.statusCode == 403) {
+        return null;
+      }
+      rethrow;
     } on AuthException {
       return null;
     }
   }
 
+  Future<UserProfile?> cachedProfile() async {
+    final id = int.tryParse(await store.read(SecureStore.keyUserId) ?? '');
+    if (id == null || id == 0) return null;
+    return UserProfile(
+      id: id,
+      name: await store.read(SecureStore.keyUserDisplayName) ?? '用户',
+    );
+  }
+
   Future<UserProfile> fetchProfile() async {
-    final res = await http.getUri<Map<String, dynamic>>(TronEndpoints.profile());
+    final res = await http.getUri<Map<String, dynamic>>(
+      TronEndpoints.profile(),
+    );
     final data = res.data;
     if (data == null) {
       throw AuthException('资料接口无数据');
     }
     final profile = UserProfile.fromJson(data);
+    if (profile.id == 0) throw AuthException('资料接口返回无效账号');
     await store.write(SecureStore.keyUserDisplayName, profile.name);
     await store.write(SecureStore.keyUserId, '${profile.id}');
     await http.persistCookies();

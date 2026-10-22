@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +12,7 @@ import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/logging/rollcall_log.dart';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/core/session/session_key.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -17,11 +20,14 @@ import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/assist/assist_qr_batch.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/qr_payload.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
+import 'package:xmu_rollcall/core/session/session_credential.dart';
 import 'package:xmu_rollcall/features/rollcall/qr_scan_camera_page.dart';
 import 'package:xmu_rollcall/features/rollcall/qr_selection_store.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
+import 'package:xmu_rollcall/platform/desktop_qr_scanner.dart';
 
 /// QR secondary page: select targets → scan once → serial submit.
 class QrAnswerPage extends ConsumerStatefulWidget {
@@ -48,7 +54,12 @@ class _EligibleRow {
   const _EligibleRow({
     required this.identity,
     required this.eligibility,
+    this.directSession = false,
   });
+
+  final bool directSession;
+  SessionKey get key =>
+      directSession ? SessionKey.owner : SessionKey.assist(identity.userId);
 
   final AssistIdentity identity;
   final AssistQrEligibility eligibility;
@@ -63,12 +74,23 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
   List<_EligibleRow> _rows = const [];
   bool _loadingEligible = false;
   bool _submitting = false;
+  bool _scanning = false;
+  bool _primaryDone = false;
+  final Set<int> _completedAssist = {};
+  int? _ownerUserId;
+  int? _selectedScopeAtOpen;
   List<AssistQrSubmitResult> _results = const [];
   String? _status;
   QrSelectionStore? _selStore;
+  String? get _selectionCourseId {
+    final courseId = widget.item.courseId;
+    if (courseId == null) return null;
+    return widget.assistUserId == null
+        ? courseId
+        : '${courseId}_primary_${widget.assistUserId}';
+  }
 
-  bool get _singleAssist =>
-      widget.assistUserId != null || !widget.enableAssistMulti;
+  bool get _singleAssist => !widget.enableAssistMulti;
 
   bool get _cameraSupported {
     if (kIsWeb) return false;
@@ -81,15 +103,20 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
     }
   }
 
+  bool get _desktopSupported => DesktopQrScanner.supported;
+
   @override
   void initState() {
     super.initState();
+    _ownerUserId = ref.read(authControllerProvider).profile?.id;
+    _selectedScopeAtOpen = ref.read(selectedRollcallAccountProvider);
+    _primaryDone = widget.item.isAnswered || widget.item.isExpired;
+    _includeOwner = !_primaryDone;
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       if (_singleAssist) {
         setState(() {
-          _status = widget.assistUserId != null
-              ? '将以该协助身份提交（不勾选他人）'
-              : null;
+          _status = widget.assistUserId != null ? '仅为当前账号提交' : null;
         });
         return;
       }
@@ -99,6 +126,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
 
   @override
   void dispose() {
+    if (_scanning && _desktopSupported) unawaited(DesktopQrScanner.cancel());
     _dataCtrl.dispose();
     super.dispose();
   }
@@ -113,25 +141,16 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
 
   Future<void> _prepareEligible() async {
     final assist = ref.read(assistControllerProvider);
-    if (assist.identities.isEmpty) {
+    if (assist.identities.isEmpty && widget.assistUserId == null) {
       setState(() {
         _rows = const [];
         _status = null;
-        _includeOwner = true;
+        _includeOwner = !_primaryDone;
         _selectedAssist.clear();
       });
       return;
     }
     final courseId = widget.item.courseId;
-    if (courseId == null) {
-      setState(() {
-        _rows = const [];
-        _status = '无法确认同课协助对象，将只提交本人';
-        _includeOwner = true;
-        _selectedAssist.clear();
-      });
-      return;
-    }
 
     setState(() {
       _loadingEligible = true;
@@ -139,44 +158,107 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
     });
 
     try {
-      final sameCourse = filterAssistBySharedCache(
-        courseId: courseId,
-        identities: assist.identities,
-      );
+      // Import-time intersections can be stale. The same active event proves
+      // same-course eligibility even if its course id is absent from the list.
+      final candidates = assist.identities
+          .where((a) => a.userId != widget.assistUserId)
+          .toList();
 
+      final profile = ref.read(authControllerProvider).profile;
+      if (widget.assistUserId != null &&
+          profile != null &&
+          !candidates.any((a) => a.userId == profile.id)) {
+        candidates.add(
+          AssistIdentity(
+            userId: profile.id,
+            displayName: profile.name,
+            kind: AssistCredentialKind.session,
+          ),
+        );
+      }
       final registry = ref.read(sessionClientRegistryProvider);
       final identity = ref.read(deviceIdentityProvider);
       final assistSvc = await ref.read(assistServiceProvider.future);
       final rows = <_EligibleRow>[];
 
-      for (final a in sameCourse) {
+      for (final a in candidates) {
+        _checkSession();
+        final directSession =
+            widget.assistUserId != null && a.userId == _ownerUserId;
         AssistQrEligibility elig = AssistQrEligibility.unknown;
         try {
-          await assistSvc.ensureSession(a);
-          final client = registry.forKey(SessionKey.assist(a.userId));
+          if (!directSession) await assistSvc.ensureSession(a);
+          final client = registry.forKey(
+            directSession ? SessionKey.owner : SessionKey.assist(a.userId),
+          );
           await client.init();
           final repo = RollcallRepository(http: client, identity: identity);
           final active = await repo.fetchActive();
+          _checkSession();
+          if (!active.any(
+                (item) => item.rollcallId == widget.item.rollcallId,
+              ) &&
+              !a.sharesCourse(courseId)) {
+            continue;
+          }
           elig = eligibilityFromActiveList(
             rollcallId: widget.item.rollcallId,
             active: active,
           );
-        } catch (_) {
+        } catch (error) {
+          AppLog.event(
+            'qr.eligibility.error',
+            level: 'W',
+            fields: {
+              'rollcallId': widget.item.rollcallId,
+              'assistUserId': a.userId,
+              'errorType': error.runtimeType.toString(),
+            },
+          );
+          if (!a.sharesCourse(courseId)) continue;
           elig = AssistQrEligibility.unknown;
         }
-        rows.add(_EligibleRow(identity: a, eligibility: elig));
+        if (_completedAssist.contains(a.userId)) {
+          elig = AssistQrEligibility.signedOrDone;
+        }
+        AppLog.event(
+          'qr.eligibility.result',
+          fields: {
+            'rollcallId': widget.item.rollcallId,
+            'assistUserId': a.userId,
+            'eligibility': elig.name,
+          },
+        );
+        rows.add(
+          _EligibleRow(
+            identity: a,
+            eligibility: elig,
+            directSession: directSession,
+          ),
+        );
         await Future<void>.delayed(const Duration(milliseconds: 80));
       }
 
-      final store = await _store();
-      final saved = await store.read(courseId);
+      _checkSession();
+      QrSelectionSnapshot? saved;
+      try {
+        final store = await _store();
+        final key = _selectionCourseId;
+        saved = key == null ? null : await store.read(key);
+      } catch (error) {
+        AppLog.event(
+          'qr.selection.restore_failed',
+          level: 'W',
+          fields: {'errorType': error.runtimeType.toString()},
+        );
+      }
 
       if (!mounted) return;
       setState(() {
         _rows = rows;
         _selectedAssist.clear();
         if (saved != null) {
-          _includeOwner = saved.includeOwner;
+          _includeOwner = saved.includeOwner && !_primaryDone;
           for (final id in saved.assistUserIds) {
             final row = rows.where((r) => r.identity.userId == id);
             if (row.isNotEmpty && row.first.canSelect) {
@@ -184,19 +266,27 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
             }
           }
         } else {
-          _includeOwner = true;
+          _includeOwner = !_primaryDone;
         }
         final unsigned = rows.where((r) => r.canSelect).length;
-        _status = sameCourse.isEmpty
-            ? '无同课协助身份（导入时会缓存同课）'
-            : '同课 ${sameCourse.length} 人，其中未签 $unsigned 人可勾选'
-                '${saved != null ? '；已恢复本课上次勾选' : '；默认仅本人'}';
+        _status = rows.isEmpty
+            ? '暂无其他同课签到对象'
+            : '同课 ${rows.length} 人，其中未签 $unsigned 人可勾选'
+                  '${saved != null ? '；已恢复本课上次勾选' : '；默认仅当前账号'}';
       });
     } catch (e) {
+      AppLog.event(
+        'qr.eligibility.error',
+        level: 'W',
+        fields: {
+          'rollcallId': widget.item.rollcallId,
+          'errorType': e.runtimeType.toString(),
+        },
+      );
       if (!mounted) return;
       setState(() {
         _rows = const [];
-        _status = '核对协助对象失败：$e';
+        _status = '核对其他账号失败：$e';
       });
     } finally {
       if (mounted) setState(() => _loadingEligible = false);
@@ -204,7 +294,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
   }
 
   Future<void> _persistSelection() async {
-    final courseId = widget.item.courseId;
+    final courseId = _selectionCourseId;
     if (courseId == null || _singleAssist) return;
     final store = await _store();
     await store.write(
@@ -220,7 +310,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
     final text = data?.text;
     if (text == null || text.isEmpty) return;
-    setState(() => _dataCtrl.text = text);
+    if (mounted) setState(() => _dataCtrl.text = text);
   }
 
   List<AssistQrTarget> _buildTargets() {
@@ -239,7 +329,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
         targets.add(
           AssistQrTarget(
             key: SessionKey.assist(assistId),
-            label: meta?.displayName ?? '协助',
+            label: meta?.displayName ?? '账号',
             userId: assistId,
             deviceId: meta?.deviceId,
           ),
@@ -259,11 +349,20 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
 
     if (_includeOwner) {
       final profile = ref.read(authControllerProvider).profile;
+      final primaryId = widget.assistUserId;
+      final primary = ref
+          .read(assistControllerProvider)
+          .identities
+          .where((a) => a.userId == primaryId)
+          .firstOrNull;
       targets.add(
         AssistQrTarget(
-          key: SessionKey.owner,
-          label: profile?.name ?? '我',
-          userId: profile?.id ?? 0,
+          key: primaryId == null
+              ? SessionKey.owner
+              : SessionKey.assist(primaryId),
+          label: primary?.displayName ?? profile?.name ?? '我',
+          userId: primaryId ?? profile?.id ?? 0,
+          deviceId: primary?.deviceId,
         ),
       );
     }
@@ -273,7 +372,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
       final a = row.identity;
       targets.add(
         AssistQrTarget(
-          key: SessionKey.assist(a.userId),
+          key: row.key,
           label: a.displayName,
           userId: a.userId,
           deviceId: a.deviceId,
@@ -284,13 +383,48 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
   }
 
   Future<void> _scanAndSubmit() async {
-    if (_cameraSupported) {
-      final raw = await Navigator.of(context).push<String>(
-        AppPageRoutes.build(const QrScanCameraPage()),
-      );
-      if (raw == null || raw.isEmpty) return;
-      setState(() => _dataCtrl.text = raw);
-      await _submitWithData(raw);
+    if (_submitting || _scanning || _loadingEligible || widget.item.isExpired) {
+      return;
+    }
+    if (_buildTargets().isEmpty) {
+      AppToast.show(context, '请先勾选要签到的人');
+      return;
+    }
+    if (_cameraSupported || _desktopSupported) {
+      setState(() => _scanning = true);
+      String? raw;
+      try {
+        raw = _desktopSupported
+            ? await DesktopQrScanner.open(
+                rollcallId: widget.item.rollcallId,
+                courseId: widget.item.courseId,
+              )
+            : await Navigator.of(context).push<String>(
+                AppPageRoutes.build(
+                  QrScanCameraPage(
+                    rollcallId: widget.item.rollcallId,
+                    courseId: widget.item.courseId,
+                  ),
+                ),
+              );
+      } catch (error) {
+        AppLog.event(
+          'qr.scan.open_error',
+          level: 'W',
+          fields: {'errorType': error.runtimeType.toString()},
+        );
+        if (mounted) {
+          AppToast.show(context, '扫码暂不可用，请重试或粘贴二维码内容提交');
+        }
+        return;
+      } finally {
+        if (mounted) setState(() => _scanning = false);
+      }
+      if (!mounted) return;
+      final scanned = raw;
+      if (scanned == null || scanned.isEmpty) return;
+      setState(() => _dataCtrl.text = scanned);
+      await _submitWithData(scanned);
       return;
     }
 
@@ -300,9 +434,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
     }
     if (_dataCtrl.text.trim().isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先粘贴二维码内容，再点扫码提交')),
-      );
+      AppToast.show(context, '请先粘贴二维码内容，再点扫码提交');
       return;
     }
     await _submitWithData(_dataCtrl.text);
@@ -310,237 +442,95 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
 
   Future<void> _submit() => _submitWithData(_dataCtrl.text);
 
-  Future<void> _submitWithData(String rawInput) async {
-    late final String qrData;
-    try {
-      qrData = parseQrRollcallData(rawInput);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
-      );
-      return;
-    }
-
-    final targets = _buildTargets();
-    if (targets.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请至少勾选一个提交对象')),
-      );
-      return;
-    }
-
-    setState(() {
-      _submitting = true;
-      _results = const [];
-    });
-    await _persistSelection();
-
-    final batchOpId = RollcallLog.newOpId();
-    final hashPrefix =
-        sha256.convert(utf8.encode(qrData)).toString().substring(0, 8);
-    RollcallLog.qrPayloadHashed(
-      opId: batchOpId,
-      payloadLen: qrData.length,
-      payloadSha256Prefix: hashPrefix,
-    );
-    RollcallLog.qrBatch(
-      batchOpId: batchOpId,
-      targetCount: targets.length,
-    );
-
-    final registry = ref.read(sessionClientRegistryProvider);
-    final identity = ref.read(deviceIdentityProvider);
-    final assistSvc = await ref.read(assistServiceProvider.future);
-    final runner = AssistQrBatchRunner(
-      submit: (target, data) async {
-        final opId = RollcallLog.newOpId();
-        final started = DateTime.now();
-        final session = target.key.isOwner ? 'owner' : 'assist';
-        final assistUid = target.key.isOwner ? null : target.userId;
-        bool? ok;
-        try {
-          RollcallLog.start(
-            opId: opId,
-            type: 'qr',
-            rollcallId: widget.item.rollcallId,
-            courseTitle: widget.item.courseTitle,
-            session: session,
-            assistUserId: assistUid,
-            batchOpId: batchOpId,
-          );
-          String? submitDeviceId = target.deviceId;
-          if (target.key.isAssist) {
-            final roster = ref.read(assistControllerProvider).identities;
-            AssistIdentity? meta;
-            for (final e in roster) {
-              if (e.userId == target.userId) {
-                meta = e;
-                break;
-              }
-            }
-            if (meta != null) {
-              try {
-                await assistSvc.ensureSession(meta);
-              } catch (_) {}
-              meta = await assistSvc.ensureDeviceId(meta);
-              submitDeviceId = meta.deviceId;
-              final hadEmpty =
-                  (target.deviceId?.trim() ?? '').isEmpty;
-              if (hadEmpty) {
-                await ref.read(assistControllerProvider.notifier).refresh();
-              }
-            }
-          }
-          final client = registry.forKey(target.key);
-          await client.init();
-          final repo = RollcallRepository(
-            http: client,
-            identity: identity,
-            requireExplicitDeviceId: target.key.isAssist,
-          );
-          final result = await repo.answerQr(
-            rollcallId: widget.item.rollcallId,
-            data: data,
-            deviceId: submitDeviceId,
-            opId: opId,
-          );
-          ok = result.ok;
-          return result;
-        } catch (e, st) {
-          RollcallLog.exception(
-            opId: opId,
-            rollcallId: widget.item.rollcallId,
-            error: e,
-            stackTrace: st,
-          );
-          rethrow;
-        } finally {
-          RollcallLog.end(
-            opId: opId,
-            rollcallId: widget.item.rollcallId,
-            durationMs: DateTime.now().difference(started).inMilliseconds,
-            ok: ok,
-          );
-        }
-      },
-    );
-
-    try {
-      final results = await runner.run(qrData: qrData, targets: targets);
-      for (final r in results) {
-        await ref.read(historyProvider.notifier).add(
-              RollcallHistoryEntry(
-                rollcallId: widget.item.rollcallId,
-                courseTitle: widget.item.courseTitle,
-                typeLabel: '二维码·${r.target.label}',
-                ok: r.ok,
-                at: DateTime.now(),
-                detail: r.message,
-              ),
-            );
-      }
-      if (!mounted) return;
-      setState(() => _results = results);
-      final okCount = results.where((e) => e.ok).length;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('完成：$okCount/${results.length} 成功')),
-      );
-      // Refresh eligibility so signed rows grey out.
-      if (!_singleAssist) {
-        await _prepareEligible();
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('提交异常：$e')),
-      );
-    } finally {
-      if (mounted) setState(() => _submitting = false);
+  void _checkSession() {
+    if (!mounted ||
+        ref.read(authControllerProvider).profile?.id != _ownerUserId ||
+        ref.read(selectedRollcallAccountProvider) != _selectedScopeAtOpen) {
+      throw StateError('登录身份已变化，请返回签到页重试');
     }
   }
 
-  Future<void> _retryTarget(AssistQrSubmitResult failed) async {
-    setState(() => _submitting = true);
+  Future<AnswerResult> _submitTarget(
+    AssistQrTarget target,
+    String data,
+    String batchOpId,
+  ) async {
+    _checkSession();
     final opId = RollcallLog.newOpId();
     final started = DateTime.now();
     bool? ok;
+    RollcallLog.start(
+      opId: opId,
+      type: 'qr',
+      rollcallId: widget.item.rollcallId,
+      courseTitle: widget.item.courseTitle,
+      session: target.key.isOwner ? 'owner' : 'assist',
+      assistUserId: target.key.isAssist ? target.userId : null,
+      batchOpId: batchOpId,
+    );
     try {
-      final data = parseQrRollcallData(_dataCtrl.text);
-      final hashPrefix =
-          sha256.convert(utf8.encode(data)).toString().substring(0, 8);
-      RollcallLog.qrPayloadHashed(
-        opId: opId,
-        payloadLen: data.length,
-        payloadSha256Prefix: hashPrefix,
-      );
-      RollcallLog.start(
-        opId: opId,
-        type: 'qr',
-        rollcallId: widget.item.rollcallId,
-        courseTitle: widget.item.courseTitle,
-        session: failed.target.key.isOwner ? 'owner' : 'assist',
-        assistUserId:
-            failed.target.key.isOwner ? null : failed.target.userId,
-      );
-      final registry = ref.read(sessionClientRegistryProvider);
-      final identity = ref.read(deviceIdentityProvider);
-      var submitDeviceId = failed.target.deviceId;
-      if (failed.target.key.isAssist) {
-        final assistSvc = await ref.read(assistServiceProvider.future);
-        final roster = ref.read(assistControllerProvider).identities;
-        AssistIdentity? meta;
-        for (final e in roster) {
-          if (e.userId == failed.target.userId) {
-            meta = e;
-            break;
-          }
-        }
-        if (meta != null) {
-          meta = await assistSvc.ensureDeviceId(meta);
-          submitDeviceId = meta.deviceId;
-          await ref.read(assistControllerProvider.notifier).refresh();
-        }
+      var deviceId = target.deviceId;
+      if (target.key.isAssist) {
+        final meta = ref
+            .read(assistControllerProvider)
+            .identities
+            .where((a) => a.userId == target.userId)
+            .firstOrNull;
+        if (meta == null) throw StateError('该身份已从名单移除');
+        final service = await ref.read(assistServiceProvider.future);
+        await service.ensureSession(meta);
+        deviceId = (await service.ensureDeviceId(meta)).deviceId;
       }
-      final client = registry.forKey(failed.target.key);
+      _checkSession();
+      final client = ref.read(sessionClientRegistryProvider).forKey(target.key);
       await client.init();
+      _checkSession();
       final repo = RollcallRepository(
         http: client,
-        identity: identity,
-        requireExplicitDeviceId: failed.target.key.isAssist,
+        identity: ref.read(deviceIdentityProvider),
+        deviceIdOverride: deviceId,
+        requireExplicitDeviceId: target.key.isAssist,
       );
-      final again = await repo.answerQr(
-        rollcallId: widget.item.rollcallId,
+      // Recheck immediately before submission: the classroom may have ended
+      // or this person may have signed since the selection was prepared.
+      final active = await repo.fetchActive();
+      _checkSession();
+      final current = active
+          .where((item) => item.rollcallId == widget.item.rollcallId)
+          .firstOrNull;
+      if (current == null || current.isExpired) {
+        return const AnswerResult(ok: false, message: '签到已结束或当前身份没有此签到');
+      }
+      if (current.isAnswered) {
+        ok = true;
+        AppLog.event(
+          'qr.submit.skipped',
+          fields: {
+            'rollcallId': widget.item.rollcallId,
+            'session': target.key.storageId,
+            'reason': 'already_answered',
+          },
+        );
+        return const AnswerResult(ok: true, message: '已签到，无需重复提交');
+      }
+      if (!current.isQrcode) {
+        return const AnswerResult(ok: false, message: '签到类型已变化，请刷新后重试');
+      }
+      final result = await repo.answerQr(
+        rollcallId: current.rollcallId,
         data: data,
-        deviceId: submitDeviceId,
         opId: opId,
       );
-      ok = again.ok;
-      if (!mounted) return;
-      setState(() {
-        _results = [
-          for (final x in _results)
-            if (x.target.userId == failed.target.userId &&
-                x.target.key == failed.target.key)
-              AssistQrSubmitResult(
-                target: failed.target,
-                ok: again.ok,
-                message: again.message,
-              )
-            else
-              x,
-        ];
-      });
-    } catch (e, st) {
+      ok = result.ok;
+      return result;
+    } catch (error, stack) {
       RollcallLog.exception(
         opId: opId,
         rollcallId: widget.item.rollcallId,
-        error: e,
-        stackTrace: st,
+        error: error,
+        stackTrace: stack,
       );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e')),
-      );
+      rethrow;
     } finally {
       RollcallLog.end(
         opId: opId,
@@ -548,20 +538,168 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
         durationMs: DateTime.now().difference(started).inMilliseconds,
         ok: ok,
       );
-      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _submitWithData(String rawInput) async {
+    if (_submitting || _loadingEligible || widget.item.isExpired) return;
+    late final String qrData;
+    try {
+      qrData = parseQrRollcallData(
+        rawInput,
+        expectedRollcallId: widget.item.rollcallId,
+        expectedCourseId: widget.item.courseId,
+      );
+    } catch (_) {
+      AppLog.event(
+        'qr.payload.invalid',
+        level: 'W',
+        fields: {
+          'rollcallId': widget.item.rollcallId,
+          'payloadLen': rawInput.length,
+        },
+      );
+      AppToast.show(context, '二维码内容无效或不属于本次签到，请重新扫描');
+      return;
+    }
+    final targets = _buildTargets();
+    if (targets.isEmpty) {
+      AppToast.show(context, '请至少勾选一个提交对象');
+      return;
+    }
+    setState(() {
+      _submitting = true;
+      _results = const [];
+    });
+    final batchOpId = RollcallLog.newOpId();
+    RollcallLog.qrPayloadHashed(
+      opId: batchOpId,
+      payloadLen: qrData.length,
+      payloadSha256Prefix: sha256
+          .convert(utf8.encode(qrData))
+          .toString()
+          .substring(0, 8),
+    );
+    RollcallLog.qrBatch(batchOpId: batchOpId, targetCount: targets.length);
+    try {
+      _checkSession();
+      try {
+        await _persistSelection();
+      } catch (error) {
+        AppLog.event(
+          'qr.selection.save_failed',
+          level: 'W',
+          fields: {'errorType': error.runtimeType.toString()},
+        );
+      }
+      final runner = AssistQrBatchRunner(
+        submit: (target, data) => _submitTarget(target, data, batchOpId),
+      );
+      final results = await runner.run(qrData: qrData, targets: targets);
+      _checkSession();
+      setState(() {
+        _results = results;
+        for (final result in results.where((r) => r.ok)) {
+          if (result.target.key.isAssist) {
+            _completedAssist.add(result.target.userId);
+          }
+          if (result.target.key ==
+              (widget.assistUserId == null
+                  ? SessionKey.owner
+                  : SessionKey.assist(widget.assistUserId!))) {
+            _primaryDone = true;
+            _includeOwner = false;
+          }
+          _selectedAssist.remove(result.target.userId);
+        }
+      });
+      for (final result in results) {
+        await ref
+            .read(
+              ref
+                  .read(
+                    localHistoryForProvider(
+                      result.target.key.isOwner ? null : result.target.userId,
+                    ),
+                  )
+                  .notifier,
+            )
+            .add(
+              RollcallHistoryEntry(
+                rollcallId: widget.item.rollcallId,
+                courseTitle: widget.item.courseTitle,
+                typeLabel: '二维码（${result.target.label}）',
+                ok: result.ok,
+                at: DateTime.now(),
+                detail: result.message,
+              ),
+            );
+        _checkSession();
+        await ref
+            .read(
+              activeRollcallsProvider(
+                result.target.key.isOwner ? null : result.target.userId,
+              ).notifier,
+            )
+            .refresh();
+        _checkSession();
+      }
+      final okCount = results.where((r) => r.ok).length;
+      AppLog.event(
+        'qr.batch.complete',
+        fields: {
+          'rollcallId': widget.item.rollcallId,
+          'batchOpId': batchOpId,
+          'targetCount': results.length,
+          'successCount': okCount,
+        },
+      );
+      if (!mounted) return;
+      AppToast.show(context, '完成：$okCount/${results.length} 成功');
+      if (!_singleAssist) await _prepareEligible();
+    } catch (error, stack) {
+      AppLog.logAppError(error: error, stackTrace: stack, source: 'qr.batch');
+      if (mounted) {
+        AppToast.show(context, '提交未完成，请查看结果后重试', error: true);
+      }
+    } finally {
+      // The classroom token rotates: retries must obtain a fresh scan.
+      if (mounted) {
+        setState(() {
+          _submitting = false;
+          _dataCtrl.clear();
+        });
+      }
     }
   }
 
   String _eligLabel(AssistQrEligibility e) => switch (e) {
-        AssistQrEligibility.unsigned => '未签',
-        AssistQrEligibility.signedOrDone => '已签/无需',
-        AssistQrEligibility.unknown => '状态未知',
-      };
+    AssistQrEligibility.unsigned => '未签',
+    AssistQrEligibility.signedOrDone => '已签/无需',
+    AssistQrEligibility.unknown => '状态未知',
+  };
 
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
     final p = AppPalette.of(context);
+    final primary = ref
+        .watch(assistControllerProvider)
+        .identities
+        .where((a) => a.userId == widget.assistUserId)
+        .firstOrNull;
+    ref.listen(assistControllerProvider, (previous, next) {
+      final before = previous?.identities.map((a) => a.userId).join(',');
+      final after = next.identities.map((a) => a.userId).join(',');
+      if ((before != after || previous?.ready != next.ready) &&
+          !_singleAssist &&
+          !_loadingEligible &&
+          !_submitting) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _prepareEligible();
+        });
+      }
+    });
 
     return SubpageScaffold(
       title: '二维码签到',
@@ -603,14 +741,15 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
                 children: [
                   SettingsRow(
                     leading: const Icon(Icons.person_outline),
-                    title: '我',
-                    onTap: _submitting
+                    title: primary?.displayName ?? '我',
+                    subtitle: _primaryDone ? '已签到或已结束' : '当前身份',
+                    onTap: _submitting || _loadingEligible || _primaryDone
                         ? null
                         : () => setState(() => _includeOwner = !_includeOwner),
                     trailing: IgnorePointer(
                       child: Checkbox(
                         value: _includeOwner,
-                        onChanged: (_) {},
+                        onChanged: _primaryDone ? null : (_) {},
                       ),
                     ),
                   ),
@@ -630,7 +769,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
                       ),
                       title: row.identity.displayName,
                       subtitle: _eligLabel(row.eligibility),
-                      onTap: (_submitting || !row.canSelect)
+                      onTap: (_submitting || _loadingEligible || !row.canSelect)
                           ? null
                           : () {
                               setState(() {
@@ -659,7 +798,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
                 maxLines: 3,
                 decoration: const InputDecoration(
                   labelText: '二维码内容',
-                  hintText: '桌面端请粘贴扫码得到的内容',
+                  hintText: '可粘贴内容，或点击扫码签到打开独立识别窗口',
                   alignLabelWithHint: true,
                 ),
               ),
@@ -675,24 +814,34 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
               const SizedBox(height: AppSpace.md),
             ],
             FilledButton.icon(
-              onPressed: _submitting ? null : _scanAndSubmit,
+              onPressed: _submitting || _scanning || _loadingEligible
+                  ? null
+                  : _scanAndSubmit,
               icon: Icon(
-                _cameraSupported ? Icons.qr_code_scanner : Icons.done_all,
+                _cameraSupported || _desktopSupported
+                    ? Icons.qr_code_scanner
+                    : Icons.done_all,
                 size: 18,
               ),
               label: Text(
                 _submitting
                     ? '提交中…'
-                    : (_cameraSupported ? '扫码' : '确认并提交'),
+                    : _loadingEligible
+                    ? '正在核对名单…'
+                    : _desktopSupported
+                    ? '扫码签到'
+                    : (_cameraSupported ? '扫码并签到' : '确认并提交'),
               ),
             ),
-            if (_cameraSupported) ...[
+            if (_cameraSupported || _desktopSupported) ...[
               const SizedBox(height: AppSpace.xs),
               TextButton(
-                onPressed: _submitting
+                onPressed: _submitting || _loadingEligible
                     ? null
                     : () async {
-                        await _pasteClipboard();
+                        if (_dataCtrl.text.trim().isEmpty) {
+                          await _pasteClipboard();
+                        }
                         if (_dataCtrl.text.trim().isNotEmpty) {
                           await _submit();
                         }
@@ -709,9 +858,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
                   for (final r in _results)
                     SettingsRow(
                       leading: Icon(
-                        r.ok
-                            ? Icons.check_circle_outline
-                            : Icons.error_outline,
+                        r.ok ? Icons.check_circle_outline : Icons.error_outline,
                         color: r.ok ? p.primary : p.danger,
                       ),
                       title: r.target.label,
@@ -721,8 +868,28 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
                           : TextButton(
                               onPressed: _submitting
                                   ? null
-                                  : () => _retryTarget(r),
-                              child: const Text('重试'),
+                                  : () {
+                                      setState(() {
+                                        _includeOwner = false;
+                                        _selectedAssist.clear();
+                                        if (r.target.key ==
+                                            (widget.assistUserId == null
+                                                ? SessionKey.owner
+                                                : SessionKey.assist(
+                                                    widget.assistUserId!,
+                                                  ))) {
+                                          _includeOwner = true;
+                                        } else {
+                                          _selectedAssist.add(r.target.userId);
+                                        }
+                                      });
+                                      _scanAndSubmit();
+                                    },
+                              child: Text(
+                                _cameraSupported || _desktopSupported
+                                    ? '重新扫码'
+                                    : '重新提交',
+                              ),
                             ),
                     ),
                 ],

@@ -18,12 +18,55 @@ void main() {
         }),
         '1234',
       );
-      expect(findNumberCode({'data': {'number_code': 7}}), '7');
+      expect(
+        findNumberCode({
+          'data': {'number_code': 7},
+        }),
+        '7',
+      );
       expect(findNumberCode({'student_rollcalls': []}), isNull);
     });
   });
 
   group('RollcallItem.fromJson', () {
+    test(
+      'QR type/source aliases work without is_qrcode; unknown stays unknown',
+      () {
+        for (final hints in [
+          {'source': 'qr'},
+          {'type': 'qr_rollcall'},
+          {'rollcall_type': 'qrcode'},
+          {'is_qr': true},
+          {'is_qr_code': 1},
+          {'type': 'QR-CODE'},
+        ]) {
+          final item = RollcallItem.fromJson({
+            'rollcall_id': 42,
+            'is_number': false,
+            'is_radar': false,
+            ...hints,
+          });
+          expect(item.type, RollcallType.qrcode, reason: '$hints');
+          expect(
+            RollcallItem.fromJson(item.toMonitorJson()).type,
+            RollcallType.qrcode,
+          );
+        }
+        expect(
+          resolveRollcallType({'is_number': false, 'is_radar': false}),
+          RollcallType.unknown,
+        );
+        expect(
+          resolveRollcallType({'type': 'future_rollcall'}),
+          RollcallType.unknown,
+        );
+        expect(resolveRollcallType({'source': 'number'}), RollcallType.number);
+        expect(
+          resolveRollcallType({'type': 'radar_rollcall'}),
+          RollcallType.radar,
+        );
+      },
+    );
     test('parses number rollcall', () {
       final item = RollcallItem.fromJson({
         'rollcall_id': 42,

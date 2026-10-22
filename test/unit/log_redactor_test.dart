@@ -59,15 +59,22 @@ void main() {
 
     test('map summary stays under 2048 UTF-8 bytes', () {
       final big = 'x' * 10000;
-      final fields = LogRedactor.redactFields({
-        'a': big,
-        'b': big,
-        'c': big,
-      });
+      final fields = LogRedactor.redactFields({'a': big, 'b': big, 'c': big});
       expect(
         utf8.encode(jsonEncode(fields)).length,
         lessThanOrEqualTo(LogRedactor.maxUtf8Bytes),
       );
+    });
+
+    test('keeps diagnostic keys that contain data substring', () {
+      final fields = LogRedactor.redactFields({
+        'payloadSha256Prefix': 'abcd',
+        'type': 'qr_rollcall',
+        'data': 'not_a_secret_key_name_anymore',
+      });
+      expect(fields['payloadSha256Prefix'], 'abcd');
+      expect(fields['type'], 'qr_rollcall');
+      expect(fields['data'], 'not_a_secret_key_name_anymore');
     });
   });
 }

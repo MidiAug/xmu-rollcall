@@ -1,0 +1,356 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
+import 'package:xmu_rollcall/app/app_switch.dart';
+import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
+import 'package:xmu_rollcall/core/network/rate_limiter.dart';
+import 'package:xmu_rollcall/core/network/tron_http_client.dart';
+import 'package:xmu_rollcall/core/session/assist_identity.dart';
+import 'package:xmu_rollcall/core/session/assist_service.dart';
+import 'package:xmu_rollcall/core/session/session_client_registry.dart';
+import 'package:xmu_rollcall/core/session/session_credential.dart';
+import 'package:xmu_rollcall/core/session/session_key.dart';
+import 'package:xmu_rollcall/core/storage/secure_store.dart';
+import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/features/assist/assist_controller.dart';
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/auth/auth_models.dart';
+import 'package:xmu_rollcall/features/auth/auth_repository.dart';
+import 'package:xmu_rollcall/features/rollcall/qr_answer_page.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+import 'package:xmu_rollcall/platform/desktop_qr_scanner.dart';
+
+class _AuthRepo extends Fake implements AuthRepository {}
+
+class _Auth extends AuthController {
+  _Auth() : super(_AuthRepo()) {
+    state = const AuthState(
+      status: AuthStatus.signedIn,
+      profile: UserProfile(id: 1, name: '主号'),
+    );
+  }
+}
+
+class _Service extends Fake implements AssistService {
+  final sessions = <int>[];
+  @override
+  Future<void> ensureSession(AssistIdentity identity) async {
+    sessions.add(identity.userId);
+  }
+
+  @override
+  Future<AssistIdentity> ensureDeviceId(AssistIdentity identity) async =>
+      identity;
+}
+
+const _roster = [
+  AssistIdentity(
+    userId: 2,
+    displayName: '未签同学',
+    kind: AssistCredentialKind.session,
+    deviceId: 'device-2',
+  ),
+  AssistIdentity(
+    userId: 3,
+    displayName: '已签同学',
+    kind: AssistCredentialKind.session,
+    deviceId: 'device-3',
+  ),
+  AssistIdentity(
+    userId: 4,
+    displayName: '其他课程同学',
+    kind: AssistCredentialKind.session,
+    deviceId: 'device-4',
+  ),
+];
+final _data = <String, List<Map<String, dynamic>>>{};
+final _puts = <({String session, Map body})>[];
+Map<String, dynamic> _row({
+  int id = 9001,
+  bool signed = false,
+  String title = '高等数学',
+}) => {
+  'rollcall_id': id,
+  'course_id': 501,
+  'course_title': title,
+  'type': 'qr_rollcall',
+  'source': 'qr',
+  'status': signed ? 'on_call_fine' : 'absent',
+};
+
+class _Client extends TronHttpClient {
+  _Client({required super.store, required super.sessionKey});
+  @override
+  Future<void> init() async {}
+  @override
+  Future<Response<T>> getUri<T>(
+    Uri uri, {
+    Options? options,
+    CancelToken? cancelToken,
+    RequestPriority priority = RequestPriority.normal,
+  }) async => Response<T>(
+    requestOptions: RequestOptions(path: uri.path),
+    statusCode: 200,
+    data: {'rollcalls': _data[sessionKey.storageId] ?? []} as T,
+  );
+  @override
+  Future<Response<T>> putUri<T>(
+    Uri uri, {
+    Object? data,
+    Options? options,
+    CancelToken? cancelToken,
+  }) async {
+    _puts.add((session: sessionKey.storageId, body: data as Map));
+    _data[sessionKey.storageId] = [_row(signed: true)];
+    return Response<T>(
+      requestOptions: RequestOptions(path: uri.path),
+      statusCode: 200,
+      data: {'ok': true} as T,
+    );
+  }
+}
+
+class _Lists extends ActiveRollcallsNotifier {
+  @override
+  Future<List<RollcallItem>> build(int? id) async =>
+      (_data[id == null ? 'owner' : SessionKey.assist(id).storageId] ?? [])
+          .map(RollcallItem.fromJson)
+          .toList();
+}
+
+void main() {
+  tearDown(AppToast.dismiss);
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    _puts.clear();
+    _data.clear();
+    _data['owner'] = [_row(title: '本人课程')];
+    _data[SessionKey.assist(2).storageId] = [_row(title: '协助课程')];
+    _data[SessionKey.assist(3).storageId] = [_row(signed: true)];
+    _data[SessionKey.assist(4).storageId] = [_row(id: 9002)];
+  });
+
+  Future<_Service> show(WidgetTester tester, Widget page) async {
+    final store = SecureStore.memory();
+    final service = _Service();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          secureStoreProvider.overrideWithValue(store),
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          assistServiceProvider.overrideWith((ref) async => service),
+          assistControllerProvider.overrideWith(
+            (ref) => AssistController(
+              ref,
+              initial: const AssistUiState(identities: _roster, ready: true),
+              bootstrap: false,
+            ),
+          ),
+          sessionClientRegistryProvider.overrideWith(
+            (ref) => SessionClientRegistry(
+              store: store,
+              createClient:
+                  ({
+                    required store,
+                    required sessionKey,
+                    required rateLimiter,
+                  }) => _Client(store: store, sessionKey: sessionKey),
+            ),
+          ),
+          activeRollcallsProvider.overrideWith(_Lists.new),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(body: page),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    return service;
+  }
+
+  testWidgets(
+    'narrow sign-in toolbar switches list/session and QR opens secondary page',
+    (tester) async {
+      tester.view.physicalSize = const Size(320, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final service = await show(tester, const RollcallHubPage());
+      expect(find.text('本人课程'), findsOneWidget);
+      expect(find.text('主号'), findsOneWidget);
+      expect(find.text('主号（本人）'), findsNothing);
+      expect(find.byType(DropdownButton<int>), findsNothing);
+      expect(
+        tester.getTopLeft(find.text('主号')).dy,
+        lessThan(tester.getTopLeft(find.text('开始检测')).dy),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.byKey(const ValueKey('rollcall-identity-menu')));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSize(find.byType(PopupMenuItem<int>).first).width,
+        lessThanOrEqualTo(220),
+      );
+      await tester.tap(find.text('未签同学').last);
+      await tester.pumpAndSettle();
+      expect(find.text('协助课程'), findsOneWidget);
+      expect(find.text('本人课程'), findsNothing);
+      expect(service.sessions, contains(2));
+      await tester.tap(find.text('扫码签到'));
+      await tester.pumpAndSettle();
+      expect(find.byType(QrAnswerPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      AppToast.dismiss();
+      await tester.pumpWidget(const SizedBox());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets(
+    'QR page rechecks a selected person who signed before submission',
+    (tester) async {
+      tester.view.physicalSize = const Size(700, 1100);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await show(tester, QrAnswerPage(item: RollcallItem.fromJson(_row())));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('未签同学'));
+      _data[SessionKey.assist(2).storageId] = [_row(signed: true)];
+      await tester.enterText(find.byType(TextField), 'QR_TEST_DATA');
+      await tester.tap(
+        find.text(DesktopQrScanner.supported ? '粘贴内容并提交' : '确认并提交'),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      expect(_puts.map((call) => call.session), ['owner']);
+      expect(find.text('已签到，无需重复提交'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      AppToast.dismiss();
+      await tester.pumpWidget(const SizedBox());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets(
+    'QR page checks same event and submits selected unsigned people with their device ids',
+    (tester) async {
+      tester.view.physicalSize = const Size(700, 1100);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await show(tester, QrAnswerPage(item: RollcallItem.fromJson(_row())));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      expect(find.text('未签同学'), findsOneWidget);
+      expect(find.text('已签同学'), findsOneWidget);
+      expect(find.text('其他课程同学'), findsNothing);
+      final checkboxes = tester
+          .widgetList<Checkbox>(find.byType(Checkbox))
+          .toList();
+      expect(checkboxes.last.onChanged, isNull);
+      await tester.tap(find.text('未签同学'));
+      final encoded = Uri.https('c-mobile.xmu.edu.cn', '/j', {
+        'p':
+            '0~\x10${501.toRadixString(36)}!3~QR_TEST_DATA!4~\x10${9001.toRadixString(36)}',
+      }).toString();
+      await tester.enterText(find.byType(TextField), encoded);
+      await tester.tap(
+        find.text(DesktopQrScanner.supported ? '粘贴内容并提交' : '确认并提交'),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      expect(_puts.map((call) => call.session), [
+        'owner',
+        SessionKey.assist(2).storageId,
+      ]);
+      expect(_puts.last.body['deviceId'], 'device-2');
+      expect(
+        _puts.every((call) => call.body['data'] == 'QR_TEST_DATA'),
+        isTrue,
+      );
+      expect(find.text('完成：2/2 成功'), findsOneWidget);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(tester.takeException(), isNull);
+      AppToast.dismiss();
+      await tester.pumpWidget(const SizedBox());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+  for (final width in [320.0, 384.0, 900.0]) {
+    testWidgets('account settings fit $width with automatic rules expanded', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 1100);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await show(tester, const MonitorSettingsPage());
+      final context = tester.element(find.byType(MonitorSettingsPage));
+      final container = ProviderScope.containerOf(context);
+      container.read(selectedRollcallAccountProvider.notifier).state = 2;
+      await tester.pumpAndSettle();
+      expect(find.text('自动检测 · 当前账号'), findsNothing);
+      expect(find.byType(AppSwitch), findsOneWidget);
+      expect(find.text('随机波动'), findsOneWidget);
+      expect(find.text('±20%'), findsOneWidget);
+      await tester.tap(find.byType(AppSwitch));
+      await tester.pumpAndSettle();
+      expect(find.text('等比例'), findsOneWidget);
+      await tester.tap(find.text('等人数'));
+      await tester.pumpAndSettle();
+      expect(find.text('10人'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('自定义'));
+      await tester.pumpAndSettle();
+      expect(find.text('查询间隔'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      AppToast.dismiss();
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+  testWidgets(
+    'selected imported account can include the directly logged-in peer in QR batch',
+    (tester) async {
+      tester.view.physicalSize = const Size(700, 1100);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await show(
+        tester,
+        QrAnswerPage(item: RollcallItem.fromJson(_row()), assistUserId: 2),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      expect(find.text('主号'), findsOneWidget);
+      await tester.tap(find.text('主号'));
+      await tester.enterText(find.byType(TextField), 'QR_TEST_DATA');
+      await tester.tap(
+        find.text(DesktopQrScanner.supported ? '粘贴内容并提交' : '确认并提交'),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      expect(_puts.map((c) => c.session), [
+        SessionKey.assist(2).storageId,
+        'owner',
+      ]);
+      expect(_puts.first.body['deviceId'], 'device-2');
+      expect(tester.takeException(), isNull);
+      AppToast.dismiss();
+      await tester.pumpWidget(const SizedBox());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+}

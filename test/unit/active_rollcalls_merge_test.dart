@@ -44,13 +44,31 @@ void main() {
   test('status or code change replaces that row only', () {
     final a = item(id: 1, status: 'on_call_absence', code: null);
     final prev = [a];
-    final merged = mergeActiveRollcalls(
-      prev,
-      [item(id: 1, status: 'on_call_fine', code: '88')],
-    );
+    final merged = mergeActiveRollcalls(prev, [
+      item(id: 1, status: 'on_call_fine', code: '88'),
+    ]);
     expect(merged.length, 1);
     expect(identical(merged[0], a), isFalse);
     expect(merged[0].isAnswered, isTrue);
     expect(merged[0].numberCode, '88');
+  });
+
+  test('answer refresh retains last code, newer codes replace it', () {
+    final previous = [item(id: 1, code: '0088')];
+    final signed = mergeActiveRollcalls(previous, [
+      item(id: 1, status: 'on_call_fine'),
+    ]);
+    expect(signed.single.numberCode, '0088');
+    expect(signed.single.isAnswered, isTrue);
+    final failed = mergeActiveRollcalls(signed, [
+      item(id: 1).copyWith(numberCodeError: 'unavailable'),
+    ]);
+    expect(failed.single.numberCode, '0088');
+    final changed = mergeActiveRollcalls(failed, [item(id: 1, code: '1234')]);
+    expect(changed.single.numberCode, '1234');
+    expect(
+      mergeActiveRollcalls(changed, [item(id: 2)]).single.numberCode,
+      isNull,
+    );
   });
 }

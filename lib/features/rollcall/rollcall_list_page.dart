@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/pull_to_refresh.dart';
+import 'package:xmu_rollcall/app/refresh_feedback.dart';
+import 'package:xmu_rollcall/core/network/request_failure.dart';
 import 'package:xmu_rollcall/core/logging/rollcall_log.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/rollcall/qr_answer_page.dart';
+import 'package:xmu_rollcall/features/rollcall/attendance_count_row.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_answer_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
@@ -18,12 +22,14 @@ class RollcallListPage extends ConsumerWidget {
   const RollcallListPage({
     super.key,
     this.embedded = false,
+    this.showUpdatedAt = true,
     this.assistUserId,
     this.enableAssistMulti = true,
   });
 
   /// When true, omit outer [PageScaffold] (used inside hub pages).
   final bool embedded;
+  final bool showUpdatedAt;
 
   /// `null` = owner; otherwise assist identity userId.
   final int? assistUserId;
@@ -42,7 +48,7 @@ class RollcallListPage extends ConsumerWidget {
       final body = EmptyHint(
         icon: Icons.lock_outline,
         title: '尚未登录',
-        detail: '使用学号与统一身份认证密码登录畅课',
+        detail: auth.errorMessage ?? '使用学号与统一身份认证密码登录畅课',
         action: FilledButton.icon(
           onPressed: () => showLoginDialog(context),
           icon: const Icon(Icons.login, size: 18),
@@ -65,6 +71,7 @@ class RollcallListPage extends ConsumerWidget {
       onRefresh: () =>
           ref.read(activeRollcallsProvider(scope).notifier).refresh(),
       child: async.when(
+        skipError: true,
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -84,7 +91,10 @@ class RollcallListPage extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text('$e', style: TextStyle(color: palette.muted)),
+                  Text(
+                    requestFailureMessage(e),
+                    style: TextStyle(color: palette.muted),
+                  ),
                   const SizedBox(height: 12),
                   FilledButton(
                     onPressed: () => ref
@@ -99,6 +109,9 @@ class RollcallListPage extends ConsumerWidget {
         ),
         data: (items) {
           if (items.isEmpty) {
+            if (async.isLoading) {
+              return const Center(child: CircularProgressIndicator());
+            }
             return CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: const [
@@ -135,7 +148,16 @@ class RollcallListPage extends ConsumerWidget {
       ),
     );
 
-    if (embedded) return list;
+    final content = RefreshFeedback(
+      error: async.hasValue ? async.error : null,
+      updatedAt: showUpdatedAt
+          ? ref.read(activeRollcallsProvider(scope).notifier).lastUpdatedAt
+          : null,
+      onRetry: () =>
+          ref.read(activeRollcallsProvider(scope).notifier).refresh(),
+      child: list,
+    );
+    if (embedded) return content;
 
     return PageScaffold(
       title: '进行中签到',
@@ -146,7 +168,7 @@ class RollcallListPage extends ConsumerWidget {
         onRefresh: () =>
             ref.read(activeRollcallsProvider(scope).notifier).refresh(),
       ),
-      child: list,
+      child: content,
     );
   }
 }
@@ -173,26 +195,20 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
 
   Future<void> _oneClickNumber() async {
     final item = widget.item;
+    if (_submitting || item.isExpired || item.isAnswered) return;
     final code = item.numberCode;
     if (code == null || code.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(item.numberCodeError ?? '尚无签到码，请下拉刷新或手填'),
-        ),
-      );
+      AppToast.show(context, item.numberCodeError ?? '尚无签到码，请下拉刷新或手填');
       return;
     }
     if (item.isAnswered) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已签到')),
-      );
+      AppToast.show(context, '已签到');
       return;
     }
     setState(() => _submitting = true);
     final opId = RollcallLog.newOpId();
     final started = DateTime.now();
-    final session =
-        widget.assistUserId == null ? 'owner' : 'assist';
+    final session = widget.assistUserId == null ? 'owner' : 'assist';
     bool? ok;
     try {
       RollcallLog.start(
@@ -204,27 +220,30 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
         assistUserId: widget.assistUserId,
       );
       RollcallLog.numberCode(opId: opId, numberCode: code);
-      final repo =
-          ref.read(rollcallRepositoryForProvider(widget.assistUserId));
+      final repo = ref.read(rollcallRepositoryForProvider(widget.assistUserId));
       final result = await repo.answerNumber(
         rollcallId: item.rollcallId,
         numberCode: code,
         opId: opId,
       );
       ok = result.ok;
-      await ref.read(historyProvider.notifier).add(
+      await ref
+          .read(ref.read(localHistoryForProvider(widget.assistUserId)).notifier)
+          .add(
             RollcallHistoryEntry(
               rollcallId: item.rollcallId,
               courseTitle: item.courseTitle,
-              typeLabel: widget.assistUserId == null ? '数字' : '数字·协助',
+              typeLabel: '数字',
               ok: result.ok,
               at: DateTime.now(),
               detail: result.message,
             ),
           );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message ?? (result.ok ? '成功' : '失败'))),
+      AppToast.show(
+        context,
+        result.message ?? (result.ok ? '成功' : '失败'),
+        error: !result.ok,
       );
       if (result.ok) {
         await ref
@@ -239,9 +258,7 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
         stackTrace: st,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('提交异常：$e')),
-      );
+      AppToast.show(context, '提交异常：$e', error: true);
     } finally {
       RollcallLog.end(
         opId: opId,
@@ -268,19 +285,14 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     }
     AppPageRoutes.push(
       context,
-      RollcallAnswerPage(
-        item: item,
-        assistUserId: widget.assistUserId,
-      ),
+      RollcallAnswerPage(item: item, assistUserId: widget.assistUserId),
     );
   }
 
   Future<void> _copyCode(String code) async {
     await Clipboard.setData(ClipboardData(text: code));
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('已复制签到码')),
-    );
+    AppToast.show(context, '已复制签到码');
   }
 
   @override
@@ -288,8 +300,7 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     final palette = AppPalette.of(context);
     final item = widget.item;
     final title = item.courseTitle.isEmpty ? '未命名课程' : item.courseTitle;
-    final wide =
-        MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
+    final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
 
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
@@ -310,6 +321,19 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               _identifyHeader(palette, item, title),
+              if (!item.isAnswered) ...[
+                const SizedBox(height: AppSpace.xs),
+                AttendanceCountRow(
+                  key: ValueKey((
+                    ref.watch(authControllerProvider).profile?.id,
+                    widget.assistUserId,
+                    item.rollcallId,
+                  )),
+                  rollcallId: item.rollcallId,
+                  assistUserId: widget.assistUserId,
+                  expired: item.isExpired,
+                ),
+              ],
               if (item.isNumber) ...[
                 const SizedBox(height: AppSpace.sm),
                 _numberTaskStrip(palette, item, wide: wide),
@@ -318,13 +342,17 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
                 const SizedBox(height: AppSpace.xs),
                 Text(
                   '暂不支持此签到类型，可下拉刷新重试',
-                  style: TextStyle(fontSize: 12, height: 1.35, color: palette.muted),
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.35,
+                    color: palette.muted,
+                  ),
                 ),
               ],
-              if (widget.assistUserId == null &&
-                  (item.courseId?.isNotEmpty ?? false))
+              if (!item.isAnswered && (item.courseId?.isNotEmpty ?? false))
                 SessionPriorPanel(
                   courseId: item.courseId!,
+                  assistUserId: widget.assistUserId,
                   currentType: item.type,
                 ),
             ],
@@ -334,12 +362,8 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     );
   }
 
-  /// Identify: title + status chip on L1; teacher + type (space, no `·`) on L2.
-  Widget _identifyHeader(
-    AppPalette palette,
-    RollcallItem item,
-    String title,
-  ) {
+  /// Identify: title + status chip on L1; teacher + type (space, no ` `) on L2.
+  Widget _identifyHeader(AppPalette palette, RollcallItem item, String title) {
     final cta = _secondaryCta(item);
     final teacher = item.createdByName.trim();
     final metaStyle = TextStyle(
@@ -383,26 +407,30 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
             ],
           ),
         ),
-        if (cta != null) ...[
-          const SizedBox(width: AppSpace.sm),
-          cta,
-        ],
+        if (cta != null) ...[const SizedBox(width: AppSpace.sm), cta],
       ],
     );
   }
 
   Widget? _secondaryCta(RollcallItem item) {
-    if (item.isNumber) return null;
+    if (item.isNumber) {
+      return TextButton(
+        onPressed: (_submitting || item.isAnswered || item.isExpired)
+            ? null
+            : _openSecondary,
+        child: const Text('手动输入'),
+      );
+    }
     if (item.isRadar) {
       return FilledButton(
-        onPressed: item.isAnswered ? null : _openSecondary,
+        onPressed: (item.isAnswered || item.isExpired) ? null : _openSecondary,
         child: const Text('选择位置'),
       );
     }
     if (item.type == RollcallType.qrcode) {
       return FilledButton(
-        onPressed: item.isAnswered ? null : _openSecondary,
-        child: const Text('扫描'),
+        onPressed: (item.isAnswered || item.isExpired) ? null : _openSecondary,
+        child: const Text('扫码签到'),
       );
     }
     return null;
@@ -474,8 +502,22 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
           Expanded(child: _codeAnchor(palette, item, wide: wide)),
           const SizedBox(width: AppSpace.sm),
           FilledButton(
-            onPressed: (_submitting || item.isAnswered) ? null : _oneClickNumber,
-            child: Text(_submitting ? '提交中…' : '一键签到'),
+            onPressed: (_submitting || item.isAnswered || item.isExpired)
+                ? null
+                : (item.numberCode?.isNotEmpty == true
+                      ? _oneClickNumber
+                      : _openSecondary),
+            child: Text(
+              _submitting
+                  ? '提交中…'
+                  : item.isExpired
+                  ? '已结束'
+                  : item.isAnswered
+                  ? '已签到'
+                  : item.numberCode?.isNotEmpty == true
+                  ? '一键签到'
+                  : '输入签到码',
+            ),
           ),
         ],
       ),
@@ -491,7 +533,11 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     final err = item.numberCodeError;
     if (code == null || code.isEmpty) {
       return Text(
-        err ?? '正在获取签到码…',
+        item.isAnswered || item.isExpired
+            ? '暂无可用签到码'
+            : err == null
+            ? '正在获取签到码…'
+            : '无法获取签到码，请手动输入',
         style: TextStyle(fontSize: 13, height: 1.35, color: palette.muted),
       );
     }

@@ -315,7 +315,7 @@ class _AssistPollQuickBarState extends State<_AssistPollQuickBar> {
             onTap: m.pollNow,
             background: p.selected,
             child: Text(
-              '检测中 · ${secs}s',
+              '检测中  ${secs}s',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,

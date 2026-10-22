@@ -3,6 +3,10 @@
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
+#include "desktop_capture.h"
+#include <desktop_multi_window/desktop_multi_window_plugin.h>
+#include <desktop_drop/desktop_drop_plugin.h>
+#include <file_selector_windows/file_selector_windows.h>
 
 namespace {
 
@@ -46,7 +50,16 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  DesktopMultiWindowSetWindowCreatedCallback([](void* controller) {
+    auto* view = reinterpret_cast<flutter::FlutterViewController*>(controller);
+    // Only scanner dependencies: a secondary engine must not initialize tray,
+    // account storage, background monitoring, or main-window window_manager.
+    DesktopDropPluginRegisterWithRegistrar(view->engine()->GetRegistrarForPlugin("DesktopDropPlugin"));
+    FileSelectorWindowsRegisterWithRegistrar(view->engine()->GetRegistrarForPlugin("FileSelectorWindows"));
+    RegisterDesktopCapture(view->engine()->GetRegistrarForPlugin("XmuDesktopCapture"));
+  });
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
+  RegisterDesktopCapture(flutter_controller_->engine()->GetRegistrarForPlugin("XmuDesktopCapture"), true);
 
   // Intercept MSAA/UIA on the Flutter view HWND (top-level alone is not enough).
   HWND view = flutter_controller_->view()->GetNativeWindow();

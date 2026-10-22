@@ -14,7 +14,7 @@ import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/assist/assist_dialogs.dart';
-import 'package:xmu_rollcall/features/assist/assist_rollcall_hub_page.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
 import 'package:xmu_rollcall/features/rollcall/qr_answer_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
@@ -45,18 +45,19 @@ void main() {
           sessionClientRegistryProvider.overrideWith(
             (ref) => SessionClientRegistry(
               store: memory,
-              createClient: ({
-                required store,
-                required sessionKey,
-                required rateLimiter,
-              }) {
-                return TronHttpClient(
-                  store: store,
-                  sessionKey: sessionKey,
-                  rateLimiter: rateLimiter,
-                  cookieJar: CookieJar(),
-                );
-              },
+              createClient:
+                  ({
+                    required store,
+                    required sessionKey,
+                    required rateLimiter,
+                  }) {
+                    return TronHttpClient(
+                      store: store,
+                      sessionKey: sessionKey,
+                      rateLimiter: rateLimiter,
+                      cookieJar: CookieJar(),
+                    );
+                  },
             ),
           ),
           assistServiceProvider.overrideWith((ref) async {
@@ -70,10 +71,7 @@ void main() {
           assistControllerProvider.overrideWith(
             (ref) => AssistController(
               ref,
-              initial: const AssistUiState(
-                ready: true,
-                identities: [identity],
-              ),
+              initial: const AssistUiState(ready: true, identities: [identity]),
               bootstrap: false,
             ),
           ),
@@ -94,7 +92,7 @@ void main() {
     await tester.pump(); // start route
     await tester.pump(const Duration(milliseconds: 500)); // nav + bootstrap
 
-    expect(find.byType(AssistRollcallHubPage), findsOneWidget);
+    expect(find.byType(RollcallHubPage), findsOneWidget);
     expect(find.text('开始检测'), findsOneWidget);
   });
 
@@ -106,9 +104,7 @@ void main() {
       displayName: '同学乙',
       kind: AssistCredentialKind.session,
       deviceId: 'dev-b',
-      sharedCourses: const [
-        AssistSharedCourse(id: '9', title: '高等数学'),
-      ],
+      sharedCourses: const [AssistSharedCourse(id: '9', title: '高等数学')],
       sharedCoursesSyncedAt: DateTime.utc(2026, 9, 1),
     );
 
@@ -120,18 +116,19 @@ void main() {
           sessionClientRegistryProvider.overrideWith(
             (ref) => SessionClientRegistry(
               store: memory,
-              createClient: ({
-                required store,
-                required sessionKey,
-                required rateLimiter,
-              }) {
-                return TronHttpClient(
-                  store: store,
-                  sessionKey: sessionKey,
-                  rateLimiter: rateLimiter,
-                  cookieJar: CookieJar(),
-                );
-              },
+              createClient:
+                  ({
+                    required store,
+                    required sessionKey,
+                    required rateLimiter,
+                  }) {
+                    return TronHttpClient(
+                      store: store,
+                      sessionKey: sessionKey,
+                      rateLimiter: rateLimiter,
+                      cookieJar: CookieJar(),
+                    );
+                  },
             ),
           ),
           assistServiceProvider.overrideWith((ref) async {
@@ -145,10 +142,7 @@ void main() {
           assistControllerProvider.overrideWith(
             (ref) => AssistController(
               ref,
-              initial: AssistUiState(
-                ready: true,
-                identities: [identity],
-              ),
+              initial: AssistUiState(ready: true, identities: [identity]),
               bootstrap: false,
             ),
           ),
@@ -170,7 +164,7 @@ void main() {
 
     expect(find.text('高等数学'), findsOneWidget);
     expect(find.text('刷新同课'), findsOneWidget);
-    expect(find.byType(AssistRollcallHubPage), findsNothing);
+    expect(find.byType(RollcallHubPage), findsNothing);
   });
 
   testWidgets('QR with enableAssistMulti false hides 提交对象', (tester) async {
@@ -212,6 +206,6 @@ void main() {
 
     expect(find.text('提交对象'), findsNothing);
     expect(find.text('我（主号）'), findsNothing);
-    expect(find.textContaining('该协助身份'), findsOneWidget);
+    expect(find.textContaining('仅为当前账号提交'), findsOneWidget);
   });
 }

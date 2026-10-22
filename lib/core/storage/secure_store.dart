@@ -3,16 +3,16 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 /// Thin wrapper over secure storage — no plaintext secrets on disk.
 class SecureStore {
   SecureStore({FlutterSecureStorage? storage})
-      : _backend = _FlutterSecureBackend(
-          storage ??
-              const FlutterSecureStorage(
-                aOptions: AndroidOptions(encryptedSharedPreferences: true),
-              ),
-        );
+    : _backend = _FlutterSecureBackend(
+        storage ??
+            const FlutterSecureStorage(
+              aOptions: AndroidOptions(encryptedSharedPreferences: true),
+            ),
+      );
 
   /// In-memory store for unit tests (no platform channel).
   SecureStore.memory([Map<String, String>? seed])
-      : _backend = _MemorySecureBackend(Map<String, String>.of(seed ?? {}));
+    : _backend = _MemorySecureBackend(Map<String, String>.of(seed ?? {}));
 
   final _SecureBackend _backend;
 
@@ -24,6 +24,7 @@ class SecureStore {
 
   /// Owner IDS password (secure storage only; cleared on sign-out).
   static const keyOwnerPassword = 'owner_ids_password';
+  static const keyRememberPassword = 'remember_owner_password';
 
   /// Prefix for assist session cookie blobs (`assist_session_cookies_<userId>`).
   static const assistSessionCookiePrefix = 'assist_session_cookies_';

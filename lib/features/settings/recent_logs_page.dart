@@ -133,7 +133,7 @@ class _RecentLogsPageState extends ConsumerState<RecentLogsPage> {
                               dense: true,
                               contentPadding: EdgeInsets.zero,
                               title: Text(
-                                bits.join(' · '),
+                                bits.join('  '),
                                 style:
                                     const TextStyle(fontSize: 13, height: 1.35),
                               ),

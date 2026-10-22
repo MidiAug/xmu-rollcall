@@ -21,14 +21,14 @@ class TimetableAxisRow {
     required this.sequence,
     required this.start,
     required this.end,
-  })  : breakLabel = null,
-        isBreak = false;
+  }) : breakLabel = null,
+       isBreak = false;
 
   const TimetableAxisRow.breakBand(this.breakLabel)
-      : sequence = null,
-        start = null,
-        end = null,
-        isBreak = true;
+    : sequence = null,
+      start = null,
+      end = null,
+      isBreak = true;
 
   final int? sequence;
   final DateTime? start;
@@ -37,27 +37,52 @@ class TimetableAxisRow {
   final bool isBreak;
 }
 
-/// Quiet Utility–friendly course tints (readable on dark & light).
-const kTimetableCourseColors = <Color>[
-  Color(0xFF6B5B95),
-  Color(0xFF3D6B9A),
-  Color(0xFFB06A3C),
-  Color(0xFF5A7A4A),
-  Color(0xFF8B5A6B),
-  Color(0xFF4A6B7A),
-  Color(0xFF9A6B3D),
-  Color(0xFF5B5B8B),
-  Color(0xFF7A5A4A),
-  Color(0xFF3A7A6B),
+/// Accent hues for pastel course blocks (图2 轻盈风：浅底 + 同色相深字).
+const kTimetableCourseAccents = <Color>[
+  Color(0xFFE86A8A), // rose
+  Color(0xFF8B7CF6), // lavender
+  Color(0xFFF09A4A), // apricot
+  Color(0xFF5BA8E0), // sky
+  Color(0xFF5CB89A), // mint
+  Color(0xFFD4A017), // gold
+  Color(0xFFC77DCF), // orchid
+  Color(0xFF6B9BD1), // soft blue
+  Color(0xFFE07A5F), // coral
+  Color(0xFF4DB6A0), // teal
+  Color(0xFFB07CC6), // lilac
+  Color(0xFF7EB56A), // leaf
+  Color(0xFFE8A0B0), // blush
+  Color(0xFF5C8AD6), // cornflower
+  Color(0xFFD4925A), // sand
+  Color(0xFF6CB5C9), // aqua
+  Color(0xFFC96B8A), // raspberry
+  Color(0xFF8A9AE0), // periwinkle
+  Color(0xFFC9A227), // mustard
+  Color(0xFF6AAB8E), // sage
 ];
 
-/// Stable color from course id.
-Color timetableColorForCourseId(String id) {
+/// Fill + ink for one course (same id → same pair).
+class TimetableCourseTint {
+  const TimetableCourseTint({required this.fill, required this.ink});
+
+  /// Soft pastel block background.
+  final Color fill;
+
+  /// Darker same-hue text / icons on [fill].
+  final Color ink;
+}
+
+/// Stable pastel tint from course id.
+TimetableCourseTint timetableTintForCourseId(String id) {
   var h = 0;
   for (final c in id.codeUnits) {
     h = (h * 31 + c) & 0x7fffffff;
   }
-  return kTimetableCourseColors[h % kTimetableCourseColors.length];
+  final accent = kTimetableCourseAccents[h % kTimetableCourseAccents.length];
+  // ~18% accent into white → airy fill; ink = accent darkened for contrast.
+  final fill = Color.lerp(const Color(0xFFFFFFFF), accent, 0.20)!;
+  final ink = Color.lerp(accent, const Color(0xFF1A1A1A), 0.28)!;
+  return TimetableCourseTint(fill: fill, ink: ink);
 }
 
 /// Default Mon–Fri; append Sat/Sun only when any course has slots that day.
@@ -72,15 +97,7 @@ List<int> visibleWeekdays(Iterable<CatalogCourse> courses) {
       sun = true;
     }
   }
-  return [
-    1,
-    2,
-    3,
-    4,
-    5,
-    if (sat) 6,
-    if (sun) 7,
-  ];
+  return [1, 2, 3, 4, 5, if (sat) 6, if (sun) 7];
 }
 
 /// Max period index across catalog (fallback 10).
@@ -104,10 +121,7 @@ Map<int, ({DateTime start, DateTime end})> sequenceTimes(
   for (final c in courses) {
     for (final slots in c.timetables.values) {
       for (final s in slots) {
-        out.putIfAbsent(
-          s.sequence,
-          () => (start: s.start, end: s.end),
-        );
+        out.putIfAbsent(s.sequence, () => (start: s.start, end: s.end));
       }
     }
   }
@@ -204,9 +218,7 @@ List<TimetablePlacedBlock> placeTimetableBlocks(
     for (final e in c.timetables.entries) {
       final blocks = mergeConsecutiveSequenceBlocks(e.value);
       for (final b in blocks) {
-        out.add(
-          TimetablePlacedBlock(course: c, weekday: e.key, block: b),
-        );
+        out.add(TimetablePlacedBlock(course: c, weekday: e.key, block: b));
       }
     }
   }

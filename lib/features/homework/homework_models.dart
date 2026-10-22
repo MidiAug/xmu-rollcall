@@ -10,6 +10,7 @@ class HomeworkItem {
     this.dueAt,
     this.description = '',
     this.raw = const {},
+    this.closed,
   });
 
   final int id;
@@ -21,8 +22,14 @@ class HomeworkItem {
   final DateTime? dueAt;
   final String description;
   final Map<String, dynamic> raw;
+  final bool? closed;
+
+  bool get isHomework =>
+      type.isEmpty ||
+      ['homework', 'assignment', '作业'].any(type.toLowerCase().contains);
 
   bool get isOverdue {
+    if (closed == true) return true;
     final d = dueAt;
     if (d == null) return false;
     return d.isBefore(DateTime.now());
@@ -50,6 +57,7 @@ class HomeworkItem {
     String? description,
     Map<String, dynamic>? raw,
     bool clearDueAt = false,
+    bool? closed,
   }) {
     return HomeworkItem(
       id: id,
@@ -61,48 +69,48 @@ class HomeworkItem {
       dueAt: clearDueAt ? null : (dueAt ?? this.dueAt),
       description: description ?? this.description,
       raw: raw ?? this.raw,
+      closed: closed ?? this.closed,
     );
   }
 
   factory HomeworkItem.fromJson(Map<String, dynamic> d) {
     final id = _asInt(d, const ['id', 'activity_id', 'activityId']) ?? 0;
-    final title = _asString(
-          d,
-          const ['title', 'name', 'activity_title', 'activity_name'],
-        ) ??
+    final title =
+        _asString(d, const [
+          'title',
+          'name',
+          'activity_title',
+          'activity_name',
+        ]) ??
         '';
     final courseId = _asInt(d, const ['course_id', 'courseId', 'cid']);
-    final courseName = _asString(
-          d,
-          const ['course_name', 'courseName', 'course_title', 'courseTitle'],
-        ) ??
+    final courseName =
+        _asString(d, const [
+          'course_name',
+          'courseName',
+          'course_title',
+          'courseTitle',
+        ]) ??
         '';
     final type = _asString(d, const ['type', 'activity_type', 'kind']) ?? '';
-    final status = _asString(
-          d,
-          const [
-            'status',
-            'submit_status',
-            'submission_status',
-            'completion_status',
-          ],
-        ) ??
+    final status =
+        _asString(d, const [
+          'status',
+          'submit_status',
+          'submission_status',
+          'completion_status',
+        ]) ??
         '';
-    final dueAt = _asDate(
-      d,
-      const [
-        'due_at',
-        'end_time',
-        'deadline',
-        'closes_at',
-        'submit_by',
-        'end_date',
-      ],
-    );
-    final description = _asString(
-          d,
-          const ['description', 'content', 'instruction', 'body'],
-        ) ??
+    final dueAt = _asDate(d, const [
+      'due_at',
+      'end_time',
+      'deadline',
+      'closes_at',
+      'submit_by',
+      'end_date',
+    ]);
+    final description =
+        _asString(d, const ['description', 'content', 'instruction', 'body']) ??
         '';
     return HomeworkItem(
       id: id,
@@ -114,19 +122,21 @@ class HomeworkItem {
       dueAt: dueAt,
       description: description,
       raw: d,
+      closed: d['is_closed'] is bool ? d['is_closed'] as bool : null,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        if (courseId != null) 'course_id': courseId,
-        'course_name': courseName,
-        'type': type,
-        'status': status,
-        if (dueAt != null) 'due_at': dueAt!.toIso8601String(),
-        'description': description,
-      };
+    'id': id,
+    'title': title,
+    if (courseId != null) 'course_id': courseId,
+    'course_name': courseName,
+    'type': type,
+    'status': status,
+    if (dueAt != null) 'due_at': dueAt!.toIso8601String(),
+    'description': description,
+    if (closed != null) 'is_closed': closed,
+  };
 }
 
 int? _asInt(Map<String, dynamic> m, List<String> keys) {

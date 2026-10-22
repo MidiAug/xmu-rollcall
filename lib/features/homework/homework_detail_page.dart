@@ -6,6 +6,8 @@ import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/homework/homework_course_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_models.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
+import 'package:xmu_rollcall/features/homework/homework_status_badges.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 
 /// 作业详情（只读）；右上「查看该课全部」。
 class HomeworkDetailPage extends ConsumerWidget {
@@ -22,6 +24,12 @@ class HomeworkDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(selectedRollcallAccountProvider, (before, after) {
+      if (before == after) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) Navigator.of(context).maybePop();
+      });
+    });
     final p = AppPalette.of(context);
     final pageX = AppSpace.pageXOf(context);
     final key = HomeworkDetailKey(
@@ -37,11 +45,7 @@ class HomeworkDetailPage extends ConsumerWidget {
       actions: [
         if (courseId != null && courseId > 0)
           TextButton(
-            onPressed: () => _openCourse(
-              context,
-              courseId,
-              seed.courseName,
-            ),
+            onPressed: () => _openCourse(context, courseId, seed.courseName),
             child: const Text('查看该课全部'),
           ),
       ],
@@ -56,16 +60,14 @@ class HomeworkDetailPage extends ConsumerWidget {
                 children: [
                   Text(
                     '拉取失败',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: p.ink,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w600, color: p.ink),
                   ),
                   const SizedBox(height: 8),
                   Text('$e', style: TextStyle(color: p.muted)),
                   const SizedBox(height: 12),
                   FilledButton(
-                    onPressed: () => ref.invalidate(homeworkDetailProvider(key)),
+                    onPressed: () =>
+                        ref.invalidate(homeworkDetailProvider(key)),
                     child: const Text('重试'),
                   ),
                   const SizedBox(height: 16),
@@ -121,14 +123,12 @@ class _DetailBody extends StatelessWidget {
           const SizedBox(height: AppSpace.sm),
           _kv('课程', item.courseName.isEmpty ? '—' : item.courseName, p),
           _kv('截止', item.dueLabel, p),
+          HomeworkStatusBadges(item: item),
           if (item.type.isNotEmpty) _kv('类型', item.type, p),
           if (item.status.isNotEmpty) _kv('状态', item.status, p),
           if (item.description.trim().isNotEmpty) ...[
             const SizedBox(height: AppSpace.md),
-            Text(
-              '说明',
-              style: TextStyle(fontSize: 12, color: p.muted),
-            ),
+            Text('说明', style: TextStyle(fontSize: 12, color: p.muted)),
             const SizedBox(height: AppSpace.xxs),
             Text(
               item.description.trim(),

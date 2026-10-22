@@ -73,12 +73,12 @@ class AssistUiState {
 
 final assistControllerProvider =
     StateNotifierProvider<AssistController, AssistUiState>((ref) {
-  return AssistController(ref);
-});
+      return AssistController(ref);
+    });
 
 class AssistController extends StateNotifier<AssistUiState> {
   AssistController(this._ref, {AssistUiState? initial, bool bootstrap = true})
-      : super(initial ?? const AssistUiState()) {
+    : super(initial ?? const AssistUiState()) {
     if (bootstrap) {
       _bootstrap();
     }
@@ -91,12 +91,12 @@ class AssistController extends StateNotifier<AssistUiState> {
   Future<void> _bootstrap() async {
     try {
       final svc = await _service();
+      if (!mounted) return;
       final identities = await svc.listIdentities();
-      state = AssistUiState(
-        identities: identities,
-        ready: true,
-      );
+      if (!mounted) return;
+      state = AssistUiState(identities: identities, ready: true);
     } catch (e) {
+      if (!mounted) return;
       state = AssistUiState(ready: true, errorMessage: e.toString());
     }
   }
@@ -174,10 +174,7 @@ class AssistController extends StateNotifier<AssistUiState> {
     try {
       final ownerId = _ref.read(authControllerProvider).profile?.id;
       final svc = await _service();
-      final identity = await svc.importToken(
-        token,
-        ownerUserId: ownerId,
-      );
+      final identity = await svc.importToken(token, ownerUserId: ownerId);
       await refresh();
       return identity;
     } catch (e) {

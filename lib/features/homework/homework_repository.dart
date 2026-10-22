@@ -1,6 +1,8 @@
 import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
+import 'package:xmu_rollcall/core/network/rate_limiter.dart';
 import 'package:xmu_rollcall/features/homework/homework_models.dart';
+import 'package:xmu_rollcall/features/homework/homework_submission.dart';
 
 class HomeworkRepository {
   HomeworkRepository({required this.http});
@@ -9,25 +11,78 @@ class HomeworkRepository {
 
   static const maxHomeworkPages = 50;
 
+  Future<HomeworkSubmissionState> fetchSubmission({
+    required int activityId,
+    required int studentId,
+  }) async {
+    await http.init();
+    final response = await http.getUri<dynamic>(
+      TronEndpoints.homeworkSubmissions(
+        activityId: activityId,
+        studentId: studentId,
+      ),
+      priority: RequestPriority.background,
+    );
+    if (response.statusCode != 200) {
+      throw StateError('无法更新提交状态 (${response.statusCode})');
+    }
+    return HomeworkSubmissionState.parse(response.data);
+  }
+
   Future<List<HomeworkItem>> fetchTodos() async {
+    final r = await fetchTodosDetailed();
+    return r.items;
+  }
+
+  /// Todos plus parse diagnostics for logging (denylist_v1).
+  Future<HomeworkTodosFetch> fetchTodosDetailed() async {
     await http.init();
     final res = await http.getUri<dynamic>(TronEndpoints.todos());
     if ((res.statusCode ?? 0) != 200) {
       throw StateError('拉取待办失败 (${res.statusCode})');
     }
-    final list = _unwrapList(
-      res.data,
-      const ['todo_list', 'todos', 'data', 'items', 'list', 'results'],
-    );
+    const candidates = [
+      'todo_list',
+      'todos',
+      'data',
+      'items',
+      'list',
+      'results',
+    ];
+    final diag = <String, dynamic>{};
+    final data = res.data;
+    String? listKeyHit;
+    List<dynamic> list = const [];
+    if (data is List) {
+      listKeyHit = '(root_list)';
+      list = data;
+      diag['topKeys'] = <String>[];
+    } else if (data is Map) {
+      final m = Map<String, dynamic>.from(data);
+      diag['topKeys'] = (m.keys.map((k) => k.toString()).toList()..sort());
+      for (final k in candidates) {
+        final v = m[k];
+        if (v is List) {
+          listKeyHit = k;
+          list = v;
+          break;
+        }
+      }
+    }
+    if (listKeyHit == null) throw const FormatException('待办列表格式不支持');
+    diag['listKeyHit'] = listKeyHit;
     final out = <HomeworkItem>[];
+    final sampleIds = <int>[];
     for (final raw in list) {
       if (raw is! Map) continue;
       final item = HomeworkItem.fromJson(Map<String, dynamic>.from(raw));
       if (item.id == 0 && item.title.isEmpty) continue;
       out.add(item);
+      if (sampleIds.length < 5 && item.id != 0) sampleIds.add(item.id);
     }
     out.sort(_byDue);
-    return out;
+    diag['sampleIds'] = sampleIds;
+    return HomeworkTodosFetch(items: out, diag: diag);
   }
 
   Future<List<HomeworkItem>> fetchCourseHomework(int courseId) async {
@@ -42,6 +97,7 @@ class HomeworkRepository {
           page: page,
           pageSize: 100,
         ),
+        priority: RequestPriority.background,
       );
       if ((res.statusCode ?? 0) != 200) {
         throw StateError('拉取课程作业失败 (${res.statusCode})');
@@ -57,23 +113,19 @@ class HomeworkRepository {
           final pageSize = m['page_size'] ?? m['pageSize'] ?? 100;
           if (total is num && pageSize is num && pageSize > 0) {
             totalPages =
-                ((total.toInt() + pageSize.toInt() - 1) / pageSize.toInt())
-                    .ceil()
+                ((total.toInt() + pageSize.toInt() - 1) ~/ pageSize.toInt())
                     .clamp(1, maxHomeworkPages);
           }
         }
       }
-      final list = _unwrapList(
-        data,
-        const [
-          'homework_activities',
-          'activities',
-          'data',
-          'items',
-          'list',
-          'results',
-        ],
-      );
+      final list = _unwrapList(data, const [
+        'homework_activities',
+        'activities',
+        'data',
+        'items',
+        'list',
+        'results',
+      ]);
       if (list.isEmpty) break;
       for (final raw in list) {
         if (raw is! Map) continue;
@@ -148,13 +200,13 @@ class HomeworkRepository {
 
   List<dynamic> _unwrapList(dynamic payload, List<String> keys) {
     if (payload is List) return payload;
-    if (payload is! Map) return const [];
+    if (payload is! Map) throw const FormatException('课程作业列表格式不支持');
     final m = Map<String, dynamic>.from(payload);
     for (final k in keys) {
       final v = m[k];
       if (v is List) return v;
     }
-    return const [];
+    throw const FormatException('课程作业列表格式不支持');
   }
 
   int _byDue(HomeworkItem a, HomeworkItem b) {
@@ -165,4 +217,11 @@ class HomeworkRepository {
     if (bd == null) return -1;
     return ad.compareTo(bd);
   }
+}
+
+class HomeworkTodosFetch {
+  const HomeworkTodosFetch({required this.items, required this.diag});
+
+  final List<HomeworkItem> items;
+  final Map<String, dynamic> diag;
 }

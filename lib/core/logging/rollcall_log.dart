@@ -22,8 +22,8 @@ abstract final class RollcallLog {
         'rollcallId': rollcallId,
         'courseTitle': courseTitle,
         'session': session,
-        if (assistUserId != null) 'assistUserId': assistUserId,
-        if (batchOpId != null) 'batchOpId': batchOpId,
+        'assistUserId': ?assistUserId,
+        'batchOpId': ?batchOpId,
       },
     );
   }
@@ -45,23 +45,17 @@ abstract final class RollcallLog {
         'rollcallId': rollcallId,
         'courseTitle': courseTitle,
         'session': session,
-        if (assistUserId != null) 'assistUserId': assistUserId,
-        if (batchOpId != null) 'batchOpId': batchOpId,
+        'assistUserId': ?assistUserId,
+        'batchOpId': ?batchOpId,
       },
     );
   }
 
-  static void numberCode({
-    required String opId,
-    required String numberCode,
-  }) {
+  static void numberCode({required String opId, required String numberCode}) {
     AppLog.event(
       'rollcall.number_code',
       opId: opId,
-      fields: {
-        'codeLen': numberCode.length,
-        'numberCode': numberCode,
-      },
+      fields: {'codeLen': numberCode.length, 'numberCode': numberCode},
     );
   }
 
@@ -115,17 +109,11 @@ abstract final class RollcallLog {
     );
   }
 
-  static void qrBatch({
-    required String batchOpId,
-    required int targetCount,
-  }) {
+  static void qrBatch({required String batchOpId, required int targetCount}) {
     AppLog.event(
       'rollcall.qr.batch',
       opId: batchOpId,
-      fields: {
-        'batchOpId': batchOpId,
-        'targetCount': targetCount,
-      },
+      fields: {'batchOpId': batchOpId, 'targetCount': targetCount},
     );
   }
 
@@ -144,9 +132,9 @@ abstract final class RollcallLog {
       fields: {
         'ok': ok,
         'rollcallId': rollcallId,
-        if (status != null) 'status': status,
-        if (message != null) 'message': message,
-        if (distance != null) 'distance': distance,
+        'status': ?status,
+        'message': ?message,
+        'distance': ?distance,
       },
     );
   }
@@ -182,11 +170,7 @@ abstract final class RollcallLog {
     AppLog.event(
       'rollcall.answer.end',
       opId: opId,
-      fields: {
-        'rollcallId': rollcallId,
-        'durationMs': durationMs,
-        if (ok != null) 'ok': ok,
-      },
+      fields: {'rollcallId': rollcallId, 'durationMs': durationMs, 'ok': ?ok},
     );
   }
 }

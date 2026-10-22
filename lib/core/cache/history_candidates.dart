@@ -54,7 +54,7 @@ List<HistoryCandidate> selectHistoryCandidates({
   }
 
   for (final id in seenInProgressCourseIds) {
-    add(id, 'in_progress');
+    if (courseTitles.containsKey(id)) add(id, 'in_progress');
   }
 
   for (final id in courseTitles.keys) {
@@ -74,7 +74,7 @@ List<HistoryCandidate> selectHistoryCandidates({
       continue;
     }
 
-    if (_periodEndedBetween(tables, last, now)) {
+    if (coursePeriodEndedBetween(tables, last, now)) {
       add(id, 'period_ended');
     }
   }
@@ -83,11 +83,14 @@ List<HistoryCandidate> selectHistoryCandidates({
 }
 
 /// True if any session block's [SessionBlock.coreEnd] falls in (t0, now].
-bool _periodEndedBetween(
+bool coursePeriodEndedBetween(
   Map<int, List<TimetableSlot>> byDay,
   DateTime t0,
   DateTime now,
 ) {
+  // Timetables use the local calendar even when a migrated cache stores UTC.
+  t0 = t0.toLocal();
+  now = now.toLocal();
   // Walk calendar days from t0.date to now.date (cap 21 days).
   var day = DateTime(t0.year, t0.month, t0.day);
   final endDay = DateTime(now.year, now.month, now.day);

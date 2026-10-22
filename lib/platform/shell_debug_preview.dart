@@ -22,14 +22,12 @@ abstract final class ShellDebugPreview {
     }
 
     if (PlatformHooks.isAndroid) {
-      AppToast.show(context, '即将发测试发现通知（请先回桌验证）');
-      await AndroidMonitorShell.instance.stopOngoing();
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      await AndroidMonitorShell.instance.notifyRollcallsDiscovered(1);
+      final ok = await AndroidMonitorShell.instance.testNotification();
       if (!context.mounted) return;
       AppToast.show(
         context,
-        '若仍在前台则按设计不弹发现通知；请回桌后用「10s 模拟」',
+        ok ? '测试通知已发送，请确认声音和震动' : '测试通知失败，请检查通知权限和诊断日志',
+        error: !ok,
       );
     }
   }
@@ -44,25 +42,22 @@ abstract final class ShellDebugPreview {
 
     final secs = delay.inSeconds;
     if (PlatformHooks.isDesktop) {
-      AppToast.show(
-        context,
-        '$secs 秒后模拟发现签到；已最小化到托盘',
-      );
-      ref.read(monitorControllerProvider.notifier).debugScheduleDiscovery(
-            delay: delay,
-          );
+      AppToast.show(context, '$secs 秒后模拟发现签到；已最小化到托盘');
+      ref
+          .read(monitorControllerProvider.notifier)
+          .debugScheduleDiscovery(delay: delay);
       await DesktopShell.instance.hideToTray();
       return;
     }
 
     if (PlatformHooks.isAndroid) {
+      final ok = await AndroidMonitorShell.instance.scheduleDiagnostic(delay);
+      if (!context.mounted) return;
       AppToast.show(
         context,
-        '$secs 秒后模拟发现；请尽快回桌以验证通知',
+        ok ? '$secs 秒后由后台服务发送测试通知；可回桌或锁屏' : '后台测试启动失败，请检查诊断日志',
+        error: !ok,
       );
-      ref.read(monitorControllerProvider.notifier).debugScheduleDiscovery(
-            delay: delay,
-          );
     }
   }
 }

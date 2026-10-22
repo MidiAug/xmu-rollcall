@@ -1,58 +1,47 @@
 import 'dart:async';
-
+import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:xmu_rollcall/app/app_brand.dart';
+import 'package:uuid/uuid.dart';
 import 'package:xmu_rollcall/app/shell_navigation.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
+import 'package:xmu_rollcall/core/storage/secure_store.dart';
+import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/platform/android_monitor_notifications.dart';
+import 'package:xmu_rollcall/platform/android_monitor_platform.dart';
+import 'package:xmu_rollcall/platform/android_monitor_store.dart';
 import 'package:xmu_rollcall/platform/android_monitor_task.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
-/// Android FGS ongoing monitor + discovery local notifications.
 class AndroidMonitorShell {
   AndroidMonitorShell._();
-
-  static final AndroidMonitorShell instance = AndroidMonitorShell._();
-
-  static const _ongoingServiceId = 2601;
-  static const _discoveryNotificationId = 2602;
-  static const _discoveryPayload = 'rollcall';
-  static const _ongoingChannelId = 'monitor_ongoing';
-  static const _discoveryChannelId = 'monitor_discovery';
-
-  final _plugin = FlutterLocalNotificationsPlugin();
-  var _ready = false;
-  var _fgsConfigured = false;
-
+  static final instance = AndroidMonitorShell._();
+  final _notifications = AndroidMonitorNotifications();
+  final _secure = SecureStore();
+  final _listeners = <void Function(Map<String, dynamic>)>{};
+  Future<void>? _initializing;
+  Future<void> _commands = Future.value();
+  bool _ready = false;
+  AppLifecycleListener? _lifecycle;
+  String? _lastNoticeKey;
   VoidCallback? stopMonitor;
   void Function(String message)? onUserMessage;
 
-  Future<void> init() async {
-    if (!PlatformHooks.isAndroid || _ready) return;
+  void addListener(void Function(Map<String, dynamic>) listener) =>
+      _listeners.add(listener);
+  void removeListener(void Function(Map<String, dynamic>) listener) =>
+      _listeners.remove(listener);
 
-    FlutterForegroundTask.addTaskDataCallback(_onTaskData);
-    _configureFgsOptions();
-    await _initLocalNotifications();
-
-    PlatformHooks.onRollcallsDiscovered = notifyRollcallsDiscovered;
-    _ready = true;
-    AppLog.event('shell.android_ready', fields: {'ok': true});
-
-    final launch = await _plugin.getNotificationAppLaunchDetails();
-    if (launch?.didNotificationLaunchApp == true &&
-        launch?.notificationResponse?.payload == _discoveryPayload) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ShellNavigation.instance.openRollcall(popToRoot: true);
-      });
-    }
+  Future<void> init() {
+    if (!PlatformHooks.isAndroid || _ready) return Future.value();
+    return _initializing ??= _init().whenComplete(() => _initializing = null);
   }
 
-  void _configureFgsOptions() {
-    if (_fgsConfigured) return;
+  Future<void> _init() async {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
-        channelId: _ongoingChannelId,
+        channelId: AndroidMonitorPlatform.ongoingChannelId,
         channelName: '签到检测',
         channelDescription: '自动检测进行中时显示',
         channelImportance: NotificationChannelImportance.LOW,
@@ -72,155 +61,387 @@ class AndroidMonitorShell {
         autoRunOnMyPackageReplaced: false,
         allowWakeLock: true,
         allowWifiLock: false,
-        allowAutoRestart: false,
-        stopWithTask: true,
+        allowAutoRestart: true,
+        stopWithTask: false,
       ),
     );
-    _fgsConfigured = true;
-  }
-
-  Future<void> _initLocalNotifications() async {
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettings = InitializationSettings(android: android);
-    await _plugin.initialize(
-      settings: initSettings,
-      onDidReceiveNotificationResponse: _onNotificationResponse,
+    await _notifications.init(onResponse: _onNotificationResponse);
+    FlutterForegroundTask.addTaskDataCallback(_onTaskData);
+    _lifecycle ??= AppLifecycleListener(
+      onResume: () => unawaited(_restoreStatus()),
     );
+    PlatformHooks.onRollcallsDiscovered = notifyRollcallsDiscovered;
+    _ready = true;
+    AppLog.event('shell.android_ready', fields: {'ok': true});
+    final launch = await _notifications.plugin
+        .getNotificationAppLaunchDetails();
+    if (launch?.didNotificationLaunchApp == true &&
+        launch?.notificationResponse?.payload ==
+            AndroidMonitorNotifications.discoveryPayload) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => ShellNavigation.instance.openRollcall(popToRoot: true),
+      );
+    }
   }
 
   void _onNotificationResponse(NotificationResponse response) {
-    if (response.payload == _discoveryPayload) {
+    if (response.payload == AndroidMonitorNotifications.discoveryPayload) {
       ShellNavigation.instance.openRollcall(popToRoot: true);
     }
   }
 
   void _onTaskData(Object data) {
     if (data is! Map) return;
-    final action = data['action'];
-    if (action == 'dismissed') {
-      AppLog.event('shell.android_ongoing_dismissed');
-      stopMonitor?.call();
-      onUserMessage?.call('检测已停止');
-      return;
-    }
-    if (action == 'timeout') {
-      AppLog.event('shell.android_fgs_timeout');
-      stopMonitor?.call();
-      onUserMessage?.call('后台检测已达系统时限，已停止');
+    if (data['action'] == 'snapshot') {
+      final snapshot = Map<String, dynamic>.from(data);
+      for (final listener in [..._listeners]) {
+        listener(snapshot);
+      }
+      if (snapshot['running'] == true) _lastNoticeKey = null;
+      final noticeKey = '${snapshot['runId']}:${snapshot['reason']}';
+      if (snapshot['running'] == false && snapshot['reason'] != 'user_stop') {
+        if (noticeKey != _lastNoticeKey) {
+          _lastNoticeKey = noticeKey;
+          onUserMessage?.call(snapshot['message'] as String? ?? '检测已停止');
+        }
+      }
+    } else if (data['action'] == 'diagnostic_sent') {
+      onUserMessage?.call('后台通知测试已发送');
     }
   }
 
-  /// Ensure notification permission. Returns false if denied.
+  Future<T> _serial<T>(Future<T> Function() action) {
+    final result = Completer<T>();
+    _commands = _commands.then((_) async {
+      try {
+        result.complete(await action());
+      } catch (error, stack) {
+        result.completeError(error, stack);
+      }
+    });
+    return result.future;
+  }
+
   Future<bool> prepareStart() async {
     if (!PlatformHooks.isAndroid) return true;
-    if (!_ready) await init();
-    final permission =
-        await FlutterForegroundTask.checkNotificationPermission();
-    if (permission == NotificationPermission.granted) return true;
-    final after = await FlutterForegroundTask.requestNotificationPermission();
-    return after == NotificationPermission.granted;
-  }
-
-  Future<bool> startOngoing({DateTime? nextPollAt}) async {
-    if (!PlatformHooks.isAndroid) return true;
-    if (!_ready) await init();
-    _configureFgsOptions();
-
-    final ms = nextPollAt?.millisecondsSinceEpoch;
-    if (ms != null) {
-      await FlutterForegroundTask.saveData(key: 'nextPollAtMs', value: ms);
-    }
-
-    if (await FlutterForegroundTask.isRunningService) {
-      await syncNextPollAt(nextPollAt);
+    await init();
+    if (await FlutterForegroundTask.checkNotificationPermission() ==
+        NotificationPermission.granted) {
       return true;
     }
+    return await FlutterForegroundTask.requestNotificationPermission() ==
+        NotificationPermission.granted;
+  }
 
-    final result = await FlutterForegroundTask.startService(
-      serviceId: _ongoingServiceId,
-      serviceTypes: const [ForegroundServiceTypes.dataSync],
-      notificationTitle: '厦大签到检测中',
-      notificationText: formatMonitorCountdown(nextPollAt),
-      callback: androidMonitorTaskCallback,
+  Future<String?> startMonitor({
+    required int userId,
+    int? ownerUserId,
+    int? assistUserId,
+    required MonitorConfig config,
+    required String cookies,
+    required String deviceId,
+    required String runId,
+  }) => _serial(() async {
+    await init();
+    await _stopRun('replaced');
+    final run = AndroidMonitorRun(
+      id: runId,
+      userId: userId,
+      ownerUserId: ownerUserId,
+      assistUserId: assistUserId,
+      config: config,
     );
-    if (result is ServiceRequestFailure) {
+    await _secure.write(
+      run.credentialKey,
+      jsonEncode({'userId': userId, 'cookies': cookies, 'deviceId': deviceId}),
+    );
+    return await _startRun(run) ? run.id : null;
+  });
+
+  Future<bool> _startRun(
+    AndroidMonitorRun run, {
+    Duration? diagnosticDelay,
+  }) async {
+    try {
+      await AndroidMonitorStore.writeRun(run);
+      if (diagnosticDelay != null) await _writeDiagnostic(run, diagnosticDelay);
+      final result = await FlutterForegroundTask.startService(
+        serviceId: 2601,
+        serviceTypes: const [ForegroundServiceTypes.dataSync],
+        notificationTitle: run.diagnosticOnly ? '厦大签到  后台测试' : '厦大签到检测中',
+        notificationText: run.diagnosticOnly ? '等待发送测试通知' : '正在开始检测',
+        notificationButtons: const [NotificationButton(id: 'stop', text: '停止')],
+        callback: androidMonitorTaskCallback,
+      );
+      if (result is ServiceRequestFailure) throw result.error;
+      AppLog.event('shell.android_fgs_start', fields: {'runId': run.id});
+      return true;
+    } catch (error, stack) {
       AppLog.logAppError(
-        error: result.error,
-        stackTrace: StackTrace.current,
+        error: error,
+        stackTrace: stack,
         source: 'android_fgs_start',
+      );
+      await _stopRun('start_failed');
+      await _secure.delete(run.credentialKey);
+      return false;
+    }
+  }
+
+  Future<void> stopOngoing({String reason = 'user_stop'}) =>
+      _serial(() => _stopRun(reason));
+
+  Future<void> _stopRun(String reason) async {
+    final run = await AndroidMonitorStore.readRun();
+    // Revoke durable authorization before stopping the service.
+    await AndroidMonitorStore.clearRun();
+    if (run != null) {
+      await AndroidMonitorStore.writeSnapshot({
+        'action': 'snapshot',
+        'runId': run.id,
+        'userId': run.userId,
+        'ownerUserId': run.ownerUserId,
+        'assistUserId': run.assistUserId,
+        'running': false,
+        'diagnosticOnly': run.diagnosticOnly,
+        'autoAnswer': run.config.autoAnswer,
+        'answerWaitMode': run.config.answerWaitMode.index,
+        'answerWaitCount': run.config.answerWaitCount,
+        'answerWaitPercent': run.config.answerWaitPercent,
+        'reason': reason,
+        'message': '检测已停止',
+        'nextPollAtMs': null,
+        'updatedAtMs': DateTime.now().millisecondsSinceEpoch,
+      });
+      await _secure.delete(run.credentialKey);
+    }
+    if (await FlutterForegroundTask.isRunningService) {
+      final result = await FlutterForegroundTask.stopService();
+      if (result is ServiceRequestFailure) throw result.error;
+    }
+    if (run != null) {
+      AppLog.event(
+        'shell.android_fgs_stop',
+        fields: {'runId': run.id, 'reason': reason},
+      );
+    }
+  }
+
+  Future<void> updateConfig(MonitorConfig config) => _serial(() async {
+    final run = await AndroidMonitorStore.readRun();
+    if (run == null || run.diagnosticOnly) return;
+    await AndroidMonitorStore.writeRun(
+      AndroidMonitorRun(
+        id: run.id,
+        userId: run.userId,
+        ownerUserId: run.ownerUserId,
+        assistUserId: run.assistUserId,
+        config: config,
+      ),
+    );
+    FlutterForegroundTask.sendDataToTask({'action': 'config', 'runId': run.id});
+  });
+
+  Future<void> pollNow() async {
+    final run = await AndroidMonitorStore.readRun();
+    if (run != null) {
+      FlutterForegroundTask.sendDataToTask({
+        'action': 'poll_now',
+        'runId': run.id,
+      });
+    }
+  }
+
+  Future<Map<String, dynamic>?> readStatus() async {
+    await init();
+    final snapshot = await AndroidMonitorStore.readSnapshot();
+    final run = await AndroidMonitorStore.readRun();
+    if (run != null && await FlutterForegroundTask.isRunningService) {
+      FlutterForegroundTask.sendDataToTask({'action': 'sync', 'runId': run.id});
+      return {
+        if (snapshot?['runId'] == run.id) ...snapshot!,
+        'action': 'snapshot',
+        'runId': run.id,
+        'userId': run.userId,
+        'ownerUserId': run.ownerUserId,
+        'assistUserId': run.assistUserId,
+        'running': snapshot?['runId'] == run.id
+            ? (snapshot?['running'] ?? true)
+            : true,
+        'diagnosticOnly': run.diagnosticOnly,
+        'autoAnswer': run.config.autoAnswer,
+        'answerWaitMode': run.config.answerWaitMode.index,
+        'answerWaitCount': run.config.answerWaitCount,
+        'answerWaitPercent': run.config.answerWaitPercent,
+      };
+    }
+    if (snapshot == null) return null;
+    return {
+      ...snapshot,
+      'running': false,
+      'nextPollAtMs': null,
+      if (snapshot['running'] == true) 'message': '后台服务已退出，请重新开始检测',
+      if (snapshot['running'] == true) 'reason': 'service_missing',
+      if (snapshot['running'] == true)
+        'updatedAtMs': DateTime.now().millisecondsSinceEpoch,
+    };
+  }
+
+  Future<void> _restoreStatus() async {
+    try {
+      final status = await readStatus();
+      if (status != null) _onTaskData(status);
+    } catch (error, stack) {
+      AppLog.logAppError(
+        error: error,
+        stackTrace: stack,
+        source: 'android_monitor_restore',
+      );
+    }
+  }
+
+  Future<bool> testNotification() async {
+    if (!await prepareStart()) return false;
+    try {
+      await _notifications.show(count: 1, diagnostic: true);
+      AppLog.event('shell.android_notification_test', fields: {'ok': true});
+      return true;
+    } catch (error, stack) {
+      AppLog.logAppError(
+        error: error,
+        stackTrace: stack,
+        source: 'android_notification_test',
       );
       return false;
     }
-    AppLog.event('shell.android_fgs_start');
-    return true;
   }
 
-  Future<void> syncNextPollAt(DateTime? nextPollAt) async {
-    if (!PlatformHooks.isAndroid) return;
-    if (!await FlutterForegroundTask.isRunningService) return;
-    final ms = nextPollAt?.millisecondsSinceEpoch;
-    if (ms != null) {
-      await FlutterForegroundTask.saveData(key: 'nextPollAtMs', value: ms);
-      FlutterForegroundTask.sendDataToTask({'nextPollAtMs': ms});
+  Future<bool> scheduleDiagnostic(Duration delay) async {
+    if (delay < const Duration(seconds: 15) ||
+        delay > const Duration(minutes: 2) ||
+        !await prepareStart()) {
+      return false;
     }
-    await FlutterForegroundTask.updateService(
-      notificationTitle: '厦大签到检测中',
-      notificationText: formatMonitorCountdown(nextPollAt),
+    return _serial(() async {
+      final existing = await AndroidMonitorStore.readRun();
+      if (existing != null && await FlutterForegroundTask.isRunningService) {
+        await _writeDiagnostic(existing, delay);
+        FlutterForegroundTask.sendDataToTask({
+          'action': 'diagnostic',
+          'runId': existing.id,
+        });
+        return true;
+      }
+      await _stopRun('diagnostic_replaced');
+      return _startRun(
+        AndroidMonitorRun(
+          id: const Uuid().v4(),
+          userId: 0,
+          config: const MonitorConfig(),
+          diagnosticOnly: true,
+        ),
+        diagnosticDelay: delay,
+      );
+    });
+  }
+
+  Future<void> _writeDiagnostic(AndroidMonitorRun run, Duration delay) =>
+      AndroidMonitorStore.writeDiagnostic({
+        'runId': run.id,
+        'atMs': DateTime.now().add(delay).millisecondsSinceEpoch,
+        'expiresAtMs': DateTime.now()
+            .add(delay + const Duration(minutes: 1))
+            .millisecondsSinceEpoch,
+      });
+
+  Future<void> notifyRollcallsDiscovered(int count) async {
+    if (count > 0) await _notifications.show(count: count);
+  }
+
+  Future<void> openBatteryOptimizationSettings() =>
+      FlutterForegroundTask.openIgnoreBatteryOptimizationSettings();
+
+  Future<AndroidDiscoveryNotificationStatus> readNotificationSettings() async {
+    await init();
+    final android = _notifications.plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    final enabled = await android?.areNotificationsEnabled();
+    final channels = await android?.getNotificationChannels();
+    AndroidNotificationChannel? discovery;
+    AndroidNotificationChannel? ongoing;
+    for (final channel in channels ?? <AndroidNotificationChannel>[]) {
+      if (channel.id == AndroidMonitorNotifications.discoveryChannelId) {
+        discovery = channel;
+      }
+      if (channel.id == AndroidMonitorPlatform.ongoingChannelId) {
+        ongoing = channel;
+      }
+    }
+    return AndroidDiscoveryNotificationStatus(
+      enabled: enabled,
+      channel: discovery,
+      ongoingChannel: ongoing,
+      background: await AndroidMonitorPlatform.backgroundSettings(),
     );
   }
 
-  Future<void> stopOngoing() async {
-    if (!PlatformHooks.isAndroid) return;
-    try {
-      if (await FlutterForegroundTask.isRunningService) {
-        await FlutterForegroundTask.stopService();
-        AppLog.event('shell.android_fgs_stop');
-      }
-    } catch (e, st) {
-      AppLog.logAppError(error: e, stackTrace: st, source: 'android_fgs_stop');
-    }
+  Future<void> openDiscoveryNotificationSettings() async {
+    await init();
+    await AndroidMonitorPlatform.openChannelSettings(
+      AndroidMonitorNotifications.discoveryChannelId,
+    );
   }
 
-  /// Discovery alert when app is not in the foreground.
-  Future<void> notifyRollcallsDiscovered(int count) async {
-    if (!PlatformHooks.isAndroid || count <= 0) return;
-    try {
-      final inFg = await FlutterForegroundTask.isAppOnForeground;
-      if (inFg) return;
+  Future<void> openOngoingNotificationSettings() =>
+      AndroidMonitorPlatform.openChannelSettings(
+        AndroidMonitorPlatform.ongoingChannelId,
+      );
 
-      const details = NotificationDetails(
-        android: AndroidNotificationDetails(
-          _discoveryChannelId,
-          '签到发现',
-          channelDescription: '发现进行中签到时提醒',
-          importance: Importance.high,
-          priority: Priority.high,
-        ),
-      );
-      await _plugin.show(
-        id: _discoveryNotificationId,
-        title: kAppDisplayName,
-        body: '发现进行中签到 $count 条，检测已停止',
-        notificationDetails: details,
-        payload: _discoveryPayload,
-      );
-      AppLog.event('shell.android_notify_found', fields: {'count': count});
-    } catch (e, st) {
-      AppLog.logAppError(
-        error: e,
-        stackTrace: st,
-        source: 'android_notify',
-      );
-    }
-  }
+  Future<void> openAppNotificationSettings() =>
+      AndroidMonitorPlatform.openChannelSettings(null);
 
-  Future<void> openBatteryOptimizationSettings() async {
-    if (!PlatformHooks.isAndroid) return;
-    await FlutterForegroundTask.openIgnoreBatteryOptimizationSettings();
-  }
+  Future<void> openAppBackgroundSettings() =>
+      AndroidMonitorPlatform.openAppDetails();
 }
 
-/// Binds [AndroidMonitorShell] to Riverpod stop callback + toast sink.
+class AndroidDiscoveryNotificationStatus {
+  const AndroidDiscoveryNotificationStatus({
+    required this.enabled,
+    this.channel,
+    this.ongoingChannel,
+    this.background = const {},
+  });
+  final bool? enabled;
+  final AndroidNotificationChannel? channel;
+  final AndroidNotificationChannel? ongoingChannel;
+  final Map<String, dynamic> background;
+
+  bool get discoveryBlocked =>
+      enabled == false ||
+      (channel != null &&
+          (channel!.importance.value < Importance.high.value ||
+              !channel!.enableVibration));
+
+  bool get ongoingAlerts =>
+      ongoingChannel?.enableVibration == true ||
+      ongoingChannel?.playSound == true;
+
+  String get settingsFingerprint => [
+    enabled,
+    channel?.importance.value,
+    channel?.enableVibration,
+    channel?.playSound,
+    ongoingChannel?.enableVibration,
+    ongoingChannel?.playSound,
+    background['manufacturer'],
+    background['model'],
+    background['sdkInt'],
+    background['batteryExempt'],
+  ].join('|');
+}
+
 class AndroidMonitorShellBinder extends StatefulWidget {
   const AndroidMonitorShellBinder({
     super.key,
@@ -228,11 +449,9 @@ class AndroidMonitorShellBinder extends StatefulWidget {
     required this.onUserMessage,
     required this.child,
   });
-
   final VoidCallback stopMonitor;
   final void Function(String message) onUserMessage;
   final Widget child;
-
   @override
   State<AndroidMonitorShellBinder> createState() =>
       _AndroidMonitorShellBinderState();
@@ -243,9 +462,9 @@ class _AndroidMonitorShellBinderState extends State<AndroidMonitorShellBinder> {
   void initState() {
     super.initState();
     _wire();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(AndroidMonitorShell.instance.init());
-    });
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => unawaited(AndroidMonitorShell.instance.init()),
+    );
   }
 
   @override
@@ -255,14 +474,17 @@ class _AndroidMonitorShellBinderState extends State<AndroidMonitorShellBinder> {
   }
 
   void _wire() {
-    final shell = AndroidMonitorShell.instance;
-    shell.stopMonitor = widget.stopMonitor;
-    shell.onUserMessage = widget.onUserMessage;
+    AndroidMonitorShell.instance.stopMonitor = widget.stopMonitor;
+    AndroidMonitorShell.instance.onUserMessage = widget.onUserMessage;
   }
 
   @override
-  Widget build(BuildContext context) {
-    _wire();
-    return widget.child;
+  void dispose() {
+    AndroidMonitorShell.instance.stopMonitor = null;
+    AndroidMonitorShell.instance.onUserMessage = null;
+    super.dispose();
   }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

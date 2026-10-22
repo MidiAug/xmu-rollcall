@@ -28,10 +28,8 @@ class AssistQrSubmitResult {
   final String? message;
 }
 
-typedef AssistQrSubmitFn = Future<AnswerResult> Function(
-  AssistQrTarget target,
-  String qrData,
-);
+typedef AssistQrSubmitFn =
+    Future<AnswerResult> Function(AssistQrTarget target, String qrData);
 
 /// Pure filter: keep assists enrolled in [courseId] (live map).
 List<AssistIdentity> filterAssistForCourse({
@@ -71,7 +69,7 @@ AssistQrEligibility eligibilityFromActiveList({
 }) {
   for (final item in active) {
     if (item.rollcallId != rollcallId) continue;
-    return item.isAnswered
+    return item.isAnswered || item.isExpired
         ? AssistQrEligibility.signedOrDone
         : AssistQrEligibility.unsigned;
   }
@@ -93,21 +91,9 @@ class AssistQrBatchRunner {
     for (final t in targets) {
       try {
         final r = await submit(t, qrData);
-        out.add(
-          AssistQrSubmitResult(
-            target: t,
-            ok: r.ok,
-            message: r.message,
-          ),
-        );
+        out.add(AssistQrSubmitResult(target: t, ok: r.ok, message: r.message));
       } catch (e) {
-        out.add(
-          AssistQrSubmitResult(
-            target: t,
-            ok: false,
-            message: '$e',
-          ),
-        );
+        out.add(AssistQrSubmitResult(target: t, ok: false, message: '$e'));
       }
     }
     return out;

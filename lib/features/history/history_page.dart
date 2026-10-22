@@ -1,33 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
-import 'package:xmu_rollcall/app/corner_ribbon.dart';
 import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+import 'package:xmu_rollcall/features/history/history_summary.dart';
 
-enum HistorySignedFilter { all, unsigned, signed }
+enum HistorySignedFilter { all, unsigned, signed, other }
+
+enum _HistoryPeriod { all, days7, days30 }
 
 enum HistoryTypeFilter { all, number, radar, qr }
 
 extension on HistorySignedFilter {
   String get label => switch (this) {
-        HistorySignedFilter.all => '全部状态',
-        HistorySignedFilter.unsigned => '未签到',
-        HistorySignedFilter.signed => '已签到',
-      };
+    HistorySignedFilter.all => '全部状态',
+    HistorySignedFilter.unsigned => '未签到',
+    HistorySignedFilter.signed => '已签到',
+    HistorySignedFilter.other => '其他状态',
+  };
 }
 
 extension on HistoryTypeFilter {
   String get label => switch (this) {
-        HistoryTypeFilter.all => '全部类型',
-        HistoryTypeFilter.number => '数字签到',
-        HistoryTypeFilter.radar => '雷达签到',
-        HistoryTypeFilter.qr => '二维码签到',
-      };
+    HistoryTypeFilter.all => '全部类型',
+    HistoryTypeFilter.number => '数字签到',
+    HistoryTypeFilter.radar => '雷达签到',
+    HistoryTypeFilter.qr => '二维码签到',
+  };
 }
 
 /// 签到二级页：课程签到历史（不再占主 Tab）。
@@ -41,10 +45,37 @@ class HistoryPage extends ConsumerStatefulWidget {
 class _HistoryPageState extends ConsumerState<HistoryPage> {
   HistorySignedFilter _signed = HistorySignedFilter.all;
   HistoryTypeFilter _type = HistoryTypeFilter.all;
+  String _courseId = '';
+  _HistoryPeriod _period = _HistoryPeriod.all;
+  DateTimeRange? _range;
   final _scroll = ScrollController();
   var _appeared = false;
 
-  static const _selectW = 132.0;
+  void _selectPeriod(_HistoryPeriod period) {
+    final now = DateTime.now();
+    final days = switch (period) {
+      _HistoryPeriod.all => null,
+      _HistoryPeriod.days7 => 7,
+      _HistoryPeriod.days30 => 30,
+    };
+    setState(() {
+      _period = period;
+      _range = days == null
+          ? null
+          : DateTimeRange(
+              start: DateTime(now.year, now.month, now.day - days + 1),
+              end: now,
+            );
+    });
+  }
+
+  void _resetFilters() {
+    _courseId = '';
+    _signed = HistorySignedFilter.all;
+    _type = HistoryTypeFilter.all;
+    _period = _HistoryPeriod.all;
+    _range = null;
+  }
 
   @override
   void initState() {
@@ -53,7 +84,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       if (!mounted || _appeared) return;
       _appeared = true;
       if (ref.read(authControllerProvider).isSignedIn) {
-        ref.read(courseHistoryProvider.notifier).ensureFresh();
+        ref.read(currentHistoryControllerProvider).ensureFresh();
       }
     });
   }
@@ -68,12 +99,70 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   Widget build(BuildContext context) {
     final pageX = AppSpace.pageXOf(context);
     final auth = ref.watch(authControllerProvider);
-    final localIds = {
-      for (final e in ref.watch(historyProvider)) '${e.rollcallId}',
+    ref.listen(authControllerProvider.select((s) => s.profile?.id), (
+      before,
+      after,
+    ) {
+      if (before != after) setState(_resetFilters);
+    });
+    ref.listen(selectedRollcallAccountProvider, (before, after) {
+      if (before != after) setState(_resetFilters);
+    });
+    final records = auth.isSignedIn
+        ? ref.watch(currentCourseHistoryProvider).valueOrNull ??
+              const <CourseRollcallRecord>[]
+        : const <CourseRollcallRecord>[];
+    final courses = <String, String>{'': '全部课程'};
+    for (final record in records) {
+      if (record.courseId.isNotEmpty) {
+        courses.putIfAbsent(
+          record.courseId,
+          () =>
+              record.courseTitle.trim().isEmpty ? '未命名课程' : record.courseTitle,
+        );
+      }
+    }
+    final courseId = courses.containsKey(_courseId) ? _courseId : '';
+    final summary = HistorySummary(
+      records.where(
+        (r) =>
+            (courseId.isEmpty || r.courseId == courseId) &&
+            _historyMatchesType(r, _type) &&
+            historyInDateRange(r, _range?.start, _range?.end),
+      ),
+    );
+    final datedRecords = HistorySummary(
+      records.where((r) => historyInDateRange(r, _range?.start, _range?.end)),
+    ).records;
+    int typeCount(HistoryTypeFilter type) => datedRecords
+        .where(
+          (r) =>
+              (courseId.isEmpty || r.courseId == courseId) &&
+              _historyMatchesStatus(r, _signed) &&
+              _historyMatchesType(r, type),
+        )
+        .length;
+    int courseCount(String id) => datedRecords
+        .where(
+          (r) =>
+              (id.isEmpty || r.courseId == id) &&
+              _historyMatchesStatus(r, _signed) &&
+              _historyMatchesType(r, _type),
+        )
+        .length;
+    int statusCount(HistorySignedFilter status) => switch (status) {
+      HistorySignedFilter.all => summary.total,
+      HistorySignedFilter.signed => summary.count(HistoryAttendance.signed),
+      HistorySignedFilter.unsigned => summary.count(HistoryAttendance.unsigned),
+      HistorySignedFilter.other => summary.count(HistoryAttendance.other),
     };
 
     return SubpageScaffold(
       title: '签到记录',
+      actions: [
+        if (auth.isSignedIn)
+          _HistoryDateFilter(value: _period, onSelected: _selectPeriod),
+      ],
       body: AppContentColumn(
         child: PrimaryScrollController(
           controller: _scroll,
@@ -83,28 +172,44 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
               Padding(
                 padding: EdgeInsets.fromLTRB(
                   pageX,
-                  AppSpace.md,
-                  pageX,
                   AppSpace.sm,
+                  pageX,
+                  AppSpace.xs,
                 ),
-                child: Wrap(
-                  spacing: AppSpace.xs,
-                  runSpacing: AppSpace.xs,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+                child: Row(
                   children: [
-                    AppShellSelect<HistorySignedFilter>(
-                      width: _selectW,
-                      value: _signed,
-                      items: HistorySignedFilter.values,
-                      labelOf: (v) => v.label,
-                      onChanged: (v) => setState(() => _signed = v),
+                    Expanded(
+                      child: _HistoryFilter<HistorySignedFilter>(
+                        key: const ValueKey('history-status-filter'),
+                        value: _signed,
+                        items: HistorySignedFilter.values,
+                        labelOf: (v) => v.label,
+                        countOf: statusCount,
+                        onChanged: (v) => setState(() => _signed = v),
+                      ),
                     ),
-                    AppShellSelect<HistoryTypeFilter>(
-                      width: _selectW,
-                      value: _type,
-                      items: HistoryTypeFilter.values,
-                      labelOf: (v) => v.label,
-                      onChanged: (v) => setState(() => _type = v),
+                    const SizedBox(width: AppSpace.xs),
+                    Expanded(
+                      child: _HistoryFilter<HistoryTypeFilter>(
+                        key: const ValueKey('history-type-filter'),
+                        value: _type,
+                        items: HistoryTypeFilter.values,
+                        labelOf: (v) => v.label,
+                        countOf: typeCount,
+                        onChanged: (v) => setState(() => _type = v),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpace.xs),
+                    Expanded(
+                      child: _HistoryFilter<String>(
+                        key: const ValueKey('history-course-filter'),
+                        value: courseId,
+                        items: courses.keys.toList(),
+                        labelOf: (id) => courses[id]!,
+                        countOf: courseCount,
+                        wideMenu: true,
+                        onChanged: (id) => setState(() => _courseId = id),
+                      ),
                     ),
                   ],
                 ),
@@ -114,11 +219,50 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   signedIn: auth.isSignedIn,
                   signedFilter: _signed,
                   typeFilter: _type,
-                  localRollcallIds: localIds,
+                  courseId: courseId,
+                  start: _range?.start,
+                  end: _range?.end,
                 ),
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Equal-width compact triggers; menu labels can wrap independently of the row.
+class _HistoryFilter<T> extends StatelessWidget {
+  const _HistoryFilter({
+    super.key,
+    required this.value,
+    required this.items,
+    required this.labelOf,
+    required this.countOf,
+    required this.onChanged,
+    this.wideMenu = false,
+  });
+  final T value;
+  final List<T> items;
+  final String Function(T) labelOf;
+  final int Function(T) countOf;
+  final ValueChanged<T> onChanged;
+  final bool wideMenu;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, bounds) => Tooltip(
+        message: labelOf(value),
+        child: AppShellSelect<T>(
+          value: value,
+          items: items,
+          labelOf: labelOf,
+          menuTrailingOf: (v) => '(${countOf(v)})',
+          onChanged: onChanged,
+          width: bounds.maxWidth,
+          menuWidth: wideMenu ? 240 : 160,
         ),
       ),
     );
@@ -130,51 +274,30 @@ class _CourseHistoryBody extends ConsumerWidget {
     required this.signedIn,
     required this.signedFilter,
     required this.typeFilter,
-    required this.localRollcallIds,
+    required this.courseId,
+    this.start,
+    this.end,
   });
 
   final bool signedIn;
   final HistorySignedFilter signedFilter;
   final HistoryTypeFilter typeFilter;
-  final Set<String> localRollcallIds;
+  final String courseId;
+  final DateTime? start, end;
 
   List<CourseRollcallRecord> _filter(List<CourseRollcallRecord> records) {
     return [
       for (final r in records)
-        if (_matchSigned(r) && _matchType(r)) r,
+        if ((courseId.isEmpty || r.courseId == courseId) &&
+            _matchSigned(r) &&
+            _historyMatchesType(r, typeFilter) &&
+            historyInDateRange(r, start, end))
+          r,
     ];
   }
 
-  bool _matchSigned(CourseRollcallRecord r) {
-    if (r.isPlaceholder) {
-      // Keep status rows visible under "all"; hide under signed/unsigned filters.
-      return signedFilter == HistorySignedFilter.all;
-    }
-    switch (signedFilter) {
-      case HistorySignedFilter.all:
-        return true;
-      case HistorySignedFilter.unsigned:
-        return r.signedStatus.contains('未签');
-      case HistorySignedFilter.signed:
-        return r.signedStatus.contains('已');
-    }
-  }
-
-  bool _matchType(CourseRollcallRecord r) {
-    if (r.isPlaceholder) {
-      return typeFilter == HistoryTypeFilter.all;
-    }
-    switch (typeFilter) {
-      case HistoryTypeFilter.all:
-        return true;
-      case HistoryTypeFilter.number:
-        return r.typeLabel.contains('数字');
-      case HistoryTypeFilter.radar:
-        return r.typeLabel.contains('雷达');
-      case HistoryTypeFilter.qr:
-        return r.typeLabel.contains('二维码') || r.typeLabel.contains('二维');
-    }
-  }
+  bool _matchSigned(CourseRollcallRecord r) =>
+      _historyMatchesStatus(r, signedFilter);
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -192,10 +315,10 @@ class _CourseHistoryBody extends ConsumerWidget {
       );
     }
 
-    final async = ref.watch(courseHistoryProvider);
+    final async = ref.watch(currentCourseHistoryProvider);
     return AppPullToRefresh(
       color: p.primary,
-      onRefresh: () => ref.read(courseHistoryProvider.notifier).refresh(),
+      onRefresh: () => ref.read(currentHistoryControllerProvider).refresh(),
       child: async.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
@@ -210,17 +333,14 @@ class _CourseHistoryBody extends ConsumerWidget {
                 children: [
                   Text(
                     '拉取失败',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: p.ink,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w600, color: p.ink),
                   ),
                   const SizedBox(height: 8),
                   Text('$e', style: TextStyle(color: p.muted)),
                   const SizedBox(height: 12),
                   FilledButton(
                     onPressed: () =>
-                        ref.read(courseHistoryProvider.notifier).refresh(),
+                        ref.read(currentHistoryControllerProvider).refresh(),
                     child: const Text('重试'),
                   ),
                 ],
@@ -254,7 +374,7 @@ class _CourseHistoryBody extends ConsumerWidget {
                   child: EmptyHint(
                     icon: Icons.filter_alt_outlined,
                     title: '无匹配记录',
-                    detail: '试试放宽状态或类型筛选',
+                    detail: '试试放宽状态、类型、课程或时间范围',
                   ),
                 ),
               ],
@@ -273,12 +393,36 @@ class _CourseHistoryBody extends ConsumerWidget {
                 SizedBox(height: AppSpace.stackOf(context) * 0.55),
             itemBuilder: (context, i) {
               final r = filtered[i];
-              return _CourseTile(
-                key: ValueKey(
-                  '${r.courseId}_${r.rollcallId}_${r.signedStatus}',
-                ),
-                record: r,
-                localMatch: localRollcallIds.contains(r.rollcallId),
+              final date = r.rollcallTime?.toLocal();
+              final previous = i == 0
+                  ? null
+                  : filtered[i - 1].rollcallTime?.toLocal();
+              final startsDay =
+                  date != null &&
+                  (previous == null ||
+                      DateUtils.dateOnly(date) != DateUtils.dateOnly(previous));
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (startsDay)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12, bottom: 8),
+                      child: Text(
+                        _historyDayLabel(date),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: p.muted,
+                        ),
+                      ),
+                    ),
+                  _CourseTile(
+                    key: ValueKey(
+                      '${r.courseId}_${r.rollcallId}_${r.signedStatus}',
+                    ),
+                    record: r,
+                  ),
+                ],
               );
             },
           );
@@ -288,15 +432,86 @@ class _CourseHistoryBody extends ConsumerWidget {
   }
 }
 
+bool _historyMatchesType(CourseRollcallRecord r, HistoryTypeFilter typeFilter) {
+  if (r.isPlaceholder) return typeFilter == HistoryTypeFilter.all;
+  return switch (typeFilter) {
+    HistoryTypeFilter.all => true,
+    HistoryTypeFilter.number => r.typeLabel.contains('数字'),
+    HistoryTypeFilter.radar => r.typeLabel.contains('雷达'),
+    HistoryTypeFilter.qr =>
+      r.typeLabel.contains('二维码') || r.typeLabel.contains('二维'),
+  };
+}
+
+String _historyDayLabel(DateTime date) {
+  const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  final year = date.year == DateTime.now().year ? '' : '${date.year}年';
+  return '$year${date.month}月${date.day}日 ${weekdays[date.weekday - 1]}';
+}
+
+bool _historyMatchesStatus(
+  CourseRollcallRecord record,
+  HistorySignedFilter filter,
+) {
+  if (record.isPlaceholder) return filter == HistorySignedFilter.all;
+  return switch (filter) {
+    HistorySignedFilter.all => true,
+    HistorySignedFilter.signed =>
+      historyAttendance(record) == HistoryAttendance.signed,
+    HistorySignedFilter.unsigned =>
+      historyAttendance(record) == HistoryAttendance.unsigned,
+    HistorySignedFilter.other =>
+      historyAttendance(record) == HistoryAttendance.other,
+  };
+}
+
+class _HistoryDateFilter extends StatelessWidget {
+  const _HistoryDateFilter({required this.value, required this.onSelected});
+  final _HistoryPeriod value;
+  final ValueChanged<_HistoryPeriod> onSelected;
+  static const labels = {
+    _HistoryPeriod.all: '全部时间',
+    _HistoryPeriod.days7: '7天内',
+    _HistoryPeriod.days30: '30天内',
+  };
+  @override
+  Widget build(BuildContext context) {
+    final painter = TextPainter(
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    );
+    var labelWidth = 0.0;
+    for (final label in labels.values) {
+      painter.text = TextSpan(
+        text: label,
+        style: DefaultTextStyle.of(
+          context,
+        ).style.copyWith(fontSize: 14, fontWeight: FontWeight.w500),
+      );
+      painter.layout();
+      if (painter.width > labelWidth) labelWidth = painter.width;
+    }
+    painter.dispose();
+    // Include padding, the arrow and spacing, with room for the full label.
+    final width = labelWidth + 64;
+    return Center(
+      child: AppShellSelect<_HistoryPeriod>(
+        key: const ValueKey('history-date-filter'),
+        value: value,
+        items: _HistoryPeriod.values,
+        labelOf: (v) => labels[v]!,
+        onChanged: onSelected,
+        width: width,
+        menuWidth: width + 16,
+      ),
+    );
+  }
+}
+
 class _CourseTile extends StatelessWidget {
-  const _CourseTile({
-    super.key,
-    required this.record,
-    required this.localMatch,
-  });
+  const _CourseTile({super.key, required this.record});
 
   final CourseRollcallRecord record;
-  final bool localMatch;
 
   Color _statusColor(AppPalette p) {
     if (record.isPlaceholder) return p.muted;
@@ -335,7 +550,7 @@ class _CourseTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Padding(
-                        padding: EdgeInsets.only(right: localMatch ? 36 : 0),
+                        padding: EdgeInsets.zero,
                         child: Text(
                           title,
                           style: TextStyle(
@@ -360,7 +575,8 @@ class _CourseTile extends StatelessWidget {
                           time: record.timeLabel,
                           statusColor: statusColor,
                         ),
-                      if (!record.isPlaceholder && record.detail.isNotEmpty) ...[
+                      if (!record.isPlaceholder &&
+                          record.detail.isNotEmpty) ...[
                         const SizedBox(height: 4),
                         Text(
                           record.detail,
@@ -377,7 +593,6 @@ class _CourseTile extends StatelessWidget {
               ],
             ),
           ),
-          if (localMatch) const CornerRibbon(label: '本机'),
         ],
       ),
     );
@@ -450,7 +665,7 @@ class _TypeChip extends StatelessWidget {
     );
     final Widget body;
     if (label.length == 2) {
-      // 数····字  align with 二····码 edges inside the same content box.
+      // 数    字  align with 二    码 edges inside the same content box.
       body = Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [

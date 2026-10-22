@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -98,16 +99,14 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
   }
 
   Future<void> _submitNumber() async {
+    if (_submitting || widget.item.isExpired || widget.item.isAnswered) return;
     final code = _codeCtrl.text.trim();
     if (code.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('请输入数字签到码')));
+      AppToast.show(context, '请输入数字签到码');
       return;
     }
     final opId = RollcallLog.newOpId();
-    final session =
-        widget.assistUserId == null ? 'owner' : 'assist';
+    final session = widget.assistUserId == null ? 'owner' : 'assist';
     final confirmed = await _confirm(
       '课程：${widget.item.courseTitle}\n类型：数字\n签到码：$code\n\n仅本人到课操作。',
     );
@@ -143,8 +142,18 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
             opId: opId,
           );
       ok = result.ok;
+      if (result.ok && mounted) {
+        ref
+            .read(activeRollcallsProvider(widget.assistUserId).notifier)
+            .patchItem(
+              widget.item.copyWith(
+                numberCode: code,
+                clearNumberCodeError: true,
+              ),
+            );
+      }
       await ref
-          .read(historyProvider.notifier)
+          .read(ref.read(localHistoryForProvider(widget.assistUserId)).notifier)
           .add(
             RollcallHistoryEntry(
               rollcallId: widget.item.rollcallId,
@@ -156,8 +165,10 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
             ),
           );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message ?? (result.ok ? '成功' : '失败'))),
+      AppToast.show(
+        context,
+        result.message ?? (result.ok ? '成功' : '失败'),
+        error: !result.ok,
       );
       if (result.ok) Navigator.of(context).pop();
     } catch (e, st) {
@@ -168,9 +179,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
         stackTrace: st,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('提交异常：$e')));
+      AppToast.show(context, '提交异常：$e', error: true);
     } finally {
       RollcallLog.end(
         opId: opId,
@@ -215,8 +224,9 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     }
     try {
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings:
-            const LocationSettings(accuracy: LocationAccuracy.high),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
       if (!mounted) return;
       // Geolocator is WGS-84; Amap tiles + campus radar use GCJ-02 in China.
@@ -245,9 +255,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
         ? null
         : LatLng(_selection!.latitude, _selection!.longitude);
     final result = await Navigator.of(context).push<MapPickResult>(
-      AppPageRoutes.build(
-        MapPickPage(initial: initial, title: '选择位置'),
-      ),
+      AppPageRoutes.build(MapPickPage(initial: initial, title: '选择位置')),
     );
     if (result == null || !mounted) return;
     final note = result.saveNote?.trim() ?? '';
@@ -305,16 +313,14 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
   }
 
   Future<void> _submitRadar() async {
+    if (_submitting || widget.item.isExpired || widget.item.isAnswered) return;
     final sel = _selection;
     if (sel == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('请先选择位置')));
+      AppToast.show(context, '请先选择位置');
       return;
     }
     final opId = RollcallLog.newOpId();
-    final session =
-        widget.assistUserId == null ? 'owner' : 'assist';
+    final session = widget.assistUserId == null ? 'owner' : 'assist';
     final confirmed = await _confirm(
       '课程：${widget.item.courseTitle}\n'
       '${sel.confirmLine}\n'
@@ -335,9 +341,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     if (!mounted) return;
 
     if (widget.previewMode) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('预览模式：未向服务器提交')));
+      AppToast.show(context, '预览模式：未向服务器提交');
       return;
     }
 
@@ -376,7 +380,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
           );
       ok = result.ok;
       await ref
-          .read(historyProvider.notifier)
+          .read(ref.read(localHistoryForProvider(widget.assistUserId)).notifier)
           .add(
             RollcallHistoryEntry(
               rollcallId: widget.item.rollcallId,
@@ -388,8 +392,10 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
             ),
           );
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message ?? (result.ok ? '成功' : '失败'))),
+      AppToast.show(
+        context,
+        result.message ?? (result.ok ? '成功' : '失败'),
+        error: !result.ok,
       );
       if (result.ok) {
         await ref
@@ -418,9 +424,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
         stackTrace: st,
       );
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('提交异常：$e')));
+      AppToast.show(context, '提交异常：$e', error: true);
     } finally {
       RollcallLog.end(
         opId: opId,
@@ -483,7 +487,12 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
               ),
               const SizedBox(height: AppSpace.md),
               FilledButton(
-                onPressed: _submitting ? null : _submitNumber,
+                onPressed:
+                    (_submitting ||
+                        widget.item.isExpired ||
+                        widget.item.isAnswered)
+                    ? null
+                    : _submitNumber,
                 child: Text(_submitting ? '提交中…' : '确认并提交'),
               ),
             ] else if (item.isRadar) ...[
@@ -493,16 +502,17 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
               ),
               if (_status != null) ...[
                 const SizedBox(height: AppSpace.sm),
-                Text(
-                  _status!,
-                  style: TextStyle(fontSize: 12, color: p.muted),
-                ),
+                Text(_status!, style: TextStyle(fontSize: 12, color: p.muted)),
               ],
               const SizedBox(height: AppSpace.md),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  onPressed: (_submitting || _selection == null)
+                  onPressed:
+                      (_submitting ||
+                          _selection == null ||
+                          widget.item.isExpired ||
+                          widget.item.isAnswered)
                       ? null
                       : _submitRadar,
                   child: Text(

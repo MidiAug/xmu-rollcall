@@ -46,52 +46,65 @@ abstract final class TronEndpoints {
   static Uri courseStudentRollcalls({
     required Object courseId,
     required Object studentId,
-  }) =>
-      Uri.parse(
-        '$baseUrl/api/course/$courseId/student/$studentId/rollcalls',
-      ).replace(queryParameters: {'page': '1', 'page_size': '100'});
+  }) => Uri.parse(
+    '$baseUrl/api/course/$courseId/student/$studentId/rollcalls',
+  ).replace(queryParameters: {'page': '1', 'page_size': '100'});
 
   /// Web-style course list (includes `timetables` in practice).
   static Uri myCourses() => Uri.parse('$baseUrl/api/my-courses');
 
   static Uri radarRollcalls() => Uri.parse(
-        '$baseUrl/api/radar/rollcalls',
-      ).replace(queryParameters: {'api_version': apiVersionList});
+    '$baseUrl/api/radar/rollcalls',
+  ).replace(queryParameters: {'api_version': apiVersionList});
 
   static Uri studentRollcalls(int id) =>
       Uri.parse('$baseUrl/api/rollcall/$id/student_rollcalls');
+
+  static Uri rollcallDetail(int id) => Uri.parse('$baseUrl/api/rollcall/$id');
+
+  static Uri timetableRollcalls({
+    required int courseId,
+    required DateTime rollcallTime,
+  }) => Uri.parse('$baseUrl/api/timetable_rollcalls').replace(
+    queryParameters: {
+      'course_ids': '$courseId',
+      'rollcall_date': rollcallTime.toUtc().toIso8601String().split('T').first,
+    },
+  );
 
   static Uri answerNumber(int id) =>
       Uri.parse('$baseUrl/api/rollcall/$id/answer_number_rollcall');
 
   static Uri answerRadar(int id) => Uri.parse(
-        '$baseUrl/api/rollcall/$id/answer',
-      ).replace(queryParameters: {'api_version': apiVersionAnswer});
+    '$baseUrl/api/rollcall/$id/answer',
+  ).replace(queryParameters: {'api_version': apiVersionAnswer});
 
   static Uri answerQr(int id) =>
       Uri.parse('$baseUrl/api/rollcall/$id/answer_qr_rollcall');
 
   static Uri todos() => Uri.parse('$baseUrl/api/todos');
 
+  static Uri homeworkSubmissions({
+    required int activityId,
+    required int studentId,
+  }) => Uri.parse(
+    '$baseUrl/api/activities/$activityId/students/$studentId/submission_list',
+  );
+
   static Uri courseHomeworkActivities({
     required Object courseId,
     int page = 1,
     int pageSize = 100,
-  }) =>
-      Uri.parse('$baseUrl/api/courses/$courseId/homework-activities').replace(
-        queryParameters: {
-          'page': '$page',
-          'page_size': '$pageSize',
-        },
-      );
+  }) => Uri.parse(
+    '$baseUrl/api/courses/$courseId/homework-activities',
+  ).replace(queryParameters: {'page': '$page', 'page_size': '$pageSize'});
 
   static Uri courseHomeworkDetail({
     required Object courseId,
     required Object activityId,
-  }) =>
-      Uri.parse(
-        '$baseUrl/api/courses/$courseId/homework-activities/$activityId',
-      );
+  }) => Uri.parse(
+    '$baseUrl/api/courses/$courseId/homework-activities/$activityId',
+  );
 
   static Uri activityDetail(Object activityId) =>
       Uri.parse('$baseUrl/api/activities/$activityId');

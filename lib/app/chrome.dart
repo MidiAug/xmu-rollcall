@@ -7,6 +7,9 @@ import 'package:xmu_rollcall/app/user_check_icon.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
+part 'chrome_controls.dart';
+part 'chrome_settings.dart';
+
 class BrandMark extends StatelessWidget {
   const BrandMark({super.key, this.size = 26});
 
@@ -326,7 +329,11 @@ class _ChoiceCubeButton<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      child: GestureDetector(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: Colors.transparent,
+        focusColor: palette.selected,
         onTap: onTap,
         child: AnimatedContainer(
           // Snap accent fill — avoid gray↔indigo Color.lerp flash.
@@ -886,8 +893,9 @@ class _NavCellState extends State<_NavCell> {
                           widget.destination.label,
                           style: TextStyle(
                             fontSize: 13,
-                            fontWeight:
-                                selected ? FontWeight.w600 : FontWeight.w400,
+                            fontWeight: selected
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                             letterSpacing: -0.1,
                             color: selected ? p.ink : p.muted,
                           ),
@@ -905,10 +913,10 @@ class _NavCellState extends State<_NavCell> {
   }
 
   IconData _icon(AppDestination d) => switch (d) {
-        AppDestination.rollcall => Icons.how_to_reg_outlined,
-        AppDestination.homework => Icons.assignment_outlined,
-        AppDestination.settings => Icons.person_outline,
-      };
+    AppDestination.rollcall => Icons.how_to_reg_outlined,
+    AppDestination.homework => Icons.assignment_outlined,
+    AppDestination.settings => Icons.person_outline,
+  };
 }
 
 class AppMobileNav extends StatelessWidget {
@@ -984,9 +992,7 @@ class _MobileItemState extends State<_MobileItem> {
       child: AnimatedContainer(
         duration: AppMotion.instant,
         curve: AppMotion.instantCurve,
-        color: _pressed && !selected
-            ? p.hover
-            : AppPalette.clearOf(p.hover),
+        color: _pressed && !selected ? p.hover : AppPalette.clearOf(p.hover),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -1007,10 +1013,10 @@ class _MobileItemState extends State<_MobileItem> {
   }
 
   IconData _icon(AppDestination d) => switch (d) {
-        AppDestination.rollcall => Icons.how_to_reg_outlined,
-        AppDestination.homework => Icons.assignment_outlined,
-        AppDestination.settings => Icons.person_outline,
-      };
+    AppDestination.rollcall => Icons.how_to_reg_outlined,
+    AppDestination.homework => Icons.assignment_outlined,
+    AppDestination.settings => Icons.person_outline,
+  };
 }
 
 /// Pill select — Quiet Utility twin of xmu-sports `.shell-select`.
@@ -1023,14 +1029,24 @@ class AppShellSelect<T> extends StatefulWidget {
     required this.items,
     required this.labelOf,
     required this.onChanged,
+    this.menuLabelOf,
+    this.menuTrailingOf,
     this.width = 132,
+    this.menuWidth,
+    this.wrapMenuLabels = false,
   });
 
   final T value;
   final List<T> items;
   final String Function(T) labelOf;
+
+  /// Optional longer labels for the menu, keeping the trigger compact.
+  final String Function(T)? menuLabelOf;
+  final String Function(T)? menuTrailingOf;
   final ValueChanged<T> onChanged;
   final double width;
+  final double? menuWidth;
+  final bool wrapMenuLabels;
 
   static final List<VoidCallback> _closeHooks = [];
 
@@ -1094,6 +1110,56 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
         controller: _portal,
         overlayChildBuilder: (context) {
           final dark = Theme.of(context).brightness == Brightness.dark;
+          final screen = MediaQuery.of(context);
+          final target = this.context.findRenderObject()! as RenderBox;
+          final origin = target.localToGlobal(Offset.zero);
+          final maxMenuWidth = (widget.menuWidth ?? widget.width).clamp(
+            0.0,
+            screen.size.width - 24,
+          );
+          var labelWidth = 0.0;
+          final painter = TextPainter(
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+            maxLines: 1,
+          );
+          for (final item in widget.items) {
+            painter.text = TextSpan(
+              text: (widget.menuLabelOf ?? widget.labelOf)(item),
+              style: DefaultTextStyle.of(context).style.copyWith(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                height: 22 / 14,
+              ),
+              children: [
+                if ((widget.menuTrailingOf?.call(item) ?? '').isNotEmpty)
+                  TextSpan(
+                    text: '  ${widget.menuTrailingOf!(item)}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+              ],
+            );
+            painter.layout();
+            if (painter.width > labelWidth) labelWidth = painter.width;
+          }
+          painter.dispose();
+          final menuWidth = (labelWidth + 32).clamp(
+            widget.width.clamp(0.0, maxMenuWidth),
+            maxMenuWidth,
+          );
+          final shiftX = (screen.size.width - 12 - origin.dx - menuWidth).clamp(
+            -screen.size.width,
+            0.0,
+          );
+          final below =
+              screen.size.height -
+              screen.padding.bottom -
+              origin.dy -
+              target.size.height -
+              20;
+          final above = origin.dy - screen.padding.top - 20;
+          final openAbove = below < 150 && above > below;
+          final maxHeight = (openAbove ? above : below).clamp(48.0, 320.0);
           return Stack(
             children: [
               Positioned.fill(
@@ -1106,38 +1172,55 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
               CompositedTransformFollower(
                 link: _link,
                 showWhenUnlinked: false,
-                targetAnchor: Alignment.bottomLeft,
-                followerAnchor: Alignment.topLeft,
-                offset: const Offset(0, AppSpace.xs),
+                targetAnchor: openAbove
+                    ? Alignment.topLeft
+                    : Alignment.bottomLeft,
+                followerAnchor: openAbove
+                    ? Alignment.bottomLeft
+                    : Alignment.topLeft,
+                offset: Offset(shiftX, openAbove ? -AppSpace.xs : AppSpace.xs),
                 child: Material(
                   color: p.surface,
                   elevation: 8,
-                  shadowColor:
-                      Colors.black.withValues(alpha: dark ? 0.45 : 0.16),
+                  shadowColor: Colors.black.withValues(
+                    alpha: dark ? 0.45 : 0.16,
+                  ),
                   borderRadius: BorderRadius.circular(AppRadii.input),
                   child: Container(
-                    width: widget.width,
+                    width: menuWidth,
+                    constraints: BoxConstraints(maxHeight: maxHeight),
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(AppRadii.input),
                       border: Border.all(color: p.borderStrong),
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (var i = 0; i < widget.items.length; i++) ...[
-                          if (i > 0) const SizedBox(height: 4),
-                          _AppShellSelectOption(
-                            label: widget.labelOf(widget.items[i]),
-                            selected: widget.items[i] == widget.value,
-                            onTap: () {
-                              widget.onChanged(widget.items[i]);
-                              _hide();
-                            },
-                          ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (var i = 0; i < widget.items.length; i++) ...[
+                            if (i > 0) const SizedBox(height: 4),
+                            _AppShellSelectOption(
+                              key: ValueKey('shell-select-option-$i'),
+                              label: (widget.menuLabelOf ?? widget.labelOf)(
+                                widget.items[i],
+                              ),
+                              trailing:
+                                  widget.menuTrailingOf?.call(
+                                    widget.items[i],
+                                  ) ??
+                                  '',
+                              wrap: widget.wrapMenuLabels,
+                              selected: widget.items[i] == widget.value,
+                              onTap: () {
+                                widget.onChanged(widget.items[i]);
+                                _hide();
+                              },
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -1158,7 +1241,9 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
                 duration: const Duration(milliseconds: 120),
                 curve: Curves.easeOut,
                 height: 36,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+                padding: EdgeInsets.symmetric(
+                  horizontal: widget.width < 110 ? 8 : 14,
+                ),
                 decoration: BoxDecoration(
                   color: _hover ? p.cardHover : p.surface,
                   borderRadius: BorderRadius.circular(18),
@@ -1174,21 +1259,21 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: widget.width < 110 ? 13 : 14,
                           height: 22 / 14,
                           fontWeight: FontWeight.w500,
                           color: p.ink,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: widget.width < 110 ? 3 : 8),
                     AnimatedRotation(
                       turns: open ? 0.5 : 0,
                       duration: const Duration(milliseconds: 120),
                       curve: Curves.easeOut,
                       child: Icon(
                         Icons.keyboard_arrow_down_rounded,
-                        size: 18,
+                        size: widget.width < 110 ? 16 : 18,
                         color: p.muted,
                       ),
                     ),
@@ -1205,14 +1290,19 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
 
 class _AppShellSelectOption extends StatefulWidget {
   const _AppShellSelectOption({
+    super.key,
     required this.label,
     required this.selected,
     required this.onTap,
+    this.trailing = '',
+    this.wrap = false,
   });
 
   final String label;
+  final String trailing;
   final bool selected;
   final VoidCallback onTap;
+  final bool wrap;
 
   @override
   State<_AppShellSelectOption> createState() => _AppShellSelectOptionState();
@@ -1235,45 +1325,62 @@ class _AppShellSelectOptionState extends State<_AppShellSelectOption> {
       bg = AppPalette.clearOf(p.hover);
     }
 
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 100),
-          curve: Curves.easeOut,
-          constraints: const BoxConstraints(minHeight: 38),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(AppRadii.control),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  widget.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 22 / 14,
-                    fontWeight:
-                        widget.selected ? FontWeight.w500 : FontWeight.w400,
-                    color: p.ink,
+    return Semantics(
+      selected: widget.selected,
+      button: true,
+      child: Tooltip(
+        message:
+            '${widget.label}${widget.trailing.isEmpty ? '' : ' ${widget.trailing}'}',
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hover = true),
+          onExit: (_) => setState(() => _hover = false),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: widget.onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 100),
+              curve: Curves.easeOut,
+              constraints: const BoxConstraints(minHeight: 38),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(AppRadii.control),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.label,
+                      maxLines: widget.wrap ? null : 1,
+                      overflow: widget.wrap
+                          ? TextOverflow.visible
+                          : TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 22 / 14,
+                        fontWeight: widget.selected
+                            ? FontWeight.w500
+                            : FontWeight.w400,
+                        color: widget.selected ? p.primary : p.ink,
+                      ),
+                    ),
                   ),
-                ),
+                  if (widget.trailing.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      widget.trailing,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 22 / 12,
+                        color: widget.selected ? p.primary : p.muted,
+                      ),
+                    ),
+                  ],
+                ],
               ),
-              SizedBox(
-                width: 18,
-                child: widget.selected
-                    ? Icon(Icons.check_rounded, size: 16, color: p.primary)
-                    : null,
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -1307,141 +1414,6 @@ class AppContentColumn extends StatelessWidget {
           child: child,
         ),
       ),
-    );
-  }
-}
-
-/// Soft pill strip for grouped icon actions (desktop toolbars).
-/// Soft stadium control without Material ripple (poll / quick actions).
-class AppQuietPill extends StatelessWidget {
-  const AppQuietPill({
-    super.key,
-    required this.child,
-    this.onTap,
-    this.background,
-    this.border = true,
-    this.padding = const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-  });
-
-  final Widget child;
-  final VoidCallback? onTap;
-  final Color? background;
-  final bool border;
-  final EdgeInsetsGeometry padding;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final enabled = onTap != null;
-    return MouseRegion(
-      cursor:
-          enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedOpacity(
-          duration: AppMotion.instant,
-          curve: AppMotion.instantCurve,
-          opacity: enabled ? 1 : 0.72,
-          child: Container(
-            padding: padding,
-            decoration: BoxDecoration(
-              color: background ?? p.surfaceHigh,
-              borderRadius: BorderRadius.circular(18),
-              border: border
-                  ? Border.all(color: p.border)
-                  : null,
-            ),
-            child: child,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class AppIconCluster extends StatelessWidget {
-  const AppIconCluster({super.key, required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return Container(
-      height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      decoration: BoxDecoration(
-        color: p.surface,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: p.border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: children,
-      ),
-    );
-  }
-}
-
-/// List / tile surface: color lift + hairline **on hover only** (Quiet Utility).
-class AppHoverSurface extends StatefulWidget {
-  const AppHoverSurface({
-    super.key,
-    required this.child,
-    this.padding,
-    this.borderRadius,
-    this.onTap,
-  });
-
-  final Widget child;
-  final EdgeInsetsGeometry? padding;
-  final BorderRadius? borderRadius;
-  final VoidCallback? onTap;
-
-  @override
-  State<AppHoverSurface> createState() => _AppHoverSurfaceState();
-}
-
-class _AppHoverSurfaceState extends State<AppHoverSurface> {
-  var _hover = false;
-  var _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final radius =
-        widget.borderRadius ?? BorderRadius.circular(AppRadii.card);
-    final lift = _pressed || _hover;
-    final body = AnimatedContainer(
-      duration: AppMotion.fast,
-      curve: AppMotion.fastCurve,
-      padding: widget.padding,
-      decoration: BoxDecoration(
-        color: lift ? p.cardHover : p.surface,
-        borderRadius: radius,
-        border: Border.all(
-          color: lift ? p.borderStrong : p.border,
-        ),
-      ),
-      child: widget.child,
-    );
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      cursor: widget.onTap != null
-          ? SystemMouseCursors.click
-          : SystemMouseCursors.basic,
-      child: widget.onTap == null
-          ? body
-          : GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapDown: (_) => setState(() => _pressed = true),
-              onTapUp: (_) => setState(() => _pressed = false),
-              onTapCancel: () => setState(() => _pressed = false),
-              onTap: widget.onTap,
-              child: body,
-            ),
     );
   }
 }
@@ -1499,11 +1471,11 @@ class PageScaffold extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: (theme.titleLarge ?? const TextStyle())
                                   .copyWith(
-                                color: p.ink,
-                                height: 1.2,
-                                leadingDistribution:
-                                    TextLeadingDistribution.even,
-                              ),
+                                    color: p.ink,
+                                    height: 1.2,
+                                    leadingDistribution:
+                                        TextLeadingDistribution.even,
+                                  ),
                             ),
                             const SizedBox(height: AppSpace.xxs),
                             Text(
@@ -1512,11 +1484,11 @@ class PageScaffold extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: (theme.bodySmall ?? const TextStyle())
                                   .copyWith(
-                                color: p.muted,
-                                height: 1.3,
-                                leadingDistribution:
-                                    TextLeadingDistribution.even,
-                              ),
+                                    color: p.muted,
+                                    height: 1.3,
+                                    leadingDistribution:
+                                        TextLeadingDistribution.even,
+                                  ),
                             ),
                           ],
                         ),
@@ -1530,10 +1502,7 @@ class PageScaffold extends StatelessWidget {
                           child: trailing == null
                               ? const SizedBox.shrink()
                               : IconTheme(
-                                  data: IconThemeData(
-                                    color: p.muted,
-                                    size: 20,
-                                  ),
+                                  data: IconThemeData(color: p.muted, size: 20),
                                   child: trailing!,
                                 ),
                         ),
@@ -1635,233 +1604,12 @@ class Panel extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.card),
-        side: outlined
-            ? BorderSide(color: p.borderStrong)
-            : BorderSide.none,
+        side: outlined ? BorderSide(color: p.borderStrong) : BorderSide.none,
       ),
       clipBehavior: Clip.antiAlias,
       child: Padding(
         padding: padding ?? const EdgeInsets.all(AppSpace.md),
         child: child,
-      ),
-    );
-  }
-}
-
-/// Apple Settings–style group: optional outer header + inset surface.
-///
-/// Vertical rhythm (proximity): caption hugs its card ([AppSpace.sectionGap]);
-/// groups separate via [AppSpace.settingsGroupTopOf] when [padTop] is true
-/// (default). Pass [padTop]: false for the first group on a page.
-class SettingsSection extends StatelessWidget {
-  const SettingsSection({
-    super.key,
-    this.header,
-    required this.children,
-    this.footer,
-    this.padTop = true,
-    this.hasLeading = true,
-  });
-
-  final String? header;
-  final List<Widget> children;
-  final Widget? footer;
-
-  /// Insert space above this group (card → next caption). Off for page-first.
-  final bool padTop;
-
-  /// When rows have leading icons, indent dividers to the title column.
-  final bool hasLeading;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final rowPad = AppDensity.rowPadding(context);
-    final dividerIndent = rowPad.left +
-        (hasLeading ? 20 + AppDensity.rowInnerGap(context) : 0);
-
-    return Padding(
-      padding: EdgeInsets.only(
-        top: padTop ? AppSpace.settingsGroupTopOf(context) : 0,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (header != null) ...[
-            Padding(
-              // Caption aligns to card inset — same for every group (not past icons).
-              padding: EdgeInsets.fromLTRB(
-                AppSpace.sm,
-                0,
-                AppSpace.sm,
-                AppSpace.sectionGap,
-              ),
-              child: Text(
-                header!,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  height: 18 / 13,
-                  letterSpacing: 0.15,
-                  color: p.muted,
-                ),
-              ),
-            ),
-          ],
-          Material(
-            color: p.surface,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadii.group),
-              side: BorderSide(color: p.border),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var i = 0; i < children.length; i++) ...[
-                  if (i > 0)
-                    Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: p.border,
-                      indent: dividerIndent,
-                      endIndent: rowPad.right,
-                    ),
-                  children[i],
-                ],
-              ],
-            ),
-          ),
-          if (footer != null) ...[
-            const SizedBox(height: AppSpace.sectionGap),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
-              child: footer!,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// One inset row inside [SettingsSection]. Height / padding follow [AppDensity].
-class SettingsRow extends StatefulWidget {
-  const SettingsRow({
-    super.key,
-    this.leading,
-    required this.title,
-    this.subtitle,
-    this.subtitleWidget,
-    this.trailing,
-    this.onTap,
-    this.minHeight,
-  });
-
-  final Widget? leading;
-  final String title;
-  final String? subtitle;
-
-  /// Extra block under [subtitle] (e.g. selectable mono device id).
-  final Widget? subtitleWidget;
-  final Widget? trailing;
-  final VoidCallback? onTap;
-  final double? minHeight;
-
-  @override
-  State<SettingsRow> createState() => _SettingsRowState();
-}
-
-class _SettingsRowState extends State<SettingsRow> {
-  var _hover = false;
-  var _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final h = widget.minHeight ?? AppDensity.rowHeight(context);
-    final gap = AppDensity.rowInnerGap(context);
-    final interactive = widget.onTap != null;
-    final wash = interactive && (_pressed || _hover)
-        ? p.hover
-        : AppPalette.clearOf(p.hover);
-
-    final content = AnimatedContainer(
-      duration: AppMotion.fast,
-      curve: AppMotion.fastCurve,
-      color: wash,
-      padding: AppDensity.rowPadding(context),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: h),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            if (widget.leading != null) ...[
-              IconTheme(
-                data: IconThemeData(color: p.muted, size: 20),
-                child: widget.leading!,
-              ),
-              SizedBox(width: gap),
-            ],
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: -0.15,
-                      color: p.ink,
-                    ),
-                  ),
-                  if (widget.subtitleWidget != null) ...[
-                    const SizedBox(height: AppSpace.xs),
-                    widget.subtitleWidget!,
-                  ],
-                  if (widget.subtitle != null) ...[
-                    SizedBox(
-                      height: widget.subtitleWidget != null
-                          ? AppSpace.xxs
-                          : 4,
-                    ),
-                    Text(
-                      widget.subtitle!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 1.4,
-                        color: p.muted,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (widget.trailing != null) ...[
-              SizedBox(width: gap),
-              widget.trailing!,
-            ],
-          ],
-        ),
-      ),
-    );
-
-    if (!interactive) return content;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTapDown: (_) => setState(() => _pressed = true),
-        onTapUp: (_) => setState(() => _pressed = false),
-        onTapCancel: () => setState(() => _pressed = false),
-        onTap: widget.onTap,
-        child: content,
       ),
     );
   }

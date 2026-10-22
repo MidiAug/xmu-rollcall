@@ -31,23 +31,17 @@ class UserProfile {
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
       id: (json['id'] as num?)?.toInt() ?? 0,
-      name: (json['name'] as String?) ??
-          (json['user_name'] as String?) ??
-          '用户',
+      name: (json['name'] as String?) ?? (json['user_name'] as String?) ?? '用户',
       email: json['email'] as String?,
       raw: json,
     );
   }
 }
 
-enum AuthStatus { unknown, signedOut, signedIn, loading }
+enum AuthStatus { unknown, signedOut, signedIn, loading, restoreFailed }
 
 class AuthState {
-  const AuthState({
-    required this.status,
-    this.profile,
-    this.errorMessage,
-  });
+  const AuthState({required this.status, this.profile, this.errorMessage});
 
   final AuthStatus status;
   final UserProfile? profile;

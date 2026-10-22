@@ -18,8 +18,10 @@ abstract final class AppToast {
     String message, {
     bool error = false,
     Duration duration = const Duration(milliseconds: 2200),
+    OverlayState? targetOverlay,
   }) {
-    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    final overlay =
+        targetOverlay ?? Overlay.maybeOf(context, rootOverlay: true);
     if (overlay == null) return;
 
     dismiss();

@@ -13,6 +13,7 @@ class CatalogCourse {
     this.instructorNames = const [],
     this.teachingClassName,
     this.location,
+    this.roles = const [],
   });
 
   final String id;
@@ -29,24 +30,44 @@ class CatalogCourse {
 
   /// Classroom / place when the API provides one.
   final String? location;
+  final List<String> roles;
+
+  bool get isInstructor => roles.contains('instructor');
+  bool get isTeachingAssistant =>
+      roles.any((r) => r == 'instructor_assistant' || r == 'student_assistant');
+  bool get isTeaching => isInstructor || isTeachingAssistant;
+  String get roleLabel => isInstructor
+      ? '教师'
+      : isTeachingAssistant
+      ? '助教'
+      : '学生';
+
+  CatalogCourse withRoles(List<String> value) => CatalogCourse(
+    id: id,
+    title: title,
+    timetables: timetables,
+    instructorNames: instructorNames,
+    teachingClassName: teachingClassName,
+    location: location,
+    roles: value,
+  );
 
   String get instructorsLabel => instructorNames.join('、');
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        if (instructorNames.isNotEmpty) 'instructorNames': instructorNames,
-        if (teachingClassName != null && teachingClassName!.isNotEmpty)
-          'teachingClassName': teachingClassName,
-        if (location != null && location!.isNotEmpty) 'location': location,
-        if (timetables.isNotEmpty)
-          'timetables': {
-            for (final e in timetables.entries)
-              '${e.key}': [
-                for (final s in e.value) timetableSlotToJson(s),
-              ],
-          },
-      };
+    'id': id,
+    'title': title,
+    'roles': roles,
+    if (instructorNames.isNotEmpty) 'instructorNames': instructorNames,
+    if (teachingClassName != null && teachingClassName!.isNotEmpty)
+      'teachingClassName': teachingClassName,
+    if (location != null && location!.isNotEmpty) 'location': location,
+    if (timetables.isNotEmpty)
+      'timetables': {
+        for (final e in timetables.entries)
+          '${e.key}': [for (final s in e.value) timetableSlotToJson(s)],
+      },
+  };
 
   factory CatalogCourse.fromJson(Map<String, dynamic> j) {
     final raw = j['timetables'];
@@ -73,8 +94,30 @@ class CatalogCourse {
       instructorNames: instructors,
       teachingClassName: _optionalString(j['teachingClassName']),
       location: _optionalString(j['location']),
+      roles: parseCourseRoles(j['roles'] ?? j['course_role'] ?? j['role']),
     );
   }
+}
+
+List<String> parseCourseRoles(Object? value) {
+  if (value is List) return value.expand(parseCourseRoles).toSet().toList();
+  if (value is Map) {
+    return parseCourseRoles(value['role'] ?? value['name'] ?? value['type']);
+  }
+  if (value is! String) return const [];
+  return value
+      .split(RegExp(r'[,\s]+'))
+      .map((r) => r.trim().toLowerCase())
+      .where(
+        (r) => const {
+          'student',
+          'student_assistant',
+          'instructor',
+          'instructor_assistant',
+        }.contains(r),
+      )
+      .toSet()
+      .toList();
 }
 
 String? _optionalString(dynamic v) {
@@ -89,29 +132,49 @@ class CourseCatalogSnapshot {
     required this.courses,
     this.semesterId,
     this.academicYearId,
+    this.rolesResolved = false,
   });
 
   final DateTime fetchedAt;
   final List<CatalogCourse> courses;
   final String? semesterId;
   final String? academicYearId;
+  final bool rolesResolved;
+
+  /// Same course set rendered by the current timetable page.
+  List<CatalogCourse> get timetableCourses =>
+      courses.where((c) => c.timetables.isNotEmpty).toList(growable: false);
+
+  Map<String, String> get timetableTitlesById => {
+    for (final c in timetableCourses)
+      if (c.id.isNotEmpty) c.id: c.title,
+  };
+
+  Map<String, String> get attendanceTitlesById => {
+    for (final c in timetableCourses)
+      if (c.id.isNotEmpty && !c.isTeaching) c.id: c.title,
+  };
+
+  List<CatalogCourse> get teachingCourses =>
+      timetableCourses.where((c) => c.isTeaching).toList(growable: false);
 
   Map<String, String> get titlesById => {
-        for (final c in courses)
-          if (c.id.isNotEmpty) c.id: c.title,
-      };
+    for (final c in courses)
+      if (c.id.isNotEmpty) c.id: c.title,
+  };
 
   Map<String, Map<int, List<TimetableSlot>>> get timetablesByCourse => {
-        for (final c in courses)
-          if (c.timetables.isNotEmpty) c.id: c.timetables,
-      };
+    for (final c in courses)
+      if (c.timetables.isNotEmpty) c.id: c.timetables,
+  };
 
   Map<String, dynamic> toJson() => {
-        'fetchedAt': fetchedAt.toIso8601String(),
-        'courses': [for (final c in courses) c.toJson()],
-        if (semesterId != null) 'semesterId': semesterId,
-        if (academicYearId != null) 'academicYearId': academicYearId,
-      };
+    'fetchedAt': fetchedAt.toIso8601String(),
+    'courses': [for (final c in courses) c.toJson()],
+    'rolesResolved': rolesResolved,
+    if (semesterId != null) 'semesterId': semesterId,
+    if (academicYearId != null) 'academicYearId': academicYearId,
+  };
 
   factory CourseCatalogSnapshot.fromJson(Map<String, dynamic> j) {
     final raw = j['courses'];
@@ -124,11 +187,13 @@ class CourseCatalogSnapshot {
       }
     }
     return CourseCatalogSnapshot(
-      fetchedAt: DateTime.tryParse(j['fetchedAt'] as String? ?? '') ??
+      fetchedAt:
+          DateTime.tryParse(j['fetchedAt'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
       courses: courses,
       semesterId: j['semesterId'] as String?,
       academicYearId: j['academicYearId'] as String?,
+      rolesResolved: j['rolesResolved'] == true,
     );
   }
 }

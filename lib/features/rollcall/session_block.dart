@@ -31,8 +31,9 @@ class SessionBlock {
   final DateTime coreEnd;
 
   /// Stable id such as `5-6`.
-  String get id =>
-      startSequence == endSequence ? '$startSequence' : '$startSequence-$endSequence';
+  String get id => startSequence == endSequence
+      ? '$startSequence'
+      : '$startSequence-$endSequence';
 
   String get sectionLabel {
     if (startSequence == endSequence) return '第$startSequence节';
@@ -40,7 +41,7 @@ class SessionBlock {
   }
 
   static const preBuffer = Duration(minutes: 25);
-  static const postBuffer = Duration(minutes: 5);
+  static const postBuffer = Duration(minutes: 25);
 
   DateTime get windowStart => coreStart.subtract(preBuffer);
   DateTime get windowEnd => coreEnd.add(postBuffer);
@@ -160,10 +161,7 @@ String weekdayLabel(int weekday) => _weekdayNames[weekday] ?? '周$weekday';
 /// Parse TronClass `timetables` map for one course.
 ///
 /// Keys are weekday strings `"1"`…`"7"` (Monday=1), matching [DateTime.weekday].
-Map<int, List<TimetableSlot>> parseTimetables(
-  dynamic raw, {
-  DateTime? anchor,
-}) {
+Map<int, List<TimetableSlot>> parseTimetables(dynamic raw, {DateTime? anchor}) {
   if (raw is! Map) return const {};
   final day = anchor ?? DateTime(2000, 1, 3); // Monday
   final out = <int, List<TimetableSlot>>{};
@@ -177,9 +175,7 @@ Map<int, List<TimetableSlot>> parseTimetables(
       if (item is! Map) continue;
       final m = Map<String, dynamic>.from(item);
       final slotRaw = m['timetable_slot'];
-      final slot = slotRaw is Map
-          ? Map<String, dynamic>.from(slotRaw)
-          : m;
+      final slot = slotRaw is Map ? Map<String, dynamic>.from(slotRaw) : m;
       final seq = slot['sequence'];
       final seqN = seq is num ? seq.toInt() : int.tryParse('$seq');
       final startS = '${slot['start_time'] ?? ''}';

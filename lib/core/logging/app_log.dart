@@ -32,8 +32,7 @@ abstract final class AppLog {
 
   static bool get sinkHealthy => _sink?.healthy ?? true;
 
-  static int get droppedCount =>
-      (_sink?.droppedCount ?? 0) + _pendingDropped;
+  static int get droppedCount => (_sink?.droppedCount ?? 0) + _pendingDropped;
 
   static int _pendingDropped = 0;
 
@@ -98,9 +97,7 @@ abstract final class AppLog {
     _lifecycle?.dispose();
     _lifecycle = AppLifecycleListener(
       onStateChange: (state) {
-        event('app.lifecycle', level: 'I', fields: {
-          'state': state.name,
-        });
+        event('app.lifecycle', level: 'D', fields: {'state': state.name});
       },
     );
   }
@@ -129,8 +126,13 @@ abstract final class AppLog {
     String level = 'I',
     Map<String, dynamic>? fields,
     String? opId,
+    int maxFieldBytes = LogRedactor.maxUtf8Bytes,
   }) {
-    final redacted = LogRedactor.redactFields(fields, fallbackEvent: name);
+    final redacted = LogRedactor.redactFields(
+      fields,
+      fallbackEvent: name,
+      maxBytes: maxFieldBytes,
+    );
     final record = LogRecord(
       ts: DateTime.now().toUtc(),
       level: level,
@@ -174,11 +176,33 @@ abstract final class AppLog {
     await _sink?.flush();
   }
 
-  static Future<LogExportResult?> exportLogs({bool share = true}) async {
+  static Future<LogExportResult?> exportLogs({
+    bool share = true,
+    Map<String, dynamic> diagnostics = const {},
+    Rect? sharePositionOrigin,
+  }) async {
     final exporter = _exporter;
     if (exporter == null) return null;
     await flush();
-    return exporter.exportAndShare(share: share);
+    event('logs.export.start');
+    try {
+      final result = await exporter.exportAndShare(
+        share: share,
+        diagnostics: diagnostics,
+        sharePositionOrigin: sharePositionOrigin,
+      );
+      event(
+        'logs.export.complete',
+        fields: {
+          'shareStatus': result?.shareStatus?.name,
+          'fileCount': (result?.manifest['files'] as List?)?.length,
+        },
+      );
+      return result;
+    } catch (error, stack) {
+      logAppError(error: error, stackTrace: stack, source: 'logs.export');
+      rethrow;
+    }
   }
 
   static void _fanOut(LogRecord record) {
@@ -237,11 +261,15 @@ abstract final class AppLog {
       version = info.version;
       build = info.buildNumber;
     } catch (_) {}
-    event('app.start', level: 'I', fields: {
-      'appVersion': version,
-      'buildNumber': build,
-      'platform': Platform.operatingSystem,
-      'osVersion': Platform.operatingSystemVersion,
-    });
+    event(
+      'app.start',
+      level: 'I',
+      fields: {
+        'appVersion': version,
+        'buildNumber': build,
+        'platform': Platform.operatingSystem,
+        'osVersion': Platform.operatingSystemVersion,
+      },
+    );
   }
 }

@@ -8,15 +8,15 @@ import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/core/session/session_credential.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
-import 'package:xmu_rollcall/features/assist/assist_rollcall_hub_page.dart';
+import 'package:xmu_rollcall/app/shell_navigation.dart';
+import 'package:xmu_rollcall/app/shell_tab_scope.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
 import 'package:xmu_rollcall/features/assist/assist_shared_course_chip.dart';
 
 /// Assist roster person card — whole card opens the rollcall hub.
 class AssistIdentityCard extends ConsumerWidget {
-  const AssistIdentityCard({
-    super.key,
-    required this.identity,
-  });
+  const AssistIdentityCard({super.key, required this.identity});
 
   final AssistIdentity identity;
 
@@ -53,11 +53,26 @@ class AssistIdentityCard extends ConsumerWidget {
           Expanded(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () {
-                AppPageRoutes.push(
-                  context,
-                  AssistRollcallHubPage(identity: identity),
-                );
+              onTap: () async {
+                try {
+                  final service = await ref.read(assistServiceProvider.future);
+                  await service.ensureSession(identity);
+                  if (!context.mounted) return;
+                  ref.read(selectedRollcallAccountProvider.notifier).state =
+                      identity.userId;
+                  if (ShellTabScope.maybeOf(context) != null) {
+                    ShellNavigation.instance.openRollcall();
+                  } else {
+                    AppPageRoutes.push(
+                      context,
+                      const Scaffold(body: RollcallHubPage()),
+                    );
+                  }
+                } catch (error) {
+                  if (context.mounted) {
+                    AppToast.show(context, '无法切换账号：$error', error: true);
+                  }
+                }
               },
               child: Row(
                 children: [
@@ -118,10 +133,7 @@ class AssistIdentityCard extends ConsumerWidget {
               .read(assistControllerProvider.notifier)
               .refreshSharedCourses(identity.userId);
           if (context.mounted) {
-            AppToast.show(
-              context,
-              '同课 ${updated.sharedCourses.length} 门',
-            );
+            AppToast.show(context, '同课 ${updated.sharedCourses.length} 门');
           }
         } catch (e) {
           if (context.mounted) {
@@ -149,10 +161,7 @@ class AssistIdentityCard extends ConsumerWidget {
 enum _RosterAction { viewCourses, refreshCourses, remove }
 
 class _MoreButton extends StatelessWidget {
-  const _MoreButton({
-    required this.enabled,
-    required this.onSelected,
-  });
+  const _MoreButton({required this.enabled, required this.onSelected});
 
   final bool enabled;
   final ValueChanged<_RosterAction> onSelected;
@@ -169,7 +178,7 @@ class _MoreButton extends StatelessWidget {
           behavior: HitTestBehavior.opaque,
           onTap: enabled
               ? () async {
-                  final action = await showAssistRosterMenu(context);
+                  final action = await _showAssistRosterMenu(context);
                   if (action != null) onSelected(action);
                 }
               : null,
@@ -189,15 +198,17 @@ class _MoreButton extends StatelessWidget {
 }
 
 /// Rounded floating action menu for an assist roster card.
-Future<_RosterAction?> showAssistRosterMenu(BuildContext buttonContext) {
+Future<_RosterAction?> _showAssistRosterMenu(BuildContext buttonContext) {
   final p = AppPalette.of(buttonContext);
   final box = buttonContext.findRenderObject()! as RenderBox;
   final overlay =
       Overlay.of(buttonContext).context.findRenderObject()! as RenderBox;
   final origin = box.localToGlobal(Offset.zero, ancestor: overlay);
   const menuWidth = 196.0;
-  final left = (origin.dx + box.size.width - menuWidth)
-      .clamp(12.0, overlay.size.width - menuWidth - 12);
+  final left = (origin.dx + box.size.width - menuWidth).clamp(
+    12.0,
+    overlay.size.width - menuWidth - 12,
+  );
   final position = RelativeRect.fromLTRB(
     left,
     origin.dy + box.size.height + 6,
@@ -255,15 +266,11 @@ class _RosterMenuItem extends PopupMenuItem<_RosterAction> {
     required String label,
     bool danger = false,
   }) : super(
-          value: value,
-          height: 44,
-          padding: EdgeInsets.zero,
-          child: _RosterMenuRow(
-            icon: icon,
-            label: label,
-            danger: danger,
-          ),
-        );
+         value: value,
+         height: 44,
+         padding: EdgeInsets.zero,
+         child: _RosterMenuRow(icon: icon, label: label, danger: danger),
+       );
 }
 
 class _RosterMenuRow extends StatelessWidget {

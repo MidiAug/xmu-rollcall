@@ -1,63 +1,92 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:local_notifier/local_notifier.dart';
 import 'package:tray_manager/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:xmu_rollcall/app/app_brand.dart';
 import 'package:xmu_rollcall/app/close_ask_dialog.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/shell_navigation.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/settings/close_prefs_controller.dart';
 import 'package:xmu_rollcall/platform/close_prefs.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
+import 'package:xmu_rollcall/platform/desktop_notifications.dart';
 
 /// Desktop window close / tray / discovery notification (Phase 3 shell slice).
-class DesktopShell with WindowListener, TrayListener, LocalNotificationListener {
-  DesktopShell._();
+class DesktopShell with WindowListener, TrayListener {
+  DesktopShell._() {
+    notifications = DesktopNotifications(
+      setup: _setupNotifications,
+      isForeground: () async =>
+          await windowManager.isVisible() &&
+          !await windowManager.isMinimized() &&
+          await windowManager.isFocused(),
+      send: _sendNotification,
+      showInApp: (body) {
+        final overlay = navigatorKey?.currentState?.overlay;
+        if (overlay == null || !overlay.mounted) return false;
+        AppToast.show(overlay.context, body, targetOverlay: overlay);
+        return true;
+      },
+    );
+  }
 
   static final DesktopShell instance = DesktopShell._();
 
   static const discoveryNotificationId = 'rollcall-found';
+  static const testNotificationId = 'rollcall-notification-test';
+  late final DesktopNotifications notifications;
+  final trayAvailable = ValueNotifier(false);
+  LocalNotification? _discoveryNotification;
+  LocalNotification? _testNotification;
+  FlutterLocalNotificationsWindows? _windowsNotifications;
+  Future<void>? _initializing;
+  bool _quitting = false;
 
   GlobalKey<NavigatorState>? navigatorKey;
   bool Function()? isMonitorRunning;
   VoidCallback? stopMonitor;
   ClosePrefs Function()? readPrefs;
   Future<void> Function({required bool toTray, required bool remember})?
-      applyAskChoice;
+  applyAskChoice;
 
   var _ready = false;
   var _handlingClose = false;
 
   Future<void> init() async {
     if (!PlatformHooks.isDesktop || _ready) return;
+    return _initializing ??= _init().whenComplete(() => _initializing = null);
+  }
 
+  Future<void> _init() async {
     await windowManager.setPreventClose(true);
     windowManager.addListener(this);
 
-    try {
-      await localNotifier.setup(
-        appName: kAppDisplayName,
-        shortcutPolicy: ShortcutPolicy.requireCreate,
-      );
-      localNotifier.addListener(this);
-    } catch (e, st) {
-      AppLog.logAppError(error: e, stackTrace: st, source: 'desktop_notify');
-    }
+    await notifications.initialize();
 
     try {
       await _setupTray();
       trayManager.addListener(this);
+      trayAvailable.value = true;
     } catch (e, st) {
       AppLog.logAppError(error: e, stackTrace: st, source: 'desktop_tray');
     }
 
     PlatformHooks.onRollcallsDiscovered = notifyRollcallsDiscovered;
     _ready = true;
-    AppLog.event('shell.desktop_ready', fields: {'ok': true});
+    AppLog.event(
+      'shell.desktop_ready',
+      fields: {
+        'notificationsReady': notifications.ready,
+        'trayReady': trayAvailable.value,
+      },
+    );
   }
 
   Future<void> _setupTray() async {
@@ -66,10 +95,51 @@ class DesktopShell with WindowListener, TrayListener, LocalNotificationListener 
         : 'assets/tray/tray_icon.png';
     await trayManager.setIcon(icon);
     await trayManager.setToolTip(kAppDisplayName);
+    await updateTrayMenu();
+  }
+
+  Future<void> _setupNotifications() async {
+    if (!Platform.isWindows) {
+      await localNotifier.setup(
+        appName: kAppDisplayName,
+        shortcutPolicy: ShortcutPolicy.requireCreate,
+      );
+      return;
+    }
+    // local_notifier's Windows implementation reports success even if WinToast
+    // rejects a toast. This backend propagates native initialization/show errors.
+    final plugin = _windowsNotifications ??= FlutterLocalNotificationsWindows();
+    final initialized = await plugin.initialize(
+      settings: const WindowsInitializationSettings(
+        appName: kAppDisplayName,
+        appUserModelId: 'cn.edu.xmu.rollcall',
+        guid: '1a7ff90c-8c39-4cad-9d09-702731e97bba',
+      ),
+      onDidReceiveNotificationResponse: (response) => _run(
+        response.payload == testNotificationId
+            ? showMainWindow()
+            : showRollcallFromNotification(),
+      ),
+    );
+    if (!initialized) throw StateError('Windows 通知初始化失败');
+    final launch = await plugin.getNotificationAppLaunchDetails();
+    if (launch?.didNotificationLaunchApp == true) {
+      _run(
+        launch?.notificationResponse?.payload == testNotificationId
+            ? showMainWindow()
+            : showRollcallFromNotification(),
+      );
+    }
+  }
+
+  Future<void> updateTrayMenu() async {
+    final running = isMonitorRunning?.call() ?? false;
     await trayManager.setContextMenu(
       Menu(
         items: [
           MenuItem(key: 'show', label: '显示窗口'),
+          MenuItem(key: 'rollcalls', label: '查看签到'),
+          MenuItem(key: 'stop', label: '停止检测', disabled: !running),
           MenuItem.separator(),
           MenuItem(key: 'quit', label: '退出'),
         ],
@@ -78,6 +148,7 @@ class DesktopShell with WindowListener, TrayListener, LocalNotificationListener 
   }
 
   Future<void> showMainWindow() async {
+    if (await windowManager.isMinimized()) await windowManager.restore();
     await windowManager.show();
     await windowManager.focus();
   }
@@ -91,11 +162,18 @@ class DesktopShell with WindowListener, TrayListener, LocalNotificationListener 
   }
 
   Future<void> hideToTray() async {
+    if (!trayAvailable.value) {
+      AppLog.event('shell.tray_unavailable', level: 'W');
+      await windowManager.minimize();
+      return;
+    }
     AppLog.event('shell.hide_tray');
     await windowManager.hide();
   }
 
   Future<void> quitApp({bool stopPolling = false}) async {
+    if (_quitting) return;
+    _quitting = true;
     AppLog.event('shell.quit', fields: {'stopPolling': stopPolling});
     if (stopPolling) {
       try {
@@ -106,6 +184,9 @@ class DesktopShell with WindowListener, TrayListener, LocalNotificationListener 
       await AppLog.flush();
     } catch (_) {}
     try {
+      _windowsNotifications?.dispose();
+      await _discoveryNotification?.destroy();
+      await _testNotification?.destroy();
       await trayManager.destroy();
     } catch (_) {}
     // Windows: destroy() inside CloseRequested freezes for seconds/minutes
@@ -114,23 +195,51 @@ class DesktopShell with WindowListener, TrayListener, LocalNotificationListener 
     await windowManager.close();
   }
 
-  /// Called when main monitor discovers ongoing rollcalls and stops.
+  /// Called for new discoveries while monitoring continues.
   Future<void> notifyRollcallsDiscovered(int count) async {
     if (!PlatformHooks.isDesktop || count <= 0) return;
-    try {
-      final visible = await windowManager.isVisible();
-      if (visible) return;
-      final n = LocalNotification(
-        identifier: discoveryNotificationId,
+    if (!await notifications.notify(count)) throw StateError('桌面通知发送失败');
+    AppLog.event('shell.notify_found', fields: {'count': count});
+  }
+
+  Future<void> _sendNotification(String body, bool test) async {
+    if (Platform.isWindows) {
+      final plugin = _windowsNotifications;
+      if (plugin == null) throw StateError('Windows 通知尚未初始化');
+      await plugin.show(
+        id: test ? 2 : 1,
         title: kAppDisplayName,
-        body: '发现进行中签到 $count 条，检测已停止',
+        body: body,
+        payload: test ? testNotificationId : discoveryNotificationId,
       );
-      n.onClick = showRollcallFromNotification;
-      await n.show();
-      AppLog.event('shell.notify_found', fields: {'count': count});
-    } catch (e, st) {
-      AppLog.logAppError(error: e, stackTrace: st, source: 'desktop_notify');
+      return;
     }
+    final notification = test
+        ? (_testNotification ??= LocalNotification(
+            identifier: testNotificationId,
+            title: kAppDisplayName,
+          ))
+        : (_discoveryNotification ??= LocalNotification(
+            identifier: discoveryNotificationId,
+            title: kAppDisplayName,
+          ));
+    notification.body = body;
+    // LocalNotification already owns a listener: register one click handler only.
+    notification.onClick = () =>
+        _run(test ? showMainWindow() : showRollcallFromNotification());
+    await notification.show();
+  }
+
+  void _run(Future<void> operation) {
+    unawaited(
+      operation.catchError((Object error, StackTrace stack) {
+        AppLog.logAppError(
+          error: error,
+          stackTrace: stack,
+          source: 'desktop_shell',
+        );
+      }),
+    );
   }
 
   @override
@@ -138,7 +247,7 @@ class DesktopShell with WindowListener, TrayListener, LocalNotificationListener 
     // Keep sync; async work is scheduled so we never block the platform channel.
     if (_handlingClose) return;
     _handlingClose = true;
-    _handleCloseRequested().whenComplete(() => _handlingClose = false);
+    _run(_handleCloseRequested().whenComplete(() => _handlingClose = false));
   }
 
   Future<void> _handleCloseRequested() async {
@@ -149,10 +258,7 @@ class DesktopShell with WindowListener, TrayListener, LocalNotificationListener 
     final busy = isMonitorRunning?.call() ?? false;
     AppLog.event(
       'shell.close_requested',
-      fields: {
-        'busy': busy,
-        'mode': prefs.mode.name,
-      },
+      fields: {'busy': busy, 'mode': prefs.mode.name},
     );
 
     if (busy) {
@@ -202,10 +308,7 @@ class DesktopShell with WindowListener, TrayListener, LocalNotificationListener 
   }) async {
     final ctx = navigatorKey?.currentContext;
     if (ctx == null || !ctx.mounted) {
-      return const CloseAskResult(
-        action: CloseAskAction.tray,
-        remember: false,
-      );
+      return const CloseAskResult(action: CloseAskAction.tray, remember: false);
     }
     return showCloseAskDialog(
       ctx,
@@ -216,32 +319,27 @@ class DesktopShell with WindowListener, TrayListener, LocalNotificationListener 
 
   @override
   void onTrayIconMouseDown() {
-    showMainWindow();
+    _run(showMainWindow());
   }
 
   @override
   void onTrayIconRightMouseDown() {
-    trayManager.popUpContextMenu();
+    _run(trayManager.popUpContextMenu());
   }
 
   @override
   void onTrayMenuItemClick(MenuItem menuItem) {
     switch (menuItem.key) {
       case 'show':
-        showMainWindow();
+        _run(showMainWindow());
+      case 'rollcalls':
+        _run(showRollcallFromNotification());
+      case 'stop':
+        stopMonitor?.call();
       case 'quit':
-        quitApp(stopPolling: true);
+        _run(quitApp(stopPolling: true));
       default:
         break;
-    }
-  }
-
-  @override
-  void onLocalNotificationClick(LocalNotification notification) {
-    if (notification.identifier == discoveryNotificationId) {
-      showRollcallFromNotification();
-    } else {
-      showMainWindow();
     }
   }
 }
@@ -267,7 +365,7 @@ class _DesktopShellBinderState extends ConsumerState<DesktopShellBinder> {
     super.initState();
     _wire();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      DesktopShell.instance.init();
+      DesktopShell.instance._run(DesktopShell.instance.init());
     });
   }
 
@@ -280,16 +378,14 @@ class _DesktopShellBinderState extends ConsumerState<DesktopShellBinder> {
   void _wire() {
     final shell = DesktopShell.instance;
     shell.navigatorKey = widget.navigatorKey;
-    shell.isMonitorRunning =
-        () => ref.read(monitorControllerProvider).running;
-    shell.stopMonitor =
-        () => ref.read(monitorControllerProvider.notifier).stop();
+    shell.isMonitorRunning = () => ref.read(monitorControllerProvider).running;
+    shell.stopMonitor = () =>
+        ref.read(monitorControllerProvider.notifier).stop();
     shell.readPrefs = () => ref.read(closePrefsProvider);
     shell.applyAskChoice = ({required toTray, required remember}) {
-      return ref.read(closePrefsProvider.notifier).applyAskChoice(
-            toTray: toTray,
-            remember: remember,
-          );
+      return ref
+          .read(closePrefsProvider.notifier)
+          .applyAskChoice(toTray: toTray, remember: remember);
     };
   }
 
@@ -298,7 +394,25 @@ class _DesktopShellBinderState extends ConsumerState<DesktopShellBinder> {
     // Keep prefs / monitor identity warm so close handler sees latest.
     ref.watch(closePrefsProvider);
     ref.watch(monitorControllerProvider.select((s) => s.running));
+    ref.listen(monitorControllerProvider.select((s) => s.running), (_, _) {
+      if (DesktopShell.instance.trayAvailable.value) {
+        DesktopShell.instance._run(DesktopShell.instance.updateTrayMenu());
+      }
+    });
     _wire();
     return widget.child;
+  }
+
+  @override
+  void dispose() {
+    final shell = DesktopShell.instance;
+    if (shell.navigatorKey == widget.navigatorKey) {
+      shell.navigatorKey = null;
+      shell.isMonitorRunning = null;
+      shell.stopMonitor = null;
+      shell.readPrefs = null;
+      shell.applyAskChoice = null;
+    }
+    super.dispose();
   }
 }

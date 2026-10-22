@@ -38,6 +38,7 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
   final _formKey = GlobalKey<FormState>();
   bool _obscure = true;
   bool _submitting = false;
+  bool _rememberPassword = false;
   String? _error;
 
   @override
@@ -50,11 +51,13 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
     final repo = ref.read(authRepositoryProvider);
     final last = await repo.lastUsername();
     final saved = await repo.savedPassword();
+    final remember = await repo.remembersPassword();
     if (!mounted) return;
+    setState(() => _rememberPassword = remember);
     if (last != null && last.isNotEmpty) {
       _userCtrl.text = last;
     }
-    if (saved != null && saved.isNotEmpty) {
+    if (remember && saved != null && saved.isNotEmpty) {
       _passCtrl.text = saved;
     }
   }
@@ -67,15 +70,19 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
   }
 
   Future<void> _submit() async {
+    if (_submitting) return;
     if (!_formKey.currentState!.validate()) return;
     setState(() {
       _submitting = true;
       _error = null;
     });
     try {
-      await ref.read(authControllerProvider.notifier).signIn(
+      await ref
+          .read(authControllerProvider.notifier)
+          .signIn(
             username: _userCtrl.text.trim(),
             password: _passCtrl.text,
+            rememberPassword: _rememberPassword,
           );
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
@@ -173,6 +180,17 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
                   if (v == null || v.isEmpty) return '请输入密码';
                   return null;
                 },
+              ),
+              CheckboxListTile(
+                value: _rememberPassword,
+                onChanged: loading
+                    ? null
+                    : (value) =>
+                          setState(() => _rememberPassword = value ?? false),
+                title: const Text('记住密码', style: TextStyle(fontSize: 13)),
+                controlAffinity: ListTileControlAffinity.leading,
+                contentPadding: EdgeInsets.zero,
+                dense: true,
               ),
               if (_error != null) ...[
                 const SizedBox(height: 12),

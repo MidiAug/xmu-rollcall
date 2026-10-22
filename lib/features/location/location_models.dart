@@ -146,7 +146,7 @@ class RadarGeoSelection {
 
   String get confirmLine {
     final copy = radarPlaceCopy(this);
-    return '${copy.badge} · ${copy.title}';
+    return '${copy.badge}  ${copy.title}';
   }
 
   RadarGeoSelection copyWith({

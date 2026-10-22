@@ -13,11 +13,13 @@ class SessionPriorPanel extends ConsumerWidget {
   const SessionPriorPanel({
     super.key,
     required this.courseId,
+    this.assistUserId,
     required this.currentType,
     this.previewState,
   });
 
   final String courseId;
+  final int? assistUserId;
   final RollcallType currentType;
   final SessionPriorState? previewState;
 
@@ -27,7 +29,14 @@ class SessionPriorPanel extends ConsumerWidget {
     final forced = previewState;
     if (forced != null) return _wrapOrHint(palette, forced);
 
-    final async = ref.watch(sessionPriorProvider(courseId));
+    final async = ref.watch(
+      assistUserId == null
+          ? sessionPriorProvider(courseId)
+          : scopedSessionPriorProvider((
+              courseId: courseId,
+              accountId: assistUserId!,
+            )),
+    );
     return async.when(
       skipLoadingOnReload: true,
       skipLoadingOnRefresh: true,
@@ -86,10 +95,7 @@ class _PriorWell extends StatelessWidget {
 }
 
 class _PriorBody extends StatelessWidget {
-  const _PriorBody({
-    required this.state,
-    required this.currentType,
-  });
+  const _PriorBody({required this.state, required this.currentType});
 
   final SessionPriorState state;
   final RollcallType currentType;
@@ -106,7 +112,8 @@ class _PriorBody extends StatelessWidget {
     final entries = snap.typeCounts.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
     final majority = entries.isEmpty ? null : entries.first.key;
-    final mismatch = snap.hasEnoughSamples &&
+    final mismatch =
+        snap.hasEnoughSamples &&
         majority != null &&
         majority != currentType &&
         currentType != RollcallType.unknown;

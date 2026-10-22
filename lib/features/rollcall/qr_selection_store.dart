@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Remembers QR assist checkboxes per owner user + course (AC-ASSIST-05c · R-35 S1).
+/// Remembers QR assist checkboxes per owner user + course (AC-ASSIST-05c  R-35 S1).
 class QrSelectionStore {
   QrSelectionStore(this._prefs, {required this.userId});
 

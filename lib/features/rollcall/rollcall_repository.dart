@@ -2,14 +2,20 @@ import 'package:dio/dio.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/identity/device_identity.dart';
 import 'package:xmu_rollcall/core/logging/rollcall_log.dart';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
+import 'package:xmu_rollcall/core/logging/http_log_summary.dart';
 import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
+import 'package:xmu_rollcall/core/network/rate_limiter.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/features/rollcall/number_code.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
+import 'package:xmu_rollcall/features/rollcall/attendance_count.dart';
 
 class RollcallRepository {
+  static const _catalogFields =
+      'id,name,course_code,timetables,instructors(id,name),course_attributes(teaching_class_name),department(id,name),semester(id),academic_year(id),academic_year_id,semester_id';
   RollcallRepository({
     required this.http,
     required this.identity,
@@ -26,6 +32,14 @@ class RollcallRepository {
   /// Assist sessions must never fall back to the owner install id.
   final bool requireExplicitDeviceId;
 
+  Future<AttendanceCount> fetchAttendanceCount(int rollcallId) async {
+    await http.init();
+    final response = await http.getUri<dynamic>(
+      TronEndpoints.studentRollcalls(rollcallId),
+    );
+    return AttendanceCount.parse(response.data, rollcallId: rollcallId);
+  }
+
   Future<String> _deviceId() async {
     final override = deviceIdOverride?.trim();
     if (override != null && override.isNotEmpty) return override;
@@ -35,47 +49,75 @@ class RollcallRepository {
     return identity.getId();
   }
 
-  Future<List<RollcallItem>> fetchActive() async {
+  Future<List<RollcallItem>> fetchActive({CancelToken? cancelToken}) async {
     await http.init();
     final res = await http.getUri<Map<String, dynamic>>(
       TronEndpoints.radarRollcalls(),
+      cancelToken: cancelToken,
     );
-    final data = res.data ?? const {};
+    final data = res.data;
+    if (data == null) throw const FormatException('Empty rollcall response');
     final rawList = data['rollcalls'];
-    if (rawList is! List) return const [];
-    return rawList
+    if (rawList is! List || rawList.any((item) => item is! Map)) {
+      throw const FormatException('Invalid rollcall list response');
+    }
+    final items = rawList
         .whereType<Map>()
         .map((e) => RollcallItem.fromJson(Map<String, dynamic>.from(e)))
         .toList();
+    for (final item in items.where(
+      (item) => item.type == RollcallType.unknown,
+    )) {
+      AppLog.event(
+        'rollcall.type.unknown',
+        level: 'W',
+        fields: {
+          'rollcallId': item.rollcallId,
+          'session': http.sessionKey.storageId,
+          'topKeys': item.raw.keys.toList()..sort(),
+          'hints': HttpLogSummary.responseSummary({
+            'rollcalls': [item.raw],
+          }, path: '/api/radar/rollcalls'),
+        },
+      );
+    }
+    return items;
   }
 
   /// List + for number types, fetch `number_code` (does not affect poll stop).
-  Future<List<RollcallItem>> fetchActiveEnriched() async {
-    final items = await fetchActive();
+  Future<List<RollcallItem>> fetchActiveEnriched({
+    CancelToken? cancelToken,
+  }) async {
+    final items = await fetchActive(cancelToken: cancelToken);
+    return enrichActive(items, cancelToken: cancelToken);
+  }
+
+  Future<List<RollcallItem>> enrichActive(
+    List<RollcallItem> items, {
+    CancelToken? cancelToken,
+  }) async {
     if (items.isEmpty) return items;
     final out = <RollcallItem>[];
     for (final item in items) {
-      if (!item.isNumber) {
+      if (!item.isNumber ||
+          item.isExpired ||
+          item.isAnswered ||
+          item.numberCode?.isNotEmpty == true) {
         out.add(item);
         continue;
       }
       try {
-        final code = await fetchNumberCode(item.rollcallId);
+        final code = await fetchNumberCode(
+          item.rollcallId,
+          cancelToken: cancelToken,
+        );
         if (code == null || code.isEmpty) {
-          out.add(
-            item.copyWith(
-              numberCodeError: '\u672a\u5728 student_rollcalls \u4e2d\u627e\u5230 number_code',
-            ),
-          );
+          out.add(item.copyWith(numberCodeError: '暂未获取到本次签到码，请刷新或手动输入'));
         } else {
-          out.add(
-            item.copyWith(
-              numberCode: code,
-              clearNumberCodeError: true,
-            ),
-          );
+          out.add(item.copyWith(numberCode: code, clearNumberCodeError: true));
         }
       } catch (e) {
+        if (cancelToken?.isCancelled == true) rethrow;
         out.add(item.copyWith(numberCodeError: '$e'));
       }
       await Future<void>.delayed(const Duration(milliseconds: 80));
@@ -83,16 +125,46 @@ class RollcallRepository {
     return out;
   }
 
-  Future<String?> fetchNumberCode(int rollcallId) async {
+  Future<String?> fetchNumberCode(
+    int rollcallId, {
+    CancelToken? cancelToken,
+  }) async {
+    final detailResponse = await http.getUri<dynamic>(
+      TronEndpoints.rollcallDetail(rollcallId),
+      cancelToken: cancelToken,
+    );
+    if (detailResponse.statusCode != 200) {
+      throw StateError('获取签到详情失败 (${detailResponse.statusCode})');
+    }
+    final detail = detailResponse.data;
+    if (detail is! Map) {
+      throw const FormatException('Invalid rollcall detail response');
+    }
+    final courseId = int.tryParse('${detail['course_id']}');
+    final timestamp = detail['rollcall_time'];
+    // A timestamp without a zone would use the device's timezone, which can
+    // silently query the wrong UTC date. Do not guess a date in that case.
+    final rollcallTime =
+        timestamp is String &&
+            RegExp(r'(?:[zZ]|[+-]\d{2}:?\d{2})$').hasMatch(timestamp)
+        ? DateTime.tryParse(timestamp)
+        : null;
+    if (courseId == null || courseId <= 0 || rollcallTime == null) {
+      throw const FormatException('Invalid rollcall course or timestamp');
+    }
     final res = await http.getUri<dynamic>(
-      TronEndpoints.studentRollcalls(rollcallId),
+      TronEndpoints.timetableRollcalls(
+        courseId: courseId,
+        rollcallTime: rollcallTime,
+      ),
+      cancelToken: cancelToken,
     );
     if ((res.statusCode ?? 0) != 200) {
       throw StateError(
         '\u83b7\u53d6\u7b7e\u5230\u7801\u5931\u8d25 (${res.statusCode})',
       );
     }
-    return findNumberCode(res.data);
+    return findTimetableNumberCode(res.data, rollcallId: rollcallId);
   }
 
   /// Single-course student rollcalls (for session prior; KB-01: one request).
@@ -104,15 +176,17 @@ class RollcallRepository {
     await http.init();
     final cid = '$courseId'.trim();
     final res = await http.getUri<dynamic>(
-      TronEndpoints.courseStudentRollcalls(
-        courseId: cid,
-        studentId: studentId,
-      ),
+      TronEndpoints.courseStudentRollcalls(courseId: cid, studentId: studentId),
+      priority: RequestPriority.background,
     );
-    final rollcalls = _unwrapList(
-      res.data,
-      const ['rollcalls', 'activities', 'data', 'items', 'list', 'results'],
-    );
+    final rollcalls = _unwrapList(res.data, const [
+      'rollcalls',
+      'activities',
+      'data',
+      'items',
+      'list',
+      'results',
+    ]);
     if (rollcalls.isEmpty) return const [];
     final out = <CourseRollcallRecord>[];
     for (final raw in rollcalls) {
@@ -139,9 +213,10 @@ class RollcallRepository {
     try {
       final res = await http.postUri<dynamic>(
         TronEndpoints.myCourses(),
+        options: Options(extra: const {'retrySafe': true}),
+        priority: RequestPriority.background,
         data: const {
-          'fields':
-              'id,name,course_code,timetables,instructors(id,name),course_attributes(teaching_class_name),department(id,name),semester(id),academic_year(id),academic_year_id,semester_id',
+          'fields': _catalogFields,
           'conditions': {
             'classify_type': 'recently_started',
             'role': [
@@ -155,24 +230,127 @@ class RollcallRepository {
         },
       );
       final parsed = _catalogFromPayload(res.data);
-      if (parsed.courses.isNotEmpty) return parsed;
+      if (parsed.courses.isNotEmpty) return _resolveCatalogRoles(parsed);
     } catch (_) {
       // fall through
     }
-    return _catalogFromGetProbe();
+    return _resolveCatalogRoles(await _catalogFromGetProbe());
+  }
+
+  Future<CourseCatalogSnapshot> _resolveCatalogRoles(
+    CourseCatalogSnapshot catalog,
+  ) async {
+    try {
+      Future<Set<String>> memberships(List<String> roles) async {
+        final response = await http.postUri<dynamic>(
+          TronEndpoints.myCourses(),
+          options: Options(extra: const {'retrySafe': true}),
+          priority: RequestPriority.background,
+          data: {
+            'fields': _catalogFields,
+            'conditions': {
+              'classify_type': 'recently_started',
+              'role': roles,
+              'status': ['ongoing', 'not_started'],
+            },
+          },
+        );
+        Object? payload = response.data;
+        if (payload is Map && payload['data'] is Map) payload = payload['data'];
+        final supported =
+            payload is List ||
+            (payload is Map &&
+                (payload.isEmpty ||
+                    const [
+                      'courses',
+                      'data',
+                      'items',
+                      'list',
+                      'results',
+                    ].any((key) => (payload as Map)[key] is List)));
+        AppLog.event(
+          'course_catalog.role_response',
+          fields: {
+            'roles': roles,
+            'status': response.statusCode,
+            'dataType': response.data.runtimeType.toString(),
+            if (payload is Map) 'topKeys': payload.keys.toList(),
+          },
+        );
+        if (response.statusCode != 200 || !supported) {
+          throw const FormatException('课程身份暂不可用');
+        }
+        final rows = _unwrapList(payload, const [
+          'courses',
+          'data',
+          'items',
+          'list',
+          'results',
+        ]);
+        return {
+          for (final row in rows)
+            if (row is Map && row['id'] != null) '${row['id']}',
+        };
+      }
+
+      final assistants = await memberships([
+        'student_assistant',
+        'instructor_assistant',
+      ]);
+      final instructors = await memberships(['instructor']);
+      final courses = [
+        for (final c in catalog.courses)
+          c.withRoles([
+            if (assistants.contains(c.id)) 'instructor_assistant',
+            if (instructors.contains(c.id)) 'instructor',
+            if (!assistants.contains(c.id) && !instructors.contains(c.id))
+              'student',
+          ]),
+      ];
+      AppLog.event(
+        'course_catalog.roles',
+        fields: {
+          'courses': courses.length,
+          'assistants': courses.where((c) => c.isTeachingAssistant).length,
+          'instructors': courses.where((c) => c.isInstructor).length,
+          'teachingIds': [
+            for (final c in courses)
+              if (c.isTeaching) c.id,
+          ],
+        },
+      );
+      return CourseCatalogSnapshot(
+        fetchedAt: catalog.fetchedAt,
+        courses: courses,
+        semesterId: catalog.semesterId,
+        academicYearId: catalog.academicYearId,
+        rolesResolved: true,
+      );
+    } catch (error) {
+      AppLog.event(
+        'course_catalog.roles.failed',
+        level: 'W',
+        fields: {'errorType': error.runtimeType.toString()},
+      );
+      return catalog;
+    }
   }
 
   /// Per-course weekday → slots (prefers [fetchCourseCatalog]).
-  Future<Map<String, Map<int, List<TimetableSlot>>>> fetchCourseTimetables() async {
+  Future<Map<String, Map<int, List<TimetableSlot>>>>
+  fetchCourseTimetables() async {
     final snap = await fetchCourseCatalog();
     return snap.timetablesByCourse;
   }
 
   CourseCatalogSnapshot _catalogFromPayload(dynamic data) {
-    final list = _unwrapList(
-      data,
-      const ['courses', 'data', 'items', 'list', 'results'],
-    );
+    final list = _unwrapList(data, const [
+      'courses',
+      'data',
+      'items',
+      'list',
+      'results',
+    ]);
     final courses = <CatalogCourse>[];
     String? semesterId;
     String? academicYearId;
@@ -180,10 +358,13 @@ class RollcallRepository {
       if (item is! Map) continue;
       final m = Map<String, dynamic>.from(item);
       final id = _first(m, const ['id', 'course_id', 'courseId', 'cid']);
-      final title = _first(
-        m,
-        const ['name', 'title', 'course_title', 'course_name', 'display_name'],
-      );
+      final title = _first(m, const [
+        'name',
+        'title',
+        'course_title',
+        'course_name',
+        'display_name',
+      ]);
       if (id == null) continue;
       courses.add(
         CatalogCourse(
@@ -193,11 +374,14 @@ class RollcallRepository {
           instructorNames: _instructorNames(m),
           teachingClassName: _teachingClassName(m),
           location: _courseLocation(m),
+          roles: parseCourseRoles(m['roles'] ?? m['course_role'] ?? m['role']),
         ),
       );
       semesterId ??= _nestedId(m, const ['semester_id', 'semester']);
-      academicYearId ??=
-          _nestedId(m, const ['academic_year_id', 'academic_year']);
+      academicYearId ??= _nestedId(m, const [
+        'academic_year_id',
+        'academic_year',
+      ]);
     }
     return CourseCatalogSnapshot(
       fetchedAt: DateTime.now(),
@@ -303,10 +487,14 @@ class RollcallRepository {
             studentId: studentId,
           ),
         );
-        final rollcalls = _unwrapList(
-          res.data,
-          const ['rollcalls', 'activities', 'data', 'items', 'list', 'results'],
-        );
+        final rollcalls = _unwrapList(res.data, const [
+          'rollcalls',
+          'activities',
+          'data',
+          'items',
+          'list',
+          'results',
+        ]);
         if (rollcalls.isEmpty) {
           out.add(
             CourseRollcallRecord(
@@ -358,19 +546,25 @@ class RollcallRepository {
         final uri = Uri.parse('${TronEndpoints.baseUrl}$path');
         final res = await http.getUri<dynamic>(uri);
         if ((res.statusCode ?? 0) != 200) continue;
-        final list = _unwrapList(
-          res.data,
-          const ['courses', 'data', 'items', 'list', 'results'],
-        );
+        final list = _unwrapList(res.data, const [
+          'courses',
+          'data',
+          'items',
+          'list',
+          'results',
+        ]);
         final courses = <Map<String, String>>[];
         for (final item in list) {
           if (item is! Map) continue;
           final m = Map<String, dynamic>.from(item);
           final id = _first(m, const ['id', 'course_id', 'courseId', 'cid']);
-          final title = _first(
-            m,
-            const ['name', 'title', 'course_title', 'course_name', 'display_name'],
-          );
+          final title = _first(m, const [
+            'name',
+            'title',
+            'course_title',
+            'course_name',
+            'display_name',
+          ]);
           if (id == null || title == null) continue;
           courses.add({'id': id, 'title': title});
         }
@@ -418,22 +612,19 @@ class RollcallRepository {
     String courseTitle,
     Map<String, dynamic> rollcall,
   ) {
-    final id = _first(
-          rollcall,
-          const ['rollcall_id', 'id', 'activity_id'],
-        ) ??
-        '-';
+    final id =
+        _first(rollcall, const ['rollcall_id', 'id', 'activity_id']) ?? '-';
     final type = _typeLabel(rollcall);
-    final platform = _first(
-          rollcall,
-          const ['status', 'rollcall_status', 'state'],
-        ) ??
+    final platform =
+        _first(rollcall, const ['status', 'rollcall_status', 'state']) ??
         'unknown';
     final signed = _inferSigned(platform, rollcall);
-    final timeRaw = _first(
-      rollcall,
-      const ['rollcall_time', 'created_at', 'start_time', 'time'],
-    );
+    final timeRaw = _first(rollcall, const [
+      'rollcall_time',
+      'created_at',
+      'start_time',
+      'time',
+    ]);
     DateTime? time;
     if (timeRaw != null) {
       time = DateTime.tryParse(timeRaw.replaceFirst('Z', '+00:00'));
@@ -464,14 +655,28 @@ class RollcallRepository {
   }
 
   String _inferSigned(String platform, Map<String, dynamic> rollcall) {
-    final blob = [
+    final statuses = [
       platform,
       _first(rollcall, const ['student_status']) ?? '',
-    ].join(' ').toLowerCase();
-    const signed = ['signed', 'present', 'attended', 'on_call_fine', 'fine', 'done'];
-    const absent = ['absent', 'missed', 'not_signed', 'unanswered'];
-    if (signed.any(blob.contains)) return '\u5df2\u7b7e\u5230';
-    if (absent.any(blob.contains)) return '\u672a\u7b7e\u5230';
+    ].map((value) => value.trim().toLowerCase()).toSet();
+    const signed = [
+      'signed',
+      'present',
+      'attended',
+      'on_call_fine',
+      'fine',
+      'done',
+    ];
+    const absent = [
+      'absent',
+      'missed',
+      'not_signed',
+      'unsigned',
+      'unanswered',
+      'on_call_absence',
+    ];
+    if (absent.any(statuses.contains)) return '\u672a\u7b7e\u5230';
+    if (signed.any(statuses.contains)) return '\u5df2\u7b7e\u5230';
     return '\u672a\u77e5';
   }
 
@@ -481,18 +686,10 @@ class RollcallRepository {
     String? opId,
   }) async {
     final deviceId = await _deviceId();
-    final opts = Options(
-      extra: {
-        if (opId != null) 'opId': opId,
-        'rollcallId': rollcallId,
-      },
-    );
+    final opts = Options(extra: {'opId': ?opId, 'rollcallId': rollcallId});
     final res = await http.putUri<dynamic>(
       TronEndpoints.answerNumber(rollcallId),
-      data: {
-        'deviceId': deviceId,
-        'numberCode': numberCode,
-      },
+      data: {'deviceId': deviceId, 'numberCode': numberCode},
       options: opts,
     );
     return _mapAnswer(res, opId: opId, rollcallId: rollcallId);
@@ -506,12 +703,7 @@ class RollcallRepository {
     String? opId,
   }) async {
     final deviceId = await _deviceId();
-    final opts = Options(
-      extra: {
-        if (opId != null) 'opId': opId,
-        'rollcallId': rollcallId,
-      },
-    );
+    final opts = Options(extra: {'opId': ?opId, 'rollcallId': rollcallId});
     final res = await http.putUri<dynamic>(
       TronEndpoints.answerRadar(rollcallId),
       data: {
@@ -539,18 +731,10 @@ class RollcallRepository {
     final id = (deviceId != null && deviceId.trim().isNotEmpty)
         ? deviceId.trim()
         : await _deviceId();
-    final opts = Options(
-      extra: {
-        if (opId != null) 'opId': opId,
-        'rollcallId': rollcallId,
-      },
-    );
+    final opts = Options(extra: {'opId': ?opId, 'rollcallId': rollcallId});
     final res = await http.putUri<dynamic>(
       TronEndpoints.answerQr(rollcallId),
-      data: {
-        'data': data,
-        'deviceId': id,
-      },
+      data: {'data': data, 'deviceId': id},
       options: opts,
     );
     return _mapAnswer(res, opId: opId, rollcallId: rollcallId);
@@ -583,18 +767,18 @@ class RollcallRepository {
         : <String, dynamic>{'raw': data};
     AnswerResult result;
     if (status >= 200 && status < 300) {
-      result = AnswerResult(ok: true, message: '提交成功', raw: map, status: status);
+      result = AnswerResult(
+        ok: true,
+        message: '提交成功',
+        raw: map,
+        status: status,
+      );
     } else {
       final distance = map['distance'];
       final msg = distance != null
           ? '未成功，距离约 $distance'
           : (map['message']?.toString() ?? '提交失败 ($status)');
-      result = AnswerResult(
-        ok: false,
-        message: msg,
-        raw: map,
-        status: status,
-      );
+      result = AnswerResult(ok: false, message: msg, raw: map, status: status);
     }
     if (opId != null && rollcallId != null) {
       RollcallLog.result(

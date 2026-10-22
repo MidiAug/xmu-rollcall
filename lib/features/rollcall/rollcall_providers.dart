@@ -1,9 +1,13 @@
 import 'dart:convert';
+import 'dart:async';
+import 'package:dio/dio.dart';
+import 'package:xmu_rollcall/core/network/request_failure.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/core/cache/cache_policy.dart';
+import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/cache/course_rollcalls_store.dart';
 import 'package:xmu_rollcall/core/cache/history_candidates.dart';
 import 'package:xmu_rollcall/core/cache/session_memory.dart';
@@ -14,39 +18,209 @@ import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/rollcall/session_prior.dart';
+import 'package:xmu_rollcall/features/rollcall/active_rollcall_cache.dart';
 
 export 'package:xmu_rollcall/core/cache/session_memory.dart'
     show seenInProgressCourseIdsProvider;
 export 'package:xmu_rollcall/features/rollcall/rollcall_repository_providers.dart';
 
-/// Family: `null` = owner active list; otherwise that assist userId.
-final activeRollcallsProvider = AsyncNotifierProvider.family<
-    ActiveRollcallsNotifier, List<RollcallItem>, int?>(
-  ActiveRollcallsNotifier.new,
+final activeRollcallClockProvider = Provider<DateTime Function()>(
+  (ref) => DateTime.now,
 );
+
+/// Family: `null` = owner active list; otherwise that assist userId.
+final activeRollcallsProvider =
+    AsyncNotifierProvider.family<
+      ActiveRollcallsNotifier,
+      List<RollcallItem>,
+      int?
+    >(ActiveRollcallsNotifier.new);
 
 class ActiveRollcallsNotifier
     extends FamilyAsyncNotifier<List<RollcallItem>, int?> {
   int? _boundOwnerUserId;
+  int _revision = 0;
+  CancelToken? _requestToken;
+  Future<void>? _refreshing;
+  String? _codeCacheKey;
+  final _numberCodes = <int, String>{};
+  Future<void> _codeWrites = Future.value();
+  Future<void> _activeWrites = Future.value();
+  DateTime? _lastAppearCheckAt;
+  DateTime? lastUpdatedAt;
+  String? get _activeCacheKey => _boundOwnerUserId == null
+      ? null
+      : 'active_rollcalls_${_boundOwnerUserId}_${arg ?? _boundOwnerUserId}';
 
   @override
   Future<List<RollcallItem>> build(int? assistUserId) async {
-    if (assistUserId == null) {
-      final auth = ref.watch(authControllerProvider);
-      if (!auth.isSignedIn || auth.profile == null || auth.profile!.id == 0) {
-        _boundOwnerUserId = null;
-        return const [];
-      }
-      _boundOwnerUserId = auth.profile!.id;
+    final revision = ++_revision;
+    ref.onDispose(() {
+      _revision++;
+      _requestToken?.cancel('页面已关闭');
+    });
+    ref.watch(
+      authControllerProvider.select((s) => (s.isSignedIn, s.profile?.id)),
+    );
+    final auth = ref.read(authControllerProvider);
+    if (!auth.isSignedIn || auth.profile == null || auth.profile!.id == 0) {
+      _boundOwnerUserId = null;
+      _codeCacheKey = null;
+      _numberCodes.clear();
+      lastUpdatedAt = null;
+      _lastAppearCheckAt = null;
+      return const [];
     }
-    final items = await ref
-        .read(rollcallRepositoryForProvider(assistUserId))
-        .fetchActiveEnriched();
-    if (assistUserId == null) {
+    final previous = _boundOwnerUserId == auth.profile!.id
+        ? state.valueOrNull ?? const <RollcallItem>[]
+        : const <RollcallItem>[];
+    _boundOwnerUserId = auth.profile!.id;
+    final now = ref.read(activeRollcallClockProvider)();
+    final disk = await JsonDiskCache.readList(_activeCacheKey!);
+    if (revision != _revision) return state.valueOrNull ?? const [];
+    final cached = restoreActiveRollcalls(disk, now);
+    final cacheKey =
+        'number_codes_${auth.profile!.id}_${assistUserId ?? auth.profile!.id}';
+    Future<void>? restoreCodes;
+    if (_codeCacheKey != cacheKey) {
+      _codeCacheKey = cacheKey;
+      _numberCodes.clear();
+      restoreCodes = _restoreNumberCodes(cacheKey);
+    }
+    _lastAppearCheckAt = now;
+    if (cached.isNotEmpty) {
+      lastUpdatedAt = disk!.fetchedAt;
+      await restoreCodes;
+      if (revision != _revision) return state.valueOrNull ?? const [];
+      Future<void>(() async {
+        if (revision == _revision) await refresh();
+      });
+      return _retainNumberCodes(cached);
+    }
+    final token = _requestToken = CancelToken();
+    try {
+      final items = await ref
+          .read(rollcallRepositoryForProvider(assistUserId))
+          .fetchActiveEnriched(cancelToken: token);
+      await restoreCodes;
+      if (revision != _revision) return state.valueOrNull ?? const [];
+      lastUpdatedAt = ref.read(activeRollcallClockProvider)();
       _noteSeenCourses(items);
+      final merged = mergeActiveRollcalls(previous, _retainNumberCodes(items));
+      _persistActive(merged);
+      return merged;
+    } catch (_) {
+      if (revision != _revision) return state.valueOrNull ?? const [];
+      rethrow;
     }
-    return items;
+  }
+
+  void _persistActive(List<RollcallItem> items) {
+    final key = _activeCacheKey;
+    final uid = arg ?? _boundOwnerUserId;
+    final revision = _revision;
+    final at = lastUpdatedAt ?? ref.read(activeRollcallClockProvider)();
+    if (key == null || uid == null) return;
+    _activeWrites = _activeWrites
+        .then((_) async {
+          final catalog = await CourseCatalogStore.read(uid);
+          if (revision != _revision) return;
+          await JsonDiskCache.writeList(
+            key,
+            cacheActiveRollcalls(items, catalog, at),
+            fetchedAt: at,
+          );
+        })
+        .catchError((Object _) {});
+  }
+
+  /// Short entry cooldown; a cached form is shown only in its original class.
+  Future<void> ensureFreshOnAppear() async {
+    try {
+      await future;
+    } catch (_) {}
+    if (_boundOwnerUserId == null) return;
+    final now = ref.read(activeRollcallClockProvider)();
+    if (_lastAppearCheckAt != null &&
+        now.difference(_lastAppearCheckAt!) < const Duration(seconds: 15)) {
+      return;
+    }
+    _lastAppearCheckAt = now;
+    final revision = _revision;
+    final previous = state.valueOrNull;
+    if (previous != null && lastUpdatedAt != null) {
+      final catalog = await CourseCatalogStore.read(arg ?? _boundOwnerUserId!);
+      if (revision != _revision) return;
+      state = AsyncData(
+        restoreActiveRollcalls(
+          DiskCacheSnapshot(
+            fetchedAt: lastUpdatedAt!,
+            items: cacheActiveRollcalls(previous, catalog, lastUpdatedAt!),
+          ),
+          now,
+        ),
+      );
+    }
+    await refresh();
+  }
+
+  Future<void> _restoreNumberCodes(String key) async {
+    try {
+      final cached = await JsonDiskCache.readList(key);
+      if (key != _codeCacheKey ||
+          cached == null ||
+          !cached.isFresh(const Duration(days: 7))) {
+        return;
+      }
+      for (final entry in cached.items) {
+        final id = entry['id'];
+        final code = entry['code'];
+        if (id is int && code is String && code.isNotEmpty) {
+          _numberCodes.putIfAbsent(id, () => code);
+        }
+      }
+    } catch (_) {
+      // Cache failures must not prevent fetching the current activities.
+    }
+  }
+
+  List<RollcallItem> _retainNumberCodes(List<RollcallItem> items) {
+    var changed = false;
+    final result = [
+      for (final item in items)
+        if (item.isNumber &&
+            item.numberCode?.isNotEmpty != true &&
+            _numberCodes.containsKey(item.rollcallId))
+          item.copyWith(numberCode: _numberCodes[item.rollcallId])
+        else
+          item,
+    ];
+    for (final item in result) {
+      final code = item.numberCode;
+      if (item.isNumber &&
+          code != null &&
+          code.isNotEmpty &&
+          _numberCodes[item.rollcallId] != code) {
+        _numberCodes.remove(item.rollcallId);
+        _numberCodes[item.rollcallId] = code;
+        changed = true;
+      }
+    }
+    while (_numberCodes.length > 100) {
+      _numberCodes.remove(_numberCodes.keys.first);
+    }
+    final key = _codeCacheKey;
+    if (changed && key != null) {
+      final entries = [
+        for (final e in _numberCodes.entries) {'id': e.key, 'code': e.value},
+      ];
+      _codeWrites = _codeWrites
+          .then((_) => JsonDiskCache.writeList(key, entries))
+          .catchError((Object _) {});
+    }
+    return result;
   }
 
   void _noteSeenCourses(List<RollcallItem> items) {
@@ -55,12 +229,44 @@ class ActiveRollcallsNotifier
         if ((i.courseId ?? '').trim().isNotEmpty) i.courseId!.trim(),
     };
     if (ids.isEmpty) return;
-    final prev = ref.read(seenInProgressCourseIdsProvider);
-    ref.read(seenInProgressCourseIdsProvider.notifier).state = {...prev, ...ids};
+    final prev = ref.read(
+      (arg == null
+          ? seenInProgressCourseIdsProvider
+          : importedSeenCourseIdsProvider(arg!)),
+    );
+    ref
+        .read(
+          (arg == null
+                  ? seenInProgressCourseIdsProvider
+                  : importedSeenCourseIdsProvider(arg!))
+              .notifier,
+        )
+        .state = {
+      ...prev,
+      ...ids,
+    };
   }
 
-  Future<void> refresh() async {
+  Future<void> refresh() {
+    if (_refreshing != null) return _refreshing!;
+    final future = _refresh();
+    _refreshing = future;
+    return future.whenComplete(() {
+      if (identical(_refreshing, future)) _refreshing = null;
+    });
+  }
+
+  Future<void> _refresh() async {
+    final revision = ++_revision;
+    _requestToken?.cancel('刷新已替换');
+    final token = _requestToken = CancelToken();
     final previous = state.valueOrNull;
+    _lastAppearCheckAt = ref.read(activeRollcallClockProvider)();
+    if (previous != null) {
+      state = const AsyncLoading<List<RollcallItem>>().copyWithPrevious(
+        AsyncData(previous),
+      );
+    }
     final started = DateTime.now();
     final ownerUid = _boundOwnerUserId;
     AppLog.event(
@@ -73,8 +279,9 @@ class ActiveRollcallsNotifier
     final next = await AsyncValue.guard(
       () => ref
           .read(rollcallRepositoryForProvider(arg))
-          .fetchActiveEnriched(),
+          .fetchActiveEnriched(cancelToken: token),
     );
+    if (revision != _revision) return;
     // Write-back guard for owner live list.
     if (arg == null &&
         ownerUid != null &&
@@ -93,34 +300,106 @@ class ActiveRollcallsNotifier
           'session': arg == null ? 'owner' : 'assist',
         },
       );
-      state = next;
+      state = previous == null
+          ? next
+          : next.copyWithPrevious(AsyncData(previous));
+      if (arg == null && isSessionExpired(next.error)) {
+        ref.read(authControllerProvider.notifier).expireSession();
+      }
       return;
     }
-    final incoming = next.requireValue;
-    if (arg == null) _noteSeenCourses(incoming);
+    final incoming = _retainNumberCodes(next.requireValue);
+    lastUpdatedAt = ref.read(activeRollcallClockProvider)();
+    _noteSeenCourses(incoming);
+    final typeCounts = <String, int>{};
+    final statusCounts = <String, int>{};
+    final ids = <int>[];
+    for (final item in incoming) {
+      final t = item.type.name;
+      typeCounts[t] = (typeCounts[t] ?? 0) + 1;
+      final st = item.status.isEmpty ? '(empty)' : item.status;
+      statusCounts[st] = (statusCounts[st] ?? 0) + 1;
+      if (ids.length < 20) ids.add(item.rollcallId);
+    }
+    final hasUnknown = (typeCounts['unknown'] ?? 0) > 0;
     AppLog.event(
       'rollcall.list.refresh',
+      level: hasUnknown ? 'W' : 'I',
       fields: {
         'ok': true,
         'count': incoming.length,
         'durationMs': ms,
         'session': arg == null ? 'owner' : 'assist',
+        'typeCounts': typeCounts,
+        'statusCounts': statusCounts,
+        'ids': ids,
+        if (hasUnknown) 'hasUnknownType': true,
       },
     );
     if (previous == null) {
       state = AsyncData(incoming);
+      _persistActive(incoming);
       return;
     }
     state = AsyncData(mergeActiveRollcalls(previous, incoming));
+    _persistActive(state.requireValue);
+  }
+
+  /// Publish discovery immediately (including empty results), then enrich only missing codes.
+  void applyMonitorItems(List<RollcallItem> items) {
+    final revision = ++_revision;
+    final ownerUid = _boundOwnerUserId;
+    _requestToken?.cancel('已收到更新的检测结果');
+    final token = _requestToken = CancelToken();
+    final incoming = mergeActiveRollcalls(
+      state.valueOrNull ?? const [],
+      _retainNumberCodes(items),
+    );
+    lastUpdatedAt = ref.read(activeRollcallClockProvider)();
+    _lastAppearCheckAt = lastUpdatedAt;
+    _noteSeenCourses(incoming);
+    state = AsyncData(
+      mergeActiveRollcalls(state.valueOrNull ?? const [], incoming),
+    );
+    _persistActive(state.requireValue);
+    if (!incoming.any(
+      (i) =>
+          i.isNumber && !i.isExpired && !i.isAnswered && i.numberCode == null,
+    )) {
+      return;
+    }
+    unawaited(() async {
+      try {
+        final enriched = await ref
+            .read(rollcallRepositoryForProvider(arg))
+            .enrichActive(incoming, cancelToken: token);
+        if (revision != _revision ||
+            ref.read(authControllerProvider).profile?.id != ownerUid) {
+          return;
+        }
+        state = AsyncData(
+          mergeActiveRollcalls(
+            state.valueOrNull ?? const [],
+            _retainNumberCodes(enriched),
+          ),
+        );
+        _persistActive(state.requireValue);
+      } catch (_) {
+        // A superseding snapshot cancels enrichment without replacing newer data.
+      }
+    }());
   }
 
   void patchItem(RollcallItem updated) {
     final current = state.valueOrNull;
     if (current == null) return;
-    state = AsyncData([
-      for (final item in current)
-        if (item.rollcallId == updated.rollcallId) updated else item,
-    ]);
+    state = AsyncData(
+      _retainNumberCodes([
+        for (final item in current)
+          if (item.rollcallId == updated.rollcallId) updated else item,
+      ]),
+    );
+    _persistActive(state.requireValue);
   }
 
   /// Debug-only: replace owner active list without hitting the network.
@@ -150,8 +429,19 @@ List<RollcallItem> mergeActiveRollcalls(
       a.numberCodeError == b.numberCodeError;
 
   final prevById = {for (final r in previous) r.rollcallId: r};
+  RollcallItem retainCode(RollcallItem item) {
+    final old = prevById[item.rollcallId];
+    if (item.isNumber &&
+        old?.isNumber == true &&
+        item.numberCode?.isNotEmpty != true &&
+        old!.numberCode?.isNotEmpty == true) {
+      return item.copyWith(numberCode: old.numberCode);
+    }
+    return item;
+  }
+
   final merged = <RollcallItem>[
-    for (final r in incoming)
+    for (final r in incoming.map(retainCode))
       if (prevById[r.rollcallId] != null && same(prevById[r.rollcallId]!, r))
         prevById[r.rollcallId]!
       else
@@ -173,16 +463,21 @@ List<RollcallItem> mergeActiveRollcalls(
 
 final historyProvider =
     StateNotifierProvider<HistoryController, List<RollcallHistoryEntry>>((ref) {
-  final uid = ref.watch(authControllerProvider.select((s) => s.profile?.id));
-  return HistoryController(userId: uid);
-});
+      final uid = ref.watch(
+        authControllerProvider.select((s) => s.profile?.id),
+      );
+      return HistoryController(userId: uid);
+    });
 
 class HistoryController extends StateNotifier<List<RollcallHistoryEntry>> {
-  HistoryController({this.userId}) : super(const []) {
-    _load();
+  HistoryController({this.userId, this.migrateLegacy = true})
+    : super(const []) {
+    _loaded = _load();
   }
 
   final int? userId;
+  final bool migrateLegacy;
+  late final Future<void> _loaded;
 
   static const _legacyKey = 'local_rollcall_history';
 
@@ -199,8 +494,9 @@ class HistoryController extends StateNotifier<List<RollcallHistoryEntry>> {
       return;
     }
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     var raw = prefs.getString(key);
-    if (raw == null || raw.isEmpty) {
+    if (migrateLegacy && (raw == null || raw.isEmpty)) {
       // Migrate legacy global key once.
       final legacy = prefs.getString(_legacyKey);
       if (legacy != null && legacy.isNotEmpty) {
@@ -209,6 +505,7 @@ class HistoryController extends StateNotifier<List<RollcallHistoryEntry>> {
         raw = legacy;
       }
     }
+    if (!mounted) return;
     if (raw == null || raw.isEmpty) {
       state = const [];
       return;
@@ -217,7 +514,9 @@ class HistoryController extends StateNotifier<List<RollcallHistoryEntry>> {
       final list = jsonDecode(raw) as List<dynamic>;
       state = list
           .whereType<Map>()
-          .map((e) => RollcallHistoryEntry.fromJson(Map<String, dynamic>.from(e)))
+          .map(
+            (e) => RollcallHistoryEntry.fromJson(Map<String, dynamic>.from(e)),
+          )
           .toList();
     } catch (_) {
       state = const [];
@@ -225,6 +524,8 @@ class HistoryController extends StateNotifier<List<RollcallHistoryEntry>> {
   }
 
   Future<void> add(RollcallHistoryEntry entry) async {
+    await _loaded;
+    if (!mounted) return;
     final key = _key;
     if (key == null) return;
     state = [entry, ...state].take(100).toList();
@@ -236,6 +537,8 @@ class HistoryController extends StateNotifier<List<RollcallHistoryEntry>> {
   }
 
   Future<void> clear() async {
+    await _loaded;
+    if (!mounted) return;
     state = const [];
     final key = _key;
     if (key == null) return;
@@ -246,13 +549,69 @@ class HistoryController extends StateNotifier<List<RollcallHistoryEntry>> {
 
 final courseHistoryProvider =
     AsyncNotifierProvider<CourseHistoryNotifier, List<CourseRollcallRecord>>(
-  CourseHistoryNotifier.new,
-);
+      CourseHistoryNotifier.new,
+    );
+
+final scopedCourseHistoryProvider =
+    Provider.family<
+      AsyncNotifierProvider<CourseHistoryNotifier, List<CourseRollcallRecord>>,
+      int?
+    >((ref, id) {
+      if (id == null) return courseHistoryProvider;
+      return AsyncNotifierProvider<
+        CourseHistoryNotifier,
+        List<CourseRollcallRecord>
+      >(() => CourseHistoryNotifier(assistUserId: id));
+    });
+
+final importedSeenCourseIdsProvider = StateProvider.family<Set<String>, int>((
+  ref,
+  id,
+) {
+  ref.watch(authControllerProvider.select((a) => a.profile?.id));
+  return {};
+});
+
+final currentCourseHistoryProvider =
+    Provider<AsyncValue<List<CourseRollcallRecord>>>((ref) {
+      final scope = ref.watch(selectedRollcallAccountProvider);
+      return ref.watch(ref.watch(scopedCourseHistoryProvider(scope)));
+    });
+final currentHistoryControllerProvider = Provider<CourseHistoryNotifier>((ref) {
+  final scope = ref.watch(selectedRollcallAccountProvider);
+  return ref.read(ref.watch(scopedCourseHistoryProvider(scope)).notifier);
+});
+final localHistoryForProvider =
+    Provider.family<
+      StateNotifierProvider<HistoryController, List<RollcallHistoryEntry>>,
+      int?
+    >((ref, id) {
+      if (id == null) return historyProvider;
+      return StateNotifierProvider<
+        HistoryController,
+        List<RollcallHistoryEntry>
+      >((ref) => HistoryController(userId: id, migrateLegacy: false));
+    });
+final currentLocalHistoryProvider = Provider<List<RollcallHistoryEntry>>((ref) {
+  return ref.watch(
+    ref.watch(
+      localHistoryForProvider(ref.watch(selectedRollcallAccountProvider)),
+    ),
+  );
+});
 
 class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
+  CourseHistoryNotifier({this.assistUserId});
+  final int? assistUserId;
+  AsyncNotifierProvider<CourseCatalogNotifier, CourseCatalogSnapshot?>
+  get _catalogProvider => ref.read(scopedCourseCatalogProvider(assistUserId));
+  StateProvider<Set<String>> get _seenProvider => assistUserId == null
+      ? seenInProgressCourseIdsProvider
+      : importedSeenCourseIdsProvider(assistUserId!);
   int? _boundUserId;
   Future<void>? _inFlightEnsure;
   final _courseSnaps = <String, CourseRollcallsSnapshot>{};
+  Set<String> _timetableCourseIds = {};
 
   @override
   Future<List<CourseRollcallRecord>> build() async {
@@ -264,13 +623,14 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
       _courseSnaps.clear();
       return const [];
     }
-    _boundUserId = profile.id;
-    return _loadFromDisk(profile.id);
+    _boundUserId = assistUserId ?? profile.id;
+    return _loadFromDisk(_boundUserId!);
   }
 
   Future<List<CourseRollcallRecord>> _loadFromDisk(int userId) async {
-    final catalog = await ref.read(courseCatalogProvider.future);
-    final titles = catalog?.titlesById ?? <String, String>{};
+    final catalog = await ref.read(_catalogProvider.future);
+    final titles = catalog?.attendanceTitlesById ?? <String, String>{};
+    _timetableCourseIds = titles.keys.toSet();
     _courseSnaps.clear();
 
     // Prefer catalog course ids; also surface any orphan disks via titles keys.
@@ -318,7 +678,8 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
     }
     for (final e in byCourse.entries) {
       if (_courseSnaps[e.key]?.lastSuccessfulFetch != null) continue;
-      final title = titles[e.key] ??
+      final title =
+          titles[e.key] ??
           (e.value.isNotEmpty ? e.value.first.courseTitle : '');
       final snap = await CourseRollcallsStore.writeSuccess(
         userId: userId,
@@ -335,7 +696,8 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
   List<CourseRollcallRecord> _flatten() {
     final rows = <CourseRollcallRecord>[
       for (final snap in _courseSnaps.values)
-        ...CourseRollcallsStore.toHistoryRows(snap),
+        if (_timetableCourseIds.contains(snap.courseId))
+          ...CourseRollcallsStore.toHistoryRows(snap),
     ];
     rows.sort((a, b) {
       final at = a.rollcallTime ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -363,18 +725,29 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
   }
 
   Future<void> _ensureFreshBody(EnsureFreshReason reason) async {
-    final uid = _boundUserId ?? ref.read(authControllerProvider).profile?.id;
+    // Page appearance can race build's disk load. Decide cold/incremental only
+    // after the persisted snapshots have been loaded.
+    await future;
+    final uid =
+        _boundUserId ??
+        assistUserId ??
+        ref.read(authControllerProvider).profile?.id;
     if (uid == null || uid == 0) return;
 
     // Ensure catalog available (sticky; may network once).
-    await ref.read(courseCatalogProvider.notifier).ensureFresh(
-          reason: EnsureFreshReason.appear,
-        );
+    await ref
+        .read(_catalogProvider.notifier)
+        .ensureFresh(reason: EnsureFreshReason.appear);
     if (_boundUserId != uid) return;
 
-    final catalog = ref.read(courseCatalogProvider).valueOrNull;
-    final titles = catalog?.titlesById ?? <String, String>{};
+    final catalog = ref.read(_catalogProvider).valueOrNull;
+    final titles = catalog?.attendanceTitlesById ?? <String, String>{};
+    _timetableCourseIds = titles.keys.toSet();
     for (final id in titles.keys) {
+      // Session prior shares this store and may have fetched since page build.
+      final disk = await CourseRollcallsStore.read(uid, id);
+      if (_boundUserId != uid) return;
+      if (disk != null) _courseSnaps[id] = disk;
       _courseSnaps.putIfAbsent(
         id,
         () => CourseRollcallsSnapshot(
@@ -389,7 +762,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
     final cold = historyNeedsFullScan(_courseSnaps.values);
     final List<HistoryCandidate> candidates;
     if (cold) {
-      final ids = titles.keys.isNotEmpty ? titles.keys : _courseSnaps.keys;
+      final ids = titles.keys;
       candidates = [
         for (final id in ids.take(CachePolicy.updateAllMaxCourses))
           HistoryCandidate(
@@ -399,13 +772,9 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
           ),
       ];
     } else {
-      final seen = ref.read(seenInProgressCourseIdsProvider);
+      final seen = ref.read(_seenProvider);
       candidates = selectHistoryCandidates(
-        courseTitles: titles.isNotEmpty
-            ? titles
-            : {
-                for (final e in _courseSnaps.entries) e.key: e.value.courseTitle,
-              },
+        courseTitles: titles,
         disks: Map<String, CourseRollcallsSnapshot?>.from(_courseSnaps),
         seenInProgressCourseIds: seen,
         timetablesByCourse: catalog?.timetablesByCourse ?? const {},
@@ -413,17 +782,15 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
       );
     }
 
-    if (candidates.isEmpty) {
-      if (_boundUserId == uid) state = AsyncData(_flatten());
-      return;
-    }
-
     AppLog.event(
       'history.ensureFresh',
       fields: {
         'reason': reason.name,
+        'userId': uid,
+        'scope': 'timetable',
         'cold': cold,
         'candidates': candidates.length,
+        'candidateReasons': {for (final c in candidates) c.courseId: c.reason},
       },
     );
 
@@ -438,30 +805,58 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
   }
 
   Future<void> _fetchOne(int userId, String courseId, String title) async {
+    final started = DateTime.now();
+    AppLog.event(
+      'history.course.start',
+      fields: {'userId': userId, 'courseId': courseId},
+    );
     final previous = _courseSnaps[courseId];
+    // Consume before awaiting so a new live observation during the request
+    // remains pending. Failed requests restore the signal for the next refresh.
+    final seen = ref.read(_seenProvider);
+    final wasPending = seen.contains(courseId);
+    if (wasPending) {
+      ref.read(_seenProvider.notifier).state = {...seen}..remove(courseId);
+    }
     try {
-      final data =
-          await ref.read(rollcallRepositoryProvider).fetchCourseRollcalls(
-                courseId: courseId,
-                studentId: userId,
-                courseTitle: title,
-              );
+      final data = await ref
+          .read(
+            assistUserId == null
+                ? rollcallRepositoryProvider
+                : rollcallRepositoryForProvider(assistUserId),
+          )
+          .fetchCourseRollcalls(
+            courseId: courseId,
+            studentId: userId,
+            courseTitle: title,
+          );
       if (_boundUserId != userId) return;
       final truncated = data.length >= 100;
       final snap = await CourseRollcallsStore.writeSuccess(
         userId: userId,
         courseId: courseId,
-        courseTitle: title.isNotEmpty
-            ? title
-            : (previous?.courseTitle ?? ''),
+        courseTitle: title.isNotEmpty ? title : (previous?.courseTitle ?? ''),
         records: data,
         truncated: truncated,
       );
       // Drop legacy prior key if present.
       await JsonDiskCache.remove('course_rollcalls_${userId}_$courseId');
       _courseSnaps[courseId] = snap;
+      AppLog.event(
+        'history.course.complete',
+        fields: {
+          'userId': userId,
+          'courseId': courseId,
+          'count': data.length,
+          'durationMs': DateTime.now().difference(started).inMilliseconds,
+        },
+      );
     } catch (e) {
       if (_boundUserId != userId) return;
+      if (wasPending) {
+        final pending = ref.read(_seenProvider);
+        ref.read(_seenProvider.notifier).state = {...pending, courseId};
+      }
       final snap = await CourseRollcallsStore.writeFailure(
         userId: userId,
         courseId: courseId,
@@ -470,6 +865,16 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
         previous: previous,
       );
       _courseSnaps[courseId] = snap;
+      AppLog.event(
+        'history.course.failed',
+        level: 'W',
+        fields: {
+          'userId': userId,
+          'courseId': courseId,
+          'durationMs': DateTime.now().difference(started).inMilliseconds,
+          'errorType': e.runtimeType.toString(),
+        },
+      );
     }
   }
 
@@ -477,10 +882,14 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
       ensureFresh(reason: EnsureFreshReason.pullToRefresh);
 
   Future<void> refreshCourse(String courseId) async {
-    final uid = _boundUserId ?? ref.read(authControllerProvider).profile?.id;
+    final uid =
+        _boundUserId ??
+        assistUserId ??
+        ref.read(authControllerProvider).profile?.id;
     if (uid == null || uid == 0) return;
-    final title = _courseSnaps[courseId]?.courseTitle ??
-        ref.read(courseCatalogProvider).valueOrNull?.titlesById[courseId] ??
+    final title =
+        _courseSnaps[courseId]?.courseTitle ??
+        ref.read(_catalogProvider).valueOrNull?.titlesById[courseId] ??
         '';
     await _fetchOne(uid, courseId, title);
     if (_boundUserId == uid) state = AsyncData(_flatten());
@@ -543,27 +952,42 @@ class SessionPriorState {
 /// Course id ? weekday ? slots from sticky catalog (owner session).
 final courseTimetablesProvider =
     Provider<Map<String, Map<int, List<TimetableSlot>>>>((ref) {
-  final catalog = ref.watch(courseCatalogProvider).valueOrNull;
-  return catalog?.timetablesByCourse ?? const {};
-});
+      final catalog = ref.watch(courseCatalogProvider).valueOrNull;
+      return catalog?.timetablesByCourse ?? const {};
+    });
 
-/// Session prior for one course (owner only). [courseId] from [RollcallItem.courseId].
-final sessionPriorProvider =
-    FutureProvider.autoDispose.family<SessionPriorState, String>((ref, courseId) async {
+/// Session history follows the same credential scope as the active card.
+final sessionPriorProvider = FutureProvider.autoDispose
+    .family<SessionPriorState, String>(
+      (ref, courseId) => _loadSessionPrior(ref, courseId, null),
+    );
+final scopedSessionPriorProvider = FutureProvider.autoDispose
+    .family<SessionPriorState, ({String courseId, int accountId})>(
+      (ref, key) => _loadSessionPrior(ref, key.courseId, key.accountId),
+    );
+Future<SessionPriorState> _loadSessionPrior(
+  Ref ref,
+  String courseId,
+  int? assistUserId,
+) async {
   final profile = ref.watch(authControllerProvider).profile;
   if (profile == null || profile.id == 0) {
     return const SessionPriorState(unscoped: true);
   }
+  final studentId = assistUserId ?? profile.id;
+  final catalogProvider = ref.watch(scopedCourseCatalogProvider(assistUserId));
   final cid = courseId.trim();
   if (cid.isEmpty) return const SessionPriorState(unscoped: true);
 
   final now = DateTime.now();
   // Ensure catalog loaded (sticky).
-  await ref.watch(courseCatalogProvider.future);
+  await ref.watch(catalogProvider.future);
   if (ref.read(authControllerProvider).profile?.id != profile.id) {
     return const SessionPriorState(unscoped: true);
   }
-  final tables = ref.watch(courseTimetablesProvider);
+  final tables =
+      ref.watch(catalogProvider).valueOrNull?.timetablesByCourse ??
+      const <String, Map<int, List<TimetableSlot>>>{};
   final byDay = tables[cid];
   final slots = byDay?[now.weekday];
   if (slots == null || slots.isEmpty) {
@@ -578,9 +1002,9 @@ final sessionPriorProvider =
   final history = await _fetchCourseRollcallsCached(
     ref: ref,
     courseId: cid,
-    studentId: profile.id,
-    courseTitle: ref.read(courseCatalogProvider).valueOrNull?.titlesById[cid] ??
-        '',
+    studentId: studentId,
+    assistUserId: assistUserId,
+    courseTitle: ref.read(catalogProvider).valueOrNull?.titlesById[cid] ?? '',
   );
   if (ref.read(authControllerProvider).profile?.id != profile.id) {
     return const SessionPriorState(unscoped: true);
@@ -590,18 +1014,17 @@ final sessionPriorProvider =
     weekday: now.weekday,
     history: history,
   );
-  return SessionPriorState(
-    snapshot: snap,
-    nowMinutes: minutesOfDay(now),
-  );
-});
+  return SessionPriorState(snapshot: snap, nowMinutes: minutesOfDay(now));
+}
 
 Future<List<CourseRollcallRecord>> _fetchCourseRollcallsCached({
   required Ref ref,
   required String courseId,
   required int studentId,
   String courseTitle = '',
+  int? assistUserId,
 }) async {
+  final principalId = ref.read(authControllerProvider).profile?.id;
   final existing = await CourseRollcallsStore.read(studentId, courseId);
   if (existing != null &&
       existing.isFresh(CachePolicy.enterSwrFreshFor) &&
@@ -609,13 +1032,18 @@ Future<List<CourseRollcallRecord>> _fetchCourseRollcallsCached({
     return existing.records;
   }
   try {
-    final data =
-        await ref.read(rollcallRepositoryProvider).fetchCourseRollcalls(
-              courseId: courseId,
-              studentId: studentId,
-              courseTitle: courseTitle,
-            );
-    if (ref.read(authControllerProvider).profile?.id != studentId) {
+    final data = await ref
+        .read(
+          assistUserId == null
+              ? rollcallRepositoryProvider
+              : rollcallRepositoryForProvider(assistUserId),
+        )
+        .fetchCourseRollcalls(
+          courseId: courseId,
+          studentId: studentId,
+          courseTitle: courseTitle,
+        );
+    if (ref.read(authControllerProvider).profile?.id != principalId) {
       return data;
     }
     await CourseRollcallsStore.writeSuccess(

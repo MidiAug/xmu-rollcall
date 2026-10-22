@@ -4,6 +4,7 @@ import 'package:xmu_rollcall/core/identity/device_identity.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/session/session_client_registry.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
 
 final secureStoreProvider = Provider<SecureStore>((ref) => SecureStore());
 
@@ -26,6 +27,10 @@ final tronHttpClientProvider = Provider<TronHttpClient>((ref) {
 
 final appBootstrapProvider = FutureProvider<void>((ref) async {
   final client = ref.read(tronHttpClientProvider);
-  await client.init();
-  await ref.read(deviceIdentityProvider).getId();
+  final watch = Stopwatch()..start();
+  await Future.wait([client.init(), ref.read(deviceIdentityProvider).getId()]);
+  AppLog.event(
+    'app.bootstrap.ready',
+    fields: {'elapsedMs': watch.elapsedMilliseconds},
+  );
 });

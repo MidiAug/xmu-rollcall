@@ -36,9 +36,19 @@ class _Adapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     if (options.method == 'GET' &&
-        options.path.contains('student_rollcalls')) {
+        Uri.parse(options.path).path == '/api/rollcall/1') {
       return ResponseBody.fromString(
-        '{"student_rollcalls":[{"number_code":"0042"}]}',
+        '{"course_id":42,"rollcall_time":"2026-10-20T01:00:00Z"}',
+        200,
+        headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        },
+      );
+    }
+    if (options.method == 'GET' &&
+        Uri.parse(options.path).path == '/api/timetable_rollcalls') {
+      return ResponseBody.fromString(
+        '{"rollcalls":[{"id":1,"number_code":"0042"}]}',
         200,
         headers: {
           Headers.contentTypeHeader: [Headers.jsonContentType],

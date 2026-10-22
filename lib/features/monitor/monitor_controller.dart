@@ -1,15 +1,21 @@
 import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:uuid/uuid.dart';
+import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/monitor/monitor_engine.dart';
+import 'package:xmu_rollcall/features/monitor/automatic_number_answer.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
-import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/platform/android_monitor_shell.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
+import 'package:xmu_rollcall/features/assist/assist_controller.dart';
+import 'package:xmu_rollcall/core/session/session_key.dart';
 
 enum StartMonitorResult {
   started,
@@ -17,406 +23,729 @@ enum StartMonitorResult {
   notSignedIn,
   notificationDenied,
   fgsFailed,
+  cancelled,
 }
 
 class MonitorState {
   const MonitorState({
     required this.config,
     this.running = false,
+    this.starting = false,
     this.lastPollAt,
+    this.lastSuccessfulPollAt,
     this.nextPollAt,
     this.logs = const [],
     this.consecutiveFailures = 0,
+    this.loadingSettings = false,
   });
-
   final MonitorConfig config;
   final bool running;
+  final bool starting;
+  final bool loadingSettings;
   final DateTime? lastPollAt;
+  final DateTime? lastSuccessfulPollAt;
   final DateTime? nextPollAt;
   final List<PollLogEntry> logs;
   final int consecutiveFailures;
-
   MonitorState copyWith({
     MonitorConfig? config,
     bool? running,
+    bool? starting,
+    bool? loadingSettings,
     DateTime? lastPollAt,
+    DateTime? lastSuccessfulPollAt,
     DateTime? nextPollAt,
     List<PollLogEntry>? logs,
     int? consecutiveFailures,
     bool clearNext = false,
-  }) {
-    return MonitorState(
-      config: config ?? this.config,
-      running: running ?? this.running,
-      lastPollAt: lastPollAt ?? this.lastPollAt,
-      nextPollAt: clearNext ? null : (nextPollAt ?? this.nextPollAt),
-      logs: logs ?? this.logs,
-      consecutiveFailures: consecutiveFailures ?? this.consecutiveFailures,
-    );
-  }
+  }) => MonitorState(
+    config: config ?? this.config,
+    running: running ?? this.running,
+    starting: starting ?? this.starting,
+    loadingSettings: loadingSettings ?? this.loadingSettings,
+    lastPollAt: lastPollAt ?? this.lastPollAt,
+    lastSuccessfulPollAt: lastSuccessfulPollAt ?? this.lastSuccessfulPollAt,
+    nextPollAt: clearNext ? null : nextPollAt ?? this.nextPollAt,
+    logs: logs ?? this.logs,
+    consecutiveFailures: consecutiveFailures ?? this.consecutiveFailures,
+  );
 }
 
 final monitorControllerProvider =
-    StateNotifierProvider<MonitorController, MonitorState>((ref) {
-  return MonitorController(ref);
-});
+    StateNotifierProvider<MonitorController, MonitorState>(
+      (ref) => MonitorController(ref),
+    );
 
 class MonitorController extends StateNotifier<MonitorState> {
   MonitorController(this._ref)
-      : super(const MonitorState(config: MonitorConfig())) {
-    _load();
+    : super(
+        const MonitorState(config: MonitorConfig(), loadingSettings: true),
+      ) {
+    if (PlatformHooks.isAndroid) {
+      AndroidMonitorShell.instance.addListener(_onSnapshot);
+    }
+    _loaded = _load();
+    _ref.listen(selectedRollcallAccountProvider, (previous, next) {
+      if (previous == next) return;
+      _changeSelectedAccount(
+        preserveBackgroundRun:
+            _restoringAccountSelection ||
+            _ref.read(selectedRollcallAccountProvider.notifier).restoring,
+      );
+    });
+    _ref.listen(assistControllerProvider, (previous, next) {
+      final scope = _ref.read(selectedRollcallAccountProvider);
+      if (scope != null &&
+          next.ready &&
+          !next.identities.any((a) => a.userId == scope)) {
+        _ref.read(selectedRollcallAccountProvider.notifier).state = null;
+      }
+    });
+    _ref.listen(authControllerProvider, (previous, next) {
+      if (previous?.isSignedIn == true &&
+          (!next.isSignedIn || previous?.profile?.id != next.profile?.id)) {
+        _changeSelectedAccount();
+      } else if (next.isSignedIn && previous?.isSignedIn != true) {
+        // A restored login is not a user-requested task stop. The persisted
+        // Android run still validates the workspace login before each request.
+        _generation++;
+        _configKey = null;
+        state = const MonitorState(
+          config: MonitorConfig(),
+          loadingSettings: true,
+        );
+        _loaded = _load();
+      }
+    });
   }
-
   final Ref _ref;
-  Timer? _timer;
+  late Future<void> _loaded;
+  String? _configKey;
+  int _configRevision = 0;
+  Future<StartMonitorResult>? _startFuture;
+  Future<void> _stopping = Future.value();
+  MonitorEngine? _engine;
   Timer? _persistDebounce;
   Timer? _debugDiscoveryTimer;
+  String? _runId;
+  int _generation = 0;
+  bool _restoring = false;
+  bool _canRestoreAccountSelection = true;
+  bool _restoringAccountSelection = false;
+  int? _lastSnapshotPoll;
+  int _lastSnapshotStamp = -1;
 
-  static const _kEnabled = 'monitor_enabled';
-  static const _kPreset = 'monitor_preset';
-  static const _kInterval = 'monitor_interval';
-  static const _kJitter = 'monitor_jitter';
-  static const _persistDelay = Duration(milliseconds: 400);
-
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final presetIndex = prefs.getInt(_kPreset) ?? 0;
-    final preset = MonitorPreset.values[
-        presetIndex.clamp(0, MonitorPreset.values.length - 1)];
-    final interval = prefs.getInt(_kInterval) ?? preset.defaultSeconds;
-    final jitter = prefs.getDouble(_kJitter) ?? 0.2;
-    state = state.copyWith(
-      config: MonitorConfig(
-        enabled: false, // never auto-start on launch
-        preset: preset,
-        intervalSeconds: interval < MonitorConfig.minIntervalSeconds
-            ? MonitorConfig.minIntervalSeconds
-            : interval,
-        jitterRatio: jitter,
-        autoAnswer: false,
-      ),
-    );
+  void _changeSelectedAccount({bool preserveBackgroundRun = false}) {
+    final config = state.config;
+    final key = _configKey;
+    _persistDebounce?.cancel();
+    if (key != null) unawaited(_persistConfig(config, key));
+    _configKey = null;
+    if (preserveBackgroundRun) {
+      _generation++;
+    } else {
+      _canRestoreAccountSelection = false;
+      stop(reason: 'selected_account_changed');
+    }
+    _startFuture = null;
+    _lastSnapshotPoll = null;
+    _lastSnapshotStamp = -1;
+    state = const MonitorState(config: MonitorConfig(), loadingSettings: true);
+    _loaded = _load();
   }
 
-  Future<void> _persist() async {
+  Future<void> _load() async {
+    final revision = ++_configRevision;
+    final scope = _ref.read(selectedRollcallAccountProvider);
+    final ownerId = _ref.read(authControllerProvider).profile?.id ?? 0;
+    final key = 'monitor_account_${ownerId}_${scope ?? ownerId}';
     final prefs = await SharedPreferences.getInstance();
-    final c = state.config;
-    await prefs.setInt(_kPreset, c.preset.index);
-    await prefs.setInt(_kInterval, c.effectiveIntervalSeconds);
-    await prefs.setDouble(_kJitter, c.jitterRatio);
-    await prefs.setBool(_kEnabled, c.enabled);
+    if (!mounted || revision != _configRevision) return;
+    _configKey = key;
+    final legacyOwner = prefs.getInt('monitor_legacy_owner');
+    final useLegacy =
+        scope == null &&
+        ownerId != 0 &&
+        (legacyOwner == null || legacyOwner == ownerId);
+    if (useLegacy && legacyOwner == null) {
+      await prefs.setInt('monitor_legacy_owner', ownerId);
+      if (!mounted || revision != _configRevision) return;
+    }
+    int? integer(String field) =>
+        prefs.getInt('${key}_$field') ??
+        (useLegacy ? prefs.getInt('monitor_$field') : null);
+    final preset = MonitorPreset.values[(integer('preset') ?? 0).clamp(0, 2)];
+    state = state.copyWith(
+      loadingSettings: false,
+      config: MonitorConfig(
+        preset: preset,
+        intervalSeconds: (integer('interval') ?? preset.defaultSeconds).clamp(
+          15,
+          120,
+        ),
+        jitterRatio:
+            (prefs.getDouble('${key}_jitter') ??
+                    (useLegacy ? prefs.getDouble('monitor_jitter') : null) ??
+                    0.2)
+                .clamp(0.0, 0.5),
+        autoAnswer:
+            prefs.getBool('${key}_auto_answer') ??
+            (useLegacy ? prefs.getBool('monitor_auto_answer') : null) ??
+            false,
+        answerWaitMode: AnswerWaitMode
+            .values[(integer('answer_wait_mode') ?? 2).clamp(0, 2)],
+        answerWaitCount: (integer('answer_wait_count') ?? 10).clamp(1, 200),
+        answerWaitPercent: (integer('answer_wait_percent') ?? 10).clamp(1, 100),
+        attendanceIntervalSeconds: (integer('attendance_interval') ?? 20).clamp(
+          15,
+          120,
+        ),
+      ),
+    );
+    if (PlatformHooks.isAndroid) await _restore();
+  }
+
+  Future<void> _restore() async {
+    final auth = _ref.read(authControllerProvider);
+    if (!auth.isSignedIn) return;
+    final canRestoreSelection = _canRestoreAccountSelection;
+    _canRestoreAccountSelection = false;
+    final generation = _generation;
+    try {
+      final snapshot = await AndroidMonitorShell.instance.readStatus();
+      if (!mounted ||
+          generation != _generation ||
+          state.starting ||
+          snapshot == null) {
+        return;
+      }
+      final restoredScope = snapshot['assistUserId'];
+      if (canRestoreSelection &&
+          snapshot['running'] == true &&
+          (snapshot['ownerUserId'] ?? snapshot['userId']) == auth.profile?.id &&
+          _ref.read(selectedRollcallAccountProvider) == null &&
+          restoredScope is int) {
+        final service = await _ref.read(assistServiceProvider.future);
+        final accounts = await service.listIdentities();
+        if (!mounted || generation != _generation || state.starting) return;
+        if (!accounts.any((a) => a.userId == restoredScope)) {
+          await AndroidMonitorShell.instance.stopOngoing(
+            reason: 'account_removed',
+          );
+          return;
+        }
+        // Hydrate the selected account without revoking its existing worker.
+        // Explicit user switches always take the stopping path above.
+        _restoringAccountSelection = true;
+        try {
+          _ref.read(selectedRollcallAccountProvider.notifier).state =
+              restoredScope;
+        } finally {
+          _restoringAccountSelection = false;
+        }
+        return;
+      }
+      _restoring = true;
+      _onSnapshot(snapshot);
+    } catch (error, stack) {
+      AppLog.logAppError(
+        error: error,
+        stackTrace: stack,
+        source: 'monitor_restore',
+      );
+    } finally {
+      _restoring = false;
+    }
+  }
+
+  void _onSnapshot(Map<String, dynamic> data) {
+    if (!mounted || data['diagnosticOnly'] == true) return;
+    final auth = _ref.read(authControllerProvider);
+    final scope = _ref.read(selectedRollcallAccountProvider);
+    if (!auth.isSignedIn ||
+        (data['ownerUserId'] ?? data['userId']) != auth.profile?.id ||
+        data['assistUserId'] != scope) {
+      return;
+    }
+    if (!_restoring && data['runId'] != _runId) return;
+    if (data['runId'] != _runId) _lastSnapshotStamp = -1;
+    final stamp = data['updatedAtMs'] as int? ?? 0;
+    if (stamp <= _lastSnapshotStamp) return;
+    _lastSnapshotStamp = stamp;
+    _runId = data['runId'] as String?;
+    final running = data['running'] == true;
+    final lastMs = data['lastPollAtMs'] as int?;
+    final successMs = data['lastSuccessfulPollAtMs'] as int?;
+    final nextMs = data['nextPollAtMs'] as int?;
+    final newPoll = lastMs != null && lastMs != _lastSnapshotPoll;
+    final message = data['message'] as String?;
+    final at = lastMs == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(lastMs);
+    state = state.copyWith(
+      running: running,
+      starting: false,
+      config: state.config.copyWith(
+        enabled: running,
+        autoAnswer: data['autoAnswer'] as bool?,
+        answerWaitMode: data['answerWaitMode'] is int
+            ? AnswerWaitMode.values[(data['answerWaitMode'] as int).clamp(0, 2)]
+            : null,
+        answerWaitCount: data['answerWaitCount'] as int?,
+        answerWaitPercent: data['answerWaitPercent'] as int?,
+        attendanceIntervalSeconds: data['attendanceInterval'] as int?,
+      ),
+      lastPollAt: at,
+      lastSuccessfulPollAt: successMs == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(successMs),
+      nextPollAt: nextMs == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(nextMs),
+      clearNext: !running || nextMs == null,
+      consecutiveFailures: data['failures'] as int? ?? 0,
+      logs:
+          newPoll ||
+              (message != null && state.logs.firstOrNull?.message != message)
+          ? [
+              PollLogEntry(
+                at: at ?? DateTime.now(),
+                ok: data['ok'] != false,
+                message: message ?? '检测状态已更新',
+              ),
+              ...state.logs,
+            ].take(40).toList()
+          : state.logs,
+    );
+    if (newPoll) {
+      _lastSnapshotPoll = lastMs;
+      if (data['ok'] == true && data['items'] is List) {
+        final items = (data['items'] as List)
+            .map(
+              (item) =>
+                  RollcallItem.fromJson(Map<String, dynamic>.from(item as Map)),
+            )
+            .toList();
+        _ref
+            .read(
+              activeRollcallsProvider(
+                _ref.read(selectedRollcallAccountProvider),
+              ).notifier,
+            )
+            .applyMonitorItems(items);
+      }
+    }
+    if (data['reason'] == 'session_expired' && scope == null) {
+      _ref.read(authControllerProvider.notifier).expireSession();
+    }
+  }
+
+  Future<void> _persistConfig(MonitorConfig config, String key) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('${key}_preset', config.preset.index);
+      await prefs.setInt('${key}_interval', config.effectiveIntervalSeconds);
+      await prefs.setDouble('${key}_jitter', config.jitterRatio);
+      await prefs.setBool('${key}_auto_answer', config.autoAnswer);
+      await prefs.setInt(
+        '${key}_attendance_interval',
+        config.effectiveAttendanceIntervalSeconds,
+      );
+      await prefs.setInt(
+        '${key}_answer_wait_mode',
+        config.answerWaitMode.index,
+      );
+      await prefs.setInt('${key}_answer_wait_count', config.answerWaitCount);
+      await prefs.setInt(
+        '${key}_answer_wait_percent',
+        config.answerWaitPercent,
+      );
+    } catch (error, stack) {
+      AppLog.logAppError(
+        error: error,
+        stackTrace: stack,
+        source: 'monitor_config',
+      );
+    }
+  }
+
+  void commitPersist() {
+    _persistDebounce?.cancel();
+    unawaited(_saveConfig());
+  }
+
+  Future<void> _saveConfig() async {
+    if (state.loadingSettings) return;
+    final key = _configKey;
+    final config = state.config;
+    final generation = _generation;
+    try {
+      if (!mounted || generation != _generation || key != _configKey) return;
+      _engine?.updateConfig(config);
+      if (PlatformHooks.isAndroid && state.running) {
+        await AndroidMonitorShell.instance.updateConfig(config);
+      }
+      if (key != null) await _persistConfig(config, key);
+    } catch (error, stack) {
+      AppLog.logAppError(
+        error: error,
+        stackTrace: stack,
+        source: 'monitor_config',
+      );
+    }
   }
 
   void _schedulePersist() {
     _persistDebounce?.cancel();
-    _persistDebounce = Timer(_persistDelay, () {
-      _persist();
-    });
-  }
-
-  /// Flush pending prefs write (call from slider [onChangeEnd]).
-  void commitPersist() {
-    _persistDebounce?.cancel();
-    _persistDebounce = null;
-    _persist();
+    _persistDebounce = Timer(const Duration(milliseconds: 400), commitPersist);
   }
 
   void setPreset(MonitorPreset preset) {
-    final interval =
-        preset == MonitorPreset.custom ? state.config.intervalSeconds : preset.defaultSeconds;
+    if (state.loadingSettings) return;
     state = state.copyWith(
-      config: state.config.copyWith(preset: preset, intervalSeconds: interval),
+      config: state.config.copyWith(
+        preset: preset,
+        intervalSeconds: preset == MonitorPreset.custom
+            ? state.config.intervalSeconds
+            : preset.defaultSeconds,
+      ),
     );
     commitPersist();
-    if (state.running) {
-      stop();
-      unawaited(startAsync());
-    }
   }
 
   void setIntervalSeconds(int seconds) {
-    final clamped =
-        seconds < MonitorConfig.minIntervalSeconds ? MonitorConfig.minIntervalSeconds : seconds;
-    final c = state.config;
-    if (c.intervalSeconds == clamped && c.preset == MonitorPreset.custom) {
-      return;
-    }
+    if (state.loadingSettings) return;
     state = state.copyWith(
-      config: c.copyWith(
+      config: state.config.copyWith(
         preset: MonitorPreset.custom,
-        intervalSeconds: clamped,
+        intervalSeconds: seconds.clamp(15, 120),
       ),
     );
     _schedulePersist();
   }
 
   void setJitterRatio(double ratio) {
-    final next = ratio.clamp(0.0, 0.5);
-    if (state.config.jitterRatio == next) return;
+    if (state.loadingSettings) return;
     state = state.copyWith(
-      config: state.config.copyWith(jitterRatio: next),
+      config: state.config.copyWith(jitterRatio: ratio.clamp(0.0, 0.5)),
     );
     _schedulePersist();
   }
 
-  void start() {
-    unawaited(startAsync());
-  }
-
-  /// Starts monitor; on Android requests notification permission + FGS.
-  Future<StartMonitorResult> startAsync() async {
-    if (state.running) return StartMonitorResult.alreadyRunning;
-    if (!_ref.read(authControllerProvider).isSignedIn) {
-      return StartMonitorResult.notSignedIn;
-    }
-
-    if (PlatformHooks.isAndroid) {
-      final allowed = await AndroidMonitorShell.instance.prepareStart();
-      if (!allowed) return StartMonitorResult.notificationDenied;
-    }
-
+  void setAttendanceIntervalSeconds(int seconds) {
+    if (state.loadingSettings) return;
     state = state.copyWith(
-      running: true,
-      config: state.config.copyWith(enabled: true),
-      consecutiveFailures: 0,
+      config: state.config.copyWith(attendanceIntervalSeconds: seconds),
     );
-    await _persist();
-    _schedule(immediate: true);
-
-    if (PlatformHooks.isAndroid) {
-      final ok = await AndroidMonitorShell.instance.startOngoing(
-        nextPollAt: state.nextPollAt,
-      );
-      if (!ok) {
-        stop();
-        return StartMonitorResult.fgsFailed;
-      }
-    }
-    return StartMonitorResult.started;
+    commitPersist();
   }
 
-  void stop() {
-    _timer?.cancel();
-    _timer = null;
+  void start() => unawaited(startAsync());
+
+  void setAutomaticAnswer(bool value) {
+    if (state.loadingSettings) return;
+    state = state.copyWith(config: state.config.copyWith(autoAnswer: value));
+    _engine?.updateConfig(state.config);
+    commitPersist();
+  }
+
+  void setAnswerWaitMode(AnswerWaitMode mode) {
+    if (state.loadingSettings) return;
+    state = state.copyWith(config: state.config.copyWith(answerWaitMode: mode));
+    _engine?.updateConfig(state.config);
+    commitPersist();
+  }
+
+  void setAnswerWaitValue(int value) {
+    if (state.loadingSettings) return;
+    final c = state.config;
+    state = state.copyWith(
+      config: c.answerWaitMode == AnswerWaitMode.count
+          ? c.copyWith(answerWaitCount: value)
+          : c.copyWith(answerWaitPercent: value),
+    );
+    _engine?.updateConfig(state.config);
+    _schedulePersist();
+  }
+
+  Future<StartMonitorResult> startAsync() {
+    if (_startFuture != null) return _startFuture!;
+    if (state.running) return Future.value(StartMonitorResult.alreadyRunning);
+    final generation = ++_generation;
+    state = state.copyWith(starting: true);
+    late final Future<StartMonitorResult> operation;
+    operation = _start(generation).whenComplete(() {
+      if (identical(_startFuture, operation)) _startFuture = null;
+    });
+    return _startFuture = operation;
+  }
+
+  Future<StartMonitorResult> _start(int generation) async {
+    bool current() => mounted && generation == _generation;
+    try {
+      await _loaded;
+      await _stopping;
+      if (!current()) return StartMonitorResult.cancelled;
+      final auth = _ref.read(authControllerProvider);
+      final userId = auth.profile?.id;
+      if (!auth.isSignedIn || userId == null || userId == 0) {
+        return StartMonitorResult.notSignedIn;
+      }
+      final scope = _ref.read(selectedRollcallAccountProvider);
+      if (scope != null) {
+        final account = _ref
+            .read(assistControllerProvider)
+            .identities
+            .firstWhere((a) => a.userId == scope);
+        final service = await _ref.read(assistServiceProvider.future);
+        await service.ensureSession(account);
+        if (!current()) return StartMonitorResult.cancelled;
+      }
+      if (PlatformHooks.isAndroid) {
+        if (!await AndroidMonitorShell.instance.prepareStart()) {
+          return StartMonitorResult.notificationDenied;
+        }
+        if (!current()) return StartMonitorResult.cancelled;
+        final client = _ref
+            .read(sessionClientRegistryProvider)
+            .forKey(
+              scope == null ? SessionKey.owner : SessionKey.assist(scope),
+            );
+        final cookies = await client.exportCookiesJson();
+        final device = scope == null
+            ? await _ref.read(deviceIdentityProvider).getId()
+            : _ref
+                  .read(assistControllerProvider)
+                  .identities
+                  .firstWhere((a) => a.userId == scope)
+                  .deviceId;
+        if (device == null || device.isEmpty) {
+          return StartMonitorResult.notSignedIn;
+        }
+        if (!current()) return StartMonitorResult.cancelled;
+        if (cookies == null ||
+            _ref.read(authControllerProvider).profile?.id != userId) {
+          return StartMonitorResult.notSignedIn;
+        }
+        final id = const Uuid().v4();
+        _runId = id;
+        _lastSnapshotPoll = null;
+        _lastSnapshotStamp = -1;
+        final startedId = await AndroidMonitorShell.instance.startMonitor(
+          userId: scope ?? userId,
+          ownerUserId: userId,
+          assistUserId: scope,
+          config: state.config,
+          cookies: cookies,
+          deviceId: device,
+          runId: id,
+        );
+        if (!current()) return StartMonitorResult.cancelled;
+        if (startedId == null) {
+          _runId = null;
+          state = state.copyWith(
+            running: false,
+            config: state.config.copyWith(enabled: false),
+            clearNext: true,
+          );
+          return StartMonitorResult.fgsFailed;
+        }
+        final status = await AndroidMonitorShell.instance.readStatus();
+        if (!current()) return StartMonitorResult.cancelled;
+        if (status != null && status['runId'] == id) _onSnapshot(status);
+        return state.running
+            ? StartMonitorResult.started
+            : StartMonitorResult.fgsFailed;
+      }
+      _engine?.stop();
+      final repo = _ref.read(
+        scope == null
+            ? rollcallRepositoryProvider
+            : rollcallRepositoryForProvider(scope),
+      );
+      final automatic = AutomaticNumberAnswer(
+        repository: repo,
+        requireCurrent: () async {
+          final auth = _ref.read(authControllerProvider);
+          if (!current() ||
+              !auth.isSignedIn ||
+              auth.profile?.id != userId ||
+              _ref.read(selectedRollcallAccountProvider) != scope) {
+            throw StateError('Account changed');
+          }
+        },
+        onAnswered: (item, result) => _ref
+            .read(_ref.read(localHistoryForProvider(scope)).notifier)
+            .add(
+              RollcallHistoryEntry(
+                rollcallId: item.rollcallId,
+                courseTitle: item.courseTitle,
+                typeLabel: '数字（自动）',
+                ok: result.ok,
+                at: DateTime.now(),
+                detail: result.message,
+              ),
+            ),
+      );
+      _engine = MonitorEngine(
+        config: state.config,
+        fetch: repo.fetchActive,
+        processAutomatic: automatic.process,
+        notify: (items) async {
+          if (!current()) return false;
+          final notify = PlatformHooks.onRollcallsDiscovered;
+          if (notify == null && PlatformHooks.isDesktop) return false;
+          if (notify != null) await notify(items.length);
+          return true;
+        },
+        onUpdate: (update) {
+          if (!current()) return;
+          if (update.sessionExpired) {
+            stop(reason: 'session_expired');
+            state = state.copyWith(
+              logs: [
+                PollLogEntry(
+                  at: DateTime.now(),
+                  ok: false,
+                  message: update.message!,
+                ),
+                ...state.logs,
+              ].take(40).toList(),
+            );
+            if (scope == null) {
+              _ref.read(authControllerProvider.notifier).expireSession();
+            }
+            return;
+          }
+          state = state.copyWith(
+            nextPollAt: update.nextPollAt,
+            lastPollAt: update.lastPollAt,
+            lastSuccessfulPollAt: update.ok == true ? update.lastPollAt : null,
+            consecutiveFailures: update.failures,
+            logs: update.message == null
+                ? state.logs
+                : [
+                    PollLogEntry(
+                      at: update.lastPollAt ?? DateTime.now(),
+                      ok: update.ok == true,
+                      message: update.message!,
+                    ),
+                    ...state.logs,
+                  ].take(40).toList(),
+          );
+          if (update.items != null) {
+            _ref
+                .read(
+                  activeRollcallsProvider(
+                    _ref.read(selectedRollcallAccountProvider),
+                  ).notifier,
+                )
+                .applyMonitorItems(update.items!);
+          }
+        },
+      );
+      state = state.copyWith(
+        running: true,
+        config: state.config.copyWith(enabled: true),
+        consecutiveFailures: 0,
+      );
+      _engine!.start();
+      return StartMonitorResult.started;
+    } catch (error, stack) {
+      AppLog.logAppError(
+        error: error,
+        stackTrace: stack,
+        source: 'monitor_start',
+      );
+      if (current()) {
+        _runId = null;
+        state = state.copyWith(
+          running: false,
+          config: state.config.copyWith(enabled: false),
+          clearNext: true,
+        );
+      }
+      return StartMonitorResult.fgsFailed;
+    } finally {
+      if (current()) state = state.copyWith(starting: false);
+    }
+  }
+
+  void stop({String reason = 'user_stop'}) {
+    _generation++;
+    _runId = null;
+    _engine?.stop();
+    _engine = null;
+    _debugDiscoveryTimer?.cancel();
     state = state.copyWith(
       running: false,
+      starting: false,
       config: state.config.copyWith(enabled: false),
       clearNext: true,
     );
-    _persist();
+    AppLog.event('monitor.stop.request', fields: {'reason': reason});
     if (PlatformHooks.isAndroid) {
-      unawaited(AndroidMonitorShell.instance.stopOngoing());
+      _stopping = AndroidMonitorShell.instance
+          .stopOngoing(reason: reason)
+          .catchError((Object error, StackTrace stack) {
+            AppLog.logAppError(
+              error: error,
+              stackTrace: stack,
+              source: 'monitor_stop',
+            );
+          });
     }
   }
 
-  /// Fire the next poll immediately (running only).
   void pollNow() {
     if (!state.running) return;
-    _schedule(immediate: true);
+    if (PlatformHooks.isAndroid) {
+      unawaited(AndroidMonitorShell.instance.pollNow());
+    } else {
+      unawaited(_engine?.pollNow() ?? Future.value());
+    }
   }
 
-  @override
-  void dispose() {
-    _persistDebounce?.cancel();
-    _debugDiscoveryTimer?.cancel();
-    _timer?.cancel();
-    _timer = null;
-    super.dispose();
+  Future<void> stopAsync({String reason = 'user_stop'}) {
+    stop(reason: reason);
+    return _stopping;
   }
 
-  /// Debug: mark monitor running without hitting the network (for tray busy / L2).
   void debugArmRunning() {
-    assert(kDebugMode, 'debugArmRunning is debug-only');
-    if (!kDebugMode) return;
-    _timer?.cancel();
-    _timer = null;
+    if (!kDebugMode || PlatformHooks.isAndroid) return;
     state = state.copyWith(
       running: true,
       config: state.config.copyWith(enabled: true),
-      consecutiveFailures: 0,
-      clearNext: true,
     );
-    if (PlatformHooks.isAndroid) {
-      unawaited(AndroidMonitorShell.instance.startOngoing());
-    }
   }
 
-  /// Debug L2: after [delay], seed a fake active rollcall and take the real
-  /// discovery-stop + notify path (same as a successful poll with non-empty list).
   void debugScheduleDiscovery({
     Duration delay = const Duration(seconds: 10),
     int count = 1,
   }) {
-    assert(kDebugMode, 'debugScheduleDiscovery is debug-only');
     if (!kDebugMode) return;
-    unawaited(_debugScheduleDiscovery(delay: delay, count: count));
-  }
-
-  Future<void> _debugScheduleDiscovery({
-    required Duration delay,
-    required int count,
-  }) async {
     if (PlatformHooks.isAndroid) {
-      final allowed = await AndroidMonitorShell.instance.prepareStart();
-      if (!allowed) return;
+      unawaited(AndroidMonitorShell.instance.scheduleDiagnostic(delay));
+      return;
     }
-    debugArmRunning();
     _debugDiscoveryTimer?.cancel();
-    _debugDiscoveryTimer = Timer(delay, () {
-      unawaited(_debugFireDiscovery(count: count));
+    _debugDiscoveryTimer = Timer(delay, () async {
+      final notify = PlatformHooks.onRollcallsDiscovered;
+      if (notify != null) await notify(count);
     });
-    AppLog.event(
-      'poll.debug_schedule',
-      fields: {'delayMs': delay.inMilliseconds, 'count': count},
-    );
   }
 
-  void debugCancelScheduledDiscovery() {
+  void debugCancelScheduledDiscovery() => _debugDiscoveryTimer?.cancel();
+
+  @override
+  void dispose() {
+    _generation++;
+    _persistDebounce?.cancel();
     _debugDiscoveryTimer?.cancel();
-    _debugDiscoveryTimer = null;
-  }
-
-  Future<void> _debugFireDiscovery({required int count}) async {
-    final items = <RollcallItem>[
-      for (var i = 0; i < count; i++)
-        RollcallItem(
-          rollcallId: -9100 - i,
-          courseTitle: '调试签到（预览 ${i + 1}）',
-          createdByName: '开发预览',
-          type: RollcallType.number,
-          status: 'on_call',
-          rollcallStatus: 'on_call',
-          isExpired: false,
-          scored: false,
-          raw: const {'course_id': 'preview-debug-course'},
-          numberCode: '1234',
-        ),
-    ];
-    _ref.read(activeRollcallsProvider(null).notifier).debugSeed(items);
-    await _finishDiscovery(
-      count: items.length,
-      intervalMs: 0,
-      logMessage: '发现进行中 ${items.length} 条，已停止检测（调试）',
-    );
-  }
-
-  Future<void> _finishDiscovery({
-    required int count,
-    required int intervalMs,
-    required String logMessage,
-  }) async {
-    final entry = PollLogEntry(
-      at: DateTime.now(),
-      ok: true,
-      message: logMessage,
-    );
-    AppLog.event(
-      'poll.tick',
-      fields: {
-        'count': count,
-        'intervalMs': intervalMs,
-        'ok': true,
-      },
-    );
-    _timer?.cancel();
-    _timer = null;
-    _debugDiscoveryTimer?.cancel();
-    _debugDiscoveryTimer = null;
-    state = state.copyWith(
-      running: false,
-      config: state.config.copyWith(enabled: false),
-      lastPollAt: entry.at,
-      consecutiveFailures: 0,
-      logs: [entry, ...state.logs].take(40).toList(),
-      clearNext: true,
-    );
-    await _persist();
+    _engine?.stop();
     if (PlatformHooks.isAndroid) {
-      await AndroidMonitorShell.instance.stopOngoing();
+      AndroidMonitorShell.instance.removeListener(_onSnapshot);
     }
-    final notify = PlatformHooks.onRollcallsDiscovered;
-    if (notify != null) {
-      try {
-        await notify(count);
-      } catch (_) {}
-    }
-  }
-
-  void _schedule({bool immediate = false}) {
-    _timer?.cancel();
-    if (!state.running) return;
-
-    final failures = state.consecutiveFailures;
-    final backoffFactor = failures == 0 ? 1 : (1 << (failures.clamp(0, 4)));
-    var delay = immediate ? Duration.zero : state.config.nextDelay();
-    if (!immediate && failures > 0) {
-      delay = Duration(seconds: delay.inSeconds * backoffFactor);
-    }
-    final nextAt = DateTime.now().add(delay);
-    state = state.copyWith(nextPollAt: nextAt);
-    if (PlatformHooks.isAndroid) {
-      unawaited(AndroidMonitorShell.instance.syncNextPollAt(nextAt));
-    }
-
-    _timer = Timer(delay, _tick);
-  }
-
-  Future<void> _tick() async {
-    if (!state.running) return;
-    final intervalMs = state.config.nextDelay().inMilliseconds;
-    try {
-      await _ref.read(activeRollcallsProvider(null).notifier).refresh();
-      final list =
-          _ref.read(activeRollcallsProvider(null)).valueOrNull ?? const [];
-      if (list.isNotEmpty) {
-        await _finishDiscovery(
-          count: list.length,
-          intervalMs: intervalMs,
-          logMessage: '发现进行中 ${list.length} 条，已停止检测',
-        );
-        return;
-      }
-      final entry = PollLogEntry(
-        at: DateTime.now(),
-        ok: true,
-        message: '检测成功，暂无进行中签到',
-        nextIn: state.config.nextDelay(),
-      );
-      AppLog.event(
-        'poll.tick',
-        fields: {
-          'count': 0,
-          'intervalMs': intervalMs,
-          'ok': true,
-        },
-      );
-      state = state.copyWith(
-        lastPollAt: entry.at,
-        consecutiveFailures: 0,
-        logs: [entry, ...state.logs].take(40).toList(),
-      );
-    } catch (e) {
-      AppLog.event(
-        'poll.tick',
-        level: 'W',
-        fields: {
-          'count': 0,
-          'intervalMs': intervalMs,
-          'ok': false,
-          'errorType': e.runtimeType.toString(),
-        },
-      );
-      final entry = PollLogEntry(
-        at: DateTime.now(),
-        ok: false,
-        message: '失败：$e',
-      );
-      state = state.copyWith(
-        lastPollAt: entry.at,
-        consecutiveFailures: state.consecutiveFailures + 1,
-        logs: [entry, ...state.logs].take(40).toList(),
-      );
-    }
-    _schedule();
+    super.dispose();
   }
 }

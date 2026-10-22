@@ -22,7 +22,7 @@ abstract final class PlatformHooks {
     return Platform.isWindows;
   }
 
-  /// Optional hook: main monitor discovered [count] ongoing rollcalls and stopped.
+  /// Optional hook: main monitor discovered [count] new ongoing rollcalls.
   static Future<void> Function(int count)? onRollcallsDiscovered;
 
   /// Icon for “跟随系统” appearance — matches current form factor.

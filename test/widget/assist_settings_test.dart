@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/identity/device_identity.dart';
@@ -17,12 +18,12 @@ import 'package:xmu_rollcall/features/settings/settings_page.dart';
 
 class _TestAuthController extends AuthController {
   _TestAuthController()
-      : super(
-          AuthRepository(
-            http: TronHttpClient(store: SecureStore.memory()),
-            store: SecureStore.memory(),
-          ),
-        );
+    : super(
+        AuthRepository(
+          http: TronHttpClient(store: SecureStore.memory()),
+          store: SecureStore.memory(),
+        ),
+      );
 
   @override
   Future<void> bootstrap() async {
@@ -51,18 +52,19 @@ void main() {
           sessionClientRegistryProvider.overrideWith(
             (ref) => SessionClientRegistry(
               store: memory,
-              createClient: ({
-                required store,
-                required sessionKey,
-                required rateLimiter,
-              }) {
-                return TronHttpClient(
-                  store: store,
-                  sessionKey: sessionKey,
-                  rateLimiter: rateLimiter,
-                  cookieJar: CookieJar(),
-                );
-              },
+              createClient:
+                  ({
+                    required store,
+                    required sessionKey,
+                    required rateLimiter,
+                  }) {
+                    return TronHttpClient(
+                      store: store,
+                      sessionKey: sessionKey,
+                      rateLimiter: rateLimiter,
+                      cookieJar: CookieJar(),
+                    );
+                  },
             ),
           ),
           authControllerProvider.overrideWith((ref) => _TestAuthController()),
@@ -74,15 +76,29 @@ void main() {
             ),
           ),
         ],
-        child: MaterialApp(
-          theme: AppTheme.dark(),
-          home: const SettingsPage(),
-        ),
+        child: MaterialApp(theme: AppTheme.dark(), home: const SettingsPage()),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('协助签到'), findsOneWidget);
+    PackageInfo.setMockInitialValues(
+      appName: '厦大签到',
+      packageName: 'test',
+      version: '0.1.0',
+      buildNumber: '1',
+      buildSignature: '',
+    );
+    expect(find.text('关于'), findsOneWidget);
+    await tester.tap(find.text('关于'));
+    await tester.pumpAndSettle();
+    expect(find.text('版本 0.1.0'), findsOneWidget);
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+
+    // Import/export now live on the dedicated assist settings subpage.
+    expect(find.text('协助同学'), findsOneWidget);
+    await tester.tap(find.text('协助同学'));
+    await tester.pumpAndSettle();
     expect(find.text('启用协助'), findsNothing);
     expect(find.text('导出协助码'), findsOneWidget);
     expect(find.text('导入协助身份'), findsOneWidget);
