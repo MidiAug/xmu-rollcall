@@ -23,26 +23,35 @@
 
 ### Android
 
-签到、作业、我的，常用入口放在底部。浅色和深色都可以选，也可以跟随系统。
+先看正在签到的这门课。数字码、已签到人数和刷新倒计时放在一起；完成签到后，数字码仍会保留。每张图只展示一门正在签到的课程。
 
 <table>
   <tr>
-    <th>浅色模式</th>
-    <th>深色模式</th>
+    <th>待签到</th>
+    <th>已签到（深色模式）</th>
+    <th>课后看作业</th>
   </tr>
   <tr>
-    <td align="center"><img src="assets/screenshots/android-homework.png" width="280" alt="Android 浅色作业页：进行中与已截止作业，以及提交和成绩状态" /></td>
-    <td align="center"><img src="assets/screenshots/android-homework-dark.png" width="280" alt="Android 深色作业页演示" /></td>
+    <td align="center"><img src="assets/screenshots/android-rollcall.png" width="240" alt="Android 单门课程待签到演示，显示数字码与已签到人数" /></td>
+    <td align="center"><img src="assets/screenshots/android-rollcall-dark.png" width="240" alt="同一门课签到后的深色界面，保留数字码并隐藏人数" /></td>
+    <td align="center"><img src="assets/screenshots/android-homework.png" width="240" alt="Android 作业页，展示进行中与已截止作业" /></td>
   </tr>
 </table>
 
 ### Windows
 
-同一套账号和功能，换成适合电脑的侧栏布局。支持托盘驻留、系统通知和桌面二维码识别。
+电脑上也能直接查看当前签到，使用侧栏切换页面。支持托盘驻留、系统通知和桌面二维码识别。
+
+![Windows 单门课程正在签到演示](assets/screenshots/windows-rollcall.png)
+
+<details>
+<summary>再看看作业与签到记录</summary>
 
 | 作业一眼看清 | 签到记录慢慢查 |
 | :---: | :---: |
 | ![Windows 作业页](assets/screenshots/windows-homework.png) | ![Windows 签到记录页](assets/screenshots/windows-history.png) |
+
+</details>
 
 点击图片可以查看大图。
 
