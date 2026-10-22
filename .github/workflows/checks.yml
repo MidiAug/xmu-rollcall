@@ -1,0 +1,23 @@
+name: Flutter checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.0'
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze --no-pub
+      - run: flutter test --no-pub test/unit test/widget
