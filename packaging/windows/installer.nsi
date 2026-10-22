@@ -1,10 +1,10 @@
-; xmu-rollcall Windows NSIS installer (current-user, no publisher cert).
+﻿; xmu-rollcall Windows NSIS installer (current-user, no publisher cert).
 ; Align with xmu-sports: program dir under %LOCALAPPDATA%\Programs\...
 ;
 ; Build via scripts\package-windows.ps1 which passes:
 ;   /DPRODUCT_VERSION=0.1.0
 ;   /DRELEASE_DIR=...\build\windows\x64\runner\Release
-;   /DOUT_FILE=...\dist\xmu-rollcall-0.1.0-windows-setup.exe
+;   /DOUT_FILE=...\dist\xmu-rollcall-0.1.0-windows-x64-setup.exe
 
 Unicode true
 ManifestDPIAware true

@@ -65,11 +65,13 @@ $releaseDir = (Resolve-Path $releaseDir).Path
 $makensis = Ensure-Makensis
 Write-Host "Using makensis: $makensis"
 
-$outFile = Join-Path $Root "dist\xmu-rollcall-$ver-windows-setup.exe"
+$outFile = Join-Path $Root "dist\xmu-rollcall-$ver-windows-x64-setup.exe"
 $nsi = Join-Path $Root 'packaging\windows\installer.nsi'
 $icon = Join-Path $Root 'windows\runner\resources\app_icon.ico'
 
 $args = @(
+  # Unicode output still needs an explicit charset for UTF-8 source scripts.
+  "/INPUTCHARSET", "UTF8",
   "/DPRODUCT_VERSION=$ver",
   "/DRELEASE_DIR=$releaseDir",
   "/DOUT_FILE=$outFile",
