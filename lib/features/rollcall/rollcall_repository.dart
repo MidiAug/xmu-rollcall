@@ -702,22 +702,51 @@ class RollcallRepository {
     double accuracy = 35,
     String? opId,
   }) async {
+    if (rollcallId <= 0 ||
+        !latitude.isFinite ||
+        latitude < -90 ||
+        latitude > 90 ||
+        !longitude.isFinite ||
+        longitude < -180 ||
+        longitude > 180 ||
+        !accuracy.isFinite ||
+        accuracy <= 0) {
+      throw ArgumentError('雷达签到的位置或精度无效，请重新选择位置');
+    }
     final deviceId = await _deviceId();
     final opts = Options(extra: {'opId': ?opId, 'rollcallId': rollcallId});
-    final res = await http.putUri<dynamic>(
-      TronEndpoints.answerRadar(rollcallId),
-      data: {
-        'accuracy': accuracy,
-        'altitude': 0,
-        'altitudeAccuracy': null,
-        'deviceId': deviceId,
-        'heading': null,
-        'latitude': latitude,
-        'longitude': longitude,
-        'speed': null,
-      },
-      options: opts,
-    );
+    late final Response<dynamic> res;
+    try {
+      res = await http.putUri<dynamic>(
+        TronEndpoints.answerRadar(rollcallId),
+        data: {
+          'accuracy': accuracy,
+          'altitude': 0,
+          'altitudeAccuracy': null,
+          'deviceId': deviceId,
+          'heading': null,
+          'latitude': latitude,
+          'longitude': longitude,
+          'speed': null,
+        },
+        options: opts,
+      );
+    } on DioException catch (error) {
+      final response = error.response;
+      final status = response?.statusCode ?? 0;
+      // Business rejections may include the server's distance/message. Keep
+      // authentication, throttling and server/transport failures as exceptions.
+      if (response == null ||
+          status < 400 ||
+          status >= 500 ||
+          status == 401 ||
+          status == 403 ||
+          status == 429 ||
+          response.data is! Map) {
+        rethrow;
+      }
+      return _mapAnswer(response, opId: opId, rollcallId: rollcallId);
+    }
     return _mapAnswer(res, opId: opId, rollcallId: rollcallId);
   }
 

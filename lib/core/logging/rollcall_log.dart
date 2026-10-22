@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/logging/log_redactor.dart';
 
@@ -82,6 +83,7 @@ abstract final class RollcallLog {
     required String opId,
     required String reason,
     Object? error,
+    StackTrace? stackTrace,
   }) {
     AppLog.event(
       'rollcall.location.fail',
@@ -89,7 +91,16 @@ abstract final class RollcallLog {
       opId: opId,
       fields: {
         'reason': reason,
-        if (error != null) 'errorType': error.runtimeType.toString(),
+        if (error != null)
+          ...LogRedactor.exceptionFields(
+            error: error,
+            stackTrace: stackTrace,
+            source: 'location',
+          ),
+        if (error is PlatformException) ...{
+          'platformCode': LogRedactor.scrubString(error.code),
+          'platformMessage': LogRedactor.scrubString(error.message ?? ''),
+        },
       },
     );
   }

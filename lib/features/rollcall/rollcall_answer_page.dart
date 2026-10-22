@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -39,6 +40,8 @@ class RollcallAnswerPage extends ConsumerStatefulWidget {
 class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
   final _codeCtrl = TextEditingController();
   bool _submitting = false;
+  bool _locating = false;
+  int _locationRequest = 0;
   RadarGeoSelection? _selection;
   String? _status;
   bool _pinnedByUser = false;
@@ -82,6 +85,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
   }
 
   void _pin(RadarGeoSelection selection) {
+    _locationRequest++;
     setState(() {
       _pinnedByUser = true;
       _selection = selection.copyWith(filledFrom: RadarFilledFrom.user);
@@ -192,61 +196,86 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
   }
 
   Future<void> _useSystemLocation() async {
+    if (_locating) return;
+    _locating = true;
+    final request = ++_locationRequest;
+    final opId = RollcallLog.newOpId();
+    bool current() => mounted && request == _locationRequest;
+    void fail(String reason, String message) {
+      RollcallLog.locationFail(opId: opId, reason: reason);
+      if (current()) setState(() => _status = message);
+    }
+
     setState(() => _status = '获取定位…');
-    final service = await Geolocator.isLocationServiceEnabled();
-    if (!service) {
-      RollcallLog.locationFail(
-        opId: RollcallLog.newOpId(),
-        reason: 'service_off',
-      );
-      setState(() => _status = '请打开系统定位，或改用地图选点 / 已保存地点');
-      return;
-    }
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-    if (permission == LocationPermission.denied) {
-      RollcallLog.locationFail(
-        opId: RollcallLog.newOpId(),
-        reason: 'permission_denied',
-      );
-      setState(() => _status = '定位权限被拒绝，可改用地图选点或已保存地点');
-      return;
-    }
-    if (permission == LocationPermission.deniedForever) {
-      RollcallLog.locationFail(
-        opId: RollcallLog.newOpId(),
-        reason: 'permission_denied_forever',
-      );
-      setState(() => _status = '定位权限被拒绝，可改用地图选点或已保存地点');
-      return;
-    }
     try {
+      final service = await Geolocator.isLocationServiceEnabled().timeout(
+        const Duration(seconds: 10),
+      );
+      if (!current()) return;
+      if (!service) {
+        fail('service_off', '请打开系统定位，或改用地图选点 / 已保存地点');
+        return;
+      }
+      var permission = await Geolocator.checkPermission().timeout(
+        const Duration(seconds: 10),
+      );
+      if (!current()) return;
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (!current()) return;
+      }
+      if (permission != LocationPermission.always &&
+          permission != LocationPermission.whileInUse) {
+        fail(
+          permission == LocationPermission.deniedForever
+              ? 'permission_denied_forever'
+              : 'permission_denied',
+          '定位权限不可用，可改用地图选点或已保存地点',
+        );
+        return;
+      }
       final pos = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 20),
         ),
-      );
-      if (!mounted) return;
-      // Geolocator is WGS-84; Amap tiles + campus radar use GCJ-02 in China.
+      ).timeout(const Duration(seconds: 20));
+      if (!current()) return;
+      if (!pos.latitude.isFinite ||
+          !pos.longitude.isFinite ||
+          !pos.accuracy.isFinite ||
+          pos.accuracy <= 0) {
+        throw const FormatException('系统返回无效定位');
+      }
+      // Keep system positions aligned with existing GCJ-02 map selections.
       final gcj = wgs84ToGcj02(pos.latitude, pos.longitude);
       _pin(
         RadarGeoSelection(
           latitude: gcj.latitude,
           longitude: gcj.longitude,
-          accuracy: pos.accuracy.clamp(5, 100),
+          accuracy: pos.accuracy,
           obtainedVia: RadarObtainedVia.device,
           filledFrom: RadarFilledFrom.user,
         ),
       );
-    } catch (e) {
+    } catch (error, stack) {
       RollcallLog.locationFail(
-        opId: RollcallLog.newOpId(),
-        reason: 'position_error',
-        error: e,
+        opId: opId,
+        reason: error is TimeoutException
+            ? 'position_timeout'
+            : 'position_error',
+        error: error,
+        stackTrace: stack,
       );
-      if (mounted) setState(() => _status = '定位失败，可改用地图选点或已保存地点');
+      if (current()) {
+        setState(
+          () => _status = error is TimeoutException
+              ? '定位超时，可重试或改用地图选点 / 已保存地点'
+              : '定位失败，可改用地图选点或已保存地点',
+        );
+      }
+    } finally {
+      _locating = false;
     }
   }
 
@@ -367,7 +396,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
         source: source,
         latitude: sel.latitude,
         longitude: sel.longitude,
-        accuracyM: sel.accuracy.clamp(5, 100),
+        accuracyM: sel.accuracy,
       );
       final result = await ref
           .read(rollcallRepositoryForProvider(widget.assistUserId))
@@ -375,7 +404,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
             rollcallId: widget.item.rollcallId,
             latitude: sel.latitude,
             longitude: sel.longitude,
-            accuracy: sel.accuracy.clamp(5, 100),
+            accuracy: sel.accuracy,
             opId: opId,
           );
       ok = result.ok;
