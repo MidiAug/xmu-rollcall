@@ -33,12 +33,40 @@ Desktop.ini
 /*_Full.txt
 .tmp_68_extract/
 
-# ── AI tool caches (rules under .cursor/rules are tracked) ──
-.claude/
-.codegraph/
-.cursor/*.log
-.cursor/settings.local.json
-.claude/settings.local.json
+# ── Local agent instructions, editor settings and code intelligence ──
+/.cursor/
+/.claude/
+/.codex/
+/.agents/
+/.codegraph/
+/.vscode/
+/codegraph.json
+/.codegraphignore
+**/AGENTS.md
+**/AGENTS.local.md
+**/CLAUDE.md
+**/CLAUDE.local.md
+**/SKILL.md
+/.github/copilot-instructions.md
+/.github/instructions/
+/.github/agents/
+/.github/prompts/
+
+# Local capture / agent workflow scripts (keep locally)
+/scripts/archive_http_capture.py
+/scripts/bootstrap-reference-repos.ps1
+/scripts/git-commit-context.ps1
+
+# Local research outputs and raw session captures
+/captures/
+/artifacts/
+/prototypes/
+/.tmp*/
+/tmp_*/
+*.har
+*.saz
+*_Full*.txt
+xmu-rollcall-logs-*.zip
 
 # IntelliJ related
 *.iml

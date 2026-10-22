@@ -1,59 +1,99 @@
-# xmu-rollcall
+# 厦大签到
 
-厦门大学数字化教学平台（TronClass / `lnt.xmu.edu.cn`）**多端签到客户端**，技术栈为 **Flutter**（Android / iOS / Windows / macOS / Linux 同仓）。
+面向厦门大学畅课（TronClass）的轻量多端客户端，用于查看课堂签到、作业和本学期课表。
 
-> 当前阶段：**Phase 1–2 实现中** — 自适应壳、登录会话、签到列表与数字/雷达应答、可配置监控轮询已落地。
+基于 Flutter 开发，手机使用底部导航，电脑使用侧栏和托盘。
 
-## 目标（摘要）
+## 功能
 
-- 统一身份认证登录数字化教学平台
-- 监控进行中的签到任务（数字 / 雷达；二维码进行中）
-- 桌面侧栏 + 移动底栏
-- 默认可信客户端行为（稳定 deviceId、轮询带间隔与抖动）
+- **课堂签到**：查看数字、雷达和二维码签到，支持数字码复制、位置确认和扫码提交。
+- **签到记录**：按课程、状态、类型和最近 7 天 / 30 天筛选，显示各选项对应的记录数量。
+- **作业**：按进行中、已截止分组，查看个人提交和批改状态；助教、教师课程独立展示。
+- **本学期课表**：按当前账号展示本学期课程，避免扫描往年课程。
+- **多身份协助**：导入、切换和管理协助身份，各身份的会话与缓存相互隔离。
+- **检测与提醒**：支持 Android 后台提醒、Windows 系统通知和托盘操作；数字自动签到需主动开启。
+- **本机缓存**：先显示已有数据，再按需要更新；网络失败时尽量保留上次内容。
 
-请遵守学校规定与平台服务条款；签到提交默认需使用者确认，使用者对提交内容的真实性负责。本项目为非官方客户端，与学校 / 畅课官方无关。
+签到卡片会在对应课堂的课前、课后各 25 分钟内恢复上次状态，并在进入后重新确认。作业页保留跨页面缓存，自动检查有节流，完整课程作业按课后、截止或待办变化更新。
 
-## 致谢
+## 平台
 
-架构与 Flutter 客户端形态上，参考借鉴了 [@wilinz](https://github.com/wilinz) 的 [tronclass_plus](https://github.com/wilinz/tronclass_plus) 很多——分层、网络层、WebView Cookie、雷达选点等对照帮了大忙；本仓协议与登录仍按厦大畅课（`lnt.xmu.edu.cn` + IDS）自研，并非对方 fork。感谢开源。
+| 平台 | 当前验证情况 |
+| --- | --- |
+| Android | 已构建并进行过真机检查，支持相机扫码和后台提醒 |
+| Windows | 已构建，支持侧栏、桌面通知和托盘，已检查宽屏布局 |
+| iOS / macOS / Linux | 保留对应工程，尚未完成完整实机验收 |
 
-厦大畅课协议与登录另对照过 [KrsMt-0113/XMU-Rollcall-Bot](https://github.com/KrsMt-0113/XMU-Rollcall-Bot)、[dangzitou/xmu-rollcall-bot](https://github.com/dangzitou/xmu-rollcall-bot)、[KrsMt-0113/xmulogin](https://github.com/KrsMt-0113/xmulogin) 等。
+## 从源码运行
 
-## 使用（开发运行）
+准备 Flutter SDK（附带 Dart 3.12 或更高版本）和目标平台的开发工具。
 
 ```powershell
-git clone <your-fork-or-url> xmu-rollcall
+git clone https://github.com/MidiAug/xmu-rollcall.git
 cd xmu-rollcall
 flutter pub get
-flutter run -d windows   # 或 android
+
+# 查看可用设备
+flutter devices
+
+# 运行并选择设备
+flutter run
+
+# Windows
+flutter run -d windows
 ```
 
-## 导出安装包
+Android 使用学校统一身份认证账号登录；遇到验证码时按页面提示处理。使用雷达签到前需要确认位置，相机扫码需要授予相机权限。
 
-产物在 `dist/`：
+## 构建与更新
 
 ```powershell
 # Android APK
-powershell -ExecutionPolicy Bypass -File scripts\package-android.ps1
+flutter build apk --release
 
-# Windows NSIS 安装包（current-user → %LOCALAPPDATA%\Programs\xmu-rollcall）
-powershell -ExecutionPolicy Bypass -File scripts\package-windows.ps1
-
-# 两端一起
-powershell -ExecutionPolicy Bypass -File scripts\package-all.ps1
+# Windows
+flutter build windows --release
 ```
 
-Windows 使用 **NSIS**（与 `xmu-sports` 同族），双击 `*-windows-setup.exe` 即可，**不需要** MSIX 发布者证书。脚本会在缺少 `makensis` 时从 NuGet 拉便携 NSIS 到 `.tools/`。
+项目也提供打包脚本，产物保存在 `dist/`：
 
-## 登录说明
+```powershell
+# Android
+powershell -ExecutionPolicy Bypass -File scripts/package-android.ps1
 
-- **Android / iOS / macOS**：应用内打开统一身份认证登录
-- **Windows / Linux**：用系统浏览器登录后，将 `lnt.xmu.edu.cn` 的 Cookie 粘贴回应用
+# Windows NSIS 安装包
+powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1
+```
 
-## 状态
+Windows 打包需要 Visual Studio 的 C++ 桌面开发工具和 NSIS；脚本可在缺少 NSIS 时下载便携工具。
 
-| Phase | 内容 | 状态 |
-|-------|------|------|
-| 1 | 壳 + 主题 + 登录会话 | 进行中 |
-| 2 | 签到 + 监控轮询 | 进行中 |
-| 3 | 托盘 / 关窗 / 发现通知 + 二维码 | 部分完成 |
+给已连接的手机覆盖安装时，可使用下面的脚本保留登录和设置：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/install-phone.ps1 -Mode release
+```
+
+更新时请沿用相同签名和构建模式。
+
+## 测试
+
+```powershell
+flutter analyze
+flutter test
+```
+
+真实平台的集成检查需要单独配置账号与设备；普通测试使用模拟数据。源码、测试、必要资源和构建配置纳入版本管理，个人开发文档、Agent 配置、参考仓库、抓包和构建产物保留在本机。
+
+## 数据与使用
+
+账号凭据使用系统安全存储。课表、作业与签到缓存保存在本机，可在“我的 → 数据与诊断”清理。诊断日志经过脱敏处理，分享前仍建议自行核对内容。
+
+本项目是非官方客户端，与学校及畅课官方无隶属关系。请遵守学校规定，确认签到内容与位置真实有效。自动签到默认关闭，需要使用者为当前账号主动配置。
+
+## 致谢
+
+- [wilinz/tronclass_plus](https://github.com/wilinz/tronclass_plus)：Flutter 客户端分层、网络与位置交互的参考。
+- [KrsMt-0113/XMU-Rollcall-Bot](https://github.com/KrsMt-0113/XMU-Rollcall-Bot)、[dangzitou/xmu-rollcall-bot](https://github.com/dangzitou/xmu-rollcall-bot)：厦大畅课接口参考。
+- [KrsMt-0113/xmulogin](https://github.com/KrsMt-0113/xmulogin)：厦大统一身份认证参考。
+
+本项目按厦大畅课环境实现，并非上述项目的 fork。
