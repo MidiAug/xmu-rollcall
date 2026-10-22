@@ -13,7 +13,7 @@
 [![Checks](https://github.com/MidiAug/xmu-rollcall/actions/workflows/checks.yml/badge.svg)](https://github.com/MidiAug/xmu-rollcall/actions/workflows/checks.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-64748B)](LICENSE)
 
-[看看界面](#界面预览) / [有什么功能](#日常会用到的) / [运行起来](#运行起来) / [反馈问题](https://github.com/MidiAug/xmu-rollcall/issues)
+[看看界面](#界面预览) / [有什么功能](#日常会用到的) / [下载安装](#下载安装) / [运行起来](#运行起来) / [反馈问题](https://github.com/MidiAug/xmu-rollcall/issues)
 
 </div>
 
@@ -67,6 +67,18 @@
 | **少盯一会儿屏幕** | Android 后台提醒，Windows 通知与托盘；数字自动签到需要自行开启。 |
 
 重新打开页面时，会优先显示已有缓存，再按需要更新。签到卡片在对应课堂的课前、课后各 25 分钟内恢复上次状态，并重新确认；作业按课后、截止和待办变化补查，避免来回切页就重扫所有课程。
+
+## 下载安装
+
+[v0.1.0 发布页](https://github.com/MidiAug/xmu-rollcall/releases/tag/v0.1.0)
+
+| 平台 | 下载 | 怎么用 |
+| --- | --- | --- |
+| Android | [APK 安装包](https://github.com/MidiAug/xmu-rollcall/releases/download/v0.1.0/xmu-rollcall-0.1.0-android.apk) | 下载后在手机上安装。 |
+| Windows x64 | [安装程序](https://github.com/MidiAug/xmu-rollcall/releases/download/v0.1.0/xmu-rollcall-0.1.0-windows-x64-setup.exe) | 运行安装程序，按提示安装。 |
+| Windows x64 | [便携版 ZIP](https://github.com/MidiAug/xmu-rollcall/releases/download/v0.1.0/xmu-rollcall-0.1.0-windows-x64.zip) | 完整解压后运行 `xmu_rollcall.exe`，请保留同目录的 DLL 和 `data` 文件夹。 |
+
+Android 当前沿用项目开发签名；Windows 安装程序尚无发布者数字签名。覆盖更新需使用同一 Android 签名。
 
 ## 运行起来
 
