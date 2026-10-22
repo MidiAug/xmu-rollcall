@@ -31,6 +31,7 @@ class _Repo extends Fake implements HomeworkRepository {
   int statusCalls = 0;
   bool fail = false;
   Future<void> Function()? duringCourse;
+  Future<void> Function()? duringStatus;
   @override
   Future<HomeworkTodosFetch> fetchTodosDetailed() async =>
       const HomeworkTodosFetch(items: [], diag: {});
@@ -55,6 +56,7 @@ class _Repo extends Fake implements HomeworkRepository {
     required int studentId,
   }) async {
     statusCalls++;
+    await duringStatus?.call();
     if (fail) throw StateError('offline');
     return const HomeworkSubmissionState(
       submission: HomeworkSubmission.submitted,
@@ -214,6 +216,15 @@ void main() {
       await container.read(homeworkOverviewProvider.future);
       expect(repo.courses, [1, 2]);
       repo.fail = true;
+      for (final cid in [1, 2]) {
+        final suffix = 'course_homework_1_$cid';
+        final disk = (await JsonDiskCache.readList(suffix))!;
+        await JsonDiskCache.writeList(
+          suffix,
+          disk.items,
+          fetchedAt: DateTime.now().subtract(const Duration(days: 8)),
+        );
+      }
       await container
           .read(homeworkOverviewProvider.notifier)
           .ensureFresh(force: true);
@@ -234,6 +245,67 @@ void main() {
     },
   );
   test(
+    'manual overview refresh does not rescan unchanged warm courses',
+    () async {
+      final sub = container.listen(homeworkOverviewProvider, (_, _) {});
+      addTearDown(sub.close);
+      await container.read(homeworkOverviewProvider.future);
+      final notifier = container.read(homeworkOverviewProvider.notifier);
+      await notifier.ensureFresh();
+      expect(repo.courses, [1, 2]);
+      await notifier.ensureFresh(force: true);
+      expect(repo.courses, [1, 2]);
+    },
+  );
+
+  test(
+    'cold status restores stale cache while a slow request is pending',
+    () async {
+      const key = HomeworkStatusKey(1, 10);
+      const cached = HomeworkSubmissionState(
+        submission: HomeworkSubmission.unsubmitted,
+        grading: HomeworkGrading.unknown,
+      );
+      await JsonDiskCache.writeList(
+        'homework_submission_1_10',
+        [cached.toJson()],
+        fetchedAt: DateTime.now().subtract(const Duration(days: 1)),
+      );
+      final entered = Completer<void>();
+      final release = Completer<void>();
+      repo.duringStatus = () {
+        entered.complete();
+        return release.future;
+      };
+      final updated = Completer<void>();
+      final provider = homeworkSubmissionProvider(key);
+      final sub = container.listen(provider, (_, value) {
+        if (value.valueOrNull?.submission == HomeworkSubmission.submitted &&
+            !updated.isCompleted) {
+          updated.complete();
+        }
+      });
+      addTearDown(sub.close);
+      expect(
+        (await container.read(provider.future)).submission,
+        HomeworkSubmission.unsubmitted,
+      );
+      await entered.future;
+      expect(container.read(provider).isLoading, isFalse);
+      expect(
+        container.read(provider).requireValue.submission,
+        HomeworkSubmission.unsubmitted,
+      );
+      release.complete();
+      await updated.future;
+      expect(
+        container.read(provider).requireValue.submission,
+        HomeworkSubmission.submitted,
+      );
+    },
+  );
+
+  test(
     'personal status cache honors manual refresh, failures and published-grade TTL',
     () async {
       const key = HomeworkStatusKey(1, 10);
@@ -252,6 +324,8 @@ void main() {
         (await container.read(provider.future)).submission,
         HomeworkSubmission.submitted,
       );
+      await Future<void>.delayed(Duration.zero);
+      await container.pump();
       expect(repo.statusCalls, 2);
       container.read(homeworkManualRefreshAtProvider(1).notifier).state = null;
       await JsonDiskCache.writeList(
@@ -279,6 +353,8 @@ void main() {
       final deadlineSub = container.listen(deadlineProvider, (_, _) {});
       addTearDown(deadlineSub.close);
       await container.read(deadlineProvider.future);
+      await Future<void>.delayed(Duration.zero);
+      await container.pump();
       expect(
         repo.statusCalls,
         3,
@@ -286,6 +362,8 @@ void main() {
       );
       container.invalidate(deadlineProvider);
       await container.read(deadlineProvider.future);
+      await Future<void>.delayed(Duration.zero);
+      await container.pump();
       expect(repo.statusCalls, 3);
     },
   );

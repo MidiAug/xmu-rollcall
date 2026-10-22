@@ -56,11 +56,7 @@ Future<void> _refreshHomework(
     if (id != null) {
       await ref
           .read(courseHomeworkProvider(id).notifier)
-          .ensureFresh(
-            reason: force
-                ? EnsureFreshReason.pullToRefresh
-                : EnsureFreshReason.appear,
-          );
+          .ensureFresh(reason: EnsureFreshReason.appear);
     }
   }
 }

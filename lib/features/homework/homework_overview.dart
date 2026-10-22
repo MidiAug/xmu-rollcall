@@ -132,14 +132,12 @@ class HomeworkOverviewNotifier
           for (final json in disk?.items ?? <Map<String, dynamic>>[])
             HomeworkItem.fromJson(json),
         ];
-        final reason = force
-            ? 'manual'
-            : homeworkRefreshReason(
-                disk: disk,
-                course: course,
-                todos: todos,
-                now: DateTime.now(),
-              );
+        final reason = homeworkRefreshReason(
+          disk: disk,
+          course: course,
+          todos: todos,
+          now: DateTime.now(),
+        );
         if (reason != null) needsNetwork = true;
         if (!cacheOnly && reason != null) {
           try {
@@ -259,6 +257,8 @@ final homeworkManualRefreshAtProvider = StateProvider.family<DateTime?, int>(
 /// are cached; only the normalized personal submission / grading state survives.
 final homeworkSubmissionProvider = FutureProvider.autoDispose
     .family<HomeworkSubmissionState, HomeworkStatusKey>((ref, key) async {
+      var alive = true;
+      ref.onDispose(() => alive = false);
       final scope = ref.watch(selectedRollcallAccountProvider);
       final owner = ref.watch(authControllerProvider).profile?.id;
       if ((scope ?? owner) != key.userId) throw StateError('作业身份已切换');
@@ -287,28 +287,40 @@ final homeworkSubmissionProvider = FutureProvider.autoDispose
           (requestedAt == null || !disk.fetchedAt.isBefore(requestedAt))) {
         return cached;
       }
-      try {
-        await prepareHomeworkSession(ref, scope);
-        if (ref.read(selectedRollcallAccountProvider) != scope ||
-            ref.read(authControllerProvider).profile?.id != owner) {
-          throw StateError('作业身份已切换');
-        }
-        final result = await FetchLog.run(
-          event: 'homework.submission.refresh',
-          trigger: requestedAt == null ? 'visible' : 'manual',
-          fields: {'userId': key.userId, 'activityId': key.activityId},
-          fetch: () => repository.fetchSubmission(
-            activityId: key.activityId,
-            studentId: key.userId,
-          ),
-        );
-        if (ref.read(selectedRollcallAccountProvider) == scope &&
-            ref.read(authControllerProvider).profile?.id == owner) {
+      bool isCurrent() =>
+          alive &&
+          ref.read(selectedRollcallAccountProvider) == scope &&
+          ref.read(authControllerProvider).profile?.id == owner;
+      Future<HomeworkSubmissionState> refresh() async {
+        try {
+          if (!isCurrent()) throw StateError('作业身份已切换');
+          await prepareHomeworkSession(ref, scope);
+          if (!isCurrent()) throw StateError('作业身份已切换');
+          final result = await FetchLog.run(
+            event: 'homework.submission.refresh',
+            trigger: requestedAt == null ? 'visible' : 'manual',
+            fields: {'userId': key.userId, 'activityId': key.activityId},
+            fetch: () => repository.fetchSubmission(
+              activityId: key.activityId,
+              studentId: key.userId,
+            ),
+          );
+          if (!isCurrent()) throw StateError('作业身份已切换');
           await JsonDiskCache.writeList(suffix, [result.toJson()]);
+          return result;
+        } catch (_) {
+          if (cached != null) return cached;
+          rethrow;
         }
-        return result;
-      } catch (_) {
-        if (cached != null) return cached;
-        rethrow;
       }
+
+      if (cached == null) return refresh();
+      // Restore the last known status before waiting for the network. The
+      // deferred response may update only this still-mounted account scope.
+      Future<void>(() async {
+        if (!isCurrent()) return;
+        final result = await refresh();
+        if (isCurrent()) ref.state = AsyncData(result);
+      });
+      return cached;
     });
