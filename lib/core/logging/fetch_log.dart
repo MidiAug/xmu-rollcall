@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/core/logging/log_redactor.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 
 /// Shared pattern for list / detail fetch result logs.
@@ -40,7 +41,7 @@ abstract final class FetchLog {
         },
       );
       return value;
-    } catch (e) {
+    } catch (e, stack) {
       AppLog.event(
         event,
         level: 'W',
@@ -48,7 +49,7 @@ abstract final class FetchLog {
           ...base,
           'ok': false,
           'durationMs': DateTime.now().difference(started).inMilliseconds,
-          'errorType': e.runtimeType.toString(),
+          ...LogRedactor.exceptionFields(error: e, stackTrace: stack),
         },
       );
       rethrow;

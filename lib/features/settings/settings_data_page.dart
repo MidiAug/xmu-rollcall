@@ -1,3 +1,5 @@
+import 'package:file_selector/file_selector.dart' as file_selector;
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -275,13 +277,16 @@ class _ExportLogsRowState extends ConsumerState<_ExportLogsRow> {
       final auth = ref.read(authControllerProvider);
       final monitor = ref.read(monitorControllerProvider);
       final roster = ref.read(assistControllerProvider);
-      final active = ref.read(activeRollcallsProvider(null)).valueOrNull;
+      final selected = ref.read(selectedRollcallAccountProvider);
+      final activeState = ref.read(activeRollcallsProvider(selected));
+      final active = activeState.valueOrNull;
+      final desktop = PlatformHooks.isDesktop;
       final counts = <String, int>{};
       for (final item in active ?? const []) {
         counts[item.type.name] = (counts[item.type.name] ?? 0) + 1;
       }
       final result = await AppLog.exportLogs(
-        share: true,
+        share: !desktop,
         sharePositionOrigin: origin,
         diagnostics: {
           'features': {
@@ -291,6 +296,8 @@ class _ExportLogsRowState extends ConsumerState<_ExportLogsRow> {
           },
           'session': {
             'signedIn': auth.isSignedIn,
+            'selectedScope': selected == null ? 'owner' : 'assist',
+            'lifecycle': WidgetsBinding.instance.lifecycleState?.name,
             'assistCount': roster.identities.length,
             'rosterReady': roster.ready,
           },
@@ -301,12 +308,32 @@ class _ExportLogsRowState extends ConsumerState<_ExportLogsRow> {
           },
           'activeRollcalls': {
             'loaded': active != null,
+            'loading': activeState.isLoading,
+            'hasError': activeState.hasError,
             'count': active?.length,
             'typeCounts': counts,
           },
         },
       );
       if (!mounted) return;
+      if (desktop && result != null) {
+        final name = Uri.file(result.zipPath).pathSegments.last;
+        final location = await file_selector.getSaveLocation(
+          suggestedName: name,
+          acceptedTypeGroups: const [
+            file_selector.XTypeGroup(label: '诊断日志 ZIP', extensions: ['zip']),
+          ],
+        );
+        if (location != null) {
+          await file_selector.XFile(result.zipPath).saveTo(location.path);
+        }
+        if (!mounted) return;
+        AppToast.show(
+          context,
+          location == null ? '已取消另存，日志包仍保留在本机' : '诊断日志已保存',
+        );
+        return;
+      }
       AppToast.show(
         context,
         result == null
@@ -327,7 +354,9 @@ class _ExportLogsRowState extends ConsumerState<_ExportLogsRow> {
   Widget build(BuildContext context) => SettingsRow(
     leading: const Icon(Icons.ios_share_outlined),
     title: _busy ? '正在准备诊断日志…' : '导出诊断日志',
-    subtitle: '包含前后台日志、状态快照和最近错误',
+    subtitle: PlatformHooks.isDesktop
+        ? '打包请求流水和错误详情，另存为 ZIP'
+        : '包含请求流水、前后台日志和错误详情',
     trailing: _busy
         ? const SizedBox(
             width: 18,

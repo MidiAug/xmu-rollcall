@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:dio/dio.dart';
+import 'package:xmu_rollcall/core/network/request_failure.dart';
 
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:uuid/uuid.dart';
@@ -19,20 +21,19 @@ class AssistProfileSnapshot {
   final String name;
 }
 
-typedef AssistProfileProber = Future<AssistProfileSnapshot> Function(
-  TronHttpClient client,
-);
+typedef AssistProfileProber =
+    Future<AssistProfileSnapshot> Function(TronHttpClient client);
 
-typedef AssistAccountLoginFn = Future<AssistProfileSnapshot> Function({
-  required String username,
-  required String password,
-  required TronHttpClient targetClient,
-});
+typedef AssistAccountLoginFn =
+    Future<AssistProfileSnapshot> Function({
+      required String username,
+      required String password,
+      required TronHttpClient targetClient,
+    });
 
 /// Returns course catalog for a session (owner or assist).
-typedef AssistCourseCatalogFn = Future<List<AssistSharedCourse>> Function(
-  TronHttpClient client,
-);
+typedef AssistCourseCatalogFn =
+    Future<List<AssistSharedCourse>> Function(TronHttpClient client);
 
 class AssistException implements Exception {
   AssistException(this.message);
@@ -54,9 +55,14 @@ class AssistService {
     this.probeProfile,
     this.accountLogin,
     this.courseCatalog,
-  })  : _store = store,
-        _codec = codec ?? AssistTokenCodec(),
-        _roster = roster ?? AssistIdentityStore(store);
+  }) : _store = store,
+       _codec = codec ?? AssistTokenCodec(),
+       _roster = roster ?? AssistIdentityStore(store);
+
+  final Map<int, Future<void>> _sessionChecks = {};
+  final Map<int, ({TronHttpClient client, int revision, DateTime at})>
+  _validated = {};
+  static const sessionCheckTtl = Duration(minutes: 1);
 
   final SecureStore _store;
   final SessionClientRegistry registry;
@@ -325,13 +331,48 @@ class AssistService {
   /// If account cookies died, re-login using stored credentials.
   /// Heals a missing assist [AssistIdentity.deviceId] before probing.
   Future<void> ensureSession(AssistIdentity identity) async {
+    final existing = _sessionChecks[identity.userId];
+    if (existing != null) return existing;
+    final work = _ensureSession(identity);
+    _sessionChecks[identity.userId] = work;
+    try {
+      await work;
+    } finally {
+      if (identical(_sessionChecks[identity.userId], work)) {
+        _sessionChecks.remove(identity.userId);
+      }
+    }
+  }
+
+  Future<void> _ensureSession(AssistIdentity identity) async {
     identity = await ensureDeviceId(identity);
     final client = registry.forKey(SessionKey.assist(identity.userId));
     await client.init();
-    try {
-      await _probe(client);
+    final stamp = _validated[identity.userId];
+    final age = stamp == null ? null : DateTime.now().difference(stamp.at);
+    if (stamp != null &&
+        identical(stamp.client, client) &&
+        stamp.revision == client.sessionRevision &&
+        age != null &&
+        !age.isNegative &&
+        age < sessionCheckTtl) {
       return;
-    } catch (_) {
+    }
+    void validated() => _validated[identity.userId] = (
+      client: client,
+      revision: client.sessionRevision,
+      at: DateTime.now(),
+    );
+    try {
+      final profile = await _probe(client);
+      if (profile.id != identity.userId) {
+        throw AssistException('协助账号身份不匹配，请重新导入');
+      }
+      validated();
+      return;
+    } catch (error) {
+      // A timeout, cancellation or server failure is not an expired credential.
+      if (error is DioException && !isSessionExpired(error)) rethrow;
       if (identity.kind != AssistCredentialKind.account) {
         rethrow;
       }
@@ -357,9 +398,11 @@ class AssistService {
       throw AssistException('重新登录失败，请稍后重试');
     }
     await client.importCookiesJson(cookies);
+    validated();
   }
 
   Future<void> removeIdentity(int userId) async {
+    _validated.remove(userId);
     await registry.disposeAssist(userId);
     await _store.delete(accountCredKey(userId));
     await _roster.remove(userId);
@@ -398,14 +441,14 @@ class AssistService {
   Future<AssistProfileSnapshot> _probe(TronHttpClient client) async {
     final custom = probeProfile;
     if (custom != null) return custom(client);
-    final res =
-        await client.getUri<Map<String, dynamic>>(TronEndpoints.profile());
+    final res = await client.getUri<Map<String, dynamic>>(
+      TronEndpoints.profile(),
+    );
     final data = res.data;
     if (data == null) throw AssistException('协助账号验证失败，请重新导入');
     final id = (data['id'] as num?)?.toInt() ?? 0;
-    final name = (data['name'] as String?) ??
-        (data['user_name'] as String?) ??
-        '用户';
+    final name =
+        (data['name'] as String?) ?? (data['user_name'] as String?) ?? '用户';
     if (id <= 0) throw AssistException('协助账号无效，请重新导入');
     return AssistProfileSnapshot(id: id, name: name);
   }

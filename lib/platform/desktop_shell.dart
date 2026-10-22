@@ -243,6 +243,13 @@ class DesktopShell with WindowListener, TrayListener {
   }
 
   @override
+  void onWindowEvent(String eventName) {
+    if (const {'focus', 'blur', 'minimize', 'restore'}.contains(eventName)) {
+      AppLog.event('shell.window', level: 'D', fields: {'state': eventName});
+    }
+  }
+
+  @override
   void onWindowClose() {
     // Keep sync; async work is scheduled so we never block the platform channel.
     if (_handlingClose) return;

@@ -42,6 +42,7 @@ class BackoffInterceptor extends Interceptor {
       level: 'W',
       opId: err.requestOptions.extra['opId'] as String?,
       fields: {
+        'requestId': opts.extra['requestId'],
         'attempt': prior + 1,
         'status': status,
         'delayMs': delayMs,

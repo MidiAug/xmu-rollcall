@@ -7,6 +7,7 @@ import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:xmu_rollcall/core/logging/app_log_dio_interceptor.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
+import 'package:xmu_rollcall/core/logging/log_redactor.dart';
 import 'package:xmu_rollcall/core/network/backoff_interceptor.dart';
 import 'package:xmu_rollcall/core/network/rate_limiter.dart';
 import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
@@ -32,6 +33,8 @@ class TronHttpClient {
   final CookieJar? _injectedJar;
   CookieJar? _jar;
   bool _ready = false;
+  int _sessionRevision = 0;
+  int get sessionRevision => _sessionRevision;
   Future<void>? _initializing;
   final Set<CancelToken> _sessionRequests = {};
 
@@ -158,7 +161,13 @@ class TronHttpClient {
     RequestPriority priority = RequestPriority.normal,
   }) {
     return _schedule(
-      (token) => _dio.getUri<T>(uri, options: options, cancelToken: token),
+      (token, id, waitMs) => _dio.getUri<T>(
+        uri,
+        options: _trackedOptions(options, id, waitMs),
+        cancelToken: token,
+      ),
+      uri: uri,
+      method: 'GET',
       cancelToken: cancelToken,
       priority: priority,
     );
@@ -172,12 +181,14 @@ class TronHttpClient {
     RequestPriority priority = RequestPriority.normal,
   }) {
     return _schedule(
-      (token) => _dio.postUri<T>(
+      (token, id, waitMs) => _dio.postUri<T>(
         uri,
         data: data,
-        options: options,
+        options: _trackedOptions(options, id, waitMs),
         cancelToken: token,
       ),
+      uri: uri,
+      method: 'POST',
       cancelToken: cancelToken,
       priority: priority,
     );
@@ -190,8 +201,14 @@ class TronHttpClient {
     CancelToken? cancelToken,
   }) {
     return _schedule(
-      (token) =>
-          _dio.putUri<T>(uri, data: data, options: options, cancelToken: token),
+      (token, id, waitMs) => _dio.putUri<T>(
+        uri,
+        data: data,
+        options: _trackedOptions(options, id, waitMs),
+        cancelToken: token,
+      ),
+      uri: uri,
+      method: 'PUT',
       cancelToken: cancelToken,
       priority: RequestPriority.submission,
     );
@@ -204,37 +221,49 @@ class TronHttpClient {
     Object? data,
     String? contentType,
   }) {
-    return _schedule((token) {
-      return _dio.requestUri<dynamic>(
-        uri,
-        data: data,
-        cancelToken: token,
-        options: Options(
-          method: method,
-          extra: const {'retrySafe': false},
-          followRedirects: false,
-          maxRedirects: 0,
-          responseType: ResponseType.plain,
-          contentType: contentType,
-          validateStatus: (s) => s != null && s < 500,
-          headers: {
-            'User-Agent': TronEndpoints.userAgent,
-            'Accept':
-                'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          },
-        ),
-      );
-    });
+    return _schedule(
+      (token, id, waitMs) {
+        return _dio.requestUri<dynamic>(
+          uri,
+          data: data,
+          cancelToken: token,
+          options: Options(
+            method: method,
+            extra: {'retrySafe': false, 'requestId': id, 'queueMs': waitMs},
+            followRedirects: false,
+            maxRedirects: 0,
+            responseType: ResponseType.plain,
+            contentType: contentType,
+            validateStatus: (s) => s != null && s < 500,
+            headers: {
+              'User-Agent': TronEndpoints.userAgent,
+              'Accept':
+                  'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            },
+          ),
+        );
+      },
+      uri: uri,
+      method: method,
+    );
   }
 
   void _cancelSessionRequests() {
+    _sessionRevision++;
     for (final token in _sessionRequests.toList()) {
       token.cancel('账号会话已变更');
     }
   }
 
+  Options _trackedOptions(Options? options, String id, int waitMs) =>
+      (options ?? Options()).copyWith(
+        extra: {...?options?.extra, 'requestId': id, 'queueMs': waitMs},
+      );
+
   Future<Response<T>> _schedule<T>(
-    Future<Response<T>> Function(CancelToken) action, {
+    Future<Response<T>> Function(CancelToken, String, int) action, {
+    required Uri uri,
+    required String method,
     CancelToken? cancelToken,
     RequestPriority priority = RequestPriority.normal,
   }) async {
@@ -244,12 +273,47 @@ class TronHttpClient {
       unawaited(cancelToken.whenCancel.then((error) => token.cancel(error)));
     }
     _sessionRequests.add(token);
+    final queuedAt = DateTime.now();
+    final requestId = AppLog.newOpId();
+    var started = false;
     try {
       return await _limiter.schedule(
-        () => action(token),
+        () {
+          started = true;
+          final waitMs = DateTime.now().difference(queuedAt).inMilliseconds;
+          if (waitMs >= 1000) {
+            AppLog.event(
+              'http.queue.wait',
+              fields: {
+                'requestId': requestId,
+                'method': method,
+                'path': uri.path,
+                'durationMs': waitMs,
+                'priority': priority.name,
+              },
+            );
+          }
+          return action(token, requestId, waitMs);
+        },
         cancelToken: token,
         priority: priority,
       );
+    } catch (error, stack) {
+      if (!started) {
+        AppLog.event(
+          'http.queue.error',
+          level: 'W',
+          fields: {
+            ...LogRedactor.exceptionFields(error: error, stackTrace: stack),
+            'requestId': requestId,
+            'method': method,
+            'path': uri.path,
+            'queueMs': DateTime.now().difference(queuedAt).inMilliseconds,
+            'priority': priority.name,
+          },
+        );
+      }
+      rethrow;
     } finally {
       _sessionRequests.remove(token);
     }

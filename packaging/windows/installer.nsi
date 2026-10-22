@@ -31,6 +31,7 @@ RequestExecutionLevel user
 SetCompressor /SOLID lzma
 
 !include "MUI2.nsh"
+!include "LogicLib.nsh"
 
 !define MUI_ABORTWARNING
 !ifdef INSTALLER_ICON
@@ -52,11 +53,26 @@ VIAddVersionKey /LANG=${LANG_ENGLISH} "LegalCopyright" "xmu-rollcall"
 VIAddVersionKey /LANG=${LANG_ENGLISH} "FileVersion" "${PRODUCT_VERSION}"
 VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductVersion" "${PRODUCT_VERSION}"
 
+Function .onInit
+  FindWindow $0 "FLUTTER_RUNNER_WIN32_WINDOW" "${PRODUCT_NAME}"
+  ${If} $0 != 0
+    MessageBox MB_OK|MB_ICONEXCLAMATION "请先从窗口或系统托盘退出厦大签到，再运行安装程序。" /SD IDOK
+    Abort
+  ${EndIf}
+FunctionEnd
+
 Section "Install"
   SetOutPath "$INSTDIR"
 
-  ; Replace previous files cleanly (keep uninstall registry until rewrite).
-  RMDir /r "$INSTDIR"
+  ; Replace owned files in place; do not erase the chosen directory.
+  ; Repair shortcuts created by pre-UTF-8 installer builds.
+  ReadRegStr $0 HKCU "${UNINST_KEY}" "DisplayName"
+  ${If} $0 == "鍘﹀ぇ绛惧埌"
+    Delete "$DESKTOP\$0.lnk"
+    Delete "$SMPROGRAMS\$0\$0.lnk"
+    Delete "$SMPROGRAMS\$0\Uninstall.lnk"
+    RMDir "$SMPROGRAMS\$0"
+  ${EndIf}
 
   SetOutPath "$INSTDIR"
   File /r "${RELEASE_DIR}\*.*"

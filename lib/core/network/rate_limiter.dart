@@ -10,16 +10,25 @@ class RateLimiter {
     this.maxPerMinute = 30,
     this.minInterval = const Duration(milliseconds: 200),
     this.maxConcurrent = 3,
+    this.foregroundReserve = 5,
+    this.window = const Duration(minutes: 1),
   }) : assert(maxPerMinute > 0),
-       assert(maxConcurrent > 0);
+       assert(maxConcurrent > 0),
+       assert(foregroundReserve >= 0),
+       assert(window > Duration.zero);
   final int maxPerMinute;
   final Duration minInterval;
   final int maxConcurrent;
+  final int foregroundReserve;
+  final Duration window;
   final Queue<DateTime> _starts = Queue<DateTime>();
   final List<_PendingRequest> _pending = [];
   DateTime? _lastStart;
-  Future<void> _gate = Future.value();
   int _active = 0;
+  int _activeBackground = 0;
+  int get _backgroundConcurrency => maxConcurrent > 1 ? maxConcurrent - 1 : 1;
+  int get _backgroundBudget =>
+      maxPerMinute - foregroundReserve.clamp(0, maxPerMinute - 1);
 
   Future<T> schedule<T>(
     Future<T> Function() action, {
@@ -29,7 +38,7 @@ class RateLimiter {
     final result = Completer<T>();
     final request = _PendingRequest(priority, () async {
       try {
-        await waitForStart(cancelToken: cancelToken);
+        await waitForStart(cancelToken: cancelToken, priority: priority);
         final value = await action();
         if (!result.isCompleted) result.complete(value);
       } catch (error, stack) {
@@ -51,41 +60,53 @@ class RateLimiter {
 
   void _drain() {
     while (_active < maxConcurrent && _pending.isNotEmpty) {
-      var index = 0;
-      for (var i = 1; i < _pending.length; i++) {
-        if (_pending[i].priority.index > _pending[index].priority.index) {
+      int? index;
+      for (var i = 0; i < _pending.length; i++) {
+        if (_pending[i].priority == RequestPriority.background &&
+            _activeBackground >= _backgroundConcurrency) {
+          continue;
+        }
+        if (index == null ||
+            _pending[i].priority.index > _pending[index].priority.index) {
           index = i;
         }
       }
+      if (index == null) return;
       final request = _pending.removeAt(index);
+      final background = request.priority == RequestPriority.background;
       _active++;
+      if (background) _activeBackground++;
       unawaited(
         request.run().whenComplete(() {
           _active--;
+          if (background) _activeBackground--;
           _drain();
         }),
       );
     }
   }
 
-  /// Retries share the start budget without taking a second concurrency slot.
-  Future<void> waitForStart({CancelToken? cancelToken}) {
-    final result = _gate.then((_) => _waitSlot(cancelToken));
-    _gate = result.catchError((Object _) {});
-    return result;
-  }
+  /// Admission checks are synchronous until the sleep, so no lock is held while
+  /// a background request waits for its budget. Foreground work can use the
+  /// reserved starts without increasing the global per-window cap.
+  Future<void> waitForStart({
+    CancelToken? cancelToken,
+    RequestPriority priority = RequestPriority.normal,
+  }) => _waitSlot(cancelToken, priority);
 
-  Future<void> _waitSlot(CancelToken? token) async {
+  Future<void> _waitSlot(CancelToken? token, RequestPriority priority) async {
     while (true) {
       if (token?.isCancelled == true) throw token!.cancelError!;
       final now = DateTime.now();
-      while (_starts.isNotEmpty &&
-          now.difference(_starts.first) >= const Duration(minutes: 1)) {
+      while (_starts.isNotEmpty && now.difference(_starts.first) >= window) {
         _starts.removeFirst();
       }
       final last = _lastStart;
       final needSpacing = last != null && now.difference(last) < minInterval;
-      final atCap = _starts.length >= maxPerMinute;
+      final cap = priority == RequestPriority.background
+          ? _backgroundBudget
+          : maxPerMinute;
+      final atCap = _starts.length >= cap;
       if (!needSpacing && !atCap) {
         _lastStart = now;
         _starts.addLast(now);
@@ -95,7 +116,7 @@ class RateLimiter {
           ? minInterval - now.difference(last)
           : Duration.zero;
       final rpm = atCap
-          ? const Duration(minutes: 1) - now.difference(_starts.first)
+          ? window - now.difference(_starts.first)
           : Duration.zero;
       final wait = spacing > rpm ? spacing : rpm;
       await Future.any<void>([

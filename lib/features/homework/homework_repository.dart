@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/network/rate_limiter.dart';
@@ -14,6 +15,7 @@ class HomeworkRepository {
   Future<HomeworkSubmissionState> fetchSubmission({
     required int activityId,
     required int studentId,
+    CancelToken? cancelToken,
   }) async {
     await http.init();
     final response = await http.getUri<dynamic>(
@@ -22,6 +24,7 @@ class HomeworkRepository {
         studentId: studentId,
       ),
       priority: RequestPriority.background,
+      cancelToken: cancelToken,
     );
     if (response.statusCode != 200) {
       throw StateError('无法更新提交状态 (${response.statusCode})');

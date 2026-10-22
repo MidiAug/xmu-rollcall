@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'dart:io';
+import 'package:dio/dio.dart';
 
 /// Final redaction / scrub / UTF-8 truncate before Memory or File sink.
 ///
@@ -99,6 +101,28 @@ abstract final class LogRedactor {
     String? source,
   }) {
     final fields = <String, dynamic>{'errorType': error.runtimeType.toString()};
+    if (error is DioException) {
+      final request = error.requestOptions;
+      fields.addAll({
+        'dioType': error.type.name,
+        'method': request.method,
+        'path': request.uri.path,
+        'status': error.response?.statusCode,
+        'attempt': (request.extra['backoff_attempt'] as int? ?? 0) + 1,
+        'requestId': request.extra['requestId'],
+        'queueMs': request.extra['queueMs'],
+        'connectTimeoutMs': request.connectTimeout?.inMilliseconds,
+        'receiveTimeoutMs': request.receiveTimeout?.inMilliseconds,
+        'sendTimeoutMs': request.sendTimeout?.inMilliseconds,
+      });
+      final cause = error.error;
+      if (cause is SocketException) {
+        fields['osErrorCode'] = cause.osError?.errorCode;
+        fields['socketMessage'] = scrubString(cause.message);
+      } else if (error.type == DioExceptionType.cancel && cause is String) {
+        fields['cancelReason'] = scrubString(cause);
+      }
+    }
     if (status != null) fields['status'] = status;
     if (message != null && message.isNotEmpty) {
       fields['message'] = scrubString(message);

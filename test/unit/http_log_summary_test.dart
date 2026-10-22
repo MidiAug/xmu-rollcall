@@ -5,6 +5,26 @@ import 'package:xmu_rollcall/core/logging/log_redactor.dart';
 void main() {
   group('HttpLogSummary', () {
     test(
+      'session probes and submission requests log metadata without contents',
+      () {
+        for (final path in [
+          '/api/profile',
+          '/api/activities/8/students/1/submission_list',
+        ]) {
+          expect(HttpLogSummary.shouldLog(path: path), isTrue);
+          expect(
+            HttpLogSummary.responseSummary({
+              'name': 'private',
+              'list': [
+                {'answer': 'private'},
+              ],
+            }, path: path),
+            isNull,
+          );
+        }
+      },
+    );
+    test(
       'number lookup logs UTC query and code availability without roster',
       () {
         final uri = Uri.parse(
@@ -115,7 +135,8 @@ void main() {
     test('shouldLog covers radar and todos without opId', () {
       expect(HttpLogSummary.shouldLog(path: '/api/radar/rollcalls'), isTrue);
       expect(HttpLogSummary.shouldLog(path: '/api/todos'), isTrue);
-      expect(HttpLogSummary.shouldLog(path: '/api/profile'), isFalse);
+      expect(HttpLogSummary.shouldLog(path: '/api/profile'), isTrue);
+      expect(HttpLogSummary.shouldLog(path: '/api/unrelated'), isFalse);
       expect(HttpLogSummary.shouldLog(path: '/api/profile', opId: 'x'), isTrue);
     });
   });

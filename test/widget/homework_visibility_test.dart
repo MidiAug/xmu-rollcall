@@ -90,6 +90,16 @@ void main() {
         expect(tester.getTopLeft(find.text('缓存作业')), initialPosition);
         expect(find.byType(LinearProgressIndicator), findsNothing);
       }
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('缓存作业'),
+        findsOneWidget,
+        reason: 'Losing window focus must not unmount cached homework rows',
+      );
+      expect(tester.getTopLeft(find.text('缓存作业')), initialPosition);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
       expect(_Overview.checks, initial);
       await tester.pump(const Duration(minutes: 5));
       await tester.pumpAndSettle();

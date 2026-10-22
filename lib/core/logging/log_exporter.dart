@@ -88,6 +88,7 @@ class LogExporter {
       DateTime? coverageTo;
       final recentWarnings = <Map<String, dynamic>>[];
       var corruptLines = 0;
+      final networkRecords = <LogRecord>[];
 
       for (final file in copies) {
         final bytes = await file.readAsBytes();
@@ -103,6 +104,12 @@ class LogExporter {
           if (rec == null) {
             if (line.trim().isNotEmpty) corruptLines++;
             continue;
+          }
+          if (rec.event.startsWith('http.') ||
+              rec.event.startsWith('rollcall.') ||
+              rec.event.startsWith('homework.') ||
+              rec.event.startsWith('login.')) {
+            networkRecords.add(rec);
           }
           if (rec.level == 'W' || rec.level == 'E') {
             recentWarnings.add(LogRedactor.redactFields(rec.toJson()));
@@ -175,6 +182,44 @@ class LogExporter {
         'bytes': errorsBytes.length,
         'sha256': sha256.convert(errorsBytes).toString(),
       });
+
+      networkRecords.sort((a, b) => a.ts.compareTo(b.ts));
+      final networkText = networkRecords
+          .map(
+            (record) => jsonEncode(
+              LogRedactor.redactFields(
+                record.toJson(),
+                maxBytes: LogRedactor.maxProjectionUtf8Bytes,
+              ),
+            ),
+          )
+          .join('\n');
+      final guide =
+          '厦大签到诊断包\n'
+          '应用版本：${info.version}+${info.buildNumber}\n'
+          '系统：${Platform.operatingSystem}\n'
+          '生成时间（UTC）：$generatedAt\n\n'
+          'network.ndjson：按时间排序的网络、签到、作业和登录请求流水。\n'
+          '使用 requestId 关联请求与响应，使用 opId 关联一次签到操作。\n'
+          'queueMs 为排队耗时，latencyMs 为发出请求后的耗时；两者单位均为毫秒。\n'
+          'recent-errors.json：最近 50 条警告和错误，包含可用的异常类型和堆栈。\n'
+          'snapshot.json：当前身份范围、监测状态和日志状态快照。\n'
+          'app.ndjson / monitor-*.ndjson：原始前台及后台诊断事件。\n'
+          'manifest.json：文件大小及 SHA-256，用于检查压缩包完整性。\n'
+          '时间戳统一为 UTC，本地时间需要按时区换算。\n'
+          '日志已过滤登录密码、Cookie 和访问令牌。\n';
+      for (final entry in {
+        'network.ndjson': networkText,
+        'README.txt': guide,
+      }.entries) {
+        final bytes = utf8.encode(entry.value);
+        await File('${snapDir.path}/${entry.key}').writeAsBytes(bytes);
+        fileEntries.add({
+          'name': entry.key,
+          'bytes': bytes.length,
+          'sha256': sha256.convert(bytes).toString(),
+        });
+      }
 
       final manifest = <String, dynamic>{
         'schemaVersion': 1,

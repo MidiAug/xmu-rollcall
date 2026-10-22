@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -29,6 +30,7 @@ class _Auth extends AuthController {
 class _Repo extends Fake implements HomeworkRepository {
   final courses = <int>[];
   int statusCalls = 0;
+  CancelToken? statusToken;
   bool fail = false;
   Future<void> Function()? duringCourse;
   Future<void> Function()? duringStatus;
@@ -54,9 +56,15 @@ class _Repo extends Fake implements HomeworkRepository {
   Future<HomeworkSubmissionState> fetchSubmission({
     required int activityId,
     required int studentId,
+    CancelToken? cancelToken,
   }) async {
     statusCalls++;
-    await duringStatus?.call();
+    statusToken = cancelToken;
+    await Future.any<void>([
+      duringStatus?.call() ?? Future<void>.value(),
+      if (cancelToken != null)
+        cancelToken.whenCancel.then<void>((error) => throw error),
+    ]);
     if (fail) throw StateError('offline');
     return const HomeworkSubmissionState(
       submission: HomeworkSubmission.submitted,
@@ -244,6 +252,53 @@ void main() {
       );
     },
   );
+  testWidgets('a slow cold submission stops loading after its deadline', (
+    tester,
+  ) async {
+    repo.duringStatus = () => Completer<void>().future;
+    final provider = homeworkSubmissionProvider(const HomeworkStatusKey(1, 98));
+    final sub = container.listen(provider, (_, _) {});
+    addTearDown(sub.close);
+    final checked = expectLater(
+      container.read(provider.future),
+      throwsA(isA<DioException>()),
+    );
+    await tester.pumpAndSettle();
+    expect(repo.statusCalls, 1);
+    expect(container.read(provider).isLoading, isTrue);
+    await tester.pump(const Duration(seconds: 31));
+    await checked;
+    expect(repo.statusToken?.isCancelled, isTrue);
+    expect(container.read(provider).isLoading, isFalse);
+    expect(container.read(provider).hasError, isTrue);
+  });
+
+  test(
+    'leaving a cold status row cancels the queued or active request',
+    () async {
+      final entered = Completer<void>();
+      final hold = Completer<void>();
+      repo.duringStatus = () {
+        entered.complete();
+        return hold.future;
+      };
+      final provider = homeworkSubmissionProvider(
+        const HomeworkStatusKey(1, 99),
+      );
+      final sub = container.listen(provider, (_, _) {});
+      final pending = expectLater(
+        container.read(provider.future),
+        throwsA(isA<DioException>()),
+      );
+      await entered.future;
+      sub.close();
+      await container.pump();
+      expect(repo.statusToken?.isCancelled, isTrue);
+      await pending;
+      expect(await JsonDiskCache.readList('homework_submission_1_99'), isNull);
+    },
+  );
+
   test(
     'manual overview refresh does not rescan unchanged warm courses',
     () async {

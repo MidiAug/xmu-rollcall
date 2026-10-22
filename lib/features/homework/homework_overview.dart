@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/core/cache/cache_policy.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
@@ -258,7 +260,13 @@ final homeworkManualRefreshAtProvider = StateProvider.family<DateTime?, int>(
 final homeworkSubmissionProvider = FutureProvider.autoDispose
     .family<HomeworkSubmissionState, HomeworkStatusKey>((ref, key) async {
       var alive = true;
-      ref.onDispose(() => alive = false);
+      final token = CancelToken();
+      Timer? timeout;
+      ref.onDispose(() {
+        alive = false;
+        timeout?.cancel();
+        token.cancel('作业状态已离开');
+      });
       final scope = ref.watch(selectedRollcallAccountProvider);
       final owner = ref.watch(authControllerProvider).profile?.id;
       if ((scope ?? owner) != key.userId) throw StateError('作业身份已切换');
@@ -294,7 +302,14 @@ final homeworkSubmissionProvider = FutureProvider.autoDispose
       Future<HomeworkSubmissionState> refresh() async {
         try {
           if (!isCurrent()) throw StateError('作业身份已切换');
-          await prepareHomeworkSession(ref, scope);
+          timeout = Timer(
+            const Duration(seconds: 30),
+            () => token.cancel('作业状态查询超时'),
+          );
+          await Future.any<void>([
+            prepareHomeworkSession(ref, scope),
+            token.whenCancel.then<void>((error) => throw error),
+          ]);
           if (!isCurrent()) throw StateError('作业身份已切换');
           final result = await FetchLog.run(
             event: 'homework.submission.refresh',
@@ -303,6 +318,7 @@ final homeworkSubmissionProvider = FutureProvider.autoDispose
             fetch: () => repository.fetchSubmission(
               activityId: key.activityId,
               studentId: key.userId,
+              cancelToken: token,
             ),
           );
           if (!isCurrent()) throw StateError('作业身份已切换');
@@ -311,6 +327,8 @@ final homeworkSubmissionProvider = FutureProvider.autoDispose
         } catch (_) {
           if (cached != null) return cached;
           rethrow;
+        } finally {
+          timeout?.cancel();
         }
       }
 

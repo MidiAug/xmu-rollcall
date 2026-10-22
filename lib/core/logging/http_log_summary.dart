@@ -28,7 +28,10 @@ abstract final class HttpLogSummary {
     String method = 'GET',
   }) {
     if (opId != null && opId.isNotEmpty) return true;
-    return classify(path) != HttpLogKind.none;
+    // Metadata only: do not project account details or submission contents.
+    return path.endsWith('/submission_list') ||
+        path.endsWith('/api/profile') ||
+        classify(path) != HttpLogKind.none;
   }
 
   static HttpLogKind classify(String path) {

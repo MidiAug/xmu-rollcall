@@ -7,6 +7,13 @@ import 'package:xmu_rollcall/core/logging/log_redactor.dart';
 class AppLogDioInterceptor extends Interceptor {
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    options.extra.putIfAbsent('requestId', AppLog.newOpId);
+    options.extra.putIfAbsent(
+      '_applog_total_t0',
+      () =>
+          DateTime.now().millisecondsSinceEpoch -
+          (options.extra['queueMs'] as int? ?? 0),
+    );
     if (_shouldLog(options)) {
       options.extra['_applog_t0'] = DateTime.now().millisecondsSinceEpoch;
       final opId = options.extra['opId'] as String?;
@@ -15,6 +22,8 @@ class AppLogDioInterceptor extends Interceptor {
         level: 'I',
         opId: opId,
         fields: {
+          'requestId': options.extra['requestId'],
+          'queueMs': options.extra['queueMs'],
           'method': options.method,
           'path': _cleanPath(options.uri),
           'query': HttpLogSummary.filterQuery(options.uri),
@@ -44,10 +53,15 @@ class AppLogDioInterceptor extends Interceptor {
         opId: options.extra['opId'] as String?,
         maxFieldBytes: LogRedactor.maxProjectionUtf8Bytes,
         fields: {
+          'requestId': options.extra['requestId'],
+          'queueMs': options.extra['queueMs'],
           'method': options.method,
           'path': path,
           'status': response.statusCode,
+          'contentType': response.headers.value(Headers.contentTypeHeader),
+          'responseType': response.data.runtimeType.toString(),
           'latencyMs': ?latency,
+          'totalMs': _totalMs(options),
           'response': ?summary,
           if (options.extra['rollcallId'] != null)
             'rollcallId': options.extra['rollcallId'],
@@ -76,10 +90,19 @@ class AppLogDioInterceptor extends Interceptor {
         opId: options.extra['opId'] as String?,
         maxFieldBytes: LogRedactor.maxProjectionUtf8Bytes,
         fields: {
+          'requestId': options.extra['requestId'],
+          'queueMs': options.extra['queueMs'],
           'method': options.method,
           'path': path,
           'status': err.response?.statusCode,
+          'contentType': err.response?.headers.value(Headers.contentTypeHeader),
+          'responseType': err.response?.data.runtimeType.toString(),
           'latencyMs': ?latency,
+          'totalMs': _totalMs(options),
+          ...LogRedactor.exceptionFields(
+            error: err,
+            stackTrace: err.stackTrace,
+          ),
           'errorType': err.type.name,
           'message': err.type.name,
           'response': ?summary,
@@ -97,6 +120,11 @@ class AppLogDioInterceptor extends Interceptor {
       opId: options.extra['opId'] as String?,
       method: options.method,
     );
+  }
+
+  int? _totalMs(RequestOptions options) {
+    final start = options.extra['_applog_total_t0'] as int?;
+    return start == null ? null : DateTime.now().millisecondsSinceEpoch - start;
   }
 
   String _cleanPath(Uri uri) => uri.path;

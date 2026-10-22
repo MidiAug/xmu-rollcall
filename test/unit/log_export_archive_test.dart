@@ -71,6 +71,8 @@ void main() {
       expect(
         files.keys,
         containsAll([
+          'README.txt',
+          'network.ndjson',
           'manifest.json',
           'snapshot.json',
           'recent-errors.json',
@@ -78,6 +80,11 @@ void main() {
           'monitor-monitor.ndjson',
         ]),
       );
+      final trace = utf8.decode(files['network.ndjson']!.content as List<int>);
+      expect(jsonDecode(trace.trim())['event'], 'rollcall.type.unknown');
+      final guide = utf8.decode(files['README.txt']!.content as List<int>);
+      expect(guide, contains('requestId'));
+      expect(guide, contains('queueMs'));
       final manifest =
           jsonDecode(utf8.decode(files['manifest.json']!.content as List<int>))
               as Map;

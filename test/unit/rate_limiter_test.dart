@@ -62,6 +62,59 @@ void main() {
     },
   );
 
+  test(
+    'foreground starts while background work waits for reserved budget',
+    () async {
+      final limiter = RateLimiter(
+        maxPerMinute: 3,
+        foregroundReserve: 1,
+        maxConcurrent: 3,
+        minInterval: Duration.zero,
+        window: const Duration(seconds: 1),
+      );
+      await limiter.schedule(() async {}, priority: RequestPriority.background);
+      await limiter.schedule(() async {}, priority: RequestPriority.background);
+      final token = CancelToken();
+      var ran = false;
+      final background = limiter.schedule(
+        () async {
+          ran = true;
+        },
+        priority: RequestPriority.background,
+        cancelToken: token,
+      );
+      final cancelled = expectLater(background, throwsA(isA<DioException>()));
+      expect(
+        await limiter
+            .schedule(() async => 'foreground')
+            .timeout(const Duration(milliseconds: 300)),
+        'foreground',
+      );
+      expect(ran, isFalse);
+      token.cancel();
+      await cancelled;
+    },
+  );
+
+  test('background concurrency leaves a slot for interactive work', () async {
+    final limiter = RateLimiter(maxConcurrent: 2, minInterval: Duration.zero);
+    final release = Completer<void>();
+    final entered = Completer<void>();
+    final first = limiter.schedule(() {
+      entered.complete();
+      return release.future;
+    }, priority: RequestPriority.background);
+    await entered.future;
+    var queuedRan = false;
+    final queued = limiter.schedule(() async {
+      queuedRan = true;
+    }, priority: RequestPriority.background);
+    expect(await limiter.schedule(() async => 7), 7);
+    expect(queuedRan, isFalse);
+    release.complete();
+    await Future.wait([first, queued]);
+  });
+
   test('start spacing applies across concurrent requests', () async {
     final limiter = RateLimiter(minInterval: const Duration(milliseconds: 30));
     final starts = <DateTime>[];

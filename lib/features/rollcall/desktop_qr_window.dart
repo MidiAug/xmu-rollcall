@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:xmu_rollcall/core/logging/log_redactor.dart';
 
 import 'package:desktop_drop/desktop_drop.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
@@ -175,11 +176,11 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
         'image',
         session,
       );
-    } catch (error) {
+    } catch (error, stack) {
       await _log(
         'qr.desktop.image_error',
         level: 'W',
-        fields: {'errorType': error.runtimeType.toString()},
+        fields: LogRedactor.exceptionFields(error: error, stackTrace: stack),
       );
       if (mounted && _session == session) {
         setState(() => _status = '图片无法读取，请选择 PNG、JPG 或 WebP 图片');
@@ -216,13 +217,13 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
       while (_pendingImage != null && _session == session) {
         await _drainImage();
       }
-    } catch (error) {
+    } catch (error, stack) {
       if (_session == session && !_screenFailed) {
         _screenFailed = true;
         await _log(
           'qr.desktop.capture_error',
           level: 'W',
-          fields: {'errorType': error.runtimeType.toString()},
+          fields: LogRedactor.exceptionFields(error: error, stackTrace: stack),
         );
       }
       if (mounted && _session == session) {
@@ -250,11 +251,11 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
       if (file != null && mounted && _session == session) {
         _pendingImage = file.path;
       }
-    } catch (error) {
+    } catch (error, stack) {
       await _log(
         'qr.desktop.picker_error',
         level: 'W',
-        fields: {'errorType': error.runtimeType.toString()},
+        fields: LogRedactor.exceptionFields(error: error, stackTrace: stack),
       );
       if (mounted && _session == session) {
         setState(() => _status = '选图暂不可用，可以将图片拖入识别框');

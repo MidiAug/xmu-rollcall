@@ -192,7 +192,7 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
           controller: _scroll,
           child: !signedIn
               ? _SignedOutHint(onLogin: () => showLoginDialog(context))
-              : active && _foreground
+              : active
               ? _TodosBody(onOpen: _openDetail)
               : const SizedBox.shrink(),
         ),
