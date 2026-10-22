@@ -1,5 +1,23 @@
 import 'dart:math' as math;
 
+/// Validate before persisting or submitting a coordinate selection.
+void validateRadarLocation({
+  required double latitude,
+  required double longitude,
+  double accuracy = 35,
+}) {
+  if (!latitude.isFinite ||
+      latitude < -90 ||
+      latitude > 90 ||
+      !longitude.isFinite ||
+      longitude < -180 ||
+      longitude > 180 ||
+      !accuracy.isFinite ||
+      accuracy <= 0) {
+    throw ArgumentError('位置或精度无效，请重新选择位置');
+  }
+}
+
 /// Durable named point (classroom / virtual location).
 class SavedLocation {
   const SavedLocation({

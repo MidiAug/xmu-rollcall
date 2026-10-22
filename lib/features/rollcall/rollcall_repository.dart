@@ -803,7 +803,11 @@ class RollcallRepository {
         status: status,
       );
     } else {
-      final distance = map['distance'];
+      // Distance is optional legacy data; current XMU rejects may omit it.
+      final distance =
+          map['distance'] is num && (map['distance'] as num).isFinite
+          ? map['distance']
+          : null;
       final msg = distance != null
           ? '未成功，距离约 $distance'
           : (map['message']?.toString() ?? '提交失败 ($status)');

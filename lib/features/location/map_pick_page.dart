@@ -83,6 +83,12 @@ class MapPickPanelState extends State<MapPickPanel> {
   }
 
   @override
+  void dispose() {
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final coord =

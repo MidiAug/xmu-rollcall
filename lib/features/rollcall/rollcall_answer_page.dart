@@ -61,12 +61,17 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
   void _syncCoursePref() {
     if (!mounted || !widget.item.isRadar || _pinnedByUser) return;
     final pref = ref
-        .read(courseRadarDefaultsProvider.notifier)
+        .read(courseRadarDefaultsForProvider(widget.assistUserId).notifier)
         .forCourse(
           courseId: widget.item.courseId,
           courseTitle: widget.item.courseTitle,
         );
-    if (pref == null) return;
+    if (pref == null) {
+      if (_selection?.filledFrom == RadarFilledFrom.pref) {
+        setState(() => _selection = null);
+      }
+      return;
+    }
     final next = selectionFromCoursePref(
       pref,
       ref.read(savedLocationsProvider),
@@ -428,7 +433,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
       );
       if (result.ok) {
         await ref
-            .read(courseRadarDefaultsProvider.notifier)
+            .read(courseRadarDefaultsForProvider(widget.assistUserId).notifier)
             .rememberSuccess(
               courseTitle: widget.item.courseTitle,
               courseId: widget.item.courseId,
@@ -470,7 +475,10 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     final item = widget.item;
     final p = AppPalette.of(context);
     ref.listen(savedLocationsProvider, (_, _) => _syncCoursePref());
-    ref.listen(courseRadarDefaultsProvider, (_, _) => _syncCoursePref());
+    ref.listen(
+      courseRadarDefaultsForProvider(widget.assistUserId),
+      (_, _) => _syncCoursePref(),
+    );
 
     return SubpageScaffold(
       title: widget.previewMode ? '雷达签到（预览）' : '${item.typeLabel}签到',

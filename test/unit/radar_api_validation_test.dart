@@ -95,6 +95,30 @@ void main() {
     expect(adapter.requests, 1);
   });
   test(
+    'current rejection without distance preserves message without fabricating meters',
+    () async {
+      adapter.status = 400;
+      adapter.body = {'message': '不在签到范围内'};
+      final result = await repo.answerRadar(
+        rollcallId: 7,
+        latitude: 24.4,
+        longitude: 118.1,
+      );
+      expect(result.ok, isFalse);
+      expect(result.message, '不在签到范围内');
+      expect(adapter.requests, 1);
+      adapter.body = {};
+      final empty = await repo.answerRadar(
+        rollcallId: 7,
+        latitude: 24.4,
+        longitude: 118.1,
+      );
+      expect(empty.ok, isFalse);
+      expect(empty.message, '提交失败 (400)');
+      expect(empty.raw.containsKey('distance'), isFalse);
+    },
+  );
+  test(
     'authentication and throttling still propagate as HTTP errors',
     () async {
       for (final status in [401, 403, 429, 500]) {

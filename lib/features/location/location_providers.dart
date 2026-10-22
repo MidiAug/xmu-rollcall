@@ -17,20 +17,48 @@ final courseRadarDefaultsProvider =
       CourseRadarDefaultsController,
       Map<String, CourseRadarPref>
     >((ref) {
-      final uid = ref.watch(authControllerProvider.select((s) => s.profile?.id));
+      final uid = ref.watch(
+        authControllerProvider.select((s) => s.profile?.id),
+      );
       return CourseRadarDefaultsController(userId: uid);
     });
 
+final assistCourseRadarDefaultsProvider =
+    StateNotifierProvider.family<
+      CourseRadarDefaultsController,
+      Map<String, CourseRadarPref>,
+      int
+    >((ref, assistId) {
+      final owner = ref.watch(
+        authControllerProvider.select((s) => s.profile?.id),
+      );
+      return CourseRadarDefaultsController(
+        userId: owner,
+        assistUserId: assistId,
+      );
+    });
+
+StateNotifierProvider<
+  CourseRadarDefaultsController,
+  Map<String, CourseRadarPref>
+>
+courseRadarDefaultsForProvider(int? assistUserId) => assistUserId == null
+    ? courseRadarDefaultsProvider
+    : assistCourseRadarDefaultsProvider(assistUserId);
+
 class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
   SavedLocationsController() : super(const []) {
-    _load();
+    ready = _load();
   }
 
+  late final Future<void> ready;
+  Future<void> _writes = Future.value();
   static const _key = 'saved_radar_locations';
   final _uuid = const Uuid();
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     final raw = prefs.getString(_key);
     if (raw == null || raw.isEmpty) return;
     try {
@@ -42,12 +70,14 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
     } catch (_) {}
   }
 
-  Future<void> _persist() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      _key,
-      jsonEncode(state.map((e) => e.toJson()).toList()),
-    );
+  Future<void> _persist() {
+    final raw = jsonEncode(state.map((e) => e.toJson()).toList());
+    final write = _writes.then((_) async {
+      final prefs = await SharedPreferences.getInstance();
+      if (!await prefs.setString(_key, raw)) throw StateError('无法保存地点');
+    });
+    _writes = write.catchError((Object _) {});
+    return write;
   }
 
   Future<SavedLocation> add({
@@ -56,13 +86,20 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
     required double longitude,
     double accuracy = 35,
   }) async {
+    await ready;
+    if (!mounted) throw StateError('地点页面已关闭');
+    validateRadarLocation(
+      latitude: latitude,
+      longitude: longitude,
+      accuracy: accuracy,
+    );
     final trimmed = note.trim().isEmpty ? '未命名位置' : note.trim();
     final loc = SavedLocation(
       id: _uuid.v4(),
       note: trimmed,
       latitude: latitude,
       longitude: longitude,
-      accuracy: accuracy.clamp(5, 100),
+      accuracy: accuracy,
       createdAt: DateTime.now(),
     );
     state = [loc, ...state];
@@ -70,7 +107,9 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
     AppLog.event(
       'location.preset.add',
       fields: {
-        'idSuffix': loc.id.length <= 6 ? loc.id : loc.id.substring(loc.id.length - 6),
+        'idSuffix': loc.id.length <= 6
+            ? loc.id
+            : loc.id.substring(loc.id.length - 6),
         'noteLen': trimmed.length,
         'latitude': double.parse(latitude.toStringAsFixed(5)),
         'longitude': double.parse(longitude.toStringAsFixed(5)),
@@ -81,6 +120,8 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
   }
 
   Future<void> remove(String id) async {
+    await ready;
+    if (!mounted) return;
     state = state.where((e) => e.id != id).toList();
     await _persist();
     AppLog.event(
@@ -93,6 +134,8 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
   }
 
   Future<void> rename(String id, String note) async {
+    await ready;
+    if (!mounted) return;
     final trimmed = note.trim().isEmpty ? '未命名位置' : note.trim();
     state = [
       for (final e in state)
@@ -123,6 +166,9 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
     required double latitude,
     required double longitude,
   }) async {
+    await ready;
+    if (!mounted) return;
+    validateRadarLocation(latitude: latitude, longitude: longitude);
     state = [
       for (final e in state)
         if (e.id == id)
@@ -151,18 +197,24 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
 
 class CourseRadarDefaultsController
     extends StateNotifier<Map<String, CourseRadarPref>> {
-  CourseRadarDefaultsController({this.userId}) : super(const {}) {
-    _load();
+  CourseRadarDefaultsController({this.userId, this.assistUserId})
+    : super(const {}) {
+    ready = _load();
   }
 
+  late final Future<void> ready;
+  Future<void> _writes = Future.value();
   final int? userId;
+  final int? assistUserId;
 
   static const _legacyKey = 'course_radar_defaults';
 
   String? get _key {
     final id = userId;
     if (id == null || id == 0) return null;
-    return 'course_radar_defaults_$id';
+    return assistUserId == null
+        ? 'course_radar_defaults_$id'
+        : 'course_radar_defaults_${id}_assist_$assistUserId';
   }
 
   Future<void> _load() async {
@@ -172,8 +224,9 @@ class CourseRadarDefaultsController
       return;
     }
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     var raw = prefs.getString(key);
-    if (raw == null || raw.isEmpty) {
+    if (assistUserId == null && (raw == null || raw.isEmpty)) {
       final legacy = prefs.getString(_legacyKey);
       if (legacy != null && legacy.isNotEmpty) {
         await prefs.setString(key, legacy);
@@ -181,6 +234,7 @@ class CourseRadarDefaultsController
         raw = legacy;
       }
     }
+    if (!mounted) return;
     if (raw == null || raw.isEmpty) {
       state = const {};
       return;
@@ -199,14 +253,18 @@ class CourseRadarDefaultsController
     }
   }
 
-  Future<void> _persist() async {
+  Future<void> _persist() {
     final key = _key;
-    if (key == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
-      key,
-      jsonEncode({for (final e in state.entries) e.key: e.value.toJson()}),
-    );
+    if (key == null) return Future.value();
+    final raw = jsonEncode({
+      for (final e in state.entries) e.key: e.value.toJson(),
+    });
+    final write = _writes.then((_) async {
+      final prefs = await SharedPreferences.getInstance();
+      if (!await prefs.setString(key, raw)) throw StateError('无法保存课程位置');
+    });
+    _writes = write.catchError((Object _) {});
+    return write;
   }
 
   CourseRadarPref? forCourse({String? courseId, String courseTitle = ''}) {
@@ -217,7 +275,14 @@ class CourseRadarDefaultsController
     }
     final title = courseTitle.trim();
     if (title.isEmpty) return null;
-    return state['t:$title'] ?? state[title];
+    final byTitle = state['t:$title'] ?? state[title];
+    if (id.isNotEmpty &&
+        byTitle != null &&
+        byTitle.courseId.isNotEmpty &&
+        byTitle.courseId != id) {
+      return null;
+    }
+    return byTitle;
   }
 
   Future<void> rememberSuccess({
@@ -230,6 +295,13 @@ class CourseRadarDefaultsController
     required RadarObtainedVia obtainedVia,
     String labelSnapshot = '',
   }) async {
+    await ready;
+    if (!mounted) return;
+    validateRadarLocation(
+      latitude: latitude,
+      longitude: longitude,
+      accuracy: accuracy,
+    );
     final title = courseTitle.trim();
     final id = courseId?.trim() ?? '';
     final key = courseRadarStorageKey(courseId: id, courseTitle: title);
@@ -240,7 +312,7 @@ class CourseRadarDefaultsController
       courseId: id,
       latitude: latitude,
       longitude: longitude,
-      accuracy: accuracy.clamp(5, 100),
+      accuracy: accuracy,
       placeId: placeId,
       obtainedVia: obtainedVia.storageKey,
       labelSnapshot: labelSnapshot,
@@ -255,5 +327,14 @@ class CourseRadarDefaultsController
     }
     state = next;
     await _persist();
+    AppLog.event(
+      'location.course.remember',
+      fields: {
+        'courseId': id,
+        'scope': assistUserId == null ? 'owner' : 'assist',
+        'source': obtainedVia.storageKey,
+        'hasPlace': placeId.isNotEmpty,
+      },
+    );
   }
 }
