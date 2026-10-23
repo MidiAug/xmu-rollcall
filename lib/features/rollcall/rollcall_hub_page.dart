@@ -53,6 +53,14 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
         !ref.read(authControllerProvider).isSignedIn) {
       return;
     }
+    final monitor = ref.read(monitorControllerProvider);
+    if (monitor.running || monitor.starting || monitor.loadingSettings) {
+      AppLog.event(
+        'rollcall.appear.skipped',
+        fields: {'reason': 'monitor_owns_refresh'},
+      );
+      return;
+    }
     unawaited(
       ref
           .read(activeRollcallsProvider(_assistUserId).notifier)

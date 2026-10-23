@@ -7,11 +7,7 @@ import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 
 /// Compact status pill for assist roster (方案 A).
 class AssistSharedCourseChip extends StatelessWidget {
-  const AssistSharedCourseChip({
-    super.key,
-    required this.identity,
-    this.onTap,
-  });
+  const AssistSharedCourseChip({super.key, required this.identity, this.onTap});
 
   final AssistIdentity identity;
   final VoidCallback? onTap;
@@ -21,34 +17,28 @@ class AssistSharedCourseChip extends StatelessWidget {
     final p = AppPalette.of(context);
     final status = identity.sharedCourseStatus;
     final (label, fg, bg) = switch (status) {
-      AssistSharedCourseStatus.neverSynced => (
-          '未同步',
-          p.muted,
-          p.surfaceHigh,
-        ),
+      AssistSharedCourseStatus.neverSynced => ('未同步', p.muted, p.surfaceHigh),
       AssistSharedCourseStatus.none => () {
-          final warn = Theme.of(context).brightness == Brightness.dark
-              ? const Color(0xFFFBBF24)
-              : const Color(0xFFB45309);
-          return (
-            '无同课',
-            warn,
-            warn.withValues(alpha: 0.12),
-          );
-        }(),
+        final warn = Theme.of(context).brightness == Brightness.dark
+            ? const Color(0xFFFBBF24)
+            : const Color(0xFFB45309);
+        return ('无同课', warn, warn.withValues(alpha: 0.12));
+      }(),
       AssistSharedCourseStatus.some => (
-          '同课 ${identity.sharedCourses.length}',
-          p.primary,
-          p.selected,
-        ),
+        '同课 ${identity.sharedCourses.length}',
+        p.primary,
+        p.selected,
+      ),
     };
 
     return Material(
       color: Colors.transparent,
+      borderRadius: BorderRadius.circular(AppRadii.control),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppRadii.control),
-        child: Container(
+        child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
             color: bg,
@@ -82,7 +72,9 @@ Future<void> showAssistSharedCoursesSheet(
     showDragHandle: true,
     backgroundColor: p.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.dialog)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(AppRadii.dialog),
+      ),
     ),
     builder: (ctx) {
       return SafeArea(
@@ -107,17 +99,13 @@ Future<void> showAssistSharedCoursesSheet(
                 ),
               ),
               const SizedBox(height: AppSpace.xs),
-              Text(
-                switch (status) {
-                  AssistSharedCourseStatus.neverSynced =>
-                    '尚未同步与你的共同课程。刷新后才能判断能否在二维码页代签。',
-                  AssistSharedCourseStatus.none =>
-                    '当前没有共同课程，二维码协助勾选中不会出现此人；仍可从其签到页代做数字/雷达。',
-                  AssistSharedCourseStatus.some =>
-                    '以下课程与你相同，二维码签到时可勾选代交：',
-                },
-                style: TextStyle(fontSize: 13, height: 1.45, color: p.muted),
-              ),
+              Text(switch (status) {
+                AssistSharedCourseStatus.neverSynced =>
+                  '尚未同步与你的共同课程。刷新后才能判断能否在二维码页代签。',
+                AssistSharedCourseStatus.none =>
+                  '当前没有共同课程，二维码协助勾选中不会出现此人；仍可从其签到页代做数字/雷达。',
+                AssistSharedCourseStatus.some => '以下课程与你相同，二维码签到时可勾选代交：',
+              }, style: TextStyle(fontSize: 13, height: 1.45, color: p.muted)),
               if (status == AssistSharedCourseStatus.some) ...[
                 const SizedBox(height: AppSpace.md),
                 ConstrainedBox(
@@ -125,14 +113,11 @@ Future<void> showAssistSharedCoursesSheet(
                   child: ListView.separated(
                     shrinkWrap: true,
                     itemCount: identity.sharedCourses.length,
-                    separatorBuilder: (_, _) => Divider(
-                      height: 1,
-                      color: p.border,
-                    ),
+                    separatorBuilder: (_, _) =>
+                        Divider(height: 1, color: p.border),
                     itemBuilder: (_, i) {
                       final c = identity.sharedCourses[i];
-                      final title =
-                          c.title.isNotEmpty ? c.title : '课程 ${c.id}';
+                      final title = c.title.isNotEmpty ? c.title : '课程 ${c.id}';
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
                         dense: true,

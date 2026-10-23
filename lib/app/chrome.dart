@@ -329,51 +329,54 @@ class _ChoiceCubeButton<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        splashFactory: NoSplash.splashFactory,
-        highlightColor: Colors.transparent,
-        focusColor: palette.selected,
-        onTap: onTap,
-        child: AnimatedContainer(
-          // Snap accent fill — avoid gray↔indigo Color.lerp flash.
-          duration: selected ? Duration.zero : AppMotion.instant,
-          curve: AppMotion.instantCurve,
-          padding: padding,
-          decoration: BoxDecoration(
-            color: selected
-                ? palette.selected
-                : AppPalette.clearOf(palette.selected),
-            borderRadius: BorderRadius.circular(AppRadii.group),
-            border: Border.all(
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: BorderRadius.circular(AppRadii.group),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadii.group),
+          hoverColor: palette.hover,
+          splashFactory: NoSplash.splashFactory,
+          highlightColor: Colors.transparent,
+          focusColor: palette.selected,
+          onTap: onTap,
+          child: Ink(
+            padding: padding,
+            decoration: BoxDecoration(
               color: selected
-                  ? palette.primary.withValues(alpha: 0.45)
-                  : palette.borderStrong,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                cube.icon,
-                size: 20,
-                color: selected ? palette.primary : palette.muted,
+                  ? palette.selected
+                  : AppPalette.clearOf(palette.selected),
+              borderRadius: BorderRadius.circular(AppRadii.group),
+              border: Border.all(
+                color: selected
+                    ? palette.primary.withValues(alpha: 0.45)
+                    : palette.borderStrong,
               ),
-              const SizedBox(height: AppSpace.xxs),
-              Text(
-                cube.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.35,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  letterSpacing: -0.1,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  cube.icon,
+                  size: 20,
                   color: selected ? palette.primary : palette.muted,
                 ),
-              ),
-            ],
+                const SizedBox(height: AppSpace.xxs),
+                Text(
+                  cube.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.35,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    letterSpacing: -0.1,
+                    color: selected ? palette.primary : palette.muted,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

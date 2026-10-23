@@ -128,6 +128,7 @@ class SettingsRow extends StatefulWidget {
 class _SettingsRowState extends State<SettingsRow> {
   var _hover = false;
   var _pressed = false;
+  var _focused = false;
 
   @override
   Widget build(BuildContext context) {
@@ -135,7 +136,7 @@ class _SettingsRowState extends State<SettingsRow> {
     final h = widget.minHeight ?? AppDensity.rowHeight(context);
     final gap = AppDensity.rowInnerGap(context);
     final interactive = widget.onTap != null;
-    final wash = interactive && (_pressed || _hover)
+    final wash = interactive && (_pressed || _hover || _focused)
         ? p.hover
         : AppPalette.clearOf(p.hover);
 
@@ -205,12 +206,19 @@ class _SettingsRowState extends State<SettingsRow> {
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       cursor: SystemMouseCursors.click,
-      child: InkWell(
-        splashFactory: NoSplash.splashFactory,
-        focusColor: p.selected,
-        onHighlightChanged: (pressed) => setState(() => _pressed = pressed),
-        onTap: widget.onTap,
-        child: content,
+      child: Material(
+        type: MaterialType.transparency,
+        clipBehavior: Clip.hardEdge,
+        child: InkWell(
+          hoverColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          onFocusChange: (focused) => setState(() => _focused = focused),
+          splashFactory: NoSplash.splashFactory,
+          focusColor: Colors.transparent,
+          onHighlightChanged: (pressed) => setState(() => _pressed = pressed),
+          onTap: widget.onTap,
+          child: content,
+        ),
       ),
     );
   }

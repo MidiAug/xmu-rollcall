@@ -229,4 +229,32 @@ void main() {
       expect(repo.calls, 2);
     },
   );
+  test('only fetched snapshots advance the list check time', () async {
+    var now = observed;
+    final repo = _Repo();
+    final container = make(repo, () => now);
+    addTearDown(container.dispose);
+    await container.read(activeRollcallsProvider(null).future);
+    final notifier = container.read(activeRollcallsProvider(null).notifier);
+    expect(notifier.lastUpdatedAt, observed);
+    now = now.add(const Duration(seconds: 30));
+    notifier.applyMonitorItems([signed]); // Local automatic-answer feedback.
+    expect(notifier.lastUpdatedAt, observed);
+    expect(
+      container
+          .read(activeRollcallsProvider(null))
+          .requireValue
+          .single
+          .isAnswered,
+      isTrue,
+    );
+    notifier.applyMonitorItems([
+      signed,
+    ], fetchedAt: observed); // Repeated snapshot.
+    expect(notifier.lastUpdatedAt, observed);
+    now = now.add(const Duration(seconds: 90));
+    notifier.applyMonitorItems([], fetchedAt: now);
+    expect(notifier.lastUpdatedAt, now);
+    expect(repo.calls, 1);
+  });
 }

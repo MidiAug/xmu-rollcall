@@ -436,27 +436,31 @@ class _TeachingCourseCard extends ConsumerWidget {
             ),
           ),
           Panel(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.zero,
             child: async.when(
               skipLoadingOnReload: false,
               loading: () => const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16),
                 child: LinearProgressIndicator(minHeight: 2),
               ),
-              error: (_, _) => Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '暂时无法更新课程作业',
-                      style: TextStyle(fontSize: 12, color: p.muted),
+              error: (_, _) => Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '暂时无法更新课程作业',
+                        style: TextStyle(fontSize: 12, color: p.muted),
+                      ),
                     ),
-                  ),
-                  TextButton(
-                    onPressed: () =>
-                        ref.read(courseHomeworkProvider(id).notifier).refresh(),
-                    child: const Text('重试'),
-                  ),
-                ],
+                    TextButton(
+                      onPressed: () => ref
+                          .read(courseHomeworkProvider(id).notifier)
+                          .refresh(),
+                      child: const Text('重试'),
+                    ),
+                  ],
+                ),
               ),
               data: (items) {
                 final open = items.where((i) => !i.isOverdue).toList();
@@ -465,14 +469,20 @@ class _TeachingCourseCard extends ConsumerWidget {
                   children: [
                     if (open.isEmpty)
                       Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        padding: const EdgeInsets.all(16),
                         child: Text(
                           '当前没有进行中的作业',
                           style: TextStyle(fontSize: 12, color: p.muted),
                         ),
                       ),
                     for (var i = 0; i < open.length; i++) ...[
-                      if (i > 0) Divider(height: 1, color: p.border),
+                      if (i > 0)
+                        Divider(
+                          height: 1,
+                          color: p.border,
+                          indent: 16,
+                          endIndent: 16,
+                        ),
                       _TeachingAssignmentRow(
                         item: open[i],
                         onTap: () =>
@@ -503,38 +513,35 @@ class _TeachingAssignmentRow extends StatelessWidget {
         ? '无截止日期'
         : '${due.year == DateTime.now().year ? '' : '${due.year}/'}${due.month}/${due.day} '
               '${due.hour.toString().padLeft(2, '0')}:${due.minute.toString().padLeft(2, '0')} 截止';
-    return InkWell(
+    return AppHoverSurface(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title.isEmpty ? '未命名作业' : item.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: p.ink,
-                    ),
+      borderRadius: BorderRadius.zero,
+      outlined: false,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title.isEmpty ? '未命名作业' : item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: p.ink,
                   ),
-                  const SizedBox(height: 5),
-                  Text(
-                    dueLabel,
-                    style: TextStyle(fontSize: 12, color: p.muted),
-                  ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 5),
+                Text(dueLabel, style: TextStyle(fontSize: 12, color: p.muted)),
+              ],
             ),
-            const SizedBox(width: 8),
-            Icon(Icons.chevron_right, size: 18, color: p.muted),
-          ],
-        ),
+          ),
+          const SizedBox(width: 8),
+          Icon(Icons.chevron_right, size: 18, color: p.muted),
+        ],
       ),
     );
   }

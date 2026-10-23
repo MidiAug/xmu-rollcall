@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/cache/cache_policy.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
@@ -130,6 +131,22 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text('助教作业4'), findsOneWidget);
+        final teachingRow = find.ancestor(
+          of: find.text('助教作业4'),
+          matching: find.byType(AppHoverSurface),
+        );
+        final teachingPanel = find.ancestor(
+          of: teachingRow,
+          matching: find.byType(Panel),
+        );
+        expect(
+          tester.getRect(teachingRow).left,
+          tester.getRect(teachingPanel).left,
+        );
+        expect(
+          tester.getRect(teachingRow).right,
+          tester.getRect(teachingPanel).right,
+        );
         expect(find.text('助教课程示例'), findsOneWidget);
         expect(find.text('进行中 1 项'), findsNothing);
         expect(find.text('已截止 3 项'), findsNothing);

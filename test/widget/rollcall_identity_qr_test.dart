@@ -7,6 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/shell_tab_scope.dart';
+import 'package:xmu_rollcall/app/destinations.dart';
+import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/app_switch.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
@@ -129,6 +132,29 @@ class _Lists extends ActiveRollcallsNotifier {
           .toList();
 }
 
+var _appearanceChecks = 0;
+var _manualChecks = 0;
+
+class _AppearanceLists extends _Lists {
+  @override
+  Future<void> ensureFreshOnAppear() async {
+    _appearanceChecks++;
+  }
+
+  @override
+  Future<void> refresh() async {
+    _manualChecks++;
+  }
+}
+
+class _RunningMonitor extends MonitorController {
+  _RunningMonitor(super.ref) {
+    state = state.copyWith(running: true, loadingSettings: false);
+  }
+  void finish() =>
+      state = state.copyWith(running: false, loadingSettings: false);
+}
+
 void main() {
   tearDown(AppToast.dismiss);
   setUp(() {
@@ -141,7 +167,11 @@ void main() {
     _data[SessionKey.assist(4).storageId] = [_row(id: 9002)];
   });
 
-  Future<_Service> show(WidgetTester tester, Widget page) async {
+  Future<_Service> show(
+    WidgetTester tester,
+    Widget page, {
+    bool visibleTab = false,
+  }) async {
     final store = SecureStore.memory();
     final service = _Service();
     await tester.pumpWidget(
@@ -168,17 +198,62 @@ void main() {
                   }) => _Client(store: store, sessionKey: sessionKey),
             ),
           ),
-          activeRollcallsProvider.overrideWith(_Lists.new),
+          activeRollcallsProvider.overrideWith(
+            visibleTab ? _AppearanceLists.new : _Lists.new,
+          ),
+          if (visibleTab)
+            monitorControllerProvider.overrideWith(_RunningMonitor.new),
         ],
         child: MaterialApp(
           theme: AppTheme.light(),
-          home: Scaffold(body: page),
+          home: Scaffold(
+            body: visibleTab
+                ? ShellTabScope(
+                    current: AppDestination.rollcall,
+                    retapEpoch: 0,
+                    retapDestination: null,
+                    child: page,
+                  )
+                : page,
+          ),
         ),
       ),
     );
     await tester.pumpAndSettle();
     return service;
   }
+
+  testWidgets(
+    'running detection owns automatic refresh, manual refresh remains available',
+    (tester) async {
+      _appearanceChecks = 0;
+      _manualChecks = 0;
+      await show(tester, const RollcallHubPage(), visibleTab: true);
+      final context = tester.element(find.byType(RollcallHubPage));
+      final container = ProviderScope.containerOf(context);
+      for (var i = 0; i < 3; i++) {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump(const Duration(seconds: 25));
+      }
+      expect(_appearanceChecks, 0);
+      await tester.tap(find.byType(AppRefreshButton));
+      await tester.pumpAndSettle();
+      expect(_manualChecks, 1);
+      (container.read(monitorControllerProvider.notifier) as _RunningMonitor)
+          .finish();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(_appearanceChecks, 1);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets(
     'narrow sign-in toolbar switches list/session and QR opens secondary page',

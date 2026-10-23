@@ -334,7 +334,12 @@ class MonitorController extends StateNotifier<MonitorState> {
               _ref.read(selectedRollcallAccountProvider),
             ).notifier,
           )
-          .applyMonitorItems(items);
+          .applyMonitorItems(
+            items,
+            fetchedAt: successMs == null
+                ? null
+                : DateTime.fromMillisecondsSinceEpoch(successMs),
+          );
     }
     if (data['reason'] == 'session_expired' && scope == null) {
       _ref.read(authControllerProvider.notifier).expireSession();
@@ -603,7 +608,17 @@ class MonitorController extends StateNotifier<MonitorState> {
       );
       _engine = MonitorEngine(
         config: state.config,
-        fetch: repo.fetchActive,
+        fetch: () {
+          AppLog.event(
+            'monitor.discovery.start',
+            fields: {
+              'intervalSeconds': state.config.effectiveIntervalSeconds,
+              'jitterRatio': state.config.jitterRatio,
+              'session': scope == null ? 'owner' : 'assist',
+            },
+          );
+          return repo.fetchActive();
+        },
         processAutomatic: automatic.process,
         completedAutomaticIds: () => automatic.completedIds,
         notify: (items) async {
@@ -615,6 +630,16 @@ class MonitorController extends StateNotifier<MonitorState> {
         },
         onUpdate: (update) {
           if (!current()) return;
+          if (update.lastPollAt != null && update.ok != null) {
+            AppLog.event(
+              'monitor.discovery.result',
+              fields: {
+                'ok': update.ok,
+                'count': ?update.count,
+                'failures': update.failures,
+              },
+            );
+          }
           if (update.sessionExpired) {
             stop(reason: 'session_expired');
             state = state.copyWith(
@@ -655,7 +680,7 @@ class MonitorController extends StateNotifier<MonitorState> {
                     _ref.read(selectedRollcallAccountProvider),
                   ).notifier,
                 )
-                .applyMonitorItems(update.items!);
+                .applyMonitorItems(update.items!, fetchedAt: update.lastPollAt);
           }
         },
       );
