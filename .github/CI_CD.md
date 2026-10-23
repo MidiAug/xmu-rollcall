@@ -33,11 +33,12 @@ pwsh -File scripts/package-android.ps1 -RequireSigning
 
 ## 准备一个版本
 
-1. 修改 `pubspec.yaml` 的 `version: X.Y.Z+BUILD`，递增版本和 Android build number，提交并合入 `main`。
-2. 主分支 CI 通过后，在该提交创建并推送 `vX.Y.Z` 标签（例如源码 `0.1.2+3` 对应 `v0.1.2`）。标签必须指向 `main` 已包含的提交；不要移动已用标签。
-3. `Release draft` 会验证标签、主分支归属和签名配置，再重新运行同一套质量门禁、构建两端产物。
-4. 验证两个 manifest 的完整版本（含 BUILD）、来源提交、签名模式、精确文件集合、大小及 SHA-256，并检查 ZIP 完整性后，生成带更新说明的 **Release 草稿**。
-5. 在草稿下载并完成 Android 覆盖安装、Windows 安装/便携运行等设备验收，核对哈希后，手动发布。自动构建通过不等于真实登录、定位、通知和签到验收通过。
+1. 平时完成有意义的功能、修复或维护调整时，把面向用户或维护者的摘要加入根目录 `CHANGELOG.md` 的 `Unreleased`，按 Added / Changed / Fixed 等分类；同一变化可合并，不必每次保存代码都记一条。纯格式、无行为变化的小重构可不记，PR 中说明原因。
+2. 发版前修改 `pubspec.yaml` 的 `version: X.Y.Z+BUILD`，递增版本和 Android build number；将本次条目移到对应的 `## [X.Y.Z] - YYYY-MM-DD` 下，并保留新的 `Unreleased` 区。代码与日志一起提交并合入 `main`。
+3. 主分支 CI 通过后，在该提交创建并推送 `vX.Y.Z` 标签（例如源码 `0.1.2+3` 对应 `v0.1.2`）。标签必须指向 `main` 已包含的提交；不要移动已用标签。
+4. `Release draft` 会验证标签、主分支归属、对应版本的非空 changelog 和签名配置，再重新运行同一套质量门禁、构建两端产物。缺少版本更新说明时，预检失败，不会用 `Unreleased` 或 Git 提交列表替代。
+5. 验证两个 manifest 的完整版本（含 BUILD）、来源提交、签名模式、精确文件集合、大小及 SHA-256，并检查 ZIP 完整性后，把 changelog 对应版本的正文写入 **Release 草稿**。重试时同步刷新草稿正文；已经公开的 Release 不会被更新。
+6. 在草稿下载并完成 Android 覆盖安装、Windows 安装/便携运行等设备验收，核对哈希后，手动发布。自动构建通过不等于真实登录、定位、通知和签到验收通过。
 
 首个自动化版本应使用新版本号，不复用现有公开版本。Windows 产物目前没有 Authenticode 发布者签名。
 
@@ -56,6 +57,7 @@ pwsh -File scripts/package-android.ps1 -RequireSigning
 
 ```powershell
 python -m unittest discover -s scripts/ci -p 'test_*.py' -v
+python scripts/ci/changelog.py
 actionlint
 flutter pub get --enforce-lockfile
 flutter analyze --no-pub
@@ -65,6 +67,8 @@ pwsh -File scripts/package-windows.ps1 -NoPub
 ```
 
 产物校验脚本只依赖 Python 标准库，不需要安装额外包。
+
+整理好版本条目后，可在本机预览将写入 Release 的正文：`python scripts/ci/changelog.py --tag vX.Y.Z`。根目录 `CHANGELOG.md` 是公开发布说明的来源；被 Git 忽略的 `docs/CHANGELOG.md` 继续用于本地详细开发记录。
 
 若本机代理导致测试启动时出现 `Invalid WebSocket upgrade request`，在当前终端为回环地址设置 `$env:NO_PROXY='localhost,127.0.0.1,::1'` 后重跑；不需要开启真实校园网测试。
 

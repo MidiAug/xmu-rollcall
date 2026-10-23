@@ -140,7 +140,7 @@ flutter analyze
 flutter test
 ```
 
-普通测试使用模拟数据；真实账号、设备权限和后台行为需要单独做实机检查。GitHub Actions 在 Windows 和 Linux 上运行静态分析、单元/组件及模拟会话集成测试；主分支通过后自动生成 Android 测试 APK 和 Windows 安装包/便携 ZIP。版本标签经过正式签名与产物校验后生成 Release 草稿，确认设备验收后手动发布。详见 [CI/CD 与签名配置](.github/CI_CD.md)。
+普通测试使用模拟数据；真实账号、设备权限和后台行为需要单独做实机检查。GitHub Actions 在 Windows 和 Linux 上运行静态分析、单元/组件及模拟会话集成测试；主分支通过后自动生成 Android 测试 APK 和 Windows 安装包/便携 ZIP。版本标签经过正式签名与产物校验后生成 Release 草稿，更新说明自动取自 [CHANGELOG.md](CHANGELOG.md) 对应版本，确认设备验收后手动发布。详见 [CI/CD 与签名配置](.github/CI_CD.md)。
 
 </details>
 

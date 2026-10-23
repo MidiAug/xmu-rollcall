@@ -29,6 +29,10 @@ jobs:
           test "$REF_TYPE" = tag || { echo 'Select an existing version tag when dispatching this workflow.'; exit 1; }
           python scripts/ci/artifacts.py version --tag "$RELEASE_TAG"
           git merge-base --is-ancestor HEAD origin/main
+      - name: Require this version's changelog
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python scripts/ci/changelog.py --tag "$RELEASE_TAG" --output "$RUNNER_TEMP/release-notes.md"
       - name: Require stable Android signing secrets
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -80,11 +84,20 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
+          notes="$RUNNER_TEMP/release-notes.md"
+          python scripts/ci/changelog.py --tag "$RELEASE_TAG" --output "$notes"
+          cat >> "$notes" <<'EOF'
+
+          ---
+
+          Android 使用配置的固定签名；Windows 产物尚无发布者数字签名。安装前请核对 SHA256SUMS，完成设备验收后再正式发布。
+          EOF
           if gh release view "$RELEASE_TAG" --json isDraft > "$RUNNER_TEMP/release.json"; then
             test "$(jq -r .isDraft "$RUNNER_TEMP/release.json")" = true || { echo 'Release is already published; refusing to replace its assets.'; exit 1; }
             gh release upload "$RELEASE_TAG" dist/* --clobber
+            gh release edit "$RELEASE_TAG" --notes-file "$notes"
           else
             gh release create "$RELEASE_TAG" dist/* --verify-tag --draft --title "$RELEASE_TAG" \
-              --generate-notes --notes 'Android uses the configured signing key. Windows binaries are not Authenticode signed. Verify SHA256SUMS and complete device acceptance before publishing.'
+              --notes-file "$notes"
           fi
           echo 'Release draft prepared. Device acceptance and publication remain manual.' >> "$GITHUB_STEP_SUMMARY"
