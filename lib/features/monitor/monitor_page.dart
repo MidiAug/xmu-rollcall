@@ -20,7 +20,6 @@ class MonitorSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
-  bool _showMore = false;
   bool _showLogs = false;
 
   @override
@@ -55,7 +54,14 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
           children: [
             SettingsSection(
               padTop: false,
+              header: '签到规则',
               hasLeading: false,
+              footer: c.autoAnswer
+                  ? Text(
+                      '雷达使用本课已保存的位置；没有位置或提交失败时由你处理。二维码需手动扫码。',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    )
+                  : null,
               children: [
                 SettingsRow(
                   title: '自动签到',
@@ -65,9 +71,15 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                       : state.running
                       ? '检测到签到后，按下方规则自动提交'
                       : '已开启，开始检测后生效',
-                  trailing: AppSwitch(
-                    value: c.autoAnswer,
-                    onChanged: ready ? ctrl.setAutomaticAnswer : null,
+                  trailing: SizedBox(
+                    width: 148,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: AppSwitch(
+                        value: c.autoAnswer,
+                        onChanged: ready ? ctrl.setAutomaticAnswer : null,
+                      ),
+                    ),
                   ),
                 ),
                 if (c.autoAnswer) ...[
@@ -94,6 +106,7 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                       stackSubtitleOnNarrow: true,
                       subtitle: '达到后提交，最多等待 5 分钟',
                       trailing: _NumberControl(
+                        key: const ValueKey('monitor-answer-control'),
                         label: c.answerWaitMode == AnswerWaitMode.count
                             ? '已签到人数'
                             : '已签到比例',
@@ -115,49 +128,55 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                             : null,
                       ),
                     ),
-                  Padding(
-                    padding: rowPadding,
-                    child: Text(
-                      '雷达使用本课已保存的位置；没有位置或提交失败时由你处理。二维码需手动扫码。',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ),
                 ],
-                SettingsRow(
+              ],
+            ),
+            SettingsSection(
+              header: '检测与提醒',
+              hasLeading: false,
+              children: [
+                _SliderSetting(
                   title: '检测间隔',
+                  sliderKey: const ValueKey('monitor-interval'),
+                  value: c.effectiveIntervalSeconds.clamp(15, 120).toDouble(),
+                  valueLabel: '${c.effectiveIntervalSeconds} 秒',
+                  min: 15,
+                  max: 120,
+                  divisions: 21,
+                  formatValue: (value) => '${value.round()} 秒',
+                  onChanged: ready
+                      ? (value) => ctrl.setIntervalSeconds(value.round())
+                      : null,
+                  onChangeEnd: ready ? (_) => ctrl.commitPersist() : null,
+                ),
+                _SliderSetting(
+                  title: '随机扰动',
+                  sliderKey: const ValueKey('monitor-jitter'),
+                  value: c.jitterRatio,
+                  valueLabel: '±${(c.jitterRatio * 100).round()}%',
+                  min: 0,
+                  max: 0.5,
+                  divisions: 10,
+                  formatValue: (value) => '上下浮动百分之${(value * 100).round()}',
+                  onChanged: ready ? ctrl.setJitterRatio : null,
+                  onChangeEnd: ready ? (_) => ctrl.commitPersist() : null,
+                  description: '$intervalDescription；连接失败时会延后重试。',
+                ),
+                SettingsRow(
+                  title: '人数刷新',
                   stackSubtitleOnNarrow: true,
-                  subtitle: intervalDescription,
-                  trailing: AppShellSelect<MonitorPreset>(
-                    semanticLabel: '检测间隔',
-                    value: c.preset,
-                    items: MonitorPreset.values,
-                    labelOf: (preset) => switch (preset) {
-                      MonitorPreset.classroom => '课堂 · 20 秒',
-                      MonitorPreset.eco => '省电 · 60 秒',
-                      MonitorPreset.custom => '自定义',
-                    },
-                    width: 148,
-                    onChanged: ready ? ctrl.setPreset : null,
+                  subtitle: '用于签到卡片和自动签到的等待人数',
+                  trailing: _NumberControl(
+                    key: const ValueKey('monitor-attendance-control'),
+                    label: '人数刷新间隔',
+                    value: c.effectiveAttendanceIntervalSeconds,
+                    unit: '秒',
+                    min: 15,
+                    max: 120,
+                    step: 5,
+                    onChanged: ready ? ctrl.setAttendanceIntervalSeconds : null,
                   ),
                 ),
-                if (c.preset == MonitorPreset.custom)
-                  SettingsRow(
-                    title: '自定义间隔',
-                    trailing: _NumberControl(
-                      label: '检测间隔',
-                      value: c.effectiveIntervalSeconds,
-                      unit: '秒',
-                      min: 15,
-                      max: 120,
-                      step: 5,
-                      onChanged: ready
-                          ? (value) {
-                              ctrl.setIntervalSeconds(value);
-                              ctrl.commitPersist();
-                            }
-                          : null,
-                    ),
-                  ),
                 if (PlatformHooks.isAndroid || PlatformHooks.isDesktop)
                   SettingsRow(
                     title: '提醒与后台运行',
@@ -173,76 +192,6 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                           : const DesktopNotificationSettingsPage(),
                     ),
                   ),
-              ],
-            ),
-            SettingsSection(
-              hasLeading: false,
-              children: [
-                SettingsRow(
-                  key: const ValueKey('monitor-more'),
-                  title: '更多设置',
-                  subtitle: _showMore ? null : '人数刷新、间隔浮动',
-                  trailing: _DisclosureIcon(expanded: _showMore),
-                  onTap: () => setState(() => _showMore = !_showMore),
-                ),
-                if (_showMore) ...[
-                  SettingsRow(
-                    title: '人数刷新',
-                    stackSubtitleOnNarrow: true,
-                    subtitle: '用于签到卡片和自动签到的等待人数',
-                    trailing: _NumberControl(
-                      label: '人数刷新间隔',
-                      value: c.effectiveAttendanceIntervalSeconds,
-                      unit: '秒',
-                      min: 15,
-                      max: 120,
-                      step: 5,
-                      onChanged: ready
-                          ? ctrl.setAttendanceIntervalSeconds
-                          : null,
-                    ),
-                  ),
-                  Padding(
-                    padding: rowPadding,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                '间隔浮动',
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                            ),
-                            Text(
-                              '±${(c.jitterRatio * 100).round()}%',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ],
-                        ),
-                        Slider(
-                          key: const ValueKey('monitor-jitter'),
-                          min: 0,
-                          max: 0.5,
-                          divisions: 10,
-                          value: c.jitterRatio,
-                          semanticFormatterCallback: (value) =>
-                              '上下浮动百分之${(value * 100).round()}',
-                          label: '±${(c.jitterRatio * 100).round()}%',
-                          onChanged: ready ? ctrl.setJitterRatio : null,
-                          onChangeEnd: ready
-                              ? (_) => ctrl.commitPersist()
-                              : null,
-                        ),
-                        Text(
-                          '$intervalDescription，最短 15 秒。连接失败时会延后重试。',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
                 if (state.logs.isNotEmpty) ...[
                   SettingsRow(
                     key: const ValueKey('monitor-logs'),
@@ -305,6 +254,7 @@ class _DisclosureIcon extends StatelessWidget {
 
 class _NumberControl extends StatelessWidget {
   const _NumberControl({
+    super.key,
     required this.label,
     required this.value,
     required this.unit,
@@ -322,53 +272,137 @@ class _NumberControl extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final target = AppDensity.isTouch(context) ? 44.0 : 36.0;
+    final valueLabel = unit == '%' ? '$value%' : '$value $unit';
+    Widget button({required bool increase}) => SizedBox.square(
+      dimension: target,
+      child: IconButton(
+        tooltip: '${increase ? '增加' : '减少'}$label',
+        onPressed: onChanged != null && (increase ? value < max : value > min)
+            ? () => onChanged!(
+                (value + (increase ? step : -step)).clamp(min, max),
+              )
+            : null,
+        padding: EdgeInsets.zero,
+        style: IconButton.styleFrom(
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        icon: Icon(
+          increase ? Icons.add_rounded : Icons.remove_rounded,
+          size: 17,
+        ),
+      ),
+    );
     return Semantics(
       label: label,
-      value: '$value$unit',
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: p.content,
-          borderRadius: BorderRadius.circular(AppRadii.control),
-          border: Border.all(color: p.border),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              tooltip: '减少$label',
-              onPressed: value > min && onChanged != null
-                  ? () => onChanged!((value - step).clamp(min, max))
-                  : null,
-              constraints: BoxConstraints.tightFor(
-                width: target,
-                height: target,
+      value: valueLabel,
+      child: SizedBox(
+        width: 148,
+        height: target,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: p.content,
+            borderRadius: BorderRadius.circular(AppRadii.control),
+            border: Border.all(color: p.border),
+          ),
+          child: Row(
+            children: [
+              button(increase: false),
+              Expanded(
+                child: Text(
+                  valueLabel,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
               ),
-              visualDensity: VisualDensity.standard,
-              icon: const Icon(Icons.remove_rounded, size: 17),
-            ),
-            SizedBox(
-              width: 52,
-              child: Text(
-                '$value$unit',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ),
-            IconButton(
-              tooltip: '增加$label',
-              onPressed: value < max && onChanged != null
-                  ? () => onChanged!((value + step).clamp(min, max))
-                  : null,
-              constraints: BoxConstraints.tightFor(
-                width: target,
-                height: target,
-              ),
-              visualDensity: VisualDensity.standard,
-              icon: const Icon(Icons.add_rounded, size: 17),
-            ),
-          ],
+              button(increase: true),
+            ],
+          ),
         ),
       ),
     );
   }
+}
+
+class _SliderSetting extends StatelessWidget {
+  const _SliderSetting({
+    required this.title,
+    required this.sliderKey,
+    required this.value,
+    required this.valueLabel,
+    required this.min,
+    required this.max,
+    required this.divisions,
+    required this.formatValue,
+    required this.onChanged,
+    required this.onChangeEnd,
+    this.description,
+  });
+
+  final String title, valueLabel;
+  final String? description;
+  final Key sliderKey;
+  final double value, min, max;
+  final int divisions;
+  final String Function(double) formatValue;
+  final ValueChanged<double>? onChanged, onChangeEnd;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: AppDensity.rowPadding(context),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            SizedBox(
+              width: 148,
+              child: Text(
+                valueLabel,
+                textAlign: TextAlign.right,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ),
+          ],
+        ),
+        Semantics(
+          label: title,
+          child: SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              thumbShape: const RoundSliderThumbShape(
+                enabledThumbRadius: 7,
+                disabledThumbRadius: 6,
+                elevation: 0,
+                pressedElevation: 0,
+              ),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+              overlayColor: AppPalette.of(
+                context,
+              ).primary.withValues(alpha: 0.12),
+              tickMarkShape: SliderTickMarkShape.noTickMark,
+            ),
+            child: Slider(
+              key: sliderKey,
+              value: value,
+              min: min,
+              max: max,
+              divisions: divisions,
+              label: valueLabel,
+              semanticFormatterCallback: formatValue,
+              onChanged: onChanged,
+              onChangeEnd: onChangeEnd,
+            ),
+          ),
+        ),
+        if (description != null)
+          Text(description!, style: Theme.of(context).textTheme.bodySmall),
+      ],
+    ),
+  );
 }

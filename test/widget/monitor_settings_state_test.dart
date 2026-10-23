@@ -56,118 +56,140 @@ void main() {
   ]) {
     final width = scenario.width;
     final label = '${width.toInt()}-${scenario.dark ? 'dark' : 'light'}';
-    testWidgets('automatic state, advanced layout and menus at $label', (
-      tester,
-    ) async {
-      SharedPreferences.setMockInitialValues({});
-      tester.view.physicalSize = Size(width, 900);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final container = ProviderContainer(
-        overrides: [authControllerProvider.overrideWith((ref) => _Auth())],
-      );
-      addTearDown(container.dispose);
-      final boundary = GlobalKey();
-      var theme = scenario.dark ? AppTheme.dark() : AppTheme.light();
-      if (Platform.environment['MONITOR_UI_FONT'] != null) {
-        theme = theme.copyWith(
-          textTheme: theme.textTheme.apply(fontFamily: 'MonitorSettingsUi'),
-          textButtonTheme: TextButtonThemeData(
-            style: theme.textButtonTheme.style?.copyWith(
-              textStyle: WidgetStatePropertyAll(
-                (theme.textButtonTheme.style?.textStyle?.resolve({}) ??
-                        const TextStyle())
-                    .copyWith(fontFamily: 'MonitorSettingsUi'),
+    testWidgets(
+      'grouped settings, aligned controls and automatic state at $label',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        tester.view.physicalSize = Size(width, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final container = ProviderContainer(
+          overrides: [authControllerProvider.overrideWith((ref) => _Auth())],
+        );
+        addTearDown(container.dispose);
+        final boundary = GlobalKey();
+        var theme = scenario.dark ? AppTheme.dark() : AppTheme.light();
+        if (Platform.environment['MONITOR_UI_FONT'] != null) {
+          theme = theme.copyWith(
+            textTheme: theme.textTheme.apply(fontFamily: 'MonitorSettingsUi'),
+            textButtonTheme: TextButtonThemeData(
+              style: theme.textButtonTheme.style?.copyWith(
+                textStyle: WidgetStatePropertyAll(
+                  (theme.textButtonTheme.style?.textStyle?.resolve({}) ??
+                          const TextStyle())
+                      .copyWith(fontFamily: 'MonitorSettingsUi'),
+                ),
+              ),
+            ),
+          );
+        }
+        Future<void> capture(String state) async {
+          expect(tester.takeException(), isNull);
+          if (Platform.environment['CAPTURE_MONITOR_SETTINGS_UI'] != '1') {
+            return;
+          }
+          await tester.runAsync(() async {
+            final image =
+                await (boundary.currentContext!.findRenderObject()!
+                        as RenderRepaintBoundary)
+                    .toImage();
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            final dir = await Directory(
+              '.tools/monitor-groups',
+            ).create(recursive: true);
+            await File(
+              '${dir.path}/monitor-settings-$label-$state.png',
+            ).writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+
+        await tester.pumpWidget(
+          RepaintBoundary(
+            key: boundary,
+            child: UncontrolledProviderScope(
+              container: container,
+              child: MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: theme,
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.linear(scenario.scale)),
+                  child: child!,
+                ),
+                home: const MonitorSettingsPage(),
               ),
             ),
           ),
         );
-      }
-      Future<void> capture(String state) async {
+        await tester.pumpAndSettle();
+        final ctrl = container.read(monitorControllerProvider.notifier);
+        const off = '仅提醒你处理签到，不会自动提交';
+        const idle = '已开启，开始检测后生效';
+        const active = '检测到签到后，按下方规则自动提交';
+        expect(find.text(off), findsOneWidget);
+        expect(find.textContaining('雷达使用本课'), findsNothing);
+        expect(find.text('最近运行'), findsNothing);
+        expect(find.byKey(const ValueKey('monitor-jitter')), findsOneWidget);
+        expect(find.byKey(const ValueKey('monitor-interval')), findsOneWidget);
+        expect(find.text('更多设置'), findsNothing);
+        expect(find.text('签到规则'), findsOneWidget);
+        expect(find.text('检测与提醒'), findsOneWidget);
+        await capture('off');
+        await tester.tap(find.byType(AppSwitch));
+        await tester.pumpAndSettle();
+        expect(find.text(idle), findsOneWidget);
+        expect(find.text(off), findsNothing);
+        expect(find.textContaining('雷达使用本课'), findsOneWidget);
+        expect(container.read(monitorControllerProvider).running, isFalse);
+        final select = tester.getRect(
+          find.byType(AppShellSelect<AnswerWaitMode>),
+        );
+        final threshold = tester.getRect(
+          find.byKey(const ValueKey('monitor-answer-control')),
+        );
+        final attendance = tester.getRect(
+          find.byKey(const ValueKey('monitor-attendance-control')),
+        );
+        expect(select.width, 148);
+        expect(threshold.width, 148);
+        expect(attendance.width, 148);
+        expect(threshold.left, closeTo(select.left, 0.1));
+        expect(attendance.right, closeTo(select.right, 0.1));
+        await capture('enabled-idle');
+        ctrl.debugArmRunning();
+        await tester.pumpAndSettle();
+        expect(find.text(active), findsOneWidget);
+        await capture('enabled-running');
+        expect(find.text('人数刷新'), findsOneWidget);
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('monitor-jitter')),
+        );
+        await tester.pumpAndSettle();
+        await capture('detection');
+        await tester.ensureVisible(find.byType(AppSwitch));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byType(AppSwitch));
+        await tester.pumpAndSettle();
+        expect(find.text(off), findsOneWidget);
+        expect(find.text(active), findsNothing);
+        expect(container.read(monitorControllerProvider).running, isTrue);
+        expect(
+          container.read(monitorControllerProvider).config.autoAnswer,
+          isFalse,
+        );
         expect(tester.takeException(), isNull);
-        if (Platform.environment['CAPTURE_MONITOR_SETTINGS_UI'] != '1') {
-          return;
-        }
-        await tester.runAsync(() async {
-          final image =
-              await (boundary.currentContext!.findRenderObject()!
-                      as RenderRepaintBoundary)
-                  .toImage();
-          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-          final dir = await Directory(
-            '.tools/notification-polish',
-          ).create(recursive: true);
-          await File(
-            '${dir.path}/monitor-settings-$label-$state.png',
-          ).writeAsBytes(bytes!.buffer.asUint8List());
-          image.dispose();
-        });
-      }
-
-      await tester.pumpWidget(
-        RepaintBoundary(
-          key: boundary,
-          child: UncontrolledProviderScope(
-            container: container,
-            child: MaterialApp(
-              debugShowCheckedModeBanner: false,
-              theme: theme,
-              builder: (context, child) => MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: TextScaler.linear(scenario.scale)),
-                child: child!,
-              ),
-              home: const MonitorSettingsPage(),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final ctrl = container.read(monitorControllerProvider.notifier);
-      const off = '仅提醒你处理签到，不会自动提交';
-      const idle = '已开启，开始检测后生效';
-      const active = '检测到签到后，按下方规则自动提交';
-      expect(find.text(off), findsOneWidget);
-      expect(find.textContaining('雷达使用本课'), findsNothing);
-      expect(find.text('最近运行'), findsNothing);
-      expect(find.byKey(const ValueKey('monitor-jitter')), findsNothing);
-      await capture('off');
-      await tester.tap(find.byType(AppSwitch));
-      await tester.pumpAndSettle();
-      expect(find.text(idle), findsOneWidget);
-      expect(find.text(off), findsNothing);
-      expect(find.textContaining('雷达使用本课'), findsOneWidget);
-      expect(container.read(monitorControllerProvider).running, isFalse);
-      await capture('enabled-idle');
-      ctrl.debugArmRunning();
-      await tester.pumpAndSettle();
-      expect(find.text(active), findsOneWidget);
-      await capture('enabled-running');
-      await tester.ensureVisible(find.byKey(const ValueKey('monitor-more')));
-      await tester.tap(find.byKey(const ValueKey('monitor-more')));
-      await tester.pumpAndSettle();
-      expect(find.text('人数刷新'), findsOneWidget);
-      await tester.ensureVisible(find.byKey(const ValueKey('monitor-jitter')));
-      await capture('advanced');
-      await tester.ensureVisible(find.byType(AppSwitch));
-      await tester.tap(find.byType(AppSwitch));
-      await tester.pumpAndSettle();
-      expect(find.text(off), findsOneWidget);
-      expect(find.text(active), findsNothing);
-      expect(container.read(monitorControllerProvider).running, isTrue);
-      expect(
-        container.read(monitorControllerProvider).config.autoAnswer,
-        isFalse,
-      );
-      expect(tester.takeException(), isNull);
-      ctrl.stop();
-    });
+        ctrl.stop();
+      },
+    );
   }
 
   testWidgets(
-    'shared menus, limits and advanced values persist without starting detection',
+    'slider pointer, keyboard, bounds and attendance values persist without starting detection',
     (tester) async {
       SharedPreferences.setMockInitialValues({});
       final container = ProviderContainer(
@@ -184,38 +206,65 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('monitor-more')));
+      Future<void> focusWithTab(Finder target) async {
+        final element = target.evaluate().single;
+        for (var attempt = 0; attempt < 12; attempt++) {
+          final focused = FocusManager.instance.primaryFocus?.context;
+          var inside = focused == element;
+          focused?.visitAncestorElements((ancestor) {
+            if (ancestor == element) inside = true;
+            return !inside;
+          });
+          if (inside) return;
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pumpAndSettle();
+        }
+        fail('Slider could not be reached using Tab');
+      }
+
+      await tester.ensureVisible(find.byTooltip('增加人数刷新间隔'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('增加人数刷新间隔'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(AppShellSelect<MonitorPreset>));
+      final intervalFinder = find.byKey(const ValueKey('monitor-interval'));
+      await tester.ensureVisible(intervalFinder);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('自定义'));
+      var track = tester.getRect(intervalFinder);
+      await tester.tapAt(Offset(track.right - 8, track.center.dy));
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('减少检测间隔'));
-      await tester.pumpAndSettle();
-      expect(find.text('15秒'), findsOneWidget);
       expect(
-        tester
-            .widget<IconButton>(
-              find.widgetWithIcon(IconButton, Icons.remove_rounded).first,
-            )
-            .onPressed,
-        isNull,
+        container.read(monitorControllerProvider).config.intervalSeconds,
+        120,
       );
-      await tester.tap(find.byType(AppShellSelect<MonitorPreset>));
+      await tester.tapAt(Offset(track.left + 8, track.center.dy));
       await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      expect(
+        container.read(monitorControllerProvider).config.intervalSeconds,
+        15,
+      );
+      await focusWithTab(intervalFinder);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
-      expect(find.text('省电 · 60 秒'), findsNothing);
-      // Focus returns to the trigger: the same menu can be used by keyboard.
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      expect(
+        container.read(monitorControllerProvider).config.intervalSeconds,
+        20,
+      );
+      final jitterFinder = find.byKey(const ValueKey('monitor-jitter'));
+      await tester.ensureVisible(jitterFinder);
       await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      track = tester.getRect(jitterFinder);
+      await tester.tapAt(Offset(track.left + 8, track.center.dy));
+      await tester.pumpAndSettle();
+      expect(container.read(monitorControllerProvider).config.jitterRatio, 0);
+      await tester.tapAt(Offset(track.right - 8, track.center.dy));
+      await tester.pumpAndSettle();
+      expect(container.read(monitorControllerProvider).config.jitterRatio, 0.5);
+      await focusWithTab(jitterFinder);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pumpAndSettle();
       final current = container.read(monitorControllerProvider);
-      expect(current.config.preset, MonitorPreset.eco);
+      expect(current.config.preset, MonitorPreset.custom);
+      expect(current.config.jitterRatio, closeTo(0.45, 0.001));
       expect(current.config.attendanceIntervalSeconds, 25);
       expect(current.config.autoAnswer, isFalse);
       expect(current.running, isFalse);
@@ -226,7 +275,9 @@ void main() {
       restored.read(monitorControllerProvider);
       await tester.pumpAndSettle();
       final saved = restored.read(monitorControllerProvider).config;
-      expect(saved.preset, MonitorPreset.eco);
+      expect(saved.preset, MonitorPreset.custom);
+      expect(saved.intervalSeconds, 20);
+      expect(saved.jitterRatio, closeTo(0.45, 0.001));
       expect(saved.attendanceIntervalSeconds, 25);
       expect(saved.autoAnswer, isFalse);
       expect(tester.takeException(), isNull);
@@ -282,9 +333,7 @@ void main() {
         );
         expect(
           tester
-              .widget<AppShellSelect<MonitorPreset>>(
-                find.byType(AppShellSelect<MonitorPreset>),
-              )
+              .widget<Slider>(find.byKey(const ValueKey('monitor-interval')))
               .onChanged,
           isNull,
         );
@@ -296,9 +345,6 @@ void main() {
               .onChanged,
           isNull,
         );
-        await tester.ensureVisible(find.byKey(const ValueKey('monitor-more')));
-        await tester.tap(find.byKey(const ValueKey('monitor-more')));
-        await tester.pumpAndSettle();
         for (final button
             in tester
                 .widgetList<IconButton>(find.byType(IconButton))
