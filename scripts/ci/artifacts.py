@@ -66,7 +66,10 @@ def inspect_package(path):
             required = (
                 {"AndroidManifest.xml", "classes.dex"}
                 if path.suffix == ".apk"
-                else {"xmu_rollcall.exe", "flutter_windows.dll", "data/icudtl.dat"}
+                else {
+                    "xmu_rollcall.exe", "flutter_windows.dll", "data/icudtl.dat",
+                    "msvcp140.dll", "vcruntime140.dll", "vcruntime140_1.dll",
+                }
             )
             if not required.issubset(entries):
                 raise ValueError(f"Incomplete package: {path.name}")

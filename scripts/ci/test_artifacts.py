@@ -21,7 +21,11 @@ class ArtifactValidationTest(unittest.TestCase):
             archive.writestr("AndroidManifest.xml", b"manifest")
             archive.writestr("classes.dex", b"dex")
         with zipfile.ZipFile(self.zip, "w") as archive:
-            for entry in ("xmu_rollcall.exe", "flutter_windows.dll", "data/icudtl.dat", "data/flutter_assets/AssetManifest.bin"):
+            for entry in (
+                "xmu_rollcall.exe", "flutter_windows.dll", "data/icudtl.dat",
+                "data/flutter_assets/AssetManifest.bin", "msvcp140.dll",
+                "vcruntime140.dll", "vcruntime140_1.dll",
+            ):
                 archive.writestr(entry, b"fixture")
         self.installer.write_bytes(b"MZfixture")
         self.manifests()
@@ -90,6 +94,16 @@ class ArtifactValidationTest(unittest.TestCase):
         with zipfile.ZipFile(self.zip, "a") as archive:
             archive.writestr("../outside", b"fixture")
         with self.assertRaisesRegex(ValueError, "Unsafe"):
+            self.manifests()
+
+    def test_reject_portable_archive_missing_compiler_runtime(self):
+        with zipfile.ZipFile(self.zip) as archive:
+            entries = {name: archive.read(name) for name in archive.namelist()}
+        del entries["vcruntime140_1.dll"]
+        with zipfile.ZipFile(self.zip, "w") as archive:
+            for name, content in entries.items():
+                archive.writestr(name, content)
+        with self.assertRaisesRegex(ValueError, "Incomplete"):
             self.manifests()
 
     def test_reject_empty_installer(self):

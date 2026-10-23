@@ -23,7 +23,7 @@ Android 测试包使用独立应用 ID `cn.edu.xmu.rollcall.xmu_rollcall.preview
 
 Base64 仅为传输编码，不是加密。不要提交 keystore、密码或编码结果。工作流仅在 Android 正式构建步骤解码至 runner 临时目录，构建后清理。PR 和测试包不接收签名 secrets；测试 job 不接收任何签名凭据。
 
-目前已发布的 Android APK 沿用开发签名。若要保留覆盖升级能力，必须先用 Android SDK 的 `apksigner verify --print-certs <现有APK>` 核对证书，并配置与它匹配的原有密钥。不要让 CI 自动生成另一把“正式密钥”；换钥会影响覆盖安装。离线备份固定 keystore 与密码。
+Android 从早期版本沿用同一开发证书以保持覆盖升级兼容；正式 CI 将该密钥作为固定签名配置，禁止临时生成替代密钥。`manifest` 的 `release` 表示使用固定密钥的正式构建，不表示更换了证书或获得第三方认证。首次配置前必须用 Android SDK 的 `apksigner verify --print-certs <现有APK>` 核对证书与原有密钥；私钥仅存本机受保护目录及 GitHub Actions 加密 secrets。离线备份固定 keystore 与密码。
 
 本地正式签名可设置 `XMU_ANDROID_KEYSTORE_PATH`（绝对路径）、`XMU_ANDROID_KEYSTORE_PASSWORD`、`XMU_ANDROID_KEY_ALIAS`、`XMU_ANDROID_KEY_PASSWORD` 后执行：
 
