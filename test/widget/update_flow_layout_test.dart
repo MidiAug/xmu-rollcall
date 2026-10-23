@@ -144,6 +144,18 @@ void main() {
               .width,
           lessThanOrEqualTo(180),
         );
+        final routeRect = tester.getRect(
+          find.byKey(const ValueKey('update-route-select')),
+        );
+        final dialogSurface = find
+            .descendant(
+              of: find.byType(Dialog),
+              matching: find.byType(Material),
+            )
+            .first;
+        final dialogRect = tester.getRect(dialogSurface);
+        expect(routeRect.right, closeTo(dialogRect.right - 20, 1));
+        expect(tester.getCenter(find.text('关闭')).dx, lessThan(routeRect.left));
         await capture('02-notes');
         await tester.tap(find.text('关闭'));
         await tester.pumpAndSettle();

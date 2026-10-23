@@ -49,6 +49,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 
   void _openDestination(AppDestination d, {bool popToRoot = false}) {
     if (!mounted) return;
+    AppShellSelect.closeAll();
     FocusManager.instance.primaryFocus?.unfocus();
     if (d != _current) {
       setState(() => _current = d);
@@ -60,6 +61,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   }
 
   void _onSelect(AppDestination d) {
+    AppShellSelect.closeAll();
     FocusManager.instance.primaryFocus?.unfocus();
     if (d == _current) {
       _navKeys[d.index].currentState?.popUntil((route) => route.isFirst);

@@ -694,11 +694,13 @@ class _WindowButtons extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _WinBtn(
+          label: '最小化',
           icon: Icons.remove,
           onTap: () => windowManager.minimize(),
           color: p.muted,
         ),
         _WinBtn(
+          label: '关闭窗口',
           icon: Icons.close,
           onTap: () => windowManager.close(),
           color: p.muted,
@@ -712,6 +714,7 @@ class _WindowButtons extends StatelessWidget {
 
 class _WinBtn extends StatefulWidget {
   const _WinBtn({
+    required this.label,
     required this.icon,
     required this.onTap,
     required this.color,
@@ -720,6 +723,7 @@ class _WinBtn extends StatefulWidget {
   });
 
   final IconData icon;
+  final String label;
   final VoidCallback onTap;
   final Color color;
   final Color? hover;
@@ -735,21 +739,29 @@ class _WinBtnState extends State<_WinBtn> {
   @override
   Widget build(BuildContext context) {
     final bg = _over ? (widget.hover ?? AppPalette.of(context).hover) : null;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _over = true),
-      onExit: (_) => setState(() => _over = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          width: 46,
-          height: AppLayout.titleBarHeight,
-          color: bg,
-          child: Icon(
-            widget.icon,
-            size: 16,
-            color: _over && widget.hoverIcon != null
-                ? widget.hoverIcon
-                : widget.color,
+    return AppTooltipAnchor(
+      child: Tooltip(
+        message: widget.label,
+        child: Material(
+          color: bg ?? Colors.transparent,
+          child: InkWell(
+            onHover: (value) => setState(() => _over = value),
+            onTap: widget.onTap,
+            splashFactory: NoSplash.splashFactory,
+            hoverColor: Colors.transparent,
+            highlightColor: AppPalette.of(context).hover,
+            focusColor: AppPalette.of(context).hover,
+            child: SizedBox(
+              width: 46,
+              height: AppLayout.titleBarHeight,
+              child: Icon(
+                widget.icon,
+                size: 16,
+                color: _over && widget.hoverIcon != null
+                    ? widget.hoverIcon
+                    : widget.color,
+              ),
+            ),
           ),
         ),
       ),
@@ -1116,14 +1128,23 @@ class AppShellSelect<T> extends StatefulWidget {
     }
   }
 
+  /// Dismiss transient menus before switching destinations or opening a page.
+  static void closeAll() {
+    for (final close in List<VoidCallback>.of(_closeHooks)) {
+      close();
+    }
+  }
+
   @override
   State<AppShellSelect<T>> createState() => _AppShellSelectState<T>();
 }
 
-class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
+class _AppShellSelectState<T> extends State<AppShellSelect<T>>
+    with WidgetsBindingObserver {
   final _portal = OverlayPortalController();
   late final VoidCallback _closeHook;
   final _triggerFocus = FocusNode();
+  final _tapGroup = Object();
   final _menuFocus = FocusScopeNode(
     traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
   );
@@ -1131,25 +1152,40 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
   @override
   void initState() {
     super.initState();
-    _closeHook = _hide;
+    _closeHook = () => _hide(restoreFocus: false);
     AppShellSelect._register(_closeHook);
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
     AppShellSelect._unregister(_closeHook);
+    WidgetsBinding.instance.removeObserver(this);
     if (_portal.isShowing) _portal.hide();
     _triggerFocus.dispose();
     _menuFocus.dispose();
     super.dispose();
   }
 
-  void _hide() {
+  void _hide({bool restoreFocus = true}) {
     if (!_portal.isShowing) return;
     _portal.hide();
     if (mounted) {
       setState(() {});
-      _triggerFocus.requestFocus();
+      if (restoreFocus) _triggerFocus.requestFocus();
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) _hide(restoreFocus: false);
+  }
+
+  @override
+  void didUpdateWidget(covariant AppShellSelect<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.onChanged == null || widget.items.isEmpty) {
+      _hide(restoreFocus: false);
     }
   }
 
@@ -1229,100 +1265,97 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
           final above = origin.dy - screen.padding.top - 20;
           final openAbove = below < 150 && above > below;
           final maxHeight = (openAbove ? above : below).clamp(48.0, 320.0);
-          return Stack(
-            children: [
-              Positioned.fill(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _hide,
-                  child: const ColoredBox(color: Colors.transparent),
-                ),
-              ),
-              Positioned(
-                left: left,
-                top: openAbove
-                    ? null
-                    : origin.dy + info.childSize.height + AppSpace.xs,
-                bottom: openAbove
-                    ? overlaySize.height - origin.dy + AppSpace.xs
-                    : null,
-                child: Material(
-                  color: p.surface,
-                  elevation: AppMenuStyle.elevation,
-                  shadowColor: AppMenuStyle.shadow(context),
-                  shape: AppMenuStyle.shape(context),
-                  clipBehavior: Clip.antiAlias,
-                  child: Container(
-                    width: menuWidth,
-                    constraints: BoxConstraints(maxHeight: maxHeight),
-                    padding: const EdgeInsets.all(AppMenuStyle.inset),
-                    child: FocusScope(
-                      node: _menuFocus,
-                      autofocus: true,
-                      child: Shortcuts(
-                        shortcuts: const {
-                          SingleActivator(LogicalKeyboardKey.escape):
-                              DismissIntent(),
-                          SingleActivator(LogicalKeyboardKey.arrowDown):
-                              NextFocusIntent(),
-                          SingleActivator(LogicalKeyboardKey.arrowUp):
-                              PreviousFocusIntent(),
-                        },
-                        child: Actions(
-                          actions: {
-                            DismissIntent: CallbackAction<DismissIntent>(
-                              onInvoke: (_) {
-                                _hide();
-                                return null;
-                              },
-                            ),
-                            NextFocusIntent: CallbackAction<NextFocusIntent>(
-                              onInvoke: (_) {
-                                _menuFocus.nextFocus();
-                                return null;
-                              },
-                            ),
-                            PreviousFocusIntent:
-                                CallbackAction<PreviousFocusIntent>(
-                                  onInvoke: (_) {
-                                    _menuFocus.previousFocus();
-                                    return null;
-                                  },
-                                ),
+          return TapRegion(
+            groupId: _tapGroup,
+            onTapOutside: (_) => _hide(restoreFocus: false),
+            child: Stack(
+              children: [
+                Positioned(
+                  left: left,
+                  top: openAbove
+                      ? null
+                      : origin.dy + info.childSize.height + AppSpace.xs,
+                  bottom: openAbove
+                      ? overlaySize.height - origin.dy + AppSpace.xs
+                      : null,
+                  child: Material(
+                    color: p.surface,
+                    elevation: AppMenuStyle.elevation,
+                    shadowColor: AppMenuStyle.shadow(context),
+                    shape: AppMenuStyle.shape(context),
+                    clipBehavior: Clip.antiAlias,
+                    child: Container(
+                      width: menuWidth,
+                      constraints: BoxConstraints(maxHeight: maxHeight),
+                      padding: const EdgeInsets.all(AppMenuStyle.inset),
+                      child: FocusScope(
+                        node: _menuFocus,
+                        autofocus: true,
+                        child: Shortcuts(
+                          shortcuts: const {
+                            SingleActivator(LogicalKeyboardKey.escape):
+                                DismissIntent(),
+                            SingleActivator(LogicalKeyboardKey.arrowDown):
+                                NextFocusIntent(),
+                            SingleActivator(LogicalKeyboardKey.arrowUp):
+                                PreviousFocusIntent(),
                           },
-                          child: SingleChildScrollView(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                for (
-                                  var i = 0;
-                                  i < widget.items.length;
-                                  i++
-                                ) ...[
-                                  if (i > 0) const SizedBox(height: 4),
-                                  AppMenuOption(
-                                    key: ValueKey('shell-select-option-$i'),
-                                    label:
-                                        (widget.menuLabelOf ?? widget.labelOf)(
-                                          widget.items[i],
-                                        ),
-                                    trailing:
-                                        widget.menuTrailingOf?.call(
-                                          widget.items[i],
-                                        ) ??
-                                        '',
-                                    wrap: widget.wrapMenuLabels,
-                                    selected: widget.items[i] == widget.value,
-                                    autofocus: widget.items[i] == widget.value,
-                                    showCheck: true,
-                                    onTap: () {
-                                      _hide();
-                                      widget.onChanged?.call(widget.items[i]);
+                          child: Actions(
+                            actions: {
+                              DismissIntent: CallbackAction<DismissIntent>(
+                                onInvoke: (_) {
+                                  _hide();
+                                  return null;
+                                },
+                              ),
+                              NextFocusIntent: CallbackAction<NextFocusIntent>(
+                                onInvoke: (_) {
+                                  _menuFocus.nextFocus();
+                                  return null;
+                                },
+                              ),
+                              PreviousFocusIntent:
+                                  CallbackAction<PreviousFocusIntent>(
+                                    onInvoke: (_) {
+                                      _menuFocus.previousFocus();
+                                      return null;
                                     },
                                   ),
+                            },
+                            child: SingleChildScrollView(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  for (
+                                    var i = 0;
+                                    i < widget.items.length;
+                                    i++
+                                  ) ...[
+                                    if (i > 0) const SizedBox(height: 4),
+                                    AppMenuOption(
+                                      key: ValueKey('shell-select-option-$i'),
+                                      label:
+                                          (widget.menuLabelOf ??
+                                          widget.labelOf)(widget.items[i]),
+                                      trailing:
+                                          widget.menuTrailingOf?.call(
+                                            widget.items[i],
+                                          ) ??
+                                          '',
+                                      wrap: widget.wrapMenuLabels,
+                                      selected: widget.items[i] == widget.value,
+                                      autofocus:
+                                          widget.items[i] == widget.value,
+                                      showCheck: true,
+                                      onTap: () {
+                                        _hide();
+                                        widget.onChanged?.call(widget.items[i]);
+                                      },
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
                         ),
@@ -1330,23 +1363,26 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         },
-        child: SizedBox(
-          width: widget.width,
-          child: Semantics(
-            label: widget.semanticLabel,
-            child: AppSelectTrigger(
-              label: widget.labelOf(widget.value),
-              leading: widget.leading,
-              compact: widget.compact || widget.width < 110,
-              focusNode: _triggerFocus,
-              open: open,
-              onTap: widget.onChanged == null || widget.items.isEmpty
-                  ? null
-                  : _toggle,
+        child: TapRegion(
+          groupId: _tapGroup,
+          child: SizedBox(
+            width: widget.width,
+            child: Semantics(
+              label: widget.semanticLabel,
+              child: AppSelectTrigger(
+                label: widget.labelOf(widget.value),
+                leading: widget.leading,
+                compact: widget.compact || widget.width < 110,
+                focusNode: _triggerFocus,
+                open: open,
+                onTap: widget.onChanged == null || widget.items.isEmpty
+                    ? null
+                    : _toggle,
+              ),
             ),
           ),
         ),

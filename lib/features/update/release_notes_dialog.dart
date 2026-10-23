@@ -125,11 +125,16 @@ class ReleaseNotesDialog extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
               child: Row(
                 children: [
-                  Expanded(child: routeSelector),
-                  const SizedBox(width: 16),
-                  FilledButton(
+                  TextButton(
                     onPressed: () => Navigator.pop(context),
                     child: const Text('关闭'),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: routeSelector,
+                    ),
                   ),
                 ],
               ),

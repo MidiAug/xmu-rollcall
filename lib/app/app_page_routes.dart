@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 /// Shared-axis–lite subpage routes (slide + fade). Desktop and mobile share one curve.
 abstract final class AppPageRoutes {
   static const _slideFraction = 0.08;
 
-  static Future<T?> push<T extends Object?>(
-    BuildContext context,
-    Widget page,
-  ) {
+  static Future<T?> push<T extends Object?>(BuildContext context, Widget page) {
+    AppShellSelect.closeAll();
     return Navigator.of(context).push<T>(build<T>(page));
   }
 

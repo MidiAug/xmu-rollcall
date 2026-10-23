@@ -247,7 +247,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 SettingsRow(
                   leading: const Icon(Icons.download_outlined),
                   title: '更新下载线路',
-                  subtitleWidget: const UpdateDownloadRouteSelector(),
+                  trailing: UpdateDownloadRouteSelector(
+                    width: AppDensity.isTouch(context) ? 128 : 164,
+                  ),
                 ),
                 const AboutSettingsRow(),
               ],

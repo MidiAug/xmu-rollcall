@@ -111,7 +111,7 @@ class SettingsDataPage extends ConsumerWidget {
                     subtitle: '说明、检查、下载、线路与安装确认',
                     trailing: const Icon(Icons.chevron_right, size: 18),
                     onTap: () =>
-                        AppPageRoutes.push(context, const UpdatePreviewPage()),
+                        AppPageRoutes.push(context, UpdatePreviewPage()),
                   ),
                   if (PlatformHooks.isWindows)
                     SettingsRow(

@@ -10,9 +10,11 @@ class UpdateDownloadRouteSelector extends StatefulWidget {
     super.key,
     this.onChanged,
     this.enabled = true,
+    this.width = 164,
   });
   final Future<void> Function()? onChanged;
   final bool enabled;
+  final double width;
 
   @override
   State<UpdateDownloadRouteSelector> createState() => _RouteSelectorState();
@@ -88,10 +90,10 @@ class _RouteSelectorState extends State<UpdateDownloadRouteSelector> {
         _saved != null &&
         !UpdateDownloadRoute.suggested.contains(_saved.toString());
     return Align(
-      alignment: Alignment.centerLeft,
+      alignment: Alignment.centerRight,
       widthFactor: 1,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 164),
+        constraints: BoxConstraints(maxWidth: widget.width),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -121,7 +123,7 @@ class _RouteSelectorState extends State<UpdateDownloadRouteSelector> {
                 leading: bounds.maxWidth < 164
                     ? null
                     : Icon(Icons.alt_route_rounded, size: 16, color: p.muted),
-                width: bounds.maxWidth.clamp(0.0, 164.0),
+                width: bounds.maxWidth.clamp(0.0, widget.width),
                 menuWidth: 260,
                 onChanged: !_ready || _saving || !widget.enabled
                     ? null
