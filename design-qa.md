@@ -104,3 +104,24 @@ Engineering知识检索未命中相关既有笔记，本轮未回写知识库。
 当前激活GUID对应HKCR/HKCU的`CLSID/.../LocalServer32`均不存在；插件3.1.1源码只向运行进程`CoRegisterClassObject`注册回调，未写冷启动服务器路径。依据[微软未打包通知激活说明](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/app-notifications-dotnet)，退出后由系统点击启动需要COM服务器注册。因此现有“运行中恢复窗口”自动回归不能代替“退出后点击拉起”；后者仍缺集成验收，本轮没有为验证而退出用户实例。属于高于视觉装饰的后续事项，不能将上游图标issue解释成整条通知功能已正常。
 
 UI后续顺序：通知图标/安装入口/冷启动链路；真实状态说明（本轮已修）；低频频率参数、随机波动与运行记录按需展开；SettingCard/PresetPill和公共设置控件的文字与反馈统一。当前空的“最近运行”仍占整块卡片，可改为按需查看记录，避免未运行时显示一块无用信息。
+
+## 2026-10-24 本轮实现与证据
+
+签到设置收敛为常用设置与按需展开区：自动开关和三态文案保留；提交时机、检测预设复用右侧公共下拉；门槛仅在相关规则下显示；人数刷新和间隔浮动在“更多设置”中，关闭自动签到仍可调整人数刷新。空运行记录不占卡片，有数据后才提供最近5条记录的展开入口。SettingsRow为该页提供窄屏说明整行排版，避免320大字下被右侧控件挤成单字短行；其他设置行默认保持原排版。编辑项统一遵守未登录与账号加载禁用态。
+
+验证：七项新的设置状态/交互回归覆盖960浅暗、384、320/1.3字号；关闭/开启未运行/开启运行/展开更多共16张生产组件隔离渲染，已检查保存截图。真实Android系统栏、键盘及触控未作设备验收。22项聚焦回归通过；旧账号布局回归更新为新展开/选择流程后10项通过；最终全量485项通过，2项真实网络测试跳过。未改动协议、检测/提交默认值或存储结构。
+
+Windows只交付入口身份修正：安装器在创建快捷方式后调用原生助手，写入与发送者一致的AppUserModelID、ToastActivatorCLSID及EXE图标，助手在Flutter界面初始化前退出；运行时仅维护目标确为当前EXE的已有入口。缺失快捷方式不创建，其他安装/便携/开发版本入口不改指向。隔离原生测试通过，实际读回IPropertyStore属性、图标、原参数，并验证重复执行、Unicode名称、带空格路径及其他EXE目标保持不变。测试没有修改用户开始菜单或桌面入口。检查已接入Windows CI。
+
+退出后启动试验仍失败：额外实验按微软文档补HKCU LocalServer32并尝试隔离COM激活，返回REGDB_E_CLASSNOTREG；同进程已注册工厂可激活，系统冷启动未通过。未确定根因，未改全局COM设置、系统通知数据库或清理用户快捷方式。相关实验源代码与日志只保留在忽略的.tools/notification-polish/cold-registration-experiment*和native-registration-test.log，未进入产品与稳定回归；本轮不把新增COM服务器注册作为已修功能。已清理实验创建的测试专用注册键，保留现有产品身份。
+
+左上角小图标仍未通过：用户实际横幅缺失的问题没有像素证据证明恢复。入口属性正确只能证明一个缺口得到修正；[微软归属区域说明](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/app-notifications-content#attribution-area)仍说明该区域由Shell决定，正文appLogoOverride不能代替。退出后点击启动同样保留待解决；运行中点击恢复的既有自动回归不代替系统冷启动验收。
+
+现有开发实例因原生入口代码重新构建并仅启动一个Windows窗口，新的原生flutter run终端支持r热重载且已验证。未安装或发布Release包。
+
+最终检查补充：flutter analyze无问题；Windows Debug与Release原生构建通过；NSIS安装器编译通过（仅生成.tools内检查包，未执行安装）。Flutter原生会话保持运行，r热重载成功。工作流语法及CHANGELOG结构检查通过。
+
+- [PASS] AC-MONITOR-SETTINGS-02 / AC-MONITOR-CONTROLS-02 / AC-MONITOR-LAYOUT-02：上述交互、保存、禁用与隔离渲染证据通过，Android真机另验。
+- [PASS] AC-WINDOWS-SHORTCUT-02：隔离快捷方式属性与归属回归通过，安装器编译通过；未覆盖安装用户程序。
+- [FAIL] AC-WINDOWS-NOTIFICATION-ICON-01 实际横幅部分：用户截图的小图标缺失仍未证实恢复。
+- [FAIL] 退出后点击启动扩展验收：隔离COM冷启动实验未通过，稳定产品未纳入相关注册代码；既有运行中激活回归仍通过。

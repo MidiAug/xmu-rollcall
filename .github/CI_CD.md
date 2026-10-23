@@ -5,6 +5,7 @@
 锁文件当前使用 `https://pub.flutter-io.cn`。复用的 Flutter 安装动作在严格安装步骤显式使用相同的 `PUB_HOSTED_URL`，避免云端默认源与锁文件不同而重新解析依赖；版本和内容哈希仍由 `--enforce-lockfile` 验证。
 
 - PR → `Flutter checks`：校验工作流、测试产物验证脚本，在 Linux / Windows 执行锁文件安装、静态分析、全部 Flutter 测试（包括 mock integration）。真实校园网络探测保持关闭。
+- Windows 另运行 `scripts/test-windows-notification-registration.ps1`：以隔离快捷方式核验通知应用身份、激活标识、图标和入口归属，不启动应用或修改用户入口；此检查不代表系统横幅图标或退出后通知点击已经通过。
 - 合入 `main` → 同样检查通过后，自动构建 Android 测试 APK、Windows x64 NSIS 安装器和便携 ZIP。到该次 Actions 运行的 Artifacts 下载，保留 7 天；不会自动安装。
 - 连续推送会取消同一分支或 PR 的旧检查，避免重复占用构建资源。手动运行 `Flutter checks` 可选择待验证分支，在合入 `main` 前也能生成测试包。
 

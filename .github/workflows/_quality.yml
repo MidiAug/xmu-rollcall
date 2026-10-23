@@ -48,3 +48,7 @@ jobs:
       - run: flutter analyze --no-pub
       - name: Unit, widget and mock integration tests
         run: flutter test --no-pub --reporter expanded
+      - name: Windows notification shortcut identity
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/test-windows-notification-registration.ps1

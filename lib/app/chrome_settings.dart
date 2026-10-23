@@ -103,6 +103,7 @@ class SettingsRow extends StatefulWidget {
     this.subtitle,
     this.subtitleMaxLines,
     this.subtitleWidget,
+    this.stackSubtitleOnNarrow = false,
     this.trailing,
     this.onTap,
     this.minHeight,
@@ -115,6 +116,9 @@ class SettingsRow extends StatefulWidget {
 
   /// Extra block under [subtitle] (e.g. selectable mono device id).
   final Widget? subtitleWidget;
+
+  /// Keep supporting text readable beside a wide control on narrow pages.
+  final bool stackSubtitleOnNarrow;
   final Widget? trailing;
   final VoidCallback? onTap;
   final double? minHeight;
@@ -138,60 +142,81 @@ class _SettingsRowState extends State<SettingsRow> {
         ? p.hover
         : AppPalette.clearOf(p.hover);
 
-    final content = AnimatedContainer(
+    final subtitle = widget.subtitle == null
+        ? null
+        : Text(
+            widget.subtitle!,
+            maxLines: widget.subtitleMaxLines,
+            overflow: widget.subtitleMaxLines == null
+                ? null
+                : TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
+          );
+    Widget buildContent(bool below) => AnimatedContainer(
       duration: AppMotion.fast,
       curve: AppMotion.fastCurve,
       color: wash,
       padding: AppDensity.rowPadding(context),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: h),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            if (widget.leading != null) ...[
-              IconTheme(
-                data: IconThemeData(color: p.muted, size: 20),
-                child: widget.leading!,
-              ),
-              SizedBox(width: gap),
-            ],
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.title,
-                    style: Theme.of(context).textTheme.titleMedium,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(minHeight: h),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (widget.leading != null) ...[
+                  IconTheme(
+                    data: IconThemeData(color: p.muted, size: 20),
+                    child: widget.leading!,
                   ),
-                  if (widget.subtitleWidget != null) ...[
-                    const SizedBox(height: AppSpace.xs),
-                    widget.subtitleWidget!,
-                  ],
-                  if (widget.subtitle != null) ...[
-                    SizedBox(
-                      height: widget.subtitleWidget != null ? AppSpace.xxs : 4,
-                    ),
-                    Text(
-                      widget.subtitle!,
-                      maxLines: widget.subtitleMaxLines,
-                      overflow: widget.subtitleMaxLines == null
-                          ? null
-                          : TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
+                  SizedBox(width: gap),
                 ],
-              ),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      if (widget.subtitleWidget != null) ...[
+                        const SizedBox(height: AppSpace.xs),
+                        widget.subtitleWidget!,
+                      ],
+                      if (subtitle != null && !below) ...[
+                        SizedBox(
+                          height: widget.subtitleWidget != null
+                              ? AppSpace.xxs
+                              : 4,
+                        ),
+                        subtitle,
+                      ],
+                    ],
+                  ),
+                ),
+                if (widget.trailing != null) ...[
+                  SizedBox(width: gap),
+                  widget.trailing!,
+                ],
+              ],
             ),
-            if (widget.trailing != null) ...[
-              SizedBox(width: gap),
-              widget.trailing!,
-            ],
+          ),
+          if (subtitle != null && below) ...[
+            const SizedBox(height: 4),
+            subtitle,
           ],
-        ),
+        ],
       ),
     );
+    final content = widget.stackSubtitleOnNarrow
+        ? LayoutBuilder(
+            builder: (context, constraints) => buildContent(
+              widget.trailing != null && constraints.maxWidth < 360,
+            ),
+          )
+        : buildContent(false);
 
     if (!interactive) return content;
 
