@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
@@ -143,6 +144,7 @@ class _DesktopFrame extends StatelessWidget {
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
   setUpAll(() async {
     final font = Platform.environment['SETTINGS_UI_FONT'];
     if (font == null) return;
@@ -209,6 +211,15 @@ void main() {
         if (Platform.environment['SETTINGS_UI_FONT'] != null) {
           theme = theme.copyWith(
             textTheme: theme.textTheme.apply(fontFamily: 'TimetableUi'),
+            textButtonTheme: TextButtonThemeData(
+              style: theme.textButtonTheme.style?.merge(
+                TextButton.styleFrom(
+                  textStyle: theme.textTheme.labelLarge?.copyWith(
+                    fontFamily: 'TimetableUi',
+                  ),
+                ),
+              ),
+            ),
           );
         }
         final key = GlobalKey();

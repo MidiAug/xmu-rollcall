@@ -14,6 +14,7 @@ import 'package:xmu_rollcall/core/cache/session_memory.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository_providers.dart';
@@ -101,6 +102,14 @@ class ActiveRollcallsNotifier
     // without querying their details again on every launch or refresh.
     await restoreCodes;
     if (revision != _revision) return state.valueOrNull ?? const [];
+    await ref.read(detectionWindowProvider.notifier).ready;
+    if (revision != _revision) return state.valueOrNull ?? const [];
+    if (!ref
+        .read(detectionWindowProvider)!
+        .allows(ref.read(activeRollcallClockProvider)())) {
+      lastUpdatedAt = disk?.fetchedAt;
+      return _retainNumberCodes(cached.isNotEmpty ? cached : previous);
+    }
     _lastAppearCheckAt = now;
     if (cached.isNotEmpty) {
       lastUpdatedAt = disk!.fetchedAt;
@@ -123,6 +132,9 @@ class ActiveRollcallsNotifier
       final merged = mergeActiveRollcalls(previous, _retainNumberCodes(items));
       _persistActive(merged);
       return merged;
+    } on DetectionWindowClosed {
+      if (revision != _revision) return state.valueOrNull ?? const [];
+      return previous;
     } catch (_) {
       if (revision != _revision) return state.valueOrNull ?? const [];
       rethrow;
@@ -324,6 +336,14 @@ class ActiveRollcallsNotifier
   }
 
   Future<void> _refresh() async {
+    final beforeLoad = _revision;
+    await ref.read(detectionWindowProvider.notifier).ready;
+    if (beforeLoad != _revision) return;
+    if (!ref
+        .read(detectionWindowProvider)!
+        .allows(ref.read(activeRollcallClockProvider)())) {
+      return;
+    }
     final revision = ++_revision;
     _requestToken?.cancel('刷新已替换');
     final token = _requestToken = CancelToken();
@@ -359,6 +379,10 @@ class ActiveRollcallsNotifier
       return;
     }
     final ms = DateTime.now().difference(started).inMilliseconds;
+    if (next.error is DetectionWindowClosed) {
+      state = AsyncData(previous ?? const []);
+      return;
+    }
     if (!next.hasValue) {
       AppLog.event(
         'rollcall.list.refresh',

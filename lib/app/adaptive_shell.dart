@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_brand.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
@@ -146,7 +147,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                         },
                       ),
                       Container(width: 1, color: p.border),
-                      Expanded(child: body),
+                      Expanded(child: AppToastRegion(child: body)),
                     ],
                   ),
                 ),

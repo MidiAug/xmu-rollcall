@@ -9,6 +9,7 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_engine.dart';
 import 'package:xmu_rollcall/features/monitor/automatic_rollcall_answer.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/platform/android_monitor_shell.dart';
@@ -86,6 +87,14 @@ class MonitorController extends StateNotifier<MonitorState> {
       AndroidMonitorShell.instance.addListener(_onSnapshot);
     }
     _loaded = _load();
+    _ref.listen(detectionWindowProvider, (previous, next) {
+      if (previous == null || next == null || !state.running) return;
+      if (PlatformHooks.isAndroid) {
+        unawaited(AndroidMonitorShell.instance.pollNow());
+      } else {
+        unawaited(_engine?.pollNow());
+      }
+    });
     _ref.listen(selectedRollcallAccountProvider, (previous, next) {
       if (previous == next) return;
       _changeSelectedAccount(
@@ -606,6 +615,10 @@ class MonitorController extends StateNotifier<MonitorState> {
       );
       _engine = MonitorEngine(
         config: state.config,
+        loadDetectionWindow: () async {
+          await _ref.read(detectionWindowProvider.notifier).ready;
+          return _ref.read(detectionWindowProvider)!;
+        },
         fetch: () {
           AppLog.event(
             'monitor.discovery.start',

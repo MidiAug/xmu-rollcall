@@ -7,6 +7,7 @@ import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
 import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
 import 'package:xmu_rollcall/features/settings/desktop_notification_settings_page.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
@@ -104,6 +105,7 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                           child: Align(
                             alignment: Alignment.centerRight,
                             child: AppSwitch(
+                              key: const ValueKey('monitor-auto-answer'),
                               value: c.autoAnswer,
                               onChanged: ready ? ctrl.setAutomaticAnswer : null,
                             ),
@@ -169,6 +171,10 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                     hasLeading: false,
                     rowPadding: rowPadding,
                     children: [
+                      DetectionWindowSetting(
+                        enabled: ready,
+                        padding: rowPadding,
+                      ),
                       _SliderSetting(
                         padding: rowPadding,
                         title: '检测间隔',

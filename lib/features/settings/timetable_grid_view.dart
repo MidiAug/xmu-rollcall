@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
+import 'package:xmu_rollcall/features/location/course_location_setting.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid.dart';
 
 /// Week × period timetable. Keep readable row sizes; scroll instead of shrinking
@@ -418,8 +419,11 @@ class _CourseDetail extends StatelessWidget {
           ),
           if (c.instructorsLabel.isNotEmpty)
             _DetailRow(icon: Icons.person_outline, text: c.instructorsLabel),
-          if (c.location?.isNotEmpty == true)
-            _DetailRow(icon: Icons.place_outlined, text: c.location!),
+          CourseLocationSetting(
+            courseId: c.id,
+            courseTitle: c.title,
+            displayLocation: c.location,
+          ),
         ],
       ),
     );

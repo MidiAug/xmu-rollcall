@@ -15,6 +15,7 @@ import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 
 class _AuthRepository extends Fake implements AuthRepository {}
 
@@ -140,7 +141,7 @@ void main() {
         expect(find.text('签到规则'), findsOneWidget);
         expect(find.text('检测与提醒'), findsOneWidget);
         await capture('off');
-        await tester.tap(find.byType(AppSwitch));
+        await tester.tap(find.byKey(const ValueKey('monitor-auto-answer')));
         await tester.pumpAndSettle();
         expect(find.text(idle), findsOneWidget);
         expect(find.text(off), findsNothing);
@@ -171,9 +172,27 @@ void main() {
         );
         await tester.pumpAndSettle();
         await capture('detection');
-        await tester.ensureVisible(find.byType(AppSwitch));
+        await container
+            .read(detectionWindowProvider.notifier)
+            .save(const DetectionWindow(enabled: true));
         await tester.pumpAndSettle();
-        await tester.tap(find.byType(AppSwitch));
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('detection-window-switch')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('07:30'), findsOneWidget);
+        expect(find.text('22:00'), findsOneWidget);
+        await capture('detection-window');
+        expect(tester.takeException(), isNull);
+        await container
+            .read(detectionWindowProvider.notifier)
+            .save(const DetectionWindow());
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('monitor-auto-answer')),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('monitor-auto-answer')));
         await tester.pumpAndSettle();
         expect(find.text(off), findsOneWidget);
         expect(find.text(active), findsNothing);
@@ -349,7 +368,11 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(
-          tester.widget<AppSwitch>(find.byType(AppSwitch)).onChanged,
+          tester
+              .widget<AppSwitch>(
+                find.byKey(const ValueKey('monitor-auto-answer')),
+              )
+              .onChanged,
           isNull,
         );
         expect(

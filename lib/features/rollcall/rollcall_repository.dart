@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/identity/device_identity.dart';
 import 'package:xmu_rollcall/core/logging/rollcall_log.dart';
@@ -21,10 +22,14 @@ class RollcallRepository {
     required this.identity,
     this.deviceIdOverride,
     this.requireExplicitDeviceId = false,
+    this.loadDetectionWindow,
+    this.discoveryClock = DateTime.now,
   });
 
   final TronHttpClient http;
   final DeviceIdentity identity;
+  final Future<DetectionWindow> Function()? loadDetectionWindow;
+  final DateTime Function() discoveryClock;
 
   /// When set (assist identity), used instead of local [DeviceIdentity].
   final String? deviceIdOverride;
@@ -57,6 +62,13 @@ class RollcallRepository {
     CancelToken? cancelToken,
     String? opId,
   }) async {
+    if (loadDetectionWindow != null) {
+      final window = await loadDetectionWindow!();
+      final now = discoveryClock();
+      if (!window.allows(now)) {
+        throw DetectionWindowClosed(window, now);
+      }
+    }
     await http.init();
     final res = await http.getUri<Map<String, dynamic>>(
       TronEndpoints.radarRollcalls(),

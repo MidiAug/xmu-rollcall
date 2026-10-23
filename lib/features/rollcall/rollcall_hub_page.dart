@@ -16,6 +16,7 @@ import 'package:xmu_rollcall/features/history/history_page.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_list_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
@@ -152,6 +153,8 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
     final roster = ref.watch(assistControllerProvider).identities;
     final selected = ref.watch(selectedRollcallAccountProvider);
     final scope = roster.any((e) => e.userId == selected) ? selected : null;
+    final window = ref.watch(detectionWindowProvider);
+    final outsideWindow = window != null && !window.allows(DateTime.now());
     DateTime? updatedAt;
     var confirming = false;
     if (auth.isSignedIn && !_switching && _switchError == null) {
@@ -160,7 +163,9 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
           .read(activeRollcallsProvider(scope).notifier)
           .lastUpdatedAt;
     }
-    final updatedLabel = _switching
+    final updatedLabel = outsideWindow
+        ? '时段外暂停获取签到（${window.label}）'
+        : _switching
         ? '正在切换…'
         : confirming
         ? '正在确认最新状态…'
@@ -444,7 +449,13 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
         ? 0
         : next.difference(DateTime.now()).inSeconds.clamp(0, 9999);
     final failed = monitor.consecutiveFailures > 0;
-    final label = failed ? '重试中  ${secs}s' : '检测中  ${secs}s';
+    final window = ref.watch(detectionWindowProvider);
+    final paused = window != null && !window.allows(DateTime.now());
+    final label = paused
+        ? '${DetectionWindow.formatMinute(window.startMinute)} 继续'
+        : failed
+        ? '重试中  ${secs}s'
+        : '检测中  ${secs}s';
 
     return Align(
       alignment: Alignment.centerLeft,
@@ -453,10 +464,14 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
         children: [
           AppTooltipAnchor(
             child: Tooltip(
-              message: failed ? '上次检测失败，点击立即重试' : '立即检测一次',
+              message: paused
+                  ? '时段外暂停检测，到时自动恢复'
+                  : failed
+                  ? '上次检测失败，点击立即重试'
+                  : '立即检测一次',
               child: AppQuietPill(
-                onTap: ctrl.pollNow,
-                background: failed
+                onTap: paused ? null : ctrl.pollNow,
+                background: failed && !paused
                     ? p.danger.withValues(alpha: 0.12)
                     : p.selected,
                 child: Text(
@@ -465,7 +480,7 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     letterSpacing: -0.1,
-                    color: failed ? p.danger : p.primary,
+                    color: failed && !paused ? p.danger : p.primary,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),

@@ -10,6 +10,7 @@ import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 ///
 /// See docs/research/19-keyboard-dialog-and-toast.md.
 abstract final class AppToast {
+  static _AppToastRegionState? _region;
   static OverlayEntry? _entry;
   static Timer? _timer;
 
@@ -21,7 +22,9 @@ abstract final class AppToast {
     OverlayState? targetOverlay,
   }) {
     final overlay =
-        targetOverlay ?? Overlay.maybeOf(context, rootOverlay: true);
+        targetOverlay ??
+        Overlay.maybeOf(context, rootOverlay: true) ??
+        Navigator.maybeOf(context)?.overlay;
     if (overlay == null) return;
 
     dismiss();
@@ -30,6 +33,11 @@ abstract final class AppToast {
     final size = MediaQuery.sizeOf(context);
     final bottomSafe = MediaQuery.viewPaddingOf(context).bottom;
     final wide = size.width >= AppLayout.shellBreakpoint;
+    final region = _region?.boundsIn(overlay);
+    final rightInset = region == null
+        ? 0.0
+        : (overlay.context.findRenderObject()! as RenderBox).size.width -
+              region.right;
     // ~32% from bottom on phone; desktop a bit higher.
     final bottom = wide
         ? (size.height * 0.22).clamp(72.0, 160.0)
@@ -38,8 +46,8 @@ abstract final class AppToast {
     _entry = OverlayEntry(
       builder: (ctx) {
         return Positioned(
-          left: 0,
-          right: 0,
+          left: region?.left ?? 0,
+          right: rightInset,
           bottom: bottom,
           child: IgnorePointer(
             child: Center(
@@ -89,4 +97,40 @@ abstract final class AppToast {
     _entry?.remove();
     _entry = null;
   }
+}
+
+/// The shell registers its actual content bounds, excluding navigation chrome.
+class AppToastRegion extends StatefulWidget {
+  const AppToastRegion({super.key, required this.child});
+  final Widget child;
+
+  @override
+  State<AppToastRegion> createState() => _AppToastRegionState();
+}
+
+class _AppToastRegionState extends State<AppToastRegion> {
+  final _boundsKey = GlobalKey();
+
+  @override
+  void initState() {
+    super.initState();
+    AppToast._region = this;
+  }
+
+  Rect? boundsIn(OverlayState overlay) {
+    final box = _boundsKey.currentContext?.findRenderObject();
+    final target = overlay.context.findRenderObject();
+    if (box is! RenderBox || target is! RenderBox || !box.hasSize) return null;
+    return target.globalToLocal(box.localToGlobal(Offset.zero)) & box.size;
+  }
+
+  @override
+  void dispose() {
+    if (identical(AppToast._region, this)) AppToast._region = null;
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      SizedBox.expand(key: _boundsKey, child: widget.child);
 }
