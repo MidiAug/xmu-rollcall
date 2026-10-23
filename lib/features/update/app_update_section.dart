@@ -7,28 +7,23 @@ import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/update/app_release.dart';
+import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 import 'package:xmu_rollcall/features/update/github_update_service.dart';
 import 'package:xmu_rollcall/platform/app_update_installer.dart';
 
-enum _UpdatePhase {
-  checking,
-  current,
-  available,
-  downloading,
-  ready,
-  installing,
-  failed,
-}
+enum _UpdatePhase { available, downloading, ready, installing, failed }
 
 class AppUpdateSection extends StatefulWidget {
   const AppUpdateSection({
     super.key,
-    required this.package,
+    this.package,
+    this.controller,
     this.service,
     this.installer,
     this.target,
   });
-  final Future<PackageInfo> package;
+  final Future<PackageInfo>? package;
+  final AppUpdateController? controller;
   final UpdateService? service;
   final UpdateInstaller? installer;
   final UpdateTarget? target;
@@ -37,40 +32,49 @@ class AppUpdateSection extends StatefulWidget {
 }
 
 class _AppUpdateSectionState extends State<AppUpdateSection> {
-  late final UpdateService _service = widget.service ?? GithubUpdateService();
+  late final AppUpdateController _controller =
+      widget.controller ??
+      AppUpdateController(
+        service: widget.service,
+        package: widget.package == null ? null : () => widget.package!,
+        target: widget.target,
+      );
+  UpdateService get _service => _controller.service;
   late final UpdateInstaller _installer =
       widget.installer ?? AppUpdateInstaller();
-  late final UpdateTarget? _target =
-      widget.target ??
-      (Platform.isAndroid
-          ? UpdateTarget.android
-          : Platform.isWindows
-          ? UpdateTarget.windows
-          : null);
-  _UpdatePhase _phase = _UpdatePhase.checking;
+  UpdateTarget? get _target => _controller.target;
+  _UpdatePhase _phase = _UpdatePhase.available;
   CancelToken _cancel = CancelToken();
-  ReleaseUpdate? _update;
+  ReleaseUpdate? _downloadUpdate;
+  ReleaseUpdate? get _update => _downloadUpdate ?? _controller.update;
   File? _file;
   bool _confirming = false;
   double? _progress;
-  String _message = '正在检查 GitHub 正式版本…';
-  bool get _busy => {
-    _UpdatePhase.checking,
-    _UpdatePhase.downloading,
-    _UpdatePhase.installing,
-  }.contains(_phase);
+  bool _showNotes = false;
+  String _message = '';
+  bool get _busy =>
+      _controller.status == UpdateCheckStatus.checking ||
+      {_UpdatePhase.downloading, _UpdatePhase.installing}.contains(_phase);
 
   @override
   void initState() {
     super.initState();
-    _check();
+    _controller.addListener(_refresh);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _controller.check();
+    });
   }
 
   @override
   void dispose() {
     _cancel.cancel();
-    _service.close();
+    _controller.removeListener(_refresh);
+    if (widget.controller == null) _controller.dispose();
     super.dispose();
+  }
+
+  void _refresh() {
+    if (mounted) setState(() {});
   }
 
   void _fail(Object error, {bool installing = false}) {
@@ -86,36 +90,14 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
   }
 
   Future<void> _check() async {
-    _cancel = CancelToken();
+    if (_busy) return;
     setState(() {
-      _phase = _UpdatePhase.checking;
-      _message = '正在检查 GitHub 正式版本…';
-      _update = null;
+      _phase = _UpdatePhase.available;
+      _message = '';
+      _downloadUpdate = null;
       _file = null;
     });
-    try {
-      final package = await widget.package;
-      if (!mounted) return;
-      if (_target == null) throw const UpdateException('当前平台请从 GitHub 发布页手动更新');
-      if (_target == UpdateTarget.android &&
-          package.packageName != 'cn.edu.xmu.rollcall.xmu_rollcall') {
-        throw const UpdateException('测试版与正式版独立安装，请从发布页获取正式版');
-      }
-      final version = AppVersion.parse(
-        '${package.version}+${package.buildNumber}',
-      );
-      final update = await _service.check(version, _target, _cancel);
-      if (!mounted) return;
-      setState(() {
-        _update = update;
-        _phase = update == null ? _UpdatePhase.current : _UpdatePhase.available;
-        _message = update == null
-            ? '当前已是最新正式版本'
-            : '发现新版本 ${update.version.name}';
-      });
-    } catch (error) {
-      _fail(error);
-    }
+    await _controller.check(force: true);
   }
 
   Future<void> _download() async {
@@ -123,6 +105,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
     if (_busy || update == null) return;
     _cancel = CancelToken();
     setState(() {
+      _downloadUpdate = update;
       _phase = _UpdatePhase.downloading;
       _progress = 0;
       _message = '正在下载安装包…';
@@ -212,91 +195,185 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
   Widget build(BuildContext context) {
     final update = _update;
     final p = AppPalette.of(context);
-    return SettingsSection(
-      header: '应用更新',
-      children: [
-        SettingsRow(
-          leading: Icon(
-            _phase == _UpdatePhase.current
-                ? Icons.check_circle_outline
-                : Icons.system_update_alt,
-          ),
-          title: _message,
-          subtitle: '仅检查 GitHub 公开正式版本，不上传账号信息。',
-        ),
-        Padding(
-          padding: AppDensity.rowPadding(context),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (_phase == _UpdatePhase.downloading) ...[
-                LinearProgressIndicator(value: _progress),
-                const SizedBox(height: 12),
-              ],
-              if (update != null) ...[
-                Text(
-                  '${update.target == UpdateTarget.android ? 'Android APK' : 'Windows x64 安装器'} · ${(update.size / 1024 / 1024).toStringAsFixed(1)} MB',
-                  style: TextStyle(color: p.muted, fontSize: 12),
-                ),
-                const SizedBox(height: 12),
-                ExpansionTile(
-                  tilePadding: EdgeInsets.zero,
-                  title: const Text('查看更新说明'),
+    final checking = _controller.status == UpdateCheckStatus.checking;
+    final title = switch (_phase) {
+      _UpdatePhase.downloading => _message,
+      _UpdatePhase.ready => '已准备好安装',
+      _UpdatePhase.installing => '正在打开安装器',
+      _UpdatePhase.failed => '操作未完成',
+      _ =>
+        update != null
+            ? '新版本 v${update.version.name}'
+            : switch (_controller.status) {
+                UpdateCheckStatus.idle ||
+                UpdateCheckStatus.checking => '正在检查新版本',
+                UpdateCheckStatus.current => '已是最新版本',
+                UpdateCheckStatus.failed => '暂时无法检查',
+                UpdateCheckStatus.available => '发现新版本',
+              },
+    };
+    final subtitle = update != null
+        ? '${update.target == UpdateTarget.android ? 'Android' : 'Windows x64'} · ${(update.size / 1024 / 1024).toStringAsFixed(1)} MB'
+        : _controller.status == UpdateCheckStatus.failed
+        ? '可稍后重试或前往发布页'
+        : checking
+        ? '正在连接 GitHub'
+        : '自动检查已开启';
+    final action = _phase == _UpdatePhase.downloading
+        ? TextButton(
+            onPressed: () => _cancel.cancel(),
+            child: const Text('取消下载'),
+          )
+        : _phase == _UpdatePhase.ready
+        ? FilledButton(
+            onPressed: _busy ? null : _install,
+            child: Text(_target == UpdateTarget.windows ? '退出并安装' : '安装更新'),
+          )
+        : update != null
+        ? FilledButton(
+            onPressed: _busy ? null : _download,
+            child: Text(_phase == _UpdatePhase.failed ? '重新下载' : '下载更新'),
+          )
+        : OutlinedButton(
+            onPressed: _busy ? null : _check,
+            child: Text(checking ? '检查中' : '检查更新'),
+          );
+    return Panel(
+      padding: const EdgeInsets.fromLTRB(20, 20, 16, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final summary = _summary(p, title, subtitle);
+              if (constraints.maxWidth < 280) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: SelectableText(
-                        update.notes,
-                        style: TextStyle(
-                          color: p.ink,
-                          fontSize: 13,
-                          height: 1.6,
-                        ),
-                      ),
+                    Row(
+                      children: [
+                        Expanded(child: summary),
+                        if (update == null) _moreMenu(p, false),
+                      ],
                     ),
                     const SizedBox(height: 12),
+                    Align(alignment: Alignment.centerLeft, child: action),
                   ],
-                ),
-              ],
-              Wrap(
-                spacing: 10,
-                runSpacing: 8,
+                );
+              }
+              return Row(
                 children: [
-                  if (_phase == _UpdatePhase.downloading)
-                    TextButton(
-                      onPressed: () => _cancel.cancel(),
-                      child: const Text('取消下载'),
-                    )
-                  else if (_phase == _UpdatePhase.ready)
-                    FilledButton(
-                      onPressed: _install,
-                      child: Text(
-                        _target == UpdateTarget.windows ? '退出并安装' : '安装更新',
-                      ),
-                    )
-                  else if (update != null && !_busy)
-                    FilledButton(
-                      onPressed: _download,
-                      child: Text(
-                        _phase == _UpdatePhase.failed ? '重新下载' : '下载更新',
-                      ),
-                    ),
-                  TextButton(
-                    onPressed: _busy ? null : _check,
-                    child: Text(
-                      _phase == _UpdatePhase.checking ? '正在检查…' : '检查更新',
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: _busy ? null : _openRelease,
-                    child: const Text('GitHub 发布页'),
-                  ),
+                  Expanded(child: summary),
+                  const SizedBox(width: 12),
+                  action,
+                  if (update == null) _moreMenu(p, false),
                 ],
-              ),
-            ],
+              );
+            },
           ),
-        ),
-      ],
+          if (_phase == _UpdatePhase.downloading) ...[
+            const SizedBox(height: 16),
+            LinearProgressIndicator(
+              value: _progress,
+              minHeight: 3,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ],
+          if (_message.isNotEmpty && _phase != _UpdatePhase.downloading) ...[
+            const SizedBox(height: 12),
+            Text(
+              _message,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.5,
+                color: _phase == _UpdatePhase.failed ? p.danger : p.muted,
+              ),
+            ),
+          ],
+          if (update != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: () => setState(() => _showNotes = !_showNotes),
+                  icon: Icon(
+                    _showNotes ? Icons.expand_less : Icons.expand_more,
+                    size: 17,
+                  ),
+                  label: const Text('查看更新说明'),
+                ),
+                const Spacer(),
+                _moreMenu(p, true),
+              ],
+            ),
+          ],
+          if (update != null && _showNotes) ...[
+            Divider(height: 20, color: p.border),
+            SelectableText(
+              update.notes,
+              style: TextStyle(color: p.ink, fontSize: 13, height: 1.7),
+            ),
+            const SizedBox(height: 4),
+          ],
+        ],
+      ),
     );
   }
+
+  Widget _summary(AppPalette p, String title, String subtitle) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text('应用更新', style: TextStyle(fontSize: 12, color: p.muted)),
+      const SizedBox(height: 7),
+      Semantics(
+        liveRegion: true,
+        child: Text(
+          title,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w600,
+            height: 1.35,
+            color: p.ink,
+          ),
+        ),
+      ),
+      const SizedBox(height: 5),
+      Text(
+        subtitle,
+        style: TextStyle(fontSize: 12, color: p.muted, height: 1.5),
+      ),
+    ],
+  );
+
+  Widget _moreMenu(AppPalette p, bool hasUpdate) => PopupMenuButton<String>(
+    tooltip: '更多更新选项',
+    icon: Icon(Icons.more_horiz, color: p.muted, size: 19),
+    enabled: !_busy,
+    onSelected: (value) {
+      if (value == 'release') {
+        _openRelease();
+      } else if (value == 'check') {
+        _check();
+      } else {
+        _showError();
+      }
+    },
+    itemBuilder: (_) => [
+      const PopupMenuItem(value: 'release', child: Text('GitHub 发布页')),
+      if (hasUpdate) const PopupMenuItem(value: 'check', child: Text('重新检查')),
+      if (_controller.error != null)
+        const PopupMenuItem(value: 'error', child: Text('查看原因')),
+    ],
+  );
+
+  Future<void> _showError() =>
+      showAppConfirmDialog(
+        context,
+        title: '更新检查未完成',
+        message: _controller.error,
+        cancelLabel: '关闭',
+        confirmLabel: '重试',
+      ).then((retry) {
+        if (retry && mounted) _check();
+      });
 }

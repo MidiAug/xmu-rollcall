@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/adaptive_shell.dart';
@@ -11,6 +12,7 @@ import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/settings/settings_page.dart';
+import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 import 'package:xmu_rollcall/platform/android_monitor_shell.dart';
 import 'package:xmu_rollcall/platform/desktop_shell.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
@@ -24,18 +26,34 @@ class XmuRollcallApp extends ConsumerStatefulWidget {
   ConsumerState<XmuRollcallApp> createState() => _XmuRollcallAppState();
 }
 
-class _XmuRollcallAppState extends ConsumerState<XmuRollcallApp> {
+class _XmuRollcallAppState extends ConsumerState<XmuRollcallApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Restore the small cached profile while the HTTP client and install ID
     // initialize; profile verification can continue after the shell appears.
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(ref.read(appUpdateControllerProvider).check());
       if (mounted &&
           ref.read(authControllerProvider).status == AuthStatus.unknown) {
         ref.read(authControllerProvider.notifier).bootstrap();
       }
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      unawaited(ref.read(appUpdateControllerProvider).check());
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override

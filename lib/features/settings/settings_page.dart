@@ -16,7 +16,7 @@ import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
 import 'package:xmu_rollcall/features/settings/desktop_notification_settings_page.dart';
 import 'package:xmu_rollcall/features/settings/settings_assist_page.dart';
 import 'package:xmu_rollcall/features/settings/settings_data_page.dart';
-import 'package:xmu_rollcall/features/settings/about_page.dart';
+import 'package:xmu_rollcall/features/settings/about_settings_row.dart';
 import 'package:xmu_rollcall/platform/close_prefs.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
@@ -243,13 +243,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   onTap: () =>
                       AppPageRoutes.push(context, const SettingsDataPage()),
                 ),
-                SettingsRow(
-                  leading: const Icon(Icons.info_outline_rounded),
-                  title: '关于',
-                  subtitle: '版本、检查更新与软件介绍',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
-                  onTap: () => AppPageRoutes.push(context, const AboutPage()),
-                ),
+                const AboutSettingsRow(),
               ],
             ),
           ],

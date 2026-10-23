@@ -65,7 +65,7 @@ void main() {
         service.result = update(UpdateTarget.windows);
         await mount(tester);
         expect(service.checks, 1);
-        expect(find.text('发现新版本 0.2.0'), findsOneWidget);
+        expect(find.text('新版本 v0.2.0'), findsOneWidget);
         await tester.tap(find.text('查看更新说明'));
         await tester.pumpAndSettle();
         expect(find.textContaining('A synthetic change'), findsOneWidget);
@@ -93,11 +93,18 @@ void main() {
     (tester) async {
       service.checkError = const UpdateException('GitHub 暂时不可用');
       await mount(tester);
+      expect(find.text('暂时无法检查'), findsOneWidget);
+      await tester.tap(find.byTooltip('更多更新选项'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('查看原因'));
+      await tester.pumpAndSettle();
       expect(find.text('GitHub 暂时不可用'), findsOneWidget);
+      await tester.tap(find.text('关闭'));
+      await tester.pumpAndSettle();
       service.checkError = null;
       await tester.tap(find.text('检查更新'));
       await tester.pumpAndSettle();
-      expect(find.text('当前已是最新正式版本'), findsOneWidget);
+      expect(find.text('已是最新版本'), findsOneWidget);
       expect(find.text('下载更新'), findsNothing);
       expect(service.checks, 2);
     },
@@ -176,6 +183,11 @@ void main() {
         buildNumber: '2',
       ),
     );
+    expect(find.text('暂时无法检查'), findsOneWidget);
+    await tester.tap(find.byTooltip('更多更新选项'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('查看原因'));
+    await tester.pumpAndSettle();
     expect(find.textContaining('测试版与正式版独立安装'), findsOneWidget);
     expect(service.checks, 0);
   });
