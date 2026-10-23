@@ -227,6 +227,7 @@ void main() {
     bool visibleTab = false,
     StartMonitorResult? startResult,
     DateTime? now,
+    DateTime Function()? clock,
   }) async {
     final store = SecureStore.memory();
     final service = _Service();
@@ -260,8 +261,8 @@ void main() {
           activeRollcallsProvider.overrideWith(
             visibleTab ? _AppearanceLists.new : _Lists.new,
           ),
-          if (now != null)
-            activeRollcallClockProvider.overrideWithValue(() => now),
+          if (now != null || clock != null)
+            activeRollcallClockProvider.overrideWithValue(clock ?? () => now!),
           if (startResult != null)
             monitorControllerProvider.overrideWith(
               (ref) => _StartMonitor(ref, startResult),
@@ -376,70 +377,129 @@ void main() {
   );
 
   for (final scenario in [
-    (
-      hour: 7,
-      minute: 29,
-      result: StartMonitorResult.started,
-      expected: '今天 07:30',
-    ),
-    (
-      hour: 22,
-      minute: 1,
-      result: StartMonitorResult.started,
-      expected: '明天 07:30',
-    ),
-    (hour: 8, minute: 0, result: StartMonitorResult.started, expected: ''),
-    (hour: 7, minute: 29, result: StartMonitorResult.cancelled, expected: ''),
+    (hour: 7, minute: 29, enabled: true, overnight: false, allowed: false),
+    (hour: 7, minute: 30, enabled: true, overnight: false, allowed: true),
+    (hour: 21, minute: 59, enabled: true, overnight: false, allowed: true),
+    (hour: 22, minute: 0, enabled: true, overnight: false, allowed: false),
+    (hour: 1, minute: 0, enabled: false, overnight: false, allowed: true),
+    (hour: 0, minute: 0, enabled: true, overnight: true, allowed: true),
+    (hour: 12, minute: 0, enabled: true, overnight: true, allowed: false),
   ]) {
     for (final width in [320.0, 960.0]) {
-      testWidgets(
-        'start feedback explains scheduled waiting at $scenario / $width',
-        (tester) async {
-          tester.view.physicalSize = Size(width, 720);
-          tester.view.devicePixelRatio = 1;
-          addTearDown(tester.view.resetPhysicalSize);
-          addTearDown(tester.view.resetDevicePixelRatio);
-          await show(
-            tester,
-            const RollcallHubPage(),
-            startResult: scenario.result,
-            now: DateTime(2026, 10, 24, scenario.hour, scenario.minute),
-          );
-          final container = ProviderScope.containerOf(
-            tester.element(find.byType(RollcallHubPage)),
-          );
-          await container
-              .read(detectionWindowProvider.notifier)
-              .save(const DetectionWindow(enabled: true));
-          await tester.pumpAndSettle();
-          await tester.tap(find.text('开始检测'));
-          await tester.pumpAndSettle();
-          final toast = find.textContaining('时段外暂停获取签到\n');
-          expect(
-            toast,
-            scenario.expected.isEmpty ? findsNothing : findsOneWidget,
-          );
-          if (scenario.expected.isNotEmpty) {
-            expect(find.textContaining(scenario.expected), findsOneWidget);
-            expect(find.text('07:30 继续'), findsOneWidget);
-            await captureDesktopUi(
-              tester,
-              'scheduled-start-${width.toInt()}-${scenario.hour}',
+      testWidgets('start is gated by detection window at $scenario / $width', (
+        tester,
+      ) async {
+        tester.view.physicalSize = Size(width, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await show(
+          tester,
+          const RollcallHubPage(),
+          startResult: StartMonitorResult.started,
+          now: DateTime(2026, 10, 24, scenario.hour, scenario.minute),
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(RollcallHubPage)),
+        );
+        await container
+            .read(detectionWindowProvider.notifier)
+            .save(
+              DetectionWindow(
+                enabled: scenario.enabled,
+                startMinute: scenario.overnight ? 1320 : 450,
+                endMinute: scenario.overnight ? 450 : 1320,
+              ),
             );
-          }
+        await tester.pumpAndSettle();
+        final button = find.ancestor(
+          of: find.text('开始检测'),
+          matching: find.byType(AppQuietPill),
+        );
+        expect(
+          tester.widget<AppQuietPill>(button).onTap,
+          scenario.allowed ? isNotNull : isNull,
+        );
+        if (!scenario.allowed) {
+          final label = tester.widget<Text>(find.text('开始检测'));
           expect(
-            (container.read(monitorControllerProvider.notifier)
-                    as _StartMonitor)
-                .starts,
-            1,
+            label.style!.color,
+            AppPalette.of(tester.element(button)).muted,
           );
-          expect(tester.takeException(), isNull);
-          AppToast.dismiss();
-          await tester.pumpWidget(const SizedBox());
-        },
-      );
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer();
+          await mouse.moveTo(tester.getCenter(button));
+          await tester.pumpAndSettle();
+          expect(
+            tester.binding.mouseTracker.debugDeviceActiveCursor(1),
+            SystemMouseCursors.basic,
+          );
+          await mouse.removePointer();
+          await captureDesktopUi(tester, 'disabled-start-${width.toInt()}');
+        }
+        await tester.tap(find.text('开始检测'));
+        await tester.pumpAndSettle();
+        expect(
+          (container.read(monitorControllerProvider.notifier) as _StartMonitor)
+              .starts,
+          scenario.allowed ? 1 : 0,
+        );
+        expect(find.textContaining('时段外暂停获取签到\n'), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      });
     }
   }
+
+  testWidgets('idle start updates at boundaries and when window changes', (
+    tester,
+  ) async {
+    var now = DateTime(2026, 10, 24, 7, 29, 59);
+    await show(
+      tester,
+      const RollcallHubPage(),
+      startResult: StartMonitorResult.started,
+      clock: () => now,
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(RollcallHubPage)),
+    );
+    final settings = container.read(detectionWindowProvider.notifier);
+    await settings.save(const DetectionWindow(enabled: true));
+    await tester.pumpAndSettle();
+    AppQuietPill button() => tester.widget<AppQuietPill>(
+      find.ancestor(of: find.text('开始检测'), matching: find.byType(AppQuietPill)),
+    );
+    expect(button().onTap, isNull);
+    now = DateTime(2026, 10, 24, 7, 30);
+    await tester.pump(const Duration(seconds: 1));
+    expect(button().onTap, isNotNull);
+    now = DateTime(2026, 10, 24, 22);
+    // An already-rendered callback must also reject a click over the boundary.
+    await tester.tap(find.text('开始检测'));
+    await tester.pumpAndSettle();
+    expect(
+      (container.read(monitorControllerProvider.notifier) as _StartMonitor)
+          .starts,
+      0,
+    );
+    await tester.pump(const Duration(seconds: 1));
+    expect(button().onTap, isNull);
+    await settings.save(const DetectionWindow());
+    await tester.pumpAndSettle();
+    expect(button().onTap, isNotNull);
+    await tester.tap(find.text('开始检测'));
+    await tester.pumpAndSettle();
+    expect(
+      (container.read(monitorControllerProvider.notifier) as _StartMonitor)
+          .starts,
+      1,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets(
     'running detection owns automatic refresh, manual refresh remains available',
