@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
@@ -16,37 +17,85 @@ Future<SavedLocation?> showLocationPicker(
 }) => showDialog<SavedLocation>(
   context: context,
   barrierColor: Colors.black.withValues(alpha: .40),
-  builder: (_) => _LocationPicker(
-    title: title,
-    selectedId: selectedId,
-    initial: initial,
-    locations: locations,
+  builder: (context) => Dialog(
+    backgroundColor: AppPalette.of(context).surface,
+    elevation: 0,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(AppRadii.dialog),
+      side: BorderSide(color: AppPalette.of(context).border),
+    ),
+    insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+    child: ConstrainedBox(
+      constraints: BoxConstraints(
+        maxWidth: 560,
+        maxHeight: MediaQuery.sizeOf(context).height * .85,
+      ),
+      child: LocationPickerContent(
+        title: title,
+        selectedId: selectedId,
+        initial: initial,
+        locations: locations,
+      ),
+    ),
   ),
 );
 
-class _LocationPicker extends ConsumerStatefulWidget {
-  const _LocationPicker({
+class LocationPickerContent extends ConsumerStatefulWidget {
+  const LocationPickerContent({
+    super.key,
     required this.title,
     this.selectedId,
     this.initial,
     this.locations,
+    this.onSelected,
+    this.onBack,
+    this.onClose,
   });
   final String title;
   final String? selectedId;
   final LatLng? initial;
   final List<SavedLocation>? locations;
+  final ValueChanged<SavedLocation>? onSelected;
+  final VoidCallback? onBack;
+  final VoidCallback? onClose;
   @override
-  ConsumerState<_LocationPicker> createState() => _LocationPickerState();
+  ConsumerState<LocationPickerContent> createState() => _LocationPickerState();
 }
 
-class _LocationPickerState extends ConsumerState<_LocationPicker> {
+class _LocationPickerState extends ConsumerState<LocationPickerContent> {
   bool _editing = false;
   bool _saving = false;
   MapPickResult? _draft;
   String? _error;
+  final _keyboardFocus = FocusNode();
+
+  @override
+  void dispose() {
+    _keyboardFocus.dispose();
+    super.dispose();
+  }
+
+  void _handleBack() {
+    if (_saving) return;
+    if (_editing) {
+      _back();
+    } else if (widget.onBack != null) {
+      widget.onBack!();
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
+  void _select(SavedLocation place) {
+    if (widget.onSelected != null) {
+      widget.onSelected!(place);
+    } else {
+      Navigator.pop(context, place);
+    }
+  }
 
   void _back() {
-    FocusScope.of(context).unfocus();
+    _keyboardFocus.requestFocus();
     setState(() {
       _editing = false;
       _error = null;
@@ -67,7 +116,7 @@ class _LocationPickerState extends ConsumerState<_LocationPicker> {
             latitude: result.latitude,
             longitude: result.longitude,
           );
-      if (mounted) Navigator.pop(context, place);
+      if (mounted) _select(place);
     } catch (_) {
       if (mounted) setState(() => _error = '地点未能保存，请重试');
     } finally {
@@ -84,24 +133,16 @@ class _LocationPickerState extends ConsumerState<_LocationPicker> {
     final initial = _draft == null
         ? widget.initial
         : LatLng(_draft!.latitude, _draft!.longitude);
-    return PopScope(
-      canPop: !_saving && !_editing,
-      onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && _editing && !_saving) _back();
-      },
-      child: Dialog(
-        backgroundColor: p.surface,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadii.dialog),
-          side: BorderSide(color: p.border),
-        ),
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: 560,
-            maxHeight: MediaQuery.sizeOf(context).height * .85,
-          ),
+    return CallbackShortcuts(
+      bindings: {const SingleActivator(LogicalKeyboardKey.escape): _handleBack},
+      child: Focus(
+        focusNode: _keyboardFocus,
+        autofocus: true,
+        child: PopScope(
+          canPop: !_saving && !_editing && widget.onBack == null,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _handleBack();
+          },
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
             child: Column(
@@ -110,10 +151,14 @@ class _LocationPickerState extends ConsumerState<_LocationPicker> {
               children: [
                 Row(
                   children: [
-                    if (_editing) ...[
+                    if (_editing || widget.onBack != null) ...[
                       IconButton(
-                        tooltip: '返回地点列表',
-                        onPressed: _saving ? null : _back,
+                        tooltip: _editing ? '返回地点列表' : '返回课程详情',
+                        onPressed: _saving
+                            ? null
+                            : _editing
+                            ? _back
+                            : widget.onBack,
                         visualDensity: VisualDensity.compact,
                         icon: const Icon(Icons.arrow_back_rounded, size: 20),
                       ),
@@ -127,7 +172,9 @@ class _LocationPickerState extends ConsumerState<_LocationPicker> {
                     ),
                     IconButton(
                       tooltip: '关闭地点选择',
-                      onPressed: _saving ? null : () => Navigator.pop(context),
+                      onPressed: _saving
+                          ? null
+                          : widget.onClose ?? () => Navigator.pop(context),
                       visualDensity: VisualDensity.compact,
                       icon: const Icon(Icons.close_rounded, size: 20),
                     ),
@@ -175,7 +222,7 @@ class _LocationPickerState extends ConsumerState<_LocationPicker> {
                           return AppHoverSurface(
                             outlined: false,
                             padding: const EdgeInsets.symmetric(vertical: 14),
-                            onTap: () => Navigator.pop(context, place),
+                            onTap: () => _select(place),
                             child: Semantics(
                               selected: selected,
                               child: Row(

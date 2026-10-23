@@ -16,10 +16,13 @@ class CourseLocationSetting extends ConsumerStatefulWidget {
     required this.courseId,
     required this.courseTitle,
     this.displayLocation,
+    this.pickLocation,
   });
   final String courseId;
   final String courseTitle;
   final String? displayLocation;
+  final Future<SavedLocation?> Function(String? selectedId, LatLng? initial)?
+  pickLocation;
 
   @override
   ConsumerState<CourseLocationSetting> createState() =>
@@ -43,12 +46,17 @@ class _CourseLocationSettingState extends ConsumerState<CourseLocationSetting> {
       await controller.ready;
       if (!mounted) return;
       final pref = controller.forCourse(courseId: widget.courseId);
-      final selected = await showLocationPicker(
-        context,
-        title: '选择上课地点',
-        selectedId: pref?.placeId,
-        initial: pref == null ? null : LatLng(pref.latitude, pref.longitude),
-      );
+      final initial = pref == null
+          ? null
+          : LatLng(pref.latitude, pref.longitude);
+      final selected = widget.pickLocation != null
+          ? await widget.pickLocation!(pref?.placeId, initial)
+          : await showLocationPicker(
+              context,
+              title: '选择上课地点',
+              selectedId: pref?.placeId,
+              initial: initial,
+            );
       if (!mounted || selected == null) return;
       final auth = ref.read(authControllerProvider);
       if (!auth.isSignedIn || auth.profile?.id != owner) return;

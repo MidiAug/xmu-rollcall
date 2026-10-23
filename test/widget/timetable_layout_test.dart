@@ -7,7 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xmu_rollcall/features/location/location_providers.dart';
+import 'package:xmu_rollcall/features/location/map_pick_panel.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
@@ -146,6 +149,14 @@ class _DesktopFrame extends StatelessWidget {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   setUpAll(() async {
+    final cache = await Directory(
+      '.tools/timetable-polish/cache',
+    ).create(recursive: true);
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (_) async => cache.absolute.path,
+        );
     final font = Platform.environment['SETTINGS_UI_FONT'];
     if (font == null) return;
     await (FontLoader(
@@ -303,6 +314,52 @@ void main() {
         expect(find.byTooltip('关闭课程详情'), findsOneWidget);
         expect(find.byType(Dialog), desktop ? findsOneWidget : findsNothing);
         await capture('03-detail');
+        final flow = find.byKey(const ValueKey('course-detail-flow'));
+        final width = tester.getSize(flow).width;
+        final barriers = find.byType(ModalBarrier).evaluate().length;
+        await tester.tap(find.byKey(const ValueKey('course-location-picker')));
+        await tester.pumpAndSettle();
+        expect(find.byType(ModalBarrier), findsNWidgets(barriers));
+        expect(find.byType(Dialog), desktop ? findsOneWidget : findsNothing);
+        expect(tester.getSize(flow).width, width);
+        expect(find.byTooltip('返回课程详情'), findsOneWidget);
+        await capture('04-location');
+        await tester.tap(find.text('添加地点'));
+        await tester.pumpAndSettle();
+        expect(find.byType(MapPickPanel), findsOneWidget);
+        expect(find.byType(ModalBarrier), findsNWidgets(barriers));
+        expect(find.byType(Dialog), desktop ? findsOneWidget : findsNothing);
+        expect(tester.getSize(flow).width, width);
+        await capture('05-add-location');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byType(MapPickPanel), findsNothing);
+        await capture('05b-after-back');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        await capture('05c-after-second-back');
+        expect(find.byTooltip('关闭课程详情'), findsOneWidget);
+        final container = ProviderScope.containerOf(tester.element(flow));
+        await container
+            .read(savedLocationsProvider.notifier)
+            .add(note: '新的上课地点', latitude: 24.6, longitude: 118.3);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('course-location-picker')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('新的上课地点'));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('关闭课程详情'), findsOneWidget);
+        expect(find.text('新的上课地点'), findsOneWidget);
+        expect(
+          container
+              .read(courseRadarDefaultsProvider.notifier)
+              .forCourse(courseId: 'late')
+              ?.labelSnapshot,
+          '新的上课地点',
+        );
+        expect(find.byType(ModalBarrier), findsNWidgets(barriers));
+        await capture('06-location-selected');
+        AppToast.dismiss();
         await tester.tap(find.byTooltip('关闭课程详情'));
         await tester.pumpAndSettle();
         if (desktop) {

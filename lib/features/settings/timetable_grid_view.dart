@@ -1,10 +1,14 @@
 import 'dart:math' as math;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 import 'package:xmu_rollcall/features/location/course_location_setting.dart';
+import 'package:xmu_rollcall/features/location/location_picker.dart';
+import 'package:xmu_rollcall/features/location/location_models.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid.dart';
 
 /// Week × period timetable. Keep readable row sizes; scroll instead of shrinking
@@ -326,7 +330,7 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
   }
 
   void _showBlockDetail(BuildContext context, TimetablePlacedBlock block) {
-    final detail = _CourseDetail(block: block);
+    final detail = _CourseDetailFlow(block: block);
     if (!AppDensity.isTouch(context)) {
       showDialog<void>(
         context: context,
@@ -340,8 +344,11 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
           ),
           insetPadding: const EdgeInsets.all(24),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 440),
-            child: SingleChildScrollView(child: detail),
+            constraints: BoxConstraints(
+              maxWidth: 440,
+              maxHeight: MediaQuery.sizeOf(context).height * .85,
+            ),
+            child: detail,
           ),
         ),
       );
@@ -356,7 +363,7 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
           maxHeight: MediaQuery.sizeOf(context).height * .8,
         ),
         backgroundColor: AppPalette.of(context).surface,
-        builder: (_) => SingleChildScrollView(child: detail),
+        builder: (_) => detail,
       );
     }
   }
@@ -373,9 +380,75 @@ String? _separateClassLabel(CatalogCourse course) {
   return label;
 }
 
-class _CourseDetail extends StatelessWidget {
-  const _CourseDetail({required this.block});
+class _CourseDetailFlow extends StatefulWidget {
+  const _CourseDetailFlow({required this.block});
   final TimetablePlacedBlock block;
+  @override
+  State<_CourseDetailFlow> createState() => _CourseDetailFlowState();
+}
+
+class _CourseDetailFlowState extends State<_CourseDetailFlow> {
+  Completer<SavedLocation?>? _pending;
+  String? _selectedId;
+  LatLng? _initial;
+
+  Future<SavedLocation?> _pick(String? selectedId, LatLng? initial) {
+    if (_pending != null) return _pending!.future;
+    final result = Completer<SavedLocation?>();
+    setState(() {
+      _pending = result;
+      _selectedId = selectedId;
+      _initial = initial;
+    });
+    return result.future;
+  }
+
+  void _finish(SavedLocation? location) {
+    final pending = _pending;
+    setState(() => _pending = null);
+    pending?.complete(location);
+  }
+
+  @override
+  void dispose() {
+    _pending?.complete(null);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedSize(
+    key: const ValueKey('course-detail-flow'),
+    duration: AppMotion.fast,
+    curve: AppMotion.fastCurve,
+    child: Stack(
+      children: [
+        ExcludeFocus(
+          excluding: _pending != null,
+          child: Offstage(
+            offstage: _pending != null,
+            child: SingleChildScrollView(
+              child: _CourseDetail(block: widget.block, pickLocation: _pick),
+            ),
+          ),
+        ),
+        if (_pending != null)
+          LocationPickerContent(
+            title: '选择上课地点',
+            selectedId: _selectedId,
+            initial: _initial,
+            onSelected: _finish,
+            onBack: () => _finish(null),
+            onClose: () => Navigator.of(context).pop(),
+          ),
+      ],
+    ),
+  );
+}
+
+class _CourseDetail extends StatelessWidget {
+  const _CourseDetail({required this.block, this.pickLocation});
+  final TimetablePlacedBlock block;
+  final Future<SavedLocation?> Function(String?, LatLng?)? pickLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -423,6 +496,7 @@ class _CourseDetail extends StatelessWidget {
             courseId: c.id,
             courseTitle: c.title,
             displayLocation: c.location,
+            pickLocation: pickLocation,
           ),
         ],
       ),

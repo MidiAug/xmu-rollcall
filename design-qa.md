@@ -169,3 +169,9 @@ flutter analyze无问题。本轮只改设置页和对应回归，没有修改Wi
 验证：flutter analyze无问题；全量509通过、2真实网络项跳过。新增6项交互/布局回归覆盖960浅暗、384、320/1.3字号、300键盘遮挡、长备注、返回/关闭、空备注、保存锁定及失败重试；课程、常用地点及雷达既有回归通过。未修改请求协议、地图瓦片源、坐标处理或持久化结构。
 
 系统字体渲染证据位于`.tools/location-picker/`：`960-dark-01-list.png`、`960-dark-02-add.png`、`384-light-02-add.png`、`320-dark-03-keyboard.png`等。已检查列表/编辑同一框架、正文对齐、主按钮对比度、暗色地图占位及窄屏换行。隔离测试阻断真实HTTP，地图展示中性占位与真实交互标记；这些截图验证UI布局和选点数学，不代表在线瓦片已加载。真实地图加载、Android系统键盘及真机仍待设备验收。现有Windows开发实例热重载成功（21个库）。
+
+## 2026-10-24 课程地点消除叠窗
+
+用户截图显示地点选择叠在课程详情上，两层遮罩和不同宽度使界面突兀。本轮将LocationPickerContent从独立Dialog外框分离，嵌入CourseDetailFlow，在原容器内切换课程/列表/地图；桌面固定440宽，AnimatedSize只调整高度，手机保留课程底部面板。独立地点入口继续使用同一内容组件和自身外框。详情保持状态、隐藏时排除焦点；共享选择器保留专用键盘焦点，连续Escape按地图→列表→课程回退。选择完成后复用原CourseLocationSetting的精确课程保存逻辑。
+
+验证：18项相关回归通过，含5种课表浅暗/宽度/大字号情景、独立选择器及保存持久化交互；新增断言覆盖每阶段ModalBarrier数量不增加、桌面始终一个Dialog且宽度不变、手机无新增Dialog、连续返回与选中后回写。静态分析无问题；本轮未重跑全量或进行真实签到提交。截图为`.tools/timetable-polish/desktop-light-04-location.png`、`desktop-light-05-add-location.png`、`desktop-light-06-location-selected.png`以及`mobile-large-weekend-05-add-location.png`，已复核无后层窗口露出。隔离地图仍为占位渲染；Android真机、系统键盘和在线瓦片不由这些测试代替。
