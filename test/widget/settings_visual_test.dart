@@ -283,22 +283,9 @@ void main() {
         expect(find.byType(AppMenuOption), findsNothing);
         await tester.tap(route);
         await tester.pumpAndSettle();
-        await tester.tap(find.text('自定义线路…').last);
-        await tester.pumpAndSettle();
-        if (width == 320) {
-          tester.view.viewInsets = const FakeViewPadding(bottom: 280);
-          await tester.pumpAndSettle();
-        }
-        await capture(
-          tester,
-          key,
-          '${width.toInt()}-${dark ? 'dark' : 'light'}-custom-route',
-        );
-        final save = find.text('保存');
-        await tester.ensureVisible(save);
-        expect(save.hitTestable(), findsOneWidget);
-        await tester.tap(find.text('取消'));
-        tester.view.resetViewInsets();
+        expect(find.text('自定义线路…'), findsNothing);
+        expect(find.byType(AppMenuOption), findsNWidgets(3));
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         await tester.tap(find.byTooltip('返回'));

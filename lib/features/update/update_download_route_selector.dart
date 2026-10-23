@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
-import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/update/update_download_route.dart';
 
-/// Saves preset choices directly; custom nodes use a validated text prompt.
+/// Shared, preset-only download route selector for About and release notes.
 class UpdateDownloadRouteSelector extends StatefulWidget {
   const UpdateDownloadRouteSelector({
     super.key,
@@ -24,7 +23,6 @@ class UpdateDownloadRouteSelector extends StatefulWidget {
 class _RouteSelectorState extends State<UpdateDownloadRouteSelector> {
   // About and release notes can both show a selector at the same time.
   static final _routeRevision = ValueNotifier<int>(0);
-  bool _editing = false;
   String _choice = 'official';
   Uri? _saved;
   bool _ready = false;
@@ -95,43 +93,9 @@ class _RouteSelectorState extends State<UpdateDownloadRouteSelector> {
     }
   }
 
-  Future<void> _editCustom() async {
-    if (_editing || _saving) return;
-    setState(() => _editing = true);
-    try {
-      final value = await showAppPromptDialog(
-        context,
-        title: '自定义下载线路',
-        message: '输入 HTTPS 加速节点首页',
-        initialValue:
-            _saved != null &&
-                !UpdateDownloadRoute.suggested.contains(_saved.toString())
-            ? _saved.toString()
-            : '',
-        labelText: '节点地址',
-        hintText: 'https://mirror.example/',
-        keyboardType: TextInputType.url,
-        validator: (value) {
-          try {
-            UpdateDownloadRoute.parse(value);
-            return null;
-          } on FormatException catch (error) {
-            return error.message;
-          }
-        },
-      );
-      if (mounted && value != null) await _save(value);
-    } finally {
-      if (mounted) setState(() => _editing = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final customSaved =
-        _saved != null &&
-        !UpdateDownloadRoute.suggested.contains(_saved.toString());
     return Align(
       alignment: Alignment.centerRight,
       widthFactor: 1,
@@ -145,22 +109,10 @@ class _RouteSelectorState extends State<UpdateDownloadRouteSelector> {
               builder: (context, bounds) => AppShellSelect<String>(
                 key: const ValueKey('update-route-select'),
                 value: _choice,
-                items: [
-                  'official',
-                  ...UpdateDownloadRoute.suggested,
-                  if (customSaved) _saved.toString(),
-                  'custom',
-                ],
-                labelOf: (value) => value == 'official'
-                    ? 'GitHub 官方'
-                    : value == 'custom'
-                    ? '自定义线路…'
-                    : Uri.parse(value).host,
-                menuTrailingOf: (value) => value == 'official'
-                    ? '直连'
-                    : value == 'custom'
-                    ? ''
-                    : '加速',
+                items: ['official', ...UpdateDownloadRoute.suggested],
+                labelOf: (value) =>
+                    value == 'official' ? 'GitHub 官方' : Uri.parse(value).host,
+                menuTrailingOf: (value) => value == 'official' ? '直连' : '加速',
                 semanticLabel: '更新下载线路',
                 compact: true,
                 leading: bounds.maxWidth < 164
@@ -168,14 +120,10 @@ class _RouteSelectorState extends State<UpdateDownloadRouteSelector> {
                     : Icon(Icons.alt_route_rounded, size: 16, color: p.muted),
                 width: bounds.maxWidth.clamp(0.0, widget.width),
                 menuWidth: 260,
-                onChanged: !_ready || _saving || _editing || !widget.enabled
+                onChanged: !_ready || _saving || !widget.enabled
                     ? null
                     : (value) {
-                        if (value == 'custom') {
-                          _editCustom();
-                        } else {
-                          _save(value == 'official' ? null : value);
-                        }
+                        _save(value == 'official' ? null : value);
                       },
               ),
             ),

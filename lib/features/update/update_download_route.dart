@@ -19,15 +19,30 @@ abstract final class UpdateDownloadRoute {
         ).hasMatch(uri.host) ||
         uri.host.endsWith('.local') ||
         uri.host.endsWith('.localhost')) {
-      throw const FormatException('请输入 HTTPS 节点首页，不含账号、参数或文件路径');
+      throw const FormatException('请选择内置下载线路');
     }
-    return uri.replace(path: '/');
+    final normalized = uri.replace(path: '/');
+    if (!suggested.contains(normalized.toString())) {
+      throw const FormatException('请选择内置下载线路');
+    }
+    return normalized;
   }
 
   static Future<Uri?> read() async {
     try {
-      final value = (await SharedPreferences.getInstance()).getString(key);
-      return value == null ? null : parse(value);
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.containsKey('update_download_custom_mirror_v1')) {
+        await prefs.remove('update_download_custom_mirror_v1');
+      }
+      final value = prefs.getString(key);
+      if (value == null) return null;
+      try {
+        return parse(value);
+      } on FormatException {
+        // Older releases allowed arbitrary custom nodes; fall back before any download.
+        await prefs.remove(key);
+        return null;
+      }
     } catch (_) {
       return null;
     }
@@ -35,9 +50,10 @@ abstract final class UpdateDownloadRoute {
 
   static Future<void> save(String? value) async {
     final prefs = await SharedPreferences.getInstance();
+    final route = value == null ? null : parse(value).toString();
     final saved = value == null
         ? await prefs.remove(key)
-        : await prefs.setString(key, parse(value).toString());
+        : await prefs.setString(key, route!);
     if (!saved) throw StateError('无法保存下载线路');
   }
 }

@@ -475,11 +475,11 @@ void main() {
       service = GithubUpdateService(
         http: Dio()..httpClientAdapter = adapter,
         cacheDirectory: () async => cache,
-        downloadMirror: () async => Uri.parse('https://mirror.example/'),
+        downloadMirror: () async => Uri.parse('https://gh-proxy.com/'),
       );
       final update = (await check())!;
       expect(
-        adapter.requests.every((r) => r.uri.host != 'mirror.example'),
+        adapter.requests.every((r) => r.uri.host != 'gh-proxy.com'),
         isTrue,
       );
       final file = await service.download(update, CancelToken(), (_, _) {});
@@ -487,7 +487,7 @@ void main() {
       final request = adapter.requests.last;
       expect(
         request.uri.toString(),
-        'https://mirror.example/${update.downloadUrl}',
+        'https://gh-proxy.com/${update.downloadUrl}',
       );
       expect(
         request.headers.keys.map((k) => k.toLowerCase()),
@@ -499,7 +499,7 @@ void main() {
       service = GithubUpdateService(
         http: Dio()..httpClientAdapter = adapter,
         cacheDirectory: () async => cache,
-        downloadMirror: () async => Uri.parse('https://mirror.example/'),
+        downloadMirror: () async => Uri.parse('https://gh-proxy.com/'),
       );
       await expectLater(
         service.download(update, CancelToken(), (_, _) {}),
@@ -514,7 +514,7 @@ void main() {
     () async {
       final update = (await check())!;
       adapter = Adapter(
-        (request) async => request.uri.host == 'mirror.example'
+        (request) async => request.uri.host == 'gh-proxy.com'
             ? throw DioException(
                 requestOptions: request,
                 type: DioExceptionType.connectionError,
@@ -525,11 +525,11 @@ void main() {
       service = GithubUpdateService(
         http: Dio()..httpClientAdapter = adapter,
         cacheDirectory: () async => cache,
-        downloadMirror: () async => Uri.parse('https://mirror.example/'),
+        downloadMirror: () async => Uri.parse('https://gh-proxy.com/'),
       );
       final file = await service.download(update, CancelToken(), (_, _) {});
       expect(adapter.requests.map((r) => r.uri.host), [
-        'mirror.example',
+        'gh-proxy.com',
         'github.com',
       ]);
       await file.delete();
@@ -546,7 +546,7 @@ void main() {
       service = GithubUpdateService(
         http: Dio()..httpClientAdapter = adapter,
         cacheDirectory: () async => cache,
-        downloadMirror: () async => Uri.parse('https://mirror.example/'),
+        downloadMirror: () async => Uri.parse('https://gh-proxy.com/'),
       );
       await expectLater(
         service.download(update, CancelToken(), (_, _) {}),
@@ -568,7 +568,7 @@ void main() {
       }
 
       adapter = Adapter(
-        (request) async => request.uri.host == 'mirror.example'
+        (request) async => request.uri.host == 'gh-proxy.com'
             ? ResponseBody(interrupted(request), 200)
             : ResponseBody.fromBytes(bytes, 200),
       );
@@ -576,12 +576,12 @@ void main() {
       service = GithubUpdateService(
         http: Dio()..httpClientAdapter = adapter,
         cacheDirectory: () async => cache,
-        downloadMirror: () async => Uri.parse('https://mirror.example/'),
+        downloadMirror: () async => Uri.parse('https://gh-proxy.com/'),
       );
       final file = await service.download(update, CancelToken(), (_, _) {});
       expect(await file.readAsBytes(), bytes);
       expect(adapter.requests.map((r) => r.uri.host), [
-        'mirror.example',
+        'gh-proxy.com',
         'github.com',
       ]);
       expect(await File('${file.path}.part').exists(), isFalse);
