@@ -32,8 +32,8 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
         ref.watch(authControllerProvider).isSignedIn && !state.loadingSettings;
     final jitterSeconds = (c.effectiveIntervalSeconds * c.jitterRatio).round();
     final shortest = (c.effectiveIntervalSeconds - jitterSeconds).clamp(
-      15,
-      180,
+      MonitorConfig.minIntervalSeconds,
+      MonitorConfig.maxIntervalSeconds,
     );
     final longest = c.effectiveIntervalSeconds + jitterSeconds;
     final intervalDescription = shortest == longest
@@ -173,13 +173,14 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                         padding: rowPadding,
                         title: '检测间隔',
                         sliderKey: const ValueKey('monitor-interval'),
-                        value: c.effectiveIntervalSeconds
-                            .clamp(15, 120)
-                            .toDouble(),
+                        value: c.effectiveIntervalSeconds.toDouble(),
                         valueLabel: '${c.effectiveIntervalSeconds} 秒',
-                        min: 15,
-                        max: 120,
-                        divisions: 21,
+                        min: MonitorConfig.minIntervalSeconds.toDouble(),
+                        max: MonitorConfig.maxIntervalSeconds.toDouble(),
+                        divisions:
+                            (MonitorConfig.maxIntervalSeconds -
+                                MonitorConfig.minIntervalSeconds) ~/
+                            MonitorConfig.intervalStepSeconds,
                         formatValue: (value) => '${value.round()} 秒',
                         onChanged: ready
                             ? (value) => ctrl.setIntervalSeconds(value.round())

@@ -476,7 +476,7 @@ void main() {
       final track = tester.getRect(interval);
       await tester.tapAt(Offset(track.right - 8, track.center.dy));
       await tester.pumpAndSettle();
-      expect(find.text('120 秒'), findsOneWidget);
+      expect(find.text('300 秒'), findsOneWidget);
       expect(tester.takeException(), isNull);
       AppToast.dismiss();
       await tester.pumpWidget(const SizedBox());

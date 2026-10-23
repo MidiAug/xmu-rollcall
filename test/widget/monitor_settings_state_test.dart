@@ -229,19 +229,40 @@ void main() {
       final intervalFinder = find.byKey(const ValueKey('monitor-interval'));
       await tester.ensureVisible(intervalFinder);
       await tester.pumpAndSettle();
+      final slider = tester.widget<Slider>(intervalFinder);
+      expect(slider.min, 10);
+      expect(slider.max, 300);
+      expect(slider.divisions, 29);
+      Future<void> expectSavedInterval(int seconds) async {
+        final restored = ProviderContainer(
+          overrides: [authControllerProvider.overrideWith((ref) => _Auth())],
+        );
+        addTearDown(restored.dispose);
+        restored.read(monitorControllerProvider);
+        await tester.pumpAndSettle();
+        expect(
+          restored.read(monitorControllerProvider).config.intervalSeconds,
+          seconds,
+        );
+      }
+
       var track = tester.getRect(intervalFinder);
       await tester.tapAt(Offset(track.right - 8, track.center.dy));
       await tester.pumpAndSettle();
       expect(
         container.read(monitorControllerProvider).config.intervalSeconds,
-        120,
+        300,
       );
+      await expectSavedInterval(300);
+      expect(find.text('约 240–360 秒检查一次；连接失败时会延后重试。'), findsOneWidget);
       await tester.tapAt(Offset(track.left + 8, track.center.dy));
       await tester.pumpAndSettle();
       expect(
         container.read(monitorControllerProvider).config.intervalSeconds,
-        15,
+        10,
       );
+      await expectSavedInterval(10);
+      expect(find.text('约 10–12 秒检查一次；连接失败时会延后重试。'), findsOneWidget);
       await focusWithTab(intervalFinder);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();

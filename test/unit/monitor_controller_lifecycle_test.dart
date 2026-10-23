@@ -64,6 +64,21 @@ void main() {
   });
 
   test(
+    'legacy five-second interval loads on the new ten-second grid',
+    () async {
+      SharedPreferences.setMockInitialValues({'monitor_interval': 25});
+      container.read(monitorControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+      final state = container.read(monitorControllerProvider);
+      expect(state.loadingSettings, isFalse);
+      expect(state.config.intervalSeconds, 30);
+      expect(state.config.autoAnswer, isFalse);
+      expect(state.running, isFalse);
+      expect(repo.calls, 0);
+    },
+  );
+
+  test(
     'concurrent starts share one operation and finish settings load first',
     () async {
       final ctrl = container.read(monitorControllerProvider.notifier);

@@ -39,7 +39,9 @@ class AndroidMonitorRun {
   };
 
   factory AndroidMonitorRun.fromJson(Map<String, dynamic> json) {
-    final interval = (json['interval'] as num).toInt().clamp(15, 120);
+    final interval = MonitorConfig.normalizeIntervalSeconds(
+      (json['interval'] as num).toInt(),
+    );
     final jitter = (json['jitter'] as num).toDouble().clamp(0.0, 0.5);
     final preset = (json['preset'] as num).toInt().clamp(0, 2);
     return AndroidMonitorRun(

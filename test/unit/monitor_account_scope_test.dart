@@ -271,6 +271,30 @@ void main() {
     expect(container.read(authControllerProvider).isSignedIn, isTrue);
   });
 
+  for (final entry in {
+    5: 10,
+    10: 10,
+    15: 20,
+    25: 30,
+    300: 300,
+    999: 300,
+  }.entries) {
+    test(
+      'Android restores detection interval ${entry.key} as ${entry.value}',
+      () {
+        final json = const AndroidMonitorRun(
+          id: 'interval-test',
+          userId: 1,
+          config: MonitorConfig(attendanceIntervalSeconds: 25),
+        ).toJson()..['interval'] = entry.key;
+        final restored = AndroidMonitorRun.fromJson(json);
+        expect(restored.config.intervalSeconds, entry.value);
+        expect(restored.toJson()['interval'], entry.value);
+        expect(restored.config.effectiveAttendanceIntervalSeconds, 25);
+      },
+    );
+  }
+
   test(
     'Android metadata distinguishes credential target from workspace login',
     () {

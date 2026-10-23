@@ -180,9 +180,8 @@ class MonitorController extends StateNotifier<MonitorState> {
       loadingSettings: false,
       config: MonitorConfig(
         preset: preset,
-        intervalSeconds: (integer('interval') ?? preset.defaultSeconds).clamp(
-          15,
-          120,
+        intervalSeconds: MonitorConfig.normalizeIntervalSeconds(
+          integer('interval') ?? preset.defaultSeconds,
         ),
         jitterRatio:
             (prefs.getDouble('${key}_jitter') ??
@@ -424,7 +423,7 @@ class MonitorController extends StateNotifier<MonitorState> {
     state = state.copyWith(
       config: state.config.copyWith(
         preset: MonitorPreset.custom,
-        intervalSeconds: seconds.clamp(15, 120),
+        intervalSeconds: MonitorConfig.normalizeIntervalSeconds(seconds),
       ),
     );
     _schedulePersist();

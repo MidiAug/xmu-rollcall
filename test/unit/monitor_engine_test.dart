@@ -113,7 +113,7 @@ void main() {
     final independent = engine = MonitorEngine(
       config: const MonitorConfig(
         autoAnswer: true,
-        intervalSeconds: 15,
+        intervalSeconds: 10,
         jitterRatio: 0,
         attendanceIntervalSeconds: 60,
       ),
@@ -128,14 +128,39 @@ void main() {
     );
     independent.start();
     await independent.pollNow();
-    await tester.pump(const Duration(seconds: 15));
-    await tester.pump(const Duration(seconds: 15));
-    await tester.pump(const Duration(seconds: 15));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(seconds: 10));
+    }
     expect(checks, 1);
-    await tester.pump(const Duration(seconds: 15));
+    await tester.pump(const Duration(seconds: 10));
     expect(checks, 2);
     independent.stop();
   });
+
+  testWidgets(
+    '300-second interval schedules the next discovery at 300 seconds',
+    (tester) async {
+      var discoveries = 0;
+      engine = MonitorEngine(
+        config: const MonitorConfig(intervalSeconds: 300, jitterRatio: 0),
+        fetch: () async {
+          discoveries++;
+          return [];
+        },
+        notify: (_) async => true,
+        now: tester.binding.clock.now,
+        onUpdate: (_) {},
+      );
+      engine.start();
+      await engine.pollNow();
+      expect(discoveries, 1);
+      await tester.pump(const Duration(seconds: 299));
+      expect(discoveries, 1);
+      await tester.pump(const Duration(seconds: 1));
+      expect(discoveries, 2);
+      engine.stop();
+    },
+  );
 
   final now = DateTime(2026, 10, 11, 10);
   final updates = <MonitorEngineUpdate>[];
