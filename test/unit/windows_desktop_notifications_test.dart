@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/platform/windows_desktop_notifications.dart';
+import 'package:xmu_rollcall/platform/desktop_notification_content.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 
 class _WindowsPlugin extends Fake implements FlutterLocalNotificationsWindows {
   WindowsInitializationSettings? settings;
@@ -84,23 +86,37 @@ void main() {
     },
   );
   test(
-    'all native toasts carry a bundled logo; quiet updates reuse discovery id',
+    'native toasts keep the header identity, show course/type and have no body image',
     () async {
-      await notifications.show('test', test: true);
-      await notifications.show('discovered', test: false);
-      await notifications.show('result', test: false, silent: true);
+      await notifications.show(DesktopNotificationContent.test, test: true);
+      final item = RollcallItem.fromJson({
+        'rollcall_id': 3,
+        'course_title': '工程伦理',
+        'is_radar': true,
+      });
+      await notifications.show(
+        DesktopNotificationContent.discovery([item]),
+        test: false,
+      );
+      await notifications.show(
+        DesktopNotificationContent.result(item, true),
+        test: false,
+        silent: true,
+      );
       expect(plugin.calls.map((call) => call.id), [2, 1, 1]);
       expect(plugin.calls.map((call) => call.payload), [
         WindowsDesktopNotifications.testPayload,
         WindowsDesktopNotifications.discoveryPayload,
         WindowsDesktopNotifications.discoveryPayload,
       ]);
-      expect(plugin.calls.first.title, '测试通知');
-      expect(plugin.calls[1].title, '签到提醒');
+      expect(plugin.calls.first.title, '通知测试');
+      expect(plugin.calls.first.body, contains('示例'));
+      expect(plugin.calls.first.body, contains('不会提交签到'));
+      expect(plugin.calls[1].title, '工程伦理');
+      expect(plugin.calls[1].body, contains('雷达签到'));
+      expect(plugin.calls.last.body, contains('自动签到成功'));
       for (final call in plugin.calls) {
-        final image = call.details!.images.single;
-        expect(image.uri, icon);
-        expect(image.placement, WindowsImagePlacement.appLogoOverride);
+        expect(call.details!.images, isEmpty);
       }
       expect(plugin.calls.first.details!.audio, isNull);
       expect(plugin.calls.last.details!.audio, isNotNull);
@@ -111,7 +127,7 @@ void main() {
     () async {
       plugin.failShow = true;
       await expectLater(
-        notifications.show('test', test: true),
+        notifications.show(DesktopNotificationContent.test, test: true),
         throwsStateError,
       );
     },

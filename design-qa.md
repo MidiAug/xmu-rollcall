@@ -58,3 +58,20 @@ Windows现有Flutter开发会话已热重载，未新开应用窗口。交互检
 ## 通知图标依据
 
 Engineering知识检索未命中相关既有笔记，本轮未回写知识库。核对当前本地flutter_local_notifications_windows 3.1.1源码与[初始化图标接口](https://pub.dev/documentation/flutter_local_notifications_windows/latest/flutter_local_notifications_windows/WindowsInitializationSettings-class.html)、[WindowsImage接口](https://pub.dev/documentation/flutter_local_notifications_windows/latest/flutter_local_notifications_windows/WindowsImage-class.html)。`src/plugin.cpp`将iconPath注册为系统IconUri；`notification_parts.dart`提供appLogoOverride。保留现有AUMID/GUID，未增依赖或修改系统全局通知偏好。
+
+## 2026-10-24 后续纠正：图标位置与实际内容
+
+用户新截图确认旧appLogoOverride实际渲染为正文左侧大图，该配置已移除。此前“系统注册路径存在、XML带图标”检查不足以证明左上角身份图标显示正确；不能据此视为像素验收通过。当前仅保留IconUri，并在原生窗口创建前显式设置同一AppUserModelID，不切换通知身份来试错。
+
+实际发现原先由Controller缩成数量，已经改为传递完整新发现列表。单条显示课程名+类型，多条显示配对摘要；自动结果含类型并保留静音更新。示例通知明确标注，不读取或提交真实签到。
+
+依据：[Microsoft通知内容](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/app-notifications-content?tabs=xml)区分顶端身份与app logo override；[进程身份接口](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-setcurrentprocessexplicitappusermodelid)要求创建UI前设置。上游[2738](https://github.com/MaikuB/flutter_local_notifications/issues/2738)仍报告身份图标显示差异；不将issue里的GUID替换推测直接用作产品方案。
+
+本次验证：
+
+- `flutter analyze`无问题，全量478通过、2真实网络跳过；49项内容/通知/监控/权限聚焦回归通过；6项系统字体渲染回归通过。
+- Windows Debug原生构建通过，停止旧开发进程后用`flutter run -d windows --debug --no-pub`启动，仍支持热重载；已核对只有一个应用进程，未额外启动发布版。
+- 通过开发VM调用实际`DesktopNotifications.test()`；原生发送完成且不设置“用户已收到”。Windows通知历史XML包含“通知测试”“示例课程”“雷达签到”，不存在`image`元素，系统IconUri路径存在。证据：`.tools/notification-polish/content-native-smoke.json`、`content-windows-history.json`、`content-test-toast.xml`。
+- 当前仅证明内容与发送、注册、XML布局配置正确。真实进行中签到端到端、左上角图标像素及系统点击未手工验收；未将源码中设置进程ID或记录中图标路径存在写成图像显示已通过。
+
+此前本文件的appLogoOverride检查为上一阶段历史记录，已被本节修正。

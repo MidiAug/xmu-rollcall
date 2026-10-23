@@ -1,6 +1,7 @@
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
+#include <shobjidl.h>
 
 #include "flutter_window.h"
 #include "utils.h"
@@ -16,6 +17,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // Initialize COM, so that it is available for use in the library and/or
   // plugins.
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+
+  // Use the same identity as the notification sender before creating any UI.
+  // Otherwise Windows may resolve the small header icon from an inferred ID.
+  if (FAILED(::SetCurrentProcessExplicitAppUserModelID(L"cn.edu.xmu.rollcall"))) {
+    ::OutputDebugStringW(L"Could not set xmu-rollcall AppUserModelID.\n");
+  }
 
   flutter::DartProject project(L"data");
 

@@ -601,10 +601,7 @@ class MonitorController extends StateNotifier<MonitorState> {
                 ),
               );
           if (current()) {
-            await PlatformHooks.onAutomaticAnswerResult?.call(
-              item.courseTitle,
-              result.ok,
-            );
+            await PlatformHooks.onAutomaticAnswerResult?.call(item, result.ok);
           }
         },
       );
@@ -629,7 +626,7 @@ class MonitorController extends StateNotifier<MonitorState> {
           if (!current()) return false;
           final notify = PlatformHooks.onRollcallsDiscovered;
           if (notify == null && PlatformHooks.isDesktop) return false;
-          if (notify != null) await notify(items.length);
+          if (notify != null) await notify(items);
           return true;
         },
         onUpdate: (update) {
@@ -776,7 +773,16 @@ class MonitorController extends StateNotifier<MonitorState> {
     _debugDiscoveryTimer?.cancel();
     _debugDiscoveryTimer = Timer(delay, () async {
       final notify = PlatformHooks.onRollcallsDiscovered;
-      if (notify != null) await notify(count);
+      if (notify != null && count > 0) {
+        await notify([
+          for (var i = 0; i < count; i++)
+            RollcallItem.fromJson({
+              'rollcall_id': -i - 1,
+              'course_title': '示例课程（测试）',
+              'is_radar': true,
+            }),
+        ]);
+      }
     });
   }
 

@@ -2,8 +2,9 @@ import 'dart:io';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:xmu_rollcall/app/app_brand.dart';
+import 'package:xmu_rollcall/platform/desktop_notification_content.dart';
 
-/// Windows identity, image and payload shared by test, discovery and result toasts.
+/// Windows sender identity and payload for compact text-only notifications.
 class WindowsDesktopNotifications {
   WindowsDesktopNotifications({required this.plugin, Uri? iconUri})
     : iconUri = iconUri ?? bundledIconUri();
@@ -31,21 +32,19 @@ class WindowsDesktopNotifications {
         onDidReceiveNotificationResponse: onResponse,
       );
 
-  Future<void> show(String body, {required bool test, bool silent = false}) =>
-      plugin.show(
-        id: test ? 2 : 1,
-        title: test ? '测试通知' : '签到提醒',
-        body: body,
-        payload: test ? testPayload : discoveryPayload,
-        notificationDetails: WindowsNotificationDetails(
-          images: [
-            WindowsImage(
-              iconUri,
-              altText: kAppDisplayName,
-              placement: WindowsImagePlacement.appLogoOverride,
-            ),
-          ],
-          audio: silent ? WindowsNotificationAudio.silent() : null,
-        ),
-      );
+  Future<void> show(
+    DesktopNotificationContent content, {
+    required bool test,
+    bool silent = false,
+  }) => plugin.show(
+    id: test ? 2 : 1,
+    title: content.title,
+    body: content.body,
+    payload: test ? testPayload : discoveryPayload,
+    notificationDetails: WindowsNotificationDetails(
+      // The small sender icon belongs to Windows identity (iconPath).
+      // appLogoOverride adds a second, large image in the message body.
+      audio: silent ? WindowsNotificationAudio.silent() : null,
+    ),
+  );
 }

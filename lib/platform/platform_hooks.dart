@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:xmu_rollcall/app/app_brand.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 abstract final class PlatformHooks {
@@ -22,9 +23,9 @@ abstract final class PlatformHooks {
     return Platform.isWindows;
   }
 
-  /// Optional hook: main monitor discovered [count] new ongoing rollcalls.
-  static Future<void> Function(int count)? onRollcallsDiscovered;
-  static Future<void> Function(String courseTitle, bool ok)?
+  /// Only fresh discoveries, preserving course and type for platform reminders.
+  static Future<void> Function(List<RollcallItem> items)? onRollcallsDiscovered;
+  static Future<void> Function(RollcallItem item, bool ok)?
   onAutomaticAnswerResult;
 
   /// Icon for “跟随系统” appearance — matches current form factor.

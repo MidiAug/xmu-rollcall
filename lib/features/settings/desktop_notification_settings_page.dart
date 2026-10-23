@@ -28,7 +28,7 @@ class _DesktopNotificationSettingsPageState
       _busy = true;
       _showHelp = false;
     });
-    final sent = await _notifications.notify(1, test: true);
+    final sent = await _notifications.test();
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -72,7 +72,7 @@ class _DesktopNotificationSettingsPageState
                     SettingsRow(
                       leading: const Icon(Icons.notifications_outlined),
                       title: '测试系统通知',
-                      subtitle: '发送一条通知，点击后可回到应用。',
+                      subtitle: '使用示例课程测试通知，不会提交签到。',
                       trailing: FilledButton(
                         onPressed: _busy ? null : _test,
                         child: Text(

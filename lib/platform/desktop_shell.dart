@@ -18,6 +18,8 @@ import 'package:xmu_rollcall/platform/close_prefs.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:xmu_rollcall/platform/desktop_notifications.dart';
 import 'package:xmu_rollcall/platform/windows_desktop_notifications.dart';
+import 'package:xmu_rollcall/platform/desktop_notification_content.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 
 /// Desktop window close / tray / discovery notification (Phase 3 shell slice).
 class DesktopShell with WindowListener, TrayListener {
@@ -29,7 +31,7 @@ class DesktopShell with WindowListener, TrayListener {
           !await windowManager.isMinimized() &&
           await windowManager.isFocused(),
       send: _sendNotification,
-      sendQuiet: (body) => _sendNotification(body, false, silent: true),
+      sendQuiet: (content) => _sendNotification(content, false, silent: true),
       showInApp: (body) {
         final overlay = navigatorKey?.currentState?.overlay;
         if (overlay == null || !overlay.mounted) return false;
@@ -82,8 +84,8 @@ class DesktopShell with WindowListener, TrayListener {
     }
 
     PlatformHooks.onRollcallsDiscovered = notifyRollcallsDiscovered;
-    PlatformHooks.onAutomaticAnswerResult = (courseTitle, ok) async {
-      if (!await notifications.notifyResult(courseTitle, ok)) {
+    PlatformHooks.onAutomaticAnswerResult = (item, ok) async {
+      if (!await notifications.notifyResult(item, ok)) {
         throw StateError('桌面签到结果通知发送失败');
       }
     };
@@ -203,14 +205,14 @@ class DesktopShell with WindowListener, TrayListener {
   }
 
   /// Called for new discoveries while monitoring continues.
-  Future<void> notifyRollcallsDiscovered(int count) async {
-    if (!PlatformHooks.isDesktop || count <= 0) return;
-    if (!await notifications.notify(count)) throw StateError('桌面通知发送失败');
-    AppLog.event('shell.notify_found', fields: {'count': count});
+  Future<void> notifyRollcallsDiscovered(List<RollcallItem> items) async {
+    if (!PlatformHooks.isDesktop || items.isEmpty) return;
+    if (!await notifications.notify(items)) throw StateError('桌面通知发送失败');
+    AppLog.event('shell.notify_found', fields: {'count': items.length});
   }
 
   Future<void> _sendNotification(
-    String body,
+    DesktopNotificationContent content,
     bool test, {
     bool silent = false,
   }) async {
@@ -219,7 +221,7 @@ class DesktopShell with WindowListener, TrayListener {
       if (plugin == null) throw StateError('Windows 通知尚未初始化');
       await WindowsDesktopNotifications(
         plugin: plugin,
-      ).show(body, test: test, silent: silent);
+      ).show(content, test: test, silent: silent);
       return;
     }
     final notification = test
@@ -231,7 +233,8 @@ class DesktopShell with WindowListener, TrayListener {
             identifier: discoveryNotificationId,
             title: kAppDisplayName,
           ));
-    notification.body = body;
+    notification.title = content.title;
+    notification.body = content.body;
     // LocalNotification already owns a listener: register one click handler only.
     notification.onClick = () =>
         _run(test ? showMainWindow() : showRollcallFromNotification());
