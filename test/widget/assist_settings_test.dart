@@ -15,6 +15,9 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/settings/settings_page.dart';
+import 'package:xmu_rollcall/features/update/app_release.dart';
+import 'package:xmu_rollcall/features/update/app_update_controller.dart';
+import '../fixtures/update_fakes.dart';
 
 class _TestAuthController extends AuthController {
   _TestAuthController()
@@ -68,6 +71,13 @@ void main() {
             ),
           ),
           authControllerProvider.overrideWith((ref) => _TestAuthController()),
+          appUpdateControllerProvider.overrideWith(
+            (ref) => AppUpdateController(
+              service: FakeUpdateService(),
+              package: PackageInfo.fromPlatform,
+              target: UpdateTarget.windows,
+            ),
+          ),
           assistControllerProvider.overrideWith(
             (ref) => AssistController(
               ref,

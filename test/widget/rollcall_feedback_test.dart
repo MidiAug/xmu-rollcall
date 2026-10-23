@@ -63,6 +63,76 @@ RollcallItem item({
 
 void main() {
   tearDown(AppToast.dismiss);
+  for (final width in [320.0, 960.0]) {
+    for (final type in [
+      RollcallType.number,
+      RollcallType.radar,
+      RollcallType.qrcode,
+    ]) {
+      testWidgets(
+        '$type replaces its entry with one completed action at $width',
+        (tester) async {
+          tester.view.physicalSize = Size(width, 900);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          final repo = AttendanceRepo();
+          Seed.rows = [item(type: type, code: '1234')];
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [
+                authControllerProvider.overrideWith((ref) => Auth()),
+                activeRollcallsProvider.overrideWith(Seed.new),
+                rollcallRepositoryForProvider(null).overrideWithValue(repo),
+              ],
+              child: const MaterialApp(
+                home: Scaffold(body: RollcallListPage(embedded: true)),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final entryLabel = type == RollcallType.qrcode
+              ? '扫码签到'
+              : type == RollcallType.radar
+              ? '选择位置'
+              : '一键签到';
+          expect(
+            tester
+                .widget<FilledButton>(
+                  find.widgetWithText(FilledButton, entryLabel),
+                )
+                .onPressed,
+            isNotNull,
+          );
+          final container = ProviderScope.containerOf(
+            tester.element(find.byType(RollcallListPage)),
+          );
+          final notifier = container.read(
+            activeRollcallsProvider(null).notifier,
+          );
+          notifier.debugSeed([item(type: type, answered: true, code: '1234')]);
+          await tester.pumpAndSettle();
+          expect(find.text('已签到'), findsOneWidget);
+          expect(find.text(entryLabel), findsNothing);
+          expect(find.text('手动输入'), findsNothing);
+          final completed = find.widgetWithText(FilledButton, '已签到');
+          expect(tester.widget<FilledButton>(completed).onPressed, isNull);
+          final calls = repo.calls;
+          await tester.tap(completed);
+          await tester.pump(const Duration(seconds: 30));
+          expect(repo.calls, calls);
+          expect(find.byType(AttendanceCountRow), findsNothing);
+          notifier.debugSeed([
+            item(type: type, answered: true, expired: true, code: '1234'),
+          ]);
+          await tester.pumpAndSettle();
+          expect(find.text('已签到'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+      );
+    }
+  }
   testWidgets(
     'signed card removes decision aids and stops polling but keeps code',
     (tester) async {

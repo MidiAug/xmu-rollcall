@@ -1,9 +1,15 @@
+import 'dart:ui' show PointerDeviceKind;
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/shell_tab_scope.dart';
+import 'package:xmu_rollcall/app/destinations.dart';
+import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/app_switch.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
@@ -17,6 +23,7 @@ import 'package:xmu_rollcall/core/session/session_credential.dart';
 import 'package:xmu_rollcall/core/session/session_key.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
@@ -125,6 +132,29 @@ class _Lists extends ActiveRollcallsNotifier {
           .toList();
 }
 
+var _appearanceChecks = 0;
+var _manualChecks = 0;
+
+class _AppearanceLists extends _Lists {
+  @override
+  Future<void> ensureFreshOnAppear() async {
+    _appearanceChecks++;
+  }
+
+  @override
+  Future<void> refresh() async {
+    _manualChecks++;
+  }
+}
+
+class _RunningMonitor extends MonitorController {
+  _RunningMonitor(super.ref) {
+    state = state.copyWith(running: true, loadingSettings: false);
+  }
+  void finish() =>
+      state = state.copyWith(running: false, loadingSettings: false);
+}
+
 void main() {
   tearDown(AppToast.dismiss);
   setUp(() {
@@ -137,7 +167,11 @@ void main() {
     _data[SessionKey.assist(4).storageId] = [_row(id: 9002)];
   });
 
-  Future<_Service> show(WidgetTester tester, Widget page) async {
+  Future<_Service> show(
+    WidgetTester tester,
+    Widget page, {
+    bool visibleTab = false,
+  }) async {
     final store = SecureStore.memory();
     final service = _Service();
     await tester.pumpWidget(
@@ -164,17 +198,62 @@ void main() {
                   }) => _Client(store: store, sessionKey: sessionKey),
             ),
           ),
-          activeRollcallsProvider.overrideWith(_Lists.new),
+          activeRollcallsProvider.overrideWith(
+            visibleTab ? _AppearanceLists.new : _Lists.new,
+          ),
+          if (visibleTab)
+            monitorControllerProvider.overrideWith(_RunningMonitor.new),
         ],
         child: MaterialApp(
           theme: AppTheme.light(),
-          home: Scaffold(body: page),
+          home: Scaffold(
+            body: visibleTab
+                ? ShellTabScope(
+                    current: AppDestination.rollcall,
+                    retapEpoch: 0,
+                    retapDestination: null,
+                    child: page,
+                  )
+                : page,
+          ),
         ),
       ),
     );
     await tester.pumpAndSettle();
     return service;
   }
+
+  testWidgets(
+    'running detection owns automatic refresh, manual refresh remains available',
+    (tester) async {
+      _appearanceChecks = 0;
+      _manualChecks = 0;
+      await show(tester, const RollcallHubPage(), visibleTab: true);
+      final context = tester.element(find.byType(RollcallHubPage));
+      final container = ProviderScope.containerOf(context);
+      for (var i = 0; i < 3; i++) {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump(const Duration(seconds: 25));
+      }
+      expect(_appearanceChecks, 0);
+      await tester.tap(find.byType(AppRefreshButton));
+      await tester.pumpAndSettle();
+      expect(_manualChecks, 1);
+      (container.read(monitorControllerProvider.notifier) as _RunningMonitor)
+          .finish();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(_appearanceChecks, 1);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   testWidgets(
     'narrow sign-in toolbar switches list/session and QR opens secondary page',
@@ -196,7 +275,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('rollcall-identity-menu')));
       await tester.pumpAndSettle();
       expect(
-        tester.getSize(find.byType(PopupMenuItem<int>).first).width,
+        tester.getSize(find.byType(AppMenuOption).first).width,
         lessThanOrEqualTo(220),
       );
       await tester.tap(find.text('未签同学').last);
@@ -213,6 +292,72 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
+
+  for (final dark in [false, true]) {
+    testWidgets(
+      'identity hover stays inset and supports keyboard ($dark)',
+      (tester) async {
+        tester.view.physicalSize = const Size(960, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await show(
+          tester,
+          Theme(
+            data: dark ? AppTheme.dark() : AppTheme.light(),
+            child: const RollcallHubPage(),
+          ),
+        );
+        expect(find.byTooltip('切换签到用户'), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('rollcall-identity-menu')));
+        await tester.pumpAndSettle();
+        final option = find.ancestor(
+          of: find.text('未签同学'),
+          matching: find.byType(AppMenuOption),
+        );
+        final entry = find.ancestor(
+          of: option,
+          matching: find.byWidgetPredicate((w) => w is PopupMenuItem<int>),
+        );
+        expect(
+          tester.getRect(option).left,
+          greaterThan(tester.getRect(entry).left),
+        );
+        expect(
+          tester.getRect(option).right,
+          lessThan(tester.getRect(entry).right),
+        );
+        // There is only the shared inset InkWell; no full-width parent hover wash.
+        expect(
+          find.descendant(of: entry, matching: find.byType(InkWell)),
+          findsOneWidget,
+        );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer();
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(tester.getCenter(option));
+        await tester.pumpAndSettle();
+        final context = tester.element(option);
+        final paint = tester.widget<AnimatedContainer>(
+          find.descendant(of: option, matching: find.byType(AnimatedContainer)),
+        );
+        expect(
+          (paint.decoration! as BoxDecoration).color,
+          AppPalette.of(context).hover,
+        );
+        expect(find.byTooltip('未签同学'), findsNothing);
+        Focus.of(tester.element(find.text('未签同学'))).requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(find.byType(AppMenuOption), findsNothing);
+        expect(find.text('协助课程'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
+  }
 
   testWidgets(
     'QR page rechecks a selected person who signed before submission',

@@ -173,6 +173,17 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('assist room'), findsOneWidget);
       expect(find.text('owner room'), findsNothing);
+      await tester.tap(find.text('设为本课位置，供自动签到使用'));
+      await tester.pumpAndSettle();
+      expect(repo.calls, 0);
+      expect(
+        container
+            .read(courseRadarDefaultsForProvider(2).notifier)
+            .forCourse(courseId: '7')!
+            .userConfigured,
+        true,
+      );
+      await tester.ensureVisible(find.text('用此位置签到'));
       await tester.tap(find.text('用此位置签到'));
       await tester.pumpAndSettle();
       expect(repo.calls, 0);

@@ -345,8 +345,9 @@ class ActiveRollcallsNotifier
     _persistActive(state.requireValue);
   }
 
-  /// Publish discovery immediately (including empty results), then enrich only missing codes.
-  void applyMonitorItems(List<RollcallItem> items) {
+  /// Publish discovery or local answer results; only a fetched snapshot advances
+  /// the server-check timestamp. Attendance updates must not look like discovery.
+  void applyMonitorItems(List<RollcallItem> items, {DateTime? fetchedAt}) {
     final revision = ++_revision;
     final ownerUid = _boundOwnerUserId;
     _requestToken?.cancel('已收到更新的检测结果');
@@ -355,8 +356,10 @@ class ActiveRollcallsNotifier
       state.valueOrNull ?? const [],
       _retainNumberCodes(items),
     );
-    lastUpdatedAt = ref.read(activeRollcallClockProvider)();
-    _lastAppearCheckAt = lastUpdatedAt;
+    if (fetchedAt != null) {
+      lastUpdatedAt = fetchedAt;
+      _lastAppearCheckAt = fetchedAt;
+    }
     _noteSeenCourses(incoming);
     state = AsyncData(
       mergeActiveRollcalls(state.valueOrNull ?? const [], incoming),

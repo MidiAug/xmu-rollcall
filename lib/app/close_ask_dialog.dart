@@ -4,10 +4,7 @@ import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 enum CloseAskAction { tray, quit }
 
 class CloseAskResult {
-  const CloseAskResult({
-    required this.action,
-    required this.remember,
-  });
+  const CloseAskResult({required this.action, required this.remember});
 
   final CloseAskAction action;
   final bool remember;
@@ -86,41 +83,42 @@ class _CloseAskDialogState extends State<_CloseAskDialog> {
                 const SizedBox(height: 8),
                 Text(
                   lead,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.4,
-                    color: p.muted,
-                  ),
+                  style: TextStyle(fontSize: 13, height: 1.4, color: p.muted),
                 ),
                 if (!widget.busy) ...[
                   const SizedBox(height: 14),
-                  InkWell(
-                    onTap: _busyFlag
-                        ? null
-                        : () => setState(() => _remember = !_remember),
+                  Material(
+                    type: MaterialType.transparency,
                     borderRadius: BorderRadius.circular(AppRadii.control),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: Checkbox(
-                            value: _remember,
-                            onChanged: _busyFlag
-                                ? null
-                                : (v) =>
-                                    setState(() => _remember = v ?? false),
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                            visualDensity: VisualDensity.compact,
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: _busyFlag
+                          ? null
+                          : () => setState(() => _remember = !_remember),
+                      borderRadius: BorderRadius.circular(AppRadii.control),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: Checkbox(
+                              value: _remember,
+                              onChanged: _busyFlag
+                                  ? null
+                                  : (v) =>
+                                        setState(() => _remember = v ?? false),
+                              materialTapTargetSize:
+                                  MaterialTapTargetSize.shrinkWrap,
+                              visualDensity: VisualDensity.compact,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          '记住我的选择',
-                          style: TextStyle(fontSize: 13, color: p.ink),
-                        ),
-                      ],
+                          const SizedBox(width: 8),
+                          Text(
+                            '记住我的选择',
+                            style: TextStyle(fontSize: 13, color: p.ink),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],

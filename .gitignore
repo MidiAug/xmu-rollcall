@@ -25,6 +25,8 @@ Desktop.ini
 **/config.local.json
 **/info.txt
 **/secrets/
+*.jks
+*.keystore
 
 # ── Local product docs / research (keep on disk; not for public remote) ──
 /docs/

@@ -28,6 +28,7 @@ class DesktopShell with WindowListener, TrayListener {
           !await windowManager.isMinimized() &&
           await windowManager.isFocused(),
       send: _sendNotification,
+      sendQuiet: (body) => _sendNotification(body, false, silent: true),
       showInApp: (body) {
         final overlay = navigatorKey?.currentState?.overlay;
         if (overlay == null || !overlay.mounted) return false;
@@ -79,6 +80,11 @@ class DesktopShell with WindowListener, TrayListener {
     }
 
     PlatformHooks.onRollcallsDiscovered = notifyRollcallsDiscovered;
+    PlatformHooks.onAutomaticAnswerResult = (courseTitle, ok) async {
+      if (!await notifications.notifyResult(courseTitle, ok)) {
+        throw StateError('桌面签到结果通知发送失败');
+      }
+    };
     _ready = true;
     AppLog.event(
       'shell.desktop_ready',
@@ -202,7 +208,11 @@ class DesktopShell with WindowListener, TrayListener {
     AppLog.event('shell.notify_found', fields: {'count': count});
   }
 
-  Future<void> _sendNotification(String body, bool test) async {
+  Future<void> _sendNotification(
+    String body,
+    bool test, {
+    bool silent = false,
+  }) async {
     if (Platform.isWindows) {
       final plugin = _windowsNotifications;
       if (plugin == null) throw StateError('Windows 通知尚未初始化');
@@ -211,6 +221,11 @@ class DesktopShell with WindowListener, TrayListener {
         title: kAppDisplayName,
         body: body,
         payload: test ? testNotificationId : discoveryNotificationId,
+        notificationDetails: silent
+            ? WindowsNotificationDetails(
+                audio: WindowsNotificationAudio.silent(),
+              )
+            : null,
       );
       return;
     }

@@ -12,6 +12,7 @@ class MonitorEngine {
     required this.notify,
     required this.onUpdate,
     this.processAutomatic,
+    this.completedAutomaticIds,
     Set<int> notifiedIds = const {},
     DateTime Function()? now,
   }) : _notifiedIds = {...notifiedIds},
@@ -29,6 +30,7 @@ class MonitorEngine {
   )?
   processAutomatic;
   final DateTime Function() _now;
+  final Set<int> Function()? completedAutomaticIds;
   final Set<int> _notifiedIds;
   late MonitorConfig _config;
   Timer? _timer;
@@ -72,7 +74,9 @@ class MonitorEngine {
       _config.autoAnswer &&
       _config.answerWaitMode != AnswerWaitMode.none &&
       processAutomatic != null &&
-      (_latestItems?.any((i) => i.isNumber && !i.isAnswered && !i.isExpired) ??
+      (_latestItems?.any(
+            (i) => (i.isNumber || i.isRadar) && !i.isAnswered && !i.isExpired,
+          ) ??
           false);
 
   Duration get _automaticDelay {
@@ -100,6 +104,14 @@ class MonitorEngine {
       () => current() && identical(config, _config) && _config.autoAnswer,
     );
     if (!current() || !identical(config, _config)) return null;
+    final completed = completedAutomaticIds?.call() ?? const <int>{};
+    _latestItems = [
+      for (final item in _latestItems!)
+        if (completed.contains(item.rollcallId))
+          item.copyWith(status: 'on_call_fine')
+        else
+          item,
+    ];
     _lastAutomaticAt = _now();
     return message;
   }
@@ -114,7 +126,12 @@ class MonitorEngine {
       final message = await _processAutomatic(current);
       if (current() && message != null) {
         onUpdate(
-          MonitorEngineUpdate(failures: _failures, ok: true, message: message),
+          MonitorEngineUpdate(
+            failures: _failures,
+            ok: true,
+            message: message,
+            items: _latestItems,
+          ),
         );
       }
     } catch (error) {
@@ -199,7 +216,7 @@ class MonitorEngine {
       _failures = 0;
       onUpdate(
         MonitorEngineUpdate(
-          items: items,
+          items: _latestItems,
           lastPollAt: _now(),
           failures: 0,
           count: items.length,

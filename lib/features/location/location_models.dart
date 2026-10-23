@@ -77,7 +77,7 @@ enum RadarObtainedVia {
 }
 
 /// Why the confirmation card was pre-filled (not a source badge).
-enum RadarFilledFrom { none, pref, user }
+enum RadarFilledFrom { none, pref, configured, user }
 
 /// Per-course last-success preference (suggestion, not a fourth "source").
 class CourseRadarPref {
@@ -90,6 +90,7 @@ class CourseRadarPref {
     this.placeId = '',
     this.obtainedVia = '',
     this.labelSnapshot = '',
+    this.userConfigured = false,
   });
 
   final String courseTitle;
@@ -106,6 +107,7 @@ class CourseRadarPref {
 
   /// Last known place label (if place was deleted) or empty.
   final String labelSnapshot;
+  final bool userConfigured;
 
   Map<String, dynamic> toJson() => {
     'courseTitle': courseTitle,
@@ -116,6 +118,7 @@ class CourseRadarPref {
     'placeId': placeId,
     'obtainedVia': obtainedVia,
     'labelSnapshot': labelSnapshot,
+    'userConfigured': userConfigured,
     // Legacy keys still written so older builds can read something useful.
     'note': labelSnapshot,
     'source': obtainedVia == 'place' ? 'preset' : obtainedVia,
@@ -135,6 +138,7 @@ class CourseRadarPref {
       placeId: j['placeId'] as String? ?? '',
       obtainedVia: obtained.isNotEmpty ? obtained : legacySource,
       labelSnapshot: label.isNotEmpty ? label : unwrapRememberedNote(note),
+      userConfigured: j['userConfigured'] == true,
     );
   }
 }
@@ -224,7 +228,11 @@ RadarPlaceCopy radarPlaceCopy(RadarGeoSelection selection) {
   return RadarPlaceCopy(
     badge: _viaBadge(selection.obtainedVia),
     title: title,
-    subtitle: selection.filledFrom == RadarFilledFrom.pref ? '本课上次成功用过' : null,
+    subtitle: switch (selection.filledFrom) {
+      RadarFilledFrom.pref => '本课上次成功用过',
+      RadarFilledFrom.configured => '已设置为本课位置',
+      _ => null,
+    },
   );
 }
 
@@ -269,6 +277,9 @@ RadarGeoSelection selectionFromCoursePref(
   CourseRadarPref pref,
   List<SavedLocation> places,
 ) {
+  final filledFrom = pref.userConfigured
+      ? RadarFilledFrom.configured
+      : RadarFilledFrom.pref;
   final byId = placeById(places, pref.placeId);
   if (byId != null) {
     return RadarGeoSelection(
@@ -278,7 +289,7 @@ RadarGeoSelection selectionFromCoursePref(
       obtainedVia: RadarObtainedVia.place,
       placeId: byId.id,
       label: byId.note,
-      filledFrom: RadarFilledFrom.pref,
+      filledFrom: filledFrom,
     );
   }
 
@@ -301,7 +312,7 @@ RadarGeoSelection selectionFromCoursePref(
       obtainedVia: RadarObtainedVia.place,
       placeId: matched?.id ?? '',
       label: label,
-      filledFrom: RadarFilledFrom.pref,
+      filledFrom: filledFrom,
     );
   }
 
@@ -313,7 +324,7 @@ RadarGeoSelection selectionFromCoursePref(
     label: _isGenericSourceNote(pref.labelSnapshot)
         ? ''
         : pref.labelSnapshot.trim(),
-    filledFrom: RadarFilledFrom.pref,
+    filledFrom: filledFrom,
   );
 }
 

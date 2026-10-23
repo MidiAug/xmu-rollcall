@@ -1,0 +1,85 @@
+name: Reusable packages
+
+on:
+  workflow_call:
+    inputs:
+      signed:
+        description: Require the configured Android signing key
+        type: boolean
+        default: false
+    secrets:
+      ANDROID_KEYSTORE_BASE64:
+        required: false
+      ANDROID_KEYSTORE_PASSWORD:
+        required: false
+      ANDROID_KEY_ALIAS:
+        required: false
+      ANDROID_KEY_PASSWORD:
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: android
+            os: ubuntu-24.04
+          - platform: windows
+            os: windows-2022
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - if: matrix.platform == 'android'
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: ./.github/actions/setup-flutter
+      - name: Build Android preview
+        if: matrix.platform == 'android' && !inputs.signed
+        run: ./scripts/package-android.ps1 -Preview -NoPub
+      - name: Build signed Android release
+        if: matrix.platform == 'android' && inputs.signed
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          XMU_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/xmu-release.jks
+          XMU_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          XMU_ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          XMU_ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          try {
+            [IO.File]::WriteAllBytes($env:XMU_ANDROID_KEYSTORE_PATH, [Convert]::FromBase64String($env:KEYSTORE_BASE64))
+            ./scripts/package-android.ps1 -RequireSigning -NoPub
+          } finally {
+            if (Test-Path -LiteralPath $env:XMU_ANDROID_KEYSTORE_PATH) {
+              Remove-Item -LiteralPath $env:XMU_ANDROID_KEYSTORE_PATH -Force
+            }
+          }
+      - name: Build Windows installer and portable ZIP
+        if: matrix.platform == 'windows'
+        run: ./scripts/package-windows.ps1 -NoPub
+      - name: Write provenance and checksums
+        env:
+          PACKAGE_PLATFORM: ${{ matrix.platform }}
+          SIGNED_BUILD: ${{ inputs.signed }}
+        run: |
+          $signing = if ($env:PACKAGE_PLATFORM -eq 'windows') { 'unsigned' } elseif ($env:SIGNED_BUILD -eq 'true') { 'release' } else { 'preview' }
+          python scripts/ci/artifacts.py manifest --directory dist --platform $env:PACKAGE_PLATFORM --signing $signing
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: packages-${{ matrix.platform }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0

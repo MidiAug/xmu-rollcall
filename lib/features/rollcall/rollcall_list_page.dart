@@ -362,7 +362,8 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     );
   }
 
-  /// Identify: title + status chip on L1; teacher + type (space, no ` `) on L2.
+  /// Completed tasks show their status at the action position, leaving the
+  /// course title full width instead of repeating a status beside it.
   Widget _identifyHeader(AppPalette palette, RollcallItem item, String title) {
     final cta = _secondaryCta(item);
     final teacher = item.createdByName.trim();
@@ -388,8 +389,11 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
                       style: _titleStyle(palette),
                     ),
                   ),
-                  const SizedBox(width: AppSpace.xs),
-                  _statusChip(palette, item),
+                  if (!item.isAnswered ||
+                      item.type == RollcallType.unknown) ...[
+                    const SizedBox(width: AppSpace.xs),
+                    _statusChip(palette, item),
+                  ],
                 ],
               ),
               if (teacher.isNotEmpty || item.typeLabel.isNotEmpty) ...[
@@ -414,12 +418,16 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
 
   Widget? _secondaryCta(RollcallItem item) {
     if (item.isNumber) {
+      if (item.isAnswered) return null;
       return TextButton(
         onPressed: (_submitting || item.isAnswered || item.isExpired)
             ? null
             : _openSecondary,
         child: const Text('手动输入'),
       );
+    }
+    if (item.isAnswered && (item.isRadar || item.type == RollcallType.qrcode)) {
+      return const FilledButton(onPressed: null, child: Text('已签到'));
     }
     if (item.isRadar) {
       return FilledButton(
@@ -510,10 +518,10 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
             child: Text(
               _submitting
                   ? '提交中…'
-                  : item.isExpired
-                  ? '已结束'
                   : item.isAnswered
                   ? '已签到'
+                  : item.isExpired
+                  ? '已结束'
                   : item.numberCode?.isNotEmpty == true
                   ? '一键签到'
                   : '输入签到码',

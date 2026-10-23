@@ -117,4 +117,46 @@ void main() {
     await Future.wait([first, second]);
     expect(notifications.ready, isTrue);
   });
+
+  test(
+    'delivery success does not claim user confirmation; retest clears it',
+    () async {
+      notifications.confirmTest();
+      expect(notifications.lastTestConfirmedAt, isNull);
+      await notifications.notify(1, test: true);
+      expect(notifications.lastTestConfirmedAt, isNull);
+      notifications.confirmTest();
+      expect(notifications.lastTestConfirmedAt, isNotNull);
+      await notifications.notify(1, test: true);
+      expect(notifications.lastTestConfirmedAt, isNull);
+    },
+  );
+
+  test(
+    'automatic results update quietly in background and use overlay in foreground',
+    () async {
+      notifications.dispose();
+      final quiet = <String>[];
+      notifications = DesktopNotifications(
+        setup: () async {},
+        isForeground: () async => foreground,
+        send: (_, _) async {
+          fail('Result should use the quiet sender');
+        },
+        sendQuiet: (body) async {
+          quiet.add(body);
+        },
+        showInApp: (body) {
+          inAppAlerts.add(body);
+          return true;
+        },
+      );
+      expect(await notifications.notifyResult('course', true), true);
+      expect(quiet.single, contains('成功'));
+      foreground = true;
+      expect(await notifications.notifyResult('course', false), true);
+      expect(inAppAlerts.single, contains('未成功'));
+      expect(quiet, hasLength(1));
+    },
+  );
 }

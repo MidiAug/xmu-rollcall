@@ -329,51 +329,54 @@ class _ChoiceCubeButton<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        splashFactory: NoSplash.splashFactory,
-        highlightColor: Colors.transparent,
-        focusColor: palette.selected,
-        onTap: onTap,
-        child: AnimatedContainer(
-          // Snap accent fill — avoid gray↔indigo Color.lerp flash.
-          duration: selected ? Duration.zero : AppMotion.instant,
-          curve: AppMotion.instantCurve,
-          padding: padding,
-          decoration: BoxDecoration(
-            color: selected
-                ? palette.selected
-                : AppPalette.clearOf(palette.selected),
-            borderRadius: BorderRadius.circular(AppRadii.group),
-            border: Border.all(
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: BorderRadius.circular(AppRadii.group),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadii.group),
+          hoverColor: palette.hover,
+          splashFactory: NoSplash.splashFactory,
+          highlightColor: Colors.transparent,
+          focusColor: palette.selected,
+          onTap: onTap,
+          child: Ink(
+            padding: padding,
+            decoration: BoxDecoration(
               color: selected
-                  ? palette.primary.withValues(alpha: 0.45)
-                  : palette.borderStrong,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                cube.icon,
-                size: 20,
-                color: selected ? palette.primary : palette.muted,
+                  ? palette.selected
+                  : AppPalette.clearOf(palette.selected),
+              borderRadius: BorderRadius.circular(AppRadii.group),
+              border: Border.all(
+                color: selected
+                    ? palette.primary.withValues(alpha: 0.45)
+                    : palette.borderStrong,
               ),
-              const SizedBox(height: AppSpace.xxs),
-              Text(
-                cube.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.35,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                  letterSpacing: -0.1,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  cube.icon,
+                  size: 20,
                   color: selected ? palette.primary : palette.muted,
                 ),
-              ),
-            ],
+                const SizedBox(height: AppSpace.xxs),
+                Text(
+                  cube.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.35,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    letterSpacing: -0.1,
+                    color: selected ? palette.primary : palette.muted,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -759,11 +762,13 @@ class AppSidebar extends StatelessWidget {
     required this.current,
     required this.onSelect,
     this.userLabel,
+    this.hasUpdate = false,
   });
 
   final AppDestination current;
   final ValueChanged<AppDestination> onSelect;
   final String? userLabel;
+  final bool hasUpdate;
 
   @override
   Widget build(BuildContext context) {
@@ -820,6 +825,7 @@ class AppSidebar extends StatelessWidget {
                   _NavCell(
                     destination: d,
                     selected: d == current,
+                    hasUpdate: hasUpdate && d == AppDestination.settings,
                     onTap: () => onSelect(d),
                   ),
               ],
@@ -837,11 +843,13 @@ class _NavCell extends StatefulWidget {
     required this.destination,
     required this.selected,
     required this.onTap,
+    required this.hasUpdate,
   });
 
   final AppDestination destination;
   final bool selected;
   final VoidCallback onTap;
+  final bool hasUpdate;
 
   @override
   State<_NavCell> createState() => _NavCellState();
@@ -883,10 +891,11 @@ class _NavCellState extends State<_NavCell> {
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
                     child: Row(
                       children: [
-                        Icon(
-                          _icon(widget.destination),
+                        _NavigationIcon(
+                          icon: _icon(widget.destination),
                           size: 18,
                           color: selected ? p.primary : p.muted,
+                          hasUpdate: widget.hasUpdate,
                         ),
                         const SizedBox(width: 10),
                         Text(
@@ -924,10 +933,12 @@ class AppMobileNav extends StatelessWidget {
     super.key,
     required this.current,
     required this.onSelect,
+    this.hasUpdate = false,
   });
 
   final AppDestination current;
   final ValueChanged<AppDestination> onSelect;
+  final bool hasUpdate;
 
   @override
   Widget build(BuildContext context) {
@@ -949,6 +960,7 @@ class AppMobileNav extends StatelessWidget {
                   child: _MobileItem(
                     destination: d,
                     selected: d == current,
+                    hasUpdate: hasUpdate && d == AppDestination.settings,
                     onTap: () => onSelect(d),
                   ),
                 ),
@@ -965,11 +977,13 @@ class _MobileItem extends StatefulWidget {
     required this.destination,
     required this.selected,
     required this.onTap,
+    required this.hasUpdate,
   });
 
   final AppDestination destination;
   final bool selected;
   final VoidCallback onTap;
+  final bool hasUpdate;
 
   @override
   State<_MobileItem> createState() => _MobileItemState();
@@ -996,7 +1010,12 @@ class _MobileItemState extends State<_MobileItem> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(_icon(widget.destination), size: 22, color: color),
+            _NavigationIcon(
+              icon: _icon(widget.destination),
+              size: 22,
+              color: color,
+              hasUpdate: widget.hasUpdate,
+            ),
             const SizedBox(height: 2),
             Text(
               widget.destination.label,
@@ -1017,6 +1036,36 @@ class _MobileItemState extends State<_MobileItem> {
     AppDestination.homework => Icons.assignment_outlined,
     AppDestination.settings => Icons.person_outline,
   };
+}
+
+/// A quiet update hint that preserves the icon's layout and hit target.
+class _NavigationIcon extends StatelessWidget {
+  const _NavigationIcon({
+    required this.icon,
+    required this.size,
+    required this.color,
+    required this.hasUpdate,
+  });
+
+  final IconData icon;
+  final double size;
+  final Color color;
+  final bool hasUpdate;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Icon(icon, size: size, color: color);
+    if (!hasUpdate) return child;
+    return Tooltip(
+      message: '有新版本可更新',
+      child: Badge(
+        backgroundColor: AppPalette.of(context).primary,
+        smallSize: 6,
+        offset: const Offset(2, -2),
+        child: child,
+      ),
+    );
+  }
 }
 
 /// Pill select — Quiet Utility twin of xmu-sports `.shell-select`.
@@ -1201,7 +1250,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
                         children: [
                           for (var i = 0; i < widget.items.length; i++) ...[
                             if (i > 0) const SizedBox(height: 4),
-                            _AppShellSelectOption(
+                            AppMenuOption(
                               key: ValueKey('shell-select-option-$i'),
                               label: (widget.menuLabelOf ?? widget.labelOf)(
                                 widget.items[i],
@@ -1254,10 +1303,8 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
+                      child: AppTruncatedText(
                         widget.labelOf(widget.value),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: widget.width < 110 ? 13 : 14,
                           height: 22 / 14,
@@ -1288,14 +1335,16 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
   }
 }
 
-class _AppShellSelectOption extends StatefulWidget {
-  const _AppShellSelectOption({
+/// Shared inset option for filter and identity menus.
+class AppMenuOption extends StatefulWidget {
+  const AppMenuOption({
     super.key,
     required this.label,
     required this.selected,
     required this.onTap,
     this.trailing = '',
     this.wrap = false,
+    this.showCheck = false,
   });
 
   final String label;
@@ -1303,41 +1352,49 @@ class _AppShellSelectOption extends StatefulWidget {
   final bool selected;
   final VoidCallback onTap;
   final bool wrap;
+  final bool showCheck;
 
   @override
-  State<_AppShellSelectOption> createState() => _AppShellSelectOptionState();
+  State<AppMenuOption> createState() => _AppMenuOptionState();
 }
 
-class _AppShellSelectOptionState extends State<_AppShellSelectOption> {
+class _AppMenuOptionState extends State<AppMenuOption> {
   var _hover = false;
+  var _focused = false;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final Color bg;
-    if (widget.selected) {
-      bg = _hover
-          ? Color.alphaBlend(p.primary.withValues(alpha: 0.08), p.selected)
-          : p.selected;
-    } else if (_hover) {
-      bg = p.hover;
-    } else {
-      bg = AppPalette.clearOf(p.hover);
-    }
-
+    final active = _hover || _focused;
+    final bg = widget.selected
+        ? active
+              ? Color.alphaBlend(p.primary.withValues(alpha: 0.08), p.selected)
+              : p.selected
+        : active
+        ? p.hover
+        : AppPalette.clearOf(p.hover);
+    final style = TextStyle(
+      fontSize: 14,
+      height: 22 / 14,
+      fontWeight: widget.selected ? FontWeight.w500 : FontWeight.w400,
+      color: widget.selected ? p.primary : p.ink,
+    );
     return Semantics(
       selected: widget.selected,
       button: true,
-      child: Tooltip(
-        message:
-            '${widget.label}${widget.trailing.isEmpty ? '' : ' ${widget.trailing}'}',
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _hover = true),
-          onExit: (_) => setState(() => _hover = false),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadii.control),
+          child: InkWell(
             onTap: widget.onTap,
+            onFocusChange: (focused) => setState(() => _focused = focused),
+            hoverColor: Colors.transparent,
+            focusColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            splashFactory: NoSplash.splashFactory,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 100),
               curve: Curves.easeOut,
@@ -1350,21 +1407,9 @@ class _AppShellSelectOptionState extends State<_AppShellSelectOption> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      widget.label,
-                      maxLines: widget.wrap ? null : 1,
-                      overflow: widget.wrap
-                          ? TextOverflow.visible
-                          : TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 22 / 14,
-                        fontWeight: widget.selected
-                            ? FontWeight.w500
-                            : FontWeight.w400,
-                        color: widget.selected ? p.primary : p.ink,
-                      ),
-                    ),
+                    child: widget.wrap
+                        ? Text(widget.label, style: style)
+                        : AppTruncatedText(widget.label, style: style),
                   ),
                   if (widget.trailing.isNotEmpty) ...[
                     const SizedBox(width: 8),
@@ -1378,6 +1423,19 @@ class _AppShellSelectOptionState extends State<_AppShellSelectOption> {
                       ),
                     ),
                   ],
+                  if (widget.showCheck) ...[
+                    const SizedBox(width: 12),
+                    SizedBox.square(
+                      dimension: 18,
+                      child: widget.selected
+                          ? Icon(
+                              Icons.check_rounded,
+                              size: 18,
+                              color: p.primary,
+                            )
+                          : null,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1386,6 +1444,37 @@ class _AppShellSelectOptionState extends State<_AppShellSelectOption> {
       ),
     );
   }
+}
+
+/// Full text is available on hover/long press only when it is ellipsized.
+class AppTruncatedText extends StatelessWidget {
+  const AppTruncatedText(this.text, {super.key, this.style});
+  final String text;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, bounds) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: DefaultTextStyle.of(context).style.merge(style),
+        ),
+        maxLines: 1,
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(maxWidth: bounds.maxWidth);
+      final truncated = painter.didExceedMaxLines;
+      painter.dispose();
+      final child = Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+      return truncated ? Tooltip(message: text, child: child) : child;
+    },
+  );
 }
 
 /// Desktop: centered column capped at [maxWidth]. Touch: full-bleed pass-through.

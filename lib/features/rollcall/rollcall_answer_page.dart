@@ -8,6 +8,7 @@ import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/logging/rollcall_log.dart';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/location/coord_transform.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
@@ -67,7 +68,8 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
           courseTitle: widget.item.courseTitle,
         );
     if (pref == null) {
-      if (_selection?.filledFrom == RadarFilledFrom.pref) {
+      if (_selection?.filledFrom == RadarFilledFrom.pref ||
+          _selection?.filledFrom == RadarFilledFrom.configured) {
         setState(() => _selection = null);
       }
       return;
@@ -78,7 +80,9 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     );
     final cur = _selection;
     if (cur != null &&
-        cur.filledFrom == RadarFilledFrom.pref &&
+        (cur.filledFrom == RadarFilledFrom.pref ||
+            cur.filledFrom == RadarFilledFrom.configured) &&
+        cur.filledFrom == next.filledFrom &&
         cur.latitude == next.latitude &&
         cur.longitude == next.longitude &&
         cur.obtainedVia == next.obtainedVia &&
@@ -470,6 +474,41 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     }
   }
 
+  Future<void> _saveCourseLocation() async {
+    final selection = _selection;
+    final courseId = widget.item.courseId;
+    if (selection == null ||
+        courseId == null ||
+        courseId.isEmpty ||
+        _submitting) {
+      return;
+    }
+    if (widget.previewMode) {
+      AppToast.show(context, '预览模式：未保存课程位置');
+      return;
+    }
+    setState(() => _submitting = true);
+    try {
+      await ref
+          .read(courseRadarDefaultsForProvider(widget.assistUserId).notifier)
+          .configureForCourse(
+            courseId: courseId,
+            courseTitle: widget.item.courseTitle,
+            selection: selection,
+          );
+      if (mounted) AppToast.show(context, '已保存本课位置，开启自动签到后可使用');
+    } catch (error, stack) {
+      AppLog.logAppError(
+        error: error,
+        stackTrace: stack,
+        source: 'radar_course_location',
+      );
+      if (mounted) AppToast.show(context, '课程位置未能保存，请重试', error: true);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final item = widget.item;
@@ -537,6 +576,17 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
                 selection: _selection,
                 onChange: _submitting ? null : _changeLocation,
               ),
+              if (item.courseId?.isNotEmpty == true)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _submitting || _selection == null
+                        ? null
+                        : _saveCourseLocation,
+                    icon: const Icon(Icons.bookmark_add_outlined, size: 18),
+                    label: const Text('设为本课位置，供自动签到使用'),
+                  ),
+                ),
               if (_status != null) ...[
                 const SizedBox(height: AppSpace.sm),
                 Text(_status!, style: TextStyle(fontSize: 12, color: p.muted)),

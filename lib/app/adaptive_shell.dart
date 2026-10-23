@@ -12,6 +12,7 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
 import 'package:xmu_rollcall/features/settings/settings_page.dart';
+import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
 class AdaptiveShell extends StatefulWidget {
@@ -125,12 +126,20 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                     children: [
                       Consumer(
                         builder: (context, ref, _) {
-                          final name =
-                              ref.watch(authControllerProvider).profile?.name;
+                          final name = ref
+                              .watch(authControllerProvider)
+                              .profile
+                              ?.name;
+                          final hasUpdate = ref.watch(
+                            appUpdateControllerProvider.select(
+                              (c) => c.update != null,
+                            ),
+                          );
                           return AppSidebar(
                             current: _current,
                             onSelect: _onSelect,
                             userLabel: name,
+                            hasUpdate: hasUpdate,
                           );
                         },
                       ),
@@ -158,9 +167,14 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                 ),
               ],
             ),
-            bottomNavigationBar: AppMobileNav(
-              current: _current,
-              onSelect: _onSelect,
+            bottomNavigationBar: Consumer(
+              builder: (context, ref, _) => AppMobileNav(
+                current: _current,
+                onSelect: _onSelect,
+                hasUpdate: ref.watch(
+                  appUpdateControllerProvider.select((c) => c.update != null),
+                ),
+              ),
             ),
           );
 

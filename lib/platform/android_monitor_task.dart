@@ -12,11 +12,12 @@ import 'package:xmu_rollcall/core/logging/ndjson_file_sink.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_engine.dart';
-import 'package:xmu_rollcall/features/monitor/automatic_number_answer.dart';
+import 'package:xmu_rollcall/features/monitor/automatic_rollcall_answer.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
 import 'package:xmu_rollcall/platform/android_monitor_notifications.dart';
 import 'package:xmu_rollcall/platform/android_monitor_platform.dart';
 import 'package:xmu_rollcall/platform/android_monitor_store.dart';
+import 'package:xmu_rollcall/features/location/course_radar_store.dart';
 
 String formatMonitorCountdown(DateTime? nextPollAt, {DateTime? now}) {
   final secs = nextPollAt?.difference(now ?? DateTime.now()).inSeconds ?? 0;
@@ -113,8 +114,22 @@ class AndroidMonitorTaskHandler extends TaskHandler {
           http: client,
           identity: DeviceIdentity(memory),
         );
-        final automatic = AutomaticNumberAnswer(
+        final automatic = AutomaticRollcallAnswer(
           repository: repo,
+          radarLocation: (item) => readAutomaticRadarLocation(
+            ownerId: run.ownerUserId,
+            assistUserId: run.assistUserId,
+            courseId: item.courseId,
+          ),
+          onAnswered: (item, result) async {
+            await _requireCurrentAccount();
+            await _notifications.showResult(
+              runId: run.id,
+              courseTitle: item.courseTitle,
+              ok: result.ok,
+              requireCurrent: _requireCurrentAccount,
+            );
+          },
           requireCurrent: () async {
             await _requireCurrentAccount();
             final current = await AndroidMonitorStore.readRun();
@@ -126,6 +141,7 @@ class AndroidMonitorTaskHandler extends TaskHandler {
         _engine = MonitorEngine(
           config: run.config,
           processAutomatic: automatic.process,
+          completedAutomaticIds: () => automatic.completedIds,
           notifiedIds: notified,
           fetch: () async {
             await _requireCurrentAccount();
@@ -145,9 +161,11 @@ class AndroidMonitorTaskHandler extends TaskHandler {
           notify: (items) async {
             await _requireCurrentAccount();
             try {
-              await _notifications.show(
+              await _notifications.discovered(
+                runId: run.id,
                 count: items.length,
                 courseTitle: items.first.courseTitle,
+                requireCurrent: _requireCurrentAccount,
               );
               AppLog.event(
                 'monitor.notification.sent',
@@ -191,6 +209,10 @@ class AndroidMonitorTaskHandler extends TaskHandler {
 
   void _onEngineUpdate(MonitorEngineUpdate update) {
     if (_destroyed || _shuttingDown) return;
+    if (update.sessionExpired) {
+      unawaited(_shutdown('session_expired', '登录已失效，请重新登录后开始检测'));
+      return;
+    }
     _snapshot['failures'] = update.failures;
     if (update.nextPollAt != null) {
       _snapshot['nextPollAtMs'] = update.nextPollAt!.millisecondsSinceEpoch;
@@ -206,8 +228,6 @@ class AndroidMonitorTaskHandler extends TaskHandler {
         'count': update.count ?? 0,
         'message': update.message,
         'notifiedIds': _engine!.notifiedIds.toList(),
-        if (update.items != null)
-          'items': [for (final item in update.items!) item.toMonitorJson()],
       });
       AppLog.event(
         'monitor.poll',
@@ -219,6 +239,11 @@ class AndroidMonitorTaskHandler extends TaskHandler {
           'failures': update.failures,
         },
       );
+    }
+    if (update.items != null) {
+      _snapshot['items'] = [
+        for (final item in update.items!) item.toMonitorJson(),
+      ];
     }
     if (update.message != null) _snapshot['message'] = update.message;
     _publish();

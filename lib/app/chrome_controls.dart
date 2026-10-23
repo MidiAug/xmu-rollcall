@@ -24,24 +24,30 @@ class AppQuietPill extends StatelessWidget {
     final enabled = onTap != null;
     return MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      child: InkWell(
+      child: Material(
+        type: MaterialType.transparency,
         borderRadius: BorderRadius.circular(18),
-        splashFactory: NoSplash.splashFactory,
-        highlightColor: Colors.transparent,
-        focusColor: p.selected,
-        onTap: onTap,
-        child: AnimatedOpacity(
-          duration: AppMotion.instant,
-          curve: AppMotion.instantCurve,
-          opacity: enabled ? 1 : 0.72,
-          child: Container(
-            padding: padding,
-            decoration: BoxDecoration(
-              color: background ?? p.surfaceHigh,
-              borderRadius: BorderRadius.circular(18),
-              border: border ? Border.all(color: p.border) : null,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          hoverColor: p.hover,
+          splashFactory: NoSplash.splashFactory,
+          highlightColor: Colors.transparent,
+          focusColor: p.selected,
+          onTap: onTap,
+          child: AnimatedOpacity(
+            duration: AppMotion.instant,
+            curve: AppMotion.instantCurve,
+            opacity: enabled ? 1 : 0.72,
+            child: Ink(
+              padding: padding,
+              decoration: BoxDecoration(
+                color: background ?? p.surfaceHigh,
+                borderRadius: BorderRadius.circular(18),
+                border: border ? Border.all(color: p.border) : null,
+              ),
+              child: child,
             ),
-            child: child,
           ),
         ),
       ),
@@ -78,12 +84,14 @@ class AppHoverSurface extends StatefulWidget {
     this.padding,
     this.borderRadius,
     this.onTap,
+    this.outlined = true,
   });
 
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final BorderRadius? borderRadius;
   final VoidCallback? onTap;
+  final bool outlined;
 
   @override
   State<AppHoverSurface> createState() => _AppHoverSurfaceState();
@@ -92,12 +100,13 @@ class AppHoverSurface extends StatefulWidget {
 class _AppHoverSurfaceState extends State<AppHoverSurface> {
   var _hover = false;
   var _pressed = false;
+  var _focused = false;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final radius = widget.borderRadius ?? BorderRadius.circular(AppRadii.card);
-    final lift = _pressed || _hover;
+    final lift = widget.onTap != null && (_pressed || _hover || _focused);
     final body = AnimatedContainer(
       duration: AppMotion.fast,
       curve: AppMotion.fastCurve,
@@ -105,7 +114,9 @@ class _AppHoverSurfaceState extends State<AppHoverSurface> {
       decoration: BoxDecoration(
         color: lift ? p.cardHover : p.surface,
         borderRadius: radius,
-        border: Border.all(color: lift ? p.borderStrong : p.border),
+        border: widget.outlined
+            ? Border.all(color: lift ? p.borderStrong : p.border)
+            : null,
       ),
       child: widget.child,
     );
@@ -118,14 +129,22 @@ class _AppHoverSurfaceState extends State<AppHoverSurface> {
           : SystemMouseCursors.basic,
       child: widget.onTap == null
           ? body
-          : InkWell(
+          : Material(
+              type: MaterialType.transparency,
               borderRadius: radius,
-              splashFactory: NoSplash.splashFactory,
-              focusColor: p.selected,
-              onHighlightChanged: (pressed) =>
-                  setState(() => _pressed = pressed),
-              onTap: widget.onTap,
-              child: body,
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                borderRadius: radius,
+                hoverColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                splashFactory: NoSplash.splashFactory,
+                focusColor: Colors.transparent,
+                onFocusChange: (focused) => setState(() => _focused = focused),
+                onHighlightChanged: (pressed) =>
+                    setState(() => _pressed = pressed),
+                onTap: widget.onTap,
+                child: body,
+              ),
             ),
     );
   }

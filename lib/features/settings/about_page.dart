@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
+import 'package:xmu_rollcall/features/update/app_update_section.dart';
+import 'package:xmu_rollcall/features/update/github_update_service.dart';
+import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 
 class AboutPage extends StatefulWidget {
-  const AboutPage({super.key});
+  const AboutPage({super.key, this.updateService, this.updateController});
+  final UpdateService? updateService;
+  final AppUpdateController? updateController;
   static const repository = 'https://github.com/MidiAug/xmu-rollcall';
 
   @override
@@ -41,10 +47,11 @@ class _AboutPageState extends State<AboutPage> {
     return SubpageScaffold(
       title: '关于',
       body: AppContentColumn(
+        maxWidth: 600,
         child: ListView(
           padding: EdgeInsets.fromLTRB(
             AppSpace.pageXOf(context),
-            24,
+            AppDensity.isTouch(context) ? 24 : 60,
             AppSpace.pageXOf(context),
             AppSpace.xl,
           ),
@@ -73,45 +80,40 @@ class _AboutPageState extends State<AboutPage> {
                 style: TextStyle(fontSize: 12, height: 1.5, color: p.muted),
               ),
             ),
-            const SizedBox(height: 24),
-            Panel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '厦大签到是一款面向厦门大学畅课（TronClass）的轻量客户端，集中查看课堂签到、作业与本学期课表。',
-                    style: TextStyle(fontSize: 13, height: 1.7, color: p.ink),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '支持多身份切换、协助签到和本机缓存，在手机与电脑上延续同样的使用习惯。',
-                    style: TextStyle(fontSize: 13, height: 1.7, color: p.muted),
-                  ),
-                ],
-              ),
+            const SizedBox(height: 16),
+            Text(
+              '为厦大畅课准备的轻量客户端。\n课堂签到、作业与课表，集中在这里。',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, height: 1.8, color: p.muted),
             ),
+            const SizedBox(height: 32),
+            if (widget.updateController != null)
+              AppUpdateSection(controller: widget.updateController)
+            else if (widget.updateService != null)
+              AppUpdateSection(package: _package, service: widget.updateService)
+            else
+              Consumer(
+                builder: (context, ref, _) => AppUpdateSection(
+                  controller: ref.watch(appUpdateControllerProvider),
+                ),
+              ),
             SettingsSection(
-              header: '项目',
+              header: '开源项目',
               children: [
                 SettingsRow(
                   leading: const Icon(Icons.code_rounded),
                   title: 'GitHub 仓库',
                   subtitle: 'MidiAug/xmu-rollcall',
                   onTap: _openRepository,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: '复制仓库地址',
-                        onPressed: _copyRepository,
-                        icon: Icon(
-                          Icons.copy_rounded,
-                          size: 17,
-                          color: p.muted,
-                        ),
-                      ),
-                      Icon(Icons.open_in_new_rounded, size: 16, color: p.muted),
-                    ],
+                  trailing: IconButton(
+                    tooltip: '复制仓库地址',
+                    onPressed: _copyRepository,
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size.square(44),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.standard,
+                    ),
+                    icon: Icon(Icons.copy_rounded, size: 17, color: p.muted),
                   ),
                 ),
               ],

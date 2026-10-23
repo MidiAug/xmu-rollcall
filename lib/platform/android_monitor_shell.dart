@@ -107,6 +107,24 @@ class AndroidMonitorShell {
       }
     } else if (data['action'] == 'diagnostic_sent') {
       onUserMessage?.call('后台通知测试已发送');
+    } else if (data['action'] == 'foreground_notice') {
+      unawaited(_showForegroundNotice(data));
+    }
+  }
+
+  Future<void> _showForegroundNotice(Map data) async {
+    try {
+      final run = await AndroidMonitorStore.readRun();
+      if (run == null || run.id != data['runId']) return;
+      final owner = await _secure.read(SecureStore.keyUserId);
+      if (owner != '${run.ownerUserId}') return;
+      onUserMessage?.call(data['message'] as String? ?? '发现新的签到');
+    } catch (error, stack) {
+      AppLog.logAppError(
+        error: error,
+        stackTrace: stack,
+        source: 'monitor_foreground_notice',
+      );
     }
   }
 
@@ -419,10 +437,7 @@ class AndroidDiscoveryNotificationStatus {
   final Map<String, dynamic> background;
 
   bool get discoveryBlocked =>
-      enabled == false ||
-      (channel != null &&
-          (channel!.importance.value < Importance.high.value ||
-              !channel!.enableVibration));
+      enabled == false || channel?.importance == Importance.none;
 
   bool get ongoingAlerts =>
       ongoingChannel?.enableVibration == true ||

@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
+import 'package:xmu_rollcall/features/location/course_radar_store.dart';
 
 final savedLocationsProvider =
     StateNotifierProvider<SavedLocationsController, List<SavedLocation>>((ref) {
@@ -209,13 +210,7 @@ class CourseRadarDefaultsController
 
   static const _legacyKey = 'course_radar_defaults';
 
-  String? get _key {
-    final id = userId;
-    if (id == null || id == 0) return null;
-    return assistUserId == null
-        ? 'course_radar_defaults_$id'
-        : 'course_radar_defaults_${id}_assist_$assistUserId';
-  }
+  String? get _key => courseRadarPreferencesKey(userId, assistUserId);
 
   Future<void> _load() async {
     final key = _key;
@@ -294,29 +289,49 @@ class CourseRadarDefaultsController
     String placeId = '',
     required RadarObtainedVia obtainedVia,
     String labelSnapshot = '',
-  }) async {
-    await ready;
-    if (!mounted) return;
-    validateRadarLocation(
-      latitude: latitude,
-      longitude: longitude,
-      accuracy: accuracy,
-    );
-    final title = courseTitle.trim();
-    final id = courseId?.trim() ?? '';
-    final key = courseRadarStorageKey(courseId: id, courseTitle: title);
-    if (key.isEmpty) return;
-
-    final pref = CourseRadarPref(
-      courseTitle: title.isEmpty ? key : title,
-      courseId: id,
+  }) => _remember(
+    CourseRadarPref(
+      courseTitle: courseTitle.trim(),
+      courseId: courseId?.trim() ?? '',
       latitude: latitude,
       longitude: longitude,
       accuracy: accuracy,
       placeId: placeId,
       obtainedVia: obtainedVia.storageKey,
       labelSnapshot: labelSnapshot,
+    ),
+  );
+
+  Future<void> configureForCourse({
+    required String courseId,
+    required String courseTitle,
+    required RadarGeoSelection selection,
+  }) => _remember(
+    CourseRadarPref(
+      courseTitle: courseTitle.trim(),
+      courseId: courseId.trim(),
+      latitude: selection.latitude,
+      longitude: selection.longitude,
+      accuracy: selection.accuracy,
+      placeId: selection.placeId,
+      obtainedVia: selection.obtainedVia.storageKey,
+      labelSnapshot: selection.label,
+      userConfigured: true,
+    ),
+  );
+
+  Future<void> _remember(CourseRadarPref pref) async {
+    await ready;
+    if (!mounted) return;
+    validateRadarLocation(
+      latitude: pref.latitude,
+      longitude: pref.longitude,
+      accuracy: pref.accuracy,
     );
+    final title = pref.courseTitle;
+    final id = pref.courseId;
+    final key = courseRadarStorageKey(courseId: id, courseTitle: title);
+    if (key.isEmpty) return;
 
     final next = Map<String, CourseRadarPref>.from(state);
     next[key] = pref;
@@ -332,8 +347,9 @@ class CourseRadarDefaultsController
       fields: {
         'courseId': id,
         'scope': assistUserId == null ? 'owner' : 'assist',
-        'source': obtainedVia.storageKey,
-        'hasPlace': placeId.isNotEmpty,
+        'source': pref.obtainedVia,
+        'hasPlace': pref.placeId.isNotEmpty,
+        'userConfigured': pref.userConfigured,
       },
     );
   }

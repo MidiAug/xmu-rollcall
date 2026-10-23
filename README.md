@@ -64,11 +64,19 @@
 | **今天还有什么作业** | 进行中和已截止分开展示，截止时间、提交情况、成绩状态放在同一行。助教课程单独展示。 |
 | **看这学期的课** | 按当前身份展示本学期课表，不把入学以来的课程都搬出来。 |
 | **切换协助身份** | 各身份的登录会话与缓存独立保存，签到和作业跟随所选身份。 |
-| **少盯一会儿屏幕** | Android 后台提醒，Windows 通知与托盘；数字自动签到需要自行开启。 |
+| **少盯一会儿屏幕** | Android 后台提醒，Windows 通知与托盘；数字与有本课位置的雷达自动签到需要自行开启。 |
 
 重新打开页面时，会优先显示已有缓存，再按需要更新。签到卡片在对应课堂的课前、课后各 25 分钟内恢复上次状态，并重新确认；作业按课后、截止和待办变化补查，避免来回切页就重扫所有课程。
 
+检测负责发现签到，自动签到默认关闭。开启后，数字签到按已设置的人数或比例等待；雷达还需本账号、本课程已设置或上次成功的位置，没有位置时只提醒。可在雷达页先选点并“设为本课位置”，无需先提交一次签到；雷达自动提交失败或结果不确定时，请打开签到页手动处理。
+
+提醒设置按“测试 → 实际收到确认 → 按表现排查”组织。前台显示应用内提醒，后台发送系统通知，自动签到结果会更新提醒。Android 需允许通知并按手机实际情况设置后台运行；Windows 需保留应用运行，睡眠或退出后不继续检测。
+
 ## 下载安装
+
+应用启动及回到前台会按间隔静默检查 GitHub 正式更新；“我的 → 关于”右侧出现“有更新”时，可进入查看说明并下载，也可手动检查。同一次运行中，成功检查后 6 小时、失败后 30 分钟内不重复自动请求，不自动下载或弹窗催更。下载完成后校验大小与 SHA-256，再由你确认安装；Android 按系统提示允许安装来源，Windows 会在确认后停止检测、退出应用并打开安装向导。便携版使用安装器更新会转为安装版，也可从发布页手动下载便携 ZIP。
+
+应用内安装要求 Release 带有工作流生成的 `manifest-android.json` / `manifest-windows.json` 和对应安装包；旧发布缺少清单时保留浏览器入口。Android 必须沿用兼容签名并递增构建号；preview 测试版与正式版独立安装。当前已安装的旧版首次需要手动升级到包含此功能的版本。
 
 [v0.1.0 发布页](https://github.com/MidiAug/xmu-rollcall/releases/tag/v0.1.0)
 
@@ -119,7 +127,7 @@ flutter build windows --release
 # Android APK
 powershell -ExecutionPolicy Bypass -File scripts/package-android.ps1
 
-# Windows NSIS 安装包
+# Windows NSIS 安装包与便携 ZIP
 powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1
 ```
 
@@ -140,7 +148,7 @@ flutter analyze
 flutter test
 ```
 
-普通测试使用模拟数据；真实账号、设备权限和后台行为需要单独做实机检查。GitHub Actions 会在 Windows 和 Linux 上运行静态分析与单元、组件测试。
+普通测试使用模拟数据；真实账号、设备权限和后台行为需要单独做实机检查。GitHub Actions 在 Windows 和 Linux 上运行静态分析、单元/组件及模拟会话集成测试；主分支通过后自动生成 Android 测试 APK 和 Windows 安装包/便携 ZIP。版本标签经过正式签名与产物校验后生成 Release 草稿，更新说明自动取自 [CHANGELOG.md](CHANGELOG.md) 对应版本，确认设备验收后手动发布。详见 [CI/CD 与签名配置](.github/CI_CD.md)。
 
 </details>
 

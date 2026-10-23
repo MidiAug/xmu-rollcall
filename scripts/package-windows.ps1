@@ -3,6 +3,8 @@
 #
 # Needs makensis: system install, or portable under .tools\nsis\ (script can fetch NuGet NSIS-Tool).
 
+param([switch] $NoPub)
+
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $PSScriptRoot
 Set-Location $Root
@@ -30,10 +32,14 @@ function Ensure-Makensis {
   $tools = Join-Path $Root '.tools\nsis'
   New-Item -ItemType Directory -Force -Path $tools | Out-Null
   $nupkg = Join-Path $tools 'NSIS.nuget.zip'
-  curl.exe -L --retry 3 -o $nupkg 'https://www.nuget.org/api/v2/package/NSIS-Tool/3.0.8'
+  curl.exe --fail -L --retry 3 -o $nupkg 'https://www.nuget.org/api/v2/package/NSIS-Tool/3.0.8'
   if ($LASTEXITCODE -ne 0) { throw 'Failed to download NSIS-Tool from nuget.org' }
+  $expectedHash = 'a1181620e6e4473a655e83f4e0c9abdee24d2656b0caec97ef7b35f8e65bbcf7'
+  if ((Get-FileHash -LiteralPath $nupkg -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expectedHash) {
+    throw 'NSIS-Tool archive checksum mismatch'
+  }
   $extract = Join-Path $tools 'nuget'
-  if (Test-Path $extract) { Remove-Item $extract -Recurse -Force }
+  # Expand in place: there is no need to recursively delete a computed tool path.
   Expand-Archive -Force -Path $nupkg -DestinationPath $extract
   $exe = Find-Makensis
   if (-not $exe) { throw 'makensis.exe still missing after NuGet extract' }
@@ -49,7 +55,9 @@ $ver = $Matches[1]
 New-Item -ItemType Directory -Force -Path 'dist' | Out-Null
 
 Write-Host '==> flutter build windows --release'
-flutter build windows --release
+$buildArgs = @('build', 'windows', '--release')
+if ($NoPub) { $buildArgs += '--no-pub' }
+& flutter @buildArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 $releaseCandidates = @(
@@ -87,5 +95,11 @@ Write-Host "==> makensis → $outFile"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 if (-not (Test-Path $outFile)) { throw "Setup exe not found: $outFile" }
 
+$zipFile = Join-Path $Root "dist\xmu-rollcall-$ver-windows-x64.zip"
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+if (Test-Path -LiteralPath $zipFile) { Remove-Item -LiteralPath $zipFile -Force }
+[IO.Compression.ZipFile]::CreateFromDirectory($releaseDir, $zipFile)
+
 Write-Host "OK: $((Resolve-Path $outFile).Path)"
+Write-Host "OK: $((Resolve-Path $zipFile).Path)"
 Write-Host 'Tip: double-click the setup.exe (NSIS, current-user). No publisher certificate needed.'
