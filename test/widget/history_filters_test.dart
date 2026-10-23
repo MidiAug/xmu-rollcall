@@ -184,13 +184,17 @@ void main() {
       );
       await tester.pumpAndSettle();
       final date = find.byKey(const ValueKey('history-date-filter'));
+      expect(find.byTooltip('全部时间'), findsNothing);
+      expect(find.byTooltip('全部状态'), findsNothing);
       await tester.tap(date);
       await tester.pumpAndSettle();
+      expect(find.byTooltip('7天内'), findsNothing);
       expect(find.text('自选日期'), findsNothing);
       expect(find.text('本周'), findsNothing);
       expect(find.text('本月'), findsNothing);
       await tester.tap(find.text('7天内'));
       await tester.pumpAndSettle();
+      expect(find.byTooltip('7天内'), findsNothing);
       expect(find.text('已签到'), findsNothing);
       expect(find.text('未签到'), findsOneWidget);
       await tester.tap(date);

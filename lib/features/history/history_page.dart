@@ -253,17 +253,14 @@ class _HistoryFilter<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (context, bounds) => Tooltip(
-        message: labelOf(value),
-        child: AppShellSelect<T>(
-          value: value,
-          items: items,
-          labelOf: labelOf,
-          menuTrailingOf: (v) => '(${countOf(v)})',
-          onChanged: onChanged,
-          width: bounds.maxWidth,
-          menuWidth: wideMenu ? 240 : 160,
-        ),
+      builder: (context, bounds) => AppShellSelect<T>(
+        value: value,
+        items: items,
+        labelOf: labelOf,
+        menuTrailingOf: (v) => '(${countOf(v)})',
+        onChanged: onChanged,
+        width: bounds.maxWidth,
+        menuWidth: wideMenu ? 240 : 160,
       ),
     );
   }

@@ -337,10 +337,8 @@ class _IdentityMenu extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Flexible(
-          child: Text(
+          child: AppTruncatedText(
             name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -361,7 +359,7 @@ class _IdentityMenu extends StatelessWidget {
         child: PopupMenuButton<int>(
           key: const ValueKey('rollcall-identity-menu'),
           enabled: identities.isNotEmpty,
-          tooltip: '切换签到用户',
+          tooltip: '',
           position: PopupMenuPosition.under,
           offset: const Offset(0, 6),
           color: p.surface,
@@ -386,43 +384,10 @@ class _IdentityMenu extends StatelessWidget {
               for (final identity in identities)
                 (id: identity.userId, name: identity.displayName),
             ])
-              PopupMenuItem<int>(
+              _IdentityMenuItem(
                 value: entry.id,
-                height: 44,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: entry.id == value ? p.selected : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          entry.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: entry.id == value
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            color: p.ink,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      if (entry.id == value)
-                        Icon(Icons.check_rounded, size: 18, color: p.primary)
-                      else
-                        const SizedBox(width: 18),
-                    ],
-                  ),
-                ),
+                name: entry.name,
+                selected: entry.id == value,
               ),
           ],
           child: Padding(
@@ -433,6 +398,47 @@ class _IdentityMenu extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Keep hover/focus paint inside the same inset rounded row as filters,
+/// while retaining PopupMenuButton's route and keyboard selection behavior.
+class _IdentityMenuItem extends PopupMenuItem<int> {
+  const _IdentityMenuItem({
+    required int value,
+    required this.name,
+    required this.selected,
+  }) : super(value: value, height: 44, child: const SizedBox.shrink());
+
+  final String name;
+  final bool selected;
+
+  @override
+  PopupMenuItemState<int, _IdentityMenuItem> createState() =>
+      _IdentityMenuItemState();
+}
+
+class _IdentityMenuItemState
+    extends PopupMenuItemState<int, _IdentityMenuItem> {
+  @override
+  Widget build(BuildContext context) => buildSemantics(
+    child: SizedBox(
+      // PopupMenu measures intrinsic widths before layout; keep the text
+      // overflow measurement behind a finite row width.
+      width: 180,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: widget.height),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          child: AppMenuOption(
+            label: widget.name,
+            selected: widget.selected,
+            showCheck: true,
+            onTap: handleTap,
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 /// Idle: 「开始检测」pill. Running: capsule with countdown (tap = pollNow) + stop.
@@ -474,11 +480,7 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
         alignment: Alignment.centerLeft,
         child: AppTooltipAnchor(
           child: Tooltip(
-            message: monitor.starting
-                ? '正在启动后台检测'
-                : enabled
-                ? '开始自动检测'
-                : '请先登录',
+            message: enabled || monitor.starting ? '' : '请先登录',
             child: AppQuietPill(
               onTap: enabled
                   ? () async {

@@ -1247,7 +1247,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
                         children: [
                           for (var i = 0; i < widget.items.length; i++) ...[
                             if (i > 0) const SizedBox(height: 4),
-                            _AppShellSelectOption(
+                            AppMenuOption(
                               key: ValueKey('shell-select-option-$i'),
                               label: (widget.menuLabelOf ?? widget.labelOf)(
                                 widget.items[i],
@@ -1300,10 +1300,8 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
+                      child: AppTruncatedText(
                         widget.labelOf(widget.value),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: widget.width < 110 ? 13 : 14,
                           height: 22 / 14,
@@ -1334,14 +1332,16 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
   }
 }
 
-class _AppShellSelectOption extends StatefulWidget {
-  const _AppShellSelectOption({
+/// Shared inset option for filter and identity menus.
+class AppMenuOption extends StatefulWidget {
+  const AppMenuOption({
     super.key,
     required this.label,
     required this.selected,
     required this.onTap,
     this.trailing = '',
     this.wrap = false,
+    this.showCheck = false,
   });
 
   final String label;
@@ -1349,41 +1349,49 @@ class _AppShellSelectOption extends StatefulWidget {
   final bool selected;
   final VoidCallback onTap;
   final bool wrap;
+  final bool showCheck;
 
   @override
-  State<_AppShellSelectOption> createState() => _AppShellSelectOptionState();
+  State<AppMenuOption> createState() => _AppMenuOptionState();
 }
 
-class _AppShellSelectOptionState extends State<_AppShellSelectOption> {
+class _AppMenuOptionState extends State<AppMenuOption> {
   var _hover = false;
+  var _focused = false;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final Color bg;
-    if (widget.selected) {
-      bg = _hover
-          ? Color.alphaBlend(p.primary.withValues(alpha: 0.08), p.selected)
-          : p.selected;
-    } else if (_hover) {
-      bg = p.hover;
-    } else {
-      bg = AppPalette.clearOf(p.hover);
-    }
-
+    final active = _hover || _focused;
+    final bg = widget.selected
+        ? active
+              ? Color.alphaBlend(p.primary.withValues(alpha: 0.08), p.selected)
+              : p.selected
+        : active
+        ? p.hover
+        : AppPalette.clearOf(p.hover);
+    final style = TextStyle(
+      fontSize: 14,
+      height: 22 / 14,
+      fontWeight: widget.selected ? FontWeight.w500 : FontWeight.w400,
+      color: widget.selected ? p.primary : p.ink,
+    );
     return Semantics(
       selected: widget.selected,
       button: true,
-      child: Tooltip(
-        message:
-            '${widget.label}${widget.trailing.isEmpty ? '' : ' ${widget.trailing}'}',
-        child: MouseRegion(
-          cursor: SystemMouseCursors.click,
-          onEnter: (_) => setState(() => _hover = true),
-          onExit: (_) => setState(() => _hover = false),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppRadii.control),
+          child: InkWell(
             onTap: widget.onTap,
+            onFocusChange: (focused) => setState(() => _focused = focused),
+            hoverColor: Colors.transparent,
+            focusColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            splashFactory: NoSplash.splashFactory,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 100),
               curve: Curves.easeOut,
@@ -1396,21 +1404,9 @@ class _AppShellSelectOptionState extends State<_AppShellSelectOption> {
               child: Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      widget.label,
-                      maxLines: widget.wrap ? null : 1,
-                      overflow: widget.wrap
-                          ? TextOverflow.visible
-                          : TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14,
-                        height: 22 / 14,
-                        fontWeight: widget.selected
-                            ? FontWeight.w500
-                            : FontWeight.w400,
-                        color: widget.selected ? p.primary : p.ink,
-                      ),
-                    ),
+                    child: widget.wrap
+                        ? Text(widget.label, style: style)
+                        : AppTruncatedText(widget.label, style: style),
                   ),
                   if (widget.trailing.isNotEmpty) ...[
                     const SizedBox(width: 8),
@@ -1424,6 +1420,19 @@ class _AppShellSelectOptionState extends State<_AppShellSelectOption> {
                       ),
                     ),
                   ],
+                  if (widget.showCheck) ...[
+                    const SizedBox(width: 12),
+                    SizedBox.square(
+                      dimension: 18,
+                      child: widget.selected
+                          ? Icon(
+                              Icons.check_rounded,
+                              size: 18,
+                              color: p.primary,
+                            )
+                          : null,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1432,6 +1441,37 @@ class _AppShellSelectOptionState extends State<_AppShellSelectOption> {
       ),
     );
   }
+}
+
+/// Full text is available on hover/long press only when it is ellipsized.
+class AppTruncatedText extends StatelessWidget {
+  const AppTruncatedText(this.text, {super.key, this.style});
+  final String text;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, bounds) {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: text,
+          style: DefaultTextStyle.of(context).style.merge(style),
+        ),
+        maxLines: 1,
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout(maxWidth: bounds.maxWidth);
+      final truncated = painter.didExceedMaxLines;
+      painter.dispose();
+      final child = Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
+      return truncated ? Tooltip(message: text, child: child) : child;
+    },
+  );
 }
 
 /// Desktop: centered column capped at [maxWidth]. Touch: full-bleed pass-through.
