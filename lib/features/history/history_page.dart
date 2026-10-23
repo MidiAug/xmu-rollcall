@@ -315,7 +315,9 @@ class _CourseHistoryBody extends ConsumerWidget {
     final async = ref.watch(currentCourseHistoryProvider);
     return AppPullToRefresh(
       color: p.primary,
-      onRefresh: () => ref.read(currentHistoryControllerProvider).refresh(),
+      onRefresh: () => ref
+          .read(currentHistoryControllerProvider)
+          .refresh(courseId: courseId.isEmpty ? null : courseId),
       child: async.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
@@ -336,8 +338,9 @@ class _CourseHistoryBody extends ConsumerWidget {
                   Text('$e', style: TextStyle(color: p.muted)),
                   const SizedBox(height: 12),
                   FilledButton(
-                    onPressed: () =>
-                        ref.read(currentHistoryControllerProvider).refresh(),
+                    onPressed: () => ref
+                        .read(currentHistoryControllerProvider)
+                        .refresh(courseId: courseId.isEmpty ? null : courseId),
                     child: const Text('重试'),
                   ),
                 ],

@@ -19,6 +19,56 @@ RollcallItem item(int id) => RollcallItem(
 
 void main() {
   late MonitorEngine engine;
+  testWidgets(
+    'a completed first event never suppresses a second in the same course',
+    (tester) async {
+      final first = RollcallItem.fromJson({
+        ...item(1).toMonitorJson(),
+        'course_id': 'a',
+        'status': 'on_call_fine',
+      });
+      final second = RollcallItem.fromJson({
+        ...item(2).toMonitorJson(),
+        'course_id': 'a',
+      });
+      var snapshot = [first];
+      var discoveries = 0;
+      final alerts = <List<int>>[];
+      List<RollcallItem>? published;
+      engine = MonitorEngine(
+        config: const MonitorConfig(intervalSeconds: 120, jitterRatio: 0),
+        fetch: () async {
+          discoveries++;
+          return snapshot;
+        },
+        notify: (items) async {
+          alerts.add(items.map((i) => i.rollcallId).toList());
+          return true;
+        },
+        onUpdate: (update) {
+          if (update.items != null) published = update.items;
+        },
+        now: tester.binding.clock.now,
+      );
+      engine.start();
+      await engine.pollNow();
+      snapshot = [first, second];
+      await tester.pump(const Duration(seconds: 119));
+      expect(discoveries, 1);
+      await tester.pump(const Duration(seconds: 1));
+      expect(discoveries, 2);
+      expect(published!.map((i) => i.rollcallId), [1, 2]);
+      expect(alerts, [
+        [2],
+      ]);
+      await tester.pump(const Duration(seconds: 120));
+      expect(discoveries, 3);
+      expect(alerts, [
+        [2],
+      ]);
+      engine.stop();
+    },
+  );
   testWidgets('attendance checks use their own interval between discoveries', (
     tester,
   ) async {
