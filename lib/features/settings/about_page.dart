@@ -80,6 +80,12 @@ class _AboutPageState extends State<AboutPage> {
                 style: TextStyle(fontSize: 12, height: 1.5, color: p.muted),
               ),
             ),
+            const SizedBox(height: 16),
+            Text(
+              '为厦大畅课准备的轻量客户端。\n课堂签到、作业与课表，集中在这里。',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, height: 1.8, color: p.muted),
+            ),
             const SizedBox(height: 32),
             if (widget.updateController != null)
               AppUpdateSection(controller: widget.updateController)
@@ -91,12 +97,6 @@ class _AboutPageState extends State<AboutPage> {
                   controller: ref.watch(appUpdateControllerProvider),
                 ),
               ),
-            const SizedBox(height: 24),
-            Text(
-              '为厦大畅课准备的轻量客户端。\n课堂签到、作业与课表，集中在这里。',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, height: 1.8, color: p.muted),
-            ),
             SettingsSection(
               header: '开源项目',
               children: [
@@ -105,20 +105,15 @@ class _AboutPageState extends State<AboutPage> {
                   title: 'GitHub 仓库',
                   subtitle: 'MidiAug/xmu-rollcall',
                   onTap: _openRepository,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: '复制仓库地址',
-                        onPressed: _copyRepository,
-                        icon: Icon(
-                          Icons.copy_rounded,
-                          size: 17,
-                          color: p.muted,
-                        ),
-                      ),
-                      Icon(Icons.open_in_new_rounded, size: 16, color: p.muted),
-                    ],
+                  trailing: IconButton(
+                    tooltip: '复制仓库地址',
+                    onPressed: _copyRepository,
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size.square(44),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.standard,
+                    ),
+                    icon: Icon(Icons.copy_rounded, size: 17, color: p.muted),
                   ),
                 ),
               ],

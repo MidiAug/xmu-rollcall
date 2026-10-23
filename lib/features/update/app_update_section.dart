@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -83,9 +82,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
       _phase = installing && _file != null
           ? _UpdatePhase.ready
           : _UpdatePhase.failed;
-      _message = error is UpdateException
-          ? error.message
-          : '暂时无法完成更新，请检查网络后重试，或打开发布页';
+      _message = error is UpdateException ? error.message : '暂时无法完成更新，请检查网络后重试';
     });
   }
 
@@ -176,21 +173,6 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
     }
   }
 
-  Future<void> _openRelease() async {
-    try {
-      if (!await launchUrl(
-        _update?.page ?? ReleaseUpdate.releasesPage,
-        mode: LaunchMode.externalApplication,
-      )) {
-        throw const UpdateException(
-          '无法打开浏览器，请到 GitHub 的 MidiAug/xmu-rollcall 发布页下载',
-        );
-      }
-    } catch (error) {
-      _fail(error, installing: _file != null);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final update = _update;
@@ -215,7 +197,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
     final subtitle = update != null
         ? '${update.target == UpdateTarget.android ? 'Android' : 'Windows x64'} · ${(update.size / 1024 / 1024).toStringAsFixed(1)} MB'
         : _controller.status == UpdateCheckStatus.failed
-        ? '可稍后重试或前往发布页'
+        ? '暂时无法检查'
         : checking
         ? '正在连接 GitHub'
         : '自动检查已开启';
@@ -238,142 +220,124 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
             onPressed: _busy ? null : _check,
             child: Text(checking ? '检查中' : '检查更新'),
           );
-    return Panel(
-      padding: const EdgeInsets.fromLTRB(20, 20, 16, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final summary = _summary(p, title, subtitle);
-              if (constraints.maxWidth < 280) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Keep both About groups on the shared settings-row grid. On narrow
+        // screens, give download/install actions their own line for large text.
+        final stacked = update != null && constraints.maxWidth < 360;
+        final normal = update == null && _phase == _UpdatePhase.available;
+        Widget row = Semantics(
+          liveRegion: true,
+          child: SettingsRow(
+            leading: const Icon(Icons.system_update_alt_rounded),
+            title: normal ? '检查更新' : title,
+            subtitle: normal ? title : subtitle,
+            onTap: normal && !_busy ? _check : null,
+            trailing: normal
+                ? SizedBox.square(
+                    dimension: 44,
+                    child: Center(
+                      child: checking
+                          ? SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: p.muted,
+                              ),
+                            )
+                          : Icon(Icons.chevron_right, size: 18, color: p.muted),
+                    ),
+                  )
+                : stacked
+                ? null
+                : action,
+          ),
+        );
+        if (normal && _controller.error != null) {
+          row = Tooltip(message: _controller.error!, child: row);
+        }
+        return SettingsSection(
+          header: '应用更新',
+          padTop: false,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                row,
+                if (!normal)
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppDensity.rowPadding(context).left,
+                      0,
+                      AppDensity.rowPadding(context).right,
+                      12,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(child: summary),
-                        if (update == null) _moreMenu(p, false),
+                        if (stacked) ...[
+                          const SizedBox(height: 4),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: action,
+                          ),
+                        ],
+                        if (_phase == _UpdatePhase.downloading) ...[
+                          const SizedBox(height: 8),
+                          LinearProgressIndicator(
+                            value: _progress,
+                            minHeight: 3,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ],
+                        if (_message.isNotEmpty &&
+                            _phase != _UpdatePhase.downloading) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            _message,
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1.5,
+                              color: _phase == _UpdatePhase.failed
+                                  ? p.danger
+                                  : p.muted,
+                            ),
+                          ),
+                        ],
+                        if (update != null)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: () =>
+                                  setState(() => _showNotes = !_showNotes),
+                              icon: Icon(
+                                _showNotes
+                                    ? Icons.expand_less
+                                    : Icons.expand_more,
+                                size: 17,
+                              ),
+                              label: const Text('查看更新说明'),
+                            ),
+                          ),
+                        if (update != null && _showNotes) ...[
+                          Divider(height: 16, color: p.border),
+                          SelectableText(
+                            update.notes,
+                            style: TextStyle(
+                              color: p.ink,
+                              fontSize: 13,
+                              height: 1.7,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Align(alignment: Alignment.centerLeft, child: action),
-                  ],
-                );
-              }
-              return Row(
-                children: [
-                  Expanded(child: summary),
-                  const SizedBox(width: 12),
-                  action,
-                  if (update == null) _moreMenu(p, false),
-                ],
-              );
-            },
-          ),
-          if (_phase == _UpdatePhase.downloading) ...[
-            const SizedBox(height: 16),
-            LinearProgressIndicator(
-              value: _progress,
-              minHeight: 3,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ],
-          if (_message.isNotEmpty && _phase != _UpdatePhase.downloading) ...[
-            const SizedBox(height: 12),
-            Text(
-              _message,
-              style: TextStyle(
-                fontSize: 12,
-                height: 1.5,
-                color: _phase == _UpdatePhase.failed ? p.danger : p.muted,
-              ),
-            ),
-          ],
-          if (update != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                TextButton.icon(
-                  onPressed: () => setState(() => _showNotes = !_showNotes),
-                  icon: Icon(
-                    _showNotes ? Icons.expand_less : Icons.expand_more,
-                    size: 17,
                   ),
-                  label: const Text('查看更新说明'),
-                ),
-                const Spacer(),
-                _moreMenu(p, true),
               ],
             ),
           ],
-          if (update != null && _showNotes) ...[
-            Divider(height: 20, color: p.border),
-            SelectableText(
-              update.notes,
-              style: TextStyle(color: p.ink, fontSize: 13, height: 1.7),
-            ),
-            const SizedBox(height: 4),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
-
-  Widget _summary(AppPalette p, String title, String subtitle) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text('应用更新', style: TextStyle(fontSize: 12, color: p.muted)),
-      const SizedBox(height: 7),
-      Semantics(
-        liveRegion: true,
-        child: Text(
-          title,
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            height: 1.35,
-            color: p.ink,
-          ),
-        ),
-      ),
-      const SizedBox(height: 5),
-      Text(
-        subtitle,
-        style: TextStyle(fontSize: 12, color: p.muted, height: 1.5),
-      ),
-    ],
-  );
-
-  Widget _moreMenu(AppPalette p, bool hasUpdate) => PopupMenuButton<String>(
-    tooltip: '更多更新选项',
-    icon: Icon(Icons.more_horiz, color: p.muted, size: 19),
-    enabled: !_busy,
-    onSelected: (value) {
-      if (value == 'release') {
-        _openRelease();
-      } else if (value == 'check') {
-        _check();
-      } else {
-        _showError();
-      }
-    },
-    itemBuilder: (_) => [
-      const PopupMenuItem(value: 'release', child: Text('GitHub 发布页')),
-      if (hasUpdate) const PopupMenuItem(value: 'check', child: Text('重新检查')),
-      if (_controller.error != null)
-        const PopupMenuItem(value: 'error', child: Text('查看原因')),
-    ],
-  );
-
-  Future<void> _showError() =>
-      showAppConfirmDialog(
-        context,
-        title: '更新检查未完成',
-        message: _controller.error,
-        cancelLabel: '关闭',
-        confirmLabel: '重试',
-      ).then((retry) {
-        if (retry && mounted) _check();
-      });
 }

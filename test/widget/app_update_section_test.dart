@@ -94,13 +94,8 @@ void main() {
       service.checkError = const UpdateException('GitHub 暂时不可用');
       await mount(tester);
       expect(find.text('暂时无法检查'), findsOneWidget);
-      await tester.tap(find.byTooltip('更多更新选项'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('查看原因'));
-      await tester.pumpAndSettle();
-      expect(find.text('GitHub 暂时不可用'), findsOneWidget);
-      await tester.tap(find.text('关闭'));
-      await tester.pumpAndSettle();
+      expect(find.byTooltip('GitHub 暂时不可用'), findsOneWidget);
+      expect(find.byType(PopupMenuButton<String>), findsNothing);
       service.checkError = null;
       await tester.tap(find.text('检查更新'));
       await tester.pumpAndSettle();
@@ -184,11 +179,7 @@ void main() {
       ),
     );
     expect(find.text('暂时无法检查'), findsOneWidget);
-    await tester.tap(find.byTooltip('更多更新选项'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('查看原因'));
-    await tester.pumpAndSettle();
-    expect(find.textContaining('测试版与正式版独立安装'), findsOneWidget);
+    expect(find.byTooltip('测试版与正式版独立安装，请从发布页获取正式版'), findsOneWidget);
     expect(service.checks, 0);
   });
 }

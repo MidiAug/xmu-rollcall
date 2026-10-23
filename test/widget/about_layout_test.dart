@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/features/settings/about_page.dart';
 import 'package:xmu_rollcall/features/update/app_release.dart';
 import 'package:xmu_rollcall/features/update/app_update_controller.dart';
@@ -117,6 +118,33 @@ void main() {
             scenario == 'available' ? findsOneWidget : findsNothing,
           );
           expect(find.text('GitHub 发布页'), findsNothing);
+          expect(find.byType(PopupMenuButton<String>), findsNothing);
+          if (scenario != 'available') {
+            // Both utility rows must share the same horizontal grid and height,
+            // including when a failed check is shown instead of a current one.
+            final updateRow = find.ancestor(
+              of: find.text('检查更新'),
+              matching: find.byType(SettingsRow),
+            );
+            final repositoryRow = find.ancestor(
+              of: find.text('GitHub 仓库'),
+              matching: find.byType(SettingsRow),
+            );
+            final updateRect = tester.getRect(updateRow);
+            final repositoryRect = tester.getRect(repositoryRow);
+            expect(updateRect.left, repositoryRect.left);
+            expect(updateRect.width, repositoryRect.width);
+            // At 320px the test font may wrap the repository address; let
+            // large text grow vertically instead of imposing a fixed height.
+            if (width >= 384) {
+              expect(updateRect.height, repositoryRect.height);
+            }
+            expect(
+              tester.getTopLeft(find.text('检查更新')).dx,
+              tester.getTopLeft(find.text('GitHub 仓库')).dx,
+            );
+            expect(find.byType(OutlinedButton), findsNothing);
+          }
           expect(tester.takeException(), isNull);
           if (Platform.environment['CAPTURE_ABOUT_UI'] == '1') {
             await tester.runAsync(() async {
@@ -128,7 +156,7 @@ void main() {
                 format: ui.ImageByteFormat.png,
               );
               await File(
-                '.tools/about-redesign/$scenario-${width.toInt()}.png',
+                '.tools/about-alignment/$scenario-${width.toInt()}.png',
               ).writeAsBytes(bytes!.buffer.asUint8List());
               image.dispose();
             });
