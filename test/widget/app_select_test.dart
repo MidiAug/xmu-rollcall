@@ -82,10 +82,27 @@ void main() {
           await tester.pumpAndSettle();
           expect(value, 1);
           expect(find.byType(AppMenuOption), findsNothing);
+          // A value change returns keyboard focus to a neutral trigger;
+          // focus and an open menu must not masquerade as a selected blue chip.
+          BoxDecoration triggerDecoration() =>
+              tester
+                      .widget<AnimatedContainer>(
+                        find.descendant(
+                          of: find.byType(AppSelectTrigger),
+                          matching: find.byType(AnimatedContainer),
+                        ),
+                      )
+                      .decoration!
+                  as BoxDecoration;
+          final palette = AppPalette.of(
+            tester.element(find.byType(AppSelectTrigger)),
+          );
+          expect(triggerDecoration().color, palette.content);
           // Focus returns to the trigger after selection, so keyboard can reopen it.
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           await tester.pumpAndSettle();
           expect(find.byType(AppMenuOption), findsNWidgets(3));
+          expect(triggerDecoration().color, palette.content);
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           await tester.pumpAndSettle();
           expect(find.byType(AppMenuOption), findsNothing);

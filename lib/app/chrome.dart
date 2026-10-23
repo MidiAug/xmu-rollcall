@@ -339,7 +339,7 @@ class _ChoiceCubeButton<T> extends StatelessWidget {
           hoverColor: palette.hover,
           splashFactory: NoSplash.splashFactory,
           highlightColor: Colors.transparent,
-          focusColor: palette.selected,
+          focusColor: palette.hover,
           onTap: onTap,
           child: Ink(
             padding: padding,
@@ -1392,22 +1392,12 @@ class _AppMenuOptionState extends State<AppMenuOption> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final active = _hover || _focused;
-    final bg = widget.selected
-        ? active
-              ? Color.alphaBlend(p.primary.withValues(alpha: 0.08), p.selected)
-              : p.selected
-        : active
-        ? p.hover
-        : AppPalette.clearOf(p.hover);
+    final bg = active ? p.hover : AppPalette.clearOf(p.hover);
     final style = TextStyle(
       fontSize: 14,
       height: 22 / 14,
       fontWeight: widget.selected ? FontWeight.w500 : FontWeight.w400,
-      color: widget.danger
-          ? p.danger
-          : widget.selected
-          ? p.primary
-          : p.ink,
+      color: widget.danger ? p.danger : p.ink,
     );
     return Semantics(
       selected: widget.selected,
@@ -1460,7 +1450,7 @@ class _AppMenuOptionState extends State<AppMenuOption> {
                       style: TextStyle(
                         fontSize: 12,
                         height: 22 / 12,
-                        color: widget.selected ? p.primary : p.muted,
+                        color: p.muted,
                       ),
                     ),
                   ],

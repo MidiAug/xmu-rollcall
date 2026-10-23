@@ -43,7 +43,8 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final enabled = widget.onTap != null;
-    final active = enabled && (widget.open || _focused || _pressed);
+    final hovering = enabled && _hover;
+    final outlined = enabled && (widget.open || _focused);
     return Semantics(
       button: true,
       enabled: enabled,
@@ -72,16 +73,21 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
                 vertical: 6,
               ),
               decoration: BoxDecoration(
-                color: active
-                    ? p.selected
-                    : _hover && enabled
-                    ? p.hover
+                color: _pressed && enabled
+                    ? p.surfaceHigh
+                    : hovering
+                    ? Color.alphaBlend(
+                        p.primary.withValues(alpha: 0.04),
+                        p.surface,
+                      )
                     : p.content,
                 borderRadius: BorderRadius.circular(AppRadii.control),
                 border: Border.all(
-                  color: active
-                      ? p.primary.withValues(alpha: 0.4)
-                      : p.borderStrong,
+                  color: hovering
+                      ? p.primary.withValues(alpha: 0.24)
+                      : outlined
+                      ? p.borderStrong
+                      : p.border,
                 ),
               ),
               child: Row(
@@ -109,7 +115,7 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
                     child: Icon(
                       Icons.expand_more_rounded,
                       size: 18,
-                      color: active ? p.primary : p.muted,
+                      color: hovering ? p.primary : p.muted,
                     ),
                   ),
                 ],
