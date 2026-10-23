@@ -76,18 +76,11 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
                 color: _pressed && enabled
                     ? p.surfaceHigh
                     : hovering
-                    ? Color.alphaBlend(
-                        p.primary.withValues(alpha: 0.04),
-                        p.surface,
-                      )
+                    ? Color.alphaBlend(p.hover, p.surface)
                     : p.content,
                 borderRadius: BorderRadius.circular(AppRadii.control),
                 border: Border.all(
-                  color: hovering
-                      ? p.primary.withValues(alpha: 0.24)
-                      : outlined
-                      ? p.borderStrong
-                      : p.border,
+                  color: hovering || outlined ? p.borderStrong : p.border,
                 ),
               ),
               child: Row(
@@ -115,7 +108,7 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
                     child: Icon(
                       Icons.expand_more_rounded,
                       size: 18,
-                      color: hovering ? p.primary : p.muted,
+                      color: p.muted,
                     ),
                   ),
                 ],

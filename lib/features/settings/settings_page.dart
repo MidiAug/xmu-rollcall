@@ -78,6 +78,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     final themePref = ref.watch(themePreferenceProvider);
     final assist = ref.watch(assistControllerProvider);
     final p = AppPalette.of(context);
+    final platform = Theme.of(context).platform;
+    final desktop = switch (platform) {
+      TargetPlatform.windows ||
+      TargetPlatform.linux ||
+      TargetPlatform.macOS => true,
+      _ => false,
+    };
 
     final accountSubtitle = !auth.isSignedIn
         ? (auth.errorMessage ?? '使用学号密码登录')
@@ -101,7 +108,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           children: [
             SettingsSection(
               padTop: false,
-              header: '账号',
               children: [
                 SettingsRow(
                   leading: const BrandMark(size: 36),
@@ -125,57 +131,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 ),
               ],
             ),
-            SettingsSection(
-              header: '外观',
-              hasLeading: false,
-              children: [
-                Padding(
-                  padding: AppDensity.rowPadding(context),
-                  child: AppChoiceCubes<ThemePreference>(
-                    value: themePref,
-                    onChanged: (v) {
-                      ref.read(themePreferenceProvider.notifier).set(v);
-                    },
-                    cubes: [
-                      const AppChoiceCube(
-                        value: ThemePreference.light,
-                        label: '浅色',
-                        icon: Icons.wb_sunny_outlined,
-                      ),
-                      const AppChoiceCube(
-                        value: ThemePreference.dark,
-                        label: '暗色',
-                        icon: Icons.dark_mode_outlined,
-                      ),
-                      AppChoiceCube(
-                        value: ThemePreference.system,
-                        label: '系统',
-                        icon: PlatformHooks.systemAppearanceIcon(context),
-                      ),
-                    ],
-                  ),
+            if (!desktop)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpace.lg),
+                child: _AppearanceControl(
+                  value: themePref,
+                  onChanged: (v) {
+                    ref.read(themePreferenceProvider.notifier).set(v);
+                  },
                 ),
-              ],
-            ),
-            if (PlatformHooks.isDesktop)
-              SettingsSection(
-                header: '窗口',
-                children: [
-                  SettingsRow(
-                    leading: const Icon(Icons.desktop_windows_outlined),
-                    title: '关闭窗口时',
-                    subtitle: '询问 / 托盘 / 退出',
-                    trailing: AppShellSelect<CloseMode>(
-                      value: ref.watch(closePrefsProvider).mode,
-                      items: CloseMode.values,
-                      labelOf: (m) => m.label,
-                      width: 148,
-                      onChanged: (m) {
-                        ref.read(closePrefsProvider.notifier).setMode(m);
-                      },
-                    ),
-                  ),
-                ],
               ),
             SettingsSection(
               header: '常用',
@@ -197,35 +161,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   onTap: () =>
                       AppPageRoutes.push(context, const SavedLocationsPage()),
                 ),
-              ],
-            ),
-            if (PlatformHooks.isAndroid || PlatformHooks.isDesktop)
-              SettingsSection(
-                header: '检测',
-                children: [
-                  SettingsRow(
-                    leading: const Icon(Icons.notifications_active_outlined),
-                    title: PlatformHooks.isDesktop ? '桌面提醒' : '后台提醒',
-                    subtitle: PlatformHooks.isDesktop
-                        ? '测试系统通知，检查托盘状态'
-                        : '自动检查，一次确认锁屏提醒',
-                    trailing: Icon(
-                      Icons.chevron_right,
-                      color: p.muted,
-                      size: 18,
-                    ),
-                    onTap: () => AppPageRoutes.push(
-                      context,
-                      PlatformHooks.isDesktop
-                          ? const DesktopNotificationSettingsPage()
-                          : const NotificationSettingsPage(),
-                    ),
-                  ),
-                ],
-              ),
-            SettingsSection(
-              header: '更多',
-              children: [
                 SettingsRow(
                   leading: const Icon(Icons.handshake_outlined),
                   title: '协助同学',
@@ -236,6 +171,65 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   onTap: () =>
                       AppPageRoutes.push(context, const SettingsAssistPage()),
                 ),
+              ],
+            ),
+            SettingsSection(
+              header: '应用',
+              children: [
+                if (desktop)
+                  SettingsRow(
+                    leading: const Icon(Icons.brightness_6_outlined),
+                    title: '外观',
+                    trailing: AppShellSelect<ThemePreference>(
+                      value: themePref,
+                      items: const [
+                        ThemePreference.light,
+                        ThemePreference.dark,
+                        ThemePreference.system,
+                      ],
+                      labelOf: (value) => switch (value) {
+                        ThemePreference.light => '浅色',
+                        ThemePreference.dark => '暗色',
+                        ThemePreference.system => '跟随系统',
+                      },
+                      width: 148,
+                      onChanged: (v) {
+                        ref.read(themePreferenceProvider.notifier).set(v);
+                      },
+                    ),
+                  ),
+                if (desktop)
+                  SettingsRow(
+                    leading: const Icon(Icons.desktop_windows_outlined),
+                    title: '关闭窗口时',
+                    subtitle: '询问 / 托盘 / 退出',
+                    trailing: AppShellSelect<CloseMode>(
+                      value: ref.watch(closePrefsProvider).mode,
+                      items: CloseMode.values,
+                      labelOf: (m) => m.label,
+                      width: 148,
+                      onChanged: (m) {
+                        ref.read(closePrefsProvider.notifier).setMode(m);
+                      },
+                    ),
+                  ),
+                if (platform == TargetPlatform.android || desktop)
+                  SettingsRow(
+                    leading: const Icon(Icons.notifications_active_outlined),
+                    title: desktop ? '桌面提醒' : '后台提醒',
+                    subtitle: desktop ? '测试系统通知，检查托盘状态' : '自动检查，一次确认锁屏提醒',
+                    trailing: Icon(
+                      Icons.chevron_right,
+                      color: p.muted,
+                      size: 18,
+                    ),
+                    onTap: () => AppPageRoutes.push(
+                      context,
+                      desktop
+                          ? const DesktopNotificationSettingsPage()
+                          : const NotificationSettingsPage(),
+                    ),
+                  ),
                 SettingsRow(
                   leading: const Icon(Icons.storage_outlined),
                   title: '数据与诊断',
@@ -257,6 +251,69 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AppearanceControl extends StatelessWidget {
+  const _AppearanceControl({required this.value, required this.onChanged});
+
+  final ThemePreference value;
+  final ValueChanged<ThemePreference> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final label = Text(
+      '外观',
+      style: Theme.of(context).textTheme.titleSmall?.copyWith(color: p.muted),
+    );
+    final control = AppSegmentedControl<ThemePreference>(
+      value: value,
+      expanded: true,
+      onChanged: onChanged,
+      segments: [
+        const AppSegment(
+          value: ThemePreference.light,
+          label: '浅色',
+          icon: Icons.wb_sunny_outlined,
+        ),
+        const AppSegment(
+          value: ThemePreference.dark,
+          label: '暗色',
+          icon: Icons.dark_mode_outlined,
+        ),
+        AppSegment(
+          value: ThemePreference.system,
+          label: '系统',
+          icon: PlatformHooks.systemAppearanceIcon(context),
+        ),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 440) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: AppSpace.sm),
+                child: label,
+              ),
+              const SizedBox(height: AppSpace.xs),
+              control,
+            ],
+          );
+        }
+        return Row(
+          children: [
+            const SizedBox(width: AppSpace.md),
+            Expanded(child: label),
+            const SizedBox(width: AppSpace.md),
+            SizedBox(width: 336, child: control),
+          ],
+        );
+      },
     );
   }
 }

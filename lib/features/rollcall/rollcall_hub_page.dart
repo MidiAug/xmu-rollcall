@@ -211,7 +211,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                   key: const ValueKey('rollcall-toolbar'),
                   decoration: BoxDecoration(
                     color: p.surface,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(AppRadii.group),
                     border: Border.all(color: p.border),
                   ),
                   child: Padding(

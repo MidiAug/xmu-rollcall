@@ -248,144 +248,18 @@ class AppTitleBar extends StatelessWidget {
   }
 }
 
-/// Compact pill segments — Linear / iOS style (soft track, elevated selected).
+/// One option in the shared, single-selection segmented control.
 class AppSegment<T> {
-  const AppSegment({required this.value, required this.label});
+  const AppSegment({required this.value, required this.label, this.icon});
 
   final T value;
   final String label;
+  final IconData? icon;
 }
 
-/// One cube in [AppChoiceCubes] (harness theme-cube pattern).
-class AppChoiceCube<T> {
-  const AppChoiceCube({
-    required this.value,
-    required this.label,
-    required this.icon,
-  });
-
-  final T value;
-  final String label;
-  final IconData icon;
-}
-
-/// Equal-width icon+label cubes — aligned with harness `settings-theme-cubes`.
-class AppChoiceCubes<T> extends StatelessWidget {
-  const AppChoiceCubes({
-    super.key,
-    required this.cubes,
-    required this.value,
-    required this.onChanged,
-  });
-
-  final List<AppChoiceCube<T>> cubes;
-  final T value;
-  final ValueChanged<T> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final compact = AppDensity.isTouch(context);
-    final pad = compact
-        ? const EdgeInsets.symmetric(horizontal: 12, vertical: 14)
-        : const EdgeInsets.symmetric(horizontal: 16, vertical: 20);
-
-    return Row(
-      children: [
-        for (var i = 0; i < cubes.length; i++) ...[
-          if (i > 0) const SizedBox(width: AppSpace.xs),
-          Expanded(
-            child: _ChoiceCubeButton<T>(
-              cube: cubes[i],
-              selected: cubes[i].value == value,
-              padding: pad,
-              palette: p,
-              onTap: () {
-                if (cubes[i].value != value) onChanged(cubes[i].value);
-              },
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}
-
-class _ChoiceCubeButton<T> extends StatelessWidget {
-  const _ChoiceCubeButton({
-    required this.cube,
-    required this.selected,
-    required this.padding,
-    required this.palette,
-    required this.onTap,
-  });
-
-  final AppChoiceCube<T> cube;
-  final bool selected;
-  final EdgeInsets padding;
-  final AppPalette palette;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: Material(
-        type: MaterialType.transparency,
-        borderRadius: BorderRadius.circular(AppRadii.group),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(AppRadii.group),
-          hoverColor: palette.hover,
-          splashFactory: NoSplash.splashFactory,
-          highlightColor: Colors.transparent,
-          focusColor: palette.hover,
-          onTap: onTap,
-          child: Ink(
-            padding: padding,
-            decoration: BoxDecoration(
-              color: selected
-                  ? palette.selected
-                  : AppPalette.clearOf(palette.selected),
-              borderRadius: BorderRadius.circular(AppRadii.group),
-              border: Border.all(
-                color: selected
-                    ? palette.primary.withValues(alpha: 0.45)
-                    : palette.borderStrong,
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  cube.icon,
-                  size: 20,
-                  color: selected ? palette.primary : palette.muted,
-                ),
-                const SizedBox(height: AppSpace.xxs),
-                Text(
-                  cube.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.35,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    letterSpacing: -0.1,
-                    color: selected ? palette.primary : palette.muted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class AppSegmentedControl<T> extends StatelessWidget {
+/// Compact icon + label choices on one neutral track. Supports touch, keyboard
+/// traversal and radio-group semantics without changing the surrounding layout.
+class AppSegmentedControl<T> extends StatefulWidget {
   const AppSegmentedControl({
     super.key,
     required this.segments,
@@ -400,68 +274,203 @@ class AppSegmentedControl<T> extends StatelessWidget {
   final bool expanded;
 
   @override
+  State<AppSegmentedControl<T>> createState() => _AppSegmentedControlState<T>();
+}
+
+class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
+  final _nodes = <FocusNode>[];
+
+  void _syncNodes() {
+    while (_nodes.length < widget.segments.length) {
+      _nodes.add(FocusNode());
+    }
+    while (_nodes.length > widget.segments.length) {
+      _nodes.removeLast().dispose();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _syncNodes();
+  }
+
+  @override
+  void didUpdateWidget(covariant AppSegmentedControl<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncNodes();
+  }
+
+  @override
+  void dispose() {
+    for (final node in _nodes) {
+      node.dispose();
+    }
+    super.dispose();
+  }
+
+  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent || widget.segments.isEmpty) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    final focused = _nodes.indexWhere((node) => node.hasFocus);
+    if (focused < 0) return KeyEventResult.ignored;
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final int next;
+    if (key == LogicalKeyboardKey.arrowRight) {
+      next = (focused + (rtl ? -1 : 1)) % _nodes.length;
+    } else if (key == LogicalKeyboardKey.arrowLeft) {
+      next = (focused + (rtl ? 1 : -1)) % _nodes.length;
+    } else if (key == LogicalKeyboardKey.home) {
+      next = 0;
+    } else if (key == LogicalKeyboardKey.end) {
+      next = _nodes.length - 1;
+    } else {
+      return KeyEventResult.ignored;
+    }
+    _nodes[next].requestFocus();
+    _select(next);
+    return KeyEventResult.handled;
+  }
+
+  void _select(int index) {
+    final next = widget.segments[index].value;
+    if (next != widget.value) widget.onChanged(next);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final dark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      height: AppLayout.segmentHeight + 6,
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: p.surfaceHigh,
-        borderRadius: BorderRadius.circular(AppRadii.input),
-      ),
-      child: Row(
-        mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
-        children: [
-          for (final s in segments)
-            expanded
-                ? Expanded(child: _seg(context, p, dark, s))
-                : _seg(context, p, dark, s),
-        ],
+    return Focus(
+      canRequestFocus: false,
+      includeSemantics: false,
+      onKeyEvent: _handleKey,
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: p.content,
+          border: Border.all(color: p.borderStrong),
+          borderRadius: BorderRadius.circular(AppRadii.input),
+        ),
+        child: Row(
+          mainAxisSize: widget.expanded ? MainAxisSize.max : MainAxisSize.min,
+          children: [
+            for (var i = 0; i < widget.segments.length; i++) ...[
+              if (i > 0) const SizedBox(width: 3),
+              if (widget.expanded)
+                Expanded(child: _segment(i))
+              else
+                _segment(i),
+            ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _seg(BuildContext context, AppPalette p, bool dark, AppSegment<T> s) {
-    final selected = s.value == value;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 1),
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: () {
-            if (!selected) onChanged(s.value);
-          },
+  Widget _segment(int index) {
+    final s = widget.segments[index];
+    return _SegmentButton(
+      key: ValueKey(s.value),
+      label: s.label,
+      icon: s.icon,
+      selected: s.value == widget.value,
+      focusNode: _nodes[index],
+      onTap: () => _select(index),
+    );
+  }
+}
+
+class _SegmentButton extends StatefulWidget {
+  const _SegmentButton({
+    super.key,
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.focusNode,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData? icon;
+  final bool selected;
+  final FocusNode focusNode;
+  final VoidCallback onTap;
+
+  @override
+  State<_SegmentButton> createState() => _SegmentButtonState();
+}
+
+class _SegmentButtonState extends State<_SegmentButton> {
+  var _focused = false;
+  var _hovered = false;
+  var _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final foreground = widget.selected ? p.primary : p.muted;
+    final active = _hovered || _pressed;
+    final radius = BorderRadius.circular(AppRadii.control);
+    return Semantics(
+      button: true,
+      selected: widget.selected,
+      inMutuallyExclusiveGroup: true,
+      child: Material(
+        type: MaterialType.transparency,
+        borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          focusNode: widget.focusNode,
+          borderRadius: radius,
+          onFocusChange: (v) => setState(() => _focused = v),
+          onHover: (v) => setState(() => _hovered = v),
+          onHighlightChanged: (v) => setState(() => _pressed = v),
+          onTap: widget.onTap,
+          hoverColor: Colors.transparent,
+          focusColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          splashFactory: NoSplash.splashFactory,
           child: AnimatedContainer(
-            duration: AppMotion.instant,
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : AppMotion.instant,
             curve: AppMotion.instantCurve,
-            height: AppLayout.segmentHeight,
-            padding: EdgeInsets.symmetric(horizontal: expanded ? 10 : 14),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: selected ? p.surface : AppPalette.clearOf(p.surface),
-              borderRadius: BorderRadius.circular(AppRadii.control),
-              boxShadow: selected && !dark
-                  ? const [
-                      BoxShadow(
-                        color: Color(0x0A000000),
-                        blurRadius: 2,
-                        offset: Offset(0, 1),
-                      ),
-                    ]
-                  : null,
+            constraints: BoxConstraints(
+              minHeight: AppDensity.isTouch(context) ? 44 : 36,
             ),
-            child: Text(
-              s.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                letterSpacing: -0.1,
-                color: selected ? p.ink : p.muted,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            decoration: BoxDecoration(
+              color: widget.selected
+                  ? p.selected
+                  : active
+                  ? p.hover
+                  : AppPalette.clearOf(p.hover),
+              borderRadius: radius,
+              border: Border.all(
+                color: _focused ? p.primary : AppPalette.clearOf(p.primary),
               ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (widget.icon != null) ...[
+                  Icon(widget.icon, size: 18, color: foreground),
+                  const SizedBox(width: 6),
+                ],
+                Flexible(
+                  child: Text(
+                    widget.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelLarge?.copyWith(color: foreground),
+                  ),
+                ),
+              ],
             ),
           ),
         ),

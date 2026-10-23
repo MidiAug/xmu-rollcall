@@ -50,13 +50,9 @@ class SettingsSection extends StatelessWidget {
               ),
               child: Text(
                 header!,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  height: 18 / 13,
-                  letterSpacing: 0.15,
-                  color: p.muted,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(color: p.muted),
               ),
             ),
           ],
@@ -166,12 +162,7 @@ class _SettingsRowState extends State<SettingsRow> {
                 children: [
                   Text(
                     widget.title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: -0.15,
-                      color: p.ink,
-                    ),
+                    style: Theme.of(context).textTheme.titleMedium,
                   ),
                   if (widget.subtitleWidget != null) ...[
                     const SizedBox(height: AppSpace.xs),
@@ -187,11 +178,7 @@ class _SettingsRowState extends State<SettingsRow> {
                       overflow: widget.subtitleMaxLines == null
                           ? null
                           : TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 1.4,
-                        color: p.muted,
-                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ],
