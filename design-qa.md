@@ -75,3 +75,32 @@ Engineering知识检索未命中相关既有笔记，本轮未回写知识库。
 - 当前仅证明内容与发送、注册、XML布局配置正确。真实进行中签到端到端、左上角图标像素及系统点击未手工验收；未将源码中设置进程ID或记录中图标路径存在写成图像显示已通过。
 
 此前本文件的appLogoOverride检查为上一阶段历史记录，已被本节修正。
+
+## 2026-10-24 本地开发文档与图标复核（当前结论）
+
+用户最新截图再次确认系统归属区没有小图标，因此这一项仍未修复。已查本机Engineering的Flutter官方Windows集成快照（来源flutter/website提交3eb87869bb0ddf57047150c2132324afc5c55f22，快照日期2026-10-22），该指南只提供Windows原生集成、FFI与分发入口，没有说明通知应该无图标。项目2026-09-25桌面设计仍记载local_notifier和发现后停止，已标记为历史方案；2026-10-23通知流程记录也明确原生横幅未实机验收。
+
+本机当前只有一个Debug实例；只读核对本应用的IconUri、DisplayName、CustomActivator，字段存在、字符串正常，PNG路径存在。不能据此解释为“Windows本来就没有图标”，也不能声称特定缓存或GUID就是根因。
+
+官方依据与采用：
+
+- [Microsoft App notification content](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/app-notifications-content#attribution-area)，2026-10-24复核：Windows 11顶端显示应用名与图标，由Shell配置，XML不能覆盖；appLogoOverride在正文左侧放48px图像。采用两区域分离的判断，正文图片不能修复顶端图标。
+- [flutter_local_notifications_windows 3.1.1](https://pub.dev/packages/flutter_local_notifications_windows)，2026-10-24复核：现用版本；其未打包应用的通知查询/取消存在单独限制，不能将查询结果或API成功当作像素验收。
+- [上游2738](https://github.com/MaikuB/flutter_local_notifications/issues/2738)，2026-10-24复核：开发/EXE版报告同类顶端图标不一致，仍开放。这里只能支持存在同类兼容问题，不能证明本机完全相同的根因。未采用将AUMID替换GUID的未解释试错，未修改系统通知数据库或全局设置。
+
+基于用户截图和当前源码的定向UI复核（不等于全产品实机审计）：
+
+1. **已修**：测试通知重复“示例/示例/不会提交”的长句改为示例课程标题+类型/返回一行，完整不提交说明仍在提醒设置页。真实课程通知不变。
+2. **已修**：自动签到原说明仅看running，导致开启却写默认关闭、关闭却描述提交。现在同时看开关与检测状态，关闭时隐藏不相关自动雷达长说明；统一该说明为公共bodySmall。
+3. **后续优先**：签到设置把“查询间隔/人数轮询/随机波动/退避”等实现术语转为用户能理解的说明；保留人数刷新作为签到卡片的共用功能，不能因自动签到关闭就隐藏该项。低频调节项可集中到按需展开区。
+4. **后续优先**：monitor_page仍自绘SettingCard/PresetPill与11px说明，和公共设置行/按钮不完全一致。先统一文字层级与状态反馈，再考虑圆角或装饰；保持现有简洁分组，不增加仪表盘卡片。
+
+本次验证：10项针对性回归通过，另以系统中文字体渲染384/960下关闭、开启未运行、开启运行六种状态，两项交互回归通过；截图`.tools/notification-polish/monitor-settings-{384,960}-{off,enabled-idle,enabled-running}.png`。已检查保存的截图并修正仅测试字体导致的TextButton方框字，最终按钮文本正常。截图为实际MonitorSettingsPage生产组件的隔离渲染，不含完整侧栏，不作为原生系统通知截图。
+
+`flutter analyze`最终检查无问题，现有Flutter开发实例已热重载。当前改动不触及Windows注册或通知后端，未重新触发系统通知、未变更全局设置；左上角图标仍未解决。本轮未重跑全量，不用此前478项结果代替本轮验证。
+
+补充只读核对发现：开始菜单旧Debug快捷方式的目标位于已不存在的`D:\Project\_My\xmu-rollcall`旧根，AppUserModelID为应用中文名；当前安装入口的快捷方式AppUserModelID为空，与现用通知ID不同。当前只运行本仓Debug程序，未操作或清理用户快捷方式。这说明入口维护存在缺口，但没有把它断言为本次图标缺失的确定根因。
+
+当前激活GUID对应HKCR/HKCU的`CLSID/.../LocalServer32`均不存在；插件3.1.1源码只向运行进程`CoRegisterClassObject`注册回调，未写冷启动服务器路径。依据[微软未打包通知激活说明](https://learn.microsoft.com/en-us/windows/apps/develop/notifications/app-notifications/app-notifications-dotnet)，退出后由系统点击启动需要COM服务器注册。因此现有“运行中恢复窗口”自动回归不能代替“退出后点击拉起”；后者仍缺集成验收，本轮没有为验证而退出用户实例。属于高于视觉装饰的后续事项，不能将上游图标issue解释成整条通知功能已正常。
+
+UI后续顺序：通知图标/安装入口/冷启动链路；真实状态说明（本轮已修）；低频频率参数、随机波动与运行记录按需展开；SettingCard/PresetPill和公共设置控件的文字与反馈统一。当前空的“最近运行”仍占整块卡片，可改为按需查看记录，避免未运行时显示一块无用信息。

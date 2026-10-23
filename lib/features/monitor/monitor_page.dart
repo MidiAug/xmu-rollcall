@@ -61,9 +61,11 @@ class MonitorSettingsPage extends ConsumerWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              state.running
-                                  ? '数字与已有本课位置的雷达签到，满足规则后提交'
-                                  : '开始检测后生效，默认关闭',
+                              !c.autoAnswer
+                                  ? '仅提醒你处理签到，不会自动提交'
+                                  : state.running
+                                  ? '检测到签到后，按下方规则自动提交'
+                                  : '已开启，开始检测后生效',
                               style: TextStyle(fontSize: 12, color: p.muted),
                             ),
                           ],
@@ -139,11 +141,13 @@ class MonitorSettingsPage extends ConsumerWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 10),
-                  Text(
-                    '雷达仅使用本账号、本课程已设置或上次成功的位置；没有位置只提醒，失败后手动处理。二维码仍需扫码。',
-                    style: TextStyle(fontSize: 11, height: 1.5, color: p.muted),
-                  ),
+                  if (c.autoAnswer) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      '雷达使用本课已保存的位置；没有位置或提交失败时由你处理。二维码需手动扫码。',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
                 ],
               ),
             ),

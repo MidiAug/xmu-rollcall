@@ -9,8 +9,8 @@ class DesktopNotificationContent {
   String get inAppText => '$title：$body';
 
   static const test = DesktopNotificationContent(
-    title: '通知测试',
-    body: '示例课程 · 雷达签到（示例）\n点击返回应用，不会提交签到。',
+    title: '示例课程（通知测试）',
+    body: '雷达签到 · 点击返回应用',
   );
 
   factory DesktopNotificationContent.discovery(List<RollcallItem> items) {

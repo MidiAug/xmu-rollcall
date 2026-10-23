@@ -109,9 +109,8 @@ void main() {
         WindowsDesktopNotifications.discoveryPayload,
         WindowsDesktopNotifications.discoveryPayload,
       ]);
-      expect(plugin.calls.first.title, '通知测试');
-      expect(plugin.calls.first.body, contains('示例'));
-      expect(plugin.calls.first.body, contains('不会提交签到'));
+      expect(plugin.calls.first.title, '示例课程（通知测试）');
+      expect(plugin.calls.first.body, '雷达签到 · 点击返回应用');
       expect(plugin.calls[1].title, '工程伦理');
       expect(plugin.calls[1].body, contains('雷达签到'));
       expect(plugin.calls.last.body, contains('自动签到成功'));

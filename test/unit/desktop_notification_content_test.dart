@@ -52,9 +52,8 @@ void main() {
     expect(content.body, contains('类型待确认'));
   });
   test('test copy is clearly an example and result keeps course and type', () {
-    expect(DesktopNotificationContent.test.title, '通知测试');
-    expect(DesktopNotificationContent.test.body, contains('示例课程'));
-    expect(DesktopNotificationContent.test.body, contains('不会提交签到'));
+    expect(DesktopNotificationContent.test.title, '示例课程（通知测试）');
+    expect(DesktopNotificationContent.test.body, '雷达签到 · 点击返回应用');
     final course = item(1, '机器学习', RollcallType.number);
     expect(DesktopNotificationContent.result(course, true).title, '机器学习');
     expect(
