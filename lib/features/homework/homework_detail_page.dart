@@ -123,7 +123,6 @@ class _DetailBody extends StatelessWidget {
           const SizedBox(height: AppSpace.sm),
           _kv('课程', item.courseName.isEmpty ? '—' : item.courseName, p),
           _kv('截止', item.dueLabel, p),
-          HomeworkStatusBadges(item: item),
           if (item.type.isNotEmpty) _kv('类型', item.type, p),
           if (item.status.isNotEmpty) _kv('状态', item.status, p),
           if (item.description.trim().isNotEmpty) ...[
@@ -135,6 +134,8 @@ class _DetailBody extends StatelessWidget {
               style: TextStyle(color: p.ink, height: 1.45),
             ),
           ],
+          const SizedBox(height: AppSpace.xs),
+          HomeworkStatusBadges(item: item),
         ],
       ),
     );
