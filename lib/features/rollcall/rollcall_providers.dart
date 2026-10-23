@@ -30,6 +30,10 @@ final activeRollcallClockProvider = Provider<DateTime Function()>(
   (ref) => DateTime.now,
 );
 
+final courseHistoryClockProvider = Provider<DateTime Function()>(
+  (ref) => DateTime.now,
+);
+
 /// Family: `null` = owner active list; otherwise that assist userId.
 final activeRollcallsProvider =
     AsyncNotifierProvider.family<
@@ -613,6 +617,9 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
       : importedSeenCourseIdsProvider(assistUserId!);
   int? _boundUserId;
   Future<void>? _inFlightEnsure;
+  String? _inFlightCourseId;
+  EnsureFreshReason _inFlightReason = EnsureFreshReason.appear;
+  final _lastCourseAttempts = <String, DateTime>{};
   final _courseSnaps = <String, CourseRollcallsSnapshot>{};
   Set<String> _timetableCourseIds = {};
 
@@ -620,6 +627,8 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
   Future<List<CourseRollcallRecord>> build() async {
     ref.keepAlive();
     final auth = ref.watch(authControllerProvider);
+    _lastCourseAttempts.clear();
+    _inFlightEnsure = null;
     final profile = auth.profile;
     if (!auth.isSignedIn || profile == null || profile.id == 0) {
       _boundUserId = null;
@@ -712,22 +721,31 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
 
   Future<void> ensureFresh({
     EnsureFreshReason reason = EnsureFreshReason.appear,
-  }) async {
+    String? courseId,
+  }) {
     final existing = _inFlightEnsure;
     if (existing != null) {
-      await existing;
-      return;
+      final coversRequest =
+          _inFlightReason != EnsureFreshReason.appear &&
+          (_inFlightCourseId == null || _inFlightCourseId == courseId);
+      return existing.then<void>((_) async {
+        if (reason == EnsureFreshReason.appear || coversRequest) return;
+        await ensureFresh(reason: reason, courseId: courseId);
+      });
     }
-    final future = _ensureFreshBody(reason);
-    _inFlightEnsure = future;
-    try {
-      await future;
-    } finally {
-      if (identical(_inFlightEnsure, future)) _inFlightEnsure = null;
-    }
+    _inFlightCourseId = courseId;
+    _inFlightReason = reason;
+    late final Future<void> pending;
+    pending = _ensureFreshBody(reason, courseId).whenComplete(() {
+      if (identical(_inFlightEnsure, pending)) _inFlightEnsure = null;
+    });
+    return _inFlightEnsure = pending;
   }
 
-  Future<void> _ensureFreshBody(EnsureFreshReason reason) async {
+  Future<void> _ensureFreshBody(
+    EnsureFreshReason reason,
+    String? courseId,
+  ) async {
     // Page appearance can race build's disk load. Decide cold/incremental only
     // after the persisted snapshots have been loaded.
     await future;
@@ -760,11 +778,12 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
       );
     }
 
-    // Cold (no successful course fetch yet): full scan once.
-    // Appear / pull otherwise: incremental candidates only (R-35).
+    // Passive appearance stays incremental; explicit pulls bypass the long TTL
+    // within the requested timetable scope, retaining the short request gate.
     final cold = historyNeedsFullScan(_courseSnaps.values);
     final List<HistoryCandidate> candidates;
-    if (cold) {
+    final manual = reason != EnsureFreshReason.appear;
+    if (cold && !manual) {
       final ids = titles.keys;
       candidates = [
         for (final id in ids.take(CachePolicy.updateAllMaxCourses))
@@ -781,9 +800,18 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
         disks: Map<String, CourseRollcallsSnapshot?>.from(_courseSnaps),
         seenInProgressCourseIds: seen,
         timetablesByCourse: catalog?.timetablesByCourse ?? const {},
-        now: DateTime.now(),
+        now: ref.read(courseHistoryClockProvider)(),
+        manualRefresh: manual,
+        requestedCourseId: courseId,
       );
     }
+
+    final now = ref.read(courseHistoryClockProvider)();
+    final eligible = candidates.where((c) {
+      final attempted = _lastCourseAttempts[c.courseId];
+      return attempted == null ||
+          now.difference(attempted) >= CachePolicy.historyRequestGap;
+    }).toList();
 
     AppLog.event(
       'history.ensureFresh',
@@ -792,12 +820,14 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
         'userId': uid,
         'scope': 'timetable',
         'cold': cold,
-        'candidates': candidates.length,
-        'candidateReasons': {for (final c in candidates) c.courseId: c.reason},
+        'candidates': eligible.length,
+        'throttled': candidates.length - eligible.length,
+        'requestedCourseId': ?courseId,
+        'candidateReasons': {for (final c in eligible) c.courseId: c.reason},
       },
     );
 
-    for (final c in candidates) {
+    for (final c in eligible) {
       if (_boundUserId != uid) return;
       await _fetchOne(uid, c.courseId, c.courseTitle);
       await Future<void>.delayed(CachePolicy.courseFetchGap);
@@ -808,6 +838,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
   }
 
   Future<void> _fetchOne(int userId, String courseId, String title) async {
+    _lastCourseAttempts[courseId] = ref.read(courseHistoryClockProvider)();
     final started = DateTime.now();
     AppLog.event(
       'history.course.start',
@@ -841,6 +872,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
         courseTitle: title.isNotEmpty ? title : (previous?.courseTitle ?? ''),
         records: data,
         truncated: truncated,
+        at: ref.read(courseHistoryClockProvider)(),
       );
       // Drop legacy prior key if present.
       await JsonDiskCache.remove('course_rollcalls_${userId}_$courseId');
@@ -881,21 +913,14 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
     }
   }
 
-  Future<void> refresh() =>
-      ensureFresh(reason: EnsureFreshReason.pullToRefresh);
+  Future<void> refresh({String? courseId}) =>
+      ensureFresh(reason: EnsureFreshReason.pullToRefresh, courseId: courseId);
 
   Future<void> refreshCourse(String courseId) async {
-    final uid =
-        _boundUserId ??
-        assistUserId ??
-        ref.read(authControllerProvider).profile?.id;
-    if (uid == null || uid == 0) return;
-    final title =
-        _courseSnaps[courseId]?.courseTitle ??
-        ref.read(_catalogProvider).valueOrNull?.titlesById[courseId] ??
-        '';
-    await _fetchOne(uid, courseId, title);
-    if (_boundUserId == uid) state = AsyncData(_flatten());
+    await ensureFresh(
+      reason: EnsureFreshReason.manualCourse,
+      courseId: courseId,
+    );
   }
 }
 

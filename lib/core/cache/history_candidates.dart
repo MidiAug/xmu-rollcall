@@ -28,7 +28,8 @@ class HistoryCandidate {
 ///
 /// - [seenInProgressCourseIds]: bypass 2h floor
 /// - [timetablesByCourse]: weekday → slots; only drives "period ended" signal
-/// - Never does a clock-based full scan of all courses
+/// - Manual refresh checks the requested timetable scope, bypassing long TTLs.
+/// - Passive appearance never does a clock-based full scan of all courses.
 List<HistoryCandidate> selectHistoryCandidates({
   required Map<String, String> courseTitles,
   required Map<String, CourseRollcallsSnapshot?> disks,
@@ -37,6 +38,8 @@ List<HistoryCandidate> selectHistoryCandidates({
   required DateTime now,
   Duration floor = CachePolicy.enterSwrFreshFor,
   bool includeNeverChecked = true,
+  bool manualRefresh = false,
+  String? requestedCourseId,
 }) {
   final out = <HistoryCandidate>[];
   final seen = <String>{};
@@ -53,6 +56,15 @@ List<HistoryCandidate> selectHistoryCandidates({
     );
   }
 
+  if (manualRefresh) {
+    final requested = requestedCourseId?.trim() ?? '';
+    for (final id in courseTitles.keys) {
+      if (requested.isEmpty || id == requested) add(id, 'manual_refresh');
+      if (out.length >= CachePolicy.updateAllMaxCourses) break;
+    }
+    return out;
+  }
+
   for (final id in seenInProgressCourseIds) {
     if (courseTitles.containsKey(id)) add(id, 'in_progress');
   }
@@ -65,17 +77,31 @@ List<HistoryCandidate> selectHistoryCandidates({
       if (includeNeverChecked) add(id, 'never_checked');
       continue;
     }
-    if (snap!.isFresh(floor, now: now)) continue;
-
     final tables = timetablesByCourse[id];
+    final local = now.toLocal();
+    final slots = tables?[local.weekday];
+    final active =
+        slots != null &&
+        splitContiguousBlocks(
+          slots,
+        ).any((block) => block.containsExpanded(local));
+    if (snap!.isFresh(CachePolicy.activeClassHistoryFreshFor, now: now)) {
+      continue;
+    }
+    if (active) {
+      add(id, 'active_class');
+      continue;
+    }
+    if (tables != null && coursePeriodEndedBetween(tables, last, now)) {
+      add(id, 'period_ended');
+      continue;
+    }
+    if (snap.isFresh(floor, now: now)) continue;
+
     if (tables == null || tables.isEmpty) {
       // No timetable: still eligible once floor elapsed (progressive).
       add(id, 'stale_no_timetable');
       continue;
-    }
-
-    if (coursePeriodEndedBetween(tables, last, now)) {
-      add(id, 'period_ended');
     }
   }
 

@@ -3,6 +3,10 @@ abstract final class CachePolicy {
   /// Enter-SWR floor for todos / course homework / per-course rollcalls.
   static const enterSwrFreshFor = Duration(hours: 2);
 
+  /// History can change repeatedly during one class, including after signing.
+  static const activeClassHistoryFreshFor = Duration(minutes: 1);
+  static const historyRequestGap = Duration(seconds: 15);
+
   /// Serial gap between course history fetches (KB-01).
   static const courseFetchGap = Duration(milliseconds: 250);
 
@@ -10,8 +14,4 @@ abstract final class CachePolicy {
   static const updateAllMaxCourses = 80;
 }
 
-enum EnsureFreshReason {
-  appear,
-  pullToRefresh,
-  manualCourse,
-}
+enum EnsureFreshReason { appear, pullToRefresh, manualCourse }

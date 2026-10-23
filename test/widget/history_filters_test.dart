@@ -42,6 +42,7 @@ CourseRollcallRecord _record(
 );
 
 class _History extends CourseHistoryNotifier {
+  String? lastManualCourse;
   @override
   Future<List<CourseRollcallRecord>> build() async => [
     _record('a', _longTitle, '已签记录', '二维码签到', '已签到'),
@@ -51,7 +52,10 @@ class _History extends CourseHistoryNotifier {
   @override
   Future<void> ensureFresh({
     EnsureFreshReason reason = EnsureFreshReason.appear,
-  }) async {}
+    String? courseId,
+  }) async {
+    if (reason == EnsureFreshReason.pullToRefresh) lastManualCourse = courseId;
+  }
 }
 
 class _DatedHistory extends _History {
@@ -83,6 +87,28 @@ class _DatedHistory extends _History {
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets('pulling filtered history requests only the selected course', (
+    tester,
+  ) async {
+    final history = _History();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          courseHistoryProvider.overrideWith(() => history),
+        ],
+        child: MaterialApp(theme: AppTheme.light(), home: const HistoryPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('history-course-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('shell-select-option-2')));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(ListView), const Offset(0, 320));
+    await tester.pumpAndSettle();
+    expect(history.lastManualCourse, 'b');
+  });
   testWidgets(
     'menu counts follow other filters while the trigger stays compact',
     (tester) async {
