@@ -139,7 +139,9 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('下载线路'), findsNothing);
         expect(
-          tester.getSize(find.byType(DropdownButton<String>)).width,
+          tester
+              .getSize(find.byKey(const ValueKey('update-route-select')))
+              .width,
           lessThanOrEqualTo(180),
         );
         await capture('02-notes');
@@ -153,7 +155,7 @@ void main() {
         await tester.tap(find.text('正在下载 50%'));
         await tester.pumpAndSettle();
         expect(find.text('发布页'), findsNothing);
-        await tester.tap(find.byType(DropdownButton<String>));
+        await tester.tap(find.byKey(const ValueKey('update-route-select')));
         await tester.pumpAndSettle();
         await capture('04-routes');
         await tester.tap(find.text('gh-proxy.com').last);

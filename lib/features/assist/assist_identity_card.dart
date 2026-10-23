@@ -219,23 +219,20 @@ Future<_RosterAction?> _showAssistRosterMenu(BuildContext buttonContext) {
   return showMenu<_RosterAction>(
     context: buttonContext,
     position: position,
-    elevation: 10,
+    elevation: AppMenuStyle.elevation,
     color: p.surface,
     surfaceTintColor: Colors.transparent,
-    shadowColor: Colors.black.withValues(alpha: 0.16),
+    shadowColor: AppMenuStyle.shadow(buttonContext),
     constraints: const BoxConstraints(minWidth: menuWidth, maxWidth: menuWidth),
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
-      side: BorderSide(color: p.borderStrong),
-    ),
-    menuPadding: const EdgeInsets.all(6),
+    shape: AppMenuStyle.shape(buttonContext),
+    menuPadding: const EdgeInsets.symmetric(vertical: AppMenuStyle.inset),
     items: [
-      _RosterMenuItem(
+      AppPopupMenuItem<_RosterAction>(
         value: _RosterAction.viewCourses,
         icon: Icons.menu_book_outlined,
         label: '查看同课',
       ),
-      _RosterMenuItem(
+      AppPopupMenuItem<_RosterAction>(
         value: _RosterAction.refreshCourses,
         icon: Icons.sync_rounded,
         label: '刷新同课',
@@ -249,7 +246,7 @@ Future<_RosterAction?> _showAssistRosterMenu(BuildContext buttonContext) {
           child: Divider(height: 1, thickness: 1, color: p.border),
         ),
       ),
-      _RosterMenuItem(
+      AppPopupMenuItem<_RosterAction>(
         value: _RosterAction.remove,
         icon: Icons.delete_outline_rounded,
         label: '删除',
@@ -257,71 +254,6 @@ Future<_RosterAction?> _showAssistRosterMenu(BuildContext buttonContext) {
       ),
     ],
   );
-}
-
-class _RosterMenuItem extends PopupMenuItem<_RosterAction> {
-  _RosterMenuItem({
-    required _RosterAction value,
-    required IconData icon,
-    required String label,
-    bool danger = false,
-  }) : super(
-         value: value,
-         height: 44,
-         padding: EdgeInsets.zero,
-         child: _RosterMenuRow(icon: icon, label: label, danger: danger),
-       );
-}
-
-class _RosterMenuRow extends StatelessWidget {
-  const _RosterMenuRow({
-    required this.icon,
-    required this.label,
-    this.danger = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool danger;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final fg = danger ? p.danger : p.ink;
-    final iconBg = danger
-        ? p.danger.withValues(alpha: 0.12)
-        : p.surfaceHigh.withValues(alpha: 0.9);
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      child: Row(
-        children: [
-          Container(
-            width: 30,
-            height: 30,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(icon, size: 16, color: fg),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                letterSpacing: -0.15,
-                color: fg,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _KindBadge extends StatelessWidget {

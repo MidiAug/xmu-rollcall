@@ -315,10 +315,14 @@ void main() {
           of: find.text('未签同学'),
           matching: find.byType(AppMenuOption),
         );
-        final entry = find.ancestor(
-          of: option,
-          matching: find.byWidgetPredicate((w) => w is PopupMenuItem<int>),
-        );
+        final entry = find
+            .ancestor(
+              of: option,
+              matching: find.byWidgetPredicate(
+                (w) => w is Material && w.shape is RoundedRectangleBorder,
+              ),
+            )
+            .first;
         expect(
           tester.getRect(option).left,
           greaterThan(tester.getRect(entry).left),
@@ -330,7 +334,12 @@ void main() {
         // There is only the shared inset InkWell; no full-width parent hover wash.
         expect(
           find.descendant(of: entry, matching: find.byType(InkWell)),
-          findsOneWidget,
+          findsNWidgets(
+            find
+                .descendant(of: entry, matching: find.byType(AppMenuOption))
+                .evaluate()
+                .length,
+          ),
         );
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer();

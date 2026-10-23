@@ -68,31 +68,52 @@ class _UpdatePreviewPageState extends State<UpdatePreviewPage> {
             Row(
               children: [
                 Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _scenario,
-                    decoration: const InputDecoration(labelText: '预览状态'),
-                    items: [
-                      for (final v in ['有新版', '已是最新', '检查失败', '下载失败'])
-                        DropdownMenuItem(value: v, child: Text(v)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '预览状态',
+                        style: TextStyle(fontSize: 12, color: p.muted),
+                      ),
+                      const SizedBox(height: 6),
+                      LayoutBuilder(
+                        builder: (context, bounds) => AppShellSelect<String>(
+                          key: const ValueKey('update-preview-scenario'),
+                          width: bounds.maxWidth,
+                          menuWidth: 200,
+                          value: _scenario,
+                          items: const ['有新版', '已是最新', '检查失败', '下载失败'],
+                          labelOf: (v) => v,
+                          onChanged: (v) => _reset(() => _scenario = v),
+                        ),
+                      ),
                     ],
-                    onChanged: (v) => _reset(() => _scenario = v!),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: DropdownButtonFormField<UpdateTarget>(
-                    initialValue: _target,
-                    decoration: const InputDecoration(labelText: '安装平台'),
-                    items: [
-                      for (final v in UpdateTarget.values)
-                        DropdownMenuItem(
-                          value: v,
-                          child: Text(
-                            v == UpdateTarget.windows ? 'Windows' : 'Android',
-                          ),
-                        ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '安装平台',
+                        style: TextStyle(fontSize: 12, color: p.muted),
+                      ),
+                      const SizedBox(height: 6),
+                      LayoutBuilder(
+                        builder: (context, bounds) =>
+                            AppShellSelect<UpdateTarget>(
+                              width: bounds.maxWidth,
+                              menuWidth: 200,
+                              value: _target,
+                              items: UpdateTarget.values,
+                              labelOf: (v) => v == UpdateTarget.windows
+                                  ? 'Windows'
+                                  : 'Android',
+                              onChanged: (v) => _reset(() => _target = v),
+                            ),
+                      ),
                     ],
-                    onChanged: (v) => _reset(() => _target = v!),
                   ),
                 ),
               ],

@@ -155,7 +155,7 @@ void main() {
       expectOption(0, '全部状态', 3);
       expectOption(2, '已签到', 2);
       expectOption(1, '未签到', 1);
-      expect(find.byIcon(Icons.check_rounded), findsNothing);
+      expect(find.byIcon(Icons.check_rounded), findsOneWidget);
       expect(
         tester
             .renderObject<RenderParagraph>(

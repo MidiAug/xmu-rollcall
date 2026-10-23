@@ -20,7 +20,7 @@ void main() {
       expect(find.byType(MarkdownBody), findsOneWidget);
       await tester.tap(find.text('关闭'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.tap(find.byKey(const ValueKey('update-preview-scenario')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('检查失败').last);
       await tester.pumpAndSettle();

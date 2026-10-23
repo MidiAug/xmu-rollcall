@@ -9,6 +9,7 @@ import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
 part 'chrome_controls.dart';
 part 'chrome_settings.dart';
+part 'chrome_select.dart';
 
 class BrandMark extends StatelessWidget {
   const BrandMark({super.key, this.size = 26});
@@ -1068,7 +1069,7 @@ class _NavigationIcon extends StatelessWidget {
   }
 }
 
-/// Pill select — Quiet Utility twin of xmu-sports `.shell-select`.
+/// Shared choice menu used by filters, settings and update routes.
 ///
 /// Self-contained overlay; opening one closes others via a light registry.
 class AppShellSelect<T> extends StatefulWidget {
@@ -1083,6 +1084,9 @@ class AppShellSelect<T> extends StatefulWidget {
     this.width = 132,
     this.menuWidth,
     this.wrapMenuLabels = false,
+    this.leading,
+    this.semanticLabel,
+    this.compact = false,
   });
 
   final T value;
@@ -1092,7 +1096,10 @@ class AppShellSelect<T> extends StatefulWidget {
   /// Optional longer labels for the menu, keeping the trigger compact.
   final String Function(T)? menuLabelOf;
   final String Function(T)? menuTrailingOf;
-  final ValueChanged<T> onChanged;
+  final ValueChanged<T>? onChanged;
+  final Widget? leading;
+  final String? semanticLabel;
+  final bool compact;
   final double width;
   final double? menuWidth;
   final bool wrapMenuLabels;
@@ -1114,10 +1121,12 @@ class AppShellSelect<T> extends StatefulWidget {
 }
 
 class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
-  final _link = LayerLink();
   final _portal = OverlayPortalController();
   late final VoidCallback _closeHook;
-  var _hover = false;
+  final _triggerFocus = FocusNode();
+  final _menuFocus = FocusScopeNode(
+    traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
+  );
 
   @override
   void initState() {
@@ -1130,16 +1139,22 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
   void dispose() {
     AppShellSelect._unregister(_closeHook);
     if (_portal.isShowing) _portal.hide();
+    _triggerFocus.dispose();
+    _menuFocus.dispose();
     super.dispose();
   }
 
   void _hide() {
     if (!_portal.isShowing) return;
     _portal.hide();
-    if (mounted) setState(() {});
+    if (mounted) {
+      setState(() {});
+      _triggerFocus.requestFocus();
+    }
   }
 
   void _toggle() {
+    if (widget.onChanged == null || widget.items.isEmpty) return;
     if (_portal.isShowing) {
       _hide();
       return;
@@ -1153,18 +1168,23 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final open = _portal.isShowing;
-    return CompositedTransformTarget(
-      link: _link,
-      child: OverlayPortal(
+    return PopScope<void>(
+      canPop: !open,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _hide();
+      },
+      child: OverlayPortal.overlayChildLayoutBuilder(
         controller: _portal,
-        overlayChildBuilder: (context) {
-          final dark = Theme.of(context).brightness == Brightness.dark;
+        overlayChildBuilder: (context, info) {
           final screen = MediaQuery.of(context);
-          final target = this.context.findRenderObject()! as RenderBox;
-          final origin = target.localToGlobal(Offset.zero);
+          final origin = MatrixUtils.transformPoint(
+            info.childPaintTransform,
+            Offset.zero,
+          );
+          final overlaySize = info.overlaySize;
           final maxMenuWidth = (widget.menuWidth ?? widget.width).clamp(
             0.0,
-            screen.size.width - 24,
+            overlaySize.width - 24,
           );
           var labelWidth = 0.0;
           final painter = TextPainter(
@@ -1192,19 +1212,19 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
             if (painter.width > labelWidth) labelWidth = painter.width;
           }
           painter.dispose();
-          final menuWidth = (labelWidth + 32).clamp(
+          final menuWidth = (labelWidth + 88).clamp(
             widget.width.clamp(0.0, maxMenuWidth),
             maxMenuWidth,
           );
-          final shiftX = (screen.size.width - 12 - origin.dx - menuWidth).clamp(
-            -screen.size.width,
-            0.0,
+          final left = origin.dx.clamp(
+            12.0,
+            overlaySize.width - 12 - menuWidth,
           );
           final below =
-              screen.size.height -
+              overlaySize.height -
               screen.padding.bottom -
               origin.dy -
-              target.size.height -
+              info.childSize.height -
               20;
           final above = origin.dy - screen.padding.top - 20;
           final openAbove = below < 150 && above > below;
@@ -1218,57 +1238,94 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
                   child: const ColoredBox(color: Colors.transparent),
                 ),
               ),
-              CompositedTransformFollower(
-                link: _link,
-                showWhenUnlinked: false,
-                targetAnchor: openAbove
-                    ? Alignment.topLeft
-                    : Alignment.bottomLeft,
-                followerAnchor: openAbove
-                    ? Alignment.bottomLeft
-                    : Alignment.topLeft,
-                offset: Offset(shiftX, openAbove ? -AppSpace.xs : AppSpace.xs),
+              Positioned(
+                left: left,
+                top: openAbove
+                    ? null
+                    : origin.dy + info.childSize.height + AppSpace.xs,
+                bottom: openAbove
+                    ? overlaySize.height - origin.dy + AppSpace.xs
+                    : null,
                 child: Material(
                   color: p.surface,
-                  elevation: 8,
-                  shadowColor: Colors.black.withValues(
-                    alpha: dark ? 0.45 : 0.16,
-                  ),
-                  borderRadius: BorderRadius.circular(AppRadii.input),
+                  elevation: AppMenuStyle.elevation,
+                  shadowColor: AppMenuStyle.shadow(context),
+                  shape: AppMenuStyle.shape(context),
+                  clipBehavior: Clip.antiAlias,
                   child: Container(
                     width: menuWidth,
                     constraints: BoxConstraints(maxHeight: maxHeight),
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(AppRadii.input),
-                      border: Border.all(color: p.borderStrong),
-                    ),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (var i = 0; i < widget.items.length; i++) ...[
-                            if (i > 0) const SizedBox(height: 4),
-                            AppMenuOption(
-                              key: ValueKey('shell-select-option-$i'),
-                              label: (widget.menuLabelOf ?? widget.labelOf)(
-                                widget.items[i],
-                              ),
-                              trailing:
-                                  widget.menuTrailingOf?.call(
-                                    widget.items[i],
-                                  ) ??
-                                  '',
-                              wrap: widget.wrapMenuLabels,
-                              selected: widget.items[i] == widget.value,
-                              onTap: () {
-                                widget.onChanged(widget.items[i]);
+                    padding: const EdgeInsets.all(AppMenuStyle.inset),
+                    child: FocusScope(
+                      node: _menuFocus,
+                      autofocus: true,
+                      child: Shortcuts(
+                        shortcuts: const {
+                          SingleActivator(LogicalKeyboardKey.escape):
+                              DismissIntent(),
+                          SingleActivator(LogicalKeyboardKey.arrowDown):
+                              NextFocusIntent(),
+                          SingleActivator(LogicalKeyboardKey.arrowUp):
+                              PreviousFocusIntent(),
+                        },
+                        child: Actions(
+                          actions: {
+                            DismissIntent: CallbackAction<DismissIntent>(
+                              onInvoke: (_) {
                                 _hide();
+                                return null;
                               },
                             ),
-                          ],
-                        ],
+                            NextFocusIntent: CallbackAction<NextFocusIntent>(
+                              onInvoke: (_) {
+                                _menuFocus.nextFocus();
+                                return null;
+                              },
+                            ),
+                            PreviousFocusIntent:
+                                CallbackAction<PreviousFocusIntent>(
+                                  onInvoke: (_) {
+                                    _menuFocus.previousFocus();
+                                    return null;
+                                  },
+                                ),
+                          },
+                          child: SingleChildScrollView(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                for (
+                                  var i = 0;
+                                  i < widget.items.length;
+                                  i++
+                                ) ...[
+                                  if (i > 0) const SizedBox(height: 4),
+                                  AppMenuOption(
+                                    key: ValueKey('shell-select-option-$i'),
+                                    label:
+                                        (widget.menuLabelOf ?? widget.labelOf)(
+                                          widget.items[i],
+                                        ),
+                                    trailing:
+                                        widget.menuTrailingOf?.call(
+                                          widget.items[i],
+                                        ) ??
+                                        '',
+                                    wrap: widget.wrapMenuLabels,
+                                    selected: widget.items[i] == widget.value,
+                                    autofocus: widget.items[i] == widget.value,
+                                    showCheck: true,
+                                    onTap: () {
+                                      _hide();
+                                      widget.onChanged?.call(widget.items[i]);
+                                    },
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -1279,54 +1336,17 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>> {
         },
         child: SizedBox(
           width: widget.width,
-          child: MouseRegion(
-            cursor: SystemMouseCursors.click,
-            onEnter: (_) => setState(() => _hover = true),
-            onExit: (_) => setState(() => _hover = false),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _toggle,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
-                curve: Curves.easeOut,
-                height: 36,
-                padding: EdgeInsets.symmetric(
-                  horizontal: widget.width < 110 ? 8 : 14,
-                ),
-                decoration: BoxDecoration(
-                  color: _hover ? p.cardHover : p.surface,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: _hover || open ? p.borderStrong : p.border,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: AppTruncatedText(
-                        widget.labelOf(widget.value),
-                        style: TextStyle(
-                          fontSize: widget.width < 110 ? 13 : 14,
-                          height: 22 / 14,
-                          fontWeight: FontWeight.w500,
-                          color: p.ink,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: widget.width < 110 ? 3 : 8),
-                    AnimatedRotation(
-                      turns: open ? 0.5 : 0,
-                      duration: const Duration(milliseconds: 120),
-                      curve: Curves.easeOut,
-                      child: Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        size: widget.width < 110 ? 16 : 18,
-                        color: p.muted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+          child: Semantics(
+            label: widget.semanticLabel,
+            child: AppSelectTrigger(
+              label: widget.labelOf(widget.value),
+              leading: widget.leading,
+              compact: widget.compact || widget.width < 110,
+              focusNode: _triggerFocus,
+              open: open,
+              onTap: widget.onChanged == null || widget.items.isEmpty
+                  ? null
+                  : _toggle,
             ),
           ),
         ),
@@ -1345,6 +1365,9 @@ class AppMenuOption extends StatefulWidget {
     this.trailing = '',
     this.wrap = false,
     this.showCheck = false,
+    this.leadingIcon,
+    this.danger = false,
+    this.autofocus = false,
   });
 
   final String label;
@@ -1353,6 +1376,9 @@ class AppMenuOption extends StatefulWidget {
   final VoidCallback onTap;
   final bool wrap;
   final bool showCheck;
+  final IconData? leadingIcon;
+  final bool danger;
+  final bool autofocus;
 
   @override
   State<AppMenuOption> createState() => _AppMenuOptionState();
@@ -1377,7 +1403,11 @@ class _AppMenuOptionState extends State<AppMenuOption> {
       fontSize: 14,
       height: 22 / 14,
       fontWeight: widget.selected ? FontWeight.w500 : FontWeight.w400,
-      color: widget.selected ? p.primary : p.ink,
+      color: widget.danger
+          ? p.danger
+          : widget.selected
+          ? p.primary
+          : p.ink,
     );
     return Semantics(
       selected: widget.selected,
@@ -1390,6 +1420,7 @@ class _AppMenuOptionState extends State<AppMenuOption> {
           borderRadius: BorderRadius.circular(AppRadii.control),
           child: InkWell(
             onTap: widget.onTap,
+            autofocus: widget.autofocus,
             onFocusChange: (focused) => setState(() => _focused = focused),
             hoverColor: Colors.transparent,
             focusColor: Colors.transparent,
@@ -1398,14 +1429,24 @@ class _AppMenuOptionState extends State<AppMenuOption> {
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 100),
               curve: Curves.easeOut,
-              constraints: const BoxConstraints(minHeight: 38),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              constraints: BoxConstraints(
+                minHeight: AppDensity.isTouch(context) ? 44 : 40,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
                 color: bg,
                 borderRadius: BorderRadius.circular(AppRadii.control),
               ),
               child: Row(
                 children: [
+                  if (widget.leadingIcon != null) ...[
+                    Icon(
+                      widget.leadingIcon,
+                      size: 18,
+                      color: widget.danger ? p.danger : p.muted,
+                    ),
+                    const SizedBox(width: 10),
+                  ],
                   Expanded(
                     child: widget.wrap
                         ? Text(widget.label, style: style)

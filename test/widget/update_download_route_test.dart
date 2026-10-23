@@ -53,7 +53,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButton<String>));
+      await tester.tap(find.byKey(const ValueKey('update-route-select')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('自定义线路…').last);
       await tester.pumpAndSettle();

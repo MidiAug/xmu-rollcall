@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/update/update_download_route.dart';
 
@@ -90,54 +91,44 @@ class _RouteSelectorState extends State<UpdateDownloadRouteSelector> {
       alignment: Alignment.centerLeft,
       widthFactor: 1,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 180),
+        constraints: const BoxConstraints(maxWidth: 164),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
+            LayoutBuilder(
+              builder: (context, bounds) => AppShellSelect<String>(
+                key: const ValueKey('update-route-select'),
                 value: _choice,
-                isExpanded: true,
-                borderRadius: BorderRadius.circular(12),
-                dropdownColor: p.surface,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodySmall?.copyWith(fontSize: 13, color: p.ink),
-                icon: const Icon(Icons.expand_more_rounded, size: 18),
                 items: [
-                  const DropdownMenuItem(
-                    value: 'official',
-                    child: Text('GitHub 官方'),
-                  ),
-                  for (final route in UpdateDownloadRoute.suggested)
-                    DropdownMenuItem(
-                      value: route,
-                      child: Text(
-                        Uri.parse(route).host,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  if (customSaved)
-                    DropdownMenuItem(
-                      value: _saved.toString(),
-                      child: Text(
-                        _saved!.host,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  const DropdownMenuItem(
-                    value: 'custom',
-                    child: Text('自定义线路…'),
-                  ),
+                  'official',
+                  ...UpdateDownloadRoute.suggested,
+                  if (customSaved) _saved.toString(),
+                  'custom',
                 ],
+                labelOf: (value) => value == 'official'
+                    ? 'GitHub 官方'
+                    : value == 'custom'
+                    ? '自定义线路…'
+                    : Uri.parse(value).host,
+                menuTrailingOf: (value) => value == 'official'
+                    ? '直连'
+                    : value == 'custom'
+                    ? ''
+                    : '加速',
+                semanticLabel: '更新下载线路',
+                compact: true,
+                leading: bounds.maxWidth < 164
+                    ? null
+                    : Icon(Icons.alt_route_rounded, size: 16, color: p.muted),
+                width: bounds.maxWidth.clamp(0.0, 164.0),
+                menuWidth: 260,
                 onChanged: !_ready || _saving || !widget.enabled
                     ? null
                     : (value) {
                         if (value == 'custom') {
                           setState(() {
-                            _choice = value!;
+                            _choice = value;
                             _error = null;
                           });
                         } else {

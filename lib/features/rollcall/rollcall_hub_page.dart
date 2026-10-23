@@ -329,122 +329,27 @@ class _IdentityMenu extends StatelessWidget {
   final ValueChanged<int> onChanged;
 
   @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final name = value == 0
-        ? ownerName
-        : identities.firstWhere((e) => e.userId == value).displayName;
-    final label = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(color: p.selected, shape: BoxShape.circle),
-          child: Icon(Icons.person_outline_rounded, size: 18, color: p.primary),
-        ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: AppTruncatedText(
-            name,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: p.ink,
-            ),
-          ),
-        ),
-        if (identities.isNotEmpty) ...[
-          const SizedBox(width: 4),
-          Icon(Icons.unfold_more_rounded, size: 16, color: p.muted),
-        ],
-      ],
-    );
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 180),
-        child: PopupMenuButton<int>(
-          key: const ValueKey('rollcall-identity-menu'),
-          enabled: identities.isNotEmpty,
-          tooltip: '',
-          position: PopupMenuPosition.under,
-          offset: const Offset(0, 6),
-          color: p.surface,
-          surfaceTintColor: Colors.transparent,
-          elevation: 6,
-          shadowColor: Colors.black.withValues(alpha: 0.12),
-          constraints: const BoxConstraints(
-            minWidth: 180,
-            maxWidth: 220,
-            maxHeight: 280,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: p.border),
-          ),
-          onSelected: (id) {
-            if (id != value) onChanged(id);
-          },
-          itemBuilder: (context) => [
-            for (final entry in [
-              (id: 0, name: ownerName),
-              for (final identity in identities)
-                (id: identity.userId, name: identity.displayName),
-            ])
-              _IdentityMenuItem(
-                value: entry.id,
-                name: entry.name,
-                selected: entry.id == value,
-              ),
-          ],
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
-            child: label,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Keep hover/focus paint inside the same inset rounded row as filters,
-/// while retaining PopupMenuButton's route and keyboard selection behavior.
-class _IdentityMenuItem extends PopupMenuItem<int> {
-  const _IdentityMenuItem({
-    required int value,
-    required this.name,
-    required this.selected,
-  }) : super(value: value, height: 44, child: const SizedBox.shrink());
-
-  final String name;
-  final bool selected;
-
-  @override
-  PopupMenuItemState<int, _IdentityMenuItem> createState() =>
-      _IdentityMenuItemState();
-}
-
-class _IdentityMenuItemState
-    extends PopupMenuItemState<int, _IdentityMenuItem> {
-  @override
-  Widget build(BuildContext context) => buildSemantics(
-    child: SizedBox(
-      // PopupMenu measures intrinsic widths before layout; keep the text
-      // overflow measurement behind a finite row width.
+  Widget build(BuildContext context) => Align(
+    alignment: Alignment.centerLeft,
+    child: AppShellSelect<int>(
+      key: const ValueKey('rollcall-identity-menu'),
       width: 180,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: widget.height),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          child: AppMenuOption(
-            label: widget.name,
-            selected: widget.selected,
-            showCheck: true,
-            onTap: handleTap,
-          ),
-        ),
+      menuWidth: 220,
+      value: value,
+      items: [0, for (final identity in identities) identity.userId],
+      labelOf: (id) => id == 0
+          ? ownerName
+          : identities.firstWhere((item) => item.userId == id).displayName,
+      leading: Icon(
+        Icons.person_outline_rounded,
+        size: 18,
+        color: AppPalette.of(context).primary,
       ),
+      onChanged: identities.isEmpty
+          ? null
+          : (id) {
+              if (id != value) onChanged(id);
+            },
     ),
   );
 }
