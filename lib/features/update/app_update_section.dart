@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -9,6 +12,7 @@ import 'package:xmu_rollcall/features/update/app_release.dart';
 import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 import 'package:xmu_rollcall/features/update/github_update_service.dart';
 import 'package:xmu_rollcall/platform/app_update_installer.dart';
+import 'package:xmu_rollcall/features/update/update_download_route_dialog.dart';
 
 enum _UpdatePhase { available, downloading, ready, installing, failed }
 
@@ -49,6 +53,10 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
   File? _file;
   bool _confirming = false;
   double? _progress;
+  int _received = 0;
+  int _total = 0;
+  Stopwatch? _downloadClock;
+  Future<void>? _downloadTask;
   String _message = '';
   bool get _busy =>
       _controller.status == UpdateCheckStatus.checking ||
@@ -97,6 +105,17 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
   }
 
   Future<void> _download() async {
+    if (_downloadTask != null) return;
+    final task = _runDownload();
+    _downloadTask = task;
+    try {
+      await task;
+    } finally {
+      if (identical(_downloadTask, task)) _downloadTask = null;
+    }
+  }
+
+  Future<void> _runDownload() async {
     final update = _update;
     if (_busy || update == null) return;
     _cancel = CancelToken();
@@ -104,12 +123,17 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
       _downloadUpdate = update;
       _phase = _UpdatePhase.downloading;
       _progress = 0;
+      _received = 0;
+      _total = update.size;
+      _downloadClock = Stopwatch()..start();
       _message = '正在下载安装包…';
     });
     try {
       final file = await _service.download(update, _cancel, (received, total) {
         if (!mounted) return;
         setState(() {
+          _received = received;
+          _total = total;
           _progress = received / total;
           _message = received == total
               ? '正在校验安装包…'
@@ -179,8 +203,56 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('更新说明 · v${update.version.name}'),
-        content: SingleChildScrollView(child: SelectableText(update.notes)),
+        content: SizedBox(
+          width: 520,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * .6,
+            ),
+            child: SingleChildScrollView(
+              child: MarkdownBody(
+                data: update.notes,
+                selectable: true,
+                styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
+                    .copyWith(
+                      p: TextStyle(
+                        fontSize: 13,
+                        height: 1.65,
+                        color: AppPalette.of(context).ink,
+                      ),
+                      h1: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: AppPalette.of(context).ink,
+                      ),
+                      h2: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: AppPalette.of(context).ink,
+                      ),
+                      h3: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: AppPalette.of(context).ink,
+                      ),
+                      a: TextStyle(color: AppPalette.of(context).primary),
+                      blockSpacing: 12,
+                    ),
+                onTapLink: (_, href, _) => _openNotesLink(href),
+                imageBuilder: (_, _, alt) => Text(alt ?? '图片'),
+              ),
+            ),
+          ),
+        ),
         actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _chooseDownloadRoute();
+            },
+            child: const Text('下载线路'),
+          ),
+          TextButton(onPressed: _openReleasePage, child: const Text('发布页')),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('关闭'),
@@ -189,6 +261,89 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
       ),
     );
   }
+
+  Future<void> _openNotesLink(String? href) async {
+    final uri = Uri.tryParse(href ?? '');
+    if (uri == null ||
+        !{'https', 'http'}.contains(uri.scheme) ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty) {
+      return;
+    }
+    try {
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw StateError('launch');
+      }
+    } catch (_) {
+      if (mounted) AppToast.show(context, '无法打开链接', error: true);
+    }
+  }
+
+  Future<void> _chooseDownloadRoute() async {
+    final downloading = _phase == _UpdatePhase.downloading;
+    final saved = await showUpdateDownloadRouteDialog(
+      context,
+      restarting: downloading,
+    );
+    if (!mounted ||
+        !saved ||
+        !downloading ||
+        _phase != _UpdatePhase.downloading) {
+      return;
+    }
+    _cancel.cancel('切换下载线路');
+    await _downloadTask;
+    if (mounted) await _download();
+  }
+
+  String get _downloadDetails {
+    final bytes =
+        '${(_received / 1024 / 1024).toStringAsFixed(1)} / ${(_total / 1024 / 1024).toStringAsFixed(1)} MB';
+    final ms = _downloadClock?.elapsedMilliseconds ?? 0;
+    if (ms < 400 || _received == 0) return bytes;
+    final rate = _received * 1000 / ms;
+    return '$bytes · ${rate >= 1024 * 1024 ? '${(rate / 1024 / 1024).toStringAsFixed(1)} MB/s' : '${(rate / 1024).toStringAsFixed(0)} KB/s'}';
+  }
+
+  Future<void> _openReleasePage() async {
+    try {
+      if (!await launchUrl(
+        _update?.page ?? ReleaseUpdate.releasesPage,
+        mode: LaunchMode.externalApplication,
+      )) {
+        throw StateError('launch');
+      }
+    } catch (_) {
+      if (mounted) {
+        AppToast.show(context, '无法打开发布页，请在浏览器访问 GitHub 仓库', error: true);
+      }
+    }
+  }
+
+  Future<void> _showCheckFailure() => showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('检查更新未完成'),
+      content: Text(_controller.error ?? '请检查网络后重试'),
+      actions: [
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            _chooseDownloadRoute();
+          },
+          child: const Text('下载线路'),
+        ),
+        TextButton(onPressed: _openReleasePage, child: const Text('发布页')),
+        FilledButton(
+          onPressed: () {
+            Navigator.pop(context);
+            _check();
+          },
+          child: const Text('重试'),
+        ),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -248,9 +403,17 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
                 ),
               )
             : const Icon(Icons.system_update_alt_rounded),
-        title: '检查更新',
-        subtitle: status,
-        onTap: update != null ? _showReleaseNotes : (_busy ? null : _check),
+        title: _phase == _UpdatePhase.downloading ? _message : '检查更新',
+        subtitle: _phase == _UpdatePhase.downloading
+            ? _downloadDetails
+            : status,
+        onTap: update != null
+            ? _showReleaseNotes
+            : (_busy
+                  ? null
+                  : _controller.status == UpdateCheckStatus.failed
+                  ? _showCheckFailure
+                  : _check),
         trailing: SizedBox.square(
           dimension: 44,
           child: waiting

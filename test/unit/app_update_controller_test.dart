@@ -124,4 +124,32 @@ void main() {
     await pending;
     expect(service.checks, 0);
   });
+  test(
+    'a stalled check times out, cancels, keeps known update and permits a fresh retry',
+    () async {
+      controller.dispose();
+      service = FakeUpdateService()..result = update;
+      controller = AppUpdateController(
+        service: service,
+        package: () async => package,
+        target: UpdateTarget.windows,
+        checkTimeout: const Duration(milliseconds: 20),
+      );
+      await controller.check();
+      final stalled = Completer<ReleaseUpdate?>();
+      service.pendingCheck = stalled;
+      await controller.check(force: true);
+      expect(controller.status, UpdateCheckStatus.failed);
+      expect(controller.error, contains('超时'));
+      expect(controller.update, update);
+      expect(service.checkCancel!.isCancelled, isTrue);
+      service.pendingCheck = null;
+      await controller.check(force: true);
+      expect(controller.status, UpdateCheckStatus.available);
+      expect(service.checkCancel!.isCancelled, isFalse);
+      stalled.complete(null);
+      await Future<void>.delayed(Duration.zero);
+      expect(controller.update, update);
+    },
+  );
 }

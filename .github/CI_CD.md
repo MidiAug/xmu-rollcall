@@ -95,3 +95,9 @@ pwsh -File scripts/package-windows.ps1 -NoPub
 Flutter SDK 版本集中在 `.github/actions/setup-flutter/action.yml`，质量检查与两端打包共用，更新 SDK 时同步本地开发版本。
 
 参考：[GitHub 工作流复用](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)、[工作流安全](https://docs.github.com/en/actions/reference/security/secure-use)、[Flutter Android 签名](https://docs.flutter.dev/deployment/android)、[GitHub Release CLI](https://cli.github.com/manual/gh_release_create)。
+
+## 更新网络与下载加速
+
+检查网络设置有限时：API 7秒、网络检查总20秒，控制器25秒兜底。限流、连接/响应超时或5xx可改查GitHub官方latest/download清单。网络故障不会取消已确认更新，手动重试重新建立请求；诊断含update.check/http/download事件的关联ID、状态及耗时，不记录签名下载URL查询参数。
+
+“我的 → 更新下载线路”默认官方，可主动选择备选节点或填写HTTPS节点首页，也可从说明弹窗进入。节点仅转发清单中已确认的公开安装包；版本/大小/SHA-256清单只从GitHub取得。选择的节点网络失败或404时尝试官方一次；安装包校验失败直接停止，不回退跳过校验。下载中保存新线路会取消旧下载、清理部分文件并重新下载。备选节点与目录来自用户指定的[GitHub Proxy](https://github.akams.cn/)，服务可用性随网络变化；不会后台批量测速或自动把账号请求发给节点。

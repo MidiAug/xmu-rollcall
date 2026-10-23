@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:xmu_rollcall/features/update/app_release.dart';
+import 'package:xmu_rollcall/features/update/update_download_route.dart';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
 
 extension _CancellationCheck on CancelToken {
   void throwIfCancellationRequested() {
@@ -29,22 +32,31 @@ abstract interface class UpdateService {
 
 /// Public GitHub traffic deliberately never shares TronClass's authenticated Dio.
 class GithubUpdateService implements UpdateService {
-  GithubUpdateService({Dio? http, Future<Directory> Function()? cacheDirectory})
-    : _http =
-          http ??
-          Dio(
-            BaseOptions(
-              connectTimeout: const Duration(seconds: 15),
-              receiveTimeout: const Duration(seconds: 30),
-              headers: {
-                'User-Agent': 'xmu-rollcall-updater',
-                'Accept': 'application/vnd.github+json',
-              },
-            ),
-          ),
-      _cacheDirectory = cacheDirectory ?? getTemporaryDirectory;
+  GithubUpdateService({
+    Dio? http,
+    Future<Directory> Function()? cacheDirectory,
+    Future<Uri?> Function()? downloadMirror,
+    this.checkTimeout = const Duration(seconds: 20),
+    this.apiTimeout = const Duration(seconds: 7),
+  }) : _http =
+           http ??
+           Dio(
+             BaseOptions(
+               connectTimeout: const Duration(seconds: 8),
+               receiveTimeout: const Duration(seconds: 10),
+               headers: {
+                 'User-Agent': 'xmu-rollcall-updater',
+                 'Accept': 'application/vnd.github+json',
+               },
+             ),
+           ),
+       _cacheDirectory = cacheDirectory ?? getTemporaryDirectory,
+       _downloadMirror = downloadMirror ?? UpdateDownloadRoute.read;
   final Dio _http;
   final Future<Directory> Function() _cacheDirectory;
+  final Future<Uri?> Function() _downloadMirror;
+  final Duration checkTimeout;
+  final Duration apiTimeout;
   static final latest = Uri.parse(
     'https://api.github.com/repos/MidiAug/xmu-rollcall/releases/latest',
   );
@@ -53,19 +65,53 @@ class GithubUpdateService implements UpdateService {
     Uri uri,
     CancelToken cancel, {
     bool asset = true,
+    String? opId,
+    Uri? mirrorUrl,
   }) async {
     for (var redirect = 0; redirect <= 5; redirect++) {
-      if (!_allowed(uri, asset: asset)) {
+      if (!_allowed(uri, asset: asset) && uri != mirrorUrl) {
         throw const UpdateException('更新地址不受信任，请查看官方发布页');
       }
-      final response = await _http.getUri<ResponseBody>(
-        uri,
-        cancelToken: cancel,
-        options: Options(
-          responseType: ResponseType.stream,
-          followRedirects: false,
-          validateStatus: (_) => true,
-        ),
+      final watch = Stopwatch()..start();
+      AppLog.event(
+        'update.http.start',
+        opId: opId,
+        fields: {'host': uri.host, 'path': uri.path, 'redirect': redirect},
+      );
+      late final Response<ResponseBody> response;
+      try {
+        response = await _http.getUri<ResponseBody>(
+          uri,
+          cancelToken: cancel,
+          options: Options(
+            responseType: ResponseType.stream,
+            followRedirects: false,
+            validateStatus: (_) => true,
+          ),
+        );
+      } catch (error) {
+        // Do not log exception URI/query or signed storage URLs.
+        AppLog.event(
+          'update.http.error',
+          level: 'W',
+          opId: opId,
+          fields: {
+            'host': uri.host,
+            'durationMs': watch.elapsedMilliseconds,
+            'errorType': error.runtimeType.toString(),
+            if (error is DioException) 'dioType': error.type.name,
+          },
+        );
+        rethrow;
+      }
+      AppLog.event(
+        'update.http.result',
+        opId: opId,
+        fields: {
+          'host': uri.host,
+          'status': response.statusCode,
+          'durationMs': watch.elapsedMilliseconds,
+        },
       );
       final body = response.data!;
       if (response.statusCode == 200) return body;
@@ -77,7 +123,7 @@ class GithubUpdateService implements UpdateService {
         continue;
       }
       if (response.statusCode == 404) {
-        throw const UpdateException('尚无可用的正式更新，或发布文件尚未上传完整');
+        throw const UpdateException('尚无可用的正式更新，或发布文件尚未上传完整', statusCode: 404);
       }
       if (response.statusCode == 403 || response.statusCode == 429) {
         throw UpdateException(
@@ -85,7 +131,7 @@ class GithubUpdateService implements UpdateService {
           statusCode: response.statusCode,
         );
       }
-      throw const UpdateException('更新服务暂不可用，请稍后重试');
+      throw UpdateException('更新服务暂不可用，请稍后重试', statusCode: response.statusCode);
     }
     throw const UpdateException('更新下载跳转异常，请查看官方发布页');
   }
@@ -115,8 +161,9 @@ class GithubUpdateService implements UpdateService {
     CancelToken cancel, {
     bool asset = true,
     int limit = 65536,
+    String? opId,
   }) async {
-    final body = await _open(url, cancel, asset: asset);
+    final body = await _open(url, cancel, asset: asset, opId: opId);
     final bytes = <int>[];
     await for (final chunk in body.stream.timeout(
       const Duration(seconds: 30),
@@ -140,12 +187,102 @@ class GithubUpdateService implements UpdateService {
     UpdateTarget target,
     CancelToken cancel,
   ) async {
-    late final Map<String, dynamic> release;
+    final opId = AppLog.newOpId();
+    final requestCancel = CancelToken();
+    unawaited(cancel.whenCancel.then((error) => requestCancel.cancel(error)));
+    cancel.throwIfCancellationRequested();
+    final watch = Stopwatch()..start();
+    AppLog.event(
+      'update.check.start',
+      opId: opId,
+      fields: {'current': current.full, 'target': target.name},
+    );
     try {
-      release = await _json(latest, cancel, asset: false, limit: 1024 * 1024);
-    } on UpdateException catch (error) {
-      if (error.statusCode != 403 && error.statusCode != 429) rethrow;
-      return _checkManifest(current, target, cancel);
+      final result = await _check(current, target, requestCancel, opId).timeout(
+        checkTimeout,
+        onTimeout: () {
+          requestCancel.cancel('检查更新达到总时限');
+          throw const UpdateException('检查更新超时，请重试或打开发布页');
+        },
+      );
+      AppLog.event(
+        'update.check.result',
+        opId: opId,
+        fields: {
+          'ok': true,
+          'available': result != null,
+          'version': result?.version.full,
+          'durationMs': watch.elapsedMilliseconds,
+        },
+      );
+      return result;
+    } catch (error) {
+      AppLog.event(
+        'update.check.result',
+        level: 'W',
+        opId: opId,
+        fields: {
+          'ok': false,
+          'durationMs': watch.elapsedMilliseconds,
+          'errorType': error.runtimeType.toString(),
+          if (error is DioException) 'dioType': error.type.name,
+          if (error is UpdateException) 'message': error.message,
+        },
+      );
+      rethrow;
+    }
+  }
+
+  bool _transient(Object error) =>
+      error is TimeoutException ||
+      (error is UpdateException &&
+          (error.statusCode == 403 ||
+              error.statusCode == 429 ||
+              (error.statusCode ?? 0) >= 500)) ||
+      (error is DioException &&
+          {
+            DioExceptionType.connectionTimeout,
+            DioExceptionType.receiveTimeout,
+            DioExceptionType.sendTimeout,
+            DioExceptionType.connectionError,
+          }.contains(error.type));
+
+  Future<ReleaseUpdate?> _check(
+    AppVersion current,
+    UpdateTarget target,
+    CancelToken cancel,
+    String opId,
+  ) async {
+    late final Map<String, dynamic> release;
+    final primaryCancel = CancelToken();
+    unawaited(cancel.whenCancel.then((error) => primaryCancel.cancel(error)));
+    try {
+      release =
+          await _json(
+            latest,
+            primaryCancel,
+            asset: false,
+            limit: 1024 * 1024,
+            opId: opId,
+          ).timeout(
+            apiTimeout,
+            onTimeout: () {
+              primaryCancel.cancel('更新接口响应超时，改用官方清单');
+              throw TimeoutException('GitHub API deadline');
+            },
+          );
+    } catch (error) {
+      cancel.throwIfCancellationRequested();
+      if (!_transient(error)) rethrow;
+      AppLog.event(
+        'update.check.fallback',
+        opId: opId,
+        fields: {
+          'reason': error.runtimeType.toString(),
+          if (error is UpdateException) 'status': error.statusCode,
+        },
+      );
+      return _checkManifest(current, target, cancel, opId);
     }
     if (release['draft'] != false || release['prerelease'] != false) {
       return null;
@@ -185,6 +322,7 @@ class GithubUpdateService implements UpdateService {
     final manifest = await _json(
       ReleaseUpdate.assetUrl(version.name, manifestName),
       cancel,
+      opId: opId,
     );
     final template = ReleaseUpdate(
       version: version,
@@ -209,6 +347,7 @@ class GithubUpdateService implements UpdateService {
     AppVersion current,
     UpdateTarget target,
     CancelToken cancel,
+    String opId,
   ) async {
     // GitHub's stable latest-download route does not consume REST API quota.
     final manifest = await _json(
@@ -216,6 +355,7 @@ class GithubUpdateService implements UpdateService {
         '${ReleaseUpdate.repository}/releases/latest/download/manifest-${target.name}.json',
       ),
       cancel,
+      opId: opId,
     );
     final version = AppVersion.parse(manifest['version'] as String? ?? '');
     if (version.compareRelease(current) <= 0) return null;
@@ -224,7 +364,7 @@ class GithubUpdateService implements UpdateService {
       current,
       target,
       version: version,
-      notes: '已通过正式发布的校验清单检查。GitHub 接口暂时限流，请打开发布页查看完整更新说明。',
+      notes: '已通过 GitHub 正式发布的校验清单检查。更新接口可能限流或连接异常，请打开发布页查看完整更新说明。',
     );
   }
 
@@ -310,33 +450,112 @@ class GithubUpdateService implements UpdateService {
       }
     }
     final partial = File('${file.path}.part');
-    IOSink? sink;
-    try {
-      final body = await _open(update.downloadUrl, cancel);
-      sink = partial.openWrite();
+    final opId = AppLog.newOpId();
+    final watch = Stopwatch()..start();
+    final mirror = await _downloadMirror();
+    cancel.throwIfCancellationRequested();
+    final mirrorUrl = mirror == null
+        ? null
+        : Uri.parse(
+            '${UpdateDownloadRoute.parse(mirror.toString())}${update.downloadUrl}',
+          );
+    final sources = [?mirrorUrl, update.downloadUrl];
+    AppLog.event(
+      'update.download.start',
+      opId: opId,
+      fields: {
+        'version': update.version.full,
+        'target': update.target.name,
+        'size': update.size,
+        'host': sources.first.host,
+      },
+    );
+    for (var index = 0; index < sources.length; index++) {
+      IOSink? sink;
       var received = 0;
-      await for (final chunk in body.stream.timeout(
-        const Duration(seconds: 30),
-      )) {
-        cancel.throwIfCancellationRequested();
-        received += chunk.length;
-        if (received > update.size) {
-          throw const UpdateException('安装包大小不符，下载已丢弃');
+      var lastLogMs = watch.elapsedMilliseconds;
+      try {
+        if (index > 0) progress(0, update.size);
+        final body = await _open(
+          sources[index],
+          cancel,
+          opId: opId,
+          mirrorUrl: mirrorUrl,
+        );
+        sink = partial.openWrite();
+        await for (final chunk in body.stream.timeout(
+          const Duration(seconds: 30),
+        )) {
+          cancel.throwIfCancellationRequested();
+          received += chunk.length;
+          if (received > update.size) {
+            throw const UpdateException('安装包大小不符，下载已丢弃');
+          }
+          sink.add(chunk);
+          progress(received, update.size);
+          final ms = watch.elapsedMilliseconds;
+          if (ms - lastLogMs >= 10000) {
+            lastLogMs = ms;
+            AppLog.event(
+              'update.download.progress',
+              opId: opId,
+              fields: {
+                'received': received,
+                'total': update.size,
+                'durationMs': ms,
+                'source': index,
+              },
+            );
+          }
         }
-        sink.add(chunk);
-        progress(received, update.size);
+        await sink.flush();
+        await sink.close();
+        sink = null;
+        cancel.throwIfCancellationRequested();
+        await verify(partial, update);
+        cancel.throwIfCancellationRequested();
+        final complete = await partial.rename(file.path);
+        AppLog.event(
+          'update.download.result',
+          opId: opId,
+          fields: {
+            'ok': true,
+            'received': received,
+            'durationMs': watch.elapsedMilliseconds,
+            'verified': true,
+            'host': sources[index].host,
+          },
+        );
+        return complete;
+      } catch (error) {
+        final retry =
+            !cancel.isCancelled &&
+            index + 1 < sources.length &&
+            (_transient(error) ||
+                error is SocketException ||
+                error is HttpException ||
+                (error is UpdateException && error.statusCode == 404));
+        AppLog.event(
+          retry ? 'update.download.fallback' : 'update.download.result',
+          level: cancel.isCancelled ? 'I' : 'W',
+          opId: opId,
+          fields: {
+            'ok': false,
+            'cancelled': cancel.isCancelled,
+            'received': received,
+            'durationMs': watch.elapsedMilliseconds,
+            'errorType': error.runtimeType.toString(),
+            if (error is UpdateException) 'message': error.message,
+            if (retry) 'source': 'official',
+          },
+        );
+        if (!retry) rethrow;
+      } finally {
+        await sink?.close();
+        if (await partial.exists()) await partial.delete();
       }
-      await sink.flush();
-      await sink.close();
-      sink = null;
-      cancel.throwIfCancellationRequested();
-      await verify(partial, update);
-      cancel.throwIfCancellationRequested();
-      return await partial.rename(file.path);
-    } finally {
-      await sink?.close();
-      if (await partial.exists()) await partial.delete();
     }
+    throw const UpdateException('下载未完成，请重试');
   }
 
   @override

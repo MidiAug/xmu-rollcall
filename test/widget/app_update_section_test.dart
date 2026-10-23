@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/features/update/app_release.dart';
@@ -138,6 +139,24 @@ void main() {
       expect(service.checks, 2);
     },
   );
+  testWidgets(
+    'failed check offers concrete details, release page and retry without expanding the row',
+    (tester) async {
+      service.checkError = const UpdateException('连接更新服务超时，请重试或打开发布页');
+      await mount(tester);
+      expect(find.byType(SettingsRow), findsOneWidget);
+      await tester.tap(find.text('暂时无法检查'));
+      await tester.pumpAndSettle();
+      expect(find.text('检查更新未完成'), findsOneWidget);
+      expect(find.text('连接更新服务超时，请重试或打开发布页'), findsOneWidget);
+      expect(find.text('发布页'), findsOneWidget);
+      expect(find.text('下载线路'), findsOneWidget);
+      service.checkError = null;
+      await tester.tap(find.text('重试'));
+      await tester.pumpAndSettle();
+      expect(find.text('已是最新版本'), findsOneWidget);
+    },
+  );
   testWidgets('download cancellation can retry; leaving cancels pending work', (
     tester,
   ) async {
@@ -160,6 +179,46 @@ void main() {
     service.pendingDownload!.complete(File('fixture'));
     await tester.pump();
     expect(tester.takeException(), isNull);
+  });
+  testWidgets('release notes render Markdown and do not fetch remote images', (
+    tester,
+  ) async {
+    service.result = ReleaseUpdate(
+      version: const AppVersion(0, 2, 0, 3),
+      target: UpdateTarget.windows,
+      notes:
+          '## 修复内容\n\n- **缓存**持久化\n- [发布说明](https://github.com/MidiAug/xmu-rollcall/releases)\n\n![示意图片](https://tracking.example/pixel)',
+      size: 100,
+      sha256: '0' * 64,
+    );
+    await mount(tester);
+    await tester.tap(find.text('有更新 · v0.2.0'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MarkdownBody), findsOneWidget);
+    expect(find.text('## 修复内容'), findsNothing);
+    expect(find.text('修复内容'), findsOneWidget);
+    expect(find.text('示意图片'), findsOneWidget);
+    expect(find.byType(Image), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets('download displays byte totals and measured transfer speed', (
+    tester,
+  ) async {
+    service.result = update(UpdateTarget.windows);
+    service.pendingDownload = Completer<File>();
+    await mount(tester);
+    await tester.tap(find.byTooltip('下载更新'));
+    await tester.pumpAndSettle();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 450)),
+    );
+    service.downloadProgress!(3 * 1024 * 1024 ~/ 4, 1024 * 1024);
+    await tester.pump();
+    expect(find.text('正在下载 75%'), findsOneWidget);
+    expect(find.textContaining(RegExp(r'(KB|MB)/s')), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    service.pendingDownload!.complete(File('fixture'));
+    await tester.pump();
   });
   testWidgets(
     'Android permission round trip retains download and rechecks before retry',
