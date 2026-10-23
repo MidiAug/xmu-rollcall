@@ -365,18 +365,24 @@ class _TodosBody extends ConsumerWidget {
           padding: EdgeInsets.fromLTRB(pageX, 4, pageX, 4),
           child: Row(
             children: [
-              Icon(Icons.person_outline_rounded, size: 17, color: p.muted),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  ref.watch(rollcallAccountNameProvider),
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: p.ink,
+              if (MediaQuery.sizeOf(context).width >=
+                      AppLayout.shellBreakpoint &&
+                  ShellTabScope.maybeOf(context) != null)
+                const Spacer()
+              else ...[
+                Icon(Icons.person_outline_rounded, size: 17, color: p.muted),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    ref.watch(rollcallAccountNameProvider),
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: p.ink,
+                    ),
                   ),
                 ),
-              ),
+              ],
               AppRefreshButton(
                 tooltip: updatedAt == null
                     ? '刷新作业'

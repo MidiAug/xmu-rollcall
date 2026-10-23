@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/app/adaptive_shell.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
@@ -25,6 +26,10 @@ import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
+import 'package:xmu_rollcall/features/homework/homework_models.dart';
+import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
+import 'package:xmu_rollcall/features/homework/homework_overview.dart';
+import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
@@ -33,6 +38,7 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/platform/desktop_qr_scanner.dart';
+import '../fixtures/desktop_ui_capture.dart';
 
 class _AuthRepo extends Fake implements AuthRepository {}
 
@@ -147,6 +153,29 @@ class _AppearanceLists extends _Lists {
   }
 }
 
+class _Todos extends HomeworkTodosNotifier {
+  @override
+  Future<List<HomeworkItem>> build() async => [];
+}
+
+class _AccountHomework extends HomeworkOverviewNotifier {
+  @override
+  Future<HomeworkOverview> build() async {
+    final id = ref.watch(selectedRollcallAccountProvider);
+    return HomeworkOverview([
+      HomeworkItem(
+        id: 1,
+        title: id == null ? '主号作业' : '协助作业',
+        courseName: '测试课',
+        type: 'exam',
+      ),
+    ]);
+  }
+
+  @override
+  Future<void> ensureFresh({bool force = false}) async {}
+}
+
 class _RunningMonitor extends MonitorController {
   _RunningMonitor(super.ref) {
     state = state.copyWith(running: true, loadingSettings: false);
@@ -156,6 +185,7 @@ class _RunningMonitor extends MonitorController {
 }
 
 void main() {
+  setUpAll(loadDesktopUiCaptureFonts);
   tearDown(AppToast.dismiss);
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -178,6 +208,9 @@ void main() {
       ProviderScope(
         overrides: [
           secureStoreProvider.overrideWithValue(store),
+          homeworkTodosProvider.overrideWith(_Todos.new),
+          homeworkOverviewProvider.overrideWith(_AccountHomework.new),
+          currentTeachingCoursesProvider.overrideWith((ref) async => []),
           authControllerProvider.overrideWith((ref) => _Auth()),
           assistServiceProvider.overrideWith((ref) async => service),
           assistControllerProvider.overrideWith(
@@ -204,17 +237,21 @@ void main() {
           if (visibleTab)
             monitorControllerProvider.overrideWith(_RunningMonitor.new),
         ],
-        child: MaterialApp(
-          theme: AppTheme.light(),
-          home: Scaffold(
-            body: visibleTab
-                ? ShellTabScope(
-                    current: AppDestination.rollcall,
-                    retapEpoch: 0,
-                    retapDestination: null,
-                    child: page,
-                  )
-                : page,
+        child: RepaintBoundary(
+          key: const ValueKey('desktop-ui-capture'),
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: desktopCaptureTheme(AppTheme.light()),
+            home: Scaffold(
+              body: visibleTab
+                  ? ShellTabScope(
+                      current: AppDestination.rollcall,
+                      retapEpoch: 0,
+                      retapDestination: null,
+                      child: page,
+                    )
+                  : page,
+            ),
           ),
         ),
       ),
@@ -222,6 +259,59 @@ void main() {
     await tester.pumpAndSettle();
     return service;
   }
+
+  testWidgets(
+    'desktop sidebar is the single account entry across both pages',
+    (tester) async {
+      tester.view.physicalSize = const Size(960, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final service = await show(tester, const AdaptiveShell());
+      final menu = find.byKey(const ValueKey('rollcall-identity-menu'));
+      expect(menu, findsOneWidget);
+      expect(
+        find.descendant(of: find.byType(AppSidebar), matching: menu),
+        findsOneWidget,
+      );
+      expect(find.text('主号'), findsOneWidget);
+      await captureDesktopUi(tester, 'sidebar-rollcall');
+      Navigator.of(tester.element(find.byType(RollcallHubPage))).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('旧账号签到详情')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('未签同学').last);
+      await tester.pumpAndSettle();
+      expect(find.text('协助课程'), findsOneWidget);
+      expect(find.text('旧账号签到详情'), findsNothing);
+      expect(service.sessions, contains(2));
+      await tester.tap(find.text('作业').first);
+      await tester.pumpAndSettle();
+      expect(find.text('未签同学'), findsOneWidget);
+      expect(find.text('协助作业'), findsOneWidget);
+      await captureDesktopUi(tester, 'sidebar-homework');
+      Navigator.of(tester.element(find.byType(HomeworkHubPage))).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('旧账号作业详情')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('主号').last);
+      await tester.pumpAndSettle();
+      expect(find.text('主号作业'), findsOneWidget);
+      expect(find.text('旧账号作业详情'), findsNothing);
+      expect(find.text('主号'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
 
   testWidgets(
     'running detection owns automatic refresh, manual refresh remains available',

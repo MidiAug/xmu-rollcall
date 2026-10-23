@@ -10,6 +10,10 @@ import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/app/shell_navigation.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/auth/login_page.dart';
+import 'package:xmu_rollcall/features/assist/assist_controller.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account_menu.dart';
 import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
 import 'package:xmu_rollcall/features/settings/settings_page.dart';
@@ -138,10 +142,55 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                               (c) => c.update != null,
                             ),
                           );
+                          final auth = ref.watch(authControllerProvider);
+                          final roster = ref
+                              .watch(assistControllerProvider)
+                              .identities;
+                          final selected = ref.watch(
+                            selectedRollcallAccountProvider,
+                          );
                           return AppSidebar(
                             current: _current,
                             onSelect: _onSelect,
                             userLabel: name,
+                            accountControl: auth.isSignedIn
+                                ? RollcallAccountMenu(
+                                    width:
+                                        AppLayout.sidebarWidth -
+                                        AppSpace.sm * 2,
+                                    value:
+                                        roster.any((a) => a.userId == selected)
+                                        ? selected!
+                                        : 0,
+                                    identities: roster,
+                                    ownerName: name ?? '我',
+                                    onChanged: (value) {
+                                      // Detail routes are bound to the identity they opened with.
+                                      for (final d in [
+                                        AppDestination.rollcall,
+                                        AppDestination.homework,
+                                      ]) {
+                                        _navKeys[d.index].currentState
+                                            ?.popUntil((r) => r.isFirst);
+                                      }
+                                      ref
+                                          .read(
+                                            selectedRollcallAccountProvider
+                                                .notifier,
+                                          )
+                                          .state = value == 0
+                                          ? null
+                                          : value;
+                                    },
+                                  )
+                                : TextButton.icon(
+                                    onPressed: () => showLoginDialog(context),
+                                    icon: const Icon(
+                                      Icons.person_outline_rounded,
+                                      size: 18,
+                                    ),
+                                    label: const Text('登录账号'),
+                                  ),
                             hasUpdate: hasUpdate,
                           );
                         },

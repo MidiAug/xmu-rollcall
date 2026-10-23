@@ -787,12 +787,14 @@ class AppSidebar extends StatelessWidget {
     required this.current,
     required this.onSelect,
     this.userLabel,
+    this.accountControl,
     this.hasUpdate = false,
   });
 
   final AppDestination current;
   final ValueChanged<AppDestination> onSelect;
   final String? userLabel;
+  final Widget? accountControl;
   final bool hasUpdate;
 
   @override
@@ -811,36 +813,38 @@ class AppSidebar extends StatelessWidget {
               AppSpace.sm,
               AppSpace.xs,
             ),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpace.sm,
-                vertical: AppSpace.xs,
-              ),
-              decoration: BoxDecoration(
-                color: p.surfaceHigh,
-                borderRadius: BorderRadius.circular(AppRadii.nav),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    userLabel != null
-                        ? Icons.person_outline
-                        : Icons.person_off_outlined,
-                    size: 14,
-                    color: p.muted,
+            child:
+                accountControl ??
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpace.sm,
+                    vertical: AppSpace.xs,
                   ),
-                  const SizedBox(width: AppSpace.xs),
-                  Expanded(
-                    child: Text(
-                      userLabel ?? '未登录',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12, color: p.muted),
-                    ),
+                  decoration: BoxDecoration(
+                    color: p.surfaceHigh,
+                    borderRadius: BorderRadius.circular(AppRadii.nav),
                   ),
-                ],
-              ),
-            ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        userLabel != null
+                            ? Icons.person_outline
+                            : Icons.person_off_outlined,
+                        size: 14,
+                        color: p.muted,
+                      ),
+                      const SizedBox(width: AppSpace.xs),
+                      Expanded(
+                        child: Text(
+                          userLabel ?? '未登录',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12, color: p.muted),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpace.xs),

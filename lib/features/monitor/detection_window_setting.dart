@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_switch.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window_editor.dart';
 
 class DetectionWindowSetting extends ConsumerStatefulWidget {
   const DetectionWindowSetting({
@@ -36,30 +37,13 @@ class _DetectionWindowSettingState
   }
 
   Future<void> _pick(DetectionWindow window, bool start) async {
-    final minute = start ? window.startMinute : window.endMinute;
-    final time = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(hour: minute ~/ 60, minute: minute % 60),
-      initialEntryMode: TimePickerEntryMode.input,
-      helpText: start ? '开始时间' : '结束时间',
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
-        child: child!,
-      ),
+    final next = await showDetectionWindowEditor(
+      context,
+      window,
+      focusStart: start,
     );
-    if (!mounted || time == null) return;
-    final next = time.hour * 60 + time.minute;
-    if (next == (start ? window.endMinute : window.startMinute)) {
-      setState(() => _error = '开始和结束时间不能相同');
-      return;
-    }
-    await _save(
-      DetectionWindow(
-        enabled: window.enabled,
-        startMinute: start ? next : window.startMinute,
-        endMinute: start ? window.endMinute : next,
-      ),
-    );
+    if (!mounted || next == null) return;
+    await _save(next);
   }
 
   @override

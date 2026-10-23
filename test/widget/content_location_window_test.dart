@@ -215,14 +215,14 @@ void main() {
       expect(find.text('22:00'), findsOneWidget);
       await tester.tap(find.text('07:30'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Cancel'));
+      await tester.tap(find.text('取消'));
       await tester.pumpAndSettle();
       expect(container.read(detectionWindowProvider)!.startMinute, 450);
       await tester.tap(find.text('22:00'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, '21');
+      await tester.enterText(find.byKey(const ValueKey('window-time-2')), '21');
       await tester.enterText(find.byType(TextField).last, '30');
-      await tester.tap(find.text('OK'));
+      await tester.tap(find.text('保存'));
       await tester.pumpAndSettle();
       expect(container.read(detectionWindowProvider)!.endMinute, 1290);
       expect((await DetectionWindow.read(reload: true)).endMinute, 1290);

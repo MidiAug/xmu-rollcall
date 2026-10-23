@@ -10,7 +10,7 @@ import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
-import 'package:xmu_rollcall/core/session/assist_identity.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account_menu.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/history/history_page.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
@@ -88,9 +88,16 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
 
   Future<void> _selectIdentity(int value) async {
     final id = value == 0 ? null : value;
+    if (ref.read(selectedRollcallAccountProvider) != id) {
+      ref.read(selectedRollcallAccountProvider.notifier).state = id;
+      return;
+    }
+    await _loadIdentity(id);
+  }
+
+  Future<void> _loadIdentity(int? id) async {
     final revision = ++_switchRevision;
     setState(() {
-      ref.read(selectedRollcallAccountProvider.notifier).state = id;
       _switching = id != null;
       _switchError = null;
     });
@@ -172,6 +179,9 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
         : updatedAt == null
         ? '下拉刷新签到'
         : '更新于 ${updatedAt.hour.toString().padLeft(2, '0')}:${updatedAt.minute.toString().padLeft(2, '0')}';
+    ref.listen(selectedRollcallAccountProvider, (previous, next) {
+      if (previous != next) unawaited(_loadIdentity(next));
+    });
     ref.listen(authControllerProvider.select((state) => state.profile?.id), (
       previous,
       next,
@@ -226,12 +236,15 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                         Row(
                           children: [
                             Expanded(
-                              child: _IdentityMenu(
-                                value: scope ?? 0,
-                                identities: roster,
-                                ownerName: auth.profile?.name ?? '我',
-                                onChanged: _selectIdentity,
-                              ),
+                              child:
+                                  wide && ShellTabScope.maybeOf(context) != null
+                                  ? const _PollQuickBar()
+                                  : RollcallAccountMenu(
+                                      value: scope ?? 0,
+                                      identities: roster,
+                                      ownerName: auth.profile?.name ?? '我',
+                                      onChanged: _selectIdentity,
+                                    ),
                             ),
                             const SizedBox(width: 4),
                             AppRefreshButton(
@@ -286,7 +299,8 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                               ),
                             ),
                             const SizedBox(width: 8),
-                            const _PollQuickBar(),
+                            if (!wide || ShellTabScope.maybeOf(context) == null)
+                              const _PollQuickBar(),
                           ],
                         ),
                       ],
@@ -319,44 +333,6 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
       ),
     );
   }
-}
-
-class _IdentityMenu extends StatelessWidget {
-  const _IdentityMenu({
-    required this.value,
-    required this.identities,
-    required this.ownerName,
-    required this.onChanged,
-  });
-  final int value;
-  final List<AssistIdentity> identities;
-  final String ownerName;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) => Align(
-    alignment: Alignment.centerLeft,
-    child: AppShellSelect<int>(
-      key: const ValueKey('rollcall-identity-menu'),
-      width: 180,
-      menuWidth: 220,
-      value: value,
-      items: [0, for (final identity in identities) identity.userId],
-      labelOf: (id) => id == 0
-          ? ownerName
-          : identities.firstWhere((item) => item.userId == id).displayName,
-      leading: Icon(
-        Icons.person_outline_rounded,
-        size: 18,
-        color: AppPalette.of(context).primary,
-      ),
-      onChanged: identities.isEmpty
-          ? null
-          : (id) {
-              if (id != value) onChanged(id);
-            },
-    ),
-  );
 }
 
 /// Idle: 「开始检测」pill. Running: capsule with countdown (tap = pollNow) + stop.
