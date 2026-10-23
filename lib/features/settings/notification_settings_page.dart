@@ -40,7 +40,8 @@ Future<void> showBackgroundReminderSetup(BuildContext context) async {
 }
 
 class NotificationSettingsPage extends StatefulWidget {
-  const NotificationSettingsPage({super.key});
+  const NotificationSettingsPage({super.key, this.readStatus});
+  final Future<AndroidDiscoveryNotificationStatus> Function()? readStatus;
   @override
   State<NotificationSettingsPage> createState() =>
       _NotificationSettingsPageState();
@@ -58,6 +59,10 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
   bool _busy = false;
   bool _showHelp = false;
 
+  Future<AndroidDiscoveryNotificationStatus> _readStatus() =>
+      widget.readStatus?.call() ??
+      AndroidMonitorShell.instance.readNotificationSettings();
+
   @override
   void initState() {
     super.initState();
@@ -67,8 +72,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
 
   Future<void> _refresh() async {
     try {
-      final status = await AndroidMonitorShell.instance
-          .readNotificationSettings();
+      final status = await _readStatus();
       final prefs = await SharedPreferences.getInstance();
       DateTime? pendingDeadline;
       String? pendingFingerprint;
@@ -156,8 +160,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       }
       // Starting the first service also creates its quiet notification channel.
       // Capture settings after that creation so a fresh install can retain its confirmation.
-      final startedStatus = await AndroidMonitorShell.instance
-          .readNotificationSettings();
+      final startedStatus = await _readStatus();
       final deadline = DateTime.now().add(const Duration(seconds: 30));
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
@@ -248,7 +251,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         .toLowerCase()
         .contains('xiaomi');
     String action = '测试锁屏提醒';
-    String instruction = '先锁屏等待 30 秒，收到震动后返回这里确认。无需有课程，也不会请求课程接口。';
+    String instruction = '点此后锁屏等待 30 秒，收到预期提醒后返回确认。测试不会请求课程接口，也不会提交签到。';
     if (_loading) {
       action = '正在检查…';
     } else if (_readFailed) {
@@ -259,7 +262,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
       instruction = '打开系统通知设置，允许厦大签到发送通知。';
     } else if (status?.discoveryBlocked == true) {
       action = '开启发现提醒';
-      instruction = '在「签到发现」类别中开启通知、悬浮和震动，一次完成。';
+      instruction = '在「签到发现」类别中允许通知；声音、震动和横幅按你的习惯选择。';
     } else if (status?.ongoingAlerts == true) {
       action = '让倒计时保持安静';
       instruction = '在「签到检测」类别中关闭声音、震动与悬浮，保留允许通知。';
@@ -279,7 +282,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         children: [
           SettingsSection(
             padTop: false,
-            header: verified ? '提醒已实测' : '一次确认，之后直接使用',
+            header: verified ? '提醒已实测' : '检查 → 测试 → 确认收到',
             children: [
               SettingsRow(
                 leading: Icon(
@@ -295,7 +298,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                 subtitle: waiting
                     ? '测试结束后自动停止临时任务'
                     : _deadline != null
-                    ? '确认手机实际震动；亮屏效果由手机设置决定'
+                    ? '确认实际收到预期提醒；声音、震动和横幅由手机设置决定'
                     : instruction,
                 trailing: _busy
                     ? const SizedBox(
@@ -316,7 +319,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                     children: [
                       FilledButton(
                         onPressed: () => _confirmTest(true),
-                        child: const Text('已收到震动'),
+                        child: const Text('已收到提醒'),
                       ),
                       TextButton(
                         onPressed: () => _confirmTest(false),
@@ -334,7 +337,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                 SettingsRow(
                   leading: const Icon(Icons.notifications_outlined),
                   title: '通知出现，但没有震动或横幅',
-                  subtitle: '只检查「签到发现」：开启悬浮与震动',
+                  subtitle: '检查「签到发现」中的声音、震动和悬浮选项',
                   onTap: () => _open(
                     AndroidMonitorShell
                         .instance
@@ -404,6 +407,13 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                 ),
               ),
             ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: AppSpace.md),
+            child: Text(
+              '开始检测 → 发现签到 → 提醒或按规则自动提交。检测倒计时保持安静，自动提交结果更新原提醒。退出账号、手动停止或达到系统后台时限后停止检测。',
+              style: TextStyle(fontSize: 12, height: 1.5, color: p.muted),
+            ),
           ),
         ],
       ),

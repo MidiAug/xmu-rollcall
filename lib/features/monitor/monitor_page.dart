@@ -8,6 +8,7 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
 import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
+import 'package:xmu_rollcall/features/settings/desktop_notification_settings_page.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
 /// Secondary page: poll interval / jitter / presets / logs.
@@ -61,8 +62,8 @@ class MonitorSettingsPage extends ConsumerWidget {
                             const SizedBox(height: 4),
                             Text(
                               state.running
-                                  ? '数字签到  满足规则后提交'
-                                  : '数字签到  开始检测后生效',
+                                  ? '数字与已有本课位置的雷达签到，满足规则后提交'
+                                  : '开始检测后生效，默认关闭',
                               style: TextStyle(fontSize: 12, color: p.muted),
                             ),
                           ],
@@ -140,7 +141,7 @@ class MonitorSettingsPage extends ConsumerWidget {
                   ],
                   const SizedBox(height: 10),
                   Text(
-                    '二维码需要扫码；雷达签到需要确认位置。',
+                    '雷达仅使用本账号、本课程已设置或上次成功的位置；没有位置只提醒，失败后手动处理。二维码仍需扫码。',
                     style: TextStyle(fontSize: 11, height: 1.5, color: p.muted),
                   ),
                 ],
@@ -314,16 +315,18 @@ class MonitorSettingsPage extends ConsumerWidget {
                 ],
               ),
             ),
-            if (PlatformHooks.isAndroid)
+            if (PlatformHooks.isAndroid || PlatformHooks.isDesktop)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: TextButton.icon(
                   onPressed: () => AppPageRoutes.push(
                     context,
-                    const NotificationSettingsPage(),
+                    PlatformHooks.isAndroid
+                        ? const NotificationSettingsPage()
+                        : const DesktopNotificationSettingsPage(),
                   ),
                   icon: const Icon(Icons.notifications_none_rounded, size: 18),
-                  label: const Text('后台运行与通知'),
+                  label: const Text('检测提醒与后台运行'),
                 ),
               ),
           ],

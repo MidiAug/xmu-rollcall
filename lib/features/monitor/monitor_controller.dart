@@ -7,7 +7,7 @@ import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_engine.dart';
-import 'package:xmu_rollcall/features/monitor/automatic_number_answer.dart';
+import 'package:xmu_rollcall/features/monitor/automatic_rollcall_answer.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
@@ -16,6 +16,7 @@ import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/core/session/session_key.dart';
+import 'package:xmu_rollcall/features/location/course_radar_store.dart';
 
 enum StartMonitorResult {
   started,
@@ -319,21 +320,21 @@ class MonitorController extends StateNotifier<MonitorState> {
     );
     if (newPoll) {
       _lastSnapshotPoll = lastMs;
-      if (data['ok'] == true && data['items'] is List) {
-        final items = (data['items'] as List)
-            .map(
-              (item) =>
-                  RollcallItem.fromJson(Map<String, dynamic>.from(item as Map)),
-            )
-            .toList();
-        _ref
-            .read(
-              activeRollcallsProvider(
-                _ref.read(selectedRollcallAccountProvider),
-              ).notifier,
-            )
-            .applyMonitorItems(items);
-      }
+    }
+    if (data['ok'] == true && data['items'] is List) {
+      final items = (data['items'] as List)
+          .map(
+            (item) =>
+                RollcallItem.fromJson(Map<String, dynamic>.from(item as Map)),
+          )
+          .toList();
+      _ref
+          .read(
+            activeRollcallsProvider(
+              _ref.read(selectedRollcallAccountProvider),
+            ).notifier,
+          )
+          .applyMonitorItems(items);
     }
     if (data['reason'] == 'session_expired' && scope == null) {
       _ref.read(authControllerProvider.notifier).expireSession();
@@ -563,8 +564,13 @@ class MonitorController extends StateNotifier<MonitorState> {
             ? rollcallRepositoryProvider
             : rollcallRepositoryForProvider(scope),
       );
-      final automatic = AutomaticNumberAnswer(
+      final automatic = AutomaticRollcallAnswer(
         repository: repo,
+        radarLocation: (item) => readAutomaticRadarLocation(
+          ownerId: userId,
+          assistUserId: scope,
+          courseId: item.courseId,
+        ),
         requireCurrent: () async {
           final auth = _ref.read(authControllerProvider);
           if (!current() ||
@@ -574,23 +580,32 @@ class MonitorController extends StateNotifier<MonitorState> {
             throw StateError('Account changed');
           }
         },
-        onAnswered: (item, result) => _ref
-            .read(_ref.read(localHistoryForProvider(scope)).notifier)
-            .add(
-              RollcallHistoryEntry(
-                rollcallId: item.rollcallId,
-                courseTitle: item.courseTitle,
-                typeLabel: '数字（自动）',
-                ok: result.ok,
-                at: DateTime.now(),
-                detail: result.message,
-              ),
-            ),
+        onAnswered: (item, result) async {
+          await _ref
+              .read(_ref.read(localHistoryForProvider(scope)).notifier)
+              .add(
+                RollcallHistoryEntry(
+                  rollcallId: item.rollcallId,
+                  courseTitle: item.courseTitle,
+                  typeLabel: '${item.typeLabel}（自动）',
+                  ok: result.ok,
+                  at: DateTime.now(),
+                  detail: result.message,
+                ),
+              );
+          if (current()) {
+            await PlatformHooks.onAutomaticAnswerResult?.call(
+              item.courseTitle,
+              result.ok,
+            );
+          }
+        },
       );
       _engine = MonitorEngine(
         config: state.config,
         fetch: repo.fetchActive,
         processAutomatic: automatic.process,
+        completedAutomaticIds: () => automatic.completedIds,
         notify: (items) async {
           if (!current()) return false;
           final notify = PlatformHooks.onRollcallsDiscovered;

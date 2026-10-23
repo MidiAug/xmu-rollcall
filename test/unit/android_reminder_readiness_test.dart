@@ -26,23 +26,26 @@ void main() {
     expect(status.discoveryBlocked, false);
     expect(status.ongoingAlerts, false);
   });
-  test('app denial and disabled vibration require attention', () {
-    const denied = AndroidDiscoveryNotificationStatus(
-      enabled: false,
-      channel: discovery,
-    );
-    const noVibration = AndroidDiscoveryNotificationStatus(
-      enabled: true,
-      channel: AndroidNotificationChannel(
-        'monitor_discovery',
-        '发现',
-        importance: Importance.high,
-        enableVibration: false,
-      ),
-    );
-    expect(denied.discoveryBlocked, true);
-    expect(noVibration.discoveryBlocked, true);
-  });
+  test(
+    'app denial blocks; sound-only preferences permit actual delivery testing',
+    () {
+      const denied = AndroidDiscoveryNotificationStatus(
+        enabled: false,
+        channel: discovery,
+      );
+      const noVibration = AndroidDiscoveryNotificationStatus(
+        enabled: true,
+        channel: AndroidNotificationChannel(
+          'monitor_discovery',
+          '发现',
+          importance: Importance.high,
+          enableVibration: false,
+        ),
+      );
+      expect(denied.discoveryBlocked, true);
+      expect(noVibration.discoveryBlocked, false);
+    },
+  );
   test('old success cannot validate changed permission or system version', () {
     const before = AndroidDiscoveryNotificationStatus(
       enabled: true,

@@ -24,6 +24,8 @@ abstract final class PlatformHooks {
 
   /// Optional hook: main monitor discovered [count] new ongoing rollcalls.
   static Future<void> Function(int count)? onRollcallsDiscovered;
+  static Future<void> Function(String courseTitle, bool ok)?
+  onAutomaticAnswerResult;
 
   /// Icon for “跟随系统” appearance — matches current form factor.
   static IconData systemAppearanceIcon(BuildContext context) {

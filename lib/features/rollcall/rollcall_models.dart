@@ -109,6 +109,7 @@ class RollcallItem {
   };
 
   RollcallItem copyWith({
+    String? status,
     String? numberCode,
     String? numberCodeError,
     bool clearNumberCode = false,
@@ -120,7 +121,7 @@ class RollcallItem {
       createdByName: createdByName,
       departmentName: departmentName,
       type: type,
-      status: status,
+      status: status ?? this.status,
       rollcallStatus: rollcallStatus,
       isExpired: isExpired,
       scored: scored,

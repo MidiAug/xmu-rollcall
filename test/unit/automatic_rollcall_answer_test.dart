@@ -1,18 +1,20 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xmu_rollcall/features/monitor/automatic_number_answer.dart';
+import 'package:xmu_rollcall/features/monitor/automatic_rollcall_answer.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_engine.dart';
 import 'package:xmu_rollcall/features/rollcall/attendance_count.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
 import 'package:xmu_rollcall/platform/android_monitor_store.dart';
+import 'package:xmu_rollcall/features/location/location_models.dart';
 
 RollcallItem item({
   bool expired = false,
   bool answered = false,
   RollcallType type = RollcallType.number,
+  String? courseId,
 }) => RollcallItem(
   rollcallId: 9,
   courseTitle: '测试课',
@@ -22,6 +24,7 @@ RollcallItem item({
   rollcallStatus: 'on_call',
   isExpired: expired,
   scored: false,
+  raw: {'course_id': ?courseId},
 );
 
 class Repo extends Fake implements RollcallRepository {
@@ -32,9 +35,12 @@ class Repo extends Fake implements RollcallRepository {
   Object? answerError;
   Completer<String?>? pendingCode;
   void Function()? onCode;
+  bool radarOk = true;
+  Future<void> Function()? onAttendance;
   @override
   Future<AttendanceCount> fetchAttendanceCount(int id) async {
     calls.add('count');
+    await onAttendance?.call();
     if (countError != null) throw countError!;
     return count;
   }
@@ -63,11 +69,27 @@ class Repo extends Fake implements RollcallRepository {
     if (answerError != null) throw answerError!;
     return const AnswerResult(ok: true);
   }
+
+  @override
+  Future<AnswerResult> answerRadar({
+    required int rollcallId,
+    required double latitude,
+    required double longitude,
+    double accuracy = 35,
+    String? opId,
+  }) async {
+    expect(latitude, 24.5);
+    expect(longitude, 118.2);
+    expect(accuracy, 180);
+    calls.add('radar');
+    if (answerError != null) throw answerError!;
+    return AnswerResult(ok: radarOk);
+  }
 }
 
 void main() {
   late Repo repo;
-  late AutomaticNumberAnswer automatic;
+  late AutomaticRollcallAnswer automatic;
   late DateTime now;
   var current = true;
   const percent = MonitorConfig(autoAnswer: true, answerWaitPercent: 30);
@@ -79,7 +101,7 @@ void main() {
     repo = Repo();
     current = true;
     now = DateTime(2026, 10, 21);
-    automatic = AutomaticNumberAnswer(
+    automatic = AutomaticRollcallAnswer(
       repository: repo,
       requireCurrent: () async {},
       now: () => now,
@@ -87,6 +109,121 @@ void main() {
   });
   Future<String?> run([MonitorConfig c = percent]) =>
       automatic.process([item()], c, () => current);
+
+  final radar = item(type: RollcallType.radar, courseId: '7');
+  CourseRadarPref location({String courseId = '7', bool configured = false}) =>
+      CourseRadarPref(
+        courseTitle: '测试课',
+        courseId: courseId,
+        latitude: 24.5,
+        longitude: 118.2,
+        accuracy: 180,
+        userConfigured: configured,
+      );
+  AutomaticRollcallAnswer withRadar(
+    Future<CourseRadarPref?> Function(RollcallItem) read,
+  ) => AutomaticRollcallAnswer(
+    repository: repo,
+    requireCurrent: () async {},
+    radarLocation: read,
+    now: () => now,
+  );
+
+  test('radar requires opt-in and an exact current-course location', () async {
+    repo.latest = [radar];
+    for (final pref in [null, location(courseId: 'other')]) {
+      final handler = withRadar((_) async => pref);
+      await handler.process([radar], noWait, () => true);
+      expect(repo.calls, isEmpty);
+    }
+    final handler = withRadar((_) async => location());
+    await handler.process([radar], const MonitorConfig(), () => true);
+    await handler.process([item(type: RollcallType.radar)], noWait, () => true);
+    expect(repo.calls, isEmpty);
+  });
+
+  test(
+    'configured and successful radar positions share attendance rules and preserve accuracy',
+    () async {
+      repo.latest = [radar];
+      for (final configured in [false, true]) {
+        repo.calls.clear();
+        final handler = withRadar(
+          (_) async => location(configured: configured),
+        );
+        repo.count = const AttendanceCount(3, 11);
+        await handler.process([radar], percent, () => true);
+        expect(repo.calls, ['count']);
+        repo.count = const AttendanceCount(4, 11);
+        await handler.process([radar], percent, () => true);
+        expect(repo.calls, ['count', 'count', 'active', 'radar']);
+        expect(handler.completedIds, contains(9));
+      }
+    },
+  );
+
+  test(
+    'removing a radar position or stopping during attendance prevents put',
+    () async {
+      repo.latest = [radar];
+      var present = true;
+      final handler = withRadar((_) async => present ? location() : null);
+      repo.count = const AttendanceCount(11, 11);
+      repo.onAttendance = () async {
+        present = false;
+      };
+      await handler.process([radar], percent, () => current);
+      expect(repo.calls, ['count', 'active']);
+      repo.calls.clear();
+      present = true;
+      repo.onAttendance = () async {
+        current = false;
+      };
+      await handler.process([radar], percent, () => current);
+      expect(repo.calls, ['count']);
+    },
+  );
+
+  test(
+    'rejected or uncertain radar submissions are never repeated in the run',
+    () async {
+      repo.latest = [radar];
+      for (final failure in [false, true]) {
+        repo.calls.clear();
+        repo.radarOk = false;
+        repo.answerError = failure ? StateError('transport uncertain') : null;
+        final handler = withRadar((_) async => location());
+        await handler.process([radar], noWait, () => true);
+        now = now.add(const Duration(minutes: 2));
+        await handler.process([radar], noWait, () => true);
+        expect(repo.calls.where((call) => call == 'radar'), hasLength(1));
+      }
+    },
+  );
+
+  test(
+    'successful automatic response updates the same engine snapshot',
+    () async {
+      repo.latest = [radar];
+      final handler = withRadar((_) async => location());
+      final updates = <MonitorEngineUpdate>[];
+      final engine = MonitorEngine(
+        config: noWait,
+        fetch: () async => [radar],
+        notify: (_) async => true,
+        processAutomatic: handler.process,
+        completedAutomaticIds: () => handler.completedIds,
+        onUpdate: updates.add,
+      );
+      addTearDown(engine.stop);
+      engine.start();
+      await engine.pollNow();
+      expect(
+        updates.where((u) => u.items != null).last.items!.single.isAnswered,
+        true,
+      );
+    },
+  );
 
   test(
     'attendance counts only positive rollcall_status; rejects incomplete payloads',
