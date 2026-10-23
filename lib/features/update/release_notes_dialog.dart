@@ -125,19 +125,7 @@ class ReleaseNotesDialog extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
               child: Row(
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '下载线路',
-                          style: TextStyle(fontSize: 11, color: p.muted),
-                        ),
-                        routeSelector,
-                      ],
-                    ),
-                  ),
+                  Expanded(child: routeSelector),
                   const SizedBox(width: 16),
                   FilledButton(
                     onPressed: () => Navigator.pop(context),

@@ -137,6 +137,11 @@ void main() {
         await capture('01-available');
         await tester.tap(find.text('有更新 · v0.2.0'));
         await tester.pumpAndSettle();
+        expect(find.text('下载线路'), findsNothing);
+        expect(
+          tester.getSize(find.byType(DropdownButton<String>)).width,
+          lessThanOrEqualTo(180),
+        );
         await capture('02-notes');
         await tester.tap(find.text('关闭'));
         await tester.pumpAndSettle();

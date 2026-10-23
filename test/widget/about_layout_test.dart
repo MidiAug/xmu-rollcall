@@ -78,7 +78,9 @@ void main() {
             );
           }
           if (scenario == 'failed') {
-            service.checkError = const UpdateException('更新服务暂不可用，请稍后重试。');
+            service.checkError = const UpdateException(
+              '更新服务暂不可用，连接超时，请检查网络后重试；这是一段用于验证窄屏单行省略的较长错误说明。',
+            );
           }
           final controller = AppUpdateController(
             service: service,
@@ -133,7 +135,7 @@ void main() {
             expect(updateRect.width, repositoryRect.width);
             // At 320px the test font may wrap the repository address; let
             // large text grow vertically instead of imposing a fixed height.
-            if (width >= 384 && scenario != 'failed') {
+            if (width >= 384) {
               expect(updateRect.height, repositoryRect.height);
             }
             expect(

@@ -105,6 +105,7 @@ class SettingsRow extends StatefulWidget {
     this.leading,
     required this.title,
     this.subtitle,
+    this.subtitleMaxLines,
     this.subtitleWidget,
     this.trailing,
     this.onTap,
@@ -114,6 +115,7 @@ class SettingsRow extends StatefulWidget {
   final Widget? leading;
   final String title;
   final String? subtitle;
+  final int? subtitleMaxLines;
 
   /// Extra block under [subtitle] (e.g. selectable mono device id).
   final Widget? subtitleWidget;
@@ -181,6 +183,10 @@ class _SettingsRowState extends State<SettingsRow> {
                     ),
                     Text(
                       widget.subtitle!,
+                      maxLines: widget.subtitleMaxLines,
+                      overflow: widget.subtitleMaxLines == null
+                          ? null
+                          : TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.4,

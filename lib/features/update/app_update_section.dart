@@ -316,10 +316,11 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
               )
             : const Icon(Icons.system_update_alt_rounded),
         title: _phase == _UpdatePhase.downloading ? _message : '检查更新',
+        subtitleMaxLines: 1,
         subtitle: _phase == _UpdatePhase.downloading
             ? _downloadDetails
             : _controller.status == UpdateCheckStatus.failed
-            ? '$status\n${_controller.error ?? '请检查网络后重试'}'
+            ? '$status · ${_controller.error ?? '请检查网络后重试'}'
             : status,
         onTap: update != null ? _showReleaseNotes : (_busy ? null : _check),
         trailing: SizedBox.square(

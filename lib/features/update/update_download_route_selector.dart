@@ -86,78 +86,89 @@ class _RouteSelectorState extends State<UpdateDownloadRouteSelector> {
     final customSaved =
         _saved != null &&
         !UpdateDownloadRoute.suggested.contains(_saved.toString());
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            value: _choice,
-            isExpanded: true,
-            borderRadius: BorderRadius.circular(12),
-            dropdownColor: p.surface,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(fontSize: 13, color: p.ink),
-            icon: const Icon(Icons.expand_more_rounded, size: 18),
-            items: [
-              const DropdownMenuItem(
-                value: 'official',
-                child: Text('GitHub 官方'),
-              ),
-              for (final route in UpdateDownloadRoute.suggested)
-                DropdownMenuItem(
-                  value: route,
-                  child: Text(
-                    Uri.parse(route).host,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+    return Align(
+      alignment: Alignment.centerLeft,
+      widthFactor: 1,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 180),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: _choice,
+                isExpanded: true,
+                borderRadius: BorderRadius.circular(12),
+                dropdownColor: p.surface,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(fontSize: 13, color: p.ink),
+                icon: const Icon(Icons.expand_more_rounded, size: 18),
+                items: [
+                  const DropdownMenuItem(
+                    value: 'official',
+                    child: Text('GitHub 官方'),
                   ),
-                ),
-              if (customSaved)
-                DropdownMenuItem(
-                  value: _saved.toString(),
-                  child: Text(_saved!.host, overflow: TextOverflow.ellipsis),
-                ),
-              const DropdownMenuItem(value: 'custom', child: Text('自定义线路…')),
-            ],
-            onChanged: !_ready || _saving || !widget.enabled
-                ? null
-                : (value) {
-                    if (value == 'custom') {
-                      setState(() {
-                        _choice = value!;
-                        _error = null;
-                      });
-                    } else {
-                      _save(value == 'official' ? null : value);
-                    }
-                  },
-          ),
-        ),
-        if (_choice == 'custom')
-          TextField(
-            controller: _custom,
-            enabled: !_saving && widget.enabled,
-            keyboardType: TextInputType.url,
-            onSubmitted: _save,
-            style: const TextStyle(fontSize: 13),
-            decoration: InputDecoration(
-              hintText: 'https://mirror.example/',
-              errorText: _error,
-              errorMaxLines: 3,
-              suffixIcon: IconButton(
-                tooltip: '应用线路',
-                onPressed: _saving ? null : () => _save(_custom.text),
-                icon: const Icon(Icons.check_rounded, size: 18),
+                  for (final route in UpdateDownloadRoute.suggested)
+                    DropdownMenuItem(
+                      value: route,
+                      child: Text(
+                        Uri.parse(route).host,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  if (customSaved)
+                    DropdownMenuItem(
+                      value: _saved.toString(),
+                      child: Text(
+                        _saved!.host,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  const DropdownMenuItem(
+                    value: 'custom',
+                    child: Text('自定义线路…'),
+                  ),
+                ],
+                onChanged: !_ready || _saving || !widget.enabled
+                    ? null
+                    : (value) {
+                        if (value == 'custom') {
+                          setState(() {
+                            _choice = value!;
+                            _error = null;
+                          });
+                        } else {
+                          _save(value == 'official' ? null : value);
+                        }
+                      },
               ),
             ),
-          )
-        else if (_error != null)
-          Text(_error!, style: TextStyle(fontSize: 12, color: p.danger)),
-        if (_saved != null)
-          Text('第三方线路仅用于下载安装包', style: TextStyle(fontSize: 11, color: p.muted)),
-      ],
+            if (_choice == 'custom')
+              TextField(
+                controller: _custom,
+                enabled: !_saving && widget.enabled,
+                keyboardType: TextInputType.url,
+                onSubmitted: _save,
+                style: const TextStyle(fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'https://mirror.example/',
+                  errorText: _error,
+                  errorMaxLines: 3,
+                  suffixIcon: IconButton(
+                    tooltip: '应用线路',
+                    onPressed: _saving ? null : () => _save(_custom.text),
+                    icon: const Icon(Icons.check_rounded, size: 18),
+                  ),
+                ),
+              )
+            else if (_error != null)
+              Text(_error!, style: TextStyle(fontSize: 12, color: p.danger)),
+          ],
+        ),
+      ),
     );
   }
 }
