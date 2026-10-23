@@ -3,6 +3,7 @@ package cn.edu.xmu.rollcall.xmu_rollcall
 import android.content.Intent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     // Keep external share targets in their own task on Android/HyperOS.
@@ -33,5 +34,7 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         flutterEngine.plugins.add(AndroidMonitorPlugin())
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "xmu_rollcall/update")
+            .setMethodCallHandler(AppUpdateInstaller(this))
     }
 }

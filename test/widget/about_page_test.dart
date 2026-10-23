@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/features/settings/about_page.dart';
+import '../fixtures/update_fakes.dart';
 
 void main() {
   for (final width in [320.0, 384.0, 960.0]) {
@@ -35,13 +36,14 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: width == 960 ? AppTheme.dark() : AppTheme.light(),
-          home: const AboutPage(),
+          home: AboutPage(updateService: FakeUpdateService()),
         ),
       );
       await tester.pumpAndSettle();
       expect(find.text('版本 0.1.0'), findsOneWidget);
       expect(find.text('MidiAug/xmu-rollcall'), findsOneWidget);
       expect(find.textContaining('尚未创建'), findsNothing);
+      await tester.ensureVisible(find.byTooltip('复制仓库地址'));
       await tester.tap(find.byTooltip('复制仓库地址'));
       await tester.pumpAndSettle();
       expect(copied, AboutPage.repository);

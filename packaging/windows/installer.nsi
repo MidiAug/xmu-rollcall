@@ -27,11 +27,13 @@ ManifestDPIAware true
 Name "${PRODUCT_NAME}"
 OutFile "${OUT_FILE}"
 InstallDir "$LOCALAPPDATA\Programs\${PRODUCT_FOLDER}"
+InstallDirRegKey HKCU "${UNINST_KEY}" "InstallLocation"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
 
 !include "MUI2.nsh"
 !include "LogicLib.nsh"
+!include "FileFunc.nsh"
 
 !define MUI_ABORTWARNING
 !ifdef INSTALLER_ICON
@@ -54,6 +56,20 @@ VIAddVersionKey /LANG=${LANG_ENGLISH} "FileVersion" "${PRODUCT_VERSION}"
 VIAddVersionKey /LANG=${LANG_ENGLISH} "ProductVersion" "${PRODUCT_VERSION}"
 
 Function .onInit
+  ; App-launched updates wait for its graceful exit; never kill the old process.
+  ${GetParameters} $0
+  ${GetOptions} $0 "/UPDATEPID=" $1
+  ${If} $1 != ""
+    System::Call 'kernel32::OpenProcess(i 0x00100000, i 0, i r1) p.r2'
+    ${If} $2 != 0
+      System::Call 'kernel32::WaitForSingleObject(p r2, i 30000) i.r3'
+      System::Call 'kernel32::CloseHandle(p r2)'
+      ${If} $3 != 0
+        MessageBox MB_OK|MB_ICONEXCLAMATION "应用尚未退出，请退出后重新运行安装程序。" /SD IDOK
+        Abort
+      ${EndIf}
+    ${EndIf}
+  ${EndIf}
   FindWindow $0 "FLUTTER_RUNNER_WIN32_WINDOW" "${PRODUCT_NAME}"
   ${If} $0 != 0
     MessageBox MB_OK|MB_ICONEXCLAMATION "请先从窗口或系统托盘退出厦大签到，再运行安装程序。" /SD IDOK

@@ -44,6 +44,16 @@ pwsh -File scripts/package-android.ps1 -RequireSigning
 
 发布资产共 6 个：APK、Windows 安装器、Windows ZIP、`manifest-android.json`、`manifest-windows.json`、`SHA256SUMS`。manifest 记录完整版本、源码 commit、平台、签名模式、文件大小及 SHA-256。Linux 可运行 `sha256sum --check SHA256SUMS`；Windows 可用 `Get-FileHash -Algorithm SHA256 <文件>` 比对。
 
+## 应用内更新
+
+「我的 → 关于」读取 `MidiAug/xmu-rollcall` 的 GitHub 最新公开稳定 Release；保存草稿、推送标签或发布预发布版本不会被提示为正式更新。每次新发版应递增 `X.Y.Z`，Android 的 `BUILD` 也必须大于旧版；不复用旧标签或替换已发布文件。
+
+请通过本工作流生成并保留现有 6 个资产和精确名称。应用按平台清单核对版本、签名模式、大小、SHA-256，并选择 Android 正式 APK 或 Windows x64 setup EXE；GitHub 提供资产 digest 时还会比对。匿名 REST API 限流时只尝试一次 GitHub 的 latest/download 清单备用路径，保持相同平台、版本、大小和哈希检查，此时完整说明通过发布页查看。检查和下载不需要 GitHub 登录，不携带校园账号信息。网络异常、缺少清单或旧式发布时，可打开官方发布页手动下载。
+
+Android 由系统交互安装，先检查包名、versionCode 与签名兼容；不兼容时提示联系维护者，不引导卸载。首次使用旧开发签名包的用户仍需要匹配的原签名密钥。Windows 用户确认后启动安装器并退出，安装器通过 `/UPDATEPID` 等待旧进程，按注册的安装位置更新；便携用户使用安装器会转为安装版。没有静默安装参数，Windows 仍可能显示系统发布者提示。
+
+新功能不能回填到已安装旧版；首次需手动安装包含更新功能的版本。自动检查当前只在进入关于页触发，另有手动重试，不在后台持续轮询。下载期间离页取消未完成文件；完成文件在应用缓存中，安装前重新校验。本机模拟测试与构建不代替 Android 来源权限/覆盖安装、Windows 向导与重启验收。
+
 ## 失败与重试
 
 - 任何检查或任一平台构建失败，均不生成 Release 草稿；缺签名在预检阶段立即失败。

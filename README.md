@@ -74,6 +74,10 @@
 
 ## 下载安装
 
+安装带有更新功能的版本后，可在「我的 → 关于」检查 GitHub 最新正式版本、查看更新说明并下载。下载完成后校验大小与 SHA-256，再由你确认安装；Android 按系统提示允许安装来源，Windows 会在确认后停止检测、退出应用并打开安装向导。便携版使用安装器更新会转为安装版，也可从发布页手动下载便携 ZIP。
+
+应用内安装要求 Release 带有工作流生成的 `manifest-android.json` / `manifest-windows.json` 和对应安装包；旧发布缺少清单时保留浏览器入口。Android 必须沿用兼容签名并递增构建号；preview 测试版与正式版独立安装。当前已安装的旧版首次需要手动升级到包含此功能的版本。
+
 [v0.1.0 发布页](https://github.com/MidiAug/xmu-rollcall/releases/tag/v0.1.0)
 
 | 平台 | 下载 | 怎么用 |

@@ -246,7 +246,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 SettingsRow(
                   leading: const Icon(Icons.info_outline_rounded),
                   title: '关于',
-                  subtitle: '软件介绍与版本信息',
+                  subtitle: '版本、检查更新与软件介绍',
                   trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
                   onTap: () => AppPageRoutes.push(context, const AboutPage()),
                 ),

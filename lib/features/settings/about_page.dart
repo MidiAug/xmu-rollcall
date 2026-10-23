@@ -5,9 +5,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
+import 'package:xmu_rollcall/features/update/app_update_section.dart';
+import 'package:xmu_rollcall/features/update/github_update_service.dart';
 
 class AboutPage extends StatefulWidget {
-  const AboutPage({super.key});
+  const AboutPage({super.key, this.updateService});
+  final UpdateService? updateService;
   static const repository = 'https://github.com/MidiAug/xmu-rollcall';
 
   @override
@@ -74,6 +77,7 @@ class _AboutPageState extends State<AboutPage> {
               ),
             ),
             const SizedBox(height: 24),
+            AppUpdateSection(package: _package, service: widget.updateService),
             Panel(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
