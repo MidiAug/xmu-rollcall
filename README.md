@@ -76,15 +76,15 @@
 
 应用启动及回到前台会按间隔静默检查 GitHub 正式更新；“我的 → 关于”右侧出现“有更新”时，可进入查看说明并下载，也可手动检查。同一次运行中，成功检查后 6 小时、失败后 30 分钟内不重复自动请求，不自动下载或弹窗催更。下载完成后校验大小与 SHA-256，再由你确认安装；Android 按系统提示允许安装来源，Windows 会在确认后停止检测、退出应用并打开安装向导。便携版使用安装器更新会转为安装版，也可从发布页手动下载便携 ZIP。
 
-应用内安装要求 Release 带有工作流生成的 `manifest-android.json` / `manifest-windows.json` 和对应安装包；旧发布缺少清单时保留浏览器入口。Android 必须沿用兼容签名并递增构建号；preview 测试版与正式版独立安装。当前已安装的旧版首次需要手动升级到包含此功能的版本。
+应用内安装要求 Release 带有工作流生成的 `manifest-android.json` / `manifest-windows.json` 和对应安装包；旧发布缺少清单时保留浏览器入口。Android 必须沿用兼容签名并递增构建号；preview 测试版与正式版独立安装。尚不支持更新检查的旧版，首次需从发布页手动升级。
 
-[v0.1.0 发布页](https://github.com/MidiAug/xmu-rollcall/releases/tag/v0.1.0)
+[最新正式版及全部安装包](https://github.com/MidiAug/xmu-rollcall/releases/latest)
 
 | 平台 | 下载 | 怎么用 |
 | --- | --- | --- |
-| Android | [APK 安装包](https://github.com/MidiAug/xmu-rollcall/releases/download/v0.1.0/xmu-rollcall-0.1.0-android.apk) | 下载后在手机上安装。 |
-| Windows x64 | [安装程序](https://github.com/MidiAug/xmu-rollcall/releases/download/v0.1.0/xmu-rollcall-0.1.0-windows-x64-setup.exe) | 运行安装程序，按提示安装。 |
-| Windows x64 | [便携版 ZIP](https://github.com/MidiAug/xmu-rollcall/releases/download/v0.1.0/xmu-rollcall-0.1.0-windows-x64.zip) | 完整解压后运行 `xmu_rollcall.exe`，请保留同目录的 DLL 和 `data` 文件夹。 |
+| Android | [最新发布页](https://github.com/MidiAug/xmu-rollcall/releases/latest) | 选择以 `-android.apk` 结尾的安装包，下载后在手机上安装。 |
+| Windows x64 | [最新发布页](https://github.com/MidiAug/xmu-rollcall/releases/latest) | 选择以 `-windows-x64-setup.exe` 结尾的安装程序，按提示安装。 |
+| Windows x64 | [最新发布页](https://github.com/MidiAug/xmu-rollcall/releases/latest) | 选择以 `-windows-x64.zip` 结尾的便携包；完整解压后运行 `xmu_rollcall.exe`，保留同目录的 DLL 和 `data` 文件夹。 |
 
 Android 当前沿用项目开发签名；Windows 安装程序尚无发布者数字签名。覆盖更新需使用同一 Android 签名。
 
