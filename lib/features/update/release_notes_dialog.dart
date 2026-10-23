@@ -7,13 +7,11 @@ class ReleaseNotesDialog extends StatelessWidget {
   const ReleaseNotesDialog({
     super.key,
     required this.update,
-    required this.onRoute,
-    required this.onRelease,
+    required this.routeSelector,
     required this.onLink,
   });
   final ReleaseUpdate update;
-  final VoidCallback onRoute;
-  final VoidCallback onRelease;
+  final Widget routeSelector;
   final void Function(String?) onLink;
 
   @override
@@ -124,20 +122,23 @@ class ReleaseNotesDialog extends StatelessWidget {
             ),
             Divider(height: 1, color: p.border),
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 16, 12),
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
               child: Row(
                 children: [
-                  IconButton(
-                    tooltip: '下载线路',
-                    onPressed: onRoute,
-                    icon: const Icon(Icons.tune_rounded, size: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '下载线路',
+                          style: TextStyle(fontSize: 11, color: p.muted),
+                        ),
+                        routeSelector,
+                      ],
+                    ),
                   ),
-                  TextButton.icon(
-                    onPressed: onRelease,
-                    icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                    label: const Text('发布页'),
-                  ),
-                  const Spacer(),
+                  const SizedBox(width: 16),
                   FilledButton(
                     onPressed: () => Navigator.pop(context),
                     child: const Text('关闭'),

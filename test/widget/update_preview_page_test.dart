@@ -24,7 +24,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('检查失败').last);
       await tester.pumpAndSettle();
-      expect(find.text('暂时无法检查'), findsOneWidget);
+      expect(find.textContaining('暂时无法检查'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );

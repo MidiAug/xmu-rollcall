@@ -17,7 +17,7 @@ import 'package:xmu_rollcall/features/settings/desktop_notification_settings_pag
 import 'package:xmu_rollcall/features/settings/settings_assist_page.dart';
 import 'package:xmu_rollcall/features/settings/settings_data_page.dart';
 import 'package:xmu_rollcall/features/settings/about_settings_row.dart';
-import 'package:xmu_rollcall/features/update/update_download_route_dialog.dart';
+import 'package:xmu_rollcall/features/update/update_download_route_selector.dart';
 import 'package:xmu_rollcall/platform/close_prefs.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
@@ -247,9 +247,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 SettingsRow(
                   leading: const Icon(Icons.download_outlined),
                   title: '更新下载线路',
-                  subtitle: '官方地址或 HTTPS 加速节点',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
-                  onTap: () => showUpdateDownloadRouteDialog(context),
+                  subtitleWidget: const UpdateDownloadRouteSelector(),
                 ),
                 const AboutSettingsRow(),
               ],

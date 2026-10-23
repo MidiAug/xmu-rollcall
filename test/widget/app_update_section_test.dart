@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -89,6 +90,7 @@ void main() {
         expect(service.verifications, 1);
         expect(installer.calls, 1);
         expect(tester.takeException(), isNull);
+        AppToast.dismiss();
       },
     );
   }
@@ -120,6 +122,7 @@ void main() {
           expect(tester.getRect(find.byType(SettingsRow)), initial);
         }
         expect(tester.takeException(), isNull);
+        AppToast.dismiss();
       },
     );
   }
@@ -128,33 +131,38 @@ void main() {
     (tester) async {
       service.checkError = const UpdateException('GitHub 暂时不可用');
       await mount(tester);
-      expect(find.text('暂时无法检查'), findsOneWidget);
-      expect(find.byTooltip('GitHub 暂时不可用'), findsOneWidget);
+      expect(find.textContaining('暂时无法检查'), findsOneWidget);
+      expect(find.textContaining('GitHub 暂时不可用'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
       expect(find.byType(PopupMenuButton<String>), findsNothing);
       service.checkError = null;
       await tester.tap(find.byTooltip('检查更新'));
       await tester.pumpAndSettle();
-      expect(find.text('已是最新版本'), findsOneWidget);
+      expect(find.text('已是最新版本'), findsNWidgets(2));
       expect(find.text('下载更新'), findsNothing);
       expect(service.checks, 2);
+      AppToast.dismiss();
     },
   );
   testWidgets(
-    'failed check offers concrete details, release page and retry without expanding the row',
+    'check failure shows inline details and manual retry uses the shared toast',
     (tester) async {
-      service.checkError = const UpdateException('连接更新服务超时，请重试或打开发布页');
+      service.checkError = const UpdateException('连接更新服务超时，请检查网络后重试');
       await mount(tester);
-      expect(find.byType(SettingsRow), findsOneWidget);
-      await tester.tap(find.text('暂时无法检查'));
+      expect(find.textContaining('连接更新服务超时'), findsOneWidget);
+      expect(find.text('检查更新失败，请查看下方原因'), findsNothing);
+      expect(find.byType(AlertDialog), findsNothing);
+      await tester.tap(find.textContaining('暂时无法检查'));
       await tester.pumpAndSettle();
-      expect(find.text('检查更新未完成'), findsOneWidget);
-      expect(find.text('连接更新服务超时，请重试或打开发布页'), findsOneWidget);
-      expect(find.text('发布页'), findsOneWidget);
-      expect(find.text('下载线路'), findsOneWidget);
+      expect(service.checks, 2);
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('检查更新失败，请查看下方原因'), findsOneWidget);
       service.checkError = null;
-      await tester.tap(find.text('重试'));
+      await tester.tap(find.byTooltip('检查更新'));
       await tester.pumpAndSettle();
-      expect(find.text('已是最新版本'), findsOneWidget);
+      expect(find.text('已是最新版本'), findsNWidgets(2));
+      expect(find.textContaining('连接更新服务超时'), findsNothing);
+      AppToast.dismiss();
     },
   );
   testWidgets('download cancellation can retry; leaving cancels pending work', (
@@ -179,6 +187,7 @@ void main() {
     service.pendingDownload!.complete(File('fixture'));
     await tester.pump();
     expect(tester.takeException(), isNull);
+    AppToast.dismiss();
   });
   testWidgets('release notes render Markdown and do not fetch remote images', (
     tester,
@@ -200,6 +209,7 @@ void main() {
     expect(find.text('示意图片'), findsOneWidget);
     expect(find.byType(Image), findsNothing);
     expect(tester.takeException(), isNull);
+    AppToast.dismiss();
   });
   testWidgets('download displays byte totals and measured transfer speed', (
     tester,
@@ -219,6 +229,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     service.pendingDownload!.complete(File('fixture'));
     await tester.pump();
+    AppToast.dismiss();
   });
   testWidgets(
     'Android permission round trip retains download and rechecks before retry',
@@ -242,6 +253,7 @@ void main() {
       expect(installer.calls, 2);
       expect(service.verifications, 2);
       expect(service.downloads, 1);
+      AppToast.dismiss();
     },
   );
   testWidgets(
@@ -258,6 +270,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(installer.calls, 0);
       expect(find.byTooltip('重新下载'), findsOneWidget);
+      AppToast.dismiss();
     },
   );
   testWidgets('preview builds do not download production APKs', (tester) async {
@@ -271,8 +284,8 @@ void main() {
         buildNumber: '2',
       ),
     );
-    expect(find.text('暂时无法检查'), findsOneWidget);
-    expect(find.byTooltip('测试版与正式版独立安装，请从发布页获取正式版'), findsOneWidget);
+    expect(find.textContaining('暂时无法检查'), findsOneWidget);
+    expect(find.textContaining('测试版与正式版独立安装'), findsOneWidget);
     expect(service.checks, 0);
   });
 }

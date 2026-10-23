@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -69,6 +70,7 @@ void main() {
         }
         Future<void> capture(String name) async {
           expect(tester.takeException(), isNull);
+          AppToast.dismiss();
           if (Platform.environment['CAPTURE_UPDATE_FLOW'] != '1') return;
           await tester.runAsync(() async {
             final dir = await Directory(
@@ -145,14 +147,15 @@ void main() {
         await capture('03-downloading');
         await tester.tap(find.text('正在下载 50%'));
         await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('下载线路'));
+        expect(find.text('发布页'), findsNothing);
+        await tester.tap(find.byType(DropdownButton<String>));
         await tester.pumpAndSettle();
         await capture('04-routes');
-        await tester.tap(find.byType(DropdownButtonFormField<String>));
-        await tester.pumpAndSettle();
         await tester.tap(find.text('gh-proxy.com').last);
         await tester.pumpAndSettle();
-        await tester.tap(find.text('保存'));
+        expect(find.text('更新说明'), findsOneWidget);
+        expect(find.byType(AlertDialog), findsNothing);
+        await tester.tap(find.text('关闭'));
         await tester.pumpAndSettle();
         expect(oldCancel.isCancelled, isTrue);
         expect(service.downloads, 2);
@@ -167,6 +170,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(installer.calls, 0);
         expect(tester.takeException(), isNull);
+        AppToast.dismiss();
       },
     );
   }

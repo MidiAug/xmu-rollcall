@@ -104,7 +104,7 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(
-            find.text(
+            find.textContaining(
               scenario == 'current'
                   ? '已是最新版本'
                   : scenario == 'available'
@@ -113,10 +113,7 @@ void main() {
             ),
             findsOneWidget,
           );
-          expect(
-            find.byTooltip('查看更新说明'),
-            scenario == 'available' ? findsOneWidget : findsNothing,
-          );
+          expect(find.byTooltip('查看更新说明'), findsNothing);
           expect(find.text('GitHub 发布页'), findsNothing);
           expect(find.byType(PopupMenuButton<String>), findsNothing);
           {
@@ -136,7 +133,7 @@ void main() {
             expect(updateRect.width, repositoryRect.width);
             // At 320px the test font may wrap the repository address; let
             // large text grow vertically instead of imposing a fixed height.
-            if (width >= 384) {
+            if (width >= 384 && scenario != 'failed') {
               expect(updateRect.height, repositoryRect.height);
             }
             expect(

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/features/update/update_download_route.dart';
-import 'package:xmu_rollcall/features/update/update_download_route_dialog.dart';
+import 'package:xmu_rollcall/features/update/update_download_route_selector.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -35,7 +36,7 @@ void main() {
     },
   );
   testWidgets(
-    'narrow route dialog validates custom URL and saves/reopens selected mirror',
+    'inline route selector validates custom URL and persists without another dialog',
     (tester) async {
       tester.view.physicalSize = const Size(320, 900);
       tester.view.devicePixelRatio = 1;
@@ -44,36 +45,34 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: Builder(
-              builder: (context) => TextButton(
-                onPressed: () => showUpdateDownloadRouteDialog(context),
-                child: const Text('线路'),
-              ),
+            body: const Padding(
+              padding: EdgeInsets.all(20),
+              child: UpdateDownloadRouteSelector(),
             ),
           ),
         ),
       );
-      await tester.tap(find.text('线路'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(DropdownButtonFormField<String>));
+      await tester.tap(find.byType(DropdownButton<String>));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('其他 HTTPS 节点').last);
+      await tester.tap(find.text('自定义线路…').last);
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'http://bad.example/');
-      await tester.tap(find.text('保存'));
+      await tester.tap(find.byTooltip('应用线路'));
       await tester.pumpAndSettle();
       expect(find.textContaining('请输入 HTTPS'), findsOneWidget);
       await tester.enterText(find.byType(TextField), 'https://mirror.example/');
-      await tester.tap(find.text('保存'));
+      await tester.tap(find.byTooltip('应用线路'));
       await tester.pumpAndSettle();
       expect(
         (await UpdateDownloadRoute.read()).toString(),
         'https://mirror.example/',
       );
-      await tester.tap(find.text('线路'));
       await tester.pumpAndSettle();
-      expect(find.text('https://mirror.example/'), findsOneWidget);
+      expect(find.text('mirror.example'), findsOneWidget);
+      expect(find.byType(AlertDialog), findsNothing);
       expect(tester.takeException(), isNull);
+      AppToast.dismiss();
     },
   );
 }

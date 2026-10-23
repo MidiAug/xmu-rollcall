@@ -142,7 +142,7 @@ class _PreviewService implements UpdateService {
     await Future<void>.delayed(const Duration(milliseconds: 650));
     if (cancel.isCancelled) throw cancel.cancelError!;
     if (scenario == '检查失败') {
-      throw const UpdateException('模拟连接超时：可点击此行查看失败详情，或使用右侧按钮重试。');
+      throw const UpdateException('模拟连接超时，请检查网络后重试。');
     }
     if (scenario == '已是最新') return null;
     return ReleaseUpdate(
@@ -159,8 +159,6 @@ class _PreviewService implements UpdateService {
 ### 修复
 
 修复同一课堂多次签到时，历史记录刷新不及时的问题。
-
-[查看项目](https://github.com/MidiAug/xmu-rollcall)
 ''',
     );
   }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +12,7 @@ import 'package:xmu_rollcall/features/update/app_release.dart';
 import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 import 'package:xmu_rollcall/features/update/github_update_service.dart';
 import 'package:xmu_rollcall/platform/app_update_installer.dart';
-import 'package:xmu_rollcall/features/update/update_download_route_dialog.dart';
+import 'package:xmu_rollcall/features/update/update_download_route_selector.dart';
 import 'package:xmu_rollcall/features/update/release_notes_dialog.dart';
 
 enum _UpdatePhase { available, downloading, ready, installing, failed }
@@ -91,6 +92,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
           : _UpdatePhase.failed;
       _message = error is UpdateException ? error.message : '暂时无法完成更新，请检查网络后重试';
     });
+    AppToast.show(context, _message, error: true);
   }
 
   Future<void> _check() async {
@@ -102,6 +104,16 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
       _file = null;
     });
     await _controller.check(force: true);
+    if (!mounted) return;
+    AppToast.show(
+      context,
+      _controller.status == UpdateCheckStatus.failed
+          ? '检查更新失败，请查看下方原因'
+          : _controller.update == null
+          ? '已是最新版本'
+          : '发现新版本',
+      error: _controller.status == UpdateCheckStatus.failed,
+    );
   }
 
   Future<void> _download() async {
@@ -203,11 +215,10 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
       context: context,
       builder: (context) => ReleaseNotesDialog(
         update: update,
-        onRoute: () {
-          Navigator.pop(context);
-          _chooseDownloadRoute();
-        },
-        onRelease: _openReleasePage,
+        routeSelector: UpdateDownloadRouteSelector(
+          enabled: _phase != _UpdatePhase.installing,
+          onChanged: _downloadRouteChanged,
+        ),
         onLink: _openNotesLink,
       ),
     );
@@ -230,21 +241,11 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
     }
   }
 
-  Future<void> _chooseDownloadRoute() async {
-    final downloading = _phase == _UpdatePhase.downloading;
-    final saved = await showUpdateDownloadRouteDialog(
-      context,
-      restarting: downloading,
-    );
-    if (!mounted ||
-        !saved ||
-        !downloading ||
-        _phase != _UpdatePhase.downloading) {
-      return;
-    }
+  Future<void> _downloadRouteChanged() async {
+    if (_phase != _UpdatePhase.downloading) return;
     _cancel.cancel('切换下载线路');
     await _downloadTask;
-    if (mounted) await _download();
+    if (mounted) unawaited(_download());
   }
 
   String get _downloadDetails {
@@ -255,46 +256,6 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
     final rate = _received * 1000 / ms;
     return '$bytes · ${rate >= 1024 * 1024 ? '${(rate / 1024 / 1024).toStringAsFixed(1)} MB/s' : '${(rate / 1024).toStringAsFixed(0)} KB/s'}';
   }
-
-  Future<void> _openReleasePage() async {
-    try {
-      if (!await launchUrl(
-        _update?.page ?? ReleaseUpdate.releasesPage,
-        mode: LaunchMode.externalApplication,
-      )) {
-        throw StateError('launch');
-      }
-    } catch (_) {
-      if (mounted) {
-        AppToast.show(context, '无法打开发布页，请在浏览器访问 GitHub 仓库', error: true);
-      }
-    }
-  }
-
-  Future<void> _showCheckFailure() => showDialog<void>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('检查更新未完成'),
-      content: Text(_controller.error ?? '请检查网络后重试'),
-      actions: [
-        TextButton(
-          onPressed: () {
-            Navigator.pop(context);
-            _chooseDownloadRoute();
-          },
-          child: const Text('下载线路'),
-        ),
-        TextButton(onPressed: _openReleasePage, child: const Text('发布页')),
-        FilledButton(
-          onPressed: () {
-            Navigator.pop(context);
-            _check();
-          },
-          child: const Text('重试'),
-        ),
-      ],
-    ),
-  );
 
   @override
   Widget build(BuildContext context) {
@@ -342,7 +303,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
             : ('检查更新', Icons.refresh_rounded, _check),
     };
     final waiting = checking || _phase == _UpdatePhase.installing;
-    Widget row = Semantics(
+    final row = Semantics(
       liveRegion: true,
       child: SettingsRow(
         leading: _phase == _UpdatePhase.downloading
@@ -357,14 +318,10 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
         title: _phase == _UpdatePhase.downloading ? _message : '检查更新',
         subtitle: _phase == _UpdatePhase.downloading
             ? _downloadDetails
+            : _controller.status == UpdateCheckStatus.failed
+            ? '$status\n${_controller.error ?? '请检查网络后重试'}'
             : status,
-        onTap: update != null
-            ? _showReleaseNotes
-            : (_busy
-                  ? null
-                  : _controller.status == UpdateCheckStatus.failed
-                  ? _showCheckFailure
-                  : _check),
+        onTap: update != null ? _showReleaseNotes : (_busy ? null : _check),
         trailing: SizedBox.square(
           dimension: 44,
           child: waiting
@@ -391,11 +348,6 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
         ),
       ),
     );
-    if (update != null) {
-      row = Tooltip(message: '查看更新说明', child: row);
-    } else if (_controller.error != null) {
-      row = Tooltip(message: _controller.error!, child: row);
-    }
     return SettingsSection(header: '应用更新', padTop: false, children: [row]);
   }
 }
