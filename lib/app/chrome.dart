@@ -759,11 +759,13 @@ class AppSidebar extends StatelessWidget {
     required this.current,
     required this.onSelect,
     this.userLabel,
+    this.hasUpdate = false,
   });
 
   final AppDestination current;
   final ValueChanged<AppDestination> onSelect;
   final String? userLabel;
+  final bool hasUpdate;
 
   @override
   Widget build(BuildContext context) {
@@ -820,6 +822,7 @@ class AppSidebar extends StatelessWidget {
                   _NavCell(
                     destination: d,
                     selected: d == current,
+                    hasUpdate: hasUpdate && d == AppDestination.settings,
                     onTap: () => onSelect(d),
                   ),
               ],
@@ -837,11 +840,13 @@ class _NavCell extends StatefulWidget {
     required this.destination,
     required this.selected,
     required this.onTap,
+    required this.hasUpdate,
   });
 
   final AppDestination destination;
   final bool selected;
   final VoidCallback onTap;
+  final bool hasUpdate;
 
   @override
   State<_NavCell> createState() => _NavCellState();
@@ -883,10 +888,11 @@ class _NavCellState extends State<_NavCell> {
                     padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
                     child: Row(
                       children: [
-                        Icon(
-                          _icon(widget.destination),
+                        _NavigationIcon(
+                          icon: _icon(widget.destination),
                           size: 18,
                           color: selected ? p.primary : p.muted,
+                          hasUpdate: widget.hasUpdate,
                         ),
                         const SizedBox(width: 10),
                         Text(
@@ -924,10 +930,12 @@ class AppMobileNav extends StatelessWidget {
     super.key,
     required this.current,
     required this.onSelect,
+    this.hasUpdate = false,
   });
 
   final AppDestination current;
   final ValueChanged<AppDestination> onSelect;
+  final bool hasUpdate;
 
   @override
   Widget build(BuildContext context) {
@@ -949,6 +957,7 @@ class AppMobileNav extends StatelessWidget {
                   child: _MobileItem(
                     destination: d,
                     selected: d == current,
+                    hasUpdate: hasUpdate && d == AppDestination.settings,
                     onTap: () => onSelect(d),
                   ),
                 ),
@@ -965,11 +974,13 @@ class _MobileItem extends StatefulWidget {
     required this.destination,
     required this.selected,
     required this.onTap,
+    required this.hasUpdate,
   });
 
   final AppDestination destination;
   final bool selected;
   final VoidCallback onTap;
+  final bool hasUpdate;
 
   @override
   State<_MobileItem> createState() => _MobileItemState();
@@ -996,7 +1007,12 @@ class _MobileItemState extends State<_MobileItem> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(_icon(widget.destination), size: 22, color: color),
+            _NavigationIcon(
+              icon: _icon(widget.destination),
+              size: 22,
+              color: color,
+              hasUpdate: widget.hasUpdate,
+            ),
             const SizedBox(height: 2),
             Text(
               widget.destination.label,
@@ -1017,6 +1033,36 @@ class _MobileItemState extends State<_MobileItem> {
     AppDestination.homework => Icons.assignment_outlined,
     AppDestination.settings => Icons.person_outline,
   };
+}
+
+/// A quiet update hint that preserves the icon's layout and hit target.
+class _NavigationIcon extends StatelessWidget {
+  const _NavigationIcon({
+    required this.icon,
+    required this.size,
+    required this.color,
+    required this.hasUpdate,
+  });
+
+  final IconData icon;
+  final double size;
+  final Color color;
+  final bool hasUpdate;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Icon(icon, size: size, color: color);
+    if (!hasUpdate) return child;
+    return Tooltip(
+      message: '有新版本可更新',
+      child: Badge(
+        backgroundColor: AppPalette.of(context).primary,
+        smallSize: 6,
+        offset: const Offset(2, -2),
+        child: child,
+      ),
+    );
+  }
 }
 
 /// Pill select — Quiet Utility twin of xmu-sports `.shell-select`.
