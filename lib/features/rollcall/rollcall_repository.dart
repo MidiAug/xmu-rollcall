@@ -32,10 +32,14 @@ class RollcallRepository {
   /// Assist sessions must never fall back to the owner install id.
   final bool requireExplicitDeviceId;
 
-  Future<AttendanceCount> fetchAttendanceCount(int rollcallId) async {
+  Future<AttendanceCount> fetchAttendanceCount(
+    int rollcallId, {
+    String? opId,
+  }) async {
     await http.init();
     final response = await http.getUri<dynamic>(
       TronEndpoints.studentRollcalls(rollcallId),
+      options: Options(extra: {'opId': ?opId, 'rollcallId': rollcallId}),
     );
     return AttendanceCount.parse(response.data, rollcallId: rollcallId);
   }
@@ -49,10 +53,14 @@ class RollcallRepository {
     return identity.getId();
   }
 
-  Future<List<RollcallItem>> fetchActive({CancelToken? cancelToken}) async {
+  Future<List<RollcallItem>> fetchActive({
+    CancelToken? cancelToken,
+    String? opId,
+  }) async {
     await http.init();
     final res = await http.getUri<Map<String, dynamic>>(
       TronEndpoints.radarRollcalls(),
+      options: Options(extra: {'opId': ?opId}),
       cancelToken: cancelToken,
     );
     final data = res.data;
@@ -87,9 +95,21 @@ class RollcallRepository {
   /// List + for number types, fetch `number_code` (does not affect poll stop).
   Future<List<RollcallItem>> fetchActiveEnriched({
     CancelToken? cancelToken,
+    Map<int, String> cachedNumberCodes = const {},
   }) async {
     final items = await fetchActive(cancelToken: cancelToken);
-    return enrichActive(items, cancelToken: cancelToken);
+    return enrichActive([
+      for (final item in items)
+        if (item.isNumber &&
+            item.numberCode?.isNotEmpty != true &&
+            cachedNumberCodes[item.rollcallId]?.isNotEmpty == true)
+          item.copyWith(
+            numberCode: cachedNumberCodes[item.rollcallId],
+            clearNumberCodeError: true,
+          )
+        else
+          item,
+    ], cancelToken: cancelToken);
   }
 
   Future<List<RollcallItem>> enrichActive(
@@ -101,7 +121,6 @@ class RollcallRepository {
     for (final item in items) {
       if (!item.isNumber ||
           item.isExpired ||
-          item.isAnswered ||
           item.numberCode?.isNotEmpty == true) {
         out.add(item);
         continue;
@@ -128,9 +147,12 @@ class RollcallRepository {
   Future<String?> fetchNumberCode(
     int rollcallId, {
     CancelToken? cancelToken,
+    String? opId,
   }) async {
+    final options = Options(extra: {'opId': ?opId, 'rollcallId': rollcallId});
     final detailResponse = await http.getUri<dynamic>(
       TronEndpoints.rollcallDetail(rollcallId),
+      options: options,
       cancelToken: cancelToken,
     );
     if (detailResponse.statusCode != 200) {
@@ -157,6 +179,7 @@ class RollcallRepository {
         courseId: courseId,
         rollcallTime: rollcallTime,
       ),
+      options: options,
       cancelToken: cancelToken,
     );
     if ((res.statusCode ?? 0) != 200) {

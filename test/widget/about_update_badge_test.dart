@@ -56,7 +56,7 @@ void main() {
       expect(find.text('有更新'), findsOneWidget);
       await tester.tap(find.text('关于'));
       await tester.pumpAndSettle();
-      expect(find.text('新版本 v0.2.0'), findsOneWidget);
+      expect(find.text('有更新 · v0.2.0'), findsOneWidget);
       expect(service.checks, 1);
       await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();

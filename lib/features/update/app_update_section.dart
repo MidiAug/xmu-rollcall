@@ -49,7 +49,6 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
   File? _file;
   bool _confirming = false;
   double? _progress;
-  bool _showNotes = false;
   String _message = '';
   bool get _busy =>
       _controller.status == UpdateCheckStatus.checking ||
@@ -173,171 +172,116 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
     }
   }
 
+  Future<void> _showReleaseNotes() async {
+    final update = _update;
+    if (update == null) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('更新说明 · v${update.version.name}'),
+        content: SingleChildScrollView(child: SelectableText(update.notes)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('关闭'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final update = _update;
     final p = AppPalette.of(context);
     final checking = _controller.status == UpdateCheckStatus.checking;
-    final title = switch (_phase) {
+    final status = switch (_phase) {
       _UpdatePhase.downloading => _message,
-      _UpdatePhase.ready => '已准备好安装',
-      _UpdatePhase.installing => '正在打开安装器',
-      _UpdatePhase.failed => '操作未完成',
+      _UpdatePhase.ready => _message,
+      _UpdatePhase.installing => '正在打开安装器…',
+      _UpdatePhase.failed => _message,
       _ =>
-        update != null
-            ? '新版本 v${update.version.name}'
+        _message.isNotEmpty
+            ? _message
+            : update != null
+            ? '有更新 · v${update.version.name}'
             : switch (_controller.status) {
                 UpdateCheckStatus.idle ||
                 UpdateCheckStatus.checking => '正在检查新版本',
                 UpdateCheckStatus.current => '已是最新版本',
                 UpdateCheckStatus.failed => '暂时无法检查',
-                UpdateCheckStatus.available => '发现新版本',
+                UpdateCheckStatus.available => '有更新',
               },
     };
-    final subtitle = update != null
-        ? '${update.target == UpdateTarget.android ? 'Android' : 'Windows x64'} · ${(update.size / 1024 / 1024).toStringAsFixed(1)} MB'
-        : _controller.status == UpdateCheckStatus.failed
-        ? '暂时无法检查'
-        : checking
-        ? '正在连接 GitHub'
-        : '自动检查已开启';
-    final action = _phase == _UpdatePhase.downloading
-        ? TextButton(
-            onPressed: () => _cancel.cancel(),
-            child: const Text('取消下载'),
-          )
-        : _phase == _UpdatePhase.ready
-        ? FilledButton(
-            onPressed: _busy ? null : _install,
-            child: Text(_target == UpdateTarget.windows ? '退出并安装' : '安装更新'),
-          )
-        : update != null
-        ? FilledButton(
-            onPressed: _busy ? null : _download,
-            child: Text(_phase == _UpdatePhase.failed ? '重新下载' : '下载更新'),
-          )
-        : OutlinedButton(
-            onPressed: _busy ? null : _check,
-            child: Text(checking ? '检查中' : '检查更新'),
-          );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Keep both About groups on the shared settings-row grid. On narrow
-        // screens, give download/install actions their own line for large text.
-        final stacked = update != null && constraints.maxWidth < 360;
-        final normal = update == null && _phase == _UpdatePhase.available;
-        Widget row = Semantics(
-          liveRegion: true,
-          child: SettingsRow(
-            leading: const Icon(Icons.system_update_alt_rounded),
-            title: normal ? '检查更新' : title,
-            subtitle: normal ? title : subtitle,
-            onTap: normal && !_busy ? _check : null,
-            trailing: normal
-                ? SizedBox.square(
-                    dimension: 44,
-                    child: Center(
-                      child: checking
-                          ? SizedBox.square(
-                              dimension: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: p.muted,
-                              ),
-                            )
-                          : Icon(Icons.chevron_right, size: 18, color: p.muted),
-                    ),
-                  )
-                : stacked
-                ? null
-                : action,
-          ),
-        );
-        if (normal && _controller.error != null) {
-          row = Tooltip(message: _controller.error!, child: row);
-        }
-        return SettingsSection(
-          header: '应用更新',
-          padTop: false,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                row,
-                if (!normal)
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      AppDensity.rowPadding(context).left,
-                      0,
-                      AppDensity.rowPadding(context).right,
-                      12,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (stacked) ...[
-                          const SizedBox(height: 4),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: action,
-                          ),
-                        ],
-                        if (_phase == _UpdatePhase.downloading) ...[
-                          const SizedBox(height: 8),
-                          LinearProgressIndicator(
-                            value: _progress,
-                            minHeight: 3,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ],
-                        if (_message.isNotEmpty &&
-                            _phase != _UpdatePhase.downloading) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            _message,
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1.5,
-                              color: _phase == _UpdatePhase.failed
-                                  ? p.danger
-                                  : p.muted,
-                            ),
-                          ),
-                        ],
-                        if (update != null)
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextButton.icon(
-                              onPressed: () =>
-                                  setState(() => _showNotes = !_showNotes),
-                              icon: Icon(
-                                _showNotes
-                                    ? Icons.expand_less
-                                    : Icons.expand_more,
-                                size: 17,
-                              ),
-                              label: const Text('查看更新说明'),
-                            ),
-                          ),
-                        if (update != null && _showNotes) ...[
-                          Divider(height: 16, color: p.border),
-                          SelectableText(
-                            update.notes,
-                            style: TextStyle(
-                              color: p.ink,
-                              fontSize: 13,
-                              height: 1.7,
-                            ),
-                          ),
-                        ],
-                      ],
+    final (label, icon, callback) = switch (_phase) {
+      _UpdatePhase.downloading => (
+        '取消下载',
+        Icons.close_rounded,
+        () => _cancel.cancel(),
+      ),
+      _UpdatePhase.ready => (
+        _target == UpdateTarget.windows ? '退出并安装' : '安装更新',
+        _target == UpdateTarget.windows
+            ? Icons.install_desktop_rounded
+            : Icons.install_mobile_rounded,
+        _install,
+      ),
+      _ =>
+        update != null
+            ? (
+                _phase == _UpdatePhase.failed ? '重新下载' : '下载更新',
+                Icons.download_rounded,
+                _download,
+              )
+            : ('检查更新', Icons.refresh_rounded, _check),
+    };
+    final waiting = checking || _phase == _UpdatePhase.installing;
+    Widget row = Semantics(
+      liveRegion: true,
+      child: SettingsRow(
+        leading: _phase == _UpdatePhase.downloading
+            ? SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(
+                  value: _progress,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Icon(Icons.system_update_alt_rounded),
+        title: '检查更新',
+        subtitle: status,
+        onTap: update != null ? _showReleaseNotes : (_busy ? null : _check),
+        trailing: SizedBox.square(
+          dimension: 44,
+          child: waiting
+              ? Center(
+                  child: SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: p.muted,
                     ),
                   ),
-              ],
-            ),
-          ],
-        );
-      },
+                )
+              : IconButton(
+                  tooltip: label,
+                  onPressed: callback,
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size.square(44),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.standard,
+                  ),
+                  icon: Icon(icon, size: 20),
+                  color: update != null ? p.primary : p.muted,
+                ),
+        ),
+      ),
     );
+    if (update != null) {
+      row = Tooltip(message: '查看更新说明', child: row);
+    } else if (_controller.error != null) {
+      row = Tooltip(message: _controller.error!, child: row);
+    }
+    return SettingsSection(header: '应用更新', padTop: false, children: [row]);
   }
 }

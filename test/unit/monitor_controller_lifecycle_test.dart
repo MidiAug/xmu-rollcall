@@ -28,7 +28,10 @@ class Repo extends Fake implements RollcallRepository {
   final entered = Completer<void>();
   Completer<List<RollcallItem>>? pending;
   @override
-  Future<List<RollcallItem>> fetchActive({CancelToken? cancelToken}) async {
+  Future<List<RollcallItem>> fetchActive({
+    CancelToken? cancelToken,
+    String? opId,
+  }) async {
     calls++;
     if (!entered.isCompleted) entered.complete();
     return pending?.future ?? Future.value([]);

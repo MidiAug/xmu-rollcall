@@ -33,6 +33,14 @@ pwsh -File scripts/package-android.ps1 -RequireSigning
 
 未加 `-RequireSigning` 的本机开发打包仍支持原有开发签名；CI 的版本发布始终加此参数，缺项时禁止回退。
 
+## 版本与构建编号
+
+日常提交不递增应用版本，修复和功能先汇总到 `Unreleased`，需要向用户交付一批变化时再确定正式版本。修复批次递增 PATCH（如 0.1.3 → 0.1.4），功能批次递增 MINOR（如 0.1.9 → 0.2.0）；MAJOR 留给需要迁移或存在兼容性变化的里程碑。当前 0.x 阶段仍按这套应用交付约定组织。各段是整数，0.1.9 后可用 0.1.10，不是小数位。
+
+`X.Y.Z` 是用户可见版本，`+BUILD` 对应 Android 的递增 `versionCode`；每次正式分发新包都必须增加 BUILD，日常编辑不需要增加。测试包用提交与 Actions 运行编号定位，Android preview 与正式版独立安装。已经发布的版本、标签和安装包不可回填修改；后续变化进入下一批，不因为每一处小改动重新发版。
+
+参考：[Semantic Versioning](https://semver.org/)、[Android 版本管理](https://developer.android.com/studio/publish/versioning)。
+
 ## 准备一个版本
 
 1. 平时完成有意义的功能、修复或维护调整时，把面向用户或维护者的摘要加入根目录 `CHANGELOG.md` 的 `Unreleased`，按 Added / Changed / Fixed 等分类；同一变化可合并，不必每次保存代码都记一条。纯格式、无行为变化的小重构可不记，PR 中说明原因。

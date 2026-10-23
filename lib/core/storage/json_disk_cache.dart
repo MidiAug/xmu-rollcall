@@ -4,10 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Disk envelope for stale-while-revalidate list caches (research/28).
 class DiskCacheSnapshot {
-  const DiskCacheSnapshot({
-    required this.fetchedAt,
-    required this.items,
-  });
+  const DiskCacheSnapshot({required this.fetchedAt, required this.items});
 
   final DateTime fetchedAt;
   final List<Map<String, dynamic>> items;
@@ -58,7 +55,9 @@ abstract final class JsonDiskCache {
       'fetchedAt': (fetchedAt ?? DateTime.now()).toIso8601String(),
       'items': items,
     };
-    await prefs.setString(key(suffix), jsonEncode(envelope));
+    if (!await prefs.setString(key(suffix), jsonEncode(envelope))) {
+      throw StateError('Cannot persist list cache');
+    }
   }
 
   static Future<void> remove(String suffix) async {

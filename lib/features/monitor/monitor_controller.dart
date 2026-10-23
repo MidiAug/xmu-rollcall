@@ -564,6 +564,7 @@ class MonitorController extends StateNotifier<MonitorState> {
             : StartMonitorResult.fgsFailed;
       }
       _engine?.stop();
+      final desktopRunId = const Uuid().v4();
       final repo = _ref.read(
         scope == null
             ? rollcallRepositoryProvider
@@ -571,6 +572,7 @@ class MonitorController extends StateNotifier<MonitorState> {
       );
       final automatic = AutomaticRollcallAnswer(
         repository: repo,
+        runId: desktopRunId,
         radarLocation: (item) => readAutomaticRadarLocation(
           ownerId: userId,
           assistUserId: scope,
@@ -612,6 +614,7 @@ class MonitorController extends StateNotifier<MonitorState> {
           AppLog.event(
             'monitor.discovery.start',
             fields: {
+              'runId': desktopRunId,
               'intervalSeconds': state.config.effectiveIntervalSeconds,
               'jitterRatio': state.config.jitterRatio,
               'session': scope == null ? 'owner' : 'assist',
@@ -621,6 +624,7 @@ class MonitorController extends StateNotifier<MonitorState> {
         },
         processAutomatic: automatic.process,
         completedAutomaticIds: () => automatic.completedIds,
+        automaticNumberCodes: () => automatic.numberCodes,
         notify: (items) async {
           if (!current()) return false;
           final notify = PlatformHooks.onRollcallsDiscovered;
@@ -634,6 +638,7 @@ class MonitorController extends StateNotifier<MonitorState> {
             AppLog.event(
               'monitor.discovery.result',
               fields: {
+                'runId': desktopRunId,
                 'ok': update.ok,
                 'count': ?update.count,
                 'failures': update.failures,

@@ -85,6 +85,7 @@ class RollcallItem {
     'rollcall_status': rollcallStatus,
     'is_expired': isExpired,
     'scored': scored,
+    'cachedNumberCode': isNumber ? numberCode : null,
   };
 
   /// Best-effort course id from list payload (for assist same-course filter).
@@ -147,6 +148,9 @@ class RollcallItem {
       isExpired: d['is_expired'] == true,
       scored: d['scored'] == true,
       raw: d,
+      numberCode: type == RollcallType.number && d['cachedNumberCode'] is String
+          ? d['cachedNumberCode'] as String
+          : null,
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/features/update/app_release.dart';
 import 'package:xmu_rollcall/features/update/app_update_section.dart';
 import 'package:xmu_rollcall/platform/app_update_installer.dart';
@@ -65,25 +66,58 @@ void main() {
         service.result = update(UpdateTarget.windows);
         await mount(tester);
         expect(service.checks, 1);
-        expect(find.text('新版本 v0.2.0'), findsOneWidget);
-        await tester.tap(find.text('查看更新说明'));
+        expect(find.text('有更新 · v0.2.0'), findsOneWidget);
+        await tester.tap(find.text('有更新 · v0.2.0'));
         await tester.pumpAndSettle();
         expect(find.textContaining('A synthetic change'), findsOneWidget);
-        await tester.tap(find.text('下载更新'));
+        await tester.tap(find.text('关闭'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('下载更新'));
         await tester.pumpAndSettle();
         expect(find.text('下载完成，安装包校验通过'), findsOneWidget);
         expect(installer.calls, 0);
-        await tester.tap(find.text('退出并安装'));
+        await tester.tap(find.byTooltip('退出并安装'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('取消'));
         await tester.pumpAndSettle();
         expect(installer.calls, 0);
-        await tester.tap(find.text('退出并安装'));
+        await tester.tap(find.byTooltip('退出并安装'));
         await tester.pumpAndSettle();
         await tester.tap(find.widgetWithText(FilledButton, '退出并安装').last);
         await tester.pumpAndSettle();
         expect(service.verifications, 1);
         expect(installer.calls, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+  for (final width in [320.0, 960.0]) {
+    testWidgets(
+      'check changes status and right action inside the same row at $width',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await mount(tester);
+        final initial = tester.getRect(find.byType(SettingsRow));
+        expect(find.text('已是最新版本'), findsOneWidget);
+        expect(find.byIcon(Icons.refresh_rounded), findsOneWidget);
+        service.pendingCheck = Completer<ReleaseUpdate?>();
+        await tester.tap(find.byTooltip('检查更新'));
+        await tester.pump();
+        expect(find.text('正在检查新版本'), findsOneWidget);
+        expect(find.byType(SettingsRow), findsOneWidget);
+        service.pendingCheck!.complete(update(UpdateTarget.windows));
+        await tester.pumpAndSettle();
+        expect(find.text('有更新 · v0.2.0'), findsOneWidget);
+        expect(find.byIcon(Icons.refresh_rounded), findsNothing);
+        expect(find.byTooltip('下载更新'), findsOneWidget);
+        expect(find.byType(SettingsRow), findsOneWidget);
+        expect(find.textContaining('A synthetic change'), findsNothing);
+        if (width == 960) {
+          expect(tester.getRect(find.byType(SettingsRow)), initial);
+        }
         expect(tester.takeException(), isNull);
       },
     );
@@ -97,7 +131,7 @@ void main() {
       expect(find.byTooltip('GitHub 暂时不可用'), findsOneWidget);
       expect(find.byType(PopupMenuButton<String>), findsNothing);
       service.checkError = null;
-      await tester.tap(find.text('检查更新'));
+      await tester.tap(find.byTooltip('检查更新'));
       await tester.pumpAndSettle();
       expect(find.text('已是最新版本'), findsOneWidget);
       expect(find.text('下载更新'), findsNothing);
@@ -110,14 +144,14 @@ void main() {
     service.result = update(UpdateTarget.windows);
     service.pendingDownload = Completer<File>();
     await mount(tester);
-    await tester.tap(find.text('下载更新'));
+    await tester.tap(find.byTooltip('下载更新'));
     await tester.pumpAndSettle();
     expect(find.text('正在下载 50%'), findsOneWidget);
-    await tester.tap(find.text('取消下载'));
+    await tester.tap(find.byTooltip('取消下载'));
     await tester.pumpAndSettle();
     expect(service.downloadCancel!.isCancelled, true);
     expect(find.text('下载已取消，可重新下载'), findsOneWidget);
-    await tester.tap(find.text('下载更新'));
+    await tester.tap(find.byTooltip('下载更新'));
     await tester.pumpAndSettle();
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
@@ -133,16 +167,16 @@ void main() {
       service.result = update(UpdateTarget.android);
       installer.result = InstallLaunch.permissionRequired;
       await mount(tester, target: UpdateTarget.android);
-      await tester.tap(find.text('下载更新'));
+      await tester.tap(find.byTooltip('下载更新'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('安装更新'));
+      await tester.tap(find.byTooltip('安装更新'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('打开安装器'));
       await tester.pumpAndSettle();
       expect(find.textContaining('允许此来源安装后'), findsOneWidget);
       expect(service.downloads, 1);
       installer.result = InstallLaunch.launched;
-      await tester.tap(find.text('安装更新'));
+      await tester.tap(find.byTooltip('安装更新'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('打开安装器'));
       await tester.pumpAndSettle();
@@ -156,15 +190,15 @@ void main() {
     (tester) async {
       service.result = update(UpdateTarget.windows);
       await mount(tester);
-      await tester.tap(find.text('下载更新'));
+      await tester.tap(find.byTooltip('下载更新'));
       await tester.pumpAndSettle();
       service.verifyError = const UpdateException('安装包校验失败，请重新下载');
-      await tester.tap(find.text('退出并安装'));
+      await tester.tap(find.byTooltip('退出并安装'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, '退出并安装').last);
       await tester.pumpAndSettle();
       expect(installer.calls, 0);
-      expect(find.text('重新下载'), findsOneWidget);
+      expect(find.byTooltip('重新下载'), findsOneWidget);
     },
   );
   testWidgets('preview builds do not download production APKs', (tester) async {

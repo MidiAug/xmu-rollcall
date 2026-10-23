@@ -116,6 +116,7 @@ class AndroidMonitorTaskHandler extends TaskHandler {
         );
         final automatic = AutomaticRollcallAnswer(
           repository: repo,
+          runId: run.id,
           radarLocation: (item) => readAutomaticRadarLocation(
             ownerId: run.ownerUserId,
             assistUserId: run.assistUserId,
@@ -142,6 +143,7 @@ class AndroidMonitorTaskHandler extends TaskHandler {
           config: run.config,
           processAutomatic: automatic.process,
           completedAutomaticIds: () => automatic.completedIds,
+          automaticNumberCodes: () => automatic.numberCodes,
           notifiedIds: notified,
           fetch: () async {
             await _requireCurrentAccount();

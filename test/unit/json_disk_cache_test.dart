@@ -1,8 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
 import 'package:xmu_rollcall/features/homework/homework_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
+
+class _RejectWrites extends InMemorySharedPreferencesStore {
+  _RejectWrites() : super.withData({});
+  @override
+  Future<bool> setValue(String valueType, String key, Object value) async =>
+      false;
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -47,6 +55,20 @@ void main() {
     expect(await JsonDiskCache.readList('course_history_1'), isNull);
     expect(prefs.getString('other_key'), 'keep');
   });
+  test(
+    'rejected persistent write reports failure instead of a successful cache save',
+    () async {
+      SharedPreferencesStorePlatform.instance = _RejectWrites();
+      await expectLater(
+        JsonDiskCache.writeList('rejected', [
+          {'id': 7},
+        ]),
+        throwsStateError,
+      );
+      await (await SharedPreferences.getInstance()).reload();
+      expect(await JsonDiskCache.readList('rejected'), isNull);
+    },
+  );
 
   test('CourseRollcallRecord toJson/fromJson', () {
     const r = CourseRollcallRecord(

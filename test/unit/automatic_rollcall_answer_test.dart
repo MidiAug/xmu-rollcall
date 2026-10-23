@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
+import 'package:xmu_rollcall/core/logging/ndjson_file_sink.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/features/monitor/automatic_rollcall_answer.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
@@ -29,31 +32,43 @@ RollcallItem item({
 
 class Repo extends Fake implements RollcallRepository {
   final calls = <String>[];
+  final readOpIds = <String?>[];
   AttendanceCount count = const AttendanceCount(0, 11);
   List<RollcallItem> latest = [item()];
   Object? countError;
   Object? answerError;
+  String? answerOpId;
   Completer<String?>? pendingCode;
   void Function()? onCode;
   bool radarOk = true;
   Future<void> Function()? onAttendance;
   @override
-  Future<AttendanceCount> fetchAttendanceCount(int id) async {
+  Future<AttendanceCount> fetchAttendanceCount(int id, {String? opId}) async {
     calls.add('count');
+    readOpIds.add(opId);
     await onAttendance?.call();
     if (countError != null) throw countError!;
     return count;
   }
 
   @override
-  Future<List<RollcallItem>> fetchActive({CancelToken? cancelToken}) async {
+  Future<List<RollcallItem>> fetchActive({
+    CancelToken? cancelToken,
+    String? opId,
+  }) async {
     calls.add('active');
+    readOpIds.add(opId);
     return latest;
   }
 
   @override
-  Future<String?> fetchNumberCode(int id, {CancelToken? cancelToken}) async {
+  Future<String?> fetchNumberCode(
+    int id, {
+    CancelToken? cancelToken,
+    String? opId,
+  }) async {
     calls.add('code');
+    readOpIds.add(opId);
     onCode?.call();
     return pendingCode?.future ?? 'fresh-code';
   }
@@ -66,6 +81,7 @@ class Repo extends Fake implements RollcallRepository {
   }) async {
     expect(numberCode, 'fresh-code');
     calls.add('put');
+    answerOpId = opId;
     if (answerError != null) throw answerError!;
     return const AnswerResult(ok: true);
   }
@@ -274,6 +290,121 @@ void main() {
     await run(const MonitorConfig());
     expect(repo.calls, isEmpty);
   });
+  test(
+    'automatic code reaches signed engine snapshot and Android persisted payload',
+    () async {
+      final updates = <MonitorEngineUpdate>[];
+      final engine = MonitorEngine(
+        config: noWait,
+        fetch: repo.fetchActive,
+        notify: (_) async => true,
+        processAutomatic: automatic.process,
+        completedAutomaticIds: () => automatic.completedIds,
+        automaticNumberCodes: () => automatic.numberCodes,
+        onUpdate: updates.add,
+      );
+      addTearDown(engine.stop);
+      engine.start();
+      await engine.pollNow();
+      var row = updates.where((u) => u.items != null).last.items!.single;
+      expect(row.isAnswered, isTrue);
+      expect(row.numberCode, 'fresh-code');
+      expect(
+        RollcallItem.fromJson(row.toMonitorJson()).numberCode,
+        'fresh-code',
+      );
+      repo.latest = [item(answered: true)];
+      await engine.pollNow();
+      row = updates.where((u) => u.items != null).last.items!.single;
+      expect(row.numberCode, 'fresh-code');
+      expect(repo.calls.where((v) => v == 'put'), hasLength(1));
+    },
+  );
+  test(
+    'automatic diagnostics link decision, submission and feedback without code or credentials',
+    () async {
+      await AppLog.resetForTest();
+      final directory = await Directory.systemTemp.createTemp(
+        'xmu_auto_trace_',
+      );
+      await AppLog.bootstrap(sink: NdjsonFileSink(logsDir: directory));
+      addTearDown(() async {
+        await AppLog.resetForTest();
+        await directory.delete(recursive: true);
+      });
+      final handler = AutomaticRollcallAnswer(
+        repository: repo,
+        requireCurrent: () async {},
+        runId: 'synthetic-run',
+        onAnswered: (row, result) async {
+          expect(row.numberCode, 'fresh-code');
+        },
+      );
+      repo.count = const AttendanceCount(11, 11);
+      await handler.process([item()], percent, () => true);
+      expect(repo.answerOpId, isNotEmpty);
+      expect(repo.readOpIds, hasLength(3));
+      expect(repo.readOpIds.every((id) => id == repo.answerOpId), isTrue);
+      expect(handler.numberCodes[9], 'fresh-code');
+      final records = AppLog.index.search(opId: repo.answerOpId);
+      expect(
+        records.map((r) => r.event),
+        containsAll([
+          'monitor.auto.start',
+          'monitor.auto.code_resolved',
+          'monitor.auto.submit',
+          'monitor.auto.result',
+          'monitor.auto.feedback',
+          'monitor.auto.end',
+        ]),
+      );
+      expect(records.every((r) => r.fields['rollcallId'] == 9), isTrue);
+      expect(
+        records.every((r) => r.fields['runId'] == 'synthetic-run'),
+        isTrue,
+      );
+      expect(
+        records.map((r) => r.fields).join(),
+        isNot(contains('fresh-code')),
+      );
+      repo.answerError = DioException(
+        requestOptions: RequestOptions(
+          path: '/api/rollcall/9/answer_number_rollcall',
+          extra: {'requestId': 'synthetic-request'},
+        ),
+        type: DioExceptionType.receiveTimeout,
+      );
+      final failed = AutomaticRollcallAnswer(
+        repository: repo,
+        requireCurrent: () async {},
+        runId: 'failed-run',
+      );
+      await failed.process([item()], noWait, () => true);
+      final error = AppLog.index.recent.firstWhere(
+        (r) => r.event == 'monitor.auto.error',
+      );
+      expect(error.fields['stage'], 'submit');
+      expect(error.fields['dioType'], 'receiveTimeout');
+      expect(error.fields['requestId'], 'synthetic-request');
+      expect(error.fields['stack'], isNotEmpty);
+      repo.answerError = null;
+      final feedbackFailed = AutomaticRollcallAnswer(
+        repository: repo,
+        requireCurrent: () async {},
+        onAnswered: (_, _) async =>
+            throw StateError('synthetic feedback failure'),
+      );
+      final putsBefore = repo.calls.where((v) => v == 'put').length;
+      await feedbackFailed.process([item()], noWait, () => true);
+      await feedbackFailed.process([item()], noWait, () => true);
+      expect(repo.calls.where((v) => v == 'put').length, putsBefore + 1);
+      final feedback = AppLog.index.recent.firstWhere(
+        (r) => r.event == 'monitor.auto.feedback',
+      );
+      expect(feedback.level, 'W');
+      expect(feedback.fields['ok'], isFalse);
+    },
+  );
   test(
     'turning automatic answering off invalidates in-flight engine work',
     () async {

@@ -94,7 +94,10 @@ class _Repo extends Fake implements RollcallRepository {
   }
 
   @override
-  Future<List<RollcallItem>> fetchActive({CancelToken? cancelToken}) async {
+  Future<List<RollcallItem>> fetchActive({
+    CancelToken? cancelToken,
+    String? opId,
+  }) async {
     if (!entered.isCompleted) entered.complete();
     if (expired) {
       final request = RequestOptions(path: '/active');
@@ -113,8 +116,11 @@ class _Repo extends Fake implements RollcallRepository {
   }
 
   @override
-  Future<String?> fetchNumberCode(int id, {CancelToken? cancelToken}) async =>
-      code?.future ?? '1234';
+  Future<String?> fetchNumberCode(
+    int id, {
+    CancelToken? cancelToken,
+    String? opId,
+  }) async => code?.future ?? '1234';
   @override
   Future<AnswerResult> answerNumber({
     required int rollcallId,

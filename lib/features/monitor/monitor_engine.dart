@@ -13,6 +13,7 @@ class MonitorEngine {
     required this.onUpdate,
     this.processAutomatic,
     this.completedAutomaticIds,
+    this.automaticNumberCodes,
     Set<int> notifiedIds = const {},
     DateTime Function()? now,
   }) : _notifiedIds = {...notifiedIds},
@@ -31,6 +32,7 @@ class MonitorEngine {
   processAutomatic;
   final DateTime Function() _now;
   final Set<int> Function()? completedAutomaticIds;
+  final Map<int, String> Function()? automaticNumberCodes;
   final Set<int> _notifiedIds;
   late MonitorConfig _config;
   Timer? _timer;
@@ -105,12 +107,17 @@ class MonitorEngine {
     );
     if (!current() || !identical(config, _config)) return null;
     final completed = completedAutomaticIds?.call() ?? const <int>{};
+    final codes = automaticNumberCodes?.call() ?? const <int, String>{};
     _latestItems = [
       for (final item in _latestItems!)
-        if (completed.contains(item.rollcallId))
-          item.copyWith(status: 'on_call_fine')
-        else
-          item,
+        item.copyWith(
+          status: completed.contains(item.rollcallId)
+              ? 'on_call_fine'
+              : item.status,
+          numberCode: item.isNumber
+              ? codes[item.rollcallId] ?? item.numberCode
+              : item.numberCode,
+        ),
     ];
     _lastAutomaticAt = _now();
     return message;

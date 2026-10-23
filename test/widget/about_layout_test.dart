@@ -108,18 +108,18 @@ void main() {
               scenario == 'current'
                   ? '已是最新版本'
                   : scenario == 'available'
-                  ? '新版本 v0.2.0'
+                  ? '有更新 · v0.2.0'
                   : '暂时无法检查',
             ),
             findsOneWidget,
           );
           expect(
-            find.text('查看更新说明'),
+            find.byTooltip('查看更新说明'),
             scenario == 'available' ? findsOneWidget : findsNothing,
           );
           expect(find.text('GitHub 发布页'), findsNothing);
           expect(find.byType(PopupMenuButton<String>), findsNothing);
-          if (scenario != 'available') {
+          {
             // Both utility rows must share the same horizontal grid and height,
             // including when a failed check is shown instead of a current one.
             final updateRow = find.ancestor(
