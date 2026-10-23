@@ -9,4 +9,7 @@ runs:
         channel: stable
         cache: true
     - shell: pwsh
+      # Hosted source identity is part of pubspec.lock, not just its versions.
+      env:
+        PUB_HOSTED_URL: https://pub.flutter-io.cn
       run: flutter pub get --enforce-lockfile
