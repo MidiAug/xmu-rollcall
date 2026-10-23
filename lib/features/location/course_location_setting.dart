@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
 import 'package:xmu_rollcall/features/location/location_providers.dart';
-import 'package:xmu_rollcall/features/location/map_pick_page.dart';
+import 'package:xmu_rollcall/features/location/location_picker.dart';
 
 /// Uses the same exact-course preference as radar check-in.
 class CourseLocationSetting extends ConsumerStatefulWidget {
@@ -44,12 +43,11 @@ class _CourseLocationSettingState extends ConsumerState<CourseLocationSetting> {
       await controller.ready;
       if (!mounted) return;
       final pref = controller.forCourse(courseId: widget.courseId);
-      final selected = await showDialog<SavedLocation>(
-        context: context,
-        builder: (_) => _CourseLocationPicker(
-          selectedId: pref?.placeId,
-          initial: pref == null ? null : LatLng(pref.latitude, pref.longitude),
-        ),
+      final selected = await showLocationPicker(
+        context,
+        title: '选择上课地点',
+        selectedId: pref?.placeId,
+        initial: pref == null ? null : LatLng(pref.latitude, pref.longitude),
       );
       if (!mounted || selected == null) return;
       final auth = ref.read(authControllerProvider);
@@ -138,104 +136,6 @@ class _CourseLocationSettingState extends ConsumerState<CourseLocationSetting> {
               context,
             ).textTheme.bodySmall?.copyWith(color: p.danger),
           ),
-      ],
-    );
-  }
-}
-
-class _CourseLocationPicker extends ConsumerStatefulWidget {
-  const _CourseLocationPicker({this.initial, this.selectedId});
-  final LatLng? initial;
-  final String? selectedId;
-  @override
-  ConsumerState<_CourseLocationPicker> createState() =>
-      _CourseLocationPickerState();
-}
-
-class _CourseLocationPickerState extends ConsumerState<_CourseLocationPicker> {
-  bool _adding = false;
-  String? _error;
-
-  Future<void> _add() async {
-    setState(() {
-      _adding = true;
-      _error = null;
-    });
-    try {
-      final result = await Navigator.of(context).push<MapPickResult>(
-        AppPageRoutes.build(
-          MapPickPage(
-            initial: widget.initial,
-            requireNote: true,
-            title: '添加上课地点',
-            confirmLabel: '使用此地点',
-          ),
-        ),
-      );
-      if (!mounted || result == null) return;
-      final note = result.saveNote?.trim() ?? '';
-      if (note.isEmpty) return;
-      final place = await ref
-          .read(savedLocationsProvider.notifier)
-          .add(
-            note: note,
-            latitude: result.latitude,
-            longitude: result.longitude,
-          );
-      if (mounted) Navigator.of(context).pop(place);
-    } catch (_) {
-      if (mounted) setState(() => _error = '地点未能添加，请重试');
-    } finally {
-      if (mounted) setState(() => _adding = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final locations = ref.watch(savedLocationsProvider);
-    return AlertDialog(
-      title: const Text('选择上课地点'),
-      content: SizedBox(
-        width: 360,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(context).height * .4,
-          ),
-          child: locations.isEmpty
-              ? const Text('还没有保存的地点，可在地图上添加并备注。')
-              : ListView.separated(
-                  shrinkWrap: true,
-                  itemCount: locations.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
-                  itemBuilder: (_, index) {
-                    final place = locations[index];
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(place.note),
-                      selected: place.id == widget.selectedId,
-                      trailing: place.id == widget.selectedId
-                          ? const Icon(Icons.check_rounded, size: 18)
-                          : null,
-                      onTap: _adding
-                          ? null
-                          : () => Navigator.pop(context, place),
-                    );
-                  },
-                ),
-        ),
-      ),
-      actions: [
-        if (_error != null)
-          Text(_error!, style: TextStyle(color: AppPalette.of(context).danger)),
-        TextButton(
-          onPressed: _adding ? null : () => Navigator.pop(context),
-          child: const Text('取消'),
-        ),
-        FilledButton.icon(
-          onPressed: _adding ? null : _add,
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('添加地点'),
-        ),
       ],
     );
   }

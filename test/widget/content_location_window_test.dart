@@ -276,7 +276,7 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('course-location-picker')));
       await tester.pumpAndSettle();
       expect(find.byIcon(Icons.check_rounded), findsOneWidget);
-      await tester.tap(find.text('取消'));
+      await tester.tap(find.byTooltip('关闭地点选择'));
       await tester.pumpAndSettle();
       expect(
         container
@@ -290,10 +290,12 @@ void main() {
       await tester.tap(find.text('添加地点'));
       await tester.pumpAndSettle();
       expect(find.byType(MapPickPanel), findsOneWidget);
-      await tester.tap(find.text('使用此地点'));
+      expect(find.byType(Dialog), findsOneWidget);
+      await tester.tap(find.text('保存并使用'));
       await tester.pumpAndSettle();
+      expect(find.text('请填写地点备注'), findsOneWidget);
       await tester.enterText(find.byType(TextField), '新教室备注');
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
+      await tester.tap(find.widgetWithText(FilledButton, '保存并使用'));
       await tester.pumpAndSettle();
       expect(find.byType(MapPickPanel), findsNothing);
       expect(find.text('新教室备注'), findsOneWidget);
