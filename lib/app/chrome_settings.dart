@@ -13,6 +13,7 @@ class SettingsSection extends StatelessWidget {
     this.footer,
     this.padTop = true,
     this.hasLeading = true,
+    this.rowPadding,
   });
 
   final String? header;
@@ -24,11 +25,13 @@ class SettingsSection extends StatelessWidget {
 
   /// When rows have leading icons, indent dividers to the title column.
   final bool hasLeading;
+  final EdgeInsets? rowPadding;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final rowPad = AppDensity.rowPadding(context);
+    final rowPad = rowPadding ?? AppDensity.rowPadding(context);
+    final captionInset = rowPadding?.left ?? AppSpace.sm;
     final dividerIndent =
         rowPad.left + (hasLeading ? 20 + AppDensity.rowInnerGap(context) : 0);
 
@@ -43,9 +46,9 @@ class SettingsSection extends StatelessWidget {
             Padding(
               // Caption aligns to card inset — same for every group (not past icons).
               padding: EdgeInsets.fromLTRB(
-                AppSpace.sm,
+                captionInset,
                 0,
-                AppSpace.sm,
+                captionInset,
                 AppSpace.sectionGap,
               ),
               child: Text(
@@ -84,7 +87,7 @@ class SettingsSection extends StatelessWidget {
           if (footer != null) ...[
             const SizedBox(height: AppSpace.sectionGap),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
+              padding: EdgeInsets.symmetric(horizontal: captionInset),
               child: footer!,
             ),
           ],
@@ -107,6 +110,8 @@ class SettingsRow extends StatefulWidget {
     this.trailing,
     this.onTap,
     this.minHeight,
+    this.contentPadding,
+    this.subtitleSpacing = 4,
   });
 
   final Widget? leading;
@@ -122,6 +127,8 @@ class SettingsRow extends StatefulWidget {
   final Widget? trailing;
   final VoidCallback? onTap;
   final double? minHeight;
+  final EdgeInsetsGeometry? contentPadding;
+  final double subtitleSpacing;
 
   @override
   State<SettingsRow> createState() => _SettingsRowState();
@@ -156,7 +163,7 @@ class _SettingsRowState extends State<SettingsRow> {
       duration: AppMotion.fast,
       curve: AppMotion.fastCurve,
       color: wash,
-      padding: AppDensity.rowPadding(context),
+      padding: widget.contentPadding ?? AppDensity.rowPadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -189,7 +196,7 @@ class _SettingsRowState extends State<SettingsRow> {
                         SizedBox(
                           height: widget.subtitleWidget != null
                               ? AppSpace.xxs
-                              : 4,
+                              : widget.subtitleSpacing,
                         ),
                         subtitle,
                       ],
@@ -204,7 +211,7 @@ class _SettingsRowState extends State<SettingsRow> {
             ),
           ),
           if (subtitle != null && below) ...[
-            const SizedBox(height: 4),
+            SizedBox(height: widget.subtitleSpacing),
             subtitle,
           ],
         ],

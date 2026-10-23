@@ -98,7 +98,7 @@ void main() {
               format: ui.ImageByteFormat.png,
             );
             final dir = await Directory(
-              '.tools/monitor-groups',
+              '.tools/monitor-typography',
             ).create(recursive: true);
             await File(
               '${dir.path}/monitor-settings-$label-$state.png',
@@ -128,9 +128,9 @@ void main() {
         );
         await tester.pumpAndSettle();
         final ctrl = container.read(monitorControllerProvider.notifier);
-        const off = '仅提醒你处理签到，不会自动提交';
+        const off = '仅提醒，不会自动提交';
         const idle = '已开启，开始检测后生效';
-        const active = '检测到签到后，按下方规则自动提交';
+        const active = '发现签到后，按规则自动提交';
         expect(find.text(off), findsOneWidget);
         expect(find.textContaining('雷达使用本课'), findsNothing);
         expect(find.text('最近运行'), findsNothing);
