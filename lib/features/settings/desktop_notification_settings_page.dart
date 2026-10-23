@@ -24,28 +24,26 @@ class _DesktopNotificationSettingsPageState
 
   Future<void> _test() async {
     if (_busy) return;
-    setState(() => _busy = true);
+    setState(() {
+      _busy = true;
+      _showHelp = false;
+    });
     final sent = await _notifications.notify(1, test: true);
     if (!mounted) return;
     setState(() {
       _busy = false;
       _showHelp = !sent;
     });
-    AppToast.show(
-      context,
-      sent ? '测试通知已发出，请确认系统实际提醒' : '通知发送失败，请按下方指引检查',
-      error: !sent,
-    );
   }
 
   Future<void> _openSettings() async {
     try {
       if (await launchUrl(Uri.parse('ms-settings:notifications'))) return;
     } catch (_) {
-      // Offer the same manual route when Windows rejects the settings URI.
+      // Offer the manual route when Windows rejects the settings URI.
     }
     if (mounted) {
-      AppToast.show(context, '请打开 Windows 设置 → 系统 → 通知', error: true);
+      AppToast.show(context, '打开 Windows 设置 → 系统 → 通知', error: true);
     }
   }
 
@@ -69,116 +67,119 @@ class _DesktopNotificationSettingsPageState
               children: [
                 SettingsSection(
                   padTop: false,
-                  header: confirmed ? '本次提醒已确认' : '先测试，再确认收到',
+                  header: '通知测试',
                   children: [
                     SettingsRow(
-                      leading: Icon(
-                        confirmed
-                            ? Icons.check_circle_outline
-                            : Icons.notifications_active_outlined,
-                      ),
-                      title: confirmed
-                          ? '已确认收到桌面提醒'
-                          : sent
-                          ? '刚才收到测试通知了吗？'
-                          : '测试桌面提醒',
-                      subtitle: notifications.error ?? '测试始终发送系统通知；点击通知可返回应用。',
+                      leading: const Icon(Icons.notifications_outlined),
+                      title: '测试系统通知',
+                      subtitle: '发送一条通知，点击后可回到应用。',
                       trailing: FilledButton(
                         onPressed: _busy ? null : _test,
                         child: Text(
                           _busy
-                              ? '请稍候…'
+                              ? '发送中…'
                               : sent
-                              ? '重新测试'
-                              : '测试',
+                              ? '重新发送'
+                              : '发送测试',
                         ),
                       ),
                     ),
-                    if (sent && !confirmed)
+                    if (notifications.error != null)
+                      SettingsRow(
+                        leading: Icon(Icons.error_outline, color: p.danger),
+                        title: '未能发送通知',
+                        subtitle: '请检查系统设置后重新发送。',
+                      )
+                    else if (sent)
                       Padding(
                         padding: AppDensity.rowPadding(context),
-                        child: Wrap(
-                          spacing: 12,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            FilledButton(
-                              onPressed: _busy
-                                  ? null
-                                  : notifications.confirmTest,
-                              child: const Text('已收到提醒'),
+                            Row(
+                              children: [
+                                if (confirmed) ...[
+                                  Icon(
+                                    Icons.check_circle_outline,
+                                    size: 18,
+                                    color: p.muted,
+                                  ),
+                                  const SizedBox(width: 8),
+                                ],
+                                Expanded(
+                                  child: Text(
+                                    confirmed ? '已确认收到测试通知' : '收到刚才的通知了吗？',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.bodyMedium,
+                                  ),
+                                ),
+                              ],
                             ),
-                            TextButton(
-                              onPressed: _busy
-                                  ? null
-                                  : () => setState(() => _showHelp = true),
-                              child: const Text('没有收到'),
-                            ),
+                            if (!confirmed) ...[
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  OutlinedButton(
+                                    onPressed: _busy
+                                        ? null
+                                        : () {
+                                            notifications.confirmTest();
+                                            setState(() => _showHelp = false);
+                                          },
+                                    child: const Text('已收到'),
+                                  ),
+                                  TextButton(
+                                    onPressed: _busy
+                                        ? null
+                                        : () =>
+                                              setState(() => _showHelp = true),
+                                    child: const Text('没有收到'),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),
-                  ],
-                ),
-                if (_showHelp)
-                  SettingsSection(
-                    header: '按表现检查',
-                    children: [
+                    if (_showHelp)
                       SettingsRow(
                         leading: const Icon(Icons.settings_outlined),
-                        title: '检查系统通知和勿扰模式',
-                        subtitle: '允许厦大签到通知，并按需开启横幅与声音，再重新测试。',
+                        title: PlatformHooks.isWindows
+                            ? '检查 Windows 通知设置'
+                            : '检查系统通知设置',
+                        subtitle: '允许厦大签到发送通知，并检查勿扰模式；修改后重新发送测试。',
                         onTap: PlatformHooks.isWindows ? _openSettings : null,
                       ),
-                    ],
-                  ),
+                  ],
+                ),
                 SettingsSection(
-                  header: '检测时会怎样提醒',
+                  header: '提醒方式',
+                  footer: PlatformHooks.isWindows
+                      ? Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            onPressed: _openSettings,
+                            child: const Text('Windows 通知设置'),
+                          ),
+                        )
+                      : null,
                   children: [
                     const SettingsRow(
                       leading: Icon(Icons.fact_check_outlined),
-                      title: '发现与自动签到',
-                      subtitle:
-                          '前台显示应用内提醒，后台发送系统通知。自动签到需主动开启；提交结果会更新提醒，避免重复响铃。',
+                      title: '发现签到时',
+                      subtitle: '在前台时显示应用内提醒，切到后台后发送系统通知。',
                     ),
                     SettingsRow(
                       leading: const Icon(Icons.desktop_windows_outlined),
-                      title: '关闭到托盘后继续检测',
+                      title: '托盘运行',
                       subtitle: shell.trayAvailable.value
-                          ? '可从托盘打开签到或停止检测；退出应用与电脑睡眠后不会继续检测。'
-                          : '托盘暂不可用时改为最小化到任务栏；退出应用与电脑睡眠后不会继续检测。',
+                          ? '关闭到托盘后继续检测。退出应用或电脑睡眠时不会检测。'
+                          : '托盘暂不可用，请保留应用运行。退出应用或电脑睡眠时不会检测。',
                     ),
                   ],
-                ),
-                ExpansionTile(
-                  title: const Text('更多设置与排查'),
-                  children: [
-                    if (PlatformHooks.isWindows)
-                      SettingsRow(
-                        title: '打开 Windows 通知设置',
-                        onTap: _openSettings,
-                      ),
-                    SettingsRow(
-                      title: '通知连接',
-                      subtitle:
-                          notifications.error ??
-                          (notifications.ready
-                              ? '已连接；是否实际收到仍需测试确认'
-                              : '发送测试时自动连接'),
-                      trailing: TextButton(
-                        onPressed: _busy
-                            ? null
-                            : () async {
-                                setState(() => _busy = true);
-                                await notifications.initialize();
-                                if (mounted) setState(() => _busy = false);
-                              },
-                        child: const Text('重试'),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: AppSpace.md),
-                Text(
-                  '检测负责发现签到；提交按当前账号的自动签到规则执行。系统设置和通知发送成功，都不能代替一次实际收到提醒的确认。',
-                  style: TextStyle(color: p.muted, fontSize: 12, height: 1.5),
                 ),
               ],
             );

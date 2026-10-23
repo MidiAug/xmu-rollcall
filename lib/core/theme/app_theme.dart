@@ -183,6 +183,17 @@ abstract final class AppTheme {
         ),
       ),
       dividerColor: p.border,
+      scrollbarTheme: ScrollbarThemeData(
+        thickness: const WidgetStatePropertyAll(4),
+        radius: const Radius.circular(3),
+        crossAxisMargin: 2,
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          final active =
+              states.contains(WidgetState.dragged) ||
+              states.contains(WidgetState.hovered);
+          return p.muted.withValues(alpha: active ? .55 : .28);
+        }),
+      ),
       dividerTheme: DividerThemeData(color: p.border, thickness: 1, space: 1),
       listTileTheme: ListTileThemeData(
         iconColor: p.muted,

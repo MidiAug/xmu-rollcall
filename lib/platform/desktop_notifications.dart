@@ -44,7 +44,7 @@ class DesktopNotifications extends ChangeNotifier {
 
   Future<bool> notify(int count, {bool test = false}) async {
     if (count <= 0 && !test) return true;
-    final body = test ? '桌面通知测试：点击此通知返回应用' : '发现进行中签到 $count 条，点击查看';
+    final body = test ? '收到这条通知后，点击返回应用。' : '发现 $count 条进行中的签到，点击查看。';
     return _deliver(body, test: test);
   }
 
@@ -64,6 +64,12 @@ class DesktopNotifications extends ChangeNotifier {
     bool test = false,
     bool quiet = false,
   }) async {
+    if (test) {
+      // A failed retest must not leave an older confirmation visible.
+      lastTestSentAt = null;
+      lastTestConfirmedAt = null;
+      notifyListeners();
+    }
     try {
       // Suppress system alerts only when the application is actually in focus.
       if (!test && await isForeground() && showInApp(body)) return true;

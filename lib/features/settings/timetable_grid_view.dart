@@ -1,315 +1,449 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid.dart';
 
-/// Week × period timetable grid (shared by real catalog page + debug preview).
+/// Week × period timetable. Keep readable row sizes; scroll instead of shrinking
+/// the text to fit late periods into the viewport. Weekday headers stay visible.
 class TimetableGridView extends StatelessWidget {
   const TimetableGridView({super.key, required this.courses});
 
   final List<CatalogCourse> courses;
 
-  static const _headerH = 32.0;
-  static const _periodColW = 40.0;
+  @override
+  Widget build(BuildContext context) =>
+      _ScrollableTimetableGrid(courses: courses);
+}
+
+class _ScrollableTimetableGrid extends StatefulWidget {
+  const _ScrollableTimetableGrid({required this.courses});
+  final List<CatalogCourse> courses;
+
+  @override
+  State<_ScrollableTimetableGrid> createState() =>
+      _ScrollableTimetableGridState();
+}
+
+class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
+  final _vertical = ScrollController();
+  final _horizontal = ScrollController();
+
+  @override
+  void dispose() {
+    _vertical.dispose();
+    _horizontal.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final days = visibleWeekdays(courses);
-    final rows = buildTimetableAxisRows(courses);
+    final touch = AppDensity.isTouch(context);
+    final scale = math.max(
+      1.0,
+      MediaQuery.textScalerOf(context).scale(13) / 13,
+    );
+    final days = visibleWeekdays(widget.courses);
+    final rows = buildTimetableAxisRows(widget.courses);
     final seqIndex = sequenceToRowIndex(rows);
-    final blocks = placeTimetableBlocks(courses);
+    final blocks = placeTimetableBlocks(widget.courses);
+    final axisW = (touch ? 56.0 : 60.0) * scale;
+    final headerH = (touch ? 36.0 : 44.0) * scale;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final w = constraints.maxWidth;
         final h = constraints.maxHeight;
-        if (!w.isFinite || !h.isFinite || w <= 0 || h <= 0) {
+        if (!w.isFinite || !h.isFinite || w <= 0 || h <= headerH) {
           return const SizedBox.shrink();
         }
-
+        final gridW = math.max(
+          w,
+          axisW + days.length * (touch ? 56 : 108) * scale,
+        );
+        final dayW = (gridW - axisW) / days.length;
         final breakCount = rows.where((r) => r.isBreak).length;
         final periodCount = rows.length - breakCount;
-        final bodyH = (h - _headerH).clamp(1.0, h);
-        final breakH = periodCount == 0
-            ? 0.0
-            : (bodyH / (periodCount + breakCount * 0.42) * 0.42).clamp(
-                12.0,
-                20.0,
-              );
-        final periodH = periodCount == 0
-            ? bodyH
-            : ((bodyH - breakH * breakCount) / periodCount).clamp(18.0, 80.0);
-        final dayW = (w - _periodColW) / days.length;
-        final usedBodyH = periodH * periodCount + breakH * breakCount;
+        final breakH = (touch ? 18.0 : 22.0) * scale;
+        final available = (h - headerH - breakCount * breakH) / periodCount;
+        final periodH = math.max(
+          (touch ? 44.0 : 56.0) * scale,
+          math.min(96.0 * scale, available),
+        );
+        final bodyH = periodH * periodCount + breakH * breakCount;
 
-        double yOfRow(int rowIndex) {
+        double yOfRow(int index) {
           var y = 0.0;
-          for (var i = 0; i < rowIndex; i++) {
+          for (var i = 0; i < index; i++) {
             y += rows[i].isBreak ? breakH : periodH;
           }
           return y;
         }
 
         final blockWidgets = <Widget>[];
-        for (final b in blocks) {
-          if (!days.contains(b.weekday)) continue;
-          final startRow = seqIndex[b.block.startSequence];
-          final endRow = seqIndex[b.block.endSequence];
-          if (startRow == null || endRow == null) continue;
-          final dayIdx = days.indexOf(b.weekday);
-          final top = yOfRow(startRow) + 1;
-          final bottom =
-              yOfRow(endRow) + (rows[endRow].isBreak ? breakH : periodH) - 1;
+        for (final block in blocks) {
+          final start = seqIndex[block.block.startSequence];
+          final end = seqIndex[block.block.endSequence];
+          final day = days.indexOf(block.weekday);
+          if (start == null || end == null || day < 0) continue;
+          final top = yOfRow(start) + 2;
+          final bottom = yOfRow(end) + periodH - 2;
           blockWidgets.add(
             Positioned(
-              left: dayIdx * dayW + 1.5,
-              width: dayW - 3,
+              left: day * dayW + 2,
+              width: dayW - 4,
               top: top,
-              height: (bottom - top).clamp(16.0, usedBodyH),
+              height: bottom - top,
               child: _CourseBlockChip(
-                block: b,
-                tint: timetableTintForCourseId(b.course.id),
-                onTap: () => _showBlockDetail(context, b),
+                key: ValueKey(
+                  'course-${block.course.id}-${block.weekday}-${block.block.id}',
+                ),
+                block: block,
+                tint: timetableTintForCourseId(
+                  block.course.id,
+                  brightness: Theme.of(context).brightness,
+                ),
+                onTap: () => _showBlockDetail(context, block),
               ),
             ),
           );
         }
 
-        return Column(
-          children: [
-            SizedBox(
-              height: _headerH,
-              child: Row(
+        final dayGrid = SizedBox(
+          width: gridW - axisW,
+          height: bodyH,
+          child: Stack(
+            children: [
+              Column(
                 children: [
-                  const SizedBox(width: _periodColW),
-                  for (final d in days)
+                  for (final row in rows)
+                    Container(
+                      height: row.isBreak ? breakH : periodH,
+                      decoration: BoxDecoration(
+                        color: row.isBreak ? p.content : null,
+                        border: Border(
+                          top: BorderSide(color: p.border, width: .5),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: row.isBreak
+                          ? Text(
+                              row.breakLabel ?? '',
+                              style: Theme.of(context).textTheme.labelSmall,
+                            )
+                          : null,
+                    ),
+                ],
+              ),
+              Row(
+                children: [
+                  for (final _ in days)
                     Expanded(
-                      child: Center(
-                        child: Text(
-                          weekdayLabel(d),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: (d == 6 || d == 7) ? p.primary : p.ink,
+                      child: Container(
+                        height: bodyH,
+                        decoration: BoxDecoration(
+                          border: Border(
+                            left: BorderSide(color: p.border, width: .5),
                           ),
                         ),
                       ),
                     ),
                 ],
               ),
-            ),
-            SizedBox(
-              height: usedBodyH,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              ...blockWidgets,
+            ],
+          ),
+        );
+        final body = SizedBox(
+          height: bodyH,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                key: const ValueKey('timetable-periods'),
+                width: axisW,
+                child: Column(
+                  children: [
+                    for (final row in rows)
+                      _axisLabel(
+                        context,
+                        row,
+                        periodH: periodH,
+                        breakH: breakH,
+                      ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  key: const ValueKey('timetable-horizontal'),
+                  controller: _horizontal,
+                  scrollDirection: Axis.horizontal,
+                  child: dayGrid,
+                ),
+              ),
+            ],
+          ),
+        );
+        final weekdays = SizedBox(
+          width: gridW - axisW,
+          height: headerH,
+          child: Row(
+            children: [
+              for (final day in days)
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      weekdayLabel(day),
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        fontSize: touch ? 12 : 13,
+                        color: day >= 6 ? p.primary : p.ink,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+
+        return Material(
+          color: p.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.group),
+            side: BorderSide(color: p.border),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: ScrollConfiguration(
+            behavior: ScrollConfiguration.of(
+              context,
+            ).copyWith(scrollbars: false),
+            child: Scrollbar(
+              controller: _horizontal,
+              thumbVisibility: !touch && gridW > w,
+              notificationPredicate: (n) => n.metrics.axis == Axis.horizontal,
+              child: Column(
                 children: [
                   SizedBox(
-                    width: _periodColW,
-                    height: usedBodyH,
-                    child: Column(
+                    key: const ValueKey('timetable-weekdays'),
+                    height: headerH,
+                    child: Row(
                       children: [
-                        for (final r in rows)
-                          _axisLabel(r, p, periodH: periodH, breakH: breakH),
+                        SizedBox(
+                          width: axisW,
+                          child: Center(
+                            child: Text(
+                              '节次',
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: AnimatedBuilder(
+                            animation: _horizontal,
+                            child: weekdays,
+                            builder: (context, child) => ClipRect(
+                              child: OverflowBox(
+                                alignment: Alignment.centerLeft,
+                                minWidth: gridW - axisW,
+                                maxWidth: gridW - axisW,
+                                child: Transform.translate(
+                                  offset: Offset(
+                                    _horizontal.hasClients
+                                        ? -_horizontal.offset
+                                        : 0,
+                                    0,
+                                  ),
+                                  child: child,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   Expanded(
-                    child: SizedBox(
-                      height: usedBodyH,
-                      child: Stack(
-                        children: [
-                          Column(
-                            children: [
-                              for (final r in rows)
-                                Container(
-                                  height: r.isBreak ? breakH : periodH,
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    color: r.isBreak
-                                        ? p.surfaceHigh.withValues(alpha: 0.5)
-                                        : null,
-                                    border: Border(
-                                      top: BorderSide(
-                                        color: p.border,
-                                        width: 0.5,
-                                      ),
-                                    ),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: r.isBreak
-                                      ? Text(
-                                          r.breakLabel ?? '',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: p.muted,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        )
-                                      : null,
-                                ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              for (var i = 0; i < days.length; i++)
-                                Expanded(
-                                  child: Container(
-                                    height: usedBodyH,
-                                    decoration: BoxDecoration(
-                                      border: Border(
-                                        left: BorderSide(
-                                          color: p.border,
-                                          width: 0.5,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          ...blockWidgets,
-                        ],
+                    child: Scrollbar(
+                      controller: _vertical,
+                      thumbVisibility: !touch && bodyH > h - headerH,
+                      notificationPredicate: (n) =>
+                          n.metrics.axis == Axis.vertical,
+                      child: SingleChildScrollView(
+                        key: const ValueKey('timetable-vertical'),
+                        controller: _vertical,
+                        child: body,
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
         );
       },
     );
   }
 
   Widget _axisLabel(
-    TimetableAxisRow r,
-    AppPalette p, {
+    BuildContext context,
+    TimetableAxisRow row, {
     required double periodH,
     required double breakH,
   }) {
-    if (r.isBreak) return SizedBox(height: breakH);
+    if (row.isBreak) return SizedBox(height: breakH);
+    final touch = AppDensity.isTouch(context);
     return SizedBox(
       height: periodH,
-      width: _periodColW,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            '${r.sequence}',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              height: 1.1,
-              color: p.ink,
-            ),
-          ),
-          if (r.start != null && r.end != null && periodH >= 28)
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
             Text(
-              '${formatHm(r.start!)}\n${formatHm(r.end!)}',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 8, height: 1.1, color: p.muted),
+              '${row.sequence}',
+              style: Theme.of(context).textTheme.titleSmall,
             ),
-        ],
+            if (row.start != null && row.end != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                '${formatHm(row.start!)}\n${formatHm(row.end!)}',
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                softWrap: false,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  fontSize: touch ? 9 : 10,
+                  height: 1.25,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 
-  void _showBlockDetail(BuildContext context, TimetablePlacedBlock b) {
-    final p = AppPalette.of(context);
-    final c = b.course;
-    final title = timetableCourseTitle(c);
+  void _showBlockDetail(BuildContext context, TimetablePlacedBlock block) {
+    final detail = _CourseDetail(block: block);
+    if (!AppDensity.isTouch(context)) {
+      showDialog<void>(
+        context: context,
+        barrierColor: Colors.black.withValues(alpha: .40),
+        builder: (_) => Dialog(
+          backgroundColor: AppPalette.of(context).surface,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.dialog),
+            side: BorderSide(color: AppPalette.of(context).border),
+          ),
+          insetPadding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 440),
+            child: SingleChildScrollView(child: detail),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet<void>(
+        context: context,
+        useRootNavigator: true,
+        useSafeArea: true,
+        isScrollControlled: true,
+        showDragHandle: true,
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * .8,
+        ),
+        backgroundColor: AppPalette.of(context).surface,
+        builder: (_) => SingleChildScrollView(child: detail),
+      );
+    }
+  }
+}
 
-    showModalBottomSheet<void>(
-      context: context,
-      useRootNavigator: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            child: Material(
-              color: p.surface,
-              borderRadius: BorderRadius.circular(AppRadii.dialog),
-              clipBehavior: Clip.antiAlias,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: p.ink,
-                        height: 1.25,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    _DetailRow(
-                      icon: Icons.schedule_outlined,
-                      text:
-                          '${weekdayLabel(b.weekday)} ${b.block.sectionLabel}'
-                          '（${formatHm(b.block.coreStart)}-${formatHm(b.block.coreEnd)}）',
-                      muted: p.muted,
-                      ink: p.ink,
-                    ),
-                    if (c.instructorsLabel.isNotEmpty)
-                      _DetailRow(
-                        icon: Icons.person_outline,
-                        text: c.instructorsLabel,
-                        muted: p.muted,
-                        ink: p.ink,
-                      ),
-                    if (c.location != null && c.location!.isNotEmpty)
-                      _DetailRow(
-                        icon: Icons.place_outlined,
-                        text: c.location!,
-                        muted: p.muted,
-                        ink: p.ink,
-                      ),
-                  ],
+String? _separateClassLabel(CatalogCourse course) {
+  final label = course.teachingClassName?.trim();
+  if (label == null ||
+      label.isEmpty ||
+      course.title.contains('($label)') ||
+      course.title.contains('（$label）')) {
+    return null;
+  }
+  return label;
+}
+
+class _CourseDetail extends StatelessWidget {
+  const _CourseDetail({required this.block});
+  final TimetablePlacedBlock block;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = block.course;
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 16, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: SelectableText(
+                  c.title.trim().isEmpty ? '未命名课程' : c.title,
+                  style: text.titleLarge,
                 ),
               ),
-            ),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: '关闭课程详情',
+                visualDensity: VisualDensity.compact,
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded, size: 20),
+              ),
+            ],
           ),
-        );
-      },
+          if (_separateClassLabel(c) != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(_separateClassLabel(c)!, style: text.bodySmall),
+            ),
+          const SizedBox(height: 20),
+          _DetailRow(
+            icon: Icons.schedule_outlined,
+            text:
+                '${weekdayLabel(block.weekday)} ${block.block.sectionLabel}  '
+                '${formatHm(block.block.coreStart)}–${formatHm(block.block.coreEnd)}',
+          ),
+          if (c.instructorsLabel.isNotEmpty)
+            _DetailRow(icon: Icons.person_outline, text: c.instructorsLabel),
+          if (c.location?.isNotEmpty == true)
+            _DetailRow(icon: Icons.place_outlined, text: c.location!),
+        ],
+      ),
     );
   }
 }
 
 class _DetailRow extends StatelessWidget {
-  const _DetailRow({
-    required this.icon,
-    required this.text,
-    required this.muted,
-    required this.ink,
-  });
-
+  const _DetailRow({required this.icon, required this.text});
   final IconData icon;
   final String text;
-  final Color muted;
-  final Color ink;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: muted),
-          const SizedBox(width: 10),
+          Icon(icon, size: 18),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
+            child: SelectableText(
               text,
-              style: TextStyle(fontSize: 14, color: ink, height: 1.35),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
           ),
         ],
@@ -320,11 +454,11 @@ class _DetailRow extends StatelessWidget {
 
 class _CourseBlockChip extends StatelessWidget {
   const _CourseBlockChip({
+    super.key,
     required this.block,
     required this.tint,
     required this.onTap,
   });
-
   final TimetablePlacedBlock block;
   final TimetableCourseTint tint;
   final VoidCallback onTap;
@@ -332,49 +466,104 @@ class _CourseBlockChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = block.course;
-    final title = timetableCourseTitle(c);
-    final ink = tint.ink;
-    final meta = ink.withValues(alpha: 0.78);
-    return GestureDetector(
-      onTap: onTap,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: tint.fill,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 3, 4, 3),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 4,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    height: 1.15,
-                    color: ink,
-                  ),
-                ),
+    final touch = AppDensity.isTouch(context);
+    final p = AppPalette.of(context);
+    final scaler = MediaQuery.textScalerOf(context);
+    final titleStyle = Theme.of(context).textTheme.titleSmall!.copyWith(
+      fontSize: touch ? 11 : 13,
+      fontWeight: FontWeight.w600,
+      height: 1.4,
+      letterSpacing: 0,
+    );
+    final metaStyle = Theme.of(context).textTheme.bodySmall!.copyWith(
+      fontSize: touch ? 10 : 11,
+      height: 1.35,
+      color: tint.ink,
+    );
+    final titleH = scaler.scale(titleStyle.fontSize!) * 1.4 + 2;
+    final metaH = scaler.scale(metaStyle.fontSize!) * 1.35 + 2;
+    final footer = c.location?.isNotEmpty == true
+        ? c.location!
+        : c.instructorNames.firstOrNull ?? '';
+
+    return Semantics(
+      button: true,
+      label:
+          '${timetableCourseTitle(c)}，${weekdayLabel(block.weekday)}，'
+          '${block.block.sectionLabel}，${c.instructorsLabel}'
+          '${c.location == null ? '' : '，${c.location}'}',
+      child: Material(
+        color: tint.fill,
+        borderRadius: BorderRadius.circular(AppRadii.control),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          hoverColor: p.hover,
+          focusColor: p.primary.withValues(alpha: .14),
+          highlightColor: Colors.transparent,
+          splashFactory: NoSplash.splashFactory,
+          child: ExcludeSemantics(
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: touch ? 6 : 10,
+                vertical: touch ? 6 : 8,
               ),
-              if (c.location != null && c.location!.isNotEmpty)
-                Text(
-                  '@${c.location}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 8, height: 1.1, color: meta),
-                ),
-              if (c.instructorNames.isNotEmpty)
-                Text(
-                  c.instructorNames.first,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 8, height: 1.1, color: meta),
-                ),
-            ],
+              child: LayoutBuilder(
+                builder: (context, bounds) {
+                  final showFooter =
+                      footer.isNotEmpty &&
+                      bounds.maxHeight >= titleH + metaH + 6;
+                  final showClass =
+                      _separateClassLabel(c) != null &&
+                      bounds.maxHeight >=
+                          titleH * 2 + metaH * (showFooter ? 2 : 1) + 12;
+                  final reserve =
+                      (showFooter ? metaH + 6 : 0) +
+                      (showClass ? metaH + 4 : 0);
+                  final titleLines = ((bounds.maxHeight - reserve) / titleH)
+                      .floor()
+                      .clamp(1, 4);
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                c.title.trim().isEmpty ? '未命名课程' : c.title,
+                                maxLines: titleLines,
+                                overflow: TextOverflow.ellipsis,
+                                style: titleStyle,
+                              ),
+                            ),
+                            if (showClass) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                _separateClassLabel(c)!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: metaStyle,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      if (showFooter) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          footer,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: metaStyle,
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              ),
+            ),
           ),
         ),
       ),

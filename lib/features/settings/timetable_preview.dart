@@ -39,8 +39,9 @@ extension on TimetablePreviewScenario {
   String get hint => switch (this) {
     TimetablePreviewScenario.weekdayTo8 => '默认：周一至周五，1–8 节；有午休 / 晚休，无周末列',
     TimetablePreviewScenario.withWeekend => '出现周六、周日列；周末色高亮；列变窄',
-    TimetablePreviewScenario.withLateNight => '纵轴到 11 节；晚课后有 10–11；行高被压缩',
-    TimetablePreviewScenario.weekendAndLate => '最挤：七列 + 11 节；检查色块与轴标签可读性',
+    TimetablePreviewScenario.withLateNight => '纵轴到 11 节；保留可读行高，上下滚动查看晚课',
+    TimetablePreviewScenario.weekendAndLate =>
+      '七列与 11 节：左右查看周末，上下查看晚课；表头和节次保持可见',
   };
 }
 

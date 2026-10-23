@@ -18,7 +18,6 @@ import 'package:xmu_rollcall/features/settings/settings_assist_page.dart';
 import 'package:xmu_rollcall/features/settings/settings_data_page.dart';
 import 'package:xmu_rollcall/features/settings/about_settings_row.dart';
 import 'package:xmu_rollcall/platform/close_prefs.dart';
-import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
 enum ThemePreference { system, dark, light }
 
@@ -130,16 +129,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 ),
               ],
             ),
-            if (!desktop)
-              Padding(
-                padding: const EdgeInsets.only(top: AppSpace.lg),
-                child: _AppearanceControl(
-                  value: themePref,
-                  onChanged: (v) {
-                    ref.read(themePreferenceProvider.notifier).set(v);
-                  },
-                ),
-              ),
             SettingsSection(
               header: '常用',
               children: [
@@ -175,20 +164,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
             SettingsSection(
               header: '应用',
               children: [
-                if (desktop)
-                  SettingsRow(
-                    leading: const Icon(Icons.brightness_6_outlined),
-                    title: '外观',
-                    trailing: SizedBox(
-                      width: 264,
-                      child: _AppearanceSegments(
-                        value: themePref,
-                        onChanged: (v) {
-                          ref.read(themePreferenceProvider.notifier).set(v);
-                        },
-                      ),
-                    ),
+                SettingsRow(
+                  leading: const Icon(Icons.brightness_6_outlined),
+                  title: '外观',
+                  trailing: AppShellSelect<ThemePreference>(
+                    value: themePref,
+                    items: const [
+                      ThemePreference.light,
+                      ThemePreference.dark,
+                      ThemePreference.system,
+                    ],
+                    labelOf: (value) => switch (value) {
+                      ThemePreference.light => '浅色',
+                      ThemePreference.dark => '暗色',
+                      ThemePreference.system => '跟随系统',
+                    },
+                    width: 148,
+                    onChanged: (v) {
+                      ref.read(themePreferenceProvider.notifier).set(v);
+                    },
                   ),
+                ),
                 if (desktop)
                   SettingsRow(
                     leading: const Icon(Icons.desktop_windows_outlined),
@@ -208,7 +204,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   SettingsRow(
                     leading: const Icon(Icons.notifications_active_outlined),
                     title: desktop ? '桌面提醒' : '后台提醒',
-                    subtitle: desktop ? '测试系统通知，检查托盘状态' : '自动检查，一次确认锁屏提醒',
+                    subtitle: desktop ? '测试系统通知与后台提醒' : '自动检查，一次确认锁屏提醒',
                     trailing: Icon(
                       Icons.chevron_right,
                       color: p.muted,
@@ -235,81 +231,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           ],
         ),
       ),
-    );
-  }
-}
-
-class _AppearanceControl extends StatelessWidget {
-  const _AppearanceControl({required this.value, required this.onChanged});
-
-  final ThemePreference value;
-  final ValueChanged<ThemePreference> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final label = Text(
-      '外观',
-      style: Theme.of(context).textTheme.titleSmall?.copyWith(color: p.muted),
-    );
-    final control = _AppearanceSegments(value: value, onChanged: onChanged);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 440) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(left: AppSpace.sm),
-                child: label,
-              ),
-              const SizedBox(height: AppSpace.xs),
-              control,
-            ],
-          );
-        }
-        return Row(
-          children: [
-            const SizedBox(width: AppSpace.md),
-            Expanded(child: label),
-            const SizedBox(width: AppSpace.md),
-            SizedBox(width: 336, child: control),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _AppearanceSegments extends StatelessWidget {
-  const _AppearanceSegments({required this.value, required this.onChanged});
-
-  final ThemePreference value;
-  final ValueChanged<ThemePreference> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppSegmentedControl<ThemePreference>(
-      value: value,
-      expanded: true,
-      onChanged: onChanged,
-      segments: [
-        const AppSegment(
-          value: ThemePreference.light,
-          label: '浅色',
-          icon: Icons.wb_sunny_outlined,
-        ),
-        const AppSegment(
-          value: ThemePreference.dark,
-          label: '暗色',
-          icon: Icons.dark_mode_outlined,
-        ),
-        AppSegment(
-          value: ThemePreference.system,
-          label: '系统',
-          icon: PlatformHooks.systemAppearanceIcon(context),
-        ),
-      ],
     );
   }
 }

@@ -232,29 +232,21 @@ void main() {
         }
         expect(find.text(desktop ? '桌面提醒' : '后台提醒'), findsOneWidget);
         expect(find.text('关闭窗口时'), desktop ? findsOneWidget : findsNothing);
-        final segment = find.byType(AppSegmentedControl<ThemePreference>);
+        expect(find.byType(AppSegmentedControl<ThemePreference>), findsNothing);
+        final appearance = find.byType(AppShellSelect<ThemePreference>);
+        final group = find.ancestor(
+          of: appearance,
+          matching: find.byType(SettingsSection),
+        );
+        expect(tester.widget<SettingsSection>(group).header, '应用');
+        expect(
+          tester.getCenter(appearance).dx,
+          greaterThan(tester.getCenter(find.text('外观')).dx),
+        );
         if (desktop) {
-          expect(find.byType(AppShellSelect<ThemePreference>), findsNothing);
           final close = find.byType(AppShellSelect<CloseMode>);
-          expect(tester.getRect(segment).right, tester.getRect(close).right);
-          expect(tester.getSize(segment).width, lessThan(300));
-          expect(tester.getSize(segment).height, lessThanOrEqualTo(44));
-          final appGroup = find.ancestor(
-            of: segment,
-            matching: find.byType(SettingsSection),
-          );
-          expect(tester.widget<SettingsSection>(appGroup).header, '应用');
-        } else {
-          final options = ['浅色', '暗色', '系统'].map(find.text).toList();
-          expect(
-            tester.getCenter(options.first).dy,
-            tester.getCenter(options.last).dy,
-          );
-          expect(tester.getSize(segment).height, lessThan(60));
-          final target = find
-              .ancestor(of: options[1], matching: find.byType(InkWell))
-              .first;
-          expect(tester.getSize(target).height, greaterThanOrEqualTo(44));
+          expect(tester.getRect(appearance).right, tester.getRect(close).right);
+          expect(tester.getSize(appearance).width, tester.getSize(close).width);
         }
         await capture(
           tester,
@@ -342,104 +334,65 @@ void main() {
     },
   );
 
-  testWidgets(
-    'desktop appearance offers three direct choices with keyboard and persistence',
-    (tester) async {
-      SharedPreferences.setMockInitialValues({
-        'theme_preference': ThemePreference.light.index,
-      });
-      tester.view.physicalSize = const Size(960, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(_app(platform: TargetPlatform.windows));
-      await tester.pumpAndSettle();
-      expect(find.byType(AppShellSelect<ThemePreference>), findsNothing);
-      for (final label in ['浅色', '暗色', '系统']) {
-        expect(find.text(label), findsOneWidget);
-      }
-      await tester.tap(find.text('暗色'));
-      await tester.pumpAndSettle();
-      final page = tester.element(find.byType(SettingsPage));
-      expect(Theme.of(page).brightness, Brightness.dark);
-      expect(find.byType(AppMenuOption), findsNothing);
-      Focus.of(tester.element(find.text('暗色'))).requestFocus();
-      await tester.pumpAndSettle();
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.pumpAndSettle();
-      expect(
-        ProviderScope.containerOf(page).read(themePreferenceProvider),
-        ThemePreference.system,
-      );
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-      await tester.pumpAndSettle();
-      expect(Theme.of(page).brightness, Brightness.dark);
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt('theme_preference'), ThemePreference.dark.index);
-      await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
-
-  testWidgets(
-    'appearance supports keyboard, pointer, semantics and persistence',
-    (tester) async {
-      SharedPreferences.setMockInitialValues({
-        'theme_preference': ThemePreference.light.index,
-      });
-      tester.view.physicalSize = const Size(384, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final semantics = tester.ensureSemantics();
-      await tester.pumpWidget(_app(platform: TargetPlatform.android));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('暗色'));
-      await tester.pumpAndSettle();
-      final page = tester.element(find.byType(SettingsPage));
-      expect(Theme.of(page).brightness, Brightness.dark);
-      Focus.of(tester.element(find.text('暗色'))).requestFocus();
-      await tester.pumpAndSettle();
-      expect(
-        tester.getSemantics(find.text('暗色')),
-        matchesSemantics(
-          label: '暗色',
-          isButton: true,
-          isSelected: true,
-          hasSelectedState: true,
-          isInMutuallyExclusiveGroup: true,
-          hasTapAction: true,
-          isFocusable: true,
-          isFocused: true,
-          hasFocusAction: true,
-        ),
-      );
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
-      await tester.pumpAndSettle();
-      expect(
-        ProviderScope.containerOf(page).read(themePreferenceProvider),
-        ThemePreference.system,
-      );
-      await tester.sendKeyEvent(LogicalKeyboardKey.home);
-      await tester.pumpAndSettle();
-      expect(Theme.of(page).brightness, Brightness.light);
-      Focus.of(tester.element(find.text('暗色'))).requestFocus();
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-      expect(Theme.of(page).brightness, Brightness.dark);
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getInt('theme_preference'), ThemePreference.dark.index);
-      await tester.pumpWidget(const SizedBox.shrink());
-      semantics.dispose();
-      await tester.pumpWidget(_app(platform: TargetPlatform.android));
-      await tester.pumpAndSettle();
-      expect(
-        Theme.of(tester.element(find.byType(SettingsPage))).brightness,
-        Brightness.dark,
-      );
-      await tester.pumpWidget(const SizedBox.shrink());
-    },
-  );
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    testWidgets(
+      'appearance menu supports pointer, keyboard and persistence on $platform',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({
+          'theme_preference': ThemePreference.light.index,
+        });
+        tester.view.physicalSize = Size(
+          platform == TargetPlatform.windows ? 960 : 384,
+          844,
+        );
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(_app(platform: platform));
+        await tester.pumpAndSettle();
+        final menu = find.byType(AppShellSelect<ThemePreference>);
+        await tester.tap(menu);
+        await tester.pumpAndSettle();
+        expect(find.text('跟随系统'), findsOneWidget);
+        await tester.tap(find.text('暗色'));
+        await tester.pumpAndSettle();
+        final page = tester.element(find.byType(SettingsPage));
+        expect(Theme.of(page).brightness, Brightness.dark);
+        expect(find.byType(AppMenuOption), findsNothing);
+        final trigger = find.descendant(
+          of: menu,
+          matching: find.byType(AppSelectTrigger),
+        );
+        tester.widget<AppSelectTrigger>(trigger).focusNode!.requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(
+          ProviderScope.containerOf(page).read(themePreferenceProvider),
+          ThemePreference.system,
+        );
+        await tester.tap(menu);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('暗色'));
+        await tester.pumpAndSettle();
+        expect(
+          (await SharedPreferences.getInstance()).getInt('theme_preference'),
+          ThemePreference.dark.index,
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpWidget(_app(platform: platform));
+        await tester.pumpAndSettle();
+        expect(
+          Theme.of(tester.element(find.byType(SettingsPage))).brightness,
+          Brightness.dark,
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
 
   test('primary button text retains readable contrast in both themes', () {
     for (final theme in [AppTheme.dark(), AppTheme.light()]) {

@@ -17,6 +17,7 @@ import 'package:xmu_rollcall/features/settings/close_prefs_controller.dart';
 import 'package:xmu_rollcall/platform/close_prefs.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:xmu_rollcall/platform/desktop_notifications.dart';
+import 'package:xmu_rollcall/platform/windows_desktop_notifications.dart';
 
 /// Desktop window close / tray / discovery notification (Phase 3 shell slice).
 class DesktopShell with WindowListener, TrayListener {
@@ -40,8 +41,9 @@ class DesktopShell with WindowListener, TrayListener {
 
   static final DesktopShell instance = DesktopShell._();
 
-  static const discoveryNotificationId = 'rollcall-found';
-  static const testNotificationId = 'rollcall-notification-test';
+  static const discoveryNotificationId =
+      WindowsDesktopNotifications.discoveryPayload;
+  static const testNotificationId = WindowsDesktopNotifications.testPayload;
   late final DesktopNotifications notifications;
   final trayAvailable = ValueNotifier(false);
   LocalNotification? _discoveryNotification;
@@ -114,29 +116,28 @@ class DesktopShell with WindowListener, TrayListener {
     }
     // local_notifier's Windows implementation reports success even if WinToast
     // rejects a toast. This backend propagates native initialization/show errors.
-    final plugin = _windowsNotifications ??= FlutterLocalNotificationsWindows();
-    final initialized = await plugin.initialize(
-      settings: const WindowsInitializationSettings(
-        appName: kAppDisplayName,
-        appUserModelId: 'cn.edu.xmu.rollcall',
-        guid: '1a7ff90c-8c39-4cad-9d09-702731e97bba',
-      ),
-      onDidReceiveNotificationResponse: (response) => _run(
-        response.payload == testNotificationId
-            ? showMainWindow()
-            : showRollcallFromNotification(),
-      ),
-    );
+    // The native plugin owns late-final handles. Never reinitialize an old
+    // instance after failure/disposal; a fresh instance keeps retries usable.
+    _windowsNotifications?.dispose();
+    _windowsNotifications = null;
+    final plugin = FlutterLocalNotificationsWindows();
+    final initialized = await WindowsDesktopNotifications(plugin: plugin)
+        .initialize(
+          (response) => _run(handleNotificationActivation(response.payload)),
+        );
     if (!initialized) throw StateError('Windows 通知初始化失败');
+    _windowsNotifications = plugin;
     final launch = await plugin.getNotificationAppLaunchDetails();
     if (launch?.didNotificationLaunchApp == true) {
-      _run(
-        launch?.notificationResponse?.payload == testNotificationId
-            ? showMainWindow()
-            : showRollcallFromNotification(),
-      );
+      _run(handleNotificationActivation(launch?.notificationResponse?.payload));
     }
   }
+
+  /// Test notifications restore the current page; discoveries open the list.
+  Future<void> handleNotificationActivation(String? payload) =>
+      payload == testNotificationId
+      ? showMainWindow()
+      : showRollcallFromNotification();
 
   Future<void> updateTrayMenu() async {
     final running = isMonitorRunning?.call() ?? false;
@@ -216,17 +217,9 @@ class DesktopShell with WindowListener, TrayListener {
     if (Platform.isWindows) {
       final plugin = _windowsNotifications;
       if (plugin == null) throw StateError('Windows 通知尚未初始化');
-      await plugin.show(
-        id: test ? 2 : 1,
-        title: kAppDisplayName,
-        body: body,
-        payload: test ? testNotificationId : discoveryNotificationId,
-        notificationDetails: silent
-            ? WindowsNotificationDetails(
-                audio: WindowsNotificationAudio.silent(),
-              )
-            : null,
-      );
+      await WindowsDesktopNotifications(
+        plugin: plugin,
+      ).show(body, test: test, silent: silent);
       return;
     }
     final notification = test

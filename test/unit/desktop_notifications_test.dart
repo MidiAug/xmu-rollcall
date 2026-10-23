@@ -132,6 +132,22 @@ void main() {
     },
   );
 
+  test('failed retest clears an earlier successful confirmation', () async {
+    await notifications.notify(1, test: true);
+    notifications.confirmTest();
+    expect(notifications.lastTestConfirmedAt, isNotNull);
+    sendFails = true;
+    expect(await notifications.notify(1, test: true), isFalse);
+    expect(notifications.lastTestSentAt, isNull);
+    expect(notifications.lastTestConfirmedAt, isNull);
+    notifications.confirmTest();
+    expect(notifications.lastTestConfirmedAt, isNull);
+    sendFails = false;
+    expect(await notifications.notify(1, test: true), isTrue);
+    expect(notifications.lastTestSentAt, isNotNull);
+    expect(notifications.lastTestConfirmedAt, isNull);
+  });
+
   test(
     'automatic results update quietly in background and use overlay in foreground',
     () async {
