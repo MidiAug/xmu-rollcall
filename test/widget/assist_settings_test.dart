@@ -93,17 +93,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final routeRow = find.ancestor(
-      of: find.text('更新下载线路'),
-      matching: find.byType(SettingsRow),
-    );
-    final row = tester.widget<SettingsRow>(routeRow);
-    expect(row.trailing, isA<UpdateDownloadRouteSelector>());
-    expect(row.subtitleWidget, isNull);
-    expect(
-      tester.getCenter(find.byKey(const ValueKey('update-route-select'))).dx,
-      greaterThan(tester.getCenter(find.text('更新下载线路')).dx),
-    );
+    expect(find.byType(UpdateDownloadRouteSelector), findsNothing);
 
     PackageInfo.setMockInitialValues(
       appName: '厦大签到',
@@ -116,6 +106,17 @@ void main() {
     await tester.tap(find.text('关于'));
     await tester.pumpAndSettle();
     expect(find.text('版本 0.1.0'), findsOneWidget);
+    final routeRow = find.ancestor(
+      of: find.text('下载线路'),
+      matching: find.byType(SettingsRow),
+    );
+    final row = tester.widget<SettingsRow>(routeRow);
+    expect(row.trailing, isA<UpdateDownloadRouteSelector>());
+    expect(row.subtitleWidget, isNull);
+    expect(
+      tester.getCenter(find.byKey(const ValueKey('update-route-select'))).dx,
+      greaterThan(tester.getCenter(find.text('下载线路')).dx),
+    );
     await tester.tap(find.byTooltip('返回'));
     await tester.pumpAndSettle();
 

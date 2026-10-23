@@ -103,23 +103,28 @@ void main() {
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
         await mount(tester);
-        final initial = tester.getRect(find.byType(SettingsRow));
+        final statusRow = find.ancestor(
+          of: find.text('检查更新'),
+          matching: find.byType(SettingsRow),
+        );
+        final initial = tester.getRect(statusRow);
         expect(find.text('已是最新版本'), findsOneWidget);
         expect(find.byIcon(Icons.refresh_rounded), findsOneWidget);
         service.pendingCheck = Completer<ReleaseUpdate?>();
         await tester.tap(find.byTooltip('检查更新'));
         await tester.pump();
         expect(find.text('正在检查新版本'), findsOneWidget);
-        expect(find.byType(SettingsRow), findsOneWidget);
+        expect(statusRow, findsOneWidget);
+        expect(find.text('下载线路'), findsOneWidget);
         service.pendingCheck!.complete(update(UpdateTarget.windows));
         await tester.pumpAndSettle();
         expect(find.text('有更新 · v0.2.0'), findsOneWidget);
         expect(find.byIcon(Icons.refresh_rounded), findsNothing);
         expect(find.byTooltip('下载更新'), findsOneWidget);
-        expect(find.byType(SettingsRow), findsOneWidget);
+        expect(statusRow, findsOneWidget);
         expect(find.textContaining('A synthetic change'), findsNothing);
         if (width == 960) {
-          expect(tester.getRect(find.byType(SettingsRow)), initial);
+          expect(tester.getRect(statusRow), initial);
         }
         expect(tester.takeException(), isNull);
         AppToast.dismiss();

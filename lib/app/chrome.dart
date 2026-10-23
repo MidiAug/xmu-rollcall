@@ -440,7 +440,10 @@ class _SegmentButtonState extends State<_SegmentButton> {
             constraints: BoxConstraints(
               minHeight: AppDensity.isTouch(context) ? 44 : 36,
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: EdgeInsets.symmetric(
+              horizontal: 8,
+              vertical: AppDensity.isTouch(context) ? 8 : 4,
+            ),
             decoration: BoxDecoration(
               color: widget.selected
                   ? p.selected

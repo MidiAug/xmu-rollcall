@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/update/update_download_route.dart';
 
-/// Saves a selection in place; custom nodes use an inline editor.
+/// Saves preset choices directly; custom nodes use a validated text prompt.
 class UpdateDownloadRouteSelector extends StatefulWidget {
   const UpdateDownloadRouteSelector({
     super.key,
@@ -21,7 +22,9 @@ class UpdateDownloadRouteSelector extends StatefulWidget {
 }
 
 class _RouteSelectorState extends State<UpdateDownloadRouteSelector> {
-  final _custom = TextEditingController();
+  // About and release notes can both show a selector at the same time.
+  static final _routeRevision = ValueNotifier<int>(0);
+  bool _editing = false;
   String _choice = 'official';
   Uri? _saved;
   bool _ready = false;
@@ -31,6 +34,7 @@ class _RouteSelectorState extends State<UpdateDownloadRouteSelector> {
   @override
   void initState() {
     super.initState();
+    _routeRevision.addListener(_load);
     _load();
   }
 
@@ -40,15 +44,22 @@ class _RouteSelectorState extends State<UpdateDownloadRouteSelector> {
     setState(() {
       _saved = route;
       _choice = route?.toString() ?? 'official';
-      _custom.text = route?.toString() ?? '';
       _ready = true;
     });
   }
 
   @override
   void dispose() {
-    _custom.dispose();
+    _routeRevision.removeListener(_load);
     super.dispose();
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    _routeRevision.removeListener(_load);
+    _routeRevision.addListener(_load);
+    _load();
   }
 
   Future<void> _save(String? value) async {
@@ -66,6 +77,7 @@ class _RouteSelectorState extends State<UpdateDownloadRouteSelector> {
           _saved = route;
           _choice = route?.toString() ?? 'official';
         });
+        _routeRevision.value++;
         await widget.onChanged?.call();
         if (mounted) AppToast.show(context, '下载线路已切换');
       } else {
@@ -80,6 +92,37 @@ class _RouteSelectorState extends State<UpdateDownloadRouteSelector> {
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _editCustom() async {
+    if (_editing || _saving) return;
+    setState(() => _editing = true);
+    try {
+      final value = await showAppPromptDialog(
+        context,
+        title: '自定义下载线路',
+        message: '输入 HTTPS 加速节点首页',
+        initialValue:
+            _saved != null &&
+                !UpdateDownloadRoute.suggested.contains(_saved.toString())
+            ? _saved.toString()
+            : '',
+        labelText: '节点地址',
+        hintText: 'https://mirror.example/',
+        keyboardType: TextInputType.url,
+        validator: (value) {
+          try {
+            UpdateDownloadRoute.parse(value);
+            return null;
+          } on FormatException catch (error) {
+            return error.message;
+          }
+        },
+      );
+      if (mounted && value != null) await _save(value);
+    } finally {
+      if (mounted) setState(() => _editing = false);
     }
   }
 
@@ -125,39 +168,18 @@ class _RouteSelectorState extends State<UpdateDownloadRouteSelector> {
                     : Icon(Icons.alt_route_rounded, size: 16, color: p.muted),
                 width: bounds.maxWidth.clamp(0.0, widget.width),
                 menuWidth: 260,
-                onChanged: !_ready || _saving || !widget.enabled
+                onChanged: !_ready || _saving || _editing || !widget.enabled
                     ? null
                     : (value) {
                         if (value == 'custom') {
-                          setState(() {
-                            _choice = value;
-                            _error = null;
-                          });
+                          _editCustom();
                         } else {
                           _save(value == 'official' ? null : value);
                         }
                       },
               ),
             ),
-            if (_choice == 'custom')
-              TextField(
-                controller: _custom,
-                enabled: !_saving && widget.enabled,
-                keyboardType: TextInputType.url,
-                onSubmitted: _save,
-                style: const TextStyle(fontSize: 13),
-                decoration: InputDecoration(
-                  hintText: 'https://mirror.example/',
-                  errorText: _error,
-                  errorMaxLines: 3,
-                  suffixIcon: IconButton(
-                    tooltip: '应用线路',
-                    onPressed: _saving ? null : () => _save(_custom.text),
-                    icon: const Icon(Icons.check_rounded, size: 18),
-                  ),
-                ),
-              )
-            else if (_error != null)
+            if (_error != null)
               Text(_error!, style: TextStyle(fontSize: 12, color: p.danger)),
           ],
         ),

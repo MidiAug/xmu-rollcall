@@ -137,16 +137,12 @@ void main() {
         await capture('01-available');
         await tester.tap(find.text('有更新 · v0.2.0'));
         await tester.pumpAndSettle();
-        expect(find.text('下载线路'), findsNothing);
-        expect(
-          tester
-              .getSize(find.byKey(const ValueKey('update-route-select')))
-              .width,
-          lessThanOrEqualTo(180),
+        final dialogRoute = find.descendant(
+          of: find.byType(Dialog),
+          matching: find.byKey(const ValueKey('update-route-select')),
         );
-        final routeRect = tester.getRect(
-          find.byKey(const ValueKey('update-route-select')),
-        );
+        expect(tester.getSize(dialogRoute).width, lessThanOrEqualTo(180));
+        final routeRect = tester.getRect(dialogRoute);
         final dialogSurface = find
             .descendant(
               of: find.byType(Dialog),
@@ -167,7 +163,7 @@ void main() {
         await tester.tap(find.text('正在下载 50%'));
         await tester.pumpAndSettle();
         expect(find.text('发布页'), findsNothing);
-        await tester.tap(find.byKey(const ValueKey('update-route-select')));
+        await tester.tap(dialogRoute);
         await tester.pumpAndSettle();
         await capture('04-routes');
         await tester.tap(find.text('gh-proxy.com').last);

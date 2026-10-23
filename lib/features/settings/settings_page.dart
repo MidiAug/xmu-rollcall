@@ -17,7 +17,6 @@ import 'package:xmu_rollcall/features/settings/desktop_notification_settings_pag
 import 'package:xmu_rollcall/features/settings/settings_assist_page.dart';
 import 'package:xmu_rollcall/features/settings/settings_data_page.dart';
 import 'package:xmu_rollcall/features/settings/about_settings_row.dart';
-import 'package:xmu_rollcall/features/update/update_download_route_selector.dart';
 import 'package:xmu_rollcall/platform/close_prefs.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
@@ -150,7 +149,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   subtitle: auth.isSignedIn ? '查看本周上课安排' : '请先登录',
                   trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
                   onTap: !auth.isSignedIn
-                      ? null
+                      ? () => showLoginDialog(context)
                       : () => AppPageRoutes.push(context, const CoursesPage()),
                 ),
                 SettingsRow(
@@ -180,22 +179,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   SettingsRow(
                     leading: const Icon(Icons.brightness_6_outlined),
                     title: '外观',
-                    trailing: AppShellSelect<ThemePreference>(
-                      value: themePref,
-                      items: const [
-                        ThemePreference.light,
-                        ThemePreference.dark,
-                        ThemePreference.system,
-                      ],
-                      labelOf: (value) => switch (value) {
-                        ThemePreference.light => '浅色',
-                        ThemePreference.dark => '暗色',
-                        ThemePreference.system => '跟随系统',
-                      },
-                      width: 148,
-                      onChanged: (v) {
-                        ref.read(themePreferenceProvider.notifier).set(v);
-                      },
+                    trailing: SizedBox(
+                      width: 264,
+                      child: _AppearanceSegments(
+                        value: themePref,
+                        onChanged: (v) {
+                          ref.read(themePreferenceProvider.notifier).set(v);
+                        },
+                      ),
                     ),
                   ),
                 if (desktop)
@@ -238,13 +229,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   onTap: () =>
                       AppPageRoutes.push(context, const SettingsDataPage()),
                 ),
-                SettingsRow(
-                  leading: const Icon(Icons.download_outlined),
-                  title: '更新下载线路',
-                  trailing: UpdateDownloadRouteSelector(
-                    width: AppDensity.isTouch(context) ? 128 : 164,
-                  ),
-                ),
                 const AboutSettingsRow(),
               ],
             ),
@@ -268,28 +252,7 @@ class _AppearanceControl extends StatelessWidget {
       '外观',
       style: Theme.of(context).textTheme.titleSmall?.copyWith(color: p.muted),
     );
-    final control = AppSegmentedControl<ThemePreference>(
-      value: value,
-      expanded: true,
-      onChanged: onChanged,
-      segments: [
-        const AppSegment(
-          value: ThemePreference.light,
-          label: '浅色',
-          icon: Icons.wb_sunny_outlined,
-        ),
-        const AppSegment(
-          value: ThemePreference.dark,
-          label: '暗色',
-          icon: Icons.dark_mode_outlined,
-        ),
-        AppSegment(
-          value: ThemePreference.system,
-          label: '系统',
-          icon: PlatformHooks.systemAppearanceIcon(context),
-        ),
-      ],
-    );
+    final control = _AppearanceSegments(value: value, onChanged: onChanged);
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 440) {
@@ -314,6 +277,39 @@ class _AppearanceControl extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+class _AppearanceSegments extends StatelessWidget {
+  const _AppearanceSegments({required this.value, required this.onChanged});
+
+  final ThemePreference value;
+  final ValueChanged<ThemePreference> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppSegmentedControl<ThemePreference>(
+      value: value,
+      expanded: true,
+      onChanged: onChanged,
+      segments: [
+        const AppSegment(
+          value: ThemePreference.light,
+          label: '浅色',
+          icon: Icons.wb_sunny_outlined,
+        ),
+        const AppSegment(
+          value: ThemePreference.dark,
+          label: '暗色',
+          icon: Icons.dark_mode_outlined,
+        ),
+        AppSegment(
+          value: ThemePreference.system,
+          label: '系统',
+          icon: PlatformHooks.systemAppearanceIcon(context),
+        ),
+      ],
     );
   }
 }

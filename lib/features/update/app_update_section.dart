@@ -349,6 +349,21 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
         ),
       ),
     );
-    return SettingsSection(header: '应用更新', padTop: false, children: [row]);
+    return SettingsSection(
+      header: '应用更新',
+      padTop: false,
+      children: [
+        row,
+        SettingsRow(
+          leading: const Icon(Icons.alt_route_rounded),
+          title: '下载线路',
+          trailing: UpdateDownloadRouteSelector(
+            width: AppDensity.isTouch(context) ? 128 : 164,
+            enabled: _phase != _UpdatePhase.installing,
+            onChanged: _downloadRouteChanged,
+          ),
+        ),
+      ],
+    );
   }
 }

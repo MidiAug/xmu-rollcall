@@ -44,11 +44,7 @@ Future<bool> showAppConfirmDialog(
                   const SizedBox(height: 8),
                   Text(
                     message,
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.4,
-                      color: p.muted,
-                    ),
+                    style: TextStyle(fontSize: 13, height: 1.4, color: p.muted),
                   ),
                 ],
                 const SizedBox(height: 20),
@@ -100,6 +96,8 @@ Future<String?> showAppPromptDialog(
   String? initialValue,
   String? hintText,
   String? labelText,
+  String? Function(String value)? validator,
+  TextInputType? keyboardType,
   String cancelLabel = '取消',
   String confirmLabel = '保存',
 }) {
@@ -112,6 +110,8 @@ Future<String?> showAppPromptDialog(
       initialValue: initialValue,
       hintText: hintText,
       labelText: labelText,
+      validator: validator,
+      keyboardType: keyboardType,
       cancelLabel: cancelLabel,
       confirmLabel: confirmLabel,
     ),
@@ -125,6 +125,8 @@ class _AppPromptDialog extends StatefulWidget {
     this.initialValue,
     this.hintText,
     this.labelText,
+    this.validator,
+    this.keyboardType,
     required this.cancelLabel,
     required this.confirmLabel,
   });
@@ -134,6 +136,8 @@ class _AppPromptDialog extends StatefulWidget {
   final String? initialValue;
   final String? hintText;
   final String? labelText;
+  final String? Function(String value)? validator;
+  final TextInputType? keyboardType;
   final String cancelLabel;
   final String confirmLabel;
 
@@ -143,6 +147,7 @@ class _AppPromptDialog extends StatefulWidget {
 
 class _AppPromptDialogState extends State<_AppPromptDialog> {
   late final TextEditingController _ctrl;
+  String? _error;
 
   @override
   void initState() {
@@ -158,6 +163,11 @@ class _AppPromptDialogState extends State<_AppPromptDialog> {
 
   void _submit() {
     final t = _ctrl.text.trim();
+    final error = widget.validator?.call(t);
+    if (error != null) {
+      setState(() => _error = error);
+      return;
+    }
     if (t.isEmpty) return;
     Navigator.pop(context, t);
   }
@@ -198,10 +208,16 @@ class _AppPromptDialogState extends State<_AppPromptDialog> {
                 controller: _ctrl,
                 autofocus: true,
                 textInputAction: TextInputAction.done,
+                keyboardType: widget.keyboardType,
                 decoration: InputDecoration(
                   labelText: widget.labelText,
                   hintText: widget.hintText,
+                  errorText: _error,
+                  errorMaxLines: 3,
                 ),
+                onChanged: (_) {
+                  if (_error != null) setState(() => _error = null);
+                },
                 onSubmitted: (_) => _submit(),
               ),
               const SizedBox(height: 18),

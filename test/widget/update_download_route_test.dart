@@ -36,7 +36,7 @@ void main() {
     },
   );
   testWidgets(
-    'inline route selector validates custom URL and persists without another dialog',
+    'custom route prompt validates, cancels safely and synchronizes selectors',
     (tester) async {
       tester.view.physicalSize = const Size(320, 900);
       tester.view.devicePixelRatio = 1;
@@ -45,32 +45,47 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
-            body: const Padding(
+            body: Padding(
               padding: EdgeInsets.all(20),
-              child: UpdateDownloadRouteSelector(),
+              child: Column(
+                children: const [
+                  UpdateDownloadRouteSelector(),
+                  UpdateDownloadRouteSelector(),
+                ],
+              ),
             ),
           ),
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('update-route-select')));
+      final route = find.byKey(const ValueKey('update-route-select')).first;
+      await tester.tap(route);
       await tester.pumpAndSettle();
       await tester.tap(find.text('自定义线路…').last);
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'http://bad.example/');
-      await tester.tap(find.byTooltip('应用线路'));
+      await tester.tap(find.text('保存'));
       await tester.pumpAndSettle();
       expect(find.textContaining('请输入 HTTPS'), findsOneWidget);
       await tester.enterText(find.byType(TextField), 'https://mirror.example/');
-      await tester.tap(find.byTooltip('应用线路'));
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(await UpdateDownloadRoute.read(), isNull);
+      expect(find.text('GitHub 官方'), findsNWidgets(2));
+      await tester.tap(route);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('自定义线路…').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'https://mirror.example/');
+      await tester.tap(find.text('保存'));
       await tester.pumpAndSettle();
       expect(
         (await UpdateDownloadRoute.read()).toString(),
         'https://mirror.example/',
       );
       await tester.pumpAndSettle();
-      expect(find.text('mirror.example'), findsOneWidget);
-      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('mirror.example'), findsNWidgets(2));
+      expect(find.byType(Dialog), findsNothing);
       expect(tester.takeException(), isNull);
       AppToast.dismiss();
     },

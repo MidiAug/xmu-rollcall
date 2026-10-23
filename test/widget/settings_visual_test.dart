@@ -210,6 +210,7 @@ void main() {
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetViewInsets);
         final key = GlobalKey();
         await tester.pumpWidget(
           RepaintBoundary(
@@ -233,13 +234,13 @@ void main() {
         expect(find.text('关闭窗口时'), desktop ? findsOneWidget : findsNothing);
         final segment = find.byType(AppSegmentedControl<ThemePreference>);
         if (desktop) {
-          expect(segment, findsNothing);
-          final appearance = find.byType(AppShellSelect<ThemePreference>);
+          expect(find.byType(AppShellSelect<ThemePreference>), findsNothing);
           final close = find.byType(AppShellSelect<CloseMode>);
-          expect(tester.getRect(appearance).right, tester.getRect(close).right);
-          expect(tester.getSize(appearance).width, tester.getSize(close).width);
+          expect(tester.getRect(segment).right, tester.getRect(close).right);
+          expect(tester.getSize(segment).width, lessThan(300));
+          expect(tester.getSize(segment).height, lessThanOrEqualTo(44));
           final appGroup = find.ancestor(
-            of: appearance,
+            of: segment,
             matching: find.byType(SettingsSection),
           );
           expect(tester.widget<SettingsSection>(appGroup).header, '应用');
@@ -261,11 +262,21 @@ void main() {
           '${width.toInt()}-${dark ? 'dark' : 'light'}',
         );
 
+        expect(find.byKey(const ValueKey('update-route-select')), findsNothing);
         await tester.scrollUntilVisible(find.text('关于'), 180);
+        await tester.tap(find.text('关于'));
+        await tester.pumpAndSettle();
+        expect(find.text('检查更新'), findsOneWidget);
+        await tester.scrollUntilVisible(find.text('下载线路'), 100);
+        await capture(
+          tester,
+          key,
+          '${width.toInt()}-${dark ? 'dark' : 'light'}-about',
+        );
         final route = find.byKey(const ValueKey('update-route-select'));
         expect(
           tester.getCenter(route).dx,
-          greaterThan(tester.getCenter(find.text('更新下载线路')).dx),
+          greaterThan(tester.getCenter(find.text('下载线路')).dx),
         );
         await tester.tap(route);
         await tester.pumpAndSettle();
@@ -278,9 +289,25 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         expect(find.byType(AppMenuOption), findsNothing);
-        await tester.tap(find.text('关于'));
+        await tester.tap(route);
         await tester.pumpAndSettle();
-        expect(find.text('检查更新'), findsOneWidget);
+        await tester.tap(find.text('自定义线路…').last);
+        await tester.pumpAndSettle();
+        if (width == 320) {
+          tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+          await tester.pumpAndSettle();
+        }
+        await capture(
+          tester,
+          key,
+          '${width.toInt()}-${dark ? 'dark' : 'light'}-custom-route',
+        );
+        final save = find.text('保存');
+        await tester.ensureVisible(save);
+        expect(save.hitTestable(), findsOneWidget);
+        await tester.tap(find.text('取消'));
+        tester.view.resetViewInsets();
+        await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         await tester.tap(find.byTooltip('返回'));
         await tester.pumpAndSettle();
@@ -302,7 +329,21 @@ void main() {
   }
 
   testWidgets(
-    'desktop appearance uses a right-aligned menu and persists the choice',
+    'signed out course entry opens login rather than ignoring the tap',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await tester.pumpWidget(_app(platform: TargetPlatform.android));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('本学期课表'));
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsOneWidget);
+      expect(find.byType(TextField), findsWidgets);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'desktop appearance offers three direct choices with keyboard and persistence',
     (tester) async {
       SharedPreferences.setMockInitialValues({
         'theme_preference': ThemePreference.light.index,
@@ -313,15 +354,26 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(_app(platform: TargetPlatform.windows));
       await tester.pumpAndSettle();
-      final menu = find.byType(AppShellSelect<ThemePreference>);
-      await tester.tap(menu);
-      await tester.pumpAndSettle();
-      expect(find.text('跟随系统'), findsOneWidget);
+      expect(find.byType(AppShellSelect<ThemePreference>), findsNothing);
+      for (final label in ['浅色', '暗色', '系统']) {
+        expect(find.text(label), findsOneWidget);
+      }
       await tester.tap(find.text('暗色'));
       await tester.pumpAndSettle();
       final page = tester.element(find.byType(SettingsPage));
       expect(Theme.of(page).brightness, Brightness.dark);
       expect(find.byType(AppMenuOption), findsNothing);
+      Focus.of(tester.element(find.text('暗色'))).requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(
+        ProviderScope.containerOf(page).read(themePreferenceProvider),
+        ThemePreference.system,
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(Theme.of(page).brightness, Brightness.dark);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt('theme_preference'), ThemePreference.dark.index);
       await tester.pumpWidget(const SizedBox.shrink());
