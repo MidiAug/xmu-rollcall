@@ -1,4 +1,4 @@
-# Build Android APK + Windows MSIX into dist/.
+# Build Android APK + Windows NSIS installer and portable ZIP into dist/.
 # Usage: powershell -ExecutionPolicy Bypass -File scripts\package-all.ps1
 
 $ErrorActionPreference = 'Stop'

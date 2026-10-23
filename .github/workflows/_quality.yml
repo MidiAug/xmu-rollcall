@@ -1,0 +1,48 @@
+name: Reusable quality checks
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  automation:
+    name: Workflow and delivery checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check workflow syntax with verified actionlint
+        shell: bash
+        run: |
+          archive="$RUNNER_TEMP/actionlint.tar.gz"
+          curl --fail --location --retry 3 \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            --output "$archive"
+          echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  $archive" | sha256sum --check
+          tar -xzf "$archive" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
+      - name: Test artifact validation
+        run: python -m unittest discover -s scripts/ci -p 'test_*.py' -v
+
+  check:
+    name: Flutter (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2022]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    env:
+      LIVE_XMU: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-flutter
+      - run: flutter analyze --no-pub
+      - name: Unit, widget and mock integration tests
+        run: flutter test --no-pub --reporter expanded
