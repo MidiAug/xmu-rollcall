@@ -58,7 +58,24 @@ void main() {
               tester.getTopLeft(find.byKey(const ValueKey('select'))).dy,
             ),
           );
-          expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+          expect(find.byIcon(Icons.check_rounded), findsNothing);
+          final selected = find.byKey(const ValueKey('shell-select-option-0'));
+          final selectedPalette = AppPalette.of(tester.element(selected));
+          final selectedPaint = tester.widget<AnimatedContainer>(
+            find.descendant(
+              of: selected,
+              matching: find.byType(AnimatedContainer),
+            ),
+          );
+          expect(
+            (selectedPaint.decoration as BoxDecoration).color,
+            selectedPalette.selected,
+          );
+          final selectedLabel = tester.widget<Text>(
+            find.descendant(of: selected, matching: find.byType(Text)).first,
+          );
+          expect(selectedLabel.style!.color, selectedPalette.primary);
+          expect(selectedLabel.style!.fontWeight, FontWeight.w600);
           final mouse = await tester.createGesture(
             kind: PointerDeviceKind.mouse,
           );

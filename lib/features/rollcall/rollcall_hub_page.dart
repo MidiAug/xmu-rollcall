@@ -161,7 +161,9 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
     final selected = ref.watch(selectedRollcallAccountProvider);
     final scope = roster.any((e) => e.userId == selected) ? selected : null;
     final window = ref.watch(detectionWindowProvider);
-    final outsideWindow = window != null && !window.allows(DateTime.now());
+    final outsideWindow =
+        window != null &&
+        !window.allows(ref.read(activeRollcallClockProvider)());
     DateTime? updatedAt;
     var confirming = false;
     if (auth.isSignedIn && !_switching && _switchError == null) {
@@ -382,6 +384,29 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
                       if (!context.mounted) return;
                       switch (r) {
                         case StartMonitorResult.started:
+                          await ref
+                              .read(detectionWindowProvider.notifier)
+                              .ready;
+                          if (!context.mounted) return;
+                          if (!ref.read(monitorControllerProvider).running) {
+                            return;
+                          }
+                          final window = ref.read(detectionWindowProvider);
+                          final now = ref.read(activeRollcallClockProvider)();
+                          if (window != null && !window.allows(now)) {
+                            final next = window.nextStart(now);
+                            final day =
+                                next.day == now.day &&
+                                    next.month == now.month &&
+                                    next.year == now.year
+                                ? '今天'
+                                : '明天';
+                            AppToast.show(
+                              context,
+                              '时段外暂停获取签到\n$day ${DetectionWindow.formatMinute(window.startMinute)} 自动开始',
+                              duration: const Duration(seconds: 4),
+                            );
+                          }
                           await showBackgroundReminderSetup(context);
                         case StartMonitorResult.notificationDenied:
                           AppToast.show(context, '需要通知权限才能在后台检测', error: true);
@@ -426,7 +451,9 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
         : next.difference(DateTime.now()).inSeconds.clamp(0, 9999);
     final failed = monitor.consecutiveFailures > 0;
     final window = ref.watch(detectionWindowProvider);
-    final paused = window != null && !window.allows(DateTime.now());
+    final paused =
+        window != null &&
+        !window.allows(ref.read(activeRollcallClockProvider)());
     final label = paused
         ? '${DetectionWindow.formatMinute(window.startMinute)} 继续'
         : failed

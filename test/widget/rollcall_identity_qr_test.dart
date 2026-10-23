@@ -12,6 +12,7 @@ import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
@@ -49,6 +50,8 @@ class _Auth extends AuthController {
       profile: UserProfile(id: 1, name: '主号'),
     );
   }
+  void signOutForTest() =>
+      state = const AuthState(status: AuthStatus.signedOut);
 }
 
 class _Service extends Fake implements AssistService {
@@ -158,6 +161,8 @@ class _Todos extends HomeworkTodosNotifier {
   Future<List<HomeworkItem>> build() async => [];
 }
 
+var _homeworkManualChecks = 0;
+
 class _AccountHomework extends HomeworkOverviewNotifier {
   @override
   Future<HomeworkOverview> build() async {
@@ -173,7 +178,9 @@ class _AccountHomework extends HomeworkOverviewNotifier {
   }
 
   @override
-  Future<void> ensureFresh({bool force = false}) async {}
+  Future<void> ensureFresh({bool force = false}) async {
+    if (force) _homeworkManualChecks++;
+  }
 }
 
 class _RunningMonitor extends MonitorController {
@@ -184,11 +191,28 @@ class _RunningMonitor extends MonitorController {
       state = state.copyWith(running: false, loadingSettings: false);
 }
 
+class _StartMonitor extends MonitorController {
+  _StartMonitor(super.ref, this.result) {
+    state = state.copyWith(loadingSettings: false);
+  }
+  final StartMonitorResult result;
+  int starts = 0;
+  @override
+  Future<StartMonitorResult> startAsync() async {
+    starts++;
+    if (result == StartMonitorResult.started) {
+      state = state.copyWith(running: true);
+    }
+    return result;
+  }
+}
+
 void main() {
   setUpAll(loadDesktopUiCaptureFonts);
   tearDown(AppToast.dismiss);
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    _homeworkManualChecks = 0;
     _puts.clear();
     _data.clear();
     _data['owner'] = [_row(title: '本人课程')];
@@ -201,6 +225,8 @@ void main() {
     WidgetTester tester,
     Widget page, {
     bool visibleTab = false,
+    StartMonitorResult? startResult,
+    DateTime? now,
   }) async {
     final store = SecureStore.memory();
     final service = _Service();
@@ -234,7 +260,13 @@ void main() {
           activeRollcallsProvider.overrideWith(
             visibleTab ? _AppearanceLists.new : _Lists.new,
           ),
-          if (visibleTab)
+          if (now != null)
+            activeRollcallClockProvider.overrideWithValue(() => now),
+          if (startResult != null)
+            monitorControllerProvider.overrideWith(
+              (ref) => _StartMonitor(ref, startResult),
+            )
+          else if (visibleTab)
             monitorControllerProvider.overrideWith(_RunningMonitor.new),
         ],
         child: RepaintBoundary(
@@ -293,25 +325,121 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('未签同学'), findsOneWidget);
       expect(find.text('协助作业'), findsOneWidget);
-      await captureDesktopUi(tester, 'sidebar-homework');
+      final refresh = find.byKey(const ValueKey('homework-refresh'));
+      expect(refresh, findsOneWidget);
+      expect(
+        find.descendant(of: find.byType(AppTitleBar), matching: refresh),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(HomeworkHubPage),
+          matching: find.byType(AppRefreshButton),
+        ),
+        findsNothing,
+      );
+      await tester.tap(refresh);
+      await tester.pumpAndSettle();
+      expect(_homeworkManualChecks, 1);
+      await captureDesktopUi(tester, 'homework-title-refresh');
       Navigator.of(tester.element(find.byType(HomeworkHubPage))).push(
         MaterialPageRoute<void>(
           builder: (_) => const Scaffold(body: Text('旧账号作业详情')),
         ),
       );
       await tester.pumpAndSettle();
+      expect(refresh, findsNothing);
       await tester.tap(menu);
       await tester.pumpAndSettle();
       await tester.tap(find.text('主号').last);
       await tester.pumpAndSettle();
       expect(find.text('主号作业'), findsOneWidget);
       expect(find.text('旧账号作业详情'), findsNothing);
+      expect(refresh, findsOneWidget);
       expect(find.text('主号'), findsOneWidget);
+      await tester.tap(find.text('签到').first);
+      await tester.pumpAndSettle();
+      expect(refresh, findsNothing);
+      await tester.tap(find.text('作业').first);
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(HomeworkHubPage)),
+      );
+      (container.read(authControllerProvider.notifier) as _Auth)
+          .signOutForTest();
+      await tester.pumpAndSettle();
+      expect(refresh, findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
+
+  for (final scenario in [
+    (
+      hour: 7,
+      minute: 29,
+      result: StartMonitorResult.started,
+      expected: '今天 07:30',
+    ),
+    (
+      hour: 22,
+      minute: 1,
+      result: StartMonitorResult.started,
+      expected: '明天 07:30',
+    ),
+    (hour: 8, minute: 0, result: StartMonitorResult.started, expected: ''),
+    (hour: 7, minute: 29, result: StartMonitorResult.cancelled, expected: ''),
+  ]) {
+    for (final width in [320.0, 960.0]) {
+      testWidgets(
+        'start feedback explains scheduled waiting at $scenario / $width',
+        (tester) async {
+          tester.view.physicalSize = Size(width, 720);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          await show(
+            tester,
+            const RollcallHubPage(),
+            startResult: scenario.result,
+            now: DateTime(2026, 10, 24, scenario.hour, scenario.minute),
+          );
+          final container = ProviderScope.containerOf(
+            tester.element(find.byType(RollcallHubPage)),
+          );
+          await container
+              .read(detectionWindowProvider.notifier)
+              .save(const DetectionWindow(enabled: true));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('开始检测'));
+          await tester.pumpAndSettle();
+          final toast = find.textContaining('时段外暂停获取签到\n');
+          expect(
+            toast,
+            scenario.expected.isEmpty ? findsNothing : findsOneWidget,
+          );
+          if (scenario.expected.isNotEmpty) {
+            expect(find.textContaining(scenario.expected), findsOneWidget);
+            expect(find.text('07:30 继续'), findsOneWidget);
+            await captureDesktopUi(
+              tester,
+              'scheduled-start-${width.toInt()}-${scenario.hour}',
+            );
+          }
+          expect(
+            (container.read(monitorControllerProvider.notifier)
+                    as _StartMonitor)
+                .starts,
+            1,
+          );
+          expect(tester.takeException(), isNull);
+          AppToast.dismiss();
+          await tester.pumpWidget(const SizedBox());
+        },
+      );
+    }
+  }
 
   testWidgets(
     'running detection owns automatic refresh, manual refresh remains available',

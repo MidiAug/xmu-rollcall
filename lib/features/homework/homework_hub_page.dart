@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
+import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
+import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'package:xmu_rollcall/app/refresh_feedback.dart';
 import 'package:xmu_rollcall/core/network/request_failure.dart';
@@ -184,17 +186,26 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
         ShellTabScope.maybeOf(context)?.isActive(AppDestination.homework) ??
         true;
 
-    return PageScaffold(
-      title: '作业',
-      showHeader: false,
-      child: AppContentColumn(
-        child: PrimaryScrollController(
-          controller: _scroll,
-          child: !signedIn
-              ? _SignedOutHint(onLogin: () => showLoginDialog(context))
-              : active
-              ? _TodosBody(onOpen: _openDetail)
-              : const SizedBox.shrink(),
+    final hostActions =
+        PlatformHooks.isDesktop &&
+        MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint &&
+        DesktopShellChromeScope.maybeOf(context, listen: false) != null &&
+        ShellTabDestination.maybeOf(context) != null;
+    return DesktopRootActions(
+      enabled: signedIn && hostActions,
+      actions: const [_HomeworkRefreshAction()],
+      child: PageScaffold(
+        title: '作业',
+        showHeader: false,
+        child: AppContentColumn(
+          child: PrimaryScrollController(
+            controller: _scroll,
+            child: !signedIn
+                ? _SignedOutHint(onLogin: () => showLoginDialog(context))
+                : active
+                ? _TodosBody(onOpen: _openDetail, showToolbar: !hostActions)
+                : const SizedBox.shrink(),
+          ),
         ),
       ),
     );
@@ -222,7 +233,8 @@ class _SignedOutHint extends StatelessWidget {
 }
 
 class _TodosBody extends ConsumerWidget {
-  const _TodosBody({required this.onOpen});
+  const _TodosBody({required this.onOpen, required this.showToolbar});
+  final bool showToolbar;
 
   final ValueChanged<HomeworkItem> onOpen;
 
@@ -358,7 +370,7 @@ class _TodosBody extends ConsumerWidget {
         ),
       ),
     );
-    final updatedAt = ref.read(homeworkTodosProvider.notifier).lastUpdatedAt;
+    if (!showToolbar) return content;
     return Column(
       children: [
         Padding(
@@ -383,20 +395,30 @@ class _TodosBody extends ConsumerWidget {
                   ),
                 ),
               ],
-              AppRefreshButton(
-                tooltip: updatedAt == null
-                    ? '刷新作业'
-                    : '刷新作业，上次更新 ${updatedAt.toLocal().toString().substring(5, 16)}',
-                onRefresh: () => _refreshHomework(ref),
-                color: p.muted,
-                iconSize: 18,
-                visualDensity: VisualDensity.compact,
-              ),
+              const _HomeworkRefreshAction(),
             ],
           ),
         ),
         Expanded(child: content),
       ],
+    );
+  }
+}
+
+class _HomeworkRefreshAction extends ConsumerWidget {
+  const _HomeworkRefreshAction();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final updatedAt = ref.read(homeworkTodosProvider.notifier).lastUpdatedAt;
+    return AppRefreshButton(
+      key: const ValueKey('homework-refresh'),
+      tooltip: updatedAt == null
+          ? '刷新作业'
+          : '刷新作业，上次更新 ${updatedAt.toLocal().toString().substring(5, 16)}',
+      onRefresh: () => _refreshHomework(ref),
+      color: AppPalette.of(context).muted,
+      iconSize: 18,
+      visualDensity: VisualDensity.compact,
     );
   }
 }

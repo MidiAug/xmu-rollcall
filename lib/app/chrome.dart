@@ -239,6 +239,14 @@ class AppTitleBar extends StatelessWidget {
                     ),
                   ),
                 ),
+              if (claim == null &&
+                  (chrome?.activeRootActions.isNotEmpty ?? false)) ...[
+                for (final action in chrome!.activeRootActions)
+                  AppTooltipAnchor(child: action),
+                const SizedBox(width: 8),
+                Container(width: 1, height: 16, color: p.borderStrong),
+                const SizedBox(width: 8),
+              ],
               if (PlatformHooks.isDesktop) const _WindowButtons(),
             ],
           ),
@@ -1363,7 +1371,6 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                                       selected: widget.items[i] == widget.value,
                                       autofocus:
                                           widget.items[i] == widget.value,
-                                      showCheck: true,
                                       onTap: () {
                                         _hide();
                                         widget.onChanged?.call(widget.items[i]);
@@ -1444,12 +1451,20 @@ class _AppMenuOptionState extends State<AppMenuOption> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final active = _hover || _focused;
-    final bg = active ? p.hover : AppPalette.clearOf(p.hover);
+    final bg = widget.selected
+        ? p.selected
+        : active
+        ? p.hover
+        : AppPalette.clearOf(p.hover);
     final style = TextStyle(
       fontSize: 14,
       height: 22 / 14,
-      fontWeight: widget.selected ? FontWeight.w500 : FontWeight.w400,
-      color: widget.danger ? p.danger : p.ink,
+      fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w400,
+      color: widget.danger
+          ? p.danger
+          : widget.selected
+          ? p.primary
+          : p.ink,
     );
     return Semantics(
       selected: widget.selected,
@@ -1485,7 +1500,11 @@ class _AppMenuOptionState extends State<AppMenuOption> {
                     Icon(
                       widget.leadingIcon,
                       size: 18,
-                      color: widget.danger ? p.danger : p.muted,
+                      color: widget.danger
+                          ? p.danger
+                          : widget.selected
+                          ? p.primary
+                          : p.muted,
                     ),
                     const SizedBox(width: 10),
                   ],
@@ -1502,7 +1521,7 @@ class _AppMenuOptionState extends State<AppMenuOption> {
                       style: TextStyle(
                         fontSize: 12,
                         height: 22 / 12,
-                        color: p.muted,
+                        color: widget.selected ? p.primary : p.muted,
                       ),
                     ),
                   ],
