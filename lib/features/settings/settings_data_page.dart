@@ -23,6 +23,7 @@ import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/desktop_qr_preview.dart';
+import 'package:xmu_rollcall/features/update/update_preview_page.dart';
 
 /// 我的 → 数据与诊断。
 class SettingsDataPage extends ConsumerWidget {
@@ -104,6 +105,14 @@ class SettingsDataPage extends ConsumerWidget {
               SettingsSection(
                 header: '开发预览',
                 children: [
+                  SettingsRow(
+                    leading: const Icon(Icons.system_update_alt_rounded),
+                    title: '更新流程',
+                    subtitle: '说明、检查、下载、线路与安装确认',
+                    trailing: const Icon(Icons.chevron_right, size: 18),
+                    onTap: () =>
+                        AppPageRoutes.push(context, const UpdatePreviewPage()),
+                  ),
                   if (PlatformHooks.isWindows)
                     SettingsRow(
                       leading: const Icon(Icons.qr_code_scanner),

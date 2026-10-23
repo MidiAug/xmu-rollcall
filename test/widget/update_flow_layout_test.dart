@@ -145,7 +145,7 @@ void main() {
         await capture('03-downloading');
         await tester.tap(find.text('正在下载 50%'));
         await tester.pumpAndSettle();
-        await tester.tap(find.text('下载线路'));
+        await tester.tap(find.byTooltip('下载线路'));
         await tester.pumpAndSettle();
         await capture('04-routes');
         await tester.tap(find.byType(DropdownButtonFormField<String>));

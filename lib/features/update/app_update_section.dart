@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
@@ -13,6 +12,7 @@ import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 import 'package:xmu_rollcall/features/update/github_update_service.dart';
 import 'package:xmu_rollcall/platform/app_update_installer.dart';
 import 'package:xmu_rollcall/features/update/update_download_route_dialog.dart';
+import 'package:xmu_rollcall/features/update/release_notes_dialog.dart';
 
 enum _UpdatePhase { available, downloading, ready, installing, failed }
 
@@ -201,63 +201,14 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
     if (update == null) return;
     await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('更新说明 · v${update.version.name}'),
-        content: SizedBox(
-          width: 520,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.sizeOf(context).height * .6,
-            ),
-            child: SingleChildScrollView(
-              child: MarkdownBody(
-                data: update.notes,
-                selectable: true,
-                styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
-                    .copyWith(
-                      p: TextStyle(
-                        fontSize: 13,
-                        height: 1.65,
-                        color: AppPalette.of(context).ink,
-                      ),
-                      h1: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                        color: AppPalette.of(context).ink,
-                      ),
-                      h2: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: AppPalette.of(context).ink,
-                      ),
-                      h3: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppPalette.of(context).ink,
-                      ),
-                      a: TextStyle(color: AppPalette.of(context).primary),
-                      blockSpacing: 12,
-                    ),
-                onTapLink: (_, href, _) => _openNotesLink(href),
-                imageBuilder: (_, _, alt) => Text(alt ?? '图片'),
-              ),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _chooseDownloadRoute();
-            },
-            child: const Text('下载线路'),
-          ),
-          TextButton(onPressed: _openReleasePage, child: const Text('发布页')),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('关闭'),
-          ),
-        ],
+      builder: (context) => ReleaseNotesDialog(
+        update: update,
+        onRoute: () {
+          Navigator.pop(context);
+          _chooseDownloadRoute();
+        },
+        onRelease: _openReleasePage,
+        onLink: _openNotesLink,
       ),
     );
   }
