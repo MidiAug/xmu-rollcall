@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/app/shell_tab_exit_guard.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -103,6 +104,19 @@ class MapPickPanelState extends State<MapPickPanel> {
 
   @override
   Widget build(BuildContext context) {
+    return ShellTabExitGuard(
+      hasUnsavedChanges: () {
+        final initial = widget.initial ?? kDefaultMapCenter;
+        return _point.latitude != initial.latitude ||
+            _point.longitude != initial.longitude ||
+            _note.text.trim() != widget.initialNote.trim();
+      },
+      isBusy: () => widget.busy,
+      child: _buildPanel(context),
+    );
+  }
+
+  Widget _buildPanel(BuildContext context) {
     final p = AppPalette.of(context);
     final coord =
         '${_point.latitude.toStringAsFixed(5)}, ${_point.longitude.toStringAsFixed(5)}';

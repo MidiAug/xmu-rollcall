@@ -4,8 +4,8 @@ import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 /// Shell → tab pages: which destination is visible, and re-tap signals.
 ///
-/// Durable state stays in [IndexedStack]; pages clear only ephemeral UI when
-/// hidden, and scroll / pop-to-root when their tab is tapped again.
+/// Root pages stay in [IndexedStack]; leaving discards nested routes, and
+/// selecting a tab restores its root scroll position and temporary UI.
 class ShellTabScope extends InheritedWidget {
   const ShellTabScope({
     super.key,
@@ -17,7 +17,7 @@ class ShellTabScope extends InheritedWidget {
 
   final AppDestination current;
 
-  /// Increments on each re-tap of the already-selected tab.
+  /// Increments on each explicit tab selection, including a re-tap.
   final int retapEpoch;
 
   /// Which tab was re-tapped (valid with the latest [retapEpoch]).
@@ -81,7 +81,13 @@ mixin ShellTabAware<T extends StatefulWidget> on State<T> {
   }
 
   /// Tab became visible (including first mount under IndexedStack).
-  void onShellTabVisible() {}
+  void onShellTabVisible() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final c = shellScrollController;
+      if (c != null && c.hasClients) c.jumpTo(0);
+    });
+  }
 
   /// Tab became inactive — close menus / unfocus; keep durable state.
   void onShellTabHidden() {
@@ -93,11 +99,7 @@ mixin ShellTabAware<T extends StatefulWidget> on State<T> {
     FocusManager.instance.primaryFocus?.unfocus();
     final c = shellScrollController;
     if (c != null && c.hasClients) {
-      c.animateTo(
-        0,
-        duration: AppMotion.duration,
-        curve: AppMotion.curve,
-      );
+      c.animateTo(0, duration: AppMotion.duration, curve: AppMotion.curve);
     }
   }
 }

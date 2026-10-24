@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/app/shell_tab_exit_guard.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
@@ -506,11 +507,15 @@ class SubpageScaffold extends StatefulWidget {
     required this.title,
     required this.body,
     this.actions,
+    this.hasUnsavedChanges,
+    this.isBusy,
   });
 
   final String title;
   final Widget body;
   final List<Widget>? actions;
+  final bool Function()? hasUnsavedChanges;
+  final bool Function()? isBusy;
 
   @override
   State<SubpageScaffold> createState() => _SubpageScaffoldState();
@@ -532,7 +537,9 @@ class _SubpageScaffoldState extends State<SubpageScaffold> {
   }
 
   void _syncChromeClaim() {
-    if (!_hostInTitleBar) {
+    final route = ModalRoute.of(context);
+    if (!_hostInTitleBar ||
+        (route != null && (!route.isCurrent || !route.isActive))) {
       _releaseChrome();
       return;
     }
@@ -587,6 +594,16 @@ class _SubpageScaffoldState extends State<SubpageScaffold> {
 
   @override
   Widget build(BuildContext context) {
+    final child = _buildScaffold(context);
+    if (widget.hasUnsavedChanges == null && widget.isBusy == null) return child;
+    return ShellTabExitGuard(
+      hasUnsavedChanges: widget.hasUnsavedChanges,
+      isBusy: widget.isBusy,
+      child: child,
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     final p = AppPalette.of(context);
     final hostInTitleBar = _hostInTitleBar;
 

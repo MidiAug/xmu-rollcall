@@ -708,6 +708,8 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
     });
 
     return SubpageScaffold(
+      hasUnsavedChanges: () => _dataCtrl.text.trim().isNotEmpty,
+      isBusy: () => _submitting,
       title: '二维码签到',
       body: AppContentColumn(
         child: ListView(

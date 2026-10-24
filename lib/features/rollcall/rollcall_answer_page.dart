@@ -520,6 +520,9 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     );
 
     return SubpageScaffold(
+      hasUnsavedChanges: () =>
+          _codeCtrl.text.trim().isNotEmpty || _pinnedByUser,
+      isBusy: () => _submitting,
       title: widget.previewMode ? '雷达签到（预览）' : '${item.typeLabel}签到',
       body: AppContentColumn(
         child: ListView(

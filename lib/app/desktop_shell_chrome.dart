@@ -63,6 +63,12 @@ class DesktopShellChromeController extends ChangeNotifier {
     return stack.last;
   }
 
+  void clearSubpageClaims(AppDestination tab) {
+    if (_stacks[tab]!.isEmpty) return;
+    _stacks[tab]!.clear();
+    _scheduleNotify();
+  }
+
   void _scheduleNotify() {
     if (_notifyScheduled || _disposed) return;
     _notifyScheduled = true;

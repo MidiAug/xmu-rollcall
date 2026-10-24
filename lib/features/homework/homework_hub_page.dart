@@ -162,6 +162,7 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
 
   @override
   void onShellTabVisible() {
+    super.onShellTabVisible();
     _visible = true;
     _syncTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkFresh());

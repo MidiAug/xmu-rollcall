@@ -6,6 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/app/shell_navigation.dart';
+import 'package:xmu_rollcall/features/settings/settings_page.dart';
+import 'package:xmu_rollcall/features/history/history_page.dart';
+import 'package:xmu_rollcall/features/location/map_pick_page.dart';
+import 'package:xmu_rollcall/core/cache/cache_policy.dart';
 import 'package:xmu_rollcall/app/adaptive_shell.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
@@ -191,6 +196,26 @@ class _RunningMonitor extends MonitorController {
       state = state.copyWith(running: false, loadingSettings: false);
 }
 
+class _History extends CourseHistoryNotifier {
+  @override
+  Future<List<CourseRollcallRecord>> build() async => [
+    CourseRollcallRecord(
+      courseId: 'fixture',
+      courseTitle: '筛选课程',
+      rollcallId: 'history-fixture',
+      rollcallTime: DateTime.now(),
+      typeLabel: '二维码签到',
+      signedStatus: '未签到',
+      platformStatus: '',
+    ),
+  ];
+  @override
+  Future<void> ensureFresh({
+    EnsureFreshReason reason = EnsureFreshReason.appear,
+    String? courseId,
+  }) async {}
+}
+
 class _StartMonitor extends MonitorController {
   _StartMonitor(super.ref, this.result) {
     state = state.copyWith(loadingSettings: false);
@@ -236,6 +261,7 @@ void main() {
         overrides: [
           secureStoreProvider.overrideWithValue(store),
           homeworkTodosProvider.overrideWith(_Todos.new),
+          courseHistoryProvider.overrideWith(_History.new),
           homeworkOverviewProvider.overrideWith(_AccountHomework.new),
           currentTeachingCoursesProvider.overrideWith((ref) async => []),
           authControllerProvider.overrideWith((ref) => _Auth()),
@@ -375,6 +401,225 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
+
+  for (final width in [320.0, 960.0]) {
+    testWidgets(
+      'tab changes reset routes, filters and scroll at $width',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await show(
+          tester,
+          const AdaptiveShell(),
+          startResult: StartMonitorResult.started,
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AdaptiveShell)),
+        );
+        final monitor =
+            container.read(monitorControllerProvider.notifier) as _StartMonitor;
+        await monitor.startAsync();
+        final cached = container.read(activeRollcallsProvider(null).notifier);
+        final nav = find.byType(width < 600 ? AppMobileNav : AppSidebar);
+        Future<void> select(String label) async {
+          await tester.tap(
+            find.descendant(of: nav, matching: find.text(label)),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await tester.tap(find.byTooltip('签到记录'));
+        await tester.pumpAndSettle();
+        final oldHistory = tester.state(find.byType(HistoryPage));
+        for (final filter in [
+          ('history-status-filter', '未签到'),
+          ('history-type-filter', '二维码签到'),
+          ('history-course-filter', '筛选课程'),
+          ('history-date-filter', '7天内'),
+        ]) {
+          await tester.tap(find.byKey(ValueKey(filter.$1)));
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find
+                .descendant(
+                  of: find.byType(AppMenuOption),
+                  matching: find.text(filter.$2),
+                )
+                .last,
+          );
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(find.byKey(const ValueKey('history-status-filter')));
+        await tester.pumpAndSettle();
+        await select('作业');
+        expect(find.byType(AppMenuOption), findsNothing);
+        expect(find.byType(HistoryPage, skipOffstage: false), findsNothing);
+        expect(oldHistory.mounted, isFalse);
+        expect(find.byTooltip('返回'), findsNothing);
+        expect(container.read(monitorControllerProvider).running, isTrue);
+        expect(
+          container.read(monitorControllerProvider.notifier),
+          same(monitor),
+        );
+        expect(
+          container.read(activeRollcallsProvider(null).notifier),
+          same(cached),
+        );
+        await select('签到');
+        expect(find.byType(HistoryPage), findsNothing);
+        await tester.tap(find.byTooltip('签到记录'));
+        await tester.pumpAndSettle();
+        for (final label in ['全部状态', '全部类型', '全部课程', '全部时间']) {
+          expect(find.text(label), findsOneWidget);
+        }
+        await select('我的');
+        final list = tester.widget<ListView>(
+          find.descendant(
+            of: find.byType(SettingsPage),
+            matching: find.byType(ListView),
+          ),
+        );
+        list.controller!.jumpTo(80);
+        await tester.pumpAndSettle();
+        expect(list.controller!.offset, greaterThan(0));
+        await select('作业');
+        await select('我的');
+        expect(list.controller!.offset, 0);
+        final settingsContext = tester.element(find.byType(SettingsPage));
+        Navigator.of(settingsContext).push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                const SubpageScaffold(title: '设置详情测试', body: Text('设置详情内容')),
+          ),
+        );
+        await tester.pumpAndSettle();
+        ShellNavigation.instance.openRollcall();
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('返回'), findsNothing);
+        await select('我的');
+        expect(find.text('设置详情内容', skipOffstage: false), findsNothing);
+        await select('作业');
+        Navigator.of(tester.element(find.byType(HomeworkHubPage))).push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                const SubpageScaffold(title: '作业详情测试', body: Text('作业详情内容')),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await select('作业');
+        expect(find.text('作业详情内容', skipOffstage: false), findsNothing);
+        // Repeated fast selections must not leave a stale title-bar claim.
+        await tester.tap(find.descendant(of: nav, matching: find.text('我的')));
+        await tester.pump();
+        await tester.tap(find.descendant(of: nav, matching: find.text('签到')));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('返回'), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+      variant: TargetPlatformVariant.only(
+        width < 600 ? TargetPlatform.android : TargetPlatform.windows,
+      ),
+    );
+
+    testWidgets(
+      'map draft can cancel or confirm tab reset at $width',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await show(tester, const AdaptiveShell());
+        final nav = find.byType(width < 600 ? AppMobileNav : AppSidebar);
+        Future<void> select(String label) async {
+          await tester.tap(
+            find.descendant(of: nav, matching: find.text(label)),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await select('我的');
+        final ctx = tester.element(find.byType(SettingsPage));
+        Navigator.of(ctx).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const MapPickPage(requireNote: true, title: '添加位置'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('location-note-input')),
+          '未保存的教室',
+        );
+        await select('作业');
+        expect(find.text('放弃未保存的修改？'), findsOneWidget);
+        await tester.tap(find.text('继续编辑'));
+        await tester.pumpAndSettle();
+        expect(find.byType(MapPickPanel), findsOneWidget);
+        expect(find.text('未保存的教室'), findsOneWidget);
+        await select(
+          '我的',
+        ); // Re-tapping the current tab also protects the draft.
+        await tester.tap(find.text('放弃并离开'));
+        await tester.pumpAndSettle();
+        expect(find.byType(MapPickPanel, skipOffstage: false), findsNothing);
+        expect(find.byTooltip('返回'), findsNothing);
+        // No edits: switching away from another map does not ask.
+        Navigator.of(tester.element(find.byType(SettingsPage))).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const MapPickPage(requireNote: true),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await select('作业');
+        expect(find.text('放弃未保存的修改？'), findsNothing);
+        expect(find.byType(MapPickPanel, skipOffstage: false), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+      variant: TargetPlatformVariant.only(
+        width < 600 ? TargetPlatform.android : TargetPlatform.windows,
+      ),
+    );
+
+    testWidgets(
+      'busy editor blocks tab exit until operation finishes at $width',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await show(tester, const AdaptiveShell());
+        var busy = true;
+        final nav = find.byType(width < 600 ? AppMobileNav : AppSidebar);
+        Navigator.of(tester.element(find.byType(RollcallHubPage))).push(
+          MaterialPageRoute<void>(
+            builder: (_) => SubpageScaffold(
+              title: '处理中测试',
+              isBusy: () => busy,
+              body: const Text('正在保存'),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.descendant(of: nav, matching: find.text('作业')));
+        await tester.pumpAndSettle();
+        expect(find.text('正在保存'), findsOneWidget);
+        expect(find.text('正在处理，请稍候再切换页面'), findsOneWidget);
+        busy = false;
+        AppToast.dismiss();
+        await tester.tap(find.descendant(of: nav, matching: find.text('作业')));
+        await tester.pumpAndSettle();
+        expect(find.text('正在保存', skipOffstage: false), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+      variant: TargetPlatformVariant.only(
+        width < 600 ? TargetPlatform.android : TargetPlatform.windows,
+      ),
+    );
+  }
 
   for (final scenario in [
     (hour: 7, minute: 29, enabled: true, overnight: false, allowed: false),

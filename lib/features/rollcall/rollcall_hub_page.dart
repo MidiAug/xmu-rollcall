@@ -71,6 +71,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
 
   @override
   void onShellTabVisible() {
+    super.onShellTabVisible();
     _visible = true;
     WidgetsBinding.instance.addPostFrameCallback((_) => _confirmOnAppear());
   }
