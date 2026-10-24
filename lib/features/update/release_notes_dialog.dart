@@ -9,10 +9,12 @@ class ReleaseNotesDialog extends StatelessWidget {
     required this.update,
     required this.routeSelector,
     required this.onLink,
+    required this.onDownload,
   });
   final ReleaseUpdate update;
   final Widget routeSelector;
   final void Function(String?) onLink;
+  final VoidCallback? onDownload;
 
   @override
   Widget build(BuildContext context) {
@@ -43,38 +45,52 @@ class ReleaseNotesDialog extends StatelessWidget {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('更新说明', style: heading.copyWith(fontSize: 18)),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${update.target == UpdateTarget.windows ? 'Windows' : 'Android'} · ${(update.size / 1024 / 1024).toStringAsFixed(1)} MB',
-                          style: TextStyle(fontSize: 12, color: p.muted),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '更新说明',
+                          style: heading.copyWith(fontSize: 18),
                         ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: p.selected,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      'v${update.version.name}',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: p.primary,
                       ),
-                    ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: p.selected,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          'v${update.version.name}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: p.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        tooltip: '关闭更新说明',
+                        onPressed: () => Navigator.pop(context),
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
+                          Icons.close_rounded,
+                          size: 20,
+                          color: p.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${update.target == UpdateTarget.windows ? 'Windows' : 'Android'} · ${(update.size / 1024 / 1024).toStringAsFixed(1)} MB',
+                    style: TextStyle(fontSize: 12, color: p.muted),
                   ),
                 ],
               ),
@@ -125,16 +141,21 @@ class ReleaseNotesDialog extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
               child: Row(
                 children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('关闭'),
-                  ),
-                  const SizedBox(width: 12),
                   Expanded(
                     child: Align(
-                      alignment: Alignment.centerRight,
+                      alignment: Alignment.centerLeft,
                       child: routeSelector,
                     ),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton(
+                    onPressed: onDownload,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: p.primary,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(80, 36),
+                    ),
+                    child: const Text('下载'),
                   ),
                 ],
               ),

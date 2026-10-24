@@ -72,12 +72,28 @@ void main() {
         await tester.tap(find.text('有更新 · v0.2.0'));
         await tester.pumpAndSettle();
         expect(find.textContaining('A synthetic change'), findsOneWidget);
-        await tester.tap(find.text('关闭'));
+        await tester.tap(find.byTooltip('关闭更新说明'));
         await tester.pumpAndSettle();
-        await tester.tap(find.byTooltip('下载更新'));
+        expect(service.downloads, 0);
+        await tester.tap(find.text('有更新 · v0.2.0'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(FilledButton, '下载'));
         await tester.pumpAndSettle();
         expect(find.text('下载完成，安装包校验通过'), findsOneWidget);
         expect(installer.calls, 0);
+        expect(service.downloads, 1);
+        expect(find.byType(Dialog), findsNothing);
+        await tester.tap(find.text('下载完成，安装包校验通过'));
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<FilledButton>(find.widgetWithText(FilledButton, '下载'))
+              .onPressed,
+          isNull,
+        );
+        await tester.tap(find.byTooltip('关闭更新说明'));
+        await tester.pumpAndSettle();
+        expect(service.downloads, 1);
         await tester.tap(find.byTooltip('退出并安装'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('取消'));

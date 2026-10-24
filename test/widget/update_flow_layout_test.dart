@@ -9,6 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
+import 'package:xmu_rollcall/features/update/update_download_route.dart';
 import 'package:xmu_rollcall/features/update/app_release.dart';
 import 'package:xmu_rollcall/features/update/app_update_section.dart';
 import '../fixtures/update_fakes.dart';
@@ -150,19 +152,51 @@ void main() {
             )
             .first;
         final dialogRect = tester.getRect(dialogSurface);
-        expect(routeRect.right, closeTo(dialogRect.right - 20, 1));
-        expect(tester.getCenter(find.text('关闭')).dx, lessThan(routeRect.left));
+        expect(routeRect.left, closeTo(dialogRect.left + 20, 1));
+        final download = find.widgetWithText(FilledButton, '下载');
+        expect(tester.getRect(download).left, greaterThan(routeRect.right));
+        expect(
+          tester.getRect(download).right,
+          closeTo(dialogRect.right - 20, 1),
+        );
+        final button = tester.widget<FilledButton>(download);
+        expect(
+          button.style!.backgroundColor!.resolve({}),
+          AppPalette.of(tester.element(download)).primary,
+        );
+        expect(button.style!.foregroundColor!.resolve({}), Colors.white);
         await capture('02-notes');
-        await tester.tap(find.text('关闭'));
+        await tester.tap(dialogRoute);
         await tester.pumpAndSettle();
+        await tester.tap(find.text('ghproxy.net').last);
+        await tester.pumpAndSettle();
+        expect(
+          (await UpdateDownloadRoute.read()).toString(),
+          'https://ghproxy.net/',
+        );
         service.pendingDownload = Completer<File>();
-        await tester.tap(find.byTooltip('下载更新'));
+        await tester.tap(download);
+        await tester.pump();
+        expect(
+          service.downloads,
+          0,
+          reason: 'Wait for the notes exit transition',
+        );
         await tester.pumpAndSettle();
+        expect(find.byType(Dialog), findsNothing);
+        expect(service.downloads, 1);
+        expect(installer.calls, 0);
         final oldCancel = service.downloadCancel!;
         await capture('03-downloading');
         await tester.tap(find.text('正在下载 50%'));
         await tester.pumpAndSettle();
         expect(find.text('发布页'), findsNothing);
+        expect(
+          tester
+              .widget<FilledButton>(find.widgetWithText(FilledButton, '下载'))
+              .onPressed,
+          isNull,
+        );
         await tester.tap(dialogRoute);
         await tester.pumpAndSettle();
         await capture('04-routes');
@@ -170,7 +204,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('更新说明'), findsOneWidget);
         expect(find.byType(AlertDialog), findsNothing);
-        await tester.tap(find.text('关闭'));
+        await tester.tap(find.byTooltip('关闭更新说明'));
         await tester.pumpAndSettle();
         expect(oldCancel.isCancelled, isTrue);
         expect(service.downloads, 2);

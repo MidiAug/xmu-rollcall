@@ -62,6 +62,10 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
   bool get _busy =>
       _controller.status == UpdateCheckStatus.checking ||
       {_UpdatePhase.downloading, _UpdatePhase.installing}.contains(_phase);
+  bool get _canDownload =>
+      !_busy &&
+      _update != null &&
+      {_UpdatePhase.available, _UpdatePhase.failed}.contains(_phase);
 
   @override
   void initState() {
@@ -211,8 +215,10 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
   Future<void> _showReleaseNotes() async {
     final update = _update;
     if (update == null) return;
-    await showDialog<void>(
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final route = DialogRoute<bool>(
       context: context,
+      themes: InheritedTheme.capture(from: context, to: navigator.context),
       builder: (context) => ReleaseNotesDialog(
         update: update,
         routeSelector: UpdateDownloadRouteSelector(
@@ -220,8 +226,12 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
           onChanged: _downloadRouteChanged,
         ),
         onLink: _openNotesLink,
+        onDownload: _canDownload ? () => Navigator.pop(context, true) : null,
       ),
     );
+    final download = await navigator.push(route);
+    await route.completed;
+    if (mounted && download == true && _canDownload) await _download();
   }
 
   Future<void> _openNotesLink(String? href) async {

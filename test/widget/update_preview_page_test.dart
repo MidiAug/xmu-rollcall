@@ -18,7 +18,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('更新说明'), findsOneWidget);
       expect(find.byType(MarkdownBody), findsOneWidget);
-      await tester.tap(find.text('关闭'));
+      await tester.tap(find.byTooltip('关闭更新说明'));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('update-preview-scenario')));
       await tester.pumpAndSettle();
