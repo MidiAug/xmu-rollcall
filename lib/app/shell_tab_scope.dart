@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
-import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 /// Shell → tab pages: which destination is visible, and re-tap signals.
 ///
@@ -82,11 +81,7 @@ mixin ShellTabAware<T extends StatefulWidget> on State<T> {
 
   /// Tab became visible (including first mount under IndexedStack).
   void onShellTabVisible() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final c = shellScrollController;
-      if (c != null && c.hasClients) c.jumpTo(0);
-    });
+    _jumpToTop();
   }
 
   /// Tab became inactive — close menus / unfocus; keep durable state.
@@ -97,9 +92,14 @@ mixin ShellTabAware<T extends StatefulWidget> on State<T> {
   /// Same tab tapped again — after nested nav pop-to-root (shell), scroll up.
   void onShellTabRetap() {
     FocusManager.instance.primaryFocus?.unfocus();
+    _jumpToTop();
+  }
+
+  void _jumpToTop() {
     final c = shellScrollController;
     if (c != null && c.hasClients) {
-      c.animateTo(0, duration: AppMotion.duration, curve: AppMotion.curve);
+      // The retained scroll position must be reset before this frame paints.
+      c.jumpTo(0);
     }
   }
 }

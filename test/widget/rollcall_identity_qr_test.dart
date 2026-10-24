@@ -485,7 +485,27 @@ void main() {
         await tester.pumpAndSettle();
         expect(list.controller!.offset, greaterThan(0));
         await select('作业');
-        await select('我的');
+        Future<void> selectMyWithoutScrollFrame() async {
+          double? paintedOffset;
+          bool? paintedScrolling;
+          // Register before the selection frame so a late post-frame reset
+          // cannot hide a frame that was already painted at the old offset.
+          tester.binding.addPostFrameCallback((_) {
+            paintedOffset = list.controller!.offset;
+            paintedScrolling =
+                list.controller!.position.isScrollingNotifier.value;
+          });
+          await tester.tap(find.descendant(of: nav, matching: find.text('我的')));
+          await tester.pump();
+          expect(paintedOffset, 0, reason: 'The first visible frame is at top');
+          expect(paintedScrolling, isFalse);
+          await tester.pumpAndSettle();
+        }
+
+        await selectMyWithoutScrollFrame();
+        list.controller!.jumpTo(80);
+        await tester.pumpAndSettle();
+        await selectMyWithoutScrollFrame(); // Re-tapping is immediate too.
         expect(list.controller!.offset, 0);
         final settingsContext = tester.element(find.byType(SettingsPage));
         Navigator.of(settingsContext).push(
