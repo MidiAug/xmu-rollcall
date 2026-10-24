@@ -2,6 +2,7 @@ import 'package:file_selector/file_selector.dart' as file_selector;
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
@@ -64,29 +65,51 @@ class SettingsDataPage extends ConsumerWidget {
                 FutureBuilder<String>(
                   future: deviceFuture,
                   builder: (context, snap) {
+                    final id = snap.data;
                     return SettingsRow(
                       leading: const Icon(Icons.devices_outlined),
                       title: '本机标识',
-                      subtitleWidget: snap.data == null
-                          ? Text(
-                              '…',
-                              style: TextStyle(color: p.muted, fontSize: 12),
-                            )
-                          : SelectableText(
-                              snap.data!,
-                              style: TextStyle(
-                                fontSize: 12,
-                                height: 1.35,
-                                letterSpacing: -0.2,
-                                color: p.muted,
-                                fontFamily: 'Consolas',
-                                fontFamilyFallback: const [
-                                  'Menlo',
-                                  'monospace',
-                                ],
-                              ),
-                            ),
-                      subtitle: '用于识别本机，重装应用前一般保持不变',
+                      subtitleWidget: Text(
+                        id ?? (snap.hasError ? '暂时无法读取' : '…'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          height: 1.35,
+                          letterSpacing: -0.2,
+                          color: p.muted,
+                          fontFamily: 'Consolas',
+                          fontFamilyFallback: const ['Menlo', 'monospace'],
+                        ),
+                      ),
+                      trailing: Tooltip(
+                        message: '复制本机标识',
+                        child: Icon(
+                          Icons.copy_outlined,
+                          color: p.muted,
+                          size: 18,
+                        ),
+                      ),
+                      onTap: id == null
+                          ? null
+                          : () async {
+                              try {
+                                await Clipboard.setData(
+                                  ClipboardData(text: id),
+                                );
+                                if (context.mounted) {
+                                  AppToast.show(context, '已复制本机标识');
+                                }
+                              } on PlatformException {
+                                if (context.mounted) {
+                                  AppToast.show(
+                                    context,
+                                    '复制失败，请重试',
+                                    error: true,
+                                  );
+                                }
+                              }
+                            },
                     );
                   },
                 ),

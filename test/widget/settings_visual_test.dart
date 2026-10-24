@@ -9,6 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
+import 'package:xmu_rollcall/features/settings/settings_data_page.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
@@ -379,6 +381,61 @@ void main() {
         await tester.pumpWidget(const SizedBox.shrink());
       },
     );
+  }
+
+  for (final width in [320.0, 960.0]) {
+    testWidgets('device identity copies full stable value at $width', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      SharedPreferences.setMockInitialValues({});
+      const id = '00000000-1111-4222-8333-444444444444';
+      final store = SecureStore.memory({SecureStore.keyDeviceId: id});
+      String? copied;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copied = (call.arguments as Map)['text'] as String;
+          }
+          return null;
+        },
+      );
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [secureStoreProvider.overrideWithValue(store)],
+          child: MaterialApp(
+            theme: _theme(
+              width < 600 ? Brightness.light : Brightness.dark,
+              width < 600 ? TargetPlatform.android : TargetPlatform.windows,
+            ),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(width < 600 ? 1.3 : 1)),
+              child: child!,
+            ),
+            home: RepaintBoundary(key: key, child: const SettingsDataPage()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byTooltip('复制本机标识'));
+      await capture(tester, key, '${width.toInt()}-device-id');
+      await tester.tap(find.byTooltip('复制本机标识'));
+      await tester.pumpAndSettle();
+      expect(copied, id);
+      expect(await store.read(SecureStore.keyDeviceId), id);
+      expect(find.text('已复制本机标识'), findsOneWidget);
+      expect(find.text('用于识别本机，重装应用前一般保持不变'), findsNothing);
+      expect(tester.takeException(), isNull);
+      AppToast.dismiss();
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
   }
 
   test('primary button text retains readable contrast in both themes', () {
