@@ -117,6 +117,7 @@ void main() {
     testWidgets('desktop notification test and recovery: $scenario', (
       tester,
     ) async {
+      final helpTitle = Platform.isWindows ? '检查 Windows 通知设置' : '检查系统通知设置';
       tester.view.physicalSize = Size(
         scenario.width,
         scenario.width >= 600 ? 720 : 844,
@@ -203,12 +204,12 @@ void main() {
       await capture('02-sent');
       await tester.tap(find.text('没有收到'));
       await tester.pumpAndSettle();
-      expect(find.text('检查 Windows 通知设置'), findsOneWidget);
+      expect(find.text(helpTitle), findsOneWidget);
       await capture('03-help');
       await tester.tap(find.text('已收到'));
       await tester.pumpAndSettle();
       expect(find.text('已确认收到测试通知'), findsOneWidget);
-      expect(find.text('检查 Windows 通知设置'), findsNothing);
+      expect(find.text(helpTitle), findsNothing);
       await capture('04-confirmed');
       failSend = true;
       await tester.tap(find.text('重新发送'));
@@ -222,7 +223,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('收到刚才的通知了吗？'), findsOneWidget);
       expect(find.text('未能发送通知'), findsNothing);
-      expect(find.text('检查 Windows 通知设置'), findsNothing);
+      expect(find.text(helpTitle), findsNothing);
       expect(tester.takeException(), isNull);
     });
   }
