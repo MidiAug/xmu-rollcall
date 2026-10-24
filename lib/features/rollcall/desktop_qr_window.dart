@@ -46,6 +46,7 @@ class DesktopQrScanWindow extends StatefulWidget {
 class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
   final _hole = GlobalKey();
   Timer? _timer;
+  Timer? _feedbackTimer;
   int? _session;
   int? _rollcallId;
   String? _courseId;
@@ -58,6 +59,9 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
   String _status = '把屏幕上的二维码移入框内';
   String? _lastRejected;
   bool _screenFailed = false;
+  bool _interacting = false;
+  bool _recognized = false;
+  int _interactionRevision = 0;
 
   @override
   void initState() {
@@ -69,6 +73,10 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
     await _capture.invokeMethod<void>('configure');
     _capture.setMethodCallHandler((call) async {
       if (call.method == 'closeRequested') await _finish(null);
+      if (call.method == 'interactionChanged' && mounted) {
+        _interactionRevision++;
+        setState(() => _interacting = call.arguments == true);
+      }
     });
     await widget.controller.setWindowMethodHandler((call) async {
       if (call.method == 'scan_cancel') {
@@ -79,6 +87,7 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
       final args = Map<String, dynamic>.from(call.arguments as Map);
       final session = args['sessionId'] as int;
       _timer?.cancel();
+      _feedbackTimer?.cancel();
       setState(() {
         _session = session;
         _rollcallId = args['rollcallId'] as int?;
@@ -89,6 +98,8 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
         _pendingImage = null;
         _lastRejected = null;
         _screenFailed = false;
+        _recognized = false;
+        _interacting = false;
         _status = '把屏幕上的二维码移入框内';
       });
       await WidgetsBinding.instance.endOfFrame;
@@ -123,6 +134,7 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
     if (session == null) return;
     _session = null;
     _timer?.cancel();
+    _feedbackTimer?.cancel();
     await _capture.invokeMethod<void>('hide');
     await widget.owner.invokeMethod('qr_complete', {
       'sessionId': session,
@@ -131,8 +143,11 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
   }
 
   Future<void> _accept(String? raw, String source, int session) async {
-    if (!mounted || _session != session) return;
-    if (source == 'screen' && (_paused || _picking || _hovering)) return;
+    if (!mounted || _session != session || _recognized) return;
+    if (source == 'screen' &&
+        (_paused || _picking || _hovering || _interacting)) {
+      return;
+    }
     if (raw == null || raw.isEmpty) {
       if (source == 'image') setState(() => _status = '图片中未找到二维码，试试清晰的原图');
       return;
@@ -157,11 +172,22 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
         return;
       }
     }
+    setState(() {
+      _recognized = true;
+      _status = '已识别二维码';
+    });
+    _timer?.cancel();
+    // Keep the confirmation visible for the full dwell after its first paint.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _session != session || !_recognized) return;
+      _feedbackTimer = Timer(const Duration(milliseconds: 700), () {
+        if (mounted && _session == session) unawaited(_finish(raw));
+      });
+    });
     await _log(
       'qr.desktop.detected',
       fields: {'source': source, 'payloadLen': raw.length, 'preview': _preview},
     );
-    if (_session == session) await _finish(raw);
   }
 
   Future<void> _drainImage() async {
@@ -189,9 +215,17 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
   }
 
   Future<void> _scanScreen() async {
-    if (_session == null || _busy || _picking || _hovering) return;
+    if (_session == null ||
+        _busy ||
+        _picking ||
+        _hovering ||
+        _interacting ||
+        _recognized) {
+      return;
+    }
     if (_paused && _pendingImage == null) return;
     final session = _session!;
+    final interaction = _interactionRevision;
     _busy = true;
     try {
       if (_pendingImage == null && !_paused) {
@@ -207,14 +241,13 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
             });
         if (frame != null) {
           _screenFailed = false;
-          await _accept(
-            await compute(decodeDesktopQrFrame, frame),
-            'screen',
-            session,
-          );
+          final raw = await compute(decodeDesktopQrFrame, frame);
+          if (interaction == _interactionRevision) {
+            await _accept(raw, 'screen', session);
+          }
         }
       }
-      while (_pendingImage != null && _session == session) {
+      while (_pendingImage != null && _session == session && !_recognized) {
         await _drainImage();
       }
     } catch (error, stack) {
@@ -235,7 +268,7 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
   }
 
   Future<void> _pickImage() async {
-    if (_picking) return;
+    if (_picking || _recognized) return;
     final session = _session;
     if (session == null) return;
     _picking = true;
@@ -269,6 +302,7 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
   @override
   void dispose() {
     _timer?.cancel();
+    _feedbackTimer?.cancel();
     _capture.setMethodCallHandler(null);
     super.dispose();
   }
@@ -284,14 +318,17 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
         onDragExited: (_) => setState(() => _hovering = false),
         onDragDone: (details) {
           setState(() => _hovering = false);
-          if (details.files.isNotEmpty) {
+          if (!_recognized && details.files.isNotEmpty) {
             _pendingImage = details.files.first.path;
             _scanScreen();
           }
         },
         child: LayoutBuilder(
           builder: (context, bounds) {
-            const header = 78.0, footer = 118.0, inset = 18.0;
+            final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
+            final header = 78.0 + (scale - 1).clamp(0, 1) * 24;
+            final footer = 142.0 + (scale - 1).clamp(0, 1) * 64;
+            const inset = 18.0;
             final hole = Rect.fromLTWH(
               inset,
               header,
@@ -318,10 +355,7 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
                   height: header,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onPanUpdate: (details) => _capture.invokeMethod<void>(
-                      'move',
-                      {'dx': details.delta.dx, 'dy': details.delta.dy},
-                    ),
+                    onPanStart: (_) => _capture.invokeMethod<void>('startDrag'),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(22, 14, 12, 12),
                       child: Row(
@@ -383,11 +417,55 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
                   child: GestureDetector(
                     key: _hole,
                     behavior: HitTestBehavior.translucent,
-                    onPanUpdate: (details) => _capture.invokeMethod<void>(
-                      'move',
-                      {'dx': details.delta.dx, 'dy': details.delta.dy},
-                    ),
-                    child: _hovering
+                    onPanStart: (_) => _capture.invokeMethod<void>('startDrag'),
+                    child: _recognized
+                        ? ColoredBox(
+                            color: p.surface,
+                            child: Center(
+                              child: TweenAnimationBuilder<double>(
+                                tween: Tween(begin: 0, end: 1),
+                                duration:
+                                    MediaQuery.disableAnimationsOf(context)
+                                    ? Duration.zero
+                                    : AppMotion.enter,
+                                builder: (context, value, child) => Opacity(
+                                  opacity: value,
+                                  child: Transform.scale(
+                                    scale: .9 + .1 * value,
+                                    child: child,
+                                  ),
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.check_circle_outline_rounded,
+                                      size: 48,
+                                      color: accent,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      '已识别',
+                                      style: TextStyle(
+                                        color: p.ink,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      _preview ? '即将返回预览' : '即将返回签到页面',
+                                      style: TextStyle(
+                                        color: p.muted,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          )
+                        : _hovering
                         ? Center(
                             child: Container(
                               padding: const EdgeInsets.symmetric(
@@ -429,7 +507,7 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
                           Expanded(
                             child: Text(
                               _status,
-                              maxLines: 1,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(fontSize: 12, color: p.ink),
                             ),
@@ -438,7 +516,9 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        '透明区域实时识别，也支持拖入图片',
+                        _recognized
+                            ? '识别完成，签到结果请查看主窗口'
+                            : '拖动对准 · 拖入图片 · 拖动边缘缩放',
                         style: TextStyle(fontSize: 11, color: p.muted),
                       ),
                       const Spacer(),
@@ -446,12 +526,25 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
                         children: [
                           Expanded(
                             child: OutlinedButton.icon(
-                              onPressed: () => setState(() {
-                                _paused = !_paused;
-                                _status = _paused
-                                    ? '已暂停屏幕识别，仍可使用图片'
-                                    : '把屏幕上的二维码移入框内';
-                              }),
+                              style: OutlinedButton.styleFrom(
+                                minimumSize: const Size(0, 44),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 12,
+                                ),
+                                textStyle: Theme.of(context)
+                                    .textTheme
+                                    .labelLarge
+                                    ?.copyWith(fontSize: 13, height: 1.3),
+                              ),
+                              onPressed: _recognized
+                                  ? null
+                                  : () => setState(() {
+                                      _paused = !_paused;
+                                      _status = _paused
+                                          ? '已暂停屏幕识别，仍可使用图片'
+                                          : '把屏幕上的二维码移入框内';
+                                    }),
                               icon: Icon(
                                 _paused
                                     ? Icons.play_arrow_rounded
@@ -464,7 +557,18 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: FilledButton.icon(
-                              onPressed: _pickImage,
+                              style: FilledButton.styleFrom(
+                                minimumSize: const Size(0, 44),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 12,
+                                ),
+                                textStyle: Theme.of(context)
+                                    .textTheme
+                                    .labelLarge
+                                    ?.copyWith(fontSize: 13, height: 1.3),
+                              ),
+                              onPressed: _recognized ? null : _pickImage,
                               icon: const Icon(Icons.image_outlined, size: 16),
                               label: const Text('选择图片'),
                             ),

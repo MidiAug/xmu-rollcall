@@ -10,6 +10,7 @@ import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository_providers.dart';
+import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
 class AuthRepo extends Fake implements AuthRepository {}
 
@@ -28,7 +29,10 @@ class Repo extends Fake implements RollcallRepository {
   final entered = Completer<void>();
   Completer<List<RollcallItem>>? pending;
   @override
-  Future<List<RollcallItem>> fetchActive({CancelToken? cancelToken}) async {
+  Future<List<RollcallItem>> fetchActive({
+    CancelToken? cancelToken,
+    String? opId,
+  }) async {
     calls++;
     if (!entered.isCompleted) entered.complete();
     return pending?.future ?? Future.value([]);
@@ -54,7 +58,25 @@ void main() {
       ],
     );
   });
-  tearDown(() => container.dispose());
+  tearDown(() {
+    PlatformHooks.onRollcallsDiscovered = null;
+    container.dispose();
+  });
+
+  test(
+    'legacy five-second interval loads on the new ten-second grid',
+    () async {
+      SharedPreferences.setMockInitialValues({'monitor_interval': 25});
+      container.read(monitorControllerProvider);
+      await Future<void>.delayed(Duration.zero);
+      final state = container.read(monitorControllerProvider);
+      expect(state.loadingSettings, isFalse);
+      expect(state.config.intervalSeconds, 30);
+      expect(state.config.autoAnswer, isFalse);
+      expect(state.running, isFalse);
+      expect(repo.calls, 0);
+    },
+  );
 
   test(
     'concurrent starts share one operation and finish settings load first',
@@ -96,6 +118,39 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(container.read(monitorControllerProvider).lastPollAt, isNull);
       expect(container.read(monitorControllerProvider).nextPollAt, isNull);
+    },
+  );
+
+  test(
+    'discovery forwards full fresh metadata and drops a stopped run',
+    () async {
+      final received = <List<RollcallItem>>[];
+      final delivered = Completer<void>();
+      PlatformHooks.onRollcallsDiscovered = (items) async {
+        received.add(items);
+        if (!delivered.isCompleted) delivered.complete();
+      };
+      final first = RollcallItem.fromJson({
+        'rollcall_id': 9,
+        'course_title': '工程伦理',
+        'is_radar': true,
+      });
+      repo.pending = Completer<List<RollcallItem>>();
+      final ctrl = container.read(monitorControllerProvider.notifier);
+      await ctrl.startAsync();
+      await repo.entered.future;
+      repo.pending!.complete([first]);
+      await delivered.future;
+      expect(received.single.single.courseTitle, '工程伦理');
+      expect(received.single.single.type, RollcallType.radar);
+      await Future<void>.delayed(Duration.zero);
+      repo.pending = Completer<List<RollcallItem>>();
+      ctrl.pollNow();
+      await Future<void>.delayed(Duration.zero);
+      ctrl.stop();
+      repo.pending!.complete([first]);
+      await Future<void>.delayed(Duration.zero);
+      expect(received, hasLength(1));
     },
   );
 

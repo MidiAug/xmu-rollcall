@@ -77,13 +77,10 @@ void main() {
       expect(find.byType(MapPickPanel), findsOneWidget);
       await tester.tap(find.text('保存'));
       await tester.pumpAndSettle();
+      expect(find.text('请填写地点备注'), findsOneWidget);
+      expect(find.byType(Dialog), findsNothing);
       await tester.enterText(find.byType(TextField), '测试教室');
-      await tester.tap(
-        find.descendant(
-          of: find.byType(Dialog),
-          matching: find.widgetWithText(FilledButton, '保存'),
-        ),
-      );
+      await tester.tap(find.widgetWithText(FilledButton, '保存'));
       await tester.pumpAndSettle();
       expect(find.byType(MapPickPanel), findsNothing);
       expect(find.text('测试教室'), findsWidgets);

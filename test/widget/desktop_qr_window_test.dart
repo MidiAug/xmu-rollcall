@@ -8,8 +8,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:xmu_rollcall/features/rollcall/desktop_qr_window.dart';
+import 'package:xmu_rollcall/core/theme/app_theme.dart';
 
 import '../unit/desktop_qr_decoder_test.dart' as fixture;
+import '../fixtures/desktop_ui_capture.dart';
 
 const _windows = MethodChannel('mixin.one/desktop_multi_window');
 const _channels = MethodChannel('mixin.one/desktop_multi_window/channels');
@@ -34,6 +36,7 @@ Future<void> _fromOwner(String method, [Map<String, Object?>? args]) {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(loadDesktopUiCaptureFonts);
   final nativeCalls = <String>[];
   final events = <Map>[];
   Completer<void>? nextEvent;
@@ -72,15 +75,33 @@ void main() {
     messenger.setMockMethodCallHandler(_capture, null);
   });
 
-  Future<void> mount(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(420, 548);
+  Future<void> mount(
+    WidgetTester tester, {
+    Size size = const Size(420, 548),
+    double textScale = 1,
+  }) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
-      DesktopQrScanApp(
-        controller: WindowController.fromWindowId('scanner'),
-        owner: WindowController.fromWindowId('owner'),
+      RepaintBoundary(
+        key: const ValueKey('desktop-ui-capture'),
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: desktopCaptureTheme(AppTheme.dark()),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(textScale)),
+            child: child!,
+          ),
+          color: Colors.transparent,
+          home: DesktopQrScanWindow(
+            controller: WindowController.fromWindowId('scanner'),
+            owner: WindowController.fromWindowId('owner'),
+          ),
+        ),
       ),
     );
     await tester.pump();
@@ -180,12 +201,87 @@ void main() {
     await drop();
     // The detected log precedes completion; flush its continuation too.
     await tester.pump();
+    expect(find.text('已识别'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 220));
+    await captureDesktopUi(tester, 'scanner-recognized');
+    expect(
+      events.where(
+        (e) =>
+            e['method'] == 'qr_complete' &&
+            (e['arguments'] as Map)['sessionId'] == 2,
+      ),
+      isEmpty,
+    );
+    await tester.pump(const Duration(milliseconds: 479));
+    expect(nativeCalls.last, isNot('hide'));
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
     final result = events.lastWhere((e) => e['method'] == 'qr_complete');
     expect((result['arguments'] as Map)['sessionId'], 2);
     expect(
       (result['arguments'] as Map)['raw'],
       contains('DEVELOPMENT_PREVIEW_ONLY'),
     );
+    await start(tester, session: 3);
+    await drop();
+    expect(find.text('已识别'), findsOneWidget);
+    await tester.tap(find.byTooltip('关闭扫码窗'));
+    await tester.pump(const Duration(seconds: 1));
+    final cancelled = events.where(
+      (e) =>
+          e['method'] == 'qr_complete' &&
+          (e['arguments'] as Map)['sessionId'] == 3,
+    );
+    expect(cancelled, hasLength(1));
+    expect((cancelled.single['arguments'] as Map)['raw'], isNull);
+    await start(tester, session: 4);
+    expect(find.text('已识别'), findsNothing);
+    await _fromOwner('scan_cancel');
+    await tester.pumpWidget(const SizedBox());
+  }
+
+  Future<void> compactScenario(WidgetTester tester) async {
+    await mount(tester, size: const Size(340, 420), textScale: 1.3);
+    await start(tester);
+    for (final label in ['选择图片', '暂停识别']) {
+      final text = find.text(label);
+      final button = find.ancestor(
+        of: text,
+        matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+      );
+      expect(
+        tester.getRect(button).contains(tester.getRect(text).topLeft),
+        isTrue,
+      );
+      expect(
+        tester.getRect(button).contains(tester.getRect(text).bottomRight),
+        isTrue,
+      );
+    }
+    await captureDesktopUi(tester, 'scanner-compact-large-text');
+    await _fromOwner('scan_cancel');
+    await tester.pumpWidget(const SizedBox());
+  }
+
+  Future<void> dragScenario(WidgetTester tester) async {
+    await mount(tester);
+    await start(tester);
+    await captureDesktopUi(tester, 'scanner-ready');
+    await tester.dragFrom(const Offset(180, 40), const Offset(65, 25));
+    await tester.pump();
+    expect(nativeCalls.where((c) => c == 'startDrag'), hasLength(1));
+    expect(nativeCalls, isNot(contains('move')));
+    final done = Completer<void>();
+    ServicesBinding.instance.channelBuffers.push(
+      _capture.name,
+      _codec.encodeMethodCall(const MethodCall('interactionChanged', true)),
+      (_) => done.complete(),
+    );
+    await done.future;
+    nativeCalls.clear();
+    await tester.pump(const Duration(seconds: 2));
+    expect(nativeCalls, isNot(contains('capture')));
+    await _fromOwner('scan_cancel');
     await tester.pumpWidget(const SizedBox());
   }
 
@@ -215,11 +311,17 @@ void main() {
       await closeScenario(tester);
       nativeCalls.clear();
       events.clear();
+      await dragScenario(tester);
+      nativeCalls.clear();
+      events.clear();
       await pauseScenario(tester);
       nativeCalls.clear();
       events.clear();
       captureFails = false;
       await dropScenario(tester);
+      nativeCalls.clear();
+      events.clear();
+      await compactScenario(tester);
     },
   );
 }

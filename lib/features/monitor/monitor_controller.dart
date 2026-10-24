@@ -9,6 +9,7 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_engine.dart';
 import 'package:xmu_rollcall/features/monitor/automatic_rollcall_answer.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/platform/android_monitor_shell.dart';
@@ -86,6 +87,14 @@ class MonitorController extends StateNotifier<MonitorState> {
       AndroidMonitorShell.instance.addListener(_onSnapshot);
     }
     _loaded = _load();
+    _ref.listen(detectionWindowProvider, (previous, next) {
+      if (previous == null || next == null || !state.running) return;
+      if (PlatformHooks.isAndroid) {
+        unawaited(AndroidMonitorShell.instance.pollNow());
+      } else {
+        unawaited(_engine?.pollNow());
+      }
+    });
     _ref.listen(selectedRollcallAccountProvider, (previous, next) {
       if (previous == next) return;
       _changeSelectedAccount(
@@ -180,9 +189,8 @@ class MonitorController extends StateNotifier<MonitorState> {
       loadingSettings: false,
       config: MonitorConfig(
         preset: preset,
-        intervalSeconds: (integer('interval') ?? preset.defaultSeconds).clamp(
-          15,
-          120,
+        intervalSeconds: MonitorConfig.normalizeIntervalSeconds(
+          integer('interval') ?? preset.defaultSeconds,
         ),
         jitterRatio:
             (prefs.getDouble('${key}_jitter') ??
@@ -424,7 +432,7 @@ class MonitorController extends StateNotifier<MonitorState> {
     state = state.copyWith(
       config: state.config.copyWith(
         preset: MonitorPreset.custom,
-        intervalSeconds: seconds.clamp(15, 120),
+        intervalSeconds: MonitorConfig.normalizeIntervalSeconds(seconds),
       ),
     );
     _schedulePersist();
@@ -564,6 +572,7 @@ class MonitorController extends StateNotifier<MonitorState> {
             : StartMonitorResult.fgsFailed;
       }
       _engine?.stop();
+      final desktopRunId = const Uuid().v4();
       final repo = _ref.read(
         scope == null
             ? rollcallRepositoryProvider
@@ -571,6 +580,7 @@ class MonitorController extends StateNotifier<MonitorState> {
       );
       final automatic = AutomaticRollcallAnswer(
         repository: repo,
+        runId: desktopRunId,
         radarLocation: (item) => readAutomaticRadarLocation(
           ownerId: userId,
           assistUserId: scope,
@@ -599,19 +609,21 @@ class MonitorController extends StateNotifier<MonitorState> {
                 ),
               );
           if (current()) {
-            await PlatformHooks.onAutomaticAnswerResult?.call(
-              item.courseTitle,
-              result.ok,
-            );
+            await PlatformHooks.onAutomaticAnswerResult?.call(item, result.ok);
           }
         },
       );
       _engine = MonitorEngine(
         config: state.config,
+        loadDetectionWindow: () async {
+          await _ref.read(detectionWindowProvider.notifier).ready;
+          return _ref.read(detectionWindowProvider)!;
+        },
         fetch: () {
           AppLog.event(
             'monitor.discovery.start',
             fields: {
+              'runId': desktopRunId,
               'intervalSeconds': state.config.effectiveIntervalSeconds,
               'jitterRatio': state.config.jitterRatio,
               'session': scope == null ? 'owner' : 'assist',
@@ -621,11 +633,12 @@ class MonitorController extends StateNotifier<MonitorState> {
         },
         processAutomatic: automatic.process,
         completedAutomaticIds: () => automatic.completedIds,
+        automaticNumberCodes: () => automatic.numberCodes,
         notify: (items) async {
           if (!current()) return false;
           final notify = PlatformHooks.onRollcallsDiscovered;
           if (notify == null && PlatformHooks.isDesktop) return false;
-          if (notify != null) await notify(items.length);
+          if (notify != null) await notify(items);
           return true;
         },
         onUpdate: (update) {
@@ -634,6 +647,7 @@ class MonitorController extends StateNotifier<MonitorState> {
             AppLog.event(
               'monitor.discovery.result',
               fields: {
+                'runId': desktopRunId,
                 'ok': update.ok,
                 'count': ?update.count,
                 'failures': update.failures,
@@ -771,7 +785,16 @@ class MonitorController extends StateNotifier<MonitorState> {
     _debugDiscoveryTimer?.cancel();
     _debugDiscoveryTimer = Timer(delay, () async {
       final notify = PlatformHooks.onRollcallsDiscovered;
-      if (notify != null) await notify(count);
+      if (notify != null && count > 0) {
+        await notify([
+          for (var i = 0; i < count; i++)
+            RollcallItem.fromJson({
+              'rollcall_id': -i - 1,
+              'course_title': '示例课程（测试）',
+              'is_radar': true,
+            }),
+        ]);
+      }
     });
   }
 

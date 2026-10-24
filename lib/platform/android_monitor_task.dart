@@ -12,6 +12,7 @@ import 'package:xmu_rollcall/core/logging/ndjson_file_sink.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_engine.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/features/monitor/automatic_rollcall_answer.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
 import 'package:xmu_rollcall/platform/android_monitor_notifications.dart';
@@ -111,11 +112,13 @@ class AndroidMonitorTaskHandler extends TaskHandler {
         await client.init();
         await _requireCurrentAccount();
         final repo = RollcallRepository(
+          loadDetectionWindow: () => DetectionWindow.read(reload: true),
           http: client,
           identity: DeviceIdentity(memory),
         );
         final automatic = AutomaticRollcallAnswer(
           repository: repo,
+          runId: run.id,
           radarLocation: (item) => readAutomaticRadarLocation(
             ownerId: run.ownerUserId,
             assistUserId: run.assistUserId,
@@ -140,8 +143,10 @@ class AndroidMonitorTaskHandler extends TaskHandler {
         );
         _engine = MonitorEngine(
           config: run.config,
+          loadDetectionWindow: () => DetectionWindow.read(reload: true),
           processAutomatic: automatic.process,
           completedAutomaticIds: () => automatic.completedIds,
+          automaticNumberCodes: () => automatic.numberCodes,
           notifiedIds: notified,
           fetch: () async {
             await _requireCurrentAccount();

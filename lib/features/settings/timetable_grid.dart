@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 
 /// One placed course block on the week×period grid.
@@ -37,7 +38,7 @@ class TimetableAxisRow {
   final bool isBreak;
 }
 
-/// Accent hues for pastel course blocks (图2 轻盈风：浅底 + 同色相深字).
+/// Stable course identity hues, shared by light and dark surfaces.
 const kTimetableCourseAccents = <Color>[
   Color(0xFFE86A8A), // rose
   Color(0xFF8B7CF6), // lavender
@@ -68,20 +69,31 @@ class TimetableCourseTint {
   /// Soft pastel block background.
   final Color fill;
 
-  /// Darker same-hue text / icons on [fill].
+  /// Contrasting same-hue text / icons on [fill].
   final Color ink;
 }
 
 /// Stable pastel tint from course id.
-TimetableCourseTint timetableTintForCourseId(String id) {
+TimetableCourseTint timetableTintForCourseId(
+  String id, {
+  Brightness brightness = Brightness.light,
+}) {
   var h = 0;
   for (final c in id.codeUnits) {
     h = (h * 31 + c) & 0x7fffffff;
   }
   final accent = kTimetableCourseAccents[h % kTimetableCourseAccents.length];
-  // ~18% accent into white → airy fill; ink = accent darkened for contrast.
-  final fill = Color.lerp(const Color(0xFFFFFFFF), accent, 0.20)!;
-  final ink = Color.lerp(accent, const Color(0xFF1A1A1A), 0.28)!;
+  final dark = brightness == Brightness.dark;
+  final fill = Color.lerp(
+    dark ? AppPalette.darkPalette.surface : AppPalette.lightPalette.surface,
+    accent,
+    dark ? 0.16 : 0.10,
+  )!;
+  final ink = Color.lerp(
+    accent,
+    dark ? const Color(0xFFFFFFFF) : const Color(0xFF18181B),
+    dark ? 0.60 : 0.48,
+  )!;
   return TimetableCourseTint(fill: fill, ink: ink);
 }
 
@@ -143,15 +155,8 @@ List<TimetableAxisRow> buildTimetableAxisRows(
         TimetableAxisRow.period(sequence: seq, start: t.start, end: t.end),
       );
     } else {
-      // Keep empty period slot so merged blocks align by sequence index.
-      final anchor = DateTime(2000, 1, 3, 8, 0);
-      rows.add(
-        TimetableAxisRow.period(
-          sequence: seq,
-          start: anchor,
-          end: anchor.add(const Duration(minutes: 45)),
-        ),
-      );
+      // Keep the axis aligned, without inventing a time for missing slots.
+      rows.add(TimetableAxisRow.period(sequence: seq, start: null, end: null));
     }
     if (seq == 4 && max >= 5) {
       rows.add(const TimetableAxisRow.breakBand('午休'));

@@ -21,7 +21,7 @@ class Repo extends Fake implements AuthRepository {}
 class AttendanceRepo extends Fake implements RollcallRepository {
   int calls = 0;
   @override
-  Future<AttendanceCount> fetchAttendanceCount(int id) async {
+  Future<AttendanceCount> fetchAttendanceCount(int id, {String? opId}) async {
     calls++;
     return const AttendanceCount(2, 40);
   }

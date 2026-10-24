@@ -109,15 +109,31 @@ void main() {
   });
 
   group('MonitorConfig', () {
-    test('default interval >= 15s', () {
+    test('default interval stays 20s', () {
       const c = MonitorConfig();
-      expect(c.effectiveIntervalSeconds, greaterThanOrEqualTo(15));
-      expect(MonitorConfig.minIntervalSeconds, 15);
+      expect(c.effectiveIntervalSeconds, 20);
+      expect(MonitorConfig.minIntervalSeconds, 10);
     });
 
     test('clamps below min', () {
       const c = MonitorConfig(intervalSeconds: 5);
-      expect(c.effectiveIntervalSeconds, 15);
+      expect(c.effectiveIntervalSeconds, 10);
+    });
+
+    test('normalizes bounds and legacy values to ten-second steps', () {
+      for (final entry in {
+        10: 10,
+        15: 20,
+        25: 30,
+        120: 120,
+        300: 300,
+        999: 300,
+      }.entries) {
+        expect(
+          MonitorConfig(intervalSeconds: entry.key).effectiveIntervalSeconds,
+          entry.value,
+        );
+      }
     });
 
     test('nextDelay respects min and jitter', () {
@@ -125,10 +141,27 @@ void main() {
       final rand = Random(1);
       for (var i = 0; i < 20; i++) {
         final d = c.nextDelay(rand);
-        expect(d.inSeconds, greaterThanOrEqualTo(15));
-        expect(d.inSeconds, lessThanOrEqualTo(30));
+        expect(d.inSeconds, inInclusiveRange(16, 24));
       }
     });
+
+    test(
+      'jitter preserves ten-second floor and can extend the base interval',
+      () {
+        final rand = Random(1);
+        const shortest = MonitorConfig(intervalSeconds: 10, jitterRatio: 0.5);
+        const longest = MonitorConfig(intervalSeconds: 300, jitterRatio: 0.5);
+        final delays = List.generate(
+          100,
+          (_) => longest.nextDelay(rand).inSeconds,
+        );
+        expect(delays, everyElement(inInclusiveRange(150, 450)));
+        expect(delays.any((seconds) => seconds > 300), isTrue);
+        for (var i = 0; i < 100; i++) {
+          expect(shortest.nextDelay(rand).inSeconds, inInclusiveRange(10, 15));
+        }
+      },
+    );
 
     test('classroom preset is not 1Hz', () {
       expect(MonitorPreset.classroom.defaultSeconds, greaterThanOrEqualTo(15));

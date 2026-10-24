@@ -26,15 +26,11 @@ class DesktopCapture : public flutter::Plugin {
         result->Success();
       } else if (call.method_name() == "capture") {
         Capture(call.arguments(), std::move(result));
-      } else if (call.method_name() == "move") {
-        const auto& args = std::get<Map>(*call.arguments());
-        const double scale = GetDpiForWindow(root_) / 96.0;
-        RECT bounds{};
-        GetWindowRect(root_, &bounds);
-        SetWindowPos(root_, nullptr,
-            bounds.left + static_cast<int>(std::get<double>(args.at(Value("dx"))) * scale),
-            bounds.top + static_cast<int>(std::get<double>(args.at(Value("dy"))) * scale),
-            0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+      } else if (call.method_name() == "startDrag") {
+        // Windows owns the cursor/window offset throughout the modal move loop.
+        // Flutter-local deltas change as the window moves and feed back jitter.
+        ReleaseCapture();
+        SendMessage(root_, WM_SYSCOMMAND, SC_MOVE | HTCAPTION, 0);
         result->Success();
       } else if (call.method_name() == "show") {
         ShowWindow(root_, SW_SHOWNORMAL);
@@ -55,6 +51,10 @@ class DesktopCapture : public flutter::Plugin {
         return 0;
       }
       if (message == WM_NCCALCSIZE) return 0;
+      if (message == WM_ENTERSIZEMOVE || message == WM_EXITSIZEMOVE) {
+        moving_ = message == WM_ENTERSIZEMOVE;
+        channel_->InvokeMethod("interactionChanged", std::make_unique<Value>(moving_));
+      }
       if (message == WM_GETMINMAXINFO) {
         const double scale = GetDpiForWindow(root_) / 96.0;
         auto* limits = reinterpret_cast<MINMAXINFO*>(l);
@@ -111,7 +111,7 @@ class DesktopCapture : public flutter::Plugin {
   }
 
   void Capture(const Value* arguments, std::unique_ptr<flutter::MethodResult<Value>> result) {
-    if (!configured_ || !IsWindowVisible(root_) || IsIconic(root_) || !arguments || !std::holds_alternative<Map>(*arguments)) {
+    if (!configured_ || moving_ || !IsWindowVisible(root_) || IsIconic(root_) || !arguments || !std::holds_alternative<Map>(*arguments)) {
       result->Success();
       return;
     }
@@ -161,6 +161,7 @@ class DesktopCapture : public flutter::Plugin {
   HWND root_;
   int delegate_ = -1;
   bool configured_ = false;
+  bool moving_ = false;
   std::unique_ptr<flutter::MethodChannel<Value>> channel_;
 };
 }  // namespace

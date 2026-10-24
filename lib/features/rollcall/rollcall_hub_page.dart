@@ -10,12 +10,13 @@ import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
-import 'package:xmu_rollcall/core/session/assist_identity.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account_menu.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/history/history_page.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_list_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
@@ -70,6 +71,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
 
   @override
   void onShellTabVisible() {
+    super.onShellTabVisible();
     _visible = true;
     WidgetsBinding.instance.addPostFrameCallback((_) => _confirmOnAppear());
   }
@@ -87,9 +89,16 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
 
   Future<void> _selectIdentity(int value) async {
     final id = value == 0 ? null : value;
+    if (ref.read(selectedRollcallAccountProvider) != id) {
+      ref.read(selectedRollcallAccountProvider.notifier).state = id;
+      return;
+    }
+    await _loadIdentity(id);
+  }
+
+  Future<void> _loadIdentity(int? id) async {
     final revision = ++_switchRevision;
     setState(() {
-      ref.read(selectedRollcallAccountProvider.notifier).state = id;
       _switching = id != null;
       _switchError = null;
     });
@@ -152,6 +161,10 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
     final roster = ref.watch(assistControllerProvider).identities;
     final selected = ref.watch(selectedRollcallAccountProvider);
     final scope = roster.any((e) => e.userId == selected) ? selected : null;
+    final window = ref.watch(detectionWindowProvider);
+    final outsideWindow =
+        window != null &&
+        !window.allows(ref.read(activeRollcallClockProvider)());
     DateTime? updatedAt;
     var confirming = false;
     if (auth.isSignedIn && !_switching && _switchError == null) {
@@ -160,13 +173,18 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
           .read(activeRollcallsProvider(scope).notifier)
           .lastUpdatedAt;
     }
-    final updatedLabel = _switching
+    final updatedLabel = outsideWindow
+        ? '时段外暂停获取签到（${window.label}）'
+        : _switching
         ? '正在切换…'
         : confirming
         ? '正在确认最新状态…'
         : updatedAt == null
         ? '下拉刷新签到'
         : '更新于 ${updatedAt.hour.toString().padLeft(2, '0')}:${updatedAt.minute.toString().padLeft(2, '0')}';
+    ref.listen(selectedRollcallAccountProvider, (previous, next) {
+      if (previous != next) unawaited(_loadIdentity(next));
+    });
     ref.listen(authControllerProvider.select((state) => state.profile?.id), (
       previous,
       next,
@@ -211,7 +229,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                   key: const ValueKey('rollcall-toolbar'),
                   decoration: BoxDecoration(
                     color: p.surface,
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(AppRadii.group),
                     border: Border.all(color: p.border),
                   ),
                   child: Padding(
@@ -221,12 +239,15 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                         Row(
                           children: [
                             Expanded(
-                              child: _IdentityMenu(
-                                value: scope ?? 0,
-                                identities: roster,
-                                ownerName: auth.profile?.name ?? '我',
-                                onChanged: _selectIdentity,
-                              ),
+                              child:
+                                  wide && ShellTabScope.maybeOf(context) != null
+                                  ? const _PollQuickBar()
+                                  : RollcallAccountMenu(
+                                      value: scope ?? 0,
+                                      identities: roster,
+                                      ownerName: auth.profile?.name ?? '我',
+                                      onChanged: _selectIdentity,
+                                    ),
                             ),
                             const SizedBox(width: 4),
                             AppRefreshButton(
@@ -281,7 +302,8 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                               ),
                             ),
                             const SizedBox(width: 8),
-                            const _PollQuickBar(),
+                            if (!wide || ShellTabScope.maybeOf(context) == null)
+                              const _PollQuickBar(),
                           ],
                         ),
                       ],
@@ -316,139 +338,6 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
   }
 }
 
-class _IdentityMenu extends StatelessWidget {
-  const _IdentityMenu({
-    required this.value,
-    required this.identities,
-    required this.ownerName,
-    required this.onChanged,
-  });
-  final int value;
-  final List<AssistIdentity> identities;
-  final String ownerName;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final name = value == 0
-        ? ownerName
-        : identities.firstWhere((e) => e.userId == value).displayName;
-    final label = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(color: p.selected, shape: BoxShape.circle),
-          child: Icon(Icons.person_outline_rounded, size: 18, color: p.primary),
-        ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: AppTruncatedText(
-            name,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: p.ink,
-            ),
-          ),
-        ),
-        if (identities.isNotEmpty) ...[
-          const SizedBox(width: 4),
-          Icon(Icons.unfold_more_rounded, size: 16, color: p.muted),
-        ],
-      ],
-    );
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 180),
-        child: PopupMenuButton<int>(
-          key: const ValueKey('rollcall-identity-menu'),
-          enabled: identities.isNotEmpty,
-          tooltip: '',
-          position: PopupMenuPosition.under,
-          offset: const Offset(0, 6),
-          color: p.surface,
-          surfaceTintColor: Colors.transparent,
-          elevation: 6,
-          shadowColor: Colors.black.withValues(alpha: 0.12),
-          constraints: const BoxConstraints(
-            minWidth: 180,
-            maxWidth: 220,
-            maxHeight: 280,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: p.border),
-          ),
-          onSelected: (id) {
-            if (id != value) onChanged(id);
-          },
-          itemBuilder: (context) => [
-            for (final entry in [
-              (id: 0, name: ownerName),
-              for (final identity in identities)
-                (id: identity.userId, name: identity.displayName),
-            ])
-              _IdentityMenuItem(
-                value: entry.id,
-                name: entry.name,
-                selected: entry.id == value,
-              ),
-          ],
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 7),
-            child: label,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Keep hover/focus paint inside the same inset rounded row as filters,
-/// while retaining PopupMenuButton's route and keyboard selection behavior.
-class _IdentityMenuItem extends PopupMenuItem<int> {
-  const _IdentityMenuItem({
-    required int value,
-    required this.name,
-    required this.selected,
-  }) : super(value: value, height: 44, child: const SizedBox.shrink());
-
-  final String name;
-  final bool selected;
-
-  @override
-  PopupMenuItemState<int, _IdentityMenuItem> createState() =>
-      _IdentityMenuItemState();
-}
-
-class _IdentityMenuItemState
-    extends PopupMenuItemState<int, _IdentityMenuItem> {
-  @override
-  Widget build(BuildContext context) => buildSemantics(
-    child: SizedBox(
-      // PopupMenu measures intrinsic widths before layout; keep the text
-      // overflow measurement behind a finite row width.
-      width: 180,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: widget.height),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          child: AppMenuOption(
-            label: widget.name,
-            selected: widget.selected,
-            showCheck: true,
-            onTap: handleTap,
-          ),
-        ),
-      ),
-    ),
-  );
-}
-
 /// Idle: 「开始检测」pill. Running: capsule with countdown (tap = pollNow) + stop.
 class _PollQuickBar extends ConsumerStatefulWidget {
   const _PollQuickBar();
@@ -459,13 +348,21 @@ class _PollQuickBar extends ConsumerStatefulWidget {
 
 class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
   Timer? _tick;
+  bool _outsideWindow = false;
 
   @override
   void initState() {
     super.initState();
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      if (ref.read(monitorControllerProvider).running) setState(() {});
+      final window = ref.read(detectionWindowProvider);
+      final outsideWindow =
+          window != null &&
+          !window.allows(ref.read(activeRollcallClockProvider)());
+      if (ref.read(monitorControllerProvider).running ||
+          outsideWindow != _outsideWindow) {
+        setState(() => _outsideWindow = outsideWindow);
+      }
     });
   }
 
@@ -481,17 +378,37 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
     final monitor = ref.watch(monitorControllerProvider);
     final ctrl = ref.read(monitorControllerProvider.notifier);
     final signedIn = ref.watch(authControllerProvider).isSignedIn;
+    final window = ref.watch(detectionWindowProvider);
+    _outsideWindow =
+        window != null &&
+        !window.allows(ref.read(activeRollcallClockProvider)());
 
     if (!monitor.running) {
-      final enabled = signedIn && !monitor.starting && !monitor.loadingSettings;
+      final enabled =
+          signedIn &&
+          !monitor.starting &&
+          !monitor.loadingSettings &&
+          window != null &&
+          !_outsideWindow;
       return Align(
         alignment: Alignment.centerLeft,
         child: AppTooltipAnchor(
           child: Tooltip(
-            message: enabled || monitor.starting ? '' : '请先登录',
+            message: !signedIn
+                ? '请先登录'
+                : _outsideWindow
+                ? '检测时段为 ${window!.label}'
+                : '',
             child: AppQuietPill(
               onTap: enabled
                   ? () async {
+                      final currentWindow = ref.read(detectionWindowProvider);
+                      if (currentWindow == null ||
+                          !currentWindow.allows(
+                            ref.read(activeRollcallClockProvider)(),
+                          )) {
+                        return;
+                      }
                       final r = await ctrl.startAsync();
                       if (!context.mounted) return;
                       switch (r) {
@@ -539,7 +456,12 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
         ? 0
         : next.difference(DateTime.now()).inSeconds.clamp(0, 9999);
     final failed = monitor.consecutiveFailures > 0;
-    final label = failed ? '重试中  ${secs}s' : '检测中  ${secs}s';
+    final paused = _outsideWindow;
+    final label = paused
+        ? '${DetectionWindow.formatMinute(window!.startMinute)} 继续'
+        : failed
+        ? '重试中  ${secs}s'
+        : '检测中  ${secs}s';
 
     return Align(
       alignment: Alignment.centerLeft,
@@ -548,10 +470,14 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
         children: [
           AppTooltipAnchor(
             child: Tooltip(
-              message: failed ? '上次检测失败，点击立即重试' : '立即检测一次',
+              message: paused
+                  ? '时段外暂停检测，到时自动恢复'
+                  : failed
+                  ? '上次检测失败，点击立即重试'
+                  : '立即检测一次',
               child: AppQuietPill(
-                onTap: ctrl.pollNow,
-                background: failed
+                onTap: paused ? null : ctrl.pollNow,
+                background: failed && !paused
                     ? p.danger.withValues(alpha: 0.12)
                     : p.selected,
                 child: Text(
@@ -560,7 +486,7 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     letterSpacing: -0.1,
-                    color: failed ? p.danger : p.primary,
+                    color: failed && !paused ? p.danger : p.primary,
                     fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),

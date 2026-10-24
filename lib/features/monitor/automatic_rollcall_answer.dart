@@ -1,4 +1,5 @@
 import 'package:xmu_rollcall/core/logging/app_log.dart';
+import 'package:xmu_rollcall/core/logging/log_redactor.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
@@ -13,12 +14,16 @@ class AutomaticRollcallAnswer {
     DateTime Function()? now,
     this.onAnswered,
     this.radarLocation,
+    this.runId,
   }) : _now = now ?? DateTime.now;
   final RollcallRepository repository;
   final Future<void> Function() requireCurrent;
   final Future<void> Function(RollcallItem, AnswerResult)? onAnswered;
   final Future<CourseRadarPref?> Function(RollcallItem)? radarLocation;
   final DateTime Function() _now;
+  final String? runId;
+  final _numberCodes = <int, String>{};
+  Map<int, String> get numberCodes => Map.unmodifiable(_numberCodes);
   final _completed = <int>{};
   final _roundStarted = <int, DateTime>{};
   final _retryAt = <int, DateTime>{};
@@ -60,10 +65,39 @@ class AutomaticRollcallAnswer {
       }
       if (item.isRadar && _radarAttempted.contains(id)) continue;
       if (_retryAt[id]?.isAfter(_now()) == true) continue;
+      final opId = AppLog.newOpId();
+      final elapsed = Stopwatch()..start();
+      var stage = 'identity';
+      void trace(
+        String event, [
+        Map<String, dynamic> fields = const {},
+        String level = 'I',
+      ]) {
+        AppLog.event(
+          event,
+          level: level,
+          opId: opId,
+          fields: {
+            'runId': ?runId,
+            'rollcallId': id,
+            'courseId': item.courseId,
+            'type': item.type.name,
+            'stage': stage,
+            ...fields,
+          },
+        );
+      }
+
+      trace('monitor.auto.start', {
+        'waitMode': config.answerWaitMode.name,
+        'waitCount': config.answerWaitCount,
+        'waitPercent': config.answerWaitPercent,
+      });
       try {
         await requireCurrent();
         if (!current()) break;
         if (item.isRadar && await _location(item) == null) {
+          trace('monitor.auto.decision', {'reason': 'missing_course_location'});
           message = '雷达签到需先为本课设置位置或完成一次成功签到';
           continue;
         }
@@ -71,26 +105,23 @@ class AutomaticRollcallAnswer {
         final start = _roundStarted.putIfAbsent(id, _now);
         if (_now().difference(start) >= const Duration(minutes: 5)) {
           _roundStarted[id] = _now();
-          AppLog.event('monitor.auto.wait_timeout', fields: {'rollcallId': id});
+          trace('monitor.auto.wait_timeout');
           message = '等待人数超时，下一轮重新检查签到';
           continue;
         }
         if (config.answerWaitMode != AnswerWaitMode.none) {
-          final count = await repository.fetchAttendanceCount(id);
+          stage = 'attendance';
+          final count = await repository.fetchAttendanceCount(id, opId: opId);
           if (!current()) break;
           final target = config.answerWaitMode == AnswerWaitMode.count
               ? config.answerWaitCount.clamp(1, 200)
               : (count.total * config.answerWaitPercent.clamp(1, 100) / 100)
                     .ceil();
-          AppLog.event(
-            'monitor.auto.wait',
-            fields: {
-              'rollcallId': id,
-              'signed': count.signed,
-              'total': count.total,
-              'target': target,
-            },
-          );
+          trace('monitor.auto.wait', {
+            'signed': count.signed,
+            'total': count.total,
+            'target': target,
+          });
           if (count.signed < target) {
             message = target >= count.total
                 ? '当前 ${count.signed}/$target 人；课程共 ${count.total} 人，门槛可能无法达到，请调整规则'
@@ -99,7 +130,8 @@ class AutomaticRollcallAnswer {
           }
         }
         // Refresh the event and code after waiting, immediately before submission.
-        final latest = await repository.fetchActive();
+        stage = 'revalidate';
+        final latest = await repository.fetchActive(opId: opId);
         if (!current()) break;
         final matches = latest.where((i) => i.rollcallId == id);
         if (matches.isEmpty ||
@@ -107,11 +139,18 @@ class AutomaticRollcallAnswer {
             matches.first.isAnswered ||
             matches.first.type != item.type ||
             (item.isRadar && matches.first.courseId != item.courseId)) {
+          trace('monitor.auto.decision', {
+            'reason': 'event_unavailable_or_changed',
+          });
           continue;
         }
+        stage = 'number_code';
         final code = item.isNumber
-            ? await repository.fetchNumberCode(id)
+            ? await repository.fetchNumberCode(id, opId: opId)
             : null;
+        trace('monitor.auto.code_resolved', {
+          'available': code?.isNotEmpty == true,
+        });
         await requireCurrent();
         if (!current()) break;
         // Read the point last, so a user change during any earlier await wins.
@@ -119,14 +158,17 @@ class AutomaticRollcallAnswer {
         if (!current()) break;
         if (_now().difference(start) >= const Duration(minutes: 5)) {
           _roundStarted[id] = _now();
+          trace('monitor.auto.wait_timeout');
           message = '等待人数超时，下一轮重新检查签到';
           continue;
         }
         if (item.isNumber && (code == null || code.isEmpty)) {
+          trace('monitor.auto.decision', {'reason': 'missing_number_code'});
           message = '自动签到等待有效数字码';
           continue;
         }
         if (item.isRadar && location == null) {
+          trace('monitor.auto.decision', {'reason': 'course_location_changed'});
           message = '本课位置已变更，请确认位置后重试';
           continue;
         }
@@ -134,18 +176,34 @@ class AutomaticRollcallAnswer {
         // immediate duplicate submissions. The next cycle rechecks server state.
         _retryAt[id] = _now().add(const Duration(seconds: 60));
         if (item.isRadar) _radarAttempted.add(id);
+        if (code != null && code.isNotEmpty) {
+          _numberCodes[id] = code;
+          while (_numberCodes.length > 100) {
+            _numberCodes.remove(_numberCodes.keys.first);
+          }
+        }
+        stage = 'submit';
+        trace('monitor.auto.submit', {
+          'codeAvailable': code != null,
+          if (location != null)
+            'locationSource': location.userConfigured
+                ? 'configured'
+                : 'previous_success',
+        });
         final result = item.isRadar
             ? await repository.answerRadar(
                 rollcallId: id,
                 latitude: location!.latitude,
                 longitude: location.longitude,
                 accuracy: location.accuracy,
+                opId: opId,
               )
-            : await repository.answerNumber(rollcallId: id, numberCode: code!);
-        AppLog.event(
-          'monitor.auto.result',
-          fields: {'rollcallId': id, 'type': item.type.name, 'ok': result.ok},
-        );
+            : await repository.answerNumber(
+                rollcallId: id,
+                numberCode: code!,
+                opId: opId,
+              );
+        trace('monitor.auto.result', {'ok': result.ok}, result.ok ? 'I' : 'W');
         if (result.ok) {
           _completed.add(id);
           message = '自动签到成功：${item.courseTitle}';
@@ -153,18 +211,33 @@ class AutomaticRollcallAnswer {
           message = item.isRadar ? '雷达自动签到未成功，请手动确认位置' : '自动签到未成功，稍后重新检查';
         }
         if (current()) {
+          stage = 'feedback';
           try {
-            await onAnswered?.call(item, result);
+            await onAnswered?.call(
+              code == null ? item : item.copyWith(numberCode: code),
+              result,
+            );
+            trace('monitor.auto.feedback', {'ok': true});
           } catch (error, stack) {
             // Submission has finished: feedback failure must not cause a retry.
-            AppLog.logAppError(
-              error: error,
-              stackTrace: stack,
-              source: 'monitor_auto_feedback',
-            );
+            trace('monitor.auto.feedback', {
+              'ok': false,
+              ...LogRedactor.exceptionFields(error: error, stackTrace: stack),
+            }, 'W');
           }
         }
-      } catch (error) {
+      } catch (error, stack) {
+        AppLog.event(
+          'monitor.auto.error',
+          level: 'W',
+          opId: opId,
+          fields: {
+            'runId': ?runId,
+            'rollcallId': id,
+            'stage': stage,
+            ...LogRedactor.exceptionFields(error: error, stackTrace: stack),
+          },
+        );
         if (!current()) break;
         if (error is DioException &&
             (error.response?.statusCode == 401 ||
@@ -172,14 +245,15 @@ class AutomaticRollcallAnswer {
           rethrow;
         }
         _retryAt[id] = _now().add(const Duration(seconds: 60));
-        AppLog.event(
-          'monitor.auto.error',
-          level: 'W',
-          fields: {'rollcallId': id, 'errorType': error.runtimeType.toString()},
-        );
         message = item.isRadar && _radarAttempted.contains(id)
             ? '雷达提交结果未确认，请打开签到页检查，暂不重复提交'
             : '自动签到暂不可用，稍后重新检查';
+      } finally {
+        trace('monitor.auto.end', {
+          'durationMs': elapsed.elapsedMilliseconds,
+          'completed': _completed.contains(id),
+          'current': current(),
+        });
       }
     }
     return message;

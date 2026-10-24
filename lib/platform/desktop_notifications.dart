@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
+import 'package:xmu_rollcall/platform/desktop_notification_content.dart';
 
 /// Notification delivery policy independent of native window/plugin APIs.
 class DesktopNotifications extends ChangeNotifier {
@@ -13,9 +15,10 @@ class DesktopNotifications extends ChangeNotifier {
 
   final Future<void> Function() setup;
   final Future<bool> Function() isForeground;
-  final Future<void> Function(String body, bool test) send;
+  final Future<void> Function(DesktopNotificationContent content, bool test)
+  send;
   final bool Function(String body) showInApp;
-  final Future<void> Function(String body)? sendQuiet;
+  final Future<void> Function(DesktopNotificationContent content)? sendQuiet;
   bool ready = false;
   String? error;
   DateTime? lastTestSentAt;
@@ -42,11 +45,12 @@ class DesktopNotifications extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> notify(int count, {bool test = false}) async {
-    if (count <= 0 && !test) return true;
-    final body = test ? '桌面通知测试：点击此通知返回应用' : '发现进行中签到 $count 条，点击查看';
-    return _deliver(body, test: test);
+  Future<bool> notify(List<RollcallItem> items) async {
+    if (items.isEmpty) return true;
+    return _deliver(DesktopNotificationContent.discovery(items));
   }
+
+  Future<bool> test() => _deliver(DesktopNotificationContent.test, test: true);
 
   void confirmTest() {
     if (lastTestSentAt == null || error != null) return;
@@ -54,25 +58,31 @@ class DesktopNotifications extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> notifyResult(String courseTitle, bool ok) => _deliver(
-    '$courseTitle：${ok ? '自动签到成功' : '自动签到未成功，请打开签到页处理'}',
-    quiet: true,
-  );
+  Future<bool> notifyResult(RollcallItem item, bool ok) =>
+      _deliver(DesktopNotificationContent.result(item, ok), quiet: true);
 
   Future<bool> _deliver(
-    String body, {
+    DesktopNotificationContent content, {
     bool test = false,
     bool quiet = false,
   }) async {
+    if (test) {
+      // A failed retest must not leave an older confirmation visible.
+      lastTestSentAt = null;
+      lastTestConfirmedAt = null;
+      notifyListeners();
+    }
     try {
       // Suppress system alerts only when the application is actually in focus.
-      if (!test && await isForeground() && showInApp(body)) return true;
+      if (!test && await isForeground() && showInApp(content.inAppText)) {
+        return true;
+      }
       if (!ready) await initialize();
       if (!ready) return false;
       if (quiet && sendQuiet != null) {
-        await sendQuiet!(body);
+        await sendQuiet!(content);
       } else {
-        await send(body, test);
+        await send(content, test);
       }
       error = null;
       if (test) {

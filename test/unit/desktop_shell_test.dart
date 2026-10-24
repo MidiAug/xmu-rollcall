@@ -1,6 +1,8 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/platform/desktop_shell.dart';
+import 'package:xmu_rollcall/app/destinations.dart';
+import 'package:xmu_rollcall/app/shell_navigation.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -47,6 +49,33 @@ void main() {
     () async {
       await DesktopShell.instance.hideToTray();
       expect(calls, ['minimize']);
+    },
+  );
+
+  test(
+    'test click restores current page; discovery click opens rollcall root',
+    () async {
+      final destinations = <AppDestination>[];
+      void select(AppDestination destination, {bool popToRoot = false}) {
+        expect(popToRoot, isTrue);
+        destinations.add(destination);
+      }
+
+      ShellNavigation.instance.bind(select);
+      addTearDown(() => ShellNavigation.instance.unbind(select));
+      minimized = true;
+      visible = false;
+      await DesktopShell.instance.handleNotificationActivation(
+        DesktopShell.testNotificationId,
+      );
+      expect(calls, containsAllInOrder(['restore', 'show', 'focus']));
+      expect(destinations, isEmpty);
+      calls.clear();
+      await DesktopShell.instance.handleNotificationActivation(
+        DesktopShell.discoveryNotificationId,
+      );
+      expect(calls, containsAllInOrder(['show', 'focus']));
+      expect(destinations, [AppDestination.rollcall]);
     },
   );
 

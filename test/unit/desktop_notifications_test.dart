@@ -2,6 +2,17 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/platform/desktop_notifications.dart';
+import 'package:xmu_rollcall/platform/desktop_notification_content.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
+
+List<RollcallItem> _items(int count) => [
+  for (var i = 0; i < count; i++)
+    RollcallItem.fromJson({
+      'rollcall_id': i + 1,
+      'course_title': '示例课程${i + 1}',
+      'is_radar': true,
+    }),
+];
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -42,7 +53,7 @@ void main() {
 
   test('foreground discovery uses the in-app overlay', () async {
     foreground = true;
-    expect(await notifications.notify(2), isTrue);
+    expect(await notifications.notify(_items(2)), isTrue);
     expect(inAppAlerts.single, contains('2'));
     expect(systemAlerts, isEmpty);
     expect(setupCalls, 0);
@@ -51,8 +62,8 @@ void main() {
   test(
     'background discovery initializes once and sends system alerts',
     () async {
-      expect(await notifications.notify(1), isTrue);
-      expect(await notifications.notify(2), isTrue);
+      expect(await notifications.notify(_items(1)), isTrue);
+      expect(await notifications.notify(_items(2)), isTrue);
       expect(systemAlerts, [false, false]);
       expect(inAppAlerts, isEmpty);
       expect(setupCalls, 1);
@@ -64,14 +75,14 @@ void main() {
     () async {
       foreground = true;
       overlayAvailable = false;
-      expect(await notifications.notify(1), isTrue);
+      expect(await notifications.notify(_items(1)), isTrue);
       expect(systemAlerts, [false]);
     },
   );
 
   test('test forces a system notification even in the foreground', () async {
     foreground = true;
-    expect(await notifications.notify(0, test: true), isTrue);
+    expect(await notifications.test(), isTrue);
     expect(systemAlerts, [true]);
     expect(inAppAlerts, isEmpty);
     expect(notifications.lastTestSentAt, isNotNull);
@@ -79,21 +90,21 @@ void main() {
 
   test('native show failure remains retryable', () async {
     sendFails = true;
-    expect(await notifications.notify(1), isFalse);
+    expect(await notifications.notify(_items(1)), isFalse);
     expect(notifications.error, isNotNull);
     sendFails = false;
-    expect(await notifications.notify(1), isTrue);
+    expect(await notifications.notify(_items(1)), isTrue);
     expect(systemAlerts, [false]);
     expect(notifications.error, isNull);
   });
 
   test('failed setup can recover on the next delivery', () async {
     setupFails = true;
-    expect(await notifications.notify(1), isFalse);
+    expect(await notifications.notify(_items(1)), isFalse);
     expect(notifications.ready, isFalse);
     expect(notifications.error, isNotNull);
     setupFails = false;
-    expect(await notifications.notify(1), isTrue);
+    expect(await notifications.notify(_items(1)), isTrue);
     expect(notifications.ready, isTrue);
     expect(setupCalls, 2);
   });
@@ -123,20 +134,36 @@ void main() {
     () async {
       notifications.confirmTest();
       expect(notifications.lastTestConfirmedAt, isNull);
-      await notifications.notify(1, test: true);
+      await notifications.test();
       expect(notifications.lastTestConfirmedAt, isNull);
       notifications.confirmTest();
       expect(notifications.lastTestConfirmedAt, isNotNull);
-      await notifications.notify(1, test: true);
+      await notifications.test();
       expect(notifications.lastTestConfirmedAt, isNull);
     },
   );
+
+  test('failed retest clears an earlier successful confirmation', () async {
+    await notifications.test();
+    notifications.confirmTest();
+    expect(notifications.lastTestConfirmedAt, isNotNull);
+    sendFails = true;
+    expect(await notifications.test(), isFalse);
+    expect(notifications.lastTestSentAt, isNull);
+    expect(notifications.lastTestConfirmedAt, isNull);
+    notifications.confirmTest();
+    expect(notifications.lastTestConfirmedAt, isNull);
+    sendFails = false;
+    expect(await notifications.test(), isTrue);
+    expect(notifications.lastTestSentAt, isNotNull);
+    expect(notifications.lastTestConfirmedAt, isNull);
+  });
 
   test(
     'automatic results update quietly in background and use overlay in foreground',
     () async {
       notifications.dispose();
-      final quiet = <String>[];
+      final quiet = <DesktopNotificationContent>[];
       notifications = DesktopNotifications(
         setup: () async {},
         isForeground: () async => foreground,
@@ -151,10 +178,10 @@ void main() {
           return true;
         },
       );
-      expect(await notifications.notifyResult('course', true), true);
-      expect(quiet.single, contains('成功'));
+      expect(await notifications.notifyResult(_items(1).single, true), true);
+      expect(quiet.single.body, contains('成功'));
       foreground = true;
-      expect(await notifications.notifyResult('course', false), true);
+      expect(await notifications.notifyResult(_items(1).single, false), true);
       expect(inAppAlerts.single, contains('未成功'));
       expect(quiet, hasLength(1));
     },

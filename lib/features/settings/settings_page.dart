@@ -77,6 +77,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     final themePref = ref.watch(themePreferenceProvider);
     final assist = ref.watch(assistControllerProvider);
     final p = AppPalette.of(context);
+    final platform = Theme.of(context).platform;
+    final desktop = switch (platform) {
+      TargetPlatform.windows ||
+      TargetPlatform.linux ||
+      TargetPlatform.macOS => true,
+      _ => false,
+    };
 
     final accountSubtitle = !auth.isSignedIn
         ? (auth.errorMessage ?? '使用学号密码登录')
@@ -100,7 +107,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           children: [
             SettingsSection(
               padTop: false,
-              header: '账号',
               children: [
                 SettingsRow(
                   leading: const BrandMark(size: 36),
@@ -125,41 +131,68 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               ],
             ),
             SettingsSection(
-              header: '外观',
-              hasLeading: false,
+              header: '常用',
               children: [
-                Padding(
-                  padding: AppDensity.rowPadding(context),
-                  child: AppChoiceCubes<ThemePreference>(
-                    value: themePref,
-                    onChanged: (v) {
-                      ref.read(themePreferenceProvider.notifier).set(v);
-                    },
-                    cubes: [
-                      const AppChoiceCube(
-                        value: ThemePreference.light,
-                        label: '浅色',
-                        icon: Icons.wb_sunny_outlined,
-                      ),
-                      const AppChoiceCube(
-                        value: ThemePreference.dark,
-                        label: '暗色',
-                        icon: Icons.dark_mode_outlined,
-                      ),
-                      AppChoiceCube(
-                        value: ThemePreference.system,
-                        label: '系统',
-                        icon: PlatformHooks.systemAppearanceIcon(context),
-                      ),
-                    ],
-                  ),
+                SettingsRow(
+                  leading: const Icon(Icons.calendar_view_week_outlined),
+                  title: '本学期课表',
+                  subtitle: auth.isSignedIn ? '查看本周上课安排' : '请先登录',
+                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  onTap: !auth.isSignedIn
+                      ? () => showLoginDialog(context)
+                      : () => AppPageRoutes.push(context, const CoursesPage()),
+                ),
+                SettingsRow(
+                  leading: const Icon(Icons.place_outlined),
+                  title: '常用地点',
+                  subtitle: '管理签到时常用的位置',
+                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  onTap: () =>
+                      AppPageRoutes.push(context, const SavedLocationsPage()),
+                ),
+                SettingsRow(
+                  leading: const Icon(Icons.handshake_outlined),
+                  title: '协助同学',
+                  subtitle: assist.ready && assist.identities.isNotEmpty
+                      ? '已导入 ${assist.identities.length} 人'
+                      : '导出或导入协助身份',
+                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  onTap: () =>
+                      AppPageRoutes.push(context, const SettingsAssistPage()),
                 ),
               ],
             ),
-            if (PlatformHooks.isDesktop)
-              SettingsSection(
-                header: '窗口',
-                children: [
+            SettingsSection(
+              header: '应用',
+              children: [
+                SettingsRow(
+                  leading: const Icon(Icons.brightness_6_outlined),
+                  title: '外观',
+                  trailing: AppShellSelect<ThemePreference>(
+                    value: themePref,
+                    items: const [
+                      ThemePreference.light,
+                      ThemePreference.dark,
+                      ThemePreference.system,
+                    ],
+                    labelOf: (value) => switch (value) {
+                      ThemePreference.light => '浅色',
+                      ThemePreference.dark => '暗色',
+                      ThemePreference.system => '跟随系统',
+                    },
+                    iconOf: (value) => switch (value) {
+                      ThemePreference.light => Icons.wb_sunny_outlined,
+                      ThemePreference.dark => Icons.dark_mode_outlined,
+                      ThemePreference.system =>
+                        PlatformHooks.systemAppearanceIcon(context),
+                    },
+                    width: 148,
+                    onChanged: (v) {
+                      ref.read(themePreferenceProvider.notifier).set(v);
+                    },
+                  ),
+                ),
+                if (desktop)
                   SettingsRow(
                     leading: const Icon(Icons.desktop_windows_outlined),
                     title: '关闭窗口时',
@@ -174,40 +207,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                       },
                     ),
                   ),
-                ],
-              ),
-            SettingsSection(
-              header: '常用',
-              children: [
-                SettingsRow(
-                  leading: const Icon(Icons.calendar_view_week_outlined),
-                  title: '本学期课表',
-                  subtitle: auth.isSignedIn ? '查看本周上课安排' : '请先登录',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
-                  onTap: !auth.isSignedIn
-                      ? null
-                      : () => AppPageRoutes.push(context, const CoursesPage()),
-                ),
-                SettingsRow(
-                  leading: const Icon(Icons.place_outlined),
-                  title: '常用地点',
-                  subtitle: '管理签到时常用的位置',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
-                  onTap: () =>
-                      AppPageRoutes.push(context, const SavedLocationsPage()),
-                ),
-              ],
-            ),
-            if (PlatformHooks.isAndroid || PlatformHooks.isDesktop)
-              SettingsSection(
-                header: '检测',
-                children: [
+                if (platform == TargetPlatform.android || desktop)
                   SettingsRow(
                     leading: const Icon(Icons.notifications_active_outlined),
-                    title: PlatformHooks.isDesktop ? '桌面提醒' : '后台提醒',
-                    subtitle: PlatformHooks.isDesktop
-                        ? '测试系统通知，检查托盘状态'
-                        : '自动检查，一次确认锁屏提醒',
+                    title: desktop ? '桌面提醒' : '后台提醒',
+                    subtitle: desktop ? '测试系统通知与后台提醒' : '自动检查，一次确认锁屏提醒',
                     trailing: Icon(
                       Icons.chevron_right,
                       color: p.muted,
@@ -215,26 +219,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                     ),
                     onTap: () => AppPageRoutes.push(
                       context,
-                      PlatformHooks.isDesktop
+                      desktop
                           ? const DesktopNotificationSettingsPage()
                           : const NotificationSettingsPage(),
                     ),
                   ),
-                ],
-              ),
-            SettingsSection(
-              header: '更多',
-              children: [
-                SettingsRow(
-                  leading: const Icon(Icons.handshake_outlined),
-                  title: '协助同学',
-                  subtitle: assist.ready && assist.identities.isNotEmpty
-                      ? '已导入 ${assist.identities.length} 人'
-                      : '导出或导入协助身份',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
-                  onTap: () =>
-                      AppPageRoutes.push(context, const SettingsAssistPage()),
-                ),
                 SettingsRow(
                   leading: const Icon(Icons.storage_outlined),
                   title: '数据与诊断',

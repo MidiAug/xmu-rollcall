@@ -30,7 +30,7 @@ class _Repo extends Fake implements RollcallRepository {
   bool fail = false;
   Completer<AttendanceCount>? pending;
   @override
-  Future<AttendanceCount> fetchAttendanceCount(int id) async {
+  Future<AttendanceCount> fetchAttendanceCount(int id, {String? opId}) async {
     calls++;
     if (fail) throw StateError('offline');
     return pending?.future ?? AttendanceCount(calls, 40);

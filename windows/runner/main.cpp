@@ -1,8 +1,10 @@
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
+#include <shobjidl.h>
 
 #include "flutter_window.h"
+#include "notification_registration.h"
 #include "utils.h"
 
 int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
@@ -17,10 +19,27 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   // plugins.
   ::CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
-  flutter::DartProject project(L"data");
+  // Use the same identity as the notification sender before creating any UI.
+  // Otherwise Windows may resolve the small header icon from an inferred ID.
+  if (FAILED(::SetCurrentProcessExplicitAppUserModelID(xmu::kNotificationAppId))) {
+    ::OutputDebugStringW(L"Could not set xmu-rollcall AppUserModelID.\n");
+  }
 
   std::vector<std::string> command_line_arguments =
       GetCommandLineArguments();
+
+  const bool register_only = command_line_arguments.size() == 1 &&
+      command_line_arguments.front() == "--register-notifications";
+  const auto registered = xmu::StampCurrentNotificationShortcuts(register_only);
+  if (register_only) {
+    ::CoUninitialize();
+    return SUCCEEDED(registered) ? EXIT_SUCCESS : EXIT_FAILURE;
+  }
+  if (FAILED(registered)) {
+    ::OutputDebugStringW(L"Could not configure notification shortcut identity.\n");
+  }
+
+  flutter::DartProject project(L"data");
 
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 

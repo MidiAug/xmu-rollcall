@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
@@ -6,6 +7,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/features/update/app_release.dart';
 import 'package:xmu_rollcall/features/update/github_update_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Adapter implements HttpClientAdapter {
   Adapter(this.respond);
@@ -26,6 +28,7 @@ class Adapter implements HttpClientAdapter {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late Directory cache;
   late Map<String, dynamic> release;
   late Map<String, dynamic> manifest;
@@ -47,6 +50,7 @@ void main() {
     UpdateTarget target = UpdateTarget.android,
   }) => service.check(current, target, CancelToken());
   setUp(() async {
+    SharedPreferences.setMockInitialValues({});
     cache = await Directory.systemTemp.createTemp('xmu-updater-test-');
     release = {
       'tag_name': 'v0.2.0',
@@ -362,6 +366,225 @@ void main() {
         await expectLater(check(), throwsA(isA<UpdateException>()));
         manifest['signing'] = 'release';
       }
+    },
+  );
+  test(
+    'API transport failures and server errors use only one official metadata fallback',
+    () async {
+      for (final type in [
+        DioExceptionType.connectionTimeout,
+        DioExceptionType.receiveTimeout,
+        DioExceptionType.connectionError,
+      ]) {
+        adapter = Adapter(
+          (request) async => request.uri == GithubUpdateService.latest
+              ? throw DioException(requestOptions: request, type: type)
+              : json(manifest),
+        );
+        service.close();
+        service = GithubUpdateService(http: Dio()..httpClientAdapter = adapter);
+        expect((await check())!.version.full, '0.2.0+3');
+        expect(adapter.requests, hasLength(2));
+        expect(adapter.requests.last.uri.host, 'github.com');
+      }
+      adapter = Adapter(
+        (request) async => request.uri == GithubUpdateService.latest
+            ? ResponseBody.fromString('', 503)
+            : json(manifest),
+      );
+      service.close();
+      service = GithubUpdateService(http: Dio()..httpClientAdapter = adapter);
+      expect(await check(), isNotNull);
+      expect(adapter.requests, hasLength(2));
+    },
+  );
+  test(
+    'slow API falls back and total deadline ends a stalled check; next attempt works',
+    () async {
+      final stalled = Completer<ResponseBody>();
+      adapter = Adapter(
+        (request) async => request.uri == GithubUpdateService.latest
+            ? stalled.future
+            : json(manifest),
+      );
+      service.close();
+      service = GithubUpdateService(
+        http: Dio()..httpClientAdapter = adapter,
+        apiTimeout: const Duration(milliseconds: 20),
+      );
+      expect(await check(), isNotNull);
+      expect(adapter.requests, hasLength(2));
+      stalled.complete(json(release));
+      final blocked = Completer<ResponseBody>();
+      adapter = Adapter((_) => blocked.future);
+      service.close();
+      service = GithubUpdateService(
+        http: Dio()..httpClientAdapter = adapter,
+        apiTimeout: const Duration(milliseconds: 20),
+        checkTimeout: const Duration(milliseconds: 80),
+      );
+      await expectLater(
+        check(),
+        throwsA(
+          isA<UpdateException>().having(
+            (e) => e.message,
+            'message',
+            contains('超时'),
+          ),
+        ),
+      );
+      blocked.complete(json(release));
+      adapter = Adapter(
+        (request) async => request.uri == GithubUpdateService.latest
+            ? json(release)
+            : json(manifest),
+      );
+      service.close();
+      service = GithubUpdateService(http: Dio()..httpClientAdapter = adapter);
+      expect(await check(), isNotNull);
+    },
+  );
+  test(
+    'cancellation and invalid authoritative metadata never try a fallback',
+    () async {
+      final cancel = CancelToken();
+      adapter = Adapter((request) async {
+        cancel.cancel('user cancelled');
+        throw DioException(
+          requestOptions: request,
+          type: DioExceptionType.connectionError,
+        );
+      });
+      service.close();
+      service = GithubUpdateService(http: Dio()..httpClientAdapter = adapter);
+      await expectLater(
+        service.check(
+          const AppVersion(0, 1, 1, 2),
+          UpdateTarget.android,
+          cancel,
+        ),
+        throwsA(isA<DioException>()),
+      );
+      expect(adapter.requests, hasLength(1));
+    },
+  );
+  test(
+    'selected mirror downloads exact official package with official digest; metadata never uses it',
+    () async {
+      service.close();
+      service = GithubUpdateService(
+        http: Dio()..httpClientAdapter = adapter,
+        cacheDirectory: () async => cache,
+        downloadMirror: () async => Uri.parse('https://gh-proxy.com/'),
+      );
+      final update = (await check())!;
+      expect(
+        adapter.requests.every((r) => r.uri.host != 'gh-proxy.com'),
+        isTrue,
+      );
+      final file = await service.download(update, CancelToken(), (_, _) {});
+      await service.verify(file, update);
+      final request = adapter.requests.last;
+      expect(
+        request.uri.toString(),
+        'https://gh-proxy.com/${update.downloadUrl}',
+      );
+      expect(
+        request.headers.keys.map((k) => k.toLowerCase()),
+        isNot(anyOf(contains('cookie'), contains('authorization'))),
+      );
+      await file.delete();
+      adapter = Adapter((_) async => ResponseBody.fromString('tampered', 200));
+      service.close();
+      service = GithubUpdateService(
+        http: Dio()..httpClientAdapter = adapter,
+        cacheDirectory: () async => cache,
+        downloadMirror: () async => Uri.parse('https://gh-proxy.com/'),
+      );
+      await expectLater(
+        service.download(update, CancelToken(), (_, _) {}),
+        throwsA(isA<UpdateException>()),
+      );
+      expect(await file.exists(), isFalse);
+      expect(adapter.requests, hasLength(1));
+    },
+  );
+  test(
+    'failed selected mirror falls back once to official and rejects unrelated redirects',
+    () async {
+      final update = (await check())!;
+      adapter = Adapter(
+        (request) async => request.uri.host == 'gh-proxy.com'
+            ? throw DioException(
+                requestOptions: request,
+                type: DioExceptionType.connectionError,
+              )
+            : ResponseBody.fromBytes(bytes, 200),
+      );
+      service.close();
+      service = GithubUpdateService(
+        http: Dio()..httpClientAdapter = adapter,
+        cacheDirectory: () async => cache,
+        downloadMirror: () async => Uri.parse('https://gh-proxy.com/'),
+      );
+      final file = await service.download(update, CancelToken(), (_, _) {});
+      expect(adapter.requests.map((r) => r.uri.host), [
+        'gh-proxy.com',
+        'github.com',
+      ]);
+      await file.delete();
+      adapter = Adapter(
+        (_) async => ResponseBody.fromString(
+          '',
+          302,
+          headers: {
+            'location': ['https://unrelated.example/payload'],
+          },
+        ),
+      );
+      service.close();
+      service = GithubUpdateService(
+        http: Dio()..httpClientAdapter = adapter,
+        cacheDirectory: () async => cache,
+        downloadMirror: () async => Uri.parse('https://gh-proxy.com/'),
+      );
+      await expectLater(
+        service.download(update, CancelToken(), (_, _) {}),
+        throwsA(isA<UpdateException>()),
+      );
+      expect(adapter.requests, hasLength(1));
+    },
+  );
+  test(
+    'midstream mirror interruption cleans partial bytes before official retry',
+    () async {
+      final update = (await check())!;
+      Stream<Uint8List> interrupted(RequestOptions request) async* {
+        yield Uint8List.fromList(bytes.take(3).toList());
+        throw DioException(
+          requestOptions: request,
+          type: DioExceptionType.connectionError,
+        );
+      }
+
+      adapter = Adapter(
+        (request) async => request.uri.host == 'gh-proxy.com'
+            ? ResponseBody(interrupted(request), 200)
+            : ResponseBody.fromBytes(bytes, 200),
+      );
+      service.close();
+      service = GithubUpdateService(
+        http: Dio()..httpClientAdapter = adapter,
+        cacheDirectory: () async => cache,
+        downloadMirror: () async => Uri.parse('https://gh-proxy.com/'),
+      );
+      final file = await service.download(update, CancelToken(), (_, _) {});
+      expect(await file.readAsBytes(), bytes);
+      expect(adapter.requests.map((r) => r.uri.host), [
+        'gh-proxy.com',
+        'github.com',
+      ]);
+      expect(await File('${file.path}.part').exists(), isFalse);
     },
   );
 }

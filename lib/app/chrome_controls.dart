@@ -33,7 +33,7 @@ class AppQuietPill extends StatelessWidget {
           hoverColor: p.hover,
           splashFactory: NoSplash.splashFactory,
           highlightColor: Colors.transparent,
-          focusColor: p.selected,
+          focusColor: p.hover,
           onTap: onTap,
           child: AnimatedOpacity(
             duration: AppMotion.instant,

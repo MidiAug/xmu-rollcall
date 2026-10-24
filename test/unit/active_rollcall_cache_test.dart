@@ -31,6 +31,7 @@ class _Repo extends Fake implements RollcallRepository {
   @override
   Future<List<RollcallItem>> fetchActiveEnriched({
     CancelToken? cancelToken,
+    Map<int, String> cachedNumberCodes = const {},
   }) async {
     calls++;
     return pending?.future ?? [];

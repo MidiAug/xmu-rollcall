@@ -48,11 +48,17 @@ class MonitorConfig {
   int get effectiveAttendanceIntervalSeconds =>
       attendanceIntervalSeconds.clamp(15, 120);
 
-  static const minIntervalSeconds = 15;
+  static const minIntervalSeconds = 10;
+  static const maxIntervalSeconds = 300;
+  static const intervalStepSeconds = 10;
 
-  int get effectiveIntervalSeconds => intervalSeconds < minIntervalSeconds
-      ? minIntervalSeconds
-      : intervalSeconds;
+  /// Keep saved values and legacy five-second steps on the same slider grid.
+  static int normalizeIntervalSeconds(int seconds) {
+    final bounded = seconds.clamp(minIntervalSeconds, maxIntervalSeconds);
+    return (bounded / intervalStepSeconds).round() * intervalStepSeconds;
+  }
+
+  int get effectiveIntervalSeconds => normalizeIntervalSeconds(intervalSeconds);
 
   MonitorConfig copyWith({
     bool? enabled,

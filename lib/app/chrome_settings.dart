@@ -13,6 +13,7 @@ class SettingsSection extends StatelessWidget {
     this.footer,
     this.padTop = true,
     this.hasLeading = true,
+    this.rowPadding,
   });
 
   final String? header;
@@ -24,11 +25,13 @@ class SettingsSection extends StatelessWidget {
 
   /// When rows have leading icons, indent dividers to the title column.
   final bool hasLeading;
+  final EdgeInsets? rowPadding;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final rowPad = AppDensity.rowPadding(context);
+    final rowPad = rowPadding ?? AppDensity.rowPadding(context);
+    final captionInset = rowPadding?.left ?? AppSpace.sm;
     final dividerIndent =
         rowPad.left + (hasLeading ? 20 + AppDensity.rowInnerGap(context) : 0);
 
@@ -43,20 +46,16 @@ class SettingsSection extends StatelessWidget {
             Padding(
               // Caption aligns to card inset — same for every group (not past icons).
               padding: EdgeInsets.fromLTRB(
-                AppSpace.sm,
+                captionInset,
                 0,
-                AppSpace.sm,
+                captionInset,
                 AppSpace.sectionGap,
               ),
               child: Text(
                 header!,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  height: 18 / 13,
-                  letterSpacing: 0.15,
-                  color: p.muted,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleSmall?.copyWith(color: p.muted),
               ),
             ),
           ],
@@ -88,7 +87,7 @@ class SettingsSection extends StatelessWidget {
           if (footer != null) ...[
             const SizedBox(height: AppSpace.sectionGap),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
+              padding: EdgeInsets.symmetric(horizontal: captionInset),
               child: footer!,
             ),
           ],
@@ -105,21 +104,31 @@ class SettingsRow extends StatefulWidget {
     this.leading,
     required this.title,
     this.subtitle,
+    this.subtitleMaxLines,
     this.subtitleWidget,
+    this.stackSubtitleOnNarrow = false,
     this.trailing,
     this.onTap,
     this.minHeight,
+    this.contentPadding,
+    this.subtitleSpacing = 4,
   });
 
   final Widget? leading;
   final String title;
   final String? subtitle;
+  final int? subtitleMaxLines;
 
   /// Extra block under [subtitle] (e.g. selectable mono device id).
   final Widget? subtitleWidget;
+
+  /// Keep supporting text readable beside a wide control on narrow pages.
+  final bool stackSubtitleOnNarrow;
   final Widget? trailing;
   final VoidCallback? onTap;
   final double? minHeight;
+  final EdgeInsetsGeometry? contentPadding;
+  final double subtitleSpacing;
 
   @override
   State<SettingsRow> createState() => _SettingsRowState();
@@ -140,65 +149,81 @@ class _SettingsRowState extends State<SettingsRow> {
         ? p.hover
         : AppPalette.clearOf(p.hover);
 
-    final content = AnimatedContainer(
+    final subtitle = widget.subtitle == null
+        ? null
+        : Text(
+            widget.subtitle!,
+            maxLines: widget.subtitleMaxLines,
+            overflow: widget.subtitleMaxLines == null
+                ? null
+                : TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
+          );
+    Widget buildContent(bool below) => AnimatedContainer(
       duration: AppMotion.fast,
       curve: AppMotion.fastCurve,
       color: wash,
-      padding: AppDensity.rowPadding(context),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minHeight: h),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            if (widget.leading != null) ...[
-              IconTheme(
-                data: IconThemeData(color: p.muted, size: 20),
-                child: widget.leading!,
-              ),
-              SizedBox(width: gap),
-            ],
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    widget.title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: -0.15,
-                      color: p.ink,
-                    ),
+      padding: widget.contentPadding ?? AppDensity.rowPadding(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ConstrainedBox(
+            constraints: BoxConstraints(minHeight: h),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (widget.leading != null) ...[
+                  IconTheme(
+                    data: IconThemeData(color: p.muted, size: 20),
+                    child: widget.leading!,
                   ),
-                  if (widget.subtitleWidget != null) ...[
-                    const SizedBox(height: AppSpace.xs),
-                    widget.subtitleWidget!,
-                  ],
-                  if (widget.subtitle != null) ...[
-                    SizedBox(
-                      height: widget.subtitleWidget != null ? AppSpace.xxs : 4,
-                    ),
-                    Text(
-                      widget.subtitle!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 1.4,
-                        color: p.muted,
-                      ),
-                    ),
-                  ],
+                  SizedBox(width: gap),
                 ],
-              ),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      if (widget.subtitleWidget != null) ...[
+                        const SizedBox(height: AppSpace.xs),
+                        widget.subtitleWidget!,
+                      ],
+                      if (subtitle != null && !below) ...[
+                        SizedBox(
+                          height: widget.subtitleWidget != null
+                              ? AppSpace.xxs
+                              : widget.subtitleSpacing,
+                        ),
+                        subtitle,
+                      ],
+                    ],
+                  ),
+                ),
+                if (widget.trailing != null) ...[
+                  SizedBox(width: gap),
+                  widget.trailing!,
+                ],
+              ],
             ),
-            if (widget.trailing != null) ...[
-              SizedBox(width: gap),
-              widget.trailing!,
-            ],
+          ),
+          if (subtitle != null && below) ...[
+            SizedBox(height: widget.subtitleSpacing),
+            subtitle,
           ],
-        ),
+        ],
       ),
     );
+    final content = widget.stackSubtitleOnNarrow
+        ? LayoutBuilder(
+            builder: (context, constraints) => buildContent(
+              widget.trailing != null && constraints.maxWidth < 360,
+            ),
+          )
+        : buildContent(false);
 
     if (!interactive) return content;
 

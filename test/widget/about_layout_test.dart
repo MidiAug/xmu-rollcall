@@ -78,7 +78,9 @@ void main() {
             );
           }
           if (scenario == 'failed') {
-            service.checkError = const UpdateException('更新服务暂不可用，请稍后重试。');
+            service.checkError = const UpdateException(
+              '更新服务暂不可用，连接超时，请检查网络后重试；这是一段用于验证窄屏单行省略的较长错误说明。',
+            );
           }
           final controller = AppUpdateController(
             service: service,
@@ -104,22 +106,19 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(
-            find.text(
+            find.textContaining(
               scenario == 'current'
                   ? '已是最新版本'
                   : scenario == 'available'
-                  ? '新版本 v0.2.0'
+                  ? '有更新 · v0.2.0'
                   : '暂时无法检查',
             ),
             findsOneWidget,
           );
-          expect(
-            find.text('查看更新说明'),
-            scenario == 'available' ? findsOneWidget : findsNothing,
-          );
+          expect(find.byTooltip('查看更新说明'), findsNothing);
           expect(find.text('GitHub 发布页'), findsNothing);
           expect(find.byType(PopupMenuButton<String>), findsNothing);
-          if (scenario != 'available') {
+          {
             // Both utility rows must share the same horizontal grid and height,
             // including when a failed check is shown instead of a current one.
             final updateRow = find.ancestor(

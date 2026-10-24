@@ -17,6 +17,9 @@ import 'package:xmu_rollcall/features/settings/close_prefs_controller.dart';
 import 'package:xmu_rollcall/platform/close_prefs.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:xmu_rollcall/platform/desktop_notifications.dart';
+import 'package:xmu_rollcall/platform/windows_desktop_notifications.dart';
+import 'package:xmu_rollcall/platform/desktop_notification_content.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 
 /// Desktop window close / tray / discovery notification (Phase 3 shell slice).
 class DesktopShell with WindowListener, TrayListener {
@@ -28,7 +31,7 @@ class DesktopShell with WindowListener, TrayListener {
           !await windowManager.isMinimized() &&
           await windowManager.isFocused(),
       send: _sendNotification,
-      sendQuiet: (body) => _sendNotification(body, false, silent: true),
+      sendQuiet: (content) => _sendNotification(content, false, silent: true),
       showInApp: (body) {
         final overlay = navigatorKey?.currentState?.overlay;
         if (overlay == null || !overlay.mounted) return false;
@@ -40,8 +43,9 @@ class DesktopShell with WindowListener, TrayListener {
 
   static final DesktopShell instance = DesktopShell._();
 
-  static const discoveryNotificationId = 'rollcall-found';
-  static const testNotificationId = 'rollcall-notification-test';
+  static const discoveryNotificationId =
+      WindowsDesktopNotifications.discoveryPayload;
+  static const testNotificationId = WindowsDesktopNotifications.testPayload;
   late final DesktopNotifications notifications;
   final trayAvailable = ValueNotifier(false);
   LocalNotification? _discoveryNotification;
@@ -80,8 +84,8 @@ class DesktopShell with WindowListener, TrayListener {
     }
 
     PlatformHooks.onRollcallsDiscovered = notifyRollcallsDiscovered;
-    PlatformHooks.onAutomaticAnswerResult = (courseTitle, ok) async {
-      if (!await notifications.notifyResult(courseTitle, ok)) {
+    PlatformHooks.onAutomaticAnswerResult = (item, ok) async {
+      if (!await notifications.notifyResult(item, ok)) {
         throw StateError('桌面签到结果通知发送失败');
       }
     };
@@ -114,29 +118,28 @@ class DesktopShell with WindowListener, TrayListener {
     }
     // local_notifier's Windows implementation reports success even if WinToast
     // rejects a toast. This backend propagates native initialization/show errors.
-    final plugin = _windowsNotifications ??= FlutterLocalNotificationsWindows();
-    final initialized = await plugin.initialize(
-      settings: const WindowsInitializationSettings(
-        appName: kAppDisplayName,
-        appUserModelId: 'cn.edu.xmu.rollcall',
-        guid: '1a7ff90c-8c39-4cad-9d09-702731e97bba',
-      ),
-      onDidReceiveNotificationResponse: (response) => _run(
-        response.payload == testNotificationId
-            ? showMainWindow()
-            : showRollcallFromNotification(),
-      ),
-    );
+    // The native plugin owns late-final handles. Never reinitialize an old
+    // instance after failure/disposal; a fresh instance keeps retries usable.
+    _windowsNotifications?.dispose();
+    _windowsNotifications = null;
+    final plugin = FlutterLocalNotificationsWindows();
+    final initialized = await WindowsDesktopNotifications(plugin: plugin)
+        .initialize(
+          (response) => _run(handleNotificationActivation(response.payload)),
+        );
     if (!initialized) throw StateError('Windows 通知初始化失败');
+    _windowsNotifications = plugin;
     final launch = await plugin.getNotificationAppLaunchDetails();
     if (launch?.didNotificationLaunchApp == true) {
-      _run(
-        launch?.notificationResponse?.payload == testNotificationId
-            ? showMainWindow()
-            : showRollcallFromNotification(),
-      );
+      _run(handleNotificationActivation(launch?.notificationResponse?.payload));
     }
   }
+
+  /// Test notifications restore the current page; discoveries open the list.
+  Future<void> handleNotificationActivation(String? payload) =>
+      payload == testNotificationId
+      ? showMainWindow()
+      : showRollcallFromNotification();
 
   Future<void> updateTrayMenu() async {
     final running = isMonitorRunning?.call() ?? false;
@@ -202,31 +205,23 @@ class DesktopShell with WindowListener, TrayListener {
   }
 
   /// Called for new discoveries while monitoring continues.
-  Future<void> notifyRollcallsDiscovered(int count) async {
-    if (!PlatformHooks.isDesktop || count <= 0) return;
-    if (!await notifications.notify(count)) throw StateError('桌面通知发送失败');
-    AppLog.event('shell.notify_found', fields: {'count': count});
+  Future<void> notifyRollcallsDiscovered(List<RollcallItem> items) async {
+    if (!PlatformHooks.isDesktop || items.isEmpty) return;
+    if (!await notifications.notify(items)) throw StateError('桌面通知发送失败');
+    AppLog.event('shell.notify_found', fields: {'count': items.length});
   }
 
   Future<void> _sendNotification(
-    String body,
+    DesktopNotificationContent content,
     bool test, {
     bool silent = false,
   }) async {
     if (Platform.isWindows) {
       final plugin = _windowsNotifications;
       if (plugin == null) throw StateError('Windows 通知尚未初始化');
-      await plugin.show(
-        id: test ? 2 : 1,
-        title: kAppDisplayName,
-        body: body,
-        payload: test ? testNotificationId : discoveryNotificationId,
-        notificationDetails: silent
-            ? WindowsNotificationDetails(
-                audio: WindowsNotificationAudio.silent(),
-              )
-            : null,
-      );
+      await WindowsDesktopNotifications(
+        plugin: plugin,
+      ).show(content, test: test, silent: silent);
       return;
     }
     final notification = test
@@ -238,7 +233,8 @@ class DesktopShell with WindowListener, TrayListener {
             identifier: discoveryNotificationId,
             title: kAppDisplayName,
           ));
-    notification.body = body;
+    notification.title = content.title;
+    notification.body = content.body;
     // LocalNotification already owns a listener: register one click handler only.
     notification.onClick = () =>
         _run(test ? showMainWindow() : showRollcallFromNotification());

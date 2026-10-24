@@ -102,17 +102,20 @@ class _TimetableBody extends StatelessWidget {
     final meta = fetched == null
         ? null
         : '更新于 ${fetched.toLocal().toString().substring(0, 16)}';
-    final p = AppPalette.of(context);
-
     return Padding(
-      padding: const EdgeInsets.fromLTRB(6, 4, 6, 8),
+      padding: EdgeInsets.fromLTRB(
+        AppSpace.pageXOf(context),
+        AppSpace.sm,
+        AppSpace.pageXOf(context),
+        AppSpace.md,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (meta != null)
             Padding(
-              padding: const EdgeInsets.only(left: 2, bottom: 4),
-              child: Text(meta, style: TextStyle(fontSize: 11, color: p.muted)),
+              padding: const EdgeInsets.only(bottom: AppSpace.sm),
+              child: Text(meta, style: Theme.of(context).textTheme.bodySmall),
             ),
           Expanded(child: TimetableGridView(courses: withSlots)),
         ],

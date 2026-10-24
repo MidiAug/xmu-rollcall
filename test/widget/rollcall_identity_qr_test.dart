@@ -6,12 +6,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/app/shell_navigation.dart';
+import 'package:xmu_rollcall/features/settings/settings_page.dart';
+import 'package:xmu_rollcall/features/history/history_page.dart';
+import 'package:xmu_rollcall/features/location/map_pick_page.dart';
+import 'package:xmu_rollcall/core/cache/cache_policy.dart';
+import 'package:xmu_rollcall/app/adaptive_shell.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
+import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
-import 'package:xmu_rollcall/app/app_switch.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/core/network/rate_limiter.dart';
@@ -25,6 +32,10 @@ import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
+import 'package:xmu_rollcall/features/homework/homework_models.dart';
+import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
+import 'package:xmu_rollcall/features/homework/homework_overview.dart';
+import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
@@ -33,6 +44,7 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/platform/desktop_qr_scanner.dart';
+import '../fixtures/desktop_ui_capture.dart';
 
 class _AuthRepo extends Fake implements AuthRepository {}
 
@@ -43,6 +55,8 @@ class _Auth extends AuthController {
       profile: UserProfile(id: 1, name: '主号'),
     );
   }
+  void signOutForTest() =>
+      state = const AuthState(status: AuthStatus.signedOut);
 }
 
 class _Service extends Fake implements AssistService {
@@ -147,6 +161,33 @@ class _AppearanceLists extends _Lists {
   }
 }
 
+class _Todos extends HomeworkTodosNotifier {
+  @override
+  Future<List<HomeworkItem>> build() async => [];
+}
+
+var _homeworkManualChecks = 0;
+
+class _AccountHomework extends HomeworkOverviewNotifier {
+  @override
+  Future<HomeworkOverview> build() async {
+    final id = ref.watch(selectedRollcallAccountProvider);
+    return HomeworkOverview([
+      HomeworkItem(
+        id: 1,
+        title: id == null ? '主号作业' : '协助作业',
+        courseName: '测试课',
+        type: 'exam',
+      ),
+    ]);
+  }
+
+  @override
+  Future<void> ensureFresh({bool force = false}) async {
+    if (force) _homeworkManualChecks++;
+  }
+}
+
 class _RunningMonitor extends MonitorController {
   _RunningMonitor(super.ref) {
     state = state.copyWith(running: true, loadingSettings: false);
@@ -155,10 +196,48 @@ class _RunningMonitor extends MonitorController {
       state = state.copyWith(running: false, loadingSettings: false);
 }
 
+class _History extends CourseHistoryNotifier {
+  @override
+  Future<List<CourseRollcallRecord>> build() async => [
+    CourseRollcallRecord(
+      courseId: 'fixture',
+      courseTitle: '筛选课程',
+      rollcallId: 'history-fixture',
+      rollcallTime: DateTime.now(),
+      typeLabel: '二维码签到',
+      signedStatus: '未签到',
+      platformStatus: '',
+    ),
+  ];
+  @override
+  Future<void> ensureFresh({
+    EnsureFreshReason reason = EnsureFreshReason.appear,
+    String? courseId,
+  }) async {}
+}
+
+class _StartMonitor extends MonitorController {
+  _StartMonitor(super.ref, this.result) {
+    state = state.copyWith(loadingSettings: false);
+  }
+  final StartMonitorResult result;
+  int starts = 0;
+  @override
+  Future<StartMonitorResult> startAsync() async {
+    starts++;
+    if (result == StartMonitorResult.started) {
+      state = state.copyWith(running: true);
+    }
+    return result;
+  }
+}
+
 void main() {
+  setUpAll(loadDesktopUiCaptureFonts);
   tearDown(AppToast.dismiss);
   setUp(() {
     SharedPreferences.setMockInitialValues({});
+    _homeworkManualChecks = 0;
     _puts.clear();
     _data.clear();
     _data['owner'] = [_row(title: '本人课程')];
@@ -171,6 +250,9 @@ void main() {
     WidgetTester tester,
     Widget page, {
     bool visibleTab = false,
+    StartMonitorResult? startResult,
+    DateTime? now,
+    DateTime Function()? clock,
   }) async {
     final store = SecureStore.memory();
     final service = _Service();
@@ -178,6 +260,10 @@ void main() {
       ProviderScope(
         overrides: [
           secureStoreProvider.overrideWithValue(store),
+          homeworkTodosProvider.overrideWith(_Todos.new),
+          courseHistoryProvider.overrideWith(_History.new),
+          homeworkOverviewProvider.overrideWith(_AccountHomework.new),
+          currentTeachingCoursesProvider.overrideWith((ref) async => []),
           authControllerProvider.overrideWith((ref) => _Auth()),
           assistServiceProvider.overrideWith((ref) async => service),
           assistControllerProvider.overrideWith(
@@ -201,20 +287,30 @@ void main() {
           activeRollcallsProvider.overrideWith(
             visibleTab ? _AppearanceLists.new : _Lists.new,
           ),
-          if (visibleTab)
+          if (now != null || clock != null)
+            activeRollcallClockProvider.overrideWithValue(clock ?? () => now!),
+          if (startResult != null)
+            monitorControllerProvider.overrideWith(
+              (ref) => _StartMonitor(ref, startResult),
+            )
+          else if (visibleTab)
             monitorControllerProvider.overrideWith(_RunningMonitor.new),
         ],
-        child: MaterialApp(
-          theme: AppTheme.light(),
-          home: Scaffold(
-            body: visibleTab
-                ? ShellTabScope(
-                    current: AppDestination.rollcall,
-                    retapEpoch: 0,
-                    retapDestination: null,
-                    child: page,
-                  )
-                : page,
+        child: RepaintBoundary(
+          key: const ValueKey('desktop-ui-capture'),
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: desktopCaptureTheme(AppTheme.light()),
+            home: Scaffold(
+              body: visibleTab
+                  ? ShellTabScope(
+                      current: AppDestination.rollcall,
+                      retapEpoch: 0,
+                      retapDestination: null,
+                      child: page,
+                    )
+                  : page,
+            ),
           ),
         ),
       ),
@@ -222,6 +318,453 @@ void main() {
     await tester.pumpAndSettle();
     return service;
   }
+
+  testWidgets(
+    'desktop sidebar is the single account entry across both pages',
+    (tester) async {
+      tester.view.physicalSize = const Size(960, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final service = await show(tester, const AdaptiveShell());
+      final menu = find.byKey(const ValueKey('rollcall-identity-menu'));
+      expect(menu, findsOneWidget);
+      expect(
+        find.descendant(of: find.byType(AppSidebar), matching: menu),
+        findsOneWidget,
+      );
+      expect(find.text('主号'), findsOneWidget);
+      await captureDesktopUi(tester, 'sidebar-rollcall');
+      Navigator.of(tester.element(find.byType(RollcallHubPage))).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('旧账号签到详情')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('未签同学').last);
+      await tester.pumpAndSettle();
+      expect(find.text('协助课程'), findsOneWidget);
+      expect(find.text('旧账号签到详情'), findsNothing);
+      expect(service.sessions, contains(2));
+      await tester.tap(find.text('作业').first);
+      await tester.pumpAndSettle();
+      expect(find.text('未签同学'), findsOneWidget);
+      expect(find.text('协助作业'), findsOneWidget);
+      final refresh = find.byKey(const ValueKey('homework-refresh'));
+      expect(refresh, findsOneWidget);
+      expect(
+        find.descendant(of: find.byType(AppTitleBar), matching: refresh),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(HomeworkHubPage),
+          matching: find.byType(AppRefreshButton),
+        ),
+        findsNothing,
+      );
+      await tester.tap(refresh);
+      await tester.pumpAndSettle();
+      expect(_homeworkManualChecks, 1);
+      await captureDesktopUi(tester, 'homework-title-refresh');
+      Navigator.of(tester.element(find.byType(HomeworkHubPage))).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('旧账号作业详情')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(refresh, findsNothing);
+      await tester.tap(menu);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('主号').last);
+      await tester.pumpAndSettle();
+      expect(find.text('主号作业'), findsOneWidget);
+      expect(find.text('旧账号作业详情'), findsNothing);
+      expect(refresh, findsOneWidget);
+      expect(find.text('主号'), findsOneWidget);
+      await tester.tap(find.text('签到').first);
+      await tester.pumpAndSettle();
+      expect(refresh, findsNothing);
+      await tester.tap(find.text('作业').first);
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(HomeworkHubPage)),
+      );
+      (container.read(authControllerProvider.notifier) as _Auth)
+          .signOutForTest();
+      await tester.pumpAndSettle();
+      expect(refresh, findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  for (final width in [320.0, 960.0]) {
+    testWidgets(
+      'tab changes reset routes, filters and scroll at $width',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 640);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await show(
+          tester,
+          const AdaptiveShell(),
+          startResult: StartMonitorResult.started,
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(AdaptiveShell)),
+        );
+        final monitor =
+            container.read(monitorControllerProvider.notifier) as _StartMonitor;
+        await monitor.startAsync();
+        final cached = container.read(activeRollcallsProvider(null).notifier);
+        final nav = find.byType(width < 600 ? AppMobileNav : AppSidebar);
+        Future<void> select(String label) async {
+          await tester.tap(
+            find.descendant(of: nav, matching: find.text(label)),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await tester.tap(find.byTooltip('签到记录'));
+        await tester.pumpAndSettle();
+        final oldHistory = tester.state(find.byType(HistoryPage));
+        for (final filter in [
+          ('history-status-filter', '未签到'),
+          ('history-type-filter', '二维码签到'),
+          ('history-course-filter', '筛选课程'),
+          ('history-date-filter', '7天内'),
+        ]) {
+          await tester.tap(find.byKey(ValueKey(filter.$1)));
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find
+                .descendant(
+                  of: find.byType(AppMenuOption),
+                  matching: find.text(filter.$2),
+                )
+                .last,
+          );
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(find.byKey(const ValueKey('history-status-filter')));
+        await tester.pumpAndSettle();
+        await select('作业');
+        expect(find.byType(AppMenuOption), findsNothing);
+        expect(find.byType(HistoryPage, skipOffstage: false), findsNothing);
+        expect(oldHistory.mounted, isFalse);
+        expect(find.byTooltip('返回'), findsNothing);
+        expect(container.read(monitorControllerProvider).running, isTrue);
+        expect(
+          container.read(monitorControllerProvider.notifier),
+          same(monitor),
+        );
+        expect(
+          container.read(activeRollcallsProvider(null).notifier),
+          same(cached),
+        );
+        await select('签到');
+        expect(find.byType(HistoryPage), findsNothing);
+        await tester.tap(find.byTooltip('签到记录'));
+        await tester.pumpAndSettle();
+        for (final label in ['全部状态', '全部类型', '全部课程', '全部时间']) {
+          expect(find.text(label), findsOneWidget);
+        }
+        await select('我的');
+        final list = tester.widget<ListView>(
+          find.descendant(
+            of: find.byType(SettingsPage),
+            matching: find.byType(ListView),
+          ),
+        );
+        list.controller!.jumpTo(80);
+        await tester.pumpAndSettle();
+        expect(list.controller!.offset, greaterThan(0));
+        await select('作业');
+        Future<void> selectMyWithoutScrollFrame() async {
+          double? paintedOffset;
+          bool? paintedScrolling;
+          // Register before the selection frame so a late post-frame reset
+          // cannot hide a frame that was already painted at the old offset.
+          tester.binding.addPostFrameCallback((_) {
+            paintedOffset = list.controller!.offset;
+            paintedScrolling =
+                list.controller!.position.isScrollingNotifier.value;
+          });
+          await tester.tap(find.descendant(of: nav, matching: find.text('我的')));
+          await tester.pump();
+          expect(paintedOffset, 0, reason: 'The first visible frame is at top');
+          expect(paintedScrolling, isFalse);
+          await tester.pumpAndSettle();
+        }
+
+        await selectMyWithoutScrollFrame();
+        list.controller!.jumpTo(80);
+        await tester.pumpAndSettle();
+        await selectMyWithoutScrollFrame(); // Re-tapping is immediate too.
+        expect(list.controller!.offset, 0);
+        final settingsContext = tester.element(find.byType(SettingsPage));
+        Navigator.of(settingsContext).push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                const SubpageScaffold(title: '设置详情测试', body: Text('设置详情内容')),
+          ),
+        );
+        await tester.pumpAndSettle();
+        ShellNavigation.instance.openRollcall();
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('返回'), findsNothing);
+        await select('我的');
+        expect(find.text('设置详情内容', skipOffstage: false), findsNothing);
+        await select('作业');
+        Navigator.of(tester.element(find.byType(HomeworkHubPage))).push(
+          MaterialPageRoute<void>(
+            builder: (_) =>
+                const SubpageScaffold(title: '作业详情测试', body: Text('作业详情内容')),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await select('作业');
+        expect(find.text('作业详情内容', skipOffstage: false), findsNothing);
+        // Repeated fast selections must not leave a stale title-bar claim.
+        await tester.tap(find.descendant(of: nav, matching: find.text('我的')));
+        await tester.pump();
+        await tester.tap(find.descendant(of: nav, matching: find.text('签到')));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('返回'), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+      variant: TargetPlatformVariant.only(
+        width < 600 ? TargetPlatform.android : TargetPlatform.windows,
+      ),
+    );
+
+    testWidgets(
+      'map draft can cancel or confirm tab reset at $width',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await show(tester, const AdaptiveShell());
+        final nav = find.byType(width < 600 ? AppMobileNav : AppSidebar);
+        Future<void> select(String label) async {
+          await tester.tap(
+            find.descendant(of: nav, matching: find.text(label)),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await select('我的');
+        final ctx = tester.element(find.byType(SettingsPage));
+        Navigator.of(ctx).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const MapPickPage(requireNote: true, title: '添加位置'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const ValueKey('location-note-input')),
+          '未保存的教室',
+        );
+        await select('作业');
+        expect(find.text('放弃未保存的修改？'), findsOneWidget);
+        await tester.tap(find.text('继续编辑'));
+        await tester.pumpAndSettle();
+        expect(find.byType(MapPickPanel), findsOneWidget);
+        expect(find.text('未保存的教室'), findsOneWidget);
+        await select(
+          '我的',
+        ); // Re-tapping the current tab also protects the draft.
+        await tester.tap(find.text('放弃并离开'));
+        await tester.pumpAndSettle();
+        expect(find.byType(MapPickPanel, skipOffstage: false), findsNothing);
+        expect(find.byTooltip('返回'), findsNothing);
+        // No edits: switching away from another map does not ask.
+        Navigator.of(tester.element(find.byType(SettingsPage))).push(
+          MaterialPageRoute<void>(
+            builder: (_) => const MapPickPage(requireNote: true),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await select('作业');
+        expect(find.text('放弃未保存的修改？'), findsNothing);
+        expect(find.byType(MapPickPanel, skipOffstage: false), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+      variant: TargetPlatformVariant.only(
+        width < 600 ? TargetPlatform.android : TargetPlatform.windows,
+      ),
+    );
+
+    testWidgets(
+      'busy editor blocks tab exit until operation finishes at $width',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await show(tester, const AdaptiveShell());
+        var busy = true;
+        final nav = find.byType(width < 600 ? AppMobileNav : AppSidebar);
+        Navigator.of(tester.element(find.byType(RollcallHubPage))).push(
+          MaterialPageRoute<void>(
+            builder: (_) => SubpageScaffold(
+              title: '处理中测试',
+              isBusy: () => busy,
+              body: const Text('正在保存'),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.descendant(of: nav, matching: find.text('作业')));
+        await tester.pumpAndSettle();
+        expect(find.text('正在保存'), findsOneWidget);
+        expect(find.text('正在处理，请稍候再切换页面'), findsOneWidget);
+        busy = false;
+        AppToast.dismiss();
+        await tester.tap(find.descendant(of: nav, matching: find.text('作业')));
+        await tester.pumpAndSettle();
+        expect(find.text('正在保存', skipOffstage: false), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+      variant: TargetPlatformVariant.only(
+        width < 600 ? TargetPlatform.android : TargetPlatform.windows,
+      ),
+    );
+  }
+
+  for (final scenario in [
+    (hour: 7, minute: 29, enabled: true, overnight: false, allowed: false),
+    (hour: 7, minute: 30, enabled: true, overnight: false, allowed: true),
+    (hour: 21, minute: 59, enabled: true, overnight: false, allowed: true),
+    (hour: 22, minute: 0, enabled: true, overnight: false, allowed: false),
+    (hour: 1, minute: 0, enabled: false, overnight: false, allowed: true),
+    (hour: 0, minute: 0, enabled: true, overnight: true, allowed: true),
+    (hour: 12, minute: 0, enabled: true, overnight: true, allowed: false),
+  ]) {
+    for (final width in [320.0, 960.0]) {
+      testWidgets('start is gated by detection window at $scenario / $width', (
+        tester,
+      ) async {
+        tester.view.physicalSize = Size(width, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await show(
+          tester,
+          const RollcallHubPage(),
+          startResult: StartMonitorResult.started,
+          now: DateTime(2026, 10, 24, scenario.hour, scenario.minute),
+        );
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(RollcallHubPage)),
+        );
+        await container
+            .read(detectionWindowProvider.notifier)
+            .save(
+              DetectionWindow(
+                enabled: scenario.enabled,
+                startMinute: scenario.overnight ? 1320 : 450,
+                endMinute: scenario.overnight ? 450 : 1320,
+              ),
+            );
+        await tester.pumpAndSettle();
+        final button = find.ancestor(
+          of: find.text('开始检测'),
+          matching: find.byType(AppQuietPill),
+        );
+        expect(
+          tester.widget<AppQuietPill>(button).onTap,
+          scenario.allowed ? isNotNull : isNull,
+        );
+        if (!scenario.allowed) {
+          final label = tester.widget<Text>(find.text('开始检测'));
+          expect(
+            label.style!.color,
+            AppPalette.of(tester.element(button)).muted,
+          );
+          final mouse = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await mouse.addPointer();
+          await mouse.moveTo(tester.getCenter(button));
+          await tester.pumpAndSettle();
+          expect(
+            tester.binding.mouseTracker.debugDeviceActiveCursor(1),
+            SystemMouseCursors.basic,
+          );
+          await mouse.removePointer();
+          await captureDesktopUi(tester, 'disabled-start-${width.toInt()}');
+        }
+        await tester.tap(find.text('开始检测'));
+        await tester.pumpAndSettle();
+        expect(
+          (container.read(monitorControllerProvider.notifier) as _StartMonitor)
+              .starts,
+          scenario.allowed ? 1 : 0,
+        );
+        expect(find.textContaining('时段外暂停获取签到\n'), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      });
+    }
+  }
+
+  testWidgets('idle start updates at boundaries and when window changes', (
+    tester,
+  ) async {
+    var now = DateTime(2026, 10, 24, 7, 29, 59);
+    await show(
+      tester,
+      const RollcallHubPage(),
+      startResult: StartMonitorResult.started,
+      clock: () => now,
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(RollcallHubPage)),
+    );
+    final settings = container.read(detectionWindowProvider.notifier);
+    await settings.save(const DetectionWindow(enabled: true));
+    await tester.pumpAndSettle();
+    AppQuietPill button() => tester.widget<AppQuietPill>(
+      find.ancestor(of: find.text('开始检测'), matching: find.byType(AppQuietPill)),
+    );
+    expect(button().onTap, isNull);
+    now = DateTime(2026, 10, 24, 7, 30);
+    await tester.pump(const Duration(seconds: 1));
+    expect(button().onTap, isNotNull);
+    now = DateTime(2026, 10, 24, 22);
+    // An already-rendered callback must also reject a click over the boundary.
+    await tester.tap(find.text('开始检测'));
+    await tester.pumpAndSettle();
+    expect(
+      (container.read(monitorControllerProvider.notifier) as _StartMonitor)
+          .starts,
+      0,
+    );
+    await tester.pump(const Duration(seconds: 1));
+    expect(button().onTap, isNull);
+    await settings.save(const DetectionWindow());
+    await tester.pumpAndSettle();
+    expect(button().onTap, isNotNull);
+    await tester.tap(find.text('开始检测'));
+    await tester.pumpAndSettle();
+    expect(
+      (container.read(monitorControllerProvider.notifier) as _StartMonitor)
+          .starts,
+      1,
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets(
     'running detection owns automatic refresh, manual refresh remains available',
@@ -315,10 +858,14 @@ void main() {
           of: find.text('未签同学'),
           matching: find.byType(AppMenuOption),
         );
-        final entry = find.ancestor(
-          of: option,
-          matching: find.byWidgetPredicate((w) => w is PopupMenuItem<int>),
-        );
+        final entry = find
+            .ancestor(
+              of: option,
+              matching: find.byWidgetPredicate(
+                (w) => w is Material && w.shape is RoundedRectangleBorder,
+              ),
+            )
+            .first;
         expect(
           tester.getRect(option).left,
           greaterThan(tester.getRect(entry).left),
@@ -330,7 +877,12 @@ void main() {
         // There is only the shared inset InkWell; no full-width parent hover wash.
         expect(
           find.descendant(of: entry, matching: find.byType(InkWell)),
-          findsOneWidget,
+          findsNWidgets(
+            find
+                .descendant(of: entry, matching: find.byType(AppMenuOption))
+                .evaluate()
+                .length,
+          ),
         );
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer();
@@ -447,19 +999,26 @@ void main() {
       container.read(selectedRollcallAccountProvider.notifier).state = 2;
       await tester.pumpAndSettle();
       expect(find.text('自动检测 · 当前账号'), findsNothing);
-      expect(find.byType(AppSwitch), findsOneWidget);
-      expect(find.text('随机波动'), findsOneWidget);
+      expect(find.byKey(const ValueKey('monitor-auto-answer')), findsOneWidget);
+      expect(find.text('更多设置'), findsNothing);
+      expect(find.text('随机扰动'), findsOneWidget);
       expect(find.text('±20%'), findsOneWidget);
-      await tester.tap(find.byType(AppSwitch));
+      await tester.tap(find.byKey(const ValueKey('monitor-auto-answer')));
       await tester.pumpAndSettle();
-      expect(find.text('等比例'), findsOneWidget);
-      await tester.tap(find.text('等人数'));
+      expect(find.text('等待比例'), findsOneWidget);
+      await tester.tap(find.byType(AppShellSelect<AnswerWaitMode>));
       await tester.pumpAndSettle();
-      expect(find.text('10人'), findsOneWidget);
+      await tester.tap(find.text('等待人数'));
+      await tester.pumpAndSettle();
+      expect(find.text('10 人'), findsOneWidget);
       expect(tester.takeException(), isNull);
-      await tester.tap(find.text('自定义'));
+      final interval = find.byKey(const ValueKey('monitor-interval'));
+      await tester.ensureVisible(interval);
       await tester.pumpAndSettle();
-      expect(find.text('查询间隔'), findsOneWidget);
+      final track = tester.getRect(interval);
+      await tester.tapAt(Offset(track.right - 8, track.center.dy));
+      await tester.pumpAndSettle();
+      expect(find.text('300 秒'), findsOneWidget);
       expect(tester.takeException(), isNull);
       AppToast.dismiss();
       await tester.pumpWidget(const SizedBox());

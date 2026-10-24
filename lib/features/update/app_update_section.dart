@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -9,6 +12,8 @@ import 'package:xmu_rollcall/features/update/app_release.dart';
 import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 import 'package:xmu_rollcall/features/update/github_update_service.dart';
 import 'package:xmu_rollcall/platform/app_update_installer.dart';
+import 'package:xmu_rollcall/features/update/update_download_route_selector.dart';
+import 'package:xmu_rollcall/features/update/release_notes_dialog.dart';
 
 enum _UpdatePhase { available, downloading, ready, installing, failed }
 
@@ -49,11 +54,18 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
   File? _file;
   bool _confirming = false;
   double? _progress;
-  bool _showNotes = false;
+  int _received = 0;
+  int _total = 0;
+  Stopwatch? _downloadClock;
+  Future<void>? _downloadTask;
   String _message = '';
   bool get _busy =>
       _controller.status == UpdateCheckStatus.checking ||
       {_UpdatePhase.downloading, _UpdatePhase.installing}.contains(_phase);
+  bool get _canDownload =>
+      !_busy &&
+      _update != null &&
+      {_UpdatePhase.available, _UpdatePhase.failed}.contains(_phase);
 
   @override
   void initState() {
@@ -84,6 +96,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
           : _UpdatePhase.failed;
       _message = error is UpdateException ? error.message : '暂时无法完成更新，请检查网络后重试';
     });
+    AppToast.show(context, _message, error: true);
   }
 
   Future<void> _check() async {
@@ -95,9 +108,30 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
       _file = null;
     });
     await _controller.check(force: true);
+    if (!mounted) return;
+    AppToast.show(
+      context,
+      _controller.status == UpdateCheckStatus.failed
+          ? '检查更新失败，请查看下方原因'
+          : _controller.update == null
+          ? '已是最新版本'
+          : '发现新版本',
+      error: _controller.status == UpdateCheckStatus.failed,
+    );
   }
 
   Future<void> _download() async {
+    if (_downloadTask != null) return;
+    final task = _runDownload();
+    _downloadTask = task;
+    try {
+      await task;
+    } finally {
+      if (identical(_downloadTask, task)) _downloadTask = null;
+    }
+  }
+
+  Future<void> _runDownload() async {
     final update = _update;
     if (_busy || update == null) return;
     _cancel = CancelToken();
@@ -105,12 +139,17 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
       _downloadUpdate = update;
       _phase = _UpdatePhase.downloading;
       _progress = 0;
+      _received = 0;
+      _total = update.size;
+      _downloadClock = Stopwatch()..start();
       _message = '正在下载安装包…';
     });
     try {
       final file = await _service.download(update, _cancel, (received, total) {
         if (!mounted) return;
         setState(() {
+          _received = received;
+          _total = total;
           _progress = received / total;
           _message = received == total
               ? '正在校验安装包…'
@@ -173,171 +212,168 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
     }
   }
 
+  Future<void> _showReleaseNotes() async {
+    final update = _update;
+    if (update == null) return;
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final route = DialogRoute<bool>(
+      context: context,
+      themes: InheritedTheme.capture(from: context, to: navigator.context),
+      builder: (context) => ReleaseNotesDialog(
+        update: update,
+        routeSelector: UpdateDownloadRouteSelector(
+          enabled: _phase != _UpdatePhase.installing,
+          onChanged: _downloadRouteChanged,
+        ),
+        onLink: _openNotesLink,
+        onDownload: _canDownload ? () => Navigator.pop(context, true) : null,
+      ),
+    );
+    final download = await navigator.push(route);
+    await route.completed;
+    if (mounted && download == true && _canDownload) await _download();
+  }
+
+  Future<void> _openNotesLink(String? href) async {
+    final uri = Uri.tryParse(href ?? '');
+    if (uri == null ||
+        !{'https', 'http'}.contains(uri.scheme) ||
+        uri.host.isEmpty ||
+        uri.userInfo.isNotEmpty) {
+      return;
+    }
+    try {
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw StateError('launch');
+      }
+    } catch (_) {
+      if (mounted) AppToast.show(context, '无法打开链接', error: true);
+    }
+  }
+
+  Future<void> _downloadRouteChanged() async {
+    if (_phase != _UpdatePhase.downloading) return;
+    _cancel.cancel('切换下载线路');
+    await _downloadTask;
+    if (mounted) unawaited(_download());
+  }
+
+  String get _downloadDetails {
+    final bytes =
+        '${(_received / 1024 / 1024).toStringAsFixed(1)} / ${(_total / 1024 / 1024).toStringAsFixed(1)} MB';
+    final ms = _downloadClock?.elapsedMilliseconds ?? 0;
+    if (ms < 400 || _received == 0) return bytes;
+    final rate = _received * 1000 / ms;
+    return '$bytes · ${rate >= 1024 * 1024 ? '${(rate / 1024 / 1024).toStringAsFixed(1)} MB/s' : '${(rate / 1024).toStringAsFixed(0)} KB/s'}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final update = _update;
     final p = AppPalette.of(context);
     final checking = _controller.status == UpdateCheckStatus.checking;
-    final title = switch (_phase) {
+    final status = switch (_phase) {
       _UpdatePhase.downloading => _message,
-      _UpdatePhase.ready => '已准备好安装',
-      _UpdatePhase.installing => '正在打开安装器',
-      _UpdatePhase.failed => '操作未完成',
+      _UpdatePhase.ready => _message,
+      _UpdatePhase.installing => '正在打开安装器…',
+      _UpdatePhase.failed => _message,
       _ =>
-        update != null
-            ? '新版本 v${update.version.name}'
+        _message.isNotEmpty
+            ? _message
+            : update != null
+            ? '有更新 · v${update.version.name}'
             : switch (_controller.status) {
                 UpdateCheckStatus.idle ||
                 UpdateCheckStatus.checking => '正在检查新版本',
                 UpdateCheckStatus.current => '已是最新版本',
                 UpdateCheckStatus.failed => '暂时无法检查',
-                UpdateCheckStatus.available => '发现新版本',
+                UpdateCheckStatus.available => '有更新',
               },
     };
-    final subtitle = update != null
-        ? '${update.target == UpdateTarget.android ? 'Android' : 'Windows x64'} · ${(update.size / 1024 / 1024).toStringAsFixed(1)} MB'
-        : _controller.status == UpdateCheckStatus.failed
-        ? '暂时无法检查'
-        : checking
-        ? '正在连接 GitHub'
-        : '自动检查已开启';
-    final action = _phase == _UpdatePhase.downloading
-        ? TextButton(
-            onPressed: () => _cancel.cancel(),
-            child: const Text('取消下载'),
-          )
-        : _phase == _UpdatePhase.ready
-        ? FilledButton(
-            onPressed: _busy ? null : _install,
-            child: Text(_target == UpdateTarget.windows ? '退出并安装' : '安装更新'),
-          )
-        : update != null
-        ? FilledButton(
-            onPressed: _busy ? null : _download,
-            child: Text(_phase == _UpdatePhase.failed ? '重新下载' : '下载更新'),
-          )
-        : OutlinedButton(
-            onPressed: _busy ? null : _check,
-            child: Text(checking ? '检查中' : '检查更新'),
-          );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Keep both About groups on the shared settings-row grid. On narrow
-        // screens, give download/install actions their own line for large text.
-        final stacked = update != null && constraints.maxWidth < 360;
-        final normal = update == null && _phase == _UpdatePhase.available;
-        Widget row = Semantics(
-          liveRegion: true,
-          child: SettingsRow(
-            leading: const Icon(Icons.system_update_alt_rounded),
-            title: normal ? '检查更新' : title,
-            subtitle: normal ? title : subtitle,
-            onTap: normal && !_busy ? _check : null,
-            trailing: normal
-                ? SizedBox.square(
-                    dimension: 44,
-                    child: Center(
-                      child: checking
-                          ? SizedBox.square(
-                              dimension: 16,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: p.muted,
-                              ),
-                            )
-                          : Icon(Icons.chevron_right, size: 18, color: p.muted),
-                    ),
-                  )
-                : stacked
-                ? null
-                : action,
-          ),
-        );
-        if (normal && _controller.error != null) {
-          row = Tooltip(message: _controller.error!, child: row);
-        }
-        return SettingsSection(
-          header: '应用更新',
-          padTop: false,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                row,
-                if (!normal)
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      AppDensity.rowPadding(context).left,
-                      0,
-                      AppDensity.rowPadding(context).right,
-                      12,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (stacked) ...[
-                          const SizedBox(height: 4),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: action,
-                          ),
-                        ],
-                        if (_phase == _UpdatePhase.downloading) ...[
-                          const SizedBox(height: 8),
-                          LinearProgressIndicator(
-                            value: _progress,
-                            minHeight: 3,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ],
-                        if (_message.isNotEmpty &&
-                            _phase != _UpdatePhase.downloading) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            _message,
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1.5,
-                              color: _phase == _UpdatePhase.failed
-                                  ? p.danger
-                                  : p.muted,
-                            ),
-                          ),
-                        ],
-                        if (update != null)
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextButton.icon(
-                              onPressed: () =>
-                                  setState(() => _showNotes = !_showNotes),
-                              icon: Icon(
-                                _showNotes
-                                    ? Icons.expand_less
-                                    : Icons.expand_more,
-                                size: 17,
-                              ),
-                              label: const Text('查看更新说明'),
-                            ),
-                          ),
-                        if (update != null && _showNotes) ...[
-                          Divider(height: 16, color: p.border),
-                          SelectableText(
-                            update.notes,
-                            style: TextStyle(
-                              color: p.ink,
-                              fontSize: 13,
-                              height: 1.7,
-                            ),
-                          ),
-                        ],
-                      ],
+    final (label, icon, callback) = switch (_phase) {
+      _UpdatePhase.downloading => (
+        '取消下载',
+        Icons.close_rounded,
+        () => _cancel.cancel(),
+      ),
+      _UpdatePhase.ready => (
+        _target == UpdateTarget.windows ? '退出并安装' : '安装更新',
+        _target == UpdateTarget.windows
+            ? Icons.install_desktop_rounded
+            : Icons.install_mobile_rounded,
+        _install,
+      ),
+      _ =>
+        update != null
+            ? (
+                _phase == _UpdatePhase.failed ? '重新下载' : '下载更新',
+                Icons.download_rounded,
+                _download,
+              )
+            : ('检查更新', Icons.refresh_rounded, _check),
+    };
+    final waiting = checking || _phase == _UpdatePhase.installing;
+    final row = Semantics(
+      liveRegion: true,
+      child: SettingsRow(
+        leading: _phase == _UpdatePhase.downloading
+            ? SizedBox.square(
+                dimension: 20,
+                child: CircularProgressIndicator(
+                  value: _progress,
+                  strokeWidth: 2,
+                ),
+              )
+            : const Icon(Icons.system_update_alt_rounded),
+        title: _phase == _UpdatePhase.downloading ? _message : '检查更新',
+        subtitleMaxLines: 1,
+        subtitle: _phase == _UpdatePhase.downloading
+            ? _downloadDetails
+            : _controller.status == UpdateCheckStatus.failed
+            ? '$status · ${_controller.error ?? '请检查网络后重试'}'
+            : status,
+        onTap: update != null ? _showReleaseNotes : (_busy ? null : _check),
+        trailing: SizedBox.square(
+          dimension: 44,
+          child: waiting
+              ? Center(
+                  child: SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: p.muted,
                     ),
                   ),
-              ],
-            ),
-          ],
-        );
-      },
+                )
+              : IconButton(
+                  tooltip: label,
+                  onPressed: callback,
+                  style: IconButton.styleFrom(
+                    minimumSize: const Size.square(44),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    visualDensity: VisualDensity.standard,
+                  ),
+                  icon: Icon(icon, size: 20),
+                  color: update != null ? p.primary : p.muted,
+                ),
+        ),
+      ),
+    );
+    return SettingsSection(
+      header: '应用更新',
+      padTop: false,
+      children: [
+        row,
+        SettingsRow(
+          leading: const Icon(Icons.alt_route_rounded),
+          title: '下载线路',
+          trailing: UpdateDownloadRouteSelector(
+            width: AppDensity.isTouch(context) ? 128 : 164,
+            enabled: _phase != _UpdatePhase.installing,
+            onChanged: _downloadRouteChanged,
+          ),
+        ),
+      ],
     );
   }
 }

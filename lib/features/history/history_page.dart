@@ -14,6 +14,20 @@ enum HistorySignedFilter { all, unsigned, signed, other }
 
 enum _HistoryPeriod { all, days7, days30 }
 
+DateTimeRange? _rangeForPeriod(_HistoryPeriod period, DateTime now) {
+  final days = switch (period) {
+    _HistoryPeriod.all => null,
+    _HistoryPeriod.days7 => 7,
+    _HistoryPeriod.days30 => 30,
+  };
+  return days == null
+      ? null
+      : DateTimeRange(
+          start: DateTime(now.year, now.month, now.day - days + 1),
+          end: now,
+        );
+}
+
 enum HistoryTypeFilter { all, number, radar, qr }
 
 extension on HistorySignedFilter {
@@ -52,20 +66,9 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   var _appeared = false;
 
   void _selectPeriod(_HistoryPeriod period) {
-    final now = DateTime.now();
-    final days = switch (period) {
-      _HistoryPeriod.all => null,
-      _HistoryPeriod.days7 => 7,
-      _HistoryPeriod.days30 => 30,
-    };
     setState(() {
       _period = period;
-      _range = days == null
-          ? null
-          : DateTimeRange(
-              start: DateTime(now.year, now.month, now.day - days + 1),
-              end: now,
-            );
+      _range = _rangeForPeriod(period, DateTime.now());
     });
   }
 
@@ -98,6 +101,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   @override
   Widget build(BuildContext context) {
     final pageX = AppSpace.pageXOf(context);
+    final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
     final auth = ref.watch(authControllerProvider);
     ref.listen(authControllerProvider.select((s) => s.profile?.id), (
       before,
@@ -156,12 +160,31 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
       HistorySignedFilter.unsigned => summary.count(HistoryAttendance.unsigned),
       HistorySignedFilter.other => summary.count(HistoryAttendance.other),
     };
+    final periodRecords = HistorySummary(records).records
+        .where(
+          (r) =>
+              (courseId.isEmpty || r.courseId == courseId) &&
+              _historyMatchesStatus(r, _signed) &&
+              _historyMatchesType(r, _type),
+        )
+        .toList();
+    final now = DateTime.now();
+    int periodCount(_HistoryPeriod period) {
+      final range = _rangeForPeriod(period, now);
+      return periodRecords
+          .where((r) => historyInDateRange(r, range?.start, range?.end))
+          .length;
+    }
 
     return SubpageScaffold(
       title: '签到记录',
       actions: [
-        if (auth.isSignedIn)
-          _HistoryDateFilter(value: _period, onSelected: _selectPeriod),
+        if (auth.isSignedIn && !wide)
+          _HistoryDateFilter(
+            value: _period,
+            onSelected: _selectPeriod,
+            countOf: periodCount,
+          ),
       ],
       body: AppContentColumn(
         child: PrimaryScrollController(
@@ -211,6 +234,17 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                         onChanged: (id) => setState(() => _courseId = id),
                       ),
                     ),
+                    if (wide && auth.isSignedIn) ...[
+                      const SizedBox(width: AppSpace.xs),
+                      Expanded(
+                        child: _HistoryDateFilter(
+                          value: _period,
+                          onSelected: _selectPeriod,
+                          countOf: periodCount,
+                          expand: true,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -466,9 +500,16 @@ bool _historyMatchesStatus(
 }
 
 class _HistoryDateFilter extends StatelessWidget {
-  const _HistoryDateFilter({required this.value, required this.onSelected});
+  const _HistoryDateFilter({
+    required this.value,
+    required this.onSelected,
+    required this.countOf,
+    this.expand = false,
+  });
   final _HistoryPeriod value;
   final ValueChanged<_HistoryPeriod> onSelected;
+  final int Function(_HistoryPeriod) countOf;
+  final bool expand;
   static const labels = {
     _HistoryPeriod.all: '全部时间',
     _HistoryPeriod.days7: '7天内',
@@ -476,6 +517,16 @@ class _HistoryDateFilter extends StatelessWidget {
   };
   @override
   Widget build(BuildContext context) {
+    if (expand) {
+      return _HistoryFilter<_HistoryPeriod>(
+        key: const ValueKey('history-date-filter'),
+        value: value,
+        items: _HistoryPeriod.values,
+        labelOf: (v) => labels[v]!,
+        countOf: countOf,
+        onChanged: onSelected,
+      );
+    }
     final painter = TextPainter(
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
@@ -500,9 +551,10 @@ class _HistoryDateFilter extends StatelessWidget {
         value: value,
         items: _HistoryPeriod.values,
         labelOf: (v) => labels[v]!,
+        menuTrailingOf: (v) => '(${countOf(v)})',
         onChanged: onSelected,
         width: width,
-        menuWidth: width + 16,
+        menuWidth: width + 64,
       ),
     );
   }

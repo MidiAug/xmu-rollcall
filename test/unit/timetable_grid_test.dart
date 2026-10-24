@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid.dart';
@@ -7,10 +8,10 @@ void main() {
   final day = DateTime(2000, 1, 3);
 
   TimetableSlot slot(int seq, {int h = 8, int m = 0}) => TimetableSlot(
-        sequence: seq,
-        start: DateTime(day.year, day.month, day.day, h, m),
-        end: DateTime(day.year, day.month, day.day, h, m + 45),
-      );
+    sequence: seq,
+    start: DateTime(day.year, day.month, day.day, h, m),
+    end: DateTime(day.year, day.month, day.day, h, m + 45),
+  );
 
   group('visibleWeekdays', () {
     test('defaults to Mon–Fri when no weekend slots', () {
@@ -49,6 +50,15 @@ void main() {
   });
 
   group('buildTimetableAxisRows', () {
+    test('missing period times remain unknown instead of repeating 08:00', () {
+      final rows = buildTimetableAxisRows([], maxSeq: 11);
+      expect(
+        rows
+            .where((r) => !r.isBreak)
+            .every((r) => r.start == null && r.end == null),
+        isTrue,
+      );
+    });
     test('inserts 午休 and 晚休 bands', () {
       final courses = [
         CatalogCourse(
@@ -66,6 +76,20 @@ void main() {
       expect(rows[lunchIdx - 1].sequence, 4);
       expect(rows[lunchIdx + 1].sequence, 5);
     });
+  });
+
+  test('course colors remain stable and text has contrast in both themes', () {
+    for (final brightness in Brightness.values) {
+      for (var i = 0; i < 100; i++) {
+        final tint = timetableTintForCourseId('$i', brightness: brightness);
+        final again = timetableTintForCourseId('$i', brightness: brightness);
+        expect(tint.fill, again.fill);
+        final a = tint.fill.computeLuminance();
+        final b = tint.ink.computeLuminance();
+        final contrast = a > b ? (a + .05) / (b + .05) : (b + .05) / (a + .05);
+        expect(contrast, greaterThanOrEqualTo(4.5));
+      }
+    }
   });
 
   group('placeTimetableBlocks', () {

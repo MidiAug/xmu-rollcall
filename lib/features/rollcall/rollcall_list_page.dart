@@ -502,7 +502,7 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
         wide ? AppSpace.xs : 6,
       ),
       decoration: BoxDecoration(
-        color: palette.surfaceHigh,
+        color: palette.content,
         borderRadius: BorderRadius.circular(AppRadii.control),
       ),
       child: Row(

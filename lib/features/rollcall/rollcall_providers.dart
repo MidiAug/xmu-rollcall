@@ -14,6 +14,7 @@ import 'package:xmu_rollcall/core/cache/session_memory.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository_providers.dart';
@@ -50,6 +51,8 @@ class ActiveRollcallsNotifier
   Future<void>? _refreshing;
   String? _codeCacheKey;
   final _numberCodes = <int, String>{};
+  int _codeRevision = 0;
+  int _queuedCodeRevision = 0;
   Future<void> _codeWrites = Future.value();
   Future<void> _activeWrites = Future.value();
   DateTime? _lastAppearCheckAt;
@@ -73,6 +76,7 @@ class ActiveRollcallsNotifier
       _boundOwnerUserId = null;
       _codeCacheKey = null;
       _numberCodes.clear();
+      _queuedCodeRevision = ++_codeRevision;
       lastUpdatedAt = null;
       _lastAppearCheckAt = null;
       return const [];
@@ -91,13 +95,24 @@ class ActiveRollcallsNotifier
     if (_codeCacheKey != cacheKey) {
       _codeCacheKey = cacheKey;
       _numberCodes.clear();
+      _queuedCodeRevision = ++_codeRevision;
       restoreCodes = _restoreNumberCodes(cacheKey);
+    }
+    // Restore before enrichment so signed activities can reuse persisted codes
+    // without querying their details again on every launch or refresh.
+    await restoreCodes;
+    if (revision != _revision) return state.valueOrNull ?? const [];
+    await ref.read(detectionWindowProvider.notifier).ready;
+    if (revision != _revision) return state.valueOrNull ?? const [];
+    if (!ref
+        .read(detectionWindowProvider)!
+        .allows(ref.read(activeRollcallClockProvider)())) {
+      lastUpdatedAt = disk?.fetchedAt;
+      return _retainNumberCodes(cached.isNotEmpty ? cached : previous);
     }
     _lastAppearCheckAt = now;
     if (cached.isNotEmpty) {
       lastUpdatedAt = disk!.fetchedAt;
-      await restoreCodes;
-      if (revision != _revision) return state.valueOrNull ?? const [];
       Future<void>(() async {
         if (revision == _revision) await refresh();
       });
@@ -107,14 +122,19 @@ class ActiveRollcallsNotifier
     try {
       final items = await ref
           .read(rollcallRepositoryForProvider(assistUserId))
-          .fetchActiveEnriched(cancelToken: token);
-      await restoreCodes;
+          .fetchActiveEnriched(
+            cancelToken: token,
+            cachedNumberCodes: Map.unmodifiable(_numberCodes),
+          );
       if (revision != _revision) return state.valueOrNull ?? const [];
       lastUpdatedAt = ref.read(activeRollcallClockProvider)();
       _noteSeenCourses(items);
       final merged = mergeActiveRollcalls(previous, _retainNumberCodes(items));
       _persistActive(merged);
       return merged;
+    } on DetectionWindowClosed {
+      if (revision != _revision) return state.valueOrNull ?? const [];
+      return previous;
     } catch (_) {
       if (revision != _revision) return state.valueOrNull ?? const [];
       rethrow;
@@ -176,6 +196,14 @@ class ActiveRollcallsNotifier
       if (key != _codeCacheKey ||
           cached == null ||
           !cached.isFresh(const Duration(days: 7))) {
+        AppLog.event(
+          'rollcall.code_cache.restore',
+          fields: {
+            'cacheKey': key,
+            'count': 0,
+            'reason': cached == null ? 'missing' : 'expired_or_superseded',
+          },
+        );
         return;
       }
       for (final entry in cached.items) {
@@ -185,7 +213,24 @@ class ActiveRollcallsNotifier
           _numberCodes.putIfAbsent(id, () => code);
         }
       }
-    } catch (_) {
+      AppLog.event(
+        'rollcall.code_cache.restore',
+        fields: {
+          'cacheKey': key,
+          'count': _numberCodes.length,
+          'reason': 'restored',
+        },
+      );
+    } catch (error) {
+      AppLog.event(
+        'rollcall.code_cache.error',
+        level: 'W',
+        fields: {
+          'cacheKey': key,
+          'operation': 'read',
+          'errorType': error.runtimeType.toString(),
+        },
+      );
       // Cache failures must not prevent fetching the current activities.
     }
   }
@@ -197,7 +242,10 @@ class ActiveRollcallsNotifier
         if (item.isNumber &&
             item.numberCode?.isNotEmpty != true &&
             _numberCodes.containsKey(item.rollcallId))
-          item.copyWith(numberCode: _numberCodes[item.rollcallId])
+          item.copyWith(
+            numberCode: _numberCodes[item.rollcallId],
+            clearNumberCodeError: true,
+          )
         else
           item,
     ];
@@ -216,13 +264,40 @@ class ActiveRollcallsNotifier
       _numberCodes.remove(_numberCodes.keys.first);
     }
     final key = _codeCacheKey;
-    if (changed && key != null) {
+    if (changed) _codeRevision++;
+    if (_codeRevision != _queuedCodeRevision && key != null) {
+      final version = _queuedCodeRevision = _codeRevision;
       final entries = [
         for (final e in _numberCodes.entries) {'id': e.key, 'code': e.value},
       ];
       _codeWrites = _codeWrites
-          .then((_) => JsonDiskCache.writeList(key, entries))
-          .catchError((Object _) {});
+          .then((_) async {
+            await JsonDiskCache.writeList(key, entries);
+            AppLog.event(
+              'rollcall.code_cache.write',
+              fields: {
+                'cacheKey': key,
+                'count': entries.length,
+                'rollcallIds': entries.take(20).map((e) => e['id']).toList(),
+              },
+            );
+          })
+          .catchError((Object error) {
+            // A later refresh can retry a failed disk write even when the
+            // number itself is unchanged. Do not overwrite a newer queue gate.
+            if (_codeCacheKey == key && _queuedCodeRevision == version) {
+              _queuedCodeRevision = version - 1;
+            }
+            AppLog.event(
+              'rollcall.code_cache.error',
+              level: 'W',
+              fields: {
+                'cacheKey': key,
+                'operation': 'write',
+                'errorType': error.runtimeType.toString(),
+              },
+            );
+          });
     }
     return result;
   }
@@ -261,6 +336,14 @@ class ActiveRollcallsNotifier
   }
 
   Future<void> _refresh() async {
+    final beforeLoad = _revision;
+    await ref.read(detectionWindowProvider.notifier).ready;
+    if (beforeLoad != _revision) return;
+    if (!ref
+        .read(detectionWindowProvider)!
+        .allows(ref.read(activeRollcallClockProvider)())) {
+      return;
+    }
     final revision = ++_revision;
     _requestToken?.cancel('刷新已替换');
     final token = _requestToken = CancelToken();
@@ -283,7 +366,10 @@ class ActiveRollcallsNotifier
     final next = await AsyncValue.guard(
       () => ref
           .read(rollcallRepositoryForProvider(arg))
-          .fetchActiveEnriched(cancelToken: token),
+          .fetchActiveEnriched(
+            cancelToken: token,
+            cachedNumberCodes: Map.unmodifiable(_numberCodes),
+          ),
     );
     if (revision != _revision) return;
     // Write-back guard for owner live list.
@@ -293,6 +379,10 @@ class ActiveRollcallsNotifier
       return;
     }
     final ms = DateTime.now().difference(started).inMilliseconds;
+    if (next.error is DetectionWindowClosed) {
+      state = AsyncData(previous ?? const []);
+      return;
+    }
     if (!next.hasValue) {
       AppLog.event(
         'rollcall.list.refresh',
@@ -368,10 +458,22 @@ class ActiveRollcallsNotifier
     state = AsyncData(
       mergeActiveRollcalls(state.valueOrNull ?? const [], incoming),
     );
+    AppLog.event(
+      'rollcall.monitor_snapshot.applied',
+      fields: {
+        'session': arg == null ? 'owner' : 'assist',
+        'count': incoming.length,
+        'numberCodes': incoming
+            .where((i) => i.isNumber && i.numberCode?.isNotEmpty == true)
+            .length,
+        'source': fetchedAt == null ? 'answer_feedback' : 'discovery',
+        'rollcallIds': incoming.take(20).map((i) => i.rollcallId).toList(),
+        if (fetchedAt != null) 'fetchedAt': fetchedAt.toUtc().toIso8601String(),
+      },
+    );
     _persistActive(state.requireValue);
     if (!incoming.any(
-      (i) =>
-          i.isNumber && !i.isExpired && !i.isAnswered && i.numberCode == null,
+      (i) => i.isNumber && !i.isExpired && i.numberCode?.isNotEmpty != true,
     )) {
       return;
     }

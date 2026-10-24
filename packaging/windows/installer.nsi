@@ -100,6 +100,13 @@ Section "Install"
   CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
   CreateShortCut "$DESKTOP\${PRODUCT_NAME}.lnk" "$INSTDIR\${MAIN_EXE}"
 
+  ; Stamp both owned shortcuts with the sender identity, activator and EXE icon.
+  ; The helper exits before Flutter UI and never creates a development entry.
+  ExecWait '"$INSTDIR\${MAIN_EXE}" --register-notifications' $0
+  ${If} $0 != 0
+    DetailPrint "通知注册未完成；应用下次启动时将重试。"
+  ${EndIf}
+
   WriteRegStr HKCU "${UNINST_KEY}" "DisplayName" "${PRODUCT_NAME}"
   WriteRegStr HKCU "${UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
   WriteRegStr HKCU "${UNINST_KEY}" "Publisher" "xmu-rollcall"

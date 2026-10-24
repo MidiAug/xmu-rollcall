@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/identity/device_identity.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/session/session_client_registry.dart';
@@ -17,6 +18,7 @@ import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/settings/settings_page.dart';
 import 'package:xmu_rollcall/features/update/app_release.dart';
 import 'package:xmu_rollcall/features/update/app_update_controller.dart';
+import 'package:xmu_rollcall/features/update/update_download_route_selector.dart';
 import '../fixtures/update_fakes.dart';
 
 class _TestAuthController extends AuthController {
@@ -91,6 +93,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.byType(UpdateDownloadRouteSelector), findsNothing);
+
     PackageInfo.setMockInitialValues(
       appName: '厦大签到',
       packageName: 'test',
@@ -102,6 +106,17 @@ void main() {
     await tester.tap(find.text('关于'));
     await tester.pumpAndSettle();
     expect(find.text('版本 0.1.0'), findsOneWidget);
+    final routeRow = find.ancestor(
+      of: find.text('下载线路'),
+      matching: find.byType(SettingsRow),
+    );
+    final row = tester.widget<SettingsRow>(routeRow);
+    expect(row.trailing, isA<UpdateDownloadRouteSelector>());
+    expect(row.subtitleWidget, isNull);
+    expect(
+      tester.getCenter(find.byKey(const ValueKey('update-route-select'))).dx,
+      greaterThan(tester.getCenter(find.text('下载线路')).dx),
+    );
     await tester.tap(find.byTooltip('返回'));
     await tester.pumpAndSettle();
 

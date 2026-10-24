@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 
 /// UI-independent polling. One request at a time; stale runs cannot publish.
@@ -13,6 +14,8 @@ class MonitorEngine {
     required this.onUpdate,
     this.processAutomatic,
     this.completedAutomaticIds,
+    this.automaticNumberCodes,
+    this.loadDetectionWindow,
     Set<int> notifiedIds = const {},
     DateTime Function()? now,
   }) : _notifiedIds = {...notifiedIds},
@@ -21,6 +24,7 @@ class MonitorEngine {
   }
 
   final Future<List<RollcallItem>> Function() fetch;
+  final Future<DetectionWindow> Function()? loadDetectionWindow;
   final Future<bool> Function(List<RollcallItem> items) notify;
   final void Function(MonitorEngineUpdate update) onUpdate;
   final Future<String?> Function(
@@ -31,6 +35,7 @@ class MonitorEngine {
   processAutomatic;
   final DateTime Function() _now;
   final Set<int> Function()? completedAutomaticIds;
+  final Map<int, String> Function()? automaticNumberCodes;
   final Set<int> _notifiedIds;
   late MonitorConfig _config;
   Timer? _timer;
@@ -105,12 +110,17 @@ class MonitorEngine {
     );
     if (!current() || !identical(config, _config)) return null;
     final completed = completedAutomaticIds?.call() ?? const <int>{};
+    final codes = automaticNumberCodes?.call() ?? const <int, String>{};
     _latestItems = [
       for (final item in _latestItems!)
-        if (completed.contains(item.rollcallId))
-          item.copyWith(status: 'on_call_fine')
-        else
-          item,
+        item.copyWith(
+          status: completed.contains(item.rollcallId)
+              ? 'on_call_fine'
+              : item.status,
+          numberCode: item.isNumber
+              ? codes[item.rollcallId] ?? item.numberCode
+              : item.numberCode,
+        ),
     ];
     _lastAutomaticAt = _now();
     return message;
@@ -123,6 +133,15 @@ class MonitorEngine {
     final generation = _generation;
     bool current() => _running && generation == _generation;
     try {
+      if (loadDetectionWindow != null) {
+        final window = await loadDetectionWindow!();
+        if (!current()) return;
+        if (!window.allows(_now())) {
+          _latestItems = null;
+          _schedule(Duration.zero);
+          return;
+        }
+      }
       final message = await _processAutomatic(current);
       if (current() && message != null) {
         onUpdate(
@@ -136,6 +155,11 @@ class MonitorEngine {
       }
     } catch (error) {
       if (!current()) return;
+      if (error is DetectionWindowClosed) {
+        _latestItems = null;
+        _schedule(Duration.zero);
+        return;
+      }
       _lastAutomaticAt = _now();
       if (error is DioException &&
           (error.response?.statusCode == 401 ||
@@ -184,7 +208,25 @@ class MonitorEngine {
     _busy = true;
     final generation = _generation;
     bool current() => _running && generation == _generation;
+    Duration? pausedDelay;
     try {
+      if (loadDetectionWindow != null) {
+        final window = await loadDetectionWindow!();
+        if (!current()) return;
+        if (!window.allows(_now())) {
+          pausedDelay = window.nextStart(_now()).difference(_now());
+          _latestItems = null;
+          _automaticTimer?.cancel();
+          onUpdate(
+            MonitorEngineUpdate(
+              failures: _failures,
+              ok: true,
+              message: '时段外暂停检测（${window.label}）',
+            ),
+          );
+          return;
+        }
+      }
       final items = await fetch();
       if (!current()) return;
       _latestItems = items;
@@ -232,6 +274,18 @@ class MonitorEngine {
       );
     } catch (error) {
       if (!current()) return;
+      if (error is DetectionWindowClosed) {
+        pausedDelay = error.window.nextStart(_now()).difference(_now());
+        _latestItems = null;
+        onUpdate(
+          MonitorEngineUpdate(
+            failures: _failures,
+            ok: true,
+            message: error.toString(),
+          ),
+        );
+        return;
+      }
       if (error is DioException &&
           (error.response?.statusCode == 401 ||
               error.response?.statusCode == 403)) {
@@ -257,7 +311,7 @@ class MonitorEngine {
       );
     } finally {
       _busy = false;
-      if (_running) _schedule(_nextDelay());
+      if (_running) _schedule(pausedDelay ?? _nextDelay());
       _scheduleAutomatic();
     }
   }

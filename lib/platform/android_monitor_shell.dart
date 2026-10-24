@@ -70,7 +70,8 @@ class AndroidMonitorShell {
     _lifecycle ??= AppLifecycleListener(
       onResume: () => unawaited(_restoreStatus()),
     );
-    PlatformHooks.onRollcallsDiscovered = notifyRollcallsDiscovered;
+    PlatformHooks.onRollcallsDiscovered = (items) =>
+        notifyRollcallsDiscovered(items.length);
     _ready = true;
     AppLog.event('shell.android_ready', fields: {'ok': true});
     final launch = await _notifications.plugin

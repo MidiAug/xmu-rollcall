@@ -17,7 +17,7 @@ abstract final class ShellDebugPreview {
       AppToast.show(context, '已最小化到托盘，即将发测试通知');
       await DesktopShell.instance.hideToTray();
       await Future<void>.delayed(const Duration(milliseconds: 400));
-      await DesktopShell.instance.notifyRollcallsDiscovered(1);
+      await DesktopShell.instance.notifications.test();
       return;
     }
 

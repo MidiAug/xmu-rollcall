@@ -1,14 +1,22 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_brand.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
+import 'package:xmu_rollcall/app/shell_tab_exit_guard.dart';
 import 'package:xmu_rollcall/app/shell_navigation.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/auth/login_page.dart';
+import 'package:xmu_rollcall/features/assist/assist_controller.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account_menu.dart';
 import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
 import 'package:xmu_rollcall/features/settings/settings_page.dart';
@@ -28,6 +36,8 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   AppDestination? _retapDestination;
 
   final _chrome = DesktopShellChromeController();
+  final _tabExit = ShellTabExitController();
+  bool _selecting = false;
 
   final _navKeys = List<GlobalKey<NavigatorState>>.generate(
     AppDestination.values.length,
@@ -48,29 +58,39 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   }
 
   void _openDestination(AppDestination d, {bool popToRoot = false}) {
-    if (!mounted) return;
-    FocusManager.instance.primaryFocus?.unfocus();
-    if (d != _current) {
-      setState(() => _current = d);
-      _chrome.current = d;
-    }
-    if (popToRoot) {
-      _navKeys[d.index].currentState?.popUntil((route) => route.isFirst);
-    }
+    unawaited(_selectDestination(d, resetCurrent: popToRoot));
   }
 
   void _onSelect(AppDestination d) {
+    unawaited(_selectDestination(d, resetCurrent: true));
+  }
+
+  void _resetRoutes(AppDestination d) {
+    _navKeys[d.index].currentState?.popUntil((route) => route.isFirst);
+    _chrome.clearSubpageClaims(d);
+  }
+
+  Future<void> _selectDestination(
+    AppDestination d, {
+    required bool resetCurrent,
+  }) async {
+    if (!mounted || _selecting || (d == _current && !resetCurrent)) return;
+    _selecting = true;
+    AppShellSelect.closeAll();
     FocusManager.instance.primaryFocus?.unfocus();
-    if (d == _current) {
-      _navKeys[d.index].currentState?.popUntil((route) => route.isFirst);
+    try {
+      if (!await _tabExit.canLeave(context, _current) || !mounted) return;
+      _resetRoutes(_current);
+      if (d != _current) _resetRoutes(d);
       setState(() {
+        _current = d;
         _retapEpoch++;
         _retapDestination = d;
       });
-      return;
+      _chrome.current = d;
+    } finally {
+      _selecting = false;
     }
-    setState(() => _current = d);
-    _chrome.current = d;
   }
 
   Widget _tabNavigator(AppDestination d, Widget home) {
@@ -135,16 +155,61 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                               (c) => c.update != null,
                             ),
                           );
+                          final auth = ref.watch(authControllerProvider);
+                          final roster = ref
+                              .watch(assistControllerProvider)
+                              .identities;
+                          final selected = ref.watch(
+                            selectedRollcallAccountProvider,
+                          );
                           return AppSidebar(
                             current: _current,
                             onSelect: _onSelect,
                             userLabel: name,
+                            accountControl: auth.isSignedIn
+                                ? RollcallAccountMenu(
+                                    width:
+                                        AppLayout.sidebarWidth -
+                                        AppSpace.sm * 2,
+                                    value:
+                                        roster.any((a) => a.userId == selected)
+                                        ? selected!
+                                        : 0,
+                                    identities: roster,
+                                    ownerName: name ?? '我',
+                                    onChanged: (value) {
+                                      // Detail routes are bound to the identity they opened with.
+                                      for (final d in [
+                                        AppDestination.rollcall,
+                                        AppDestination.homework,
+                                      ]) {
+                                        _navKeys[d.index].currentState
+                                            ?.popUntil((r) => r.isFirst);
+                                      }
+                                      ref
+                                          .read(
+                                            selectedRollcallAccountProvider
+                                                .notifier,
+                                          )
+                                          .state = value == 0
+                                          ? null
+                                          : value;
+                                    },
+                                  )
+                                : TextButton.icon(
+                                    onPressed: () => showLoginDialog(context),
+                                    icon: const Icon(
+                                      Icons.person_outline_rounded,
+                                      size: 18,
+                                    ),
+                                    label: const Text('登录账号'),
+                                  ),
                             hasUpdate: hasUpdate,
                           );
                         },
                       ),
                       Container(width: 1, color: p.border),
-                      Expanded(child: body),
+                      Expanded(child: AppToastRegion(child: body)),
                     ],
                   ),
                 ),
@@ -178,20 +243,23 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
             ),
           );
 
-    return DesktopShellChromeScope(
-      controller: _chrome,
-      child: ShellTabScope(
-        current: _current,
-        retapEpoch: _retapEpoch,
-        retapDestination: _retapDestination,
-        child: PopScope(
-          // Nested tab stacks are not visible to the root navigator; handle
-          // back here with a live canPop check (build-time canPop would be stale).
-          canPop: false,
-          onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) _onSystemBack();
-          },
-          child: scaffold,
+    return ShellTabExitScope(
+      controller: _tabExit,
+      child: DesktopShellChromeScope(
+        controller: _chrome,
+        child: ShellTabScope(
+          current: _current,
+          retapEpoch: _retapEpoch,
+          retapDestination: _retapDestination,
+          child: PopScope(
+            // Nested tab stacks are not visible to the root navigator; handle
+            // back here with a live canPop check (build-time canPop would be stale).
+            canPop: false,
+            onPopInvokedWithResult: (didPop, _) {
+              if (!didPop) _onSystemBack();
+            },
+            child: scaffold,
+          ),
         ),
       ),
     );

@@ -2,15 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 abstract final class AppTheme {
-  static ThemeData dark() => _fromPalette(
-        brightness: Brightness.dark,
-        p: AppPalette.darkPalette,
-      );
+  static ThemeData dark() =>
+      _fromPalette(brightness: Brightness.dark, p: AppPalette.darkPalette);
 
-  static ThemeData light() => _fromPalette(
-        brightness: Brightness.light,
-        p: AppPalette.lightPalette,
-      );
+  static ThemeData light() =>
+      _fromPalette(brightness: Brightness.light, p: AppPalette.lightPalette);
 
   static ThemeData _fromPalette({
     required Brightness brightness,
@@ -19,7 +15,7 @@ abstract final class AppTheme {
     final scheme = ColorScheme(
       brightness: brightness,
       primary: p.primary,
-      onPrimary: Colors.white,
+      onPrimary: brightness == Brightness.dark ? p.canvas : Colors.white,
       secondary: p.muted,
       onSecondary: p.ink,
       secondaryContainer: p.selected,
@@ -86,7 +82,9 @@ abstract final class AppTheme {
         style: FilledButton.styleFrom(
           minimumSize: const Size(64, 36),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          shape: const StadiumBorder(),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.button),
+          ),
           elevation: 0,
           textStyle: const TextStyle(
             fontSize: 13,
@@ -99,24 +97,22 @@ abstract final class AppTheme {
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(64, 36),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          shape: const StadiumBorder(),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.button),
+          ),
           side: BorderSide(color: p.borderStrong),
           foregroundColor: p.ink,
-          textStyle: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-          ),
+          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: p.primary,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          shape: const StadiumBorder(),
-          textStyle: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.button),
           ),
+          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
         ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
@@ -155,12 +151,12 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: p.surfaceHigh.withValues(
-          alpha: brightness == Brightness.dark ? 0.55 : 1,
-        ),
+        fillColor: p.content,
         isDense: true,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
         hintStyle: TextStyle(color: p.muted, fontSize: 13),
         labelStyle: TextStyle(color: p.muted, fontSize: 13),
         prefixIconColor: p.muted,
@@ -187,11 +183,18 @@ abstract final class AppTheme {
         ),
       ),
       dividerColor: p.border,
-      dividerTheme: DividerThemeData(
-        color: p.border,
-        thickness: 1,
-        space: 1,
+      scrollbarTheme: ScrollbarThemeData(
+        thickness: const WidgetStatePropertyAll(4),
+        radius: const Radius.circular(3),
+        crossAxisMargin: 2,
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          final active =
+              states.contains(WidgetState.dragged) ||
+              states.contains(WidgetState.hovered);
+          return p.muted.withValues(alpha: active ? .55 : .28);
+        }),
       ),
+      dividerTheme: DividerThemeData(color: p.border, thickness: 1, space: 1),
       listTileTheme: ListTileThemeData(
         iconColor: p.muted,
         textColor: p.ink,
@@ -216,9 +219,7 @@ abstract final class AppTheme {
           return s.contains(WidgetState.selected) ? Colors.white : p.muted;
         }),
         trackColor: WidgetStateProperty.resolveWith((s) {
-          return s.contains(WidgetState.selected)
-              ? p.primary
-              : p.surfaceHigh;
+          return s.contains(WidgetState.selected) ? p.primary : p.surfaceHigh;
         }),
         trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
@@ -267,7 +268,7 @@ abstract final class AppTheme {
         fontSize: 15,
         fontWeight: FontWeight.w500,
         height: 1.35,
-        letterSpacing: -0.15,
+        letterSpacing: 0,
         color: ink,
       ),
       titleSmall: TextStyle(
@@ -278,20 +279,21 @@ abstract final class AppTheme {
         color: ink,
       ),
       bodyLarge: TextStyle(
-        fontSize: 14,
+        fontSize: 15,
         height: 1.45,
-        letterSpacing: -0.1,
+        letterSpacing: 0,
         color: ink,
       ),
       bodyMedium: TextStyle(
-        fontSize: 13,
+        fontSize: 14,
         height: 1.45,
-        letterSpacing: -0.05,
+        letterSpacing: 0,
         color: ink,
       ),
       bodySmall: TextStyle(
         fontSize: 12,
         height: 1.4,
+        letterSpacing: 0,
         color: muted,
       ),
       labelLarge: TextStyle(
@@ -305,11 +307,7 @@ abstract final class AppTheme {
         fontWeight: FontWeight.w500,
         color: ink,
       ),
-      labelSmall: TextStyle(
-        fontSize: 11,
-        height: 1.35,
-        color: muted,
-      ),
+      labelSmall: TextStyle(fontSize: 11, height: 1.35, color: muted),
     );
   }
 }

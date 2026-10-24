@@ -23,7 +23,31 @@ class DesktopShellChromeController extends ChangeNotifier {
   final Map<AppDestination, List<DesktopShellChromeClaim>> _stacks = {
     for (final d in AppDestination.values) d: <DesktopShellChromeClaim>[],
   };
+  final Map<AppDestination, ({Object owner, List<Widget> actions})>
+  _rootActions = {};
+
+  List<Widget> get activeRootActions =>
+      _rootActions[_current]?.actions ?? const [];
+
+  void setRootActions(AppDestination tab, Object owner, List<Widget> actions) {
+    _rootActions[tab] = (owner: owner, actions: actions);
+    _scheduleNotify();
+  }
+
+  void releaseRootActions(AppDestination tab, Object owner) {
+    if (!identical(_rootActions[tab]?.owner, owner)) return;
+    _rootActions.remove(tab);
+    _scheduleNotify();
+  }
+
   var _notifyScheduled = false;
+  var _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   AppDestination get current => _current;
 
@@ -39,11 +63,18 @@ class DesktopShellChromeController extends ChangeNotifier {
     return stack.last;
   }
 
+  void clearSubpageClaims(AppDestination tab) {
+    if (_stacks[tab]!.isEmpty) return;
+    _stacks[tab]!.clear();
+    _scheduleNotify();
+  }
+
   void _scheduleNotify() {
-    if (_notifyScheduled) return;
+    if (_notifyScheduled || _disposed) return;
     _notifyScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _notifyScheduled = false;
+      if (_disposed) return;
       notifyListeners();
     });
   }
@@ -86,8 +117,68 @@ class DesktopShellChromeController extends ChangeNotifier {
   }
 }
 
+/// Root-page actions share the shell bar; nested page claims take precedence.
+class DesktopRootActions extends StatefulWidget {
+  const DesktopRootActions({
+    super.key,
+    required this.enabled,
+    required this.actions,
+    required this.child,
+  });
+  final bool enabled;
+  final List<Widget> actions;
+  final Widget child;
+  @override
+  State<DesktopRootActions> createState() => _DesktopRootActionsState();
+}
+
+class _DesktopRootActionsState extends State<DesktopRootActions> {
+  DesktopShellChromeController? _chrome;
+  AppDestination? _tab;
+  final _owner = Object();
+
+  void _sync() {
+    _release();
+    if (!widget.enabled || !(ModalRoute.of(context)?.isCurrent ?? true)) return;
+    _chrome = DesktopShellChromeScope.maybeOf(context, listen: false);
+    _tab = ShellTabDestination.maybeOf(context);
+    if (_tab != null) _chrome?.setRootActions(_tab!, _owner, widget.actions);
+  }
+
+  void _release() {
+    if (_tab != null) _chrome?.releaseRootActions(_tab!, _owner);
+    _chrome = null;
+    _tab = null;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(covariant DesktopRootActions oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.enabled != oldWidget.enabled ||
+        widget.actions != oldWidget.actions) {
+      _sync();
+    }
+  }
+
+  @override
+  void dispose() {
+    _release();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
 /// Provides [DesktopShellChromeController] to the shell tree.
-class DesktopShellChromeScope extends InheritedNotifier<DesktopShellChromeController> {
+class DesktopShellChromeScope
+    extends InheritedNotifier<DesktopShellChromeController> {
   const DesktopShellChromeScope({
     super.key,
     required DesktopShellChromeController controller,

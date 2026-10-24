@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:xmu_rollcall/features/update/app_release.dart';
 import 'package:xmu_rollcall/features/update/github_update_service.dart';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
 
 enum UpdateCheckStatus { idle, checking, current, available, failed }
 
@@ -19,6 +21,7 @@ class AppUpdateController extends ChangeNotifier {
     Future<PackageInfo> Function()? package,
     UpdateTarget? target,
     DateTime Function()? now,
+    this.checkTimeout = const Duration(seconds: 25),
   }) : service = service ?? GithubUpdateService(),
        _package = package ?? PackageInfo.fromPlatform,
        target =
@@ -33,7 +36,8 @@ class AppUpdateController extends ChangeNotifier {
   final Future<PackageInfo> Function() _package;
   final UpdateTarget? target;
   final DateTime Function() _now;
-  final CancelToken _cancel = CancelToken();
+  final Duration checkTimeout;
+  CancelToken? _attemptCancel;
   UpdateCheckStatus status = UpdateCheckStatus.idle;
   ReleaseUpdate? update;
   DateTime? lastCheckedAt;
@@ -60,11 +64,15 @@ class AppUpdateController extends ChangeNotifier {
   }
 
   Future<void> _performCheck() async {
+    final cancel = _attemptCancel = CancelToken();
+    final watch = Stopwatch()..start();
+    final opId = AppLog.newOpId();
+    var stage = 'package';
     _lastAttemptAt = _now();
     status = UpdateCheckStatus.checking;
     notifyListeners();
     try {
-      final package = await _package();
+      final package = await _package().timeout(const Duration(seconds: 5));
       if (_disposed) return;
       if (target == null) throw const UpdateException('当前平台请从发布页手动更新');
       if (target == UpdateTarget.android &&
@@ -74,7 +82,16 @@ class AppUpdateController extends ChangeNotifier {
       final version = AppVersion.parse(
         '${package.version}+${package.buildNumber}',
       );
-      final result = await service.check(version, target!, _cancel);
+      stage = 'network';
+      final result = await service
+          .check(version, target!, cancel)
+          .timeout(
+            checkTimeout,
+            onTimeout: () {
+              cancel.cancel('检查更新超时');
+              throw const UpdateException('检查更新超时，请重试或打开发布页');
+            },
+          );
       if (_disposed) return;
       update = result;
       lastCheckedAt = _now();
@@ -82,12 +99,48 @@ class AppUpdateController extends ChangeNotifier {
       status = result == null
           ? UpdateCheckStatus.current
           : UpdateCheckStatus.available;
+      AppLog.event(
+        'update.ui_check.result',
+        opId: opId,
+        fields: {
+          'ok': true,
+          'status': status.name,
+          'durationMs': watch.elapsedMilliseconds,
+        },
+      );
     } catch (failure) {
       if (_disposed) return;
       error = failure is UpdateException
           ? failure.message
+          : failure is TimeoutException
+          ? '读取版本信息超时，请重试'
+          : failure is DioException &&
+                {
+                  DioExceptionType.connectionTimeout,
+                  DioExceptionType.receiveTimeout,
+                  DioExceptionType.sendTimeout,
+                }.contains(failure.type)
+          ? '连接更新服务超时，请重试或打开发布页'
+          : failure is DioException &&
+                failure.type == DioExceptionType.connectionError
+          ? '无法连接 GitHub，请检查网络后重试'
           : '暂时无法连接更新服务，请稍后重试或打开发布页。';
       status = UpdateCheckStatus.failed;
+      AppLog.event(
+        'update.ui_check.result',
+        level: 'W',
+        opId: opId,
+        fields: {
+          'ok': false,
+          'stage': stage,
+          'message': error,
+          'durationMs': watch.elapsedMilliseconds,
+          'errorType': failure.runtimeType.toString(),
+          if (failure is DioException) 'dioType': failure.type.name,
+        },
+      );
+    } finally {
+      if (identical(_attemptCancel, cancel)) _attemptCancel = null;
     }
     notifyListeners();
   }
@@ -95,7 +148,7 @@ class AppUpdateController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
-    _cancel.cancel();
+    _attemptCancel?.cancel();
     service.close();
     super.dispose();
   }

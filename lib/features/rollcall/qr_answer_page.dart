@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -192,7 +193,11 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
             directSession ? SessionKey.owner : SessionKey.assist(a.userId),
           );
           await client.init();
-          final repo = RollcallRepository(http: client, identity: identity);
+          final repo = RollcallRepository(
+            http: client,
+            identity: identity,
+            loadDetectionWindow: DetectionWindow.read,
+          );
           final active = await repo.fetchActive();
           _checkSession();
           if (!active.any(
@@ -486,6 +491,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
       await client.init();
       _checkSession();
       final repo = RollcallRepository(
+        loadDetectionWindow: DetectionWindow.read,
         http: client,
         identity: ref.read(deviceIdentityProvider),
         deviceIdOverride: deviceId,
@@ -702,6 +708,8 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
     });
 
     return SubpageScaffold(
+      hasUnsavedChanges: () => _dataCtrl.text.trim().isNotEmpty,
+      isBusy: () => _submitting,
       title: '二维码签到',
       body: AppContentColumn(
         child: ListView(

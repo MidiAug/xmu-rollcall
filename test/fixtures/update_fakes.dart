@@ -13,6 +13,7 @@ class FakeUpdateService implements UpdateService {
   Completer<File>? pendingDownload;
   CancelToken? checkCancel;
   CancelToken? downloadCancel;
+  void Function(int, int)? downloadProgress;
   int checks = 0;
   int downloads = 0;
   int verifications = 0;
@@ -36,6 +37,7 @@ class FakeUpdateService implements UpdateService {
     void Function(int, int) progress,
   ) async {
     downloads++;
+    downloadProgress = progress;
     downloadCancel = cancel;
     progress(update.size ~/ 2, update.size);
     if (pendingDownload != null) {

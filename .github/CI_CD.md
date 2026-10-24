@@ -5,6 +5,7 @@
 锁文件当前使用 `https://pub.flutter-io.cn`。复用的 Flutter 安装动作在严格安装步骤显式使用相同的 `PUB_HOSTED_URL`，避免云端默认源与锁文件不同而重新解析依赖；版本和内容哈希仍由 `--enforce-lockfile` 验证。
 
 - PR → `Flutter checks`：校验工作流、测试产物验证脚本，在 Linux / Windows 执行锁文件安装、静态分析、全部 Flutter 测试（包括 mock integration）。真实校园网络探测保持关闭。
+- Windows 另运行 `scripts/test-windows-notification-registration.ps1`：以隔离快捷方式核验通知应用身份、激活标识、图标和入口归属，不启动应用或修改用户入口；此检查不代表系统横幅图标或退出后通知点击已经通过。
 - 合入 `main` → 同样检查通过后，自动构建 Android 测试 APK、Windows x64 NSIS 安装器和便携 ZIP。到该次 Actions 运行的 Artifacts 下载，保留 7 天；不会自动安装。
 - 连续推送会取消同一分支或 PR 的旧检查，避免重复占用构建资源。手动运行 `Flutter checks` 可选择待验证分支，在合入 `main` 前也能生成测试包。
 
@@ -32,6 +33,14 @@ pwsh -File scripts/package-android.ps1 -RequireSigning
 ```
 
 未加 `-RequireSigning` 的本机开发打包仍支持原有开发签名；CI 的版本发布始终加此参数，缺项时禁止回退。
+
+## 版本与构建编号
+
+日常提交不递增应用版本，修复和功能先汇总到 `Unreleased`，需要向用户交付一批变化时再确定正式版本。修复批次递增 PATCH（如 0.1.3 → 0.1.4），功能批次递增 MINOR（如 0.1.9 → 0.2.0）；MAJOR 留给需要迁移或存在兼容性变化的里程碑。当前 0.x 阶段仍按这套应用交付约定组织。各段是整数，0.1.9 后可用 0.1.10，不是小数位。
+
+`X.Y.Z` 是用户可见版本，`+BUILD` 对应 Android 的递增 `versionCode`；每次正式分发新包都必须增加 BUILD，日常编辑不需要增加。测试包用提交与 Actions 运行编号定位，Android preview 与正式版独立安装。已经发布的版本、标签和安装包不可回填修改；后续变化进入下一批，不因为每一处小改动重新发版。
+
+参考：[Semantic Versioning](https://semver.org/)、[Android 版本管理](https://developer.android.com/studio/publish/versioning)。
 
 ## 准备一个版本
 
@@ -87,3 +96,9 @@ pwsh -File scripts/package-windows.ps1 -NoPub
 Flutter SDK 版本集中在 `.github/actions/setup-flutter/action.yml`，质量检查与两端打包共用，更新 SDK 时同步本地开发版本。
 
 参考：[GitHub 工作流复用](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows)、[工作流安全](https://docs.github.com/en/actions/reference/security/secure-use)、[Flutter Android 签名](https://docs.flutter.dev/deployment/android)、[GitHub Release CLI](https://cli.github.com/manual/gh_release_create)。
+
+## 更新网络与下载加速
+
+检查网络设置有限时：API 7秒、网络检查总20秒，控制器25秒兜底。限流、连接/响应超时或5xx可改查GitHub官方latest/download清单。网络故障不会取消已确认更新，手动重试重新建立请求；诊断含update.check/http/download事件的关联ID、状态及耗时，不记录签名下载URL查询参数。
+
+“我的 → 更新下载线路”默认官方，可主动选择两个预设加速节点，也可从说明弹窗进入；不提供自定义地址，旧自定义配置回退官方。节点仅转发清单中已确认的公开安装包；版本/大小/SHA-256清单只从GitHub取得。选择的节点网络失败或404时尝试官方一次；安装包校验失败直接停止，不回退跳过校验。下载中保存新线路会取消旧下载、清理部分文件并重新下载。备选节点与目录来自用户指定的[GitHub Proxy](https://github.akams.cn/)，服务可用性随网络变化；不会后台批量测速或自动把账号请求发给节点。

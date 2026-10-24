@@ -72,7 +72,10 @@ void main() {
   test(
     'uses UTC date, same session, exact rollcall and leading zeros',
     () async {
-      expect(await repo.fetchNumberCode(7), '0042');
+      expect(
+        await repo.fetchNumberCode(7, opId: 'synthetic-auto-operation'),
+        '0042',
+      );
       expect(adapter.requests, hasLength(2));
       expect(adapter.requests.last.uri.queryParameters, {
         'course_ids': '42',
@@ -81,6 +84,8 @@ void main() {
       for (final request in adapter.requests) {
         expect(request.uri.host, 'lnt.xmu.edu.cn');
         expect(request.headers['Cookie'], 'session=test-session');
+        expect(request.extra['opId'], 'synthetic-auto-operation');
+        expect(request.extra['rollcallId'], 7);
       }
     },
   );
