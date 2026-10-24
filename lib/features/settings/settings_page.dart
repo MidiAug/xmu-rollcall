@@ -18,6 +18,7 @@ import 'package:xmu_rollcall/features/settings/settings_assist_page.dart';
 import 'package:xmu_rollcall/features/settings/settings_data_page.dart';
 import 'package:xmu_rollcall/features/settings/about_settings_row.dart';
 import 'package:xmu_rollcall/platform/close_prefs.dart';
+import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
 enum ThemePreference { system, dark, light }
 
@@ -178,6 +179,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                       ThemePreference.light => '浅色',
                       ThemePreference.dark => '暗色',
                       ThemePreference.system => '跟随系统',
+                    },
+                    iconOf: (value) => switch (value) {
+                      ThemePreference.light => Icons.wb_sunny_outlined,
+                      ThemePreference.dark => Icons.dark_mode_outlined,
+                      ThemePreference.system =>
+                        PlatformHooks.systemAppearanceIcon(context),
                     },
                     width: 148,
                     onChanged: (v) {

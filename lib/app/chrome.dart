@@ -1134,6 +1134,7 @@ class AppShellSelect<T> extends StatefulWidget {
     required this.onChanged,
     this.menuLabelOf,
     this.menuTrailingOf,
+    this.iconOf,
     this.width = 132,
     this.menuWidth,
     this.wrapMenuLabels = false,
@@ -1149,6 +1150,7 @@ class AppShellSelect<T> extends StatefulWidget {
   /// Optional longer labels for the menu, keeping the trigger compact.
   final String Function(T)? menuLabelOf;
   final String Function(T)? menuTrailingOf;
+  final IconData Function(T)? iconOf;
   final ValueChanged<T>? onChanged;
   final Widget? leading;
   final String? semanticLabel;
@@ -1289,10 +1291,8 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
             if (painter.width > labelWidth) labelWidth = painter.width;
           }
           painter.dispose();
-          final menuWidth = (labelWidth + 88).clamp(
-            widget.width.clamp(0.0, maxMenuWidth),
-            maxMenuWidth,
-          );
+          final menuWidth = (labelWidth + 88 + (widget.iconOf == null ? 0 : 28))
+              .clamp(widget.width.clamp(0.0, maxMenuWidth), maxMenuWidth);
           final left = origin.dx.clamp(
             12.0,
             overlaySize.width - 12 - menuWidth,
@@ -1376,6 +1376,9 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                                     if (i > 0) const SizedBox(height: 4),
                                     AppMenuOption(
                                       key: ValueKey('shell-select-option-$i'),
+                                      leadingIcon: widget.iconOf?.call(
+                                        widget.items[i],
+                                      ),
                                       label:
                                           (widget.menuLabelOf ??
                                           widget.labelOf)(widget.items[i]),
@@ -1415,7 +1418,15 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
               label: widget.semanticLabel,
               child: AppSelectTrigger(
                 label: widget.labelOf(widget.value),
-                leading: widget.leading,
+                leading:
+                    widget.leading ??
+                    (widget.iconOf == null
+                        ? null
+                        : Icon(
+                            widget.iconOf!(widget.value),
+                            size: 16,
+                            color: p.muted,
+                          )),
                 compact: widget.compact || widget.width < 110,
                 focusNode: _triggerFocus,
                 open: open,
