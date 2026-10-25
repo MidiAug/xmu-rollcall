@@ -4,22 +4,22 @@
 
 # 厦大签到（xmu-rollcall）
 
-**上课看签到，下课看作业。**
+**厦门大学畅课（TronClass）客户端 · Android / Windows**
 
-面向厦门大学畅课（TronClass）的第三方开源客户端，支持 Android 和 Windows，提供课堂签到、作业查看、课表管理与多身份协助。手机随手查看，电脑也能用。非学校官方应用。
+厦大签到（xmu-rollcall）是基于 Flutter 的第三方开源客户端，面向厦门大学畅课（TronClass），提供数字、雷达与二维码签到、作业查看、课表管理及多身份协助。非学校官方应用。
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.44-02569B?logo=flutter&logoColor=white)](https://flutter.dev/)
 [![Platforms](https://img.shields.io/badge/平台-Android%20%2F%20Windows-5356FF)](#界面预览)
 [![Checks](https://github.com/MidiAug/xmu-rollcall/actions/workflows/checks.yml/badge.svg)](https://github.com/MidiAug/xmu-rollcall/actions/workflows/checks.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-64748B)](LICENSE)
 
-[看看界面](#界面预览) / [有什么功能](#日常会用到的) / [下载安装](#下载安装) / [运行起来](#运行起来) / [反馈问题](https://github.com/MidiAug/xmu-rollcall/issues)
+[项目网站](https://midiaug.github.io/xmu-rollcall/) / [安装指南](https://midiaug.github.io/xmu-rollcall/install.html) / [常见问题](https://midiaug.github.io/xmu-rollcall/faq.html) / [下载最新版](https://github.com/MidiAug/xmu-rollcall/releases/latest)
+
+[界面预览](#界面预览) / [功能概览](#功能概览) / [构建与运行](#运行起来) / [反馈问题](https://github.com/MidiAug/xmu-rollcall/issues)
 
 </div>
 
 ## 界面预览
-
-项目网站：[midiaug.github.io/xmu-rollcall](https://midiaug.github.io/xmu-rollcall/)，包含功能介绍、安装指南与常见问题。[其他项目](https://midiaug.github.io/) · 网站源码位于 [`site/`](site/)，维护与收录流程见 [`site/README.md`](site/README.md)。
 
 用现有 Flutter 页面和演示数据渲染，展示手机与 Windows 布局；截图中的姓名、课程和作业状态均为虚构示例。
 
@@ -57,7 +57,7 @@
 
 点击图片可以查看大图。
 
-## 日常会用到的
+## 功能概览
 
 | 想做什么 | 这里可以 |
 | --- | --- |
@@ -144,6 +144,8 @@ powershell -ExecutionPolicy Bypass -File scripts/install-phone.ps1 -Mode release
 脚本使用 `adb install -r` 保留登录和设置。更新时请沿用相同签名和构建模式；如果手机装的是 debug 版，参数也用 `-Mode debug`。
 
 ### 本地检查
+
+项目网站源码位于 [`site/`](site/)，构建、发布与搜索收录步骤见 [`site/README.md`](site/README.md)。网站部署到本仓库的 `gh-pages` 分支，与应用发布独立。
 
 ```powershell
 flutter analyze
