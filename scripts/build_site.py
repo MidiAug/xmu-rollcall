@@ -58,14 +58,17 @@ def build(base_url: str) -> Path:
 <a class="skip" href="#main">跳到正文</a>
 <header><div class="nav"><a class="brand" href="index.html"><img src="assets/app_icon.png" width="32" height="32" alt="">厦大签到</a><nav aria-label="主导航">{nav}<a href="{REPO}">GitHub ↗</a></nav></div></header>
 <main id="main">{body}</main>
-<footer><span>厦大签到 · xmu-rollcall</span><span>由 MidiAug 维护 · MIT 开源 · 非学校官方应用</span><a href="{REPO}/issues">反馈问题 ↗</a></footer>
+<footer><span>厦大签到 · xmu-rollcall</span><span>由 MidiAug 维护 · MIT 开源 · 非学校官方应用</span><a href="https://midiaug.github.io/">所有项目 ↗</a><a href="{REPO}/issues">反馈问题 ↗</a></footer>
 </body></html>\n'''
         (output / filename).write_text(page, encoding="utf-8")
     locations = [base_url + ("" if p == "index.html" else p) for p in PAGES]
     (output / "sitemap.xml").write_text('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
         ''.join(f'<url><loc>{html.escape(url)}</loc></url>\n' for url in locations) + '</urlset>\n', encoding="utf-8")
-    # Only effective at an origin root; project Pages cannot set the host's robots policy.
-    (output / "robots.txt").write_text(f'User-agent: *\nAllow: /\n\nSitemap: {base_url}sitemap.xml\n', encoding="utf-8")
+    # Only a domain-root robots.txt is effective. Project sites use the root hub's policy.
+    if not parts.path.strip("/"):
+        (output / "robots.txt").write_text(f'User-agent: *\nAllow: /\n\nSitemap: {base_url}sitemap.xml\n', encoding="utf-8")
+    else:
+        (output / "robots.txt").unlink(missing_ok=True)
     (output / ".nojekyll").touch()
     print(f"Built {len(PAGES)} pages in {output} (canonical base: {base_url})")
     return output
@@ -73,5 +76,5 @@ def build(base_url: str) -> Path:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--base-url", default="https://midiaug.github.io/")
+    parser.add_argument("--base-url", default="https://midiaug.github.io/xmu-rollcall/")
     build(parser.parse_args().base_url)

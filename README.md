@@ -19,7 +19,7 @@
 
 ## 界面预览
 
-项目网站：[midiaug.github.io](https://midiaug.github.io/)，包含功能介绍、安装指南与常见问题。网站源码位于 [`site/`](site/)，维护与收录流程见 [`site/README.md`](site/README.md)。
+项目网站：[midiaug.github.io/xmu-rollcall](https://midiaug.github.io/xmu-rollcall/)，包含功能介绍、安装指南与常见问题。[其他项目](https://midiaug.github.io/) · 网站源码位于 [`site/`](site/)，维护与收录流程见 [`site/README.md`](site/README.md)。
 
 用现有 Flutter 页面和演示数据渲染，展示手机与 Windows 布局；截图中的姓名、课程和作业状态均为虚构示例。
 
