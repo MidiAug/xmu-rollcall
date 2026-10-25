@@ -2,11 +2,11 @@
 
 <img src="assets/icon/app_icon.png" width="88" alt="厦大签到图标" />
 
-# 厦大签到
+# 厦大签到（xmu-rollcall）
 
 **上课看签到，下课看作业。**
 
-一个给厦门大学畅课（TronClass）用的小客户端。手机随手查看，电脑也能用。
+面向厦门大学畅课（TronClass）的第三方开源客户端，支持 Android 和 Windows，提供课堂签到、作业查看、课表管理与多身份协助。手机随手查看，电脑也能用。非学校官方应用。
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.44-02569B?logo=flutter&logoColor=white)](https://flutter.dev/)
 [![Platforms](https://img.shields.io/badge/平台-Android%20%2F%20Windows-5356FF)](#界面预览)
@@ -18,6 +18,8 @@
 </div>
 
 ## 界面预览
+
+项目网站：[midiaug.github.io](https://midiaug.github.io/)，包含功能介绍、安装指南与常见问题。网站源码位于 [`site/`](site/)，维护与收录流程见 [`site/README.md`](site/README.md)。
 
 用现有 Flutter 页面和演示数据渲染，展示手机与 Windows 布局；截图中的姓名、课程和作业状态均为虚构示例。
 
