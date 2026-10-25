@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>下载安装厦大签到｜Android 与 Windows 安装指南</title><meta name="description" content="厦大签到 xmu-rollcall 安装指南：从 GitHub Release 下载 Android APK、Windows 安装程序或便携 ZIP，了解更新、签名和系统提示。">
+<link rel="canonical" href="https://midiaug.github.io/xmu-rollcall/install.html">
+<meta property="og:type" content="website"><meta property="og:locale" content="zh_CN">
+<meta property="og:title" content="下载安装厦大签到｜Android 与 Windows 安装指南">
+<meta property="og:description" content="厦大签到 xmu-rollcall 安装指南：从 GitHub Release 下载 Android APK、Windows 安装程序或便携 ZIP，了解更新、签名和系统提示。">
+<meta property="og:url" content="https://midiaug.github.io/xmu-rollcall/install.html">
+<meta property="og:image" content="https://midiaug.github.io/xmu-rollcall/assets/windows-rollcall.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#3d5afe"><link rel="icon" href="assets/app_icon.png">
+<link rel="stylesheet" href="assets/style.css"></head><body>
+<a class="skip" href="#main">跳到正文</a>
+<header><div class="nav"><a class="brand" href="index.html"><img src="assets/app_icon.png" width="32" height="32" alt="">厦大签到</a><nav aria-label="主导航"><a href="index.html">概览</a><a href="install.html" aria-current="page">安装</a><a href="faq.html">常见问题</a><a href="https://github.com/MidiAug/xmu-rollcall">GitHub ↗</a></nav></div></header>
+<main id="main"><article class="article"><p class="eyebrow">GET STARTED / 安装指南</p><h1>把课堂装进口袋，<br>或者放在桌面。</h1><p class="lead">厦大签到（xmu-rollcall）目前主要支持 Android 和 Windows。安装包统一从项目的 GitHub Release 获取。</p><a class="button" href="https://github.com/MidiAug/xmu-rollcall/releases/latest">打开最新正式发布页 ↗</a>
+<section id="android"><h2>Android 安装</h2><ol><li>打开最新正式发布页，展开 Assets，下载以 <code>-android.apk</code> 结尾的安装包。</li><li>打开 APK；如系统询问，按需允许当前浏览器或文件管理器安装此来源的应用。</li><li>安装后打开厦大签到，使用学校账号登录畅课。需要后台提醒时，允许通知，并按手机设置允许后台运行。</li></ol><p>Android 当前沿用项目开发签名。覆盖更新要求安装包使用兼容签名和更高构建号；preview 测试版与正式版独立安装。遇到签名不兼容时，先核对安装包来源和版本，避免直接卸载丢失本机设置。</p></section>
+<section id="windows"><h2>Windows 安装</h2><p>适用于 Windows x64，按使用方式选择一个包：</p><dl><div><dt>安装版：<code>-windows-x64-setup.exe</code></dt><dd>运行安装向导，选择安装目录，再从开始菜单或快捷方式打开应用。</dd></div><div><dt>便携版：<code>-windows-x64.zip</code></dt><dd>完整解压后运行 <code>xmu_rollcall.exe</code>，保留同目录 DLL 和 <code>data</code> 文件夹；不要直接在压缩包中运行。</dd></div></dl><p>Windows 安装程序尚无发布者数字签名，系统可能显示未知发布者。请核对来自本项目 Release，按发布页提供的校验信息确认文件；如无法确认，暂停安装并反馈。</p></section>
+<section><h2>后续怎样更新？</h2><p>进入“我的 → 关于”查看更新，也可回到 Release 手动下载。应用不会自动下载或静默安装；下载完成会校验大小与 SHA-256，再由你确认安装。Windows 确认安装后会停止检测并退出。</p><p>便携版使用应用内安装器更新会转为安装版；希望继续便携使用时，从 Release 下载新的便携 ZIP。</p></section>
+<section><h2>下载或登录遇到问题？</h2><p>先查看<a href="faq.html">常见问题</a>。需要反馈时，请在 <a href="https://github.com/MidiAug/xmu-rollcall/issues">GitHub Issues</a> 提供系统版本、应用版本、复现步骤及脱敏截图，不要上传账号密码、Cookie 或 Token。</p></section></article>
+</main>
+<footer><span>厦大签到 · xmu-rollcall</span><span>由 MidiAug 维护 · MIT 开源 · 非学校官方应用</span><a href="https://midiaug.github.io/">所有项目 ↗</a><a href="https://github.com/MidiAug/xmu-rollcall/issues">反馈问题 ↗</a></footer>
+</body></html>
