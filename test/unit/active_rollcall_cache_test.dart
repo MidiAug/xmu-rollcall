@@ -144,6 +144,28 @@ void main() {
         ],
       );
   test(
+    'unchanged activity does not dirty history again; status changes do',
+    () async {
+      await CourseCatalogStore.write(1, catalog);
+      final container = make(_Repo(), () => observed);
+      addTearDown(container.dispose);
+      await container.read(activeRollcallsProvider(null).future);
+      final notifier = container.read(activeRollcallsProvider(null).notifier);
+      notifier.applyMonitorItems([signed], fetchedAt: observed);
+      expect(container.read(seenInProgressCourseIdsProvider), {'42'});
+      container.read(seenInProgressCourseIdsProvider.notifier).state = {};
+      notifier.applyMonitorItems([
+        signed,
+      ], fetchedAt: observed.add(const Duration(seconds: 20)));
+      expect(container.read(seenInProgressCourseIdsProvider), isEmpty);
+      notifier.applyMonitorItems([signed.copyWith(status: 'on_call_absence')]);
+      expect(container.read(seenInProgressCourseIdsProvider), {'42'});
+      container.read(seenInProgressCourseIdsProvider.notifier).state = {};
+      notifier.patchItem(signed);
+      expect(container.read(seenInProgressCourseIdsProvider), {'42'});
+    },
+  );
+  test(
     'cached card appears before slow network; confirmed empty clears it and disk',
     () async {
       await seed();

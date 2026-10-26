@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/core/cache/cache_policy.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
+import 'package:xmu_rollcall/core/cache/course_schedule_store.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository_providers.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
@@ -42,12 +43,12 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
     final userId = assistUserId ?? profile.id;
     _boundUserId = userId;
     final disk = await CourseCatalogStore.read(userId);
-    if (disk != null && disk.rolesResolved) return disk;
+    if (disk != null && disk.rolesResolved) return _withSchedules(userId, disk);
     if (disk != null) {
       try {
         return await _fetchAndPersist(userId);
       } catch (_) {
-        return disk;
+        return _withSchedules(userId, disk);
       }
     }
     return _fetchAndPersist(userId);
@@ -65,7 +66,8 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
     if (reason == EnsureFreshReason.appear) {
       final disk = await CourseCatalogStore.read(uid);
       if (disk != null) {
-        if (_boundUserId == uid) state = AsyncData(disk);
+        final effective = await _withSchedules(uid, disk);
+        if (_boundUserId == uid) state = AsyncData(effective);
         return;
       }
     }
@@ -114,11 +116,47 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
           .fetchCourseCatalog();
       if (_boundUserId != userId) return snap;
       await CourseCatalogStore.write(userId, snap);
-      return snap;
+      return _withSchedules(userId, snap);
     }();
     _inFlight = future;
     return future.whenComplete(() {
       if (identical(_inFlight, future)) _inFlight = null;
     });
+  }
+
+  Future<CourseCatalogSnapshot> _withSchedules(
+    int uid,
+    CourseCatalogSnapshot snap,
+  ) async {
+    final courses = <CatalogCourse>[];
+    for (final course in snap.courses) {
+      courses.add(
+        course.withMeetings(await CourseScheduleStore.read(uid, course.id)),
+      );
+    }
+    return CourseCatalogSnapshot(
+      fetchedAt: snap.fetchedAt,
+      courses: courses,
+      semesterId: snap.semesterId,
+      academicYearId: snap.academicYearId,
+      rolesResolved: snap.rolesResolved,
+    );
+  }
+
+  Future<void> saveMeetings(
+    int userId,
+    String courseId,
+    List<CourseMeeting> meetings,
+  ) async {
+    if (_boundUserId != userId) throw StateError('账号已切换，请重新打开课表');
+    final raw = await CourseCatalogStore.read(userId);
+    if (raw == null ||
+        !raw.courses.any((c) => c.id == courseId && !c.hasPlatformSchedule)) {
+      throw StateError('课程安排已变化，请刷新课表');
+    }
+    if (_boundUserId != userId) throw StateError('账号已切换');
+    await CourseScheduleStore.write(userId, courseId, meetings);
+    final effective = await _withSchedules(userId, raw);
+    if (_boundUserId == userId) state = AsyncData(effective);
   }
 }

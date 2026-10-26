@@ -118,7 +118,7 @@ int maxTimetableSequence(Iterable<CatalogCourse> courses) {
   for (final c in courses) {
     for (final slots in c.timetables.values) {
       for (final s in slots) {
-        if (s.sequence > max) max = s.sequence;
+        if (s.lastSequence > max) max = s.lastSequence;
       }
     }
   }
@@ -133,7 +133,9 @@ Map<int, ({DateTime start, DateTime end})> sequenceTimes(
   for (final c in courses) {
     for (final slots in c.timetables.values) {
       for (final s in slots) {
-        out.putIfAbsent(s.sequence, () => (start: s.start, end: s.end));
+        if (s.endSequence == null) {
+          out.putIfAbsent(s.sequence, () => (start: s.start, end: s.end));
+        }
       }
     }
   }
@@ -189,13 +191,15 @@ List<SessionBlock> mergeConsecutiveSequenceBlocks(List<TimetableSlot> slots) {
   for (var i = 1; i < sorted.length; i++) {
     final s = sorted[i];
     final prev = run.last;
-    if (s.sequence == prev.sequence + 1) {
+    if (s.sequence == prev.sequence + 1 &&
+        s.endSequence == null &&
+        prev.endSequence == null) {
       run.add(s);
     } else {
       out.add(
         SessionBlock(
           startSequence: run.first.sequence,
-          endSequence: run.last.sequence,
+          endSequence: run.last.lastSequence,
           coreStart: run.first.start,
           coreEnd: run.last.end,
         ),
@@ -206,7 +210,7 @@ List<SessionBlock> mergeConsecutiveSequenceBlocks(List<TimetableSlot> slots) {
   out.add(
     SessionBlock(
       startSequence: run.first.sequence,
-      endSequence: run.last.sequence,
+      endSequence: run.last.lastSequence,
       coreStart: run.first.start,
       coreEnd: run.last.end,
     ),
@@ -223,7 +227,21 @@ List<TimetablePlacedBlock> placeTimetableBlocks(
     for (final e in c.timetables.entries) {
       final blocks = mergeConsecutiveSequenceBlocks(e.value);
       for (final b in blocks) {
-        out.add(TimetablePlacedBlock(course: c, weekday: e.key, block: b));
+        final slot = e.value.where((s) => s.sequence == b.startSequence).first;
+        final placedCourse = slot.classroom == null
+            ? c
+            : CatalogCourse(
+                id: c.id,
+                title: c.title,
+                timetables: c.timetables,
+                instructorNames: c.instructorNames,
+                teachingClassName: c.teachingClassName,
+                location: slot.classroom,
+                roles: c.roles,
+              );
+        out.add(
+          TimetablePlacedBlock(course: placedCourse, weekday: e.key, block: b),
+        );
       }
     }
   }

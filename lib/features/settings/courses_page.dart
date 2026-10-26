@@ -8,6 +8,8 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid_view.dart';
+import 'package:xmu_rollcall/features/settings/course_schedule_editor.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
 
 /// 我的 → 本学期课表：周×节网格（Sticky Catalog）。
 class CoursesPage extends ConsumerWidget {
@@ -22,6 +24,23 @@ class CoursesPage extends ConsumerWidget {
     return SubpageScaffold(
       title: '课表',
       actions: [
+        if (auth.isSignedIn &&
+            async.valueOrNull?.courses.any((c) => !c.hasPlatformSchedule) ==
+                true)
+          TextButton.icon(
+            onPressed: () =>
+                AppPageRoutes.push(context, const CourseSchedulesPage()),
+            icon: Badge(
+              isLabelVisible: async.valueOrNull!.courses.any(
+                (c) => c.needsSchedule,
+              ),
+              label: Text(
+                '${async.valueOrNull!.courses.where((c) => c.needsSchedule).length}',
+              ),
+              child: const Icon(Icons.edit_calendar_outlined),
+            ),
+            label: const Text('补全安排'),
+          ),
         if (auth.isSignedIn)
           AppRefreshButton(
             onRefresh: () => ref.read(courseCatalogProvider.notifier).refresh(),
@@ -94,7 +113,7 @@ class _TimetableBody extends StatelessWidget {
       return const EmptyHint(
         icon: Icons.calendar_view_week_outlined,
         title: '暂无课表安排',
-        detail: '点右上角刷新，或确认账号本学期已有排课',
+        detail: '可在右上角补全安排，或刷新平台课表',
       );
     }
 

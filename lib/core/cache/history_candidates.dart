@@ -26,7 +26,7 @@ class HistoryCandidate {
 
 /// Pure: pick which courses to re-fetch between [t0] windows and [now].
 ///
-/// - [seenInProgressCourseIds]: bypass 2h floor
+/// - [seenInProgressCourseIds]: newly observed activity or status change
 /// - [timetablesByCourse]: weekday → slots; only drives "period ended" signal
 /// - Manual refresh checks enrolled student courses, bypassing long TTLs.
 /// - Passive appearance never does a clock-based full scan of all courses.
@@ -36,7 +36,6 @@ List<HistoryCandidate> selectHistoryCandidates({
   required Set<String> seenInProgressCourseIds,
   required Map<String, Map<int, List<TimetableSlot>>> timetablesByCourse,
   required DateTime now,
-  Duration floor = CachePolicy.enterSwrFreshFor,
   bool includeNeverChecked = true,
   bool manualRefresh = false,
   String? requestedCourseId,
@@ -96,16 +95,42 @@ List<HistoryCandidate> selectHistoryCandidates({
       add(id, 'period_ended');
       continue;
     }
-    if (snap.isFresh(floor, now: now)) continue;
-
     if (tables == null || tables.isEmpty) {
-      // No timetable: still eligible once floor elapsed (progressive).
-      add(id, 'stale_no_timetable');
+      final weekdays = {
+        for (final record in snap.records)
+          if (!record.isPlaceholder && record.rollcallTime != null)
+            record.rollcallTime!.toLocal().weekday,
+      };
+      if (historyDayEndedBetween(weekdays, last, now)) {
+        add(id, 'observed_day_ended');
+      }
       continue;
     }
   }
 
   return out;
+}
+
+/// Calendar boundaries, not elapsed TTL: refresh after each observed class day.
+bool historyDayEndedBetween(Set<int> weekdays, DateTime last, DateTime now) {
+  final start = last.toLocal();
+  final end = now.toLocal();
+  if (!end.isAfter(start) || weekdays.isEmpty) return false;
+  final days = DateTime(
+    end.year,
+    end.month,
+    end.day,
+  ).difference(DateTime(start.year, start.month, start.day)).inDays;
+  // A complete calendar week necessarily contains every candidate weekday.
+  if (days >= 7) return true;
+  var day = DateTime(start.year, start.month, start.day);
+  for (var i = 0; i < 7; i++) {
+    final boundary = DateTime(day.year, day.month, day.day + 1);
+    if (boundary.isAfter(end)) break;
+    if (boundary.isAfter(start) && weekdays.contains(day.weekday)) return true;
+    day = boundary;
+  }
+  return false;
 }
 
 /// True if any session block's [SessionBlock.coreEnd] falls in (t0, now].

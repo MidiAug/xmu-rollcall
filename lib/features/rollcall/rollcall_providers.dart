@@ -51,6 +51,7 @@ class ActiveRollcallsNotifier
   Future<void>? _refreshing;
   String? _codeCacheKey;
   final _numberCodes = <int, String>{};
+  final _observedActivityStates = <int, String>{};
   int _codeRevision = 0;
   int _queuedCodeRevision = 0;
   Future<void> _codeWrites = Future.value();
@@ -72,6 +73,9 @@ class ActiveRollcallsNotifier
       authControllerProvider.select((s) => (s.isSignedIn, s.profile?.id)),
     );
     final auth = ref.read(authControllerProvider);
+    if (_boundOwnerUserId != auth.profile?.id || !auth.isSignedIn) {
+      _observedActivityStates.clear();
+    }
     if (!auth.isSignedIn || auth.profile == null || auth.profile!.id == 0) {
       _boundOwnerUserId = null;
       _codeCacheKey = null;
@@ -305,8 +309,15 @@ class ActiveRollcallsNotifier
   void _noteSeenCourses(List<RollcallItem> items) {
     final ids = <String>{
       for (final i in items)
-        if ((i.courseId ?? '').trim().isNotEmpty) i.courseId!.trim(),
+        if ((i.courseId ?? '').trim().isNotEmpty &&
+            _observedActivityStates[i.rollcallId] !=
+                '${i.courseId}:${i.status}:${i.isExpired}')
+          i.courseId!.trim(),
     };
+    for (final item in items) {
+      _observedActivityStates[item.rollcallId] =
+          '${item.courseId}:${item.status}:${item.isExpired}';
+    }
     if (ids.isEmpty) return;
     final prev = ref.read(
       (arg == null
@@ -502,6 +513,7 @@ class ActiveRollcallsNotifier
   void patchItem(RollcallItem updated) {
     final current = state.valueOrNull;
     if (current == null) return;
+    _noteSeenCourses([updated]);
     state = AsyncData(
       _retainNumberCodes([
         for (final item in current)
