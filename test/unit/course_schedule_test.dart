@@ -271,7 +271,7 @@ void main() {
       );
       expect(
         candidates(DateTime(2026, 10, 29), DateTime(2026, 11, 2, 23)),
-        isEmpty,
+        hasLength(1),
       );
       expect(
         candidates(DateTime(2026, 10, 29), DateTime(2026, 11, 3)),
@@ -292,7 +292,7 @@ void main() {
     () {
       expect(
         candidates(DateTime(2026, 10, 1), DateTime(2026, 10, 29), records: []),
-        isEmpty,
+        hasLength(1),
       );
       expect(
         candidates(
@@ -312,4 +312,52 @@ void main() {
       );
     },
   );
+  test('weekly discovery adds a previously unknown Thursday automatically', () {
+    final mondayOnly = [record(DateTime(2026, 10, 26, 15))];
+    expect(
+      candidates(
+        DateTime(2026, 10, 27),
+        DateTime(2026, 10, 30),
+        records: mondayOnly,
+      ),
+      isEmpty,
+    );
+    expect(
+      candidates(
+        DateTime(2026, 10, 27),
+        DateTime(2026, 11, 2),
+        records: mondayOnly,
+      ).single.reason,
+      'week_ended_discovery',
+    );
+    final learned = [...mondayOnly, record(DateTime(2026, 10, 29, 15))];
+    // After the next successful sync, no extra check until Thursday ends.
+    expect(
+      candidates(
+        DateTime(2026, 11, 3),
+        DateTime(2026, 11, 5, 23),
+        records: learned,
+      ),
+      isEmpty,
+    );
+    expect(
+      candidates(
+        DateTime(2026, 11, 3),
+        DateTime(2026, 11, 6),
+        records: learned,
+      ).single.reason,
+      'observed_day_ended',
+    );
+    expect(
+      historyWeekEndedBetween(DateTime(2026, 11, 2), DateTime(2026, 11, 2)),
+      isFalse,
+    );
+    expect(
+      historyWeekEndedBetween(
+        DateTime(2026, 11, 1, 23).toUtc(),
+        DateTime(2026, 11, 2).toUtc(),
+      ),
+      isTrue,
+    );
+  });
 }

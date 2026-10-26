@@ -103,12 +103,26 @@ List<HistoryCandidate> selectHistoryCandidates({
       };
       if (historyDayEndedBetween(weekdays, last, now)) {
         add(id, 'observed_day_ended');
+      } else if (historyWeekEndedBetween(last, now)) {
+        // Known weekdays are incomplete evidence, not an exhaustive schedule.
+        add(id, 'week_ended_discovery');
       }
       continue;
     }
   }
 
   return out;
+}
+
+/// One discovery opportunity after a calendar week, including empty histories.
+bool historyWeekEndedBetween(DateTime last, DateTime now) {
+  final local = now.toLocal();
+  final monday = DateTime(
+    local.year,
+    local.month,
+    local.day - local.weekday + 1,
+  );
+  return last.toLocal().isBefore(monday);
 }
 
 /// Calendar boundaries, not elapsed TTL: refresh after each observed class day.

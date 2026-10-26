@@ -798,6 +798,22 @@ void main() {
     },
   );
 
+  testWidgets('rollcall update time includes seconds', (tester) async {
+    await show(tester, const RollcallHubPage(), visibleTab: true);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(RollcallHubPage)),
+    );
+    container
+        .read(activeRollcallsProvider(null).notifier)
+        .applyMonitorItems(
+          const [],
+      fetchedAt: DateTime(2026, 10, 26, 16, 21, 37).toUtc(),
+        );
+    await tester.pumpAndSettle();
+    expect(find.text('更新于 16:21:37'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets(
     'narrow sign-in toolbar switches list/session and QR opens secondary page',
     (tester) async {

@@ -120,7 +120,7 @@ class _TimetableBody extends StatelessWidget {
     final fetched = snap?.fetchedAt;
     final meta = fetched == null
         ? null
-        : '更新于 ${fetched.toLocal().toString().substring(0, 16)}';
+        : '更新于 ${fetched.toLocal().toString().substring(0, 19)}';
     return Padding(
       padding: EdgeInsets.fromLTRB(
         AppSpace.pageXOf(context),

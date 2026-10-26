@@ -29,7 +29,7 @@ class CourseSchedulesPage extends ConsumerWidget {
         children: [
           const Padding(
             padding: EdgeInsets.only(bottom: 16),
-            child: Text('每次上课单独填写节次、时间和教室。未填写时，会根据历史签到的星期，在当天结束后按需更新记录。'),
+            child: Text('每次上课单独填写节次、时间和教室。未填写时，会参考历史上课日更新记录，并在每周结束后补查。'),
           ),
           for (final course in courses)
             ListTile(

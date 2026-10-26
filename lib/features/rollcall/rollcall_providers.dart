@@ -172,7 +172,7 @@ class ActiveRollcallsNotifier
     if (_boundOwnerUserId == null) return;
     final now = ref.read(activeRollcallClockProvider)();
     if (_lastAppearCheckAt != null &&
-        now.difference(_lastAppearCheckAt!) < const Duration(seconds: 15)) {
+        now.difference(_lastAppearCheckAt!) < const Duration(seconds: 30)) {
       return;
     }
     _lastAppearCheckAt = now;
