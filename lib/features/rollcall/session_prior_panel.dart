@@ -48,7 +48,12 @@ class SessionPriorPanel extends ConsumerWidget {
 
   Widget _wrapOrHint(AppPalette palette, SessionPriorState state) {
     if (state.unscoped || state.snapshot == null) {
-      return _hint(palette, '暂无课表段信息');
+      return _hint(
+        palette,
+        state.missingTimetable
+            ? '本课未提供课表时段，过往签到可在签到记录中查看'
+            : '当前时间未匹配课表时段，过往签到可在签到记录中查看',
+      );
     }
     return _PriorBody(state: state, currentType: currentType);
   }

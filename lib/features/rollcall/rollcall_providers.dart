@@ -1072,11 +1072,13 @@ class SessionPriorState {
     this.snapshot,
     this.unscoped = false,
     this.nowMinutes,
+    this.missingTimetable = false,
   });
 
   final SessionPriorSnapshot? snapshot;
   final bool unscoped;
   final int? nowMinutes;
+  final bool missingTimetable;
 }
 
 /// Course id ? weekday ? slots from sticky catalog (owner session).
@@ -1119,7 +1121,10 @@ Future<SessionPriorState> _loadSessionPrior(
       ref.watch(catalogProvider).valueOrNull?.timetablesByCourse ??
       const <String, Map<int, List<TimetableSlot>>>{};
   final byDay = tables[cid];
-  final slots = byDay?[now.weekday];
+  if (byDay == null || byDay.isEmpty) {
+    return const SessionPriorState(unscoped: true, missingTimetable: true);
+  }
+  final slots = byDay[now.weekday];
   if (slots == null || slots.isEmpty) {
     return const SessionPriorState(unscoped: true);
   }

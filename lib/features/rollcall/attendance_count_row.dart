@@ -9,7 +9,11 @@ import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/attendance_count.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository_providers.dart';
 
-/// Poll only while the card is visible and the app is in the foreground.
+final attendanceCountClockProvider = Provider<DateTime Function()>(
+  (ref) => DateTime.now,
+);
+
+/// Poll while visible, including when a desktop window only loses focus.
 class AttendanceCountRow extends ConsumerStatefulWidget {
   const AttendanceCountRow({
     super.key,
@@ -40,6 +44,12 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
   int _revision = 0;
 
   bool get _active => _visible && _foreground && !widget.expired;
+  DateTime get _now => ref.read(attendanceCountClockProvider)();
+  bool _canRefresh(AppLifecycleState? state) =>
+      state == null ||
+      state == AppLifecycleState.resumed ||
+      (Theme.of(context).platform == TargetPlatform.windows &&
+          state == AppLifecycleState.inactive);
   int get _seconds => ref
       .read(monitorControllerProvider)
       .config
@@ -49,13 +59,12 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    final lifecycle = WidgetsBinding.instance.lifecycleState;
-    _foreground = lifecycle == null || lifecycle == AppLifecycleState.resumed;
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _foreground = _canRefresh(WidgetsBinding.instance.lifecycleState);
     final visible =
         TickerMode.valuesOf(context).enabled &&
         (ShellTabScope.maybeOf(context)?.isActive(AppDestination.rollcall) ??
@@ -74,6 +83,8 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
       _revision++;
       _busy = false;
       _count = null;
+      _nextAt = null;
+      _updatedAt = null;
       _failed = false;
       _restart();
     } else if (oldWidget.expired != widget.expired) {
@@ -83,30 +94,36 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _foreground = state == AppLifecycleState.resumed;
+    final foreground = _canRefresh(state);
+    if (_foreground == foreground) return;
+    _foreground = foreground;
     _restart();
   }
 
   void _restart() {
     _timer?.cancel();
     _countdownTimer?.cancel();
-    _nextAt = null;
     if (_active && !_busy) {
-      _timer = Timer(Duration.zero, _load);
+      final delay = _nextAt?.difference(_now) ?? Duration.zero;
+      _timer = Timer(delay.isNegative ? Duration.zero : delay, _load);
+      _startCountdown();
     }
   }
 
   void _schedule() {
     _timer?.cancel();
     _countdownTimer?.cancel();
-    _nextAt = null;
+    _nextAt = _now.add(Duration(seconds: _seconds));
     if (_active) {
-      _nextAt = DateTime.now().add(Duration(seconds: _seconds));
       _timer = Timer(Duration(seconds: _seconds), _load);
-      _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted) setState(() {});
-      });
+      _startCountdown();
     }
+  }
+
+  void _startCountdown() {
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   Future<void> _load() async {
@@ -122,7 +139,7 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
       setState(() {
         _count = result;
         _failed = false;
-        _updatedAt = DateTime.now();
+        _updatedAt = _now;
       });
     } catch (_) {
       if (!mounted || revision != _revision) return;
@@ -154,11 +171,12 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
     );
     final p = AppPalette.of(context);
     final count = _count;
-    final remaining = _nextAt == null
+    final remaining = !_active || _nextAt == null
         ? null
-        : (_nextAt!.difference(DateTime.now()).inMilliseconds / 1000)
-              .ceil()
-              .clamp(0, _seconds);
+        : (_nextAt!.difference(_now).inMilliseconds / 1000).ceil().clamp(
+            0,
+            _seconds,
+          );
     return Row(
       children: [
         if (_busy)
