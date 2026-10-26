@@ -12,6 +12,7 @@ import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
 import 'package:xmu_rollcall/features/settings/close_prefs_controller.dart';
 import 'package:xmu_rollcall/features/settings/courses_page.dart';
+import 'package:xmu_rollcall/features/settings/schedule_status_chip.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
 import 'package:xmu_rollcall/features/settings/desktop_notification_settings_page.dart';
@@ -135,20 +136,25 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               header: '常用',
               children: [
                 SettingsRow(
-                  leading: Badge(
-                    isLabelVisible:
-                        auth.isSignedIn &&
-                        (ref
-                                .watch(courseCatalogProvider)
-                                .valueOrNull
-                                ?.courses
-                                .any((c) => c.needsSchedule) ??
-                            false),
-                    child: const Icon(Icons.calendar_view_week_outlined),
-                  ),
+                  leading: const Icon(Icons.calendar_view_week_outlined),
                   title: '本学期课表',
                   subtitle: auth.isSignedIn ? '查看本周上课安排' : '请先登录',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (auth.isSignedIn &&
+                          (ref
+                                  .watch(courseCatalogProvider)
+                                  .valueOrNull
+                                  ?.courses
+                                  .any((c) => c.needsSchedule) ??
+                              false)) ...[
+                        const ScheduleStatusChip(),
+                        const SizedBox(width: 8),
+                      ],
+                      Icon(Icons.chevron_right, color: p.muted, size: 18),
+                    ],
+                  ),
                   onTap: !auth.isSignedIn
                       ? () => showLoginDialog(context)
                       : () => AppPageRoutes.push(context, const CoursesPage()),

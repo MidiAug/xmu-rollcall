@@ -35,15 +35,7 @@ class CoursesPage extends ConsumerWidget {
               context,
               CourseSchedulesPage(assistUserId: assistUserId),
             ),
-            icon: Badge(
-              isLabelVisible: async.valueOrNull!.courses.any(
-                (c) => c.needsSchedule,
-              ),
-              label: Text(
-                '${async.valueOrNull!.courses.where((c) => c.needsSchedule).length}',
-              ),
-              child: const Icon(Icons.edit_calendar_outlined),
-            ),
+            icon: const Icon(Icons.edit_calendar_outlined),
             label: const Text('补全安排'),
           ),
         if (auth.isSignedIn)
