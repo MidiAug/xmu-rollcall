@@ -723,7 +723,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
   EnsureFreshReason _inFlightReason = EnsureFreshReason.appear;
   final _lastCourseAttempts = <String, DateTime>{};
   final _courseSnaps = <String, CourseRollcallsSnapshot>{};
-  Set<String> _timetableCourseIds = {};
+  Set<String> _attendanceCourseIds = {};
 
   @override
   Future<List<CourseRollcallRecord>> build() async {
@@ -744,7 +744,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
   Future<List<CourseRollcallRecord>> _loadFromDisk(int userId) async {
     final catalog = await ref.read(_catalogProvider.future);
     final titles = catalog?.attendanceTitlesById ?? <String, String>{};
-    _timetableCourseIds = titles.keys.toSet();
+    _attendanceCourseIds = titles.keys.toSet();
     _courseSnaps.clear();
 
     // Prefer catalog course ids; also surface any orphan disks via titles keys.
@@ -810,7 +810,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
   List<CourseRollcallRecord> _flatten() {
     final rows = <CourseRollcallRecord>[
       for (final snap in _courseSnaps.values)
-        if (_timetableCourseIds.contains(snap.courseId))
+        if (_attendanceCourseIds.contains(snap.courseId))
           ...CourseRollcallsStore.toHistoryRows(snap),
     ];
     rows.sort((a, b) {
@@ -865,7 +865,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
 
     final catalog = ref.read(_catalogProvider).valueOrNull;
     final titles = catalog?.attendanceTitlesById ?? <String, String>{};
-    _timetableCourseIds = titles.keys.toSet();
+    _attendanceCourseIds = titles.keys.toSet();
     for (final id in titles.keys) {
       // Session prior shares this store and may have fetched since page build.
       final disk = await CourseRollcallsStore.read(uid, id);
@@ -881,7 +881,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
     }
 
     // Passive appearance stays incremental; explicit pulls bypass the long TTL
-    // within the requested timetable scope, retaining the short request gate.
+    // within the requested enrolled-course scope, retaining the short request gate.
     final cold = historyNeedsFullScan(_courseSnaps.values);
     final List<HistoryCandidate> candidates;
     final manual = reason != EnsureFreshReason.appear;
@@ -920,7 +920,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
       fields: {
         'reason': reason.name,
         'userId': uid,
-        'scope': 'timetable',
+        'scope': 'enrolled_student_courses',
         'cold': cold,
         'candidates': eligible.length,
         'throttled': candidates.length - eligible.length,

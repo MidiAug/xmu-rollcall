@@ -28,7 +28,7 @@ class HistoryCandidate {
 ///
 /// - [seenInProgressCourseIds]: bypass 2h floor
 /// - [timetablesByCourse]: weekday → slots; only drives "period ended" signal
-/// - Manual refresh checks the requested timetable scope, bypassing long TTLs.
+/// - Manual refresh checks enrolled student courses, bypassing long TTLs.
 /// - Passive appearance never does a clock-based full scan of all courses.
 List<HistoryCandidate> selectHistoryCandidates({
   required Map<String, String> courseTitles,

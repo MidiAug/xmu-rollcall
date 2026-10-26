@@ -150,8 +150,9 @@ class CourseCatalogSnapshot {
       if (c.id.isNotEmpty) c.id: c.title,
   };
 
+  /// Enrolled student courses can have attendance without timetable slots.
   Map<String, String> get attendanceTitlesById => {
-    for (final c in timetableCourses)
+    for (final c in courses)
       if (c.id.isNotEmpty && !c.isTeaching) c.id: c.title,
   };
 
