@@ -11,6 +11,17 @@ final courseCatalogProvider =
       CourseCatalogNotifier.new,
     );
 
+/// Same owner-catalog state as the My page; no extra refresh or assist scans.
+final hasIncompleteCourseScheduleProvider = Provider<bool>((ref) {
+  if (!ref.watch(authControllerProvider).isSignedIn) return false;
+  return ref
+          .watch(courseCatalogProvider)
+          .valueOrNull
+          ?.courses
+          .any((c) => c.needsSchedule) ??
+      false;
+});
+
 final scopedCourseCatalogProvider =
     Provider.family<
       AsyncNotifierProvider<CourseCatalogNotifier, CourseCatalogSnapshot?>,

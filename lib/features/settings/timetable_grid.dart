@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/settings/course_period_clock.dart';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -125,22 +126,20 @@ int maxTimetableSequence(Iterable<CatalogCourse> courses) {
   return max < 1 ? 10 : max;
 }
 
-/// Representative start/end per sequence from any slot in the catalog.
-Map<int, ({DateTime start, DateTime end})> sequenceTimes(
-  Iterable<CatalogCourse> courses,
-) {
-  final out = <int, ({DateTime start, DateTime end})>{};
-  for (final c in courses) {
-    for (final slots in c.timetables.values) {
-      for (final s in slots) {
-        if (s.endSequence == null) {
-          out.putIfAbsent(s.sequence, () => (start: s.start, end: s.end));
-        }
-      }
-    }
-  }
-  return out;
-}
+/// The fixed period clock, independent of which courses happen to be present.
+Map<int, ({DateTime start, DateTime end})> sequenceTimes() => {
+  for (final entry in coursePeriodClock().entries)
+    entry.key: (
+      start: DateTime(
+        2000,
+        1,
+        3,
+        entry.value.start ~/ 60,
+        entry.value.start % 60,
+      ),
+      end: DateTime(2000, 1, 3, entry.value.end ~/ 60, entry.value.end % 60),
+    ),
+};
 
 /// Period rows 1…[maxSeq], with 午休 after 4 and 晚休 after 8 when those bands apply.
 List<TimetableAxisRow> buildTimetableAxisRows(
@@ -148,7 +147,7 @@ List<TimetableAxisRow> buildTimetableAxisRows(
   int? maxSeq,
 }) {
   final max = maxSeq ?? maxTimetableSequence(courses);
-  final times = sequenceTimes(courses);
+  final times = sequenceTimes();
   final rows = <TimetableAxisRow>[];
   for (var seq = 1; seq <= max; seq++) {
     final t = times[seq];
@@ -157,7 +156,7 @@ List<TimetableAxisRow> buildTimetableAxisRows(
         TimetableAxisRow.period(sequence: seq, start: t.start, end: t.end),
       );
     } else {
-      // Keep the axis aligned, without inventing a time for missing slots.
+      // Nonstandard periods outside the fixed clock keep an empty time label.
       rows.add(TimetableAxisRow.period(sequence: seq, start: null, end: null));
     }
     if (seq == 4 && max >= 5) {

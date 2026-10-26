@@ -14,6 +14,7 @@ import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/update/app_release.dart';
 import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
@@ -54,6 +55,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       final service = FakeUpdateService();
+      final pending = StateProvider<bool>((ref) => false);
       final controller = AppUpdateController(
         service: service,
         package: () async => PackageInfo(
@@ -70,6 +72,9 @@ void main() {
             authControllerProvider.overrideWith((ref) => _TestAuthController()),
             activeRollcallsProvider.overrideWith(_EmptyRollcalls.new),
             appUpdateControllerProvider.overrideWith((ref) => controller),
+            hasIncompleteCourseScheduleProvider.overrideWith(
+              (ref) => ref.watch(pending),
+            ),
           ],
           child: MaterialApp(
             theme: width < 600 ? AppTheme.dark() : AppTheme.light(),
@@ -152,6 +157,18 @@ void main() {
       expect(badges, findsNothing);
       expect(find.byTooltip('有新版本可更新'), findsNothing);
       expect(tester.getRect(myTab), initialTabRect);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(AdaptiveShell)),
+      );
+      container.read(pending.notifier).state = true;
+      await tester.pumpAndSettle();
+      expect(badges, findsOneWidget);
+      expect(find.byTooltip('课表待完善'), findsOneWidget);
+      expect(tester.widget<Badge>(badges).smallSize, width < 600 ? 5 : 4);
+      expect(tester.getRect(myTab), initialTabRect);
+      container.read(pending.notifier).state = false;
+      await tester.pumpAndSettle();
+      expect(badges, findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });

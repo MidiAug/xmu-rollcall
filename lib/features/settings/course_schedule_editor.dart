@@ -86,7 +86,6 @@ class CourseSchedulesPage extends ConsumerWidget {
                             barrierDismissible: false,
                             builder: (_) => CourseScheduleEditor(
                               course: course,
-                              periodClock: coursePeriodClock(all),
                               assistUserId: assistUserId,
                               onSave: (meetings) => ref
                                   .read(catalog.notifier)
@@ -167,13 +166,11 @@ class CourseScheduleEditor extends ConsumerStatefulWidget {
     required this.course,
     required this.onSave,
     this.onSaveLocations,
-    this.periodClock,
     this.assistUserId,
   });
   final CatalogCourse course;
   final Future<void> Function(List<CourseMeeting>) onSave;
   final Future<void> Function(Map<String, SavedLocation>)? onSaveLocations;
-  final Map<int, PeriodTime>? periodClock;
   final int? assistUserId;
   @override
   ConsumerState<CourseScheduleEditor> createState() =>
@@ -218,8 +215,7 @@ class _MeetingDraft {
 class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
   late final _clock = _buildClock();
   Map<int, PeriodTime> _buildClock() {
-    final clock = {...?widget.periodClock};
-    if (clock.isEmpty) clock.addAll(coursePeriodClock([widget.course]));
+    final clock = coursePeriodClock();
     for (final m in widget.course.localMeetings) {
       clock.putIfAbsent(
         m.first,

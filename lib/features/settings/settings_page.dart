@@ -142,13 +142,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (auth.isSignedIn &&
-                          (ref
-                                  .watch(courseCatalogProvider)
-                                  .valueOrNull
-                                  ?.courses
-                                  .any((c) => c.needsSchedule) ??
-                              false)) ...[
+                      if (ref.watch(hasIncompleteCourseScheduleProvider)) ...[
                         const ScheduleStatusChip(),
                         const SizedBox(width: 8),
                       ],

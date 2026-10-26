@@ -216,9 +216,11 @@ void main() {
       );
       addTearDown(container.dispose);
       await container.read(courseCatalogProvider.future);
+      expect(container.read(hasIncompleteCourseScheduleProvider), true);
       await container
           .read(courseCatalogProvider.notifier)
           .saveMeetings(1, 'course', meetings);
+      expect(container.read(hasIncompleteCourseScheduleProvider), false);
       expect(
         container
             .read(courseCatalogProvider)
@@ -246,6 +248,7 @@ void main() {
         ))!.courses.single.needsSchedule,
         isTrue,
       );
+      expect(container.read(hasIncompleteCourseScheduleProvider), true);
       await expectLater(
         container
             .read(courseCatalogProvider.notifier)
