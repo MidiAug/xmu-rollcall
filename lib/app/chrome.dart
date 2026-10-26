@@ -579,7 +579,11 @@ class _SubpageScaffoldState extends State<SubpageScaffold> {
       owner: _owner,
       title: widget.title,
       onBack: () {
-        if (context.mounted) Navigator.of(context).maybePop();
+        if (!mounted ||
+            (route != null && (!route.isCurrent || !route.isActive))) {
+          return;
+        }
+        Navigator.of(context).maybePop();
       },
       actions: widget.actions,
     );

@@ -272,6 +272,17 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(CourseSchedulesPage), findsOneWidget);
       expect(find.byType(CoursesPage), findsNothing);
+      await tester.tap(find.byTooltip('返回'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('本学期课表'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CourseSchedulesPage), findsOneWidget);
+      expect(find.byType(CoursesPage), findsNothing);
+      await tester.tap(find.byTooltip('返回'));
+      await tester.pumpAndSettle();
+      await tester.tap(arrow);
+      await tester.pumpAndSettle();
+      expect(find.byType(CourseSchedulesPage), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }

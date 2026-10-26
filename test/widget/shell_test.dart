@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:xmu_rollcall/app/adaptive_shell.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
@@ -257,9 +258,17 @@ void main() {
         findsOneWidget,
       );
 
+      final oldBack = DesktopShellChromeScope.of(
+        tester.element(find.byType(AppTitleBar)),
+        listen: false,
+      ).activeClaim!.onBack;
       await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
       expect(find.text('厦大签到'), findsOneWidget);
+      oldBack();
+      await tester.pumpAndSettle();
+      expect(find.text('厦大签到'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
     skip: !PlatformHooks.isDesktop,
   );

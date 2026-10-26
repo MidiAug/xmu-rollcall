@@ -144,12 +144,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (ref.watch(hasIncompleteCourseScheduleProvider)) ...[
-                        ScheduleStatusChip(
-                          onTap: () => AppPageRoutes.push(
-                            context,
-                            const CourseSchedulesPage(),
-                          ),
-                        ),
+                        const ScheduleStatusChip(),
                         const SizedBox(width: 8),
                       ],
                       Icon(Icons.chevron_right, color: p.muted, size: 18),
@@ -157,7 +152,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   ),
                   onTap: !auth.isSignedIn
                       ? () => showLoginDialog(context)
-                      : () => AppPageRoutes.push(context, const CoursesPage()),
+                      : () => AppPageRoutes.push(
+                          context,
+                          ref.read(hasIncompleteCourseScheduleProvider)
+                              ? const CourseSchedulesPage()
+                              : const CoursesPage(),
+                        ),
                 ),
                 SettingsRow(
                   leading: const Icon(Icons.place_outlined),
