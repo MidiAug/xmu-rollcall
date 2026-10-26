@@ -43,6 +43,13 @@ SetCompressor /SOLID lzma
 
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
+!define MUI_FINISHPAGE_RUN "$INSTDIR\${MAIN_EXE}"
+!define MUI_FINISHPAGE_RUN_TEXT "立即运行${PRODUCT_NAME}"
+; MUI's second finish action supports a custom callback, not just a README.
+!define MUI_FINISHPAGE_SHOWREADME ""
+!define MUI_FINISHPAGE_SHOWREADME_TEXT "创建桌面快捷方式"
+!define MUI_FINISHPAGE_SHOWREADME_FUNCTION CreateDesktopShortcut
+!insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 !insertmacro MUI_LANGUAGE "SimpChinese"
@@ -77,6 +84,13 @@ Function .onInit
   ${EndIf}
 FunctionEnd
 
+Function CreateDesktopShortcut
+  SetOutPath "$INSTDIR"
+  CreateShortCut "$DESKTOP\${PRODUCT_NAME}.lnk" "$INSTDIR\${MAIN_EXE}"
+  ; Also stamp a newly selected desktop entry when immediate launch is unchecked.
+  ExecWait '"$INSTDIR\${MAIN_EXE}" --register-notifications' $0
+FunctionEnd
+
 Section "Install"
   SetOutPath "$INSTDIR"
 
@@ -98,9 +112,9 @@ Section "Install"
   CreateDirectory "$SMPROGRAMS\${PRODUCT_NAME}"
   CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\${PRODUCT_NAME}.lnk" "$INSTDIR\${MAIN_EXE}"
   CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
-  CreateShortCut "$DESKTOP\${PRODUCT_NAME}.lnk" "$INSTDIR\${MAIN_EXE}"
 
-  ; Stamp both owned shortcuts with the sender identity, activator and EXE icon.
+  ; The Start menu entry is required for notifications; the desktop entry is optional.
+  ; Stamp existing owned shortcuts with the sender identity, activator and EXE icon.
   ; The helper exits before Flutter UI and never creates a development entry.
   ExecWait '"$INSTDIR\${MAIN_EXE}" --register-notifications' $0
   ${If} $0 != 0
