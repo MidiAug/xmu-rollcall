@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+const savedRadarLocationsKey = 'saved_radar_locations';
+
 /// Validate before persisting or submitting a coordinate selection.
 void validateRadarLocation({
   required double latitude,
@@ -79,7 +81,7 @@ enum RadarObtainedVia {
 /// Why the confirmation card was pre-filled (not a source badge).
 enum RadarFilledFrom { none, pref, configured, user }
 
-/// Per-course last-success preference (suggestion, not a fourth "source").
+/// Explicit course default or a meeting-specific choice/successful point.
 class CourseRadarPref {
   const CourseRadarPref({
     required this.courseTitle,
@@ -91,6 +93,8 @@ class CourseRadarPref {
     this.obtainedVia = '',
     this.labelSnapshot = '',
     this.userConfigured = false,
+    this.meetingKey = '',
+    this.updatedAtMicros = 0,
   });
 
   final String courseTitle;
@@ -108,6 +112,23 @@ class CourseRadarPref {
   /// Last known place label (if place was deleted) or empty.
   final String labelSnapshot;
   final bool userConfigured;
+  final String meetingKey;
+  final int updatedAtMicros;
+
+  CourseRadarPref forMeeting(String key, {int? stamp, bool? configured}) =>
+      CourseRadarPref(
+        courseTitle: courseTitle,
+        courseId: courseId,
+        latitude: latitude,
+        longitude: longitude,
+        accuracy: accuracy,
+        placeId: placeId,
+        obtainedVia: obtainedVia,
+        labelSnapshot: labelSnapshot,
+        userConfigured: configured ?? userConfigured,
+        meetingKey: key,
+        updatedAtMicros: stamp ?? updatedAtMicros,
+      );
 
   Map<String, dynamic> toJson() => {
     'courseTitle': courseTitle,
@@ -119,6 +140,8 @@ class CourseRadarPref {
     'obtainedVia': obtainedVia,
     'labelSnapshot': labelSnapshot,
     'userConfigured': userConfigured,
+    'meetingKey': meetingKey,
+    'updatedAtMicros': updatedAtMicros,
     // Legacy keys still written so older builds can read something useful.
     'note': labelSnapshot,
     'source': obtainedVia == 'place' ? 'preset' : obtainedVia,
@@ -139,6 +162,8 @@ class CourseRadarPref {
       obtainedVia: obtained.isNotEmpty ? obtained : legacySource,
       labelSnapshot: label.isNotEmpty ? label : unwrapRememberedNote(note),
       userConfigured: j['userConfigured'] == true,
+      meetingKey: j['meetingKey'] as String? ?? '',
+      updatedAtMicros: (j['updatedAtMicros'] as num?)?.toInt() ?? 0,
     );
   }
 }

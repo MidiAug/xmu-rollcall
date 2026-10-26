@@ -51,6 +51,7 @@ class ActiveRollcallsNotifier
   Future<void>? _refreshing;
   String? _codeCacheKey;
   final _numberCodes = <int, String>{};
+  final _observedActivityStates = <int, String>{};
   int _codeRevision = 0;
   int _queuedCodeRevision = 0;
   Future<void> _codeWrites = Future.value();
@@ -72,6 +73,9 @@ class ActiveRollcallsNotifier
       authControllerProvider.select((s) => (s.isSignedIn, s.profile?.id)),
     );
     final auth = ref.read(authControllerProvider);
+    if (_boundOwnerUserId != auth.profile?.id || !auth.isSignedIn) {
+      _observedActivityStates.clear();
+    }
     if (!auth.isSignedIn || auth.profile == null || auth.profile!.id == 0) {
       _boundOwnerUserId = null;
       _codeCacheKey = null;
@@ -168,7 +172,7 @@ class ActiveRollcallsNotifier
     if (_boundOwnerUserId == null) return;
     final now = ref.read(activeRollcallClockProvider)();
     if (_lastAppearCheckAt != null &&
-        now.difference(_lastAppearCheckAt!) < const Duration(seconds: 15)) {
+        now.difference(_lastAppearCheckAt!) < const Duration(seconds: 30)) {
       return;
     }
     _lastAppearCheckAt = now;
@@ -305,8 +309,15 @@ class ActiveRollcallsNotifier
   void _noteSeenCourses(List<RollcallItem> items) {
     final ids = <String>{
       for (final i in items)
-        if ((i.courseId ?? '').trim().isNotEmpty) i.courseId!.trim(),
+        if ((i.courseId ?? '').trim().isNotEmpty &&
+            _observedActivityStates[i.rollcallId] !=
+                '${i.courseId}:${i.status}:${i.isExpired}')
+          i.courseId!.trim(),
     };
+    for (final item in items) {
+      _observedActivityStates[item.rollcallId] =
+          '${item.courseId}:${item.status}:${item.isExpired}';
+    }
     if (ids.isEmpty) return;
     final prev = ref.read(
       (arg == null
@@ -502,6 +513,7 @@ class ActiveRollcallsNotifier
   void patchItem(RollcallItem updated) {
     final current = state.valueOrNull;
     if (current == null) return;
+    _noteSeenCourses([updated]);
     state = AsyncData(
       _retainNumberCodes([
         for (final item in current)
@@ -723,7 +735,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
   EnsureFreshReason _inFlightReason = EnsureFreshReason.appear;
   final _lastCourseAttempts = <String, DateTime>{};
   final _courseSnaps = <String, CourseRollcallsSnapshot>{};
-  Set<String> _timetableCourseIds = {};
+  Set<String> _attendanceCourseIds = {};
 
   @override
   Future<List<CourseRollcallRecord>> build() async {
@@ -744,7 +756,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
   Future<List<CourseRollcallRecord>> _loadFromDisk(int userId) async {
     final catalog = await ref.read(_catalogProvider.future);
     final titles = catalog?.attendanceTitlesById ?? <String, String>{};
-    _timetableCourseIds = titles.keys.toSet();
+    _attendanceCourseIds = titles.keys.toSet();
     _courseSnaps.clear();
 
     // Prefer catalog course ids; also surface any orphan disks via titles keys.
@@ -810,7 +822,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
   List<CourseRollcallRecord> _flatten() {
     final rows = <CourseRollcallRecord>[
       for (final snap in _courseSnaps.values)
-        if (_timetableCourseIds.contains(snap.courseId))
+        if (_attendanceCourseIds.contains(snap.courseId))
           ...CourseRollcallsStore.toHistoryRows(snap),
     ];
     rows.sort((a, b) {
@@ -865,7 +877,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
 
     final catalog = ref.read(_catalogProvider).valueOrNull;
     final titles = catalog?.attendanceTitlesById ?? <String, String>{};
-    _timetableCourseIds = titles.keys.toSet();
+    _attendanceCourseIds = titles.keys.toSet();
     for (final id in titles.keys) {
       // Session prior shares this store and may have fetched since page build.
       final disk = await CourseRollcallsStore.read(uid, id);
@@ -881,7 +893,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
     }
 
     // Passive appearance stays incremental; explicit pulls bypass the long TTL
-    // within the requested timetable scope, retaining the short request gate.
+    // within the requested enrolled-course scope, retaining the short request gate.
     final cold = historyNeedsFullScan(_courseSnaps.values);
     final List<HistoryCandidate> candidates;
     final manual = reason != EnsureFreshReason.appear;
@@ -920,7 +932,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
       fields: {
         'reason': reason.name,
         'userId': uid,
-        'scope': 'timetable',
+        'scope': 'enrolled_student_courses',
         'cold': cold,
         'candidates': eligible.length,
         'throttled': candidates.length - eligible.length,
@@ -1072,11 +1084,13 @@ class SessionPriorState {
     this.snapshot,
     this.unscoped = false,
     this.nowMinutes,
+    this.missingTimetable = false,
   });
 
   final SessionPriorSnapshot? snapshot;
   final bool unscoped;
   final int? nowMinutes;
+  final bool missingTimetable;
 }
 
 /// Course id ? weekday ? slots from sticky catalog (owner session).
@@ -1119,7 +1133,10 @@ Future<SessionPriorState> _loadSessionPrior(
       ref.watch(catalogProvider).valueOrNull?.timetablesByCourse ??
       const <String, Map<int, List<TimetableSlot>>>{};
   final byDay = tables[cid];
-  final slots = byDay?[now.weekday];
+  if (byDay == null || byDay.isEmpty) {
+    return const SessionPriorState(unscoped: true, missingTimetable: true);
+  }
+  final slots = byDay[now.weekday];
   if (slots == null || slots.isEmpty) {
     return const SessionPriorState(unscoped: true);
   }

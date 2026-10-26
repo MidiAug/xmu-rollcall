@@ -199,14 +199,20 @@ class TronHttpClient {
     Object? data,
     Options? options,
     CancelToken? cancelToken,
+    Future<void> Function()? beforeSend,
   }) {
     return _schedule(
-      (token, id, waitMs) => _dio.putUri<T>(
-        uri,
-        data: data,
-        options: _trackedOptions(options, id, waitMs),
-        cancelToken: token,
-      ),
+      (token, id, waitMs) async {
+        // A queued submission may outlive the user's task or selected point.
+        await beforeSend?.call();
+        if (token.isCancelled) throw token.cancelError!;
+        return _dio.putUri<T>(
+          uri,
+          data: data,
+          options: _trackedOptions(options, id, waitMs),
+          cancelToken: token,
+        );
+      },
       uri: uri,
       method: 'PUT',
       cancelToken: cancelToken,

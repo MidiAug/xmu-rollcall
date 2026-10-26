@@ -144,6 +144,28 @@ void main() {
         ],
       );
   test(
+    'unchanged activity does not dirty history again; status changes do',
+    () async {
+      await CourseCatalogStore.write(1, catalog);
+      final container = make(_Repo(), () => observed);
+      addTearDown(container.dispose);
+      await container.read(activeRollcallsProvider(null).future);
+      final notifier = container.read(activeRollcallsProvider(null).notifier);
+      notifier.applyMonitorItems([signed], fetchedAt: observed);
+      expect(container.read(seenInProgressCourseIdsProvider), {'42'});
+      container.read(seenInProgressCourseIdsProvider.notifier).state = {};
+      notifier.applyMonitorItems([
+        signed,
+      ], fetchedAt: observed.add(const Duration(seconds: 20)));
+      expect(container.read(seenInProgressCourseIdsProvider), isEmpty);
+      notifier.applyMonitorItems([signed.copyWith(status: 'on_call_absence')]);
+      expect(container.read(seenInProgressCourseIdsProvider), {'42'});
+      container.read(seenInProgressCourseIdsProvider.notifier).state = {};
+      notifier.patchItem(signed);
+      expect(container.read(seenInProgressCourseIdsProvider), {'42'});
+    },
+  );
+  test(
     'cached card appears before slow network; confirmed empty clears it and disk',
     () async {
       await seed();
@@ -216,6 +238,13 @@ void main() {
         await notifier.ensureFreshOnAppear();
       }
       expect(repo.calls, 1);
+      now = now.add(const Duration(seconds: 29));
+      await notifier.ensureFreshOnAppear();
+      expect(repo.calls, 1);
+      now = now.add(const Duration(seconds: 1));
+      repo.pending = null;
+      await notifier.ensureFreshOnAppear();
+      expect(repo.calls, 2);
       now = DateTime(2026, 10, 22, 9, 26);
       repo.pending = Completer<List<RollcallItem>>();
       final confirmation = notifier.ensureFreshOnAppear();
@@ -227,7 +256,7 @@ void main() {
       expect(container.read(activeRollcallsProvider(null)).isLoading, isTrue);
       repo.pending!.complete([]);
       await confirmation;
-      expect(repo.calls, 2);
+      expect(repo.calls, 3);
     },
   );
   test('only fetched snapshots advance the list check time', () async {

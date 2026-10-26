@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
@@ -11,6 +12,10 @@ import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/attendance_count.dart';
 import 'package:xmu_rollcall/features/rollcall/attendance_count_row.dart';
+import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+import 'package:xmu_rollcall/features/rollcall/session_prior_panel.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository_providers.dart';
 
@@ -37,6 +42,14 @@ class _Repo extends Fake implements RollcallRepository {
   }
 }
 
+class _Catalog extends CourseCatalogNotifier {
+  @override
+  Future<CourseCatalogSnapshot?> build() async => CourseCatalogSnapshot(
+    fetchedAt: DateTime(2026, 10, 26),
+    courses: const [CatalogCourse(id: '9', title: '测试课程')],
+  );
+}
+
 void main() {
   testWidgets(
     'counts refresh after signing, retain failures, and pause in background',
@@ -45,6 +58,9 @@ void main() {
       final repo = _Repo();
       final container = ProviderContainer(
         overrides: [
+          attendanceCountClockProvider.overrideWithValue(
+            tester.binding.clock.now,
+          ),
           authControllerProvider.overrideWith((ref) => _Auth()),
           assistControllerProvider.overrideWith(
             (ref) => AssistController(ref, bootstrap: false),
@@ -101,4 +117,98 @@ void main() {
       expect(repo.calls, 5);
     },
   );
+
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    testWidgets('focus and tab changes preserve count deadline on $platform', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({});
+      final repo = _Repo();
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          assistControllerProvider.overrideWith(
+            (ref) => AssistController(ref, bootstrap: false),
+          ),
+          rollcallRepositoryForProvider(null).overrideWithValue(repo),
+          attendanceCountClockProvider.overrideWithValue(
+            tester.binding.clock.now,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      Future<void> show({
+        bool visible = true,
+        int id = 1,
+        bool expired = false,
+      }) => tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData(platform: platform),
+            home: Scaffold(
+              body: TickerMode(
+                enabled: visible,
+                child: AttendanceCountRow(rollcallId: id, expired: expired),
+              ),
+            ),
+          ),
+        ),
+      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await show();
+      await tester.pumpAndSettle();
+      expect(repo.calls, 1);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump(const Duration(seconds: 20));
+      expect(repo.calls, platform == TargetPlatform.windows ? 2 : 1);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(repo.calls, 2);
+      await show(visible: false);
+      await tester.pump(const Duration(seconds: 5));
+      await show();
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(repo.calls, 2);
+      await tester.pump(const Duration(seconds: 15, milliseconds: 1));
+      expect(repo.calls, 3);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+      await tester.pump(const Duration(seconds: 40));
+      expect(repo.calls, 3);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(repo.calls, 4);
+      await show(id: 2);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(repo.calls, 5);
+      await show(id: 2, expired: true);
+      await tester.pump(const Duration(seconds: 40));
+      expect(repo.calls, 5);
+      expect(find.textContaining('后刷新'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
+  testWidgets('missing timetable explains history is available separately', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          courseCatalogProvider.overrideWith(_Catalog.new),
+        ],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SessionPriorPanel(
+              courseId: '9',
+              currentType: RollcallType.qrcode,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('本课未提供课表时段，过往签到可在签到记录中查看'), findsOneWidget);
+  });
 }

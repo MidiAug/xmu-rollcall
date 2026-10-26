@@ -20,7 +20,11 @@ import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
+import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
+import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/settings/settings_page.dart';
+import 'package:xmu_rollcall/features/settings/course_schedule_editor.dart';
+import 'package:xmu_rollcall/features/settings/courses_page.dart';
 import 'package:xmu_rollcall/features/update/app_release.dart';
 import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 import 'package:xmu_rollcall/platform/close_prefs.dart';
@@ -30,9 +34,23 @@ import '../fixtures/update_fakes.dart';
 class _Repository extends Fake implements AuthRepository {}
 
 class _Auth extends AuthController {
-  _Auth() : super(_Repository()) {
-    state = const AuthState(status: AuthStatus.signedOut);
+  _Auth({bool signedIn = false}) : super(_Repository()) {
+    state = signedIn
+        ? const AuthState(
+            status: AuthStatus.signedIn,
+            profile: UserProfile(id: 1, name: '测试同学'),
+          )
+        : const AuthState(status: AuthStatus.signedOut);
   }
+}
+
+class _ScheduleCatalog extends CourseCatalogNotifier {
+  @override
+  Future<CourseCatalogSnapshot?> build() async => CourseCatalogSnapshot(
+    fetchedAt: DateTime(2026, 10, 27),
+    rolesResolved: true,
+    courses: const [CatalogCourse(id: 'c', title: '待完善课程')],
+  );
 }
 
 ThemeData _theme(Brightness brightness, TargetPlatform platform) {
@@ -72,11 +90,19 @@ ThemeData _theme(Brightness brightness, TargetPlatform platform) {
   );
 }
 
-Widget _app({required TargetPlatform platform, double textScale = 1}) {
+Widget _app({
+  required TargetPlatform platform,
+  double textScale = 1,
+  bool needsSchedule = false,
+}) {
   return ProviderScope(
     overrides: [
       secureStoreProvider.overrideWithValue(SecureStore.memory()),
-      authControllerProvider.overrideWith((ref) => _Auth()),
+      authControllerProvider.overrideWith(
+        (ref) => _Auth(signedIn: needsSchedule),
+      ),
+      if (needsSchedule)
+        courseCatalogProvider.overrideWith(_ScheduleCatalog.new),
       assistControllerProvider.overrideWith(
         (ref) => AssistController(
           ref,
@@ -195,6 +221,69 @@ void main() {
         '${dir.path}/$name.png',
       ).writeAsBytes(data!.buffer.asUint8List());
       image.dispose();
+    });
+  }
+
+  for (final width in [320.0, 960.0]) {
+    testWidgets('missing schedule chip precedes course arrow at $width', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({
+        'theme_preference': ThemePreference.light.index,
+      });
+      tester.view.physicalSize = Size(width, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: key,
+          child: _app(
+            platform: width > 600
+                ? TargetPlatform.windows
+                : TargetPlatform.android,
+            textScale: width < 600 ? 1.3 : 1,
+            needsSchedule: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final row = find.ancestor(
+        of: find.text('本学期课表'),
+        matching: find.byType(SettingsRow),
+      );
+      final chip = find.descendant(of: row, matching: find.text('待完善'));
+      final arrow = find.descendant(
+        of: row,
+        matching: find.byIcon(Icons.chevron_right),
+      );
+      expect(chip, findsOneWidget);
+      expect(
+        tester.getBottomRight(chip).dx,
+        lessThan(tester.getTopLeft(arrow).dx),
+      );
+      expect(
+        find.descendant(of: row, matching: find.byType(Badge)),
+        findsNothing,
+      );
+      await capture(tester, key, 'schedule-chip-${width.toInt()}');
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      expect(find.byType(CourseSchedulesPage), findsOneWidget);
+      expect(find.byType(CoursesPage), findsNothing);
+      await tester.tap(find.byTooltip('返回'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('本学期课表'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CourseSchedulesPage), findsOneWidget);
+      expect(find.byType(CoursesPage), findsNothing);
+      await tester.tap(find.byTooltip('返回'));
+      await tester.pumpAndSettle();
+      await tester.tap(arrow);
+      await tester.pumpAndSettle();
+      expect(find.byType(CourseSchedulesPage), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
     });
   }
 

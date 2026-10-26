@@ -6,10 +6,17 @@ class TimetableSlot {
     required this.sequence,
     required this.start,
     required this.end,
+    this.endSequence,
+    this.classroom,
   });
 
   /// 1..11 period index.
   final int sequence;
+
+  /// A user-entered meeting stays one block across all its periods.
+  final int? endSequence;
+  final String? classroom;
+  int get lastSequence => endSequence ?? sequence;
 
   /// Time-of-day on an arbitrary anchor date (date part ignored in compares).
   final DateTime start;
@@ -72,7 +79,10 @@ List<SessionBlock> splitContiguousBlocks(List<TimetableSlot> slots) {
     final prev = run.last;
     final gap = s.start.difference(prev.end);
     final shortBreak = !gap.isNegative && gap <= const Duration(minutes: 15);
-    if (s.sequence == prev.sequence + 1 && shortBreak) {
+    if (s.sequence == prev.sequence + 1 &&
+        shortBreak &&
+        s.endSequence == null &&
+        prev.endSequence == null) {
       run.add(s);
     } else {
       out.add(_blockFromRun(run));
@@ -86,7 +96,7 @@ List<SessionBlock> splitContiguousBlocks(List<TimetableSlot> slots) {
 SessionBlock _blockFromRun(List<TimetableSlot> run) {
   return SessionBlock(
     startSequence: run.first.sequence,
-    endSequence: run.last.sequence,
+    endSequence: run.last.lastSequence,
     coreStart: run.first.start,
     coreEnd: run.last.end,
   );
@@ -157,6 +167,27 @@ const _weekdayNames = <int, String>{
 };
 
 String weekdayLabel(int weekday) => _weekdayNames[weekday] ?? '周$weekday';
+
+/// Whole timetable meetings; consecutive official periods stay together.
+List<SessionBlock> courseMeetingBlocks(List<TimetableSlot> slots) {
+  if (slots.isEmpty) return const [];
+  final sorted = [...slots]..sort((a, b) => a.sequence.compareTo(b.sequence));
+  final blocks = <SessionBlock>[];
+  var run = <TimetableSlot>[sorted.first];
+  for (final slot in sorted.skip(1)) {
+    final previous = run.last;
+    if (slot.sequence == previous.sequence + 1 &&
+        slot.endSequence == null &&
+        previous.endSequence == null) {
+      run.add(slot);
+    } else {
+      blocks.add(_blockFromRun(run));
+      run = [slot];
+    }
+  }
+  blocks.add(_blockFromRun(run));
+  return blocks;
+}
 
 /// Parse TronClass `timetables` map for one course.
 ///

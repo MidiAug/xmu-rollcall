@@ -317,15 +317,18 @@ void main() {
     },
   );
   test(
-    'imported history uses selected timetable courses and its student id',
+    'imported history includes unscheduled student courses with its own student id',
     () async {
       b.courseId = 'b-only';
       final history = container.read(scopedCourseHistoryProvider(2));
       await container.read(history.notifier).ensureFresh();
       final records = container.read(history).requireValue;
-      expect(records.single.courseId, 'b-only');
-      expect(records.single.rollcallId, '2-event');
-      expect(b.historyStudents, [2]);
+      expect(
+        records.map((r) => r.courseId),
+        unorderedEquals(['b-only', 'old']),
+      );
+      expect(records.every((r) => r.rollcallId == '2-event'), isTrue);
+      expect(b.historyStudents, [2, 2]);
       expect(a.catalogCalls, 0);
       expect(service.sessions, [2]);
       select(2);
@@ -333,9 +336,8 @@ void main() {
         container
             .read(currentCourseHistoryProvider)
             .requireValue
-            .single
-            .courseId,
-        'b-only',
+            .map((r) => r.courseId),
+        unorderedEquals(['b-only', 'old']),
       );
     },
   );

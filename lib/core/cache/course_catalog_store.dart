@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xmu_rollcall/core/cache/course_schedule_store.dart';
 import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 
@@ -9,18 +10,45 @@ class CatalogCourse {
   const CatalogCourse({
     required this.id,
     required this.title,
-    this.timetables = const {},
+    Map<int, List<TimetableSlot>> timetables = const {},
+    this.localMeetings = const [],
     this.instructorNames = const [],
     this.teachingClassName,
     this.location,
     this.roles = const [],
-  });
+    // Keep the public argument while separating platform data from local meetings.
+    // ignore: prefer_initializing_formals
+  }) : _timetables = timetables;
 
   final String id;
   final String title;
 
   /// Weekday (1–7) → slots.
-  final Map<int, List<TimetableSlot>> timetables;
+  final Map<int, List<TimetableSlot>> _timetables;
+  final List<CourseMeeting> localMeetings;
+  bool get needsSchedule => _timetables.isEmpty && localMeetings.isEmpty;
+  bool get hasPlatformSchedule => _timetables.isNotEmpty;
+  Map<int, List<TimetableSlot>> get timetables =>
+      _timetables.isNotEmpty || localMeetings.isEmpty
+      ? _timetables
+      : {
+          for (final day in localMeetings.map((m) => m.weekday).toSet())
+            day: [
+              for (final m in localMeetings)
+                if (m.weekday == day) m.slot,
+            ],
+        };
+
+  CatalogCourse withMeetings(List<CourseMeeting> meetings) => CatalogCourse(
+    id: id,
+    title: title,
+    timetables: _timetables,
+    localMeetings: meetings,
+    instructorNames: instructorNames,
+    teachingClassName: teachingClassName,
+    location: location,
+    roles: roles,
+  );
 
   /// Instructor display names (may be empty).
   final List<String> instructorNames;
@@ -45,7 +73,8 @@ class CatalogCourse {
   CatalogCourse withRoles(List<String> value) => CatalogCourse(
     id: id,
     title: title,
-    timetables: timetables,
+    timetables: _timetables,
+    localMeetings: localMeetings,
     instructorNames: instructorNames,
     teachingClassName: teachingClassName,
     location: location,
@@ -62,9 +91,9 @@ class CatalogCourse {
     if (teachingClassName != null && teachingClassName!.isNotEmpty)
       'teachingClassName': teachingClassName,
     if (location != null && location!.isNotEmpty) 'location': location,
-    if (timetables.isNotEmpty)
+    if (_timetables.isNotEmpty)
       'timetables': {
-        for (final e in timetables.entries)
+        for (final e in _timetables.entries)
           '${e.key}': [for (final s in e.value) timetableSlotToJson(s)],
       },
   };
@@ -150,8 +179,9 @@ class CourseCatalogSnapshot {
       if (c.id.isNotEmpty) c.id: c.title,
   };
 
+  /// Enrolled student courses can have attendance without timetable slots.
   Map<String, String> get attendanceTitlesById => {
-    for (final c in timetableCourses)
+    for (final c in courses)
       if (c.id.isNotEmpty && !c.isTeaching) c.id: c.title,
   };
 

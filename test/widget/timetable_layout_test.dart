@@ -331,6 +331,18 @@ void main() {
         expect(find.byType(Dialog), desktop ? findsOneWidget : findsNothing);
         expect(tester.getSize(flow).width, width);
         await capture('05-add-location');
+        if (!desktop) {
+          final note = find.byKey(const ValueKey('location-note-input'));
+          await tester.tap(note);
+          tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+          await tester.pumpAndSettle();
+          expect(tester.getBottomRight(note).dy, lessThanOrEqualTo(844 - 300));
+          expect(tester.takeException(), isNull);
+          await capture('05a-keyboard');
+          tester.view.resetViewInsets();
+          FocusManager.instance.primaryFocus?.unfocus();
+          await tester.pumpAndSettle();
+        }
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         expect(find.byType(MapPickPanel), findsNothing);

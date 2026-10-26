@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/core/identity/device_identity.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
+import 'package:xmu_rollcall/core/network/rate_limiter.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
 
@@ -42,6 +44,44 @@ void main() {
       http: TronHttpClient(store: SecureStore.memory(), dio: dio),
     );
   });
+  test(
+    'radar guard executes after the real HTTP queue and can prevent transport',
+    () async {
+      final gate = Completer<void>();
+      final entered = Completer<void>();
+      final limiter = RateLimiter(maxConcurrent: 1, minInterval: Duration.zero);
+      final blocking = limiter.schedule(() async {
+        entered.complete();
+        await gate.future;
+      });
+      await entered.future;
+      final memory = SecureStore.memory();
+      final dio = Dio()..httpClientAdapter = adapter;
+      final guarded = RollcallRepository(
+        identity: DeviceIdentity(memory),
+        http: TronHttpClient(store: memory, dio: dio, rateLimiter: limiter),
+      );
+      var guardCalls = 0;
+      final queued = guarded.answerRadar(
+        rollcallId: 7,
+        latitude: 24.5,
+        longitude: 118.2,
+        beforeSend: () async {
+          guardCalls++;
+          throw StateError('Stopped or changed');
+        },
+      );
+      final result = expectLater(queued, throwsStateError);
+      await Future<void>.delayed(Duration.zero);
+      expect(guardCalls, 0);
+      expect(adapter.requests, 0);
+      gate.complete();
+      await blocking;
+      await result;
+      expect(guardCalls, 1);
+      expect(adapter.requests, 0);
+    },
+  );
   test(
     'radar retains actual accuracy, coordinate order and stable device ID',
     () async {

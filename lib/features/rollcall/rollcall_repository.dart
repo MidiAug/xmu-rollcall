@@ -736,6 +736,7 @@ class RollcallRepository {
     required double longitude,
     double accuracy = 35,
     String? opId,
+    Future<void> Function()? beforeSend,
   }) async {
     if (rollcallId <= 0 ||
         !latitude.isFinite ||
@@ -765,6 +766,7 @@ class RollcallRepository {
           'speed': null,
         },
         options: opts,
+        beforeSend: beforeSend,
       );
     } on DioException catch (error) {
       final response = error.response;

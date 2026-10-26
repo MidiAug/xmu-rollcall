@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:xmu_rollcall/app/shell_tab_exit_guard.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
@@ -227,14 +228,40 @@ class AppTitleBar extends StatelessWidget {
                         children: [
                           const BrandMark(size: 18),
                           const SizedBox(width: 8),
-                          Text(
-                            title,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: p.ink,
+                          Flexible(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: p.ink,
+                              ),
                             ),
                           ),
+                          if (kDebugMode) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: p.primary.withValues(alpha: .10),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '开发版',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  height: 1.2,
+                                  fontWeight: FontWeight.w600,
+                                  color: p.primary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -552,7 +579,11 @@ class _SubpageScaffoldState extends State<SubpageScaffold> {
       owner: _owner,
       title: widget.title,
       onBack: () {
-        if (context.mounted) Navigator.of(context).maybePop();
+        if (!mounted ||
+            (route != null && (!route.isCurrent || !route.isActive))) {
+          return;
+        }
+        Navigator.of(context).maybePop();
       },
       actions: widget.actions,
     );
@@ -814,6 +845,7 @@ class AppSidebar extends StatelessWidget {
     this.userLabel,
     this.accountControl,
     this.hasUpdate = false,
+    this.hasPendingSchedule = false,
   });
 
   final AppDestination current;
@@ -821,6 +853,7 @@ class AppSidebar extends StatelessWidget {
   final String? userLabel;
   final Widget? accountControl;
   final bool hasUpdate;
+  final bool hasPendingSchedule;
 
   @override
   Widget build(BuildContext context) {
@@ -880,6 +913,8 @@ class AppSidebar extends StatelessWidget {
                     destination: d,
                     selected: d == current,
                     hasUpdate: hasUpdate && d == AppDestination.settings,
+                    hasPendingSchedule:
+                        hasPendingSchedule && d == AppDestination.settings,
                     onTap: () => onSelect(d),
                   ),
               ],
@@ -898,12 +933,14 @@ class _NavCell extends StatefulWidget {
     required this.selected,
     required this.onTap,
     required this.hasUpdate,
+    this.hasPendingSchedule = false,
   });
 
   final AppDestination destination;
   final bool selected;
   final VoidCallback onTap;
   final bool hasUpdate;
+  final bool hasPendingSchedule;
 
   @override
   State<_NavCell> createState() => _NavCellState();
@@ -950,6 +987,8 @@ class _NavCellState extends State<_NavCell> {
                           size: 18,
                           color: selected ? p.primary : p.muted,
                           hasUpdate: widget.hasUpdate,
+                          hasPendingSchedule: widget.hasPendingSchedule,
+                          dotSize: 4,
                         ),
                         const SizedBox(width: 10),
                         Text(
@@ -988,11 +1027,13 @@ class AppMobileNav extends StatelessWidget {
     required this.current,
     required this.onSelect,
     this.hasUpdate = false,
+    this.hasPendingSchedule = false,
   });
 
   final AppDestination current;
   final ValueChanged<AppDestination> onSelect;
   final bool hasUpdate;
+  final bool hasPendingSchedule;
 
   @override
   Widget build(BuildContext context) {
@@ -1015,6 +1056,8 @@ class AppMobileNav extends StatelessWidget {
                     destination: d,
                     selected: d == current,
                     hasUpdate: hasUpdate && d == AppDestination.settings,
+                    hasPendingSchedule:
+                        hasPendingSchedule && d == AppDestination.settings,
                     onTap: () => onSelect(d),
                   ),
                 ),
@@ -1032,12 +1075,14 @@ class _MobileItem extends StatefulWidget {
     required this.selected,
     required this.onTap,
     required this.hasUpdate,
+    this.hasPendingSchedule = false,
   });
 
   final AppDestination destination;
   final bool selected;
   final VoidCallback onTap;
   final bool hasUpdate;
+  final bool hasPendingSchedule;
 
   @override
   State<_MobileItem> createState() => _MobileItemState();
@@ -1069,6 +1114,8 @@ class _MobileItemState extends State<_MobileItem> {
               size: 22,
               color: color,
               hasUpdate: widget.hasUpdate,
+              hasPendingSchedule: widget.hasPendingSchedule,
+              dotSize: 5,
             ),
             const SizedBox(height: 2),
             Text(
@@ -1092,30 +1139,36 @@ class _MobileItemState extends State<_MobileItem> {
   };
 }
 
-/// A quiet update hint that preserves the icon's layout and hit target.
+/// A compact settings hint that preserves the icon's layout and hit target.
 class _NavigationIcon extends StatelessWidget {
   const _NavigationIcon({
     required this.icon,
     required this.size,
     required this.color,
     required this.hasUpdate,
+    this.hasPendingSchedule = false,
+    required this.dotSize,
   });
 
+  final double dotSize;
   final IconData icon;
   final double size;
   final Color color;
   final bool hasUpdate;
+  final bool hasPendingSchedule;
 
   @override
   Widget build(BuildContext context) {
     final child = Icon(icon, size: size, color: color);
-    if (!hasUpdate) return child;
+    if (!hasUpdate && !hasPendingSchedule) return child;
     return Tooltip(
-      message: '有新版本可更新',
+      message: hasPendingSchedule
+          ? (hasUpdate ? '课表待完善，有新版本可更新' : '课表待完善')
+          : '有新版本可更新',
       child: Badge(
-        backgroundColor: AppPalette.of(context).primary,
-        smallSize: 6,
-        offset: const Offset(2, -2),
+        backgroundColor: AppPalette.of(context).danger,
+        smallSize: dotSize,
+        offset: const Offset(1, -1),
         child: child,
       ),
     );

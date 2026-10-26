@@ -83,7 +83,7 @@ void main() {
                 ],
               },
             ),
-          const CatalogCourse(id: 'old', title: '往年课程'),
+          const CatalogCourse(id: 'unscheduled', title: '无课表时段的学生课程'),
           CatalogCourse(
             id: 'ta',
             title: '助教课程',
@@ -101,7 +101,7 @@ void main() {
         ],
       ),
     );
-    for (final id in ['a', 'b']) {
+    for (final id in ['a', 'b', 'unscheduled']) {
       await CourseRollcallsStore.writeSuccess(
         userId: 1,
         courseId: id,
@@ -121,28 +121,33 @@ void main() {
 
   tearDown(() => container.dispose());
 
-  test('cold refresh only scans and displays timetable courses', () async {
-    await CourseRollcallsStore.writeSuccess(
-      userId: 1,
-      courseId: 'old',
-      courseTitle: '往年课程',
-      records: const [],
-    );
-    final prefs = await SharedPreferences.getInstance();
-    for (final id in ['a', 'b']) {
-      await prefs.remove(JsonDiskCache.key(CourseRollcallsStore.suffix(1, id)));
-    }
-    await container.read(courseHistoryProvider.notifier).ensureFresh();
-    expect(repo.calls, ['a', 'b']);
-    expect(
-      container
-          .read(courseHistoryProvider)
-          .requireValue
-          .map((r) => r.courseId)
-          .toSet(),
-      {'a', 'b'},
-    );
-  });
+  test(
+    'cold refresh includes enrolled courses without timetable slots',
+    () async {
+      await CourseRollcallsStore.writeSuccess(
+        userId: 1,
+        courseId: 'old',
+        courseTitle: '往年课程',
+        records: const [],
+      );
+      final prefs = await SharedPreferences.getInstance();
+      for (final id in ['a', 'b', 'unscheduled']) {
+        await prefs.remove(
+          JsonDiskCache.key(CourseRollcallsStore.suffix(1, id)),
+        );
+      }
+      await container.read(courseHistoryProvider.notifier).ensureFresh();
+      expect(repo.calls, ['a', 'b', 'unscheduled']);
+      expect(
+        container
+            .read(courseHistoryProvider)
+            .requireValue
+            .map((r) => r.courseId)
+            .toSet(),
+        {'a', 'b', 'unscheduled'},
+      );
+    },
+  );
 
   test(
     'appearance uses cache; explicit pulls refresh once then short-deduplicate',
@@ -151,8 +156,49 @@ void main() {
       await notifier.ensureFresh();
       await notifier.refresh();
       await notifier.refresh();
-      expect(repo.calls, ['a', 'b']);
-      expect(container.read(courseHistoryProvider).requireValue, hasLength(2));
+      expect(repo.calls, ['a', 'b', 'unscheduled']);
+      expect(container.read(courseHistoryProvider).requireValue, hasLength(3));
+    },
+  );
+
+  test(
+    'unscheduled course restores signed history and can refresh alone',
+    () async {
+      final record = CourseRollcallRecord(
+        courseId: 'unscheduled',
+        courseTitle: '无课表时段的学生课程',
+        rollcallId: 'previous',
+        rollcallTime: now.subtract(const Duration(days: 7)),
+        typeLabel: '二维码',
+        signedStatus: '已签到',
+        platformStatus: 'on_call_fine',
+      );
+      await CourseRollcallsStore.writeSuccess(
+        userId: 1,
+        courseId: 'unscheduled',
+        courseTitle: record.courseTitle,
+        records: [record],
+        at: now,
+      );
+      final rows = await container.read(courseHistoryProvider.future);
+      expect(
+        rows.where((r) => r.courseId == 'unscheduled').single.rollcallId,
+        'previous',
+      );
+      repo.records['unscheduled'] = [record];
+      await container
+          .read(courseHistoryProvider.notifier)
+          .refreshCourse('unscheduled');
+      expect(repo.calls, ['unscheduled']);
+      expect(
+        container
+            .read(courseHistoryProvider)
+            .requireValue
+            .where((r) => r.courseId == 'unscheduled')
+            .single
+            .signedStatus,
+        '已签到',
+      );
     },
   );
 

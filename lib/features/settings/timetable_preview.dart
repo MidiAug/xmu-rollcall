@@ -6,6 +6,7 @@ import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid_view.dart';
+import 'package:xmu_rollcall/features/settings/course_period_clock.dart';
 
 /// Debug-only: switch fixtures to verify weekend columns and late periods.
 void openTimetablePreview(BuildContext context) {
@@ -104,26 +105,20 @@ class _TimetablePreviewPageState extends State<TimetablePreviewPage> {
   }
 }
 
-// --- Fake XMU-ish period times (anchor date unused for display) -------------
-
-DateTime _t(int h, int m) => DateTime(2000, 1, 3, h, m);
-
-TimetableSlot _slot(int seq, int sh, int sm, int eh, int em) =>
-    TimetableSlot(sequence: seq, start: _t(sh, sm), end: _t(eh, em));
-
-/// Shared period clock so axis labels look consistent across scenarios.
+// Preview courses share the production period clock.
 final _periodClock = <int, TimetableSlot>{
-  1: _slot(1, 8, 0, 8, 45),
-  2: _slot(2, 8, 55, 9, 40),
-  3: _slot(3, 10, 0, 10, 45),
-  4: _slot(4, 10, 55, 11, 40),
-  5: _slot(5, 14, 0, 14, 45),
-  6: _slot(6, 14, 55, 15, 40),
-  7: _slot(7, 16, 0, 16, 45),
-  8: _slot(8, 16, 55, 17, 40),
-  9: _slot(9, 19, 0, 19, 45),
-  10: _slot(10, 19, 55, 20, 40),
-  11: _slot(11, 20, 50, 21, 35),
+  for (final entry in coursePeriodClock().entries)
+    entry.key: TimetableSlot(
+      sequence: entry.key,
+      start: DateTime(
+        2000,
+        1,
+        3,
+        entry.value.start ~/ 60,
+        entry.value.start % 60,
+      ),
+      end: DateTime(2000, 1, 3, entry.value.end ~/ 60, entry.value.end % 60),
+    ),
 };
 
 List<TimetableSlot> _seqs(List<int> sequences) => [

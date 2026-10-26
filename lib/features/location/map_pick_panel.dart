@@ -51,11 +51,13 @@ class MapPickPanel extends StatefulWidget {
   State<MapPickPanel> createState() => MapPickPanelState();
 }
 
-class MapPickPanelState extends State<MapPickPanel> {
+class MapPickPanelState extends State<MapPickPanel>
+    with WidgetsBindingObserver {
   late LatLng _point;
   final _mapController = MapController();
   late final TextEditingController _note;
   final _noteFocus = FocusNode();
+  final _noteField = GlobalKey();
   String? _noteError;
 
   LatLng get point => _point;
@@ -65,6 +67,23 @@ class MapPickPanelState extends State<MapPickPanel> {
     super.initState();
     _point = widget.initial ?? kDefaultMapCenter;
     _note = TextEditingController(text: widget.initialNote);
+    WidgetsBinding.instance.addObserver(this);
+    _noteFocus.addListener(_revealNote);
+  }
+
+  @override
+  void didChangeMetrics() => _revealNote();
+
+  void _revealNote() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _noteField.currentContext;
+      if (!mounted || !_noteFocus.hasFocus || target == null) return;
+      Scrollable.ensureVisible(
+        target,
+        alignment: 1,
+        duration: const Duration(milliseconds: 180),
+      );
+    });
   }
 
   Future<void> confirm() async {
@@ -99,6 +118,7 @@ class MapPickPanelState extends State<MapPickPanel> {
     _mapController.dispose();
     _note.dispose();
     _noteFocus.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
@@ -182,26 +202,30 @@ class MapPickPanelState extends State<MapPickPanel> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (widget.requireNote) ...[
-                        TextField(
-                          key: const ValueKey('location-note-input'),
-                          controller: _note,
-                          focusNode: _noteFocus,
-                          enabled: !widget.busy,
-                          textInputAction: TextInputAction.done,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                          decoration: InputDecoration(
-                            labelText: '地点备注',
-                            hintText: '例如：学武楼 301',
-                            floatingLabelBehavior: FloatingLabelBehavior.always,
-                            errorText: _noteError,
+                        KeyedSubtree(
+                          key: _noteField,
+                          child: TextField(
+                            key: const ValueKey('location-note-input'),
+                            controller: _note,
+                            focusNode: _noteFocus,
+                            enabled: !widget.busy,
+                            textInputAction: TextInputAction.done,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                            decoration: InputDecoration(
+                              labelText: '地点备注',
+                              hintText: '例如：学武楼 301',
+                              floatingLabelBehavior:
+                                  FloatingLabelBehavior.always,
+                              errorText: _noteError,
+                            ),
+                            onChanged: (_) {
+                              if (_noteError != null) {
+                                setState(() => _noteError = null);
+                              }
+                              _draftChanged();
+                            },
+                            onSubmitted: (_) => confirm(),
                           ),
-                          onChanged: (_) {
-                            if (_noteError != null) {
-                              setState(() => _noteError = null);
-                            }
-                            _draftChanged();
-                          },
-                          onSubmitted: (_) => confirm(),
                         ),
                         const SizedBox(height: 12),
                       ],

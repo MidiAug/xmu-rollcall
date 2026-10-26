@@ -50,15 +50,24 @@ void main() {
   });
 
   group('buildTimetableAxisRows', () {
-    test('missing period times remain unknown instead of repeating 08:00', () {
-      final rows = buildTimetableAxisRows([], maxSeq: 11);
-      expect(
-        rows
-            .where((r) => !r.isBreak)
-            .every((r) => r.start == null && r.end == null),
-        isTrue,
-      );
-    });
+    test(
+      'all eleven standard periods retain their fixed times without courses',
+      () {
+        final periods = buildTimetableAxisRows(
+          [],
+          maxSeq: 11,
+        ).where((r) => !r.isBreak).toList();
+        expect(periods, hasLength(11));
+        expect(periods.first.start!.hour, 8);
+        expect(periods[2].start!.minute, 10);
+        expect(periods[4].start!.hour, 14);
+        expect(periods[4].start!.minute, 30);
+        expect(periods.last.end!.hour, 21);
+        expect(periods.last.end!.minute, 45);
+        final nonstandard = buildTimetableAxisRows([], maxSeq: 12).last;
+        expect(nonstandard.start, isNull);
+      },
+    );
     test('inserts 午休 and 晚休 bands', () {
       final courses = [
         CatalogCourse(

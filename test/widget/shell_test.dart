@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:xmu_rollcall/app/adaptive_shell.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
@@ -14,6 +15,7 @@ import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/update/app_release.dart';
 import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
@@ -54,6 +56,7 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       final service = FakeUpdateService();
+      final pending = StateProvider<bool>((ref) => false);
       final controller = AppUpdateController(
         service: service,
         package: () async => PackageInfo(
@@ -70,6 +73,9 @@ void main() {
             authControllerProvider.overrideWith((ref) => _TestAuthController()),
             activeRollcallsProvider.overrideWith(_EmptyRollcalls.new),
             appUpdateControllerProvider.overrideWith((ref) => controller),
+            hasIncompleteCourseScheduleProvider.overrideWith(
+              (ref) => ref.watch(pending),
+            ),
           ],
           child: MaterialApp(
             theme: width < 600 ? AppTheme.dark() : AppTheme.light(),
@@ -152,6 +158,18 @@ void main() {
       expect(badges, findsNothing);
       expect(find.byTooltip('有新版本可更新'), findsNothing);
       expect(tester.getRect(myTab), initialTabRect);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(AdaptiveShell)),
+      );
+      container.read(pending.notifier).state = true;
+      await tester.pumpAndSettle();
+      expect(badges, findsOneWidget);
+      expect(find.byTooltip('课表待完善'), findsOneWidget);
+      expect(tester.widget<Badge>(badges).smallSize, width < 600 ? 5 : 4);
+      expect(tester.getRect(myTab), initialTabRect);
+      container.read(pending.notifier).state = false;
+      await tester.pumpAndSettle();
+      expect(badges, findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });
@@ -240,9 +258,17 @@ void main() {
         findsOneWidget,
       );
 
+      final oldBack = DesktopShellChromeScope.of(
+        tester.element(find.byType(AppTitleBar)),
+        listen: false,
+      ).activeClaim!.onBack;
       await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
       expect(find.text('厦大签到'), findsOneWidget);
+      oldBack();
+      await tester.pumpAndSettle();
+      expect(find.text('厦大签到'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     },
     skip: !PlatformHooks.isDesktop,
   );

@@ -181,7 +181,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
         ? '正在确认最新状态…'
         : updatedAt == null
         ? '下拉刷新签到'
-        : '更新于 ${updatedAt.hour.toString().padLeft(2, '0')}:${updatedAt.minute.toString().padLeft(2, '0')}';
+        : '更新于 ${updatedAt.toLocal().toString().substring(11, 19)}';
     ref.listen(selectedRollcallAccountProvider, (previous, next) {
       if (previous != next) unawaited(_loadIdentity(next));
     });

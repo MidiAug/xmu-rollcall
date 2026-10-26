@@ -70,6 +70,7 @@ void main() {
       final pref = const CourseRadarPref(
         courseTitle: 'same name',
         courseId: '8',
+        userConfigured: true,
         latitude: 24.5,
         longitude: 118.2,
       ).toJson();
@@ -116,6 +117,53 @@ void main() {
         ),
         isNull,
       );
+    },
+  );
+  test(
+    'linked automatic location follows edits and refuses deleted or same-name replacement places',
+    () async {
+      final places = SavedLocationsController();
+      final defaults = CourseRadarDefaultsController(userId: 1);
+      addTearDown(places.dispose);
+      addTearDown(defaults.dispose);
+      final place = await places.add(
+        note: '教室A',
+        latitude: 24.5,
+        longitude: 118.2,
+        accuracy: 180,
+      );
+      await defaults.configureForCourse(
+        courseId: '7',
+        courseTitle: '课程',
+        selection: RadarGeoSelection(
+          latitude: place.latitude,
+          longitude: place.longitude,
+          accuracy: place.accuracy,
+          obtainedVia: RadarObtainedVia.place,
+          placeId: place.id,
+          label: place.note,
+        ),
+      );
+      Future<CourseRadarPref?> read() => readAutomaticRadarLocation(
+        ownerId: 1,
+        assistUserId: null,
+        courseId: '7',
+      );
+      expect((await read())!.latitude, 24.5);
+      await places.updateCoords(place.id, latitude: 24.6, longitude: 118.3);
+      final updated = (await read())!;
+      expect(updated.latitude, 24.6);
+      expect(updated.longitude, 118.3);
+      expect(updated.accuracy, 180);
+      await places.remove(place.id);
+      expect(await read(), isNull);
+      await places.add(note: '教室A', latitude: 24.5, longitude: 118.2);
+      expect(await read(), isNull);
+      // The manual confirmation path can still show the old point as a suggestion.
+      expect(defaults.forCourse(courseId: '7')!.latitude, 24.5);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(savedRadarLocationsKey, '{damaged');
+      expect(await read(), isNull);
     },
   );
 }

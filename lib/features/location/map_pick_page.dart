@@ -26,11 +26,16 @@ class MapPickPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return SubpageScaffold(
       title: title,
-      body: MapPickPanel(
-        initial: initial,
-        requireNote: requireNote,
-        confirmLabel: confirmLabel,
-        onConfirm: (result) => Navigator.of(context).pop(result),
+      body: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: MapPickPanel(
+          initial: initial,
+          requireNote: requireNote,
+          confirmLabel: confirmLabel,
+          onConfirm: (result) => Navigator.of(context).pop(result),
+        ),
       ),
     );
   }
