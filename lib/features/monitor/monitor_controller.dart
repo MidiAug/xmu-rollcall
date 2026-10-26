@@ -581,10 +581,12 @@ class MonitorController extends StateNotifier<MonitorState> {
       final automatic = AutomaticRollcallAnswer(
         repository: repo,
         runId: desktopRunId,
-        radarLocation: (item) => readAutomaticRadarLocation(
+        onRadarSuccess: (point) async {
+          if (current()) await persistMeetingRadarPoint(userId, scope, point);
+        },
+        radarLocation: createAutomaticRadarLocationReader(
           ownerId: userId,
           assistUserId: scope,
-          courseId: item.courseId,
         ),
         requireCurrent: () async {
           final auth = _ref.read(authControllerProvider);

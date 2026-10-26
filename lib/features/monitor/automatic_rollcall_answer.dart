@@ -14,12 +14,14 @@ class AutomaticRollcallAnswer {
     DateTime Function()? now,
     this.onAnswered,
     this.radarLocation,
+    this.onRadarSuccess,
     this.runId,
   }) : _now = now ?? DateTime.now;
   final RollcallRepository repository;
   final Future<void> Function() requireCurrent;
   final Future<void> Function(RollcallItem, AnswerResult)? onAnswered;
   final Future<CourseRadarPref?> Function(RollcallItem)? radarLocation;
+  final Future<void> Function(CourseRadarPref)? onRadarSuccess;
   final DateTime Function() _now;
   final String? runId;
   final _numberCodes = <int, String>{};
@@ -189,6 +191,7 @@ class AutomaticRollcallAnswer {
                 ? 'configured'
                 : 'previous_success',
         });
+        CourseRadarPref? submittedPoint;
         final result = item.isRadar
             ? await repository.answerRadar(
                 rollcallId: id,
@@ -207,7 +210,8 @@ class AutomaticRollcallAnswer {
                       latestPoint.latitude != location.latitude ||
                       latestPoint.longitude != location.longitude ||
                       latestPoint.accuracy != location.accuracy ||
-                      latestPoint.placeId != location.placeId) {
+                      latestPoint.placeId != location.placeId ||
+                      latestPoint.meetingKey != location.meetingKey) {
                     throw StateError(
                       'Automatic radar location changed before send',
                     );
@@ -217,6 +221,11 @@ class AutomaticRollcallAnswer {
                     throw StateError('Automatic radar already attempted');
                   }
                   _radarAttempted.add(id);
+                  submittedPoint = location.forMeeting(
+                    location.meetingKey,
+                    stamp: DateTime.now().microsecondsSinceEpoch,
+                    configured: false,
+                  );
                 },
               )
             : await repository.answerNumber(
@@ -228,6 +237,17 @@ class AutomaticRollcallAnswer {
         if (result.ok) {
           _completed.add(id);
           message = '自动签到成功：${item.courseTitle}';
+          if (current() && submittedPoint?.meetingKey.isNotEmpty == true) {
+            try {
+              await onRadarSuccess?.call(submittedPoint!);
+            } catch (error, stack) {
+              trace(
+                'monitor.auto.location_memory_failed',
+                LogRedactor.exceptionFields(error: error, stackTrace: stack),
+                'W',
+              );
+            }
+          }
         } else {
           message = item.isRadar ? '雷达自动签到未成功，请手动确认位置' : '自动签到未成功，稍后重新检查';
         }

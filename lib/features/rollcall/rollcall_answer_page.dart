@@ -13,6 +13,8 @@ import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/location/coord_transform.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
 import 'package:xmu_rollcall/features/location/location_providers.dart';
+import 'package:xmu_rollcall/features/location/course_meeting.dart';
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/location/map_pick_page.dart';
 import 'package:xmu_rollcall/features/rollcall/radar_place_card.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
@@ -46,11 +48,18 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
   RadarGeoSelection? _selection;
   String? _status;
   bool _pinnedByUser = false;
+  String? _meetingKey;
+  int? _scopeOwnerId;
+  bool _scopePrepared = false;
+  Future<void>? _scopeReady;
+  late final DateTime _openedAt = ref.read(radarMeetingClockProvider)();
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncCoursePref());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.item.isRadar) _scopeReady ??= _prepareCoursePref();
+    });
   }
 
   @override
@@ -60,12 +69,15 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
   }
 
   void _syncCoursePref() {
-    if (!mounted || !widget.item.isRadar || _pinnedByUser) return;
+    if (!mounted || !widget.item.isRadar || _pinnedByUser || !_scopePrepared) {
+      return;
+    }
     final pref = ref
         .read(courseRadarDefaultsForProvider(widget.assistUserId).notifier)
         .forCourse(
           courseId: widget.item.courseId,
           courseTitle: widget.item.courseTitle,
+          meetingKey: _meetingKey ?? '',
         );
     if (pref == null) {
       if (_selection?.filledFrom == RadarFilledFrom.pref ||
@@ -91,6 +103,29 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
       return;
     }
     setState(() => _selection = next);
+  }
+
+  Future<void> _prepareCoursePref() async {
+    final owner = ref.read(authControllerProvider).profile?.id;
+    final controller = ref.read(
+      courseRadarDefaultsForProvider(widget.assistUserId).notifier,
+    );
+    await controller.reload();
+    final meeting = owner == null
+        ? null
+        : await resolveRadarMeeting(
+            ownerId: owner,
+            assistUserId: widget.assistUserId,
+            courseId: widget.item.courseId,
+            at: radarActivityReferenceTime(widget.item, _openedAt),
+          );
+    if (!mounted || ref.read(authControllerProvider).profile?.id != owner) {
+      return;
+    }
+    _meetingKey = meeting;
+    _scopeOwnerId = owner;
+    _scopePrepared = true;
+    _syncCoursePref();
   }
 
   void _pin(RadarGeoSelection selection) {
@@ -400,6 +435,20 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
         RadarObtainedVia.map => 'map',
         RadarObtainedVia.place => 'preset',
       };
+      await (_scopeReady ??= _prepareCoursePref());
+      if (!mounted) return;
+      final owner = _scopeOwnerId;
+      void requireOwner() {
+        final auth = ref.read(authControllerProvider);
+        if (!mounted ||
+            owner == null ||
+            !auth.isSignedIn ||
+            auth.profile?.id != owner) {
+          throw StateError('账号已切换，请重新打开签到页');
+        }
+      }
+
+      requireOwner();
       RollcallLog.location(
         opId: opId,
         source: source,
@@ -415,8 +464,12 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
             longitude: sel.longitude,
             accuracy: sel.accuracy,
             opId: opId,
+            beforeSend: () async => requireOwner(),
           );
       ok = result.ok;
+      if (!mounted || ref.read(authControllerProvider).profile?.id != owner) {
+        return;
+      }
       await ref
           .read(ref.read(localHistoryForProvider(widget.assistUserId)).notifier)
           .add(
@@ -447,6 +500,8 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
               placeId: sel.placeId,
               obtainedVia: sel.obtainedVia,
               labelSnapshot: sel.label,
+              meetingKey: _meetingKey ?? '',
+              submittedAtMicros: started.microsecondsSinceEpoch,
             );
         if (mounted) Navigator.of(context).pop();
       } else {
@@ -489,12 +544,19 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     }
     setState(() => _submitting = true);
     try {
+      await (_scopeReady ??= _prepareCoursePref());
+      if (!mounted) return;
+      if (_scopeOwnerId == null ||
+          ref.read(authControllerProvider).profile?.id != _scopeOwnerId) {
+        throw StateError('账号已切换，请重新打开签到页');
+      }
       await ref
           .read(courseRadarDefaultsForProvider(widget.assistUserId).notifier)
           .configureForCourse(
             courseId: courseId,
             courseTitle: widget.item.courseTitle,
             selection: selection,
+            meetingKeys: [?_meetingKey],
           );
       if (mounted) AppToast.show(context, '已保存本课位置，开启自动签到后可使用');
     } catch (error, stack) {

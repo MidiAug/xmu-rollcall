@@ -137,6 +137,43 @@ void main() {
       automatic.process([item()], c, () => current);
 
   final radar = item(type: RollcallType.radar, courseId: '7');
+
+  test(
+    'automatic success remembers the submitted meeting once and memory failure cannot resubmit',
+    () async {
+      var memories = 0;
+      final auto = AutomaticRollcallAnswer(
+        repository: repo,
+        requireCurrent: () async {},
+        now: () => now,
+        radarLocation: (_) async => const CourseRadarPref(
+          courseTitle: '课程',
+          courseId: '7',
+          meetingKey: '1:1-3:480-630',
+          latitude: 24.5,
+          longitude: 118.2,
+          accuracy: 180,
+          userConfigured: true,
+        ),
+        onRadarSuccess: (point) async {
+          memories++;
+          expect(point.meetingKey, '1:1-3:480-630');
+          expect(point.userConfigured, false);
+          expect(point.updatedAtMicros, greaterThan(0));
+          throw StateError('disk unavailable');
+        },
+      );
+      repo.latest = [radar];
+      const config = MonitorConfig(
+        autoAnswer: true,
+        answerWaitMode: AnswerWaitMode.none,
+      );
+      await auto.process([radar], config, () => true);
+      await auto.process([radar], config, () => true);
+      expect(memories, 1);
+      expect(repo.calls.where((c) => c == 'radar'), hasLength(1));
+    },
+  );
   CourseRadarPref location({String courseId = '7', bool configured = false}) =>
       CourseRadarPref(
         courseTitle: '测试课',

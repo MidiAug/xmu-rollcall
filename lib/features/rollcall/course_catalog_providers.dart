@@ -146,17 +146,35 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
   Future<void> saveMeetings(
     int userId,
     String courseId,
-    List<CourseMeeting> meetings,
-  ) async {
-    if (_boundUserId != userId) throw StateError('账号已切换，请重新打开课表');
+    List<CourseMeeting> meetings, {
+    int? expectedOwnerId,
+  }) async {
+    void requireScope() {
+      if (_boundUserId != userId ||
+          (expectedOwnerId != null &&
+              ref.read(authControllerProvider).profile?.id !=
+                  expectedOwnerId)) {
+        throw StateError('账号已切换，请重新打开课表');
+      }
+      if (assistUserId != null &&
+          !ref
+              .read(assistControllerProvider)
+              .identities
+              .any((i) => i.userId == assistUserId)) {
+        throw StateError('协助身份已移除');
+      }
+    }
+
+    requireScope();
     final raw = await CourseCatalogStore.read(userId);
     if (raw == null ||
         !raw.courses.any((c) => c.id == courseId && !c.hasPlatformSchedule)) {
       throw StateError('课程安排已变化，请刷新课表');
     }
-    if (_boundUserId != userId) throw StateError('账号已切换');
+    requireScope();
     await CourseScheduleStore.write(userId, courseId, meetings);
     final effective = await _withSchedules(userId, raw);
-    if (_boundUserId == userId) state = AsyncData(effective);
+    requireScope();
+    state = AsyncData(effective);
   }
 }

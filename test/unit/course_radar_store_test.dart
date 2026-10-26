@@ -70,6 +70,7 @@ void main() {
       final pref = const CourseRadarPref(
         courseTitle: 'same name',
         courseId: '8',
+        userConfigured: true,
         latitude: 24.5,
         longitude: 118.2,
       ).toJson();

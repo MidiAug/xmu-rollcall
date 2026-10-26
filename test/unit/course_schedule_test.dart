@@ -6,6 +6,9 @@ import 'package:xmu_rollcall/core/cache/course_schedule_store.dart';
 import 'package:xmu_rollcall/core/cache/course_rollcalls_store.dart';
 import 'package:xmu_rollcall/core/cache/history_candidates.dart';
 import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
+import 'package:xmu_rollcall/core/session/assist_identity.dart';
+import 'package:xmu_rollcall/core/session/session_credential.dart';
+import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
@@ -15,6 +18,24 @@ import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid.dart';
 
 class _Repo extends Fake implements AuthRepository {}
+
+class _Assist extends AssistController {
+  _Assist(super.ref)
+    : super(
+        bootstrap: false,
+        initial: const AssistUiState(
+          ready: true,
+          identities: [
+            AssistIdentity(
+              userId: 2,
+              displayName: '协助对象',
+              kind: AssistCredentialKind.session,
+            ),
+          ],
+        ),
+      );
+  void clear() => state = const AssistUiState(ready: true);
+}
 
 class _Auth extends AuthController {
   _Auth() : super(_Repo()) {
@@ -58,6 +79,49 @@ const meetings = [
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test(
+    'assist timetable saves locally without changing owner and rejects a removed identity',
+    () async {
+      for (final uid in [1, 2]) {
+        await CourseCatalogStore.write(
+          uid,
+          CourseCatalogSnapshot(
+            fetchedAt: DateTime(2026, 10, 26),
+            rolesResolved: true,
+            courses: const [CatalogCourse(id: 'course', title: '课程')],
+          ),
+        );
+      }
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          assistControllerProvider.overrideWith((ref) => _Assist(ref)),
+        ],
+      );
+      addTearDown(container.dispose);
+      final provider = container.read(scopedCourseCatalogProvider(2));
+      await container.read(provider.future);
+      await container
+          .read(provider.notifier)
+          .saveMeetings(2, 'course', meetings, expectedOwnerId: 1);
+      expect((await CourseScheduleStore.read(2, 'course')), hasLength(3));
+      expect(await CourseScheduleStore.read(1, 'course'), isEmpty);
+      container.invalidate(provider);
+      expect(
+        (await container.read(provider.future))!.courses.single.localMeetings,
+        hasLength(3),
+      );
+      (container.read(assistControllerProvider.notifier) as _Assist).clear();
+      await expectLater(
+        container
+            .read(provider.notifier)
+            .saveMeetings(2, 'course', [], expectedOwnerId: 1),
+        throwsStateError,
+      );
+      expect(await CourseScheduleStore.read(2, 'course'), hasLength(3));
+    },
+  );
 
   test(
     'meetings keep multi-period boundaries and separate classrooms',

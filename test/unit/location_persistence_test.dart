@@ -89,14 +89,21 @@ void main() {
             longitude: 118.2,
             accuracy: 850,
             obtainedVia: RadarObtainedVia.device,
+            meetingKey: 'monday',
           ),
       ]);
       final restored = _Courses(userId: 1);
       addTearDown(restored.dispose);
       await restored.ready;
       expect(restored.value, hasLength(3));
-      expect(restored.forCourse(courseId: 'a')?.accuracy, 850);
-      expect(restored.forCourse(courseId: 'b')?.courseId, 'b');
+      expect(
+        restored.forCourse(courseId: 'a', meetingKey: 'monday')?.accuracy,
+        850,
+      );
+      expect(
+        restored.forCourse(courseId: 'b', meetingKey: 'monday')?.courseId,
+        'b',
+      );
     },
   );
   test(
@@ -114,6 +121,7 @@ void main() {
         latitude: 24.4,
         longitude: 118.1,
         obtainedVia: RadarObtainedVia.map,
+        meetingKey: 'monday',
       );
       await assist.rememberSuccess(
         courseTitle: 'course',
@@ -121,11 +129,18 @@ void main() {
         latitude: 24.5,
         longitude: 118.2,
         obtainedVia: RadarObtainedVia.map,
+        meetingKey: 'monday',
       );
       await other.ready;
-      expect(owner.forCourse(courseId: '1')?.latitude, 24.4);
-      expect(assist.forCourse(courseId: '1')?.latitude, 24.5);
-      expect(other.forCourse(courseId: '1'), isNull);
+      expect(
+        owner.forCourse(courseId: '1', meetingKey: 'monday')?.latitude,
+        24.4,
+      );
+      expect(
+        assist.forCourse(courseId: '1', meetingKey: 'monday')?.latitude,
+        24.5,
+      );
+      expect(other.forCourse(courseId: '1', meetingKey: 'monday'), isNull);
     },
   );
   test(

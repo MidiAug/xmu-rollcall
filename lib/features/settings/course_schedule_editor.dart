@@ -10,13 +10,15 @@ import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 
 class CourseSchedulesPage extends ConsumerWidget {
-  const CourseSchedulesPage({super.key});
+  const CourseSchedulesPage({super.key, this.assistUserId});
+  final int? assistUserId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final catalog = ref.watch(scopedCourseCatalogProvider(assistUserId));
     final courses =
         ref
-            .watch(courseCatalogProvider)
+            .watch(catalog)
             .valueOrNull
             ?.courses
             .where((c) => !c.hasPlatformSchedule)
@@ -43,8 +45,9 @@ class CourseSchedulesPage extends ConsumerWidget {
                   ? const Badge(child: Icon(Icons.edit_calendar_outlined))
                   : const Icon(Icons.edit_outlined),
               onTap: () {
-                final uid = ref.read(authControllerProvider).profile?.id;
-                if (uid == null) return;
+                final owner = ref.read(authControllerProvider).profile?.id;
+                if (owner == null) return;
+                final uid = assistUserId ?? owner;
                 showDialog<void>(
                   context: context,
                   useRootNavigator: false,
@@ -52,8 +55,13 @@ class CourseSchedulesPage extends ConsumerWidget {
                   builder: (_) => CourseScheduleEditor(
                     course: course,
                     onSave: (meetings) => ref
-                        .read(courseCatalogProvider.notifier)
-                        .saveMeetings(uid, course.id, meetings),
+                        .read(catalog.notifier)
+                        .saveMeetings(
+                          uid,
+                          course.id,
+                          meetings,
+                          expectedOwnerId: owner,
+                        ),
                   ),
                 );
               },

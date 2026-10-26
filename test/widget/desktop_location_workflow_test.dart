@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
+import 'package:xmu_rollcall/core/cache/course_schedule_store.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
@@ -57,6 +59,28 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
   }
+
+  testWidgets('mobile add location keeps note above keyboard', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
+        home: const MapPickPage(requireNote: true),
+      ),
+    );
+    final note = find.byKey(const ValueKey('location-note-input'));
+    await tester.tap(note);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+    expect(tester.getBottomRight(note).dy, lessThanOrEqualTo(544));
+    await tester.enterText(note, '教室');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets(
     'desktop add and update location return to saved list and persist',
@@ -127,6 +151,7 @@ void main() {
         longitude: 118.2,
         obtainedVia: 'map',
         labelSnapshot: label,
+        userConfigured: true,
       );
       SharedPreferences.setMockInitialValues({
         'course_radar_defaults_1': jsonEncode({
@@ -136,10 +161,30 @@ void main() {
           'id:7': pref(24.5, 'assist room').toJson(),
         }),
       });
+      await CourseCatalogStore.write(
+        2,
+        CourseCatalogSnapshot(
+          fetchedAt: DateTime(2026, 10, 26),
+          rolesResolved: true,
+          courses: const [CatalogCourse(id: '7', title: 'course')],
+        ),
+      );
+      await CourseScheduleStore.write(2, '7', const [
+        CourseMeeting(
+          weekday: 1,
+          first: 1,
+          last: 3,
+          startMinutes: 480,
+          endMinutes: 630,
+        ),
+      ]);
       final repo = _Repo();
       final container = ProviderContainer(
         overrides: [
           authControllerProvider.overrideWith((ref) => _Auth()),
+          radarMeetingClockProvider.overrideWithValue(
+            () => DateTime(2026, 10, 26, 9),
+          ),
           rollcallRepositoryForProvider.overrideWith((ref, id) {
             expect(id, 2);
             return repo;
@@ -191,6 +236,11 @@ void main() {
       expect(repo.calls, 1);
       expect(repo.lat, 24.5);
       expect(repo.lng, 118.2);
+      final remembered = container
+          .read(courseRadarDefaultsForProvider(2).notifier)
+          .forCourse(courseId: '7', meetingKey: '1:1-3:480-630');
+      expect(remembered!.meetingKey, '1:1-3:480-630');
+      expect(remembered.userConfigured, false);
       expect(
         container
             .read(courseRadarDefaultsForProvider(2).notifier)

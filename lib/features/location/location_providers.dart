@@ -8,6 +8,10 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
 import 'package:xmu_rollcall/features/location/course_radar_store.dart';
 
+final radarMeetingClockProvider = Provider<DateTime Function()>(
+  (ref) => DateTime.now,
+);
+
 final savedLocationsProvider =
     StateNotifierProvider<SavedLocationsController, List<SavedLocation>>((ref) {
       return SavedLocationsController();
@@ -230,19 +234,39 @@ class CourseRadarDefaultsController
       }
     }
     if (!mounted) return;
-    if (raw == null || raw.isEmpty) {
-      state = const {};
-      return;
-    }
     try {
-      final map = jsonDecode(raw) as Map<String, dynamic>;
-      state = {
+      final map = raw == null || raw.isEmpty
+          ? <String, dynamic>{}
+          : jsonDecode(raw) as Map<String, dynamic>;
+      final loaded = <String, CourseRadarPref>{
         for (final e in map.entries)
           if (e.value is Map)
             e.key: CourseRadarPref.fromJson(
               Map<String, dynamic>.from(e.value as Map),
             ),
       };
+      for (final entryKey in prefs.getKeys().where(
+        (k) => k.startsWith(
+          courseRadarMeetingPreferencePrefix(userId!, assistUserId),
+        ),
+      )) {
+        try {
+          final point = CourseRadarPref.fromJson(
+            Map<String, dynamic>.from(
+              jsonDecode(prefs.getString(entryKey)!) as Map,
+            ),
+          );
+          if (point.meetingKey.isEmpty || point.courseId.isEmpty) continue;
+          final meetingKey = courseRadarMeetingStorageKey(
+            point.courseId,
+            point.meetingKey,
+          );
+          loaded[meetingKey] = newerMeetingPoint(loaded[meetingKey], point)!;
+        } catch (_) {
+          /* A damaged meeting does not discard the others. */
+        }
+      }
+      if (mounted) state = loaded;
     } catch (_) {
       state = const {};
     }
@@ -252,7 +276,8 @@ class CourseRadarDefaultsController
     final key = _key;
     if (key == null) return Future.value();
     final raw = jsonEncode({
-      for (final e in state.entries) e.key: e.value.toJson(),
+      for (final e in state.entries)
+        if (e.value.meetingKey.isEmpty) e.key: e.value.toJson(),
     });
     final write = _writes.then((_) async {
       final prefs = await SharedPreferences.getInstance();
@@ -262,12 +287,30 @@ class CourseRadarDefaultsController
     return write;
   }
 
-  CourseRadarPref? forCourse({String? courseId, String courseTitle = ''}) {
+  Future<void> reload() async {
+    await ready;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.reload();
+    await _load();
+  }
+
+  CourseRadarPref? forCourse({
+    String? courseId,
+    String courseTitle = '',
+    String? meetingKey,
+  }) {
     final id = courseId?.trim() ?? '';
     if (id.isNotEmpty) {
+      if (meetingKey?.isNotEmpty == true) {
+        final meeting = state[courseRadarMeetingStorageKey(id, meetingKey!)];
+        if (meeting != null) return meeting;
+      }
       final byId = state['id:$id'] ?? state[id];
-      if (byId != null) return byId;
+      if (byId != null && (meetingKey == null || byId.userConfigured)) {
+        return byId;
+      }
     }
+    if (meetingKey != null) return null;
     final title = courseTitle.trim();
     if (title.isEmpty) return null;
     final byTitle = state['t:$title'] ?? state[title];
@@ -289,25 +332,35 @@ class CourseRadarDefaultsController
     String placeId = '',
     required RadarObtainedVia obtainedVia,
     String labelSnapshot = '',
-  }) => _remember(
-    CourseRadarPref(
-      courseTitle: courseTitle.trim(),
-      courseId: courseId?.trim() ?? '',
-      latitude: latitude,
-      longitude: longitude,
-      accuracy: accuracy,
-      placeId: placeId,
-      obtainedVia: obtainedVia.storageKey,
-      labelSnapshot: labelSnapshot,
-    ),
-  );
+    String meetingKey = '',
+    int? submittedAtMicros,
+  }) async {
+    if (meetingKey.isEmpty || (courseId?.trim().isEmpty ?? true)) return;
+    await _remember(
+      CourseRadarPref(
+        courseTitle: courseTitle.trim(),
+        courseId: courseId?.trim() ?? '',
+        latitude: latitude,
+        longitude: longitude,
+        accuracy: accuracy,
+        placeId: placeId,
+        obtainedVia: obtainedVia.storageKey,
+        labelSnapshot: labelSnapshot,
+        meetingKey: meetingKey,
+        updatedAtMicros:
+            submittedAtMicros ?? DateTime.now().microsecondsSinceEpoch,
+      ),
+    );
+  }
 
   Future<void> configureForCourse({
     required String courseId,
     required String courseTitle,
     required RadarGeoSelection selection,
-  }) => _remember(
-    CourseRadarPref(
+    Iterable<String> meetingKeys = const [],
+  }) async {
+    await ready;
+    final point = CourseRadarPref(
       courseTitle: courseTitle.trim(),
       courseId: courseId.trim(),
       latitude: selection.latitude,
@@ -317,12 +370,21 @@ class CourseRadarDefaultsController
       obtainedVia: selection.obtainedVia.storageKey,
       labelSnapshot: selection.label,
       userConfigured: true,
-    ),
-  );
+      updatedAtMicros: DateTime.now().microsecondsSinceEpoch,
+    );
+    final targets = meetingKeys.where((k) => k.isNotEmpty).toSet();
+    final shared = state['id:${courseId.trim()}'] ?? state[courseId.trim()];
+    if (targets.isEmpty || shared?.userConfigured != true) {
+      await _remember(point);
+    }
+    for (final meeting in targets) {
+      await _remember(point.forMeeting(meeting));
+    }
+  }
 
   Future<void> _remember(CourseRadarPref pref) async {
     await ready;
-    if (!mounted) return;
+    if (!mounted || _key == null) return;
     validateRadarLocation(
       latitude: pref.latitude,
       longitude: pref.longitude,
@@ -330,18 +392,26 @@ class CourseRadarDefaultsController
     );
     final title = pref.courseTitle;
     final id = pref.courseId;
-    final key = courseRadarStorageKey(courseId: id, courseTitle: title);
+    final key = pref.meetingKey.isEmpty
+        ? courseRadarStorageKey(courseId: id, courseTitle: title)
+        : courseRadarMeetingStorageKey(id, pref.meetingKey);
     if (key.isEmpty) return;
 
     final next = Map<String, CourseRadarPref>.from(state);
-    next[key] = pref;
+    next[key] = pref.meetingKey.isEmpty
+        ? pref
+        : newerMeetingPoint(next[key], pref)!;
     // Drop legacy bare-title key once we have a stable id key.
     if (id.isNotEmpty && title.isNotEmpty) {
       next.remove(title);
       next.remove('t:$title');
     }
     state = next;
-    await _persist();
+    if (pref.meetingKey.isEmpty) {
+      await _persist();
+    } else {
+      await persistMeetingRadarPoint(userId!, assistUserId, pref);
+    }
     AppLog.event(
       'location.course.remember',
       fields: {

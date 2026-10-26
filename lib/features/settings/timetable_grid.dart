@@ -183,40 +183,8 @@ String timetableCourseTitle(CatalogCourse c) {
 ///
 /// Unlike [splitContiguousBlocks] (used by session prior), periods 2–3 stay
 /// one block even when the official rest between them is ~30 minutes.
-List<SessionBlock> mergeConsecutiveSequenceBlocks(List<TimetableSlot> slots) {
-  if (slots.isEmpty) return const [];
-  final sorted = [...slots]..sort((a, b) => a.sequence.compareTo(b.sequence));
-  final out = <SessionBlock>[];
-  var run = <TimetableSlot>[sorted.first];
-  for (var i = 1; i < sorted.length; i++) {
-    final s = sorted[i];
-    final prev = run.last;
-    if (s.sequence == prev.sequence + 1 &&
-        s.endSequence == null &&
-        prev.endSequence == null) {
-      run.add(s);
-    } else {
-      out.add(
-        SessionBlock(
-          startSequence: run.first.sequence,
-          endSequence: run.last.lastSequence,
-          coreStart: run.first.start,
-          coreEnd: run.last.end,
-        ),
-      );
-      run = [s];
-    }
-  }
-  out.add(
-    SessionBlock(
-      startSequence: run.first.sequence,
-      endSequence: run.last.lastSequence,
-      coreStart: run.first.start,
-      coreEnd: run.last.end,
-    ),
-  );
-  return out;
-}
+List<SessionBlock> mergeConsecutiveSequenceBlocks(List<TimetableSlot> slots) =>
+    courseMeetingBlocks(slots);
 
 /// Flatten catalog into placed blocks (one per weekday × consecutive periods).
 List<TimetablePlacedBlock> placeTimetableBlocks(

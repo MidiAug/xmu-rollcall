@@ -168,6 +168,27 @@ const _weekdayNames = <int, String>{
 
 String weekdayLabel(int weekday) => _weekdayNames[weekday] ?? '周$weekday';
 
+/// Whole timetable meetings; consecutive official periods stay together.
+List<SessionBlock> courseMeetingBlocks(List<TimetableSlot> slots) {
+  if (slots.isEmpty) return const [];
+  final sorted = [...slots]..sort((a, b) => a.sequence.compareTo(b.sequence));
+  final blocks = <SessionBlock>[];
+  var run = <TimetableSlot>[sorted.first];
+  for (final slot in sorted.skip(1)) {
+    final previous = run.last;
+    if (slot.sequence == previous.sequence + 1 &&
+        slot.endSequence == null &&
+        previous.endSequence == null) {
+      run.add(slot);
+    } else {
+      blocks.add(_blockFromRun(run));
+      run = [slot];
+    }
+  }
+  blocks.add(_blockFromRun(run));
+  return blocks;
+}
+
 /// Parse TronClass `timetables` map for one course.
 ///
 /// Keys are weekday strings `"1"`…`"7"` (Monday=1), matching [DateTime.weekday].

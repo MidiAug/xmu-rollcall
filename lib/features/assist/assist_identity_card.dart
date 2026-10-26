@@ -13,6 +13,7 @@ import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
 import 'package:xmu_rollcall/features/assist/assist_shared_course_chip.dart';
+import 'package:xmu_rollcall/features/settings/courses_page.dart';
 
 /// Assist roster person card — whole card opens the rollcall hub.
 class AssistIdentityCard extends ConsumerWidget {
@@ -121,6 +122,14 @@ class AssistIdentityCard extends ConsumerWidget {
     _RosterAction action,
   ) async {
     switch (action) {
+      case _RosterAction.timetable:
+        await AppPageRoutes.push(
+          context,
+          CoursesPage(
+            assistUserId: identity.userId,
+            accountName: identity.displayName,
+          ),
+        );
       case _RosterAction.viewCourses:
         await showAssistSharedCoursesSheet(
           context,
@@ -158,7 +167,7 @@ class AssistIdentityCard extends ConsumerWidget {
   }
 }
 
-enum _RosterAction { viewCourses, refreshCourses, remove }
+enum _RosterAction { timetable, viewCourses, refreshCourses, remove }
 
 class _MoreButton extends StatelessWidget {
   const _MoreButton({required this.enabled, required this.onSelected});
@@ -227,6 +236,11 @@ Future<_RosterAction?> _showAssistRosterMenu(BuildContext buttonContext) {
     shape: AppMenuStyle.shape(buttonContext),
     menuPadding: const EdgeInsets.symmetric(vertical: AppMenuStyle.inset),
     items: [
+      AppPopupMenuItem<_RosterAction>(
+        value: _RosterAction.timetable,
+        icon: Icons.calendar_view_week_outlined,
+        label: '查看课表',
+      ),
       AppPopupMenuItem<_RosterAction>(
         value: _RosterAction.viewCourses,
         icon: Icons.menu_book_outlined,

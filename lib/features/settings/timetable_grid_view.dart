@@ -9,22 +9,29 @@ import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 import 'package:xmu_rollcall/features/location/course_location_setting.dart';
 import 'package:xmu_rollcall/features/location/location_picker.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
+import 'package:xmu_rollcall/features/location/course_meeting.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid.dart';
 
 /// Week × period timetable. Keep readable row sizes; scroll instead of shrinking
 /// the text to fit late periods into the viewport. Weekday headers stay visible.
 class TimetableGridView extends StatelessWidget {
-  const TimetableGridView({super.key, required this.courses});
+  const TimetableGridView({
+    super.key,
+    required this.courses,
+    this.assistUserId,
+  });
+  final int? assistUserId;
 
   final List<CatalogCourse> courses;
 
   @override
   Widget build(BuildContext context) =>
-      _ScrollableTimetableGrid(courses: courses);
+      _ScrollableTimetableGrid(courses: courses, assistUserId: assistUserId);
 }
 
 class _ScrollableTimetableGrid extends StatefulWidget {
-  const _ScrollableTimetableGrid({required this.courses});
+  const _ScrollableTimetableGrid({required this.courses, this.assistUserId});
+  final int? assistUserId;
   final List<CatalogCourse> courses;
 
   @override
@@ -330,7 +337,10 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
   }
 
   void _showBlockDetail(BuildContext context, TimetablePlacedBlock block) {
-    final detail = _CourseDetailFlow(block: block);
+    final detail = _CourseDetailFlow(
+      block: block,
+      assistUserId: widget.assistUserId,
+    );
     if (!AppDensity.isTouch(context)) {
       showDialog<void>(
         context: context,
@@ -359,11 +369,21 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
         useSafeArea: true,
         isScrollControlled: true,
         showDragHandle: true,
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * .8,
-        ),
         backgroundColor: AppPalette.of(context).surface,
-        builder: (_) => detail,
+        builder: (sheetContext) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight:
+                  (MediaQuery.sizeOf(sheetContext).height -
+                      MediaQuery.viewInsetsOf(sheetContext).bottom) *
+                  .8,
+            ),
+            child: detail,
+          ),
+        ),
       );
     }
   }
@@ -381,7 +401,8 @@ String? _separateClassLabel(CatalogCourse course) {
 }
 
 class _CourseDetailFlow extends StatefulWidget {
-  const _CourseDetailFlow({required this.block});
+  const _CourseDetailFlow({required this.block, this.assistUserId});
+  final int? assistUserId;
   final TimetablePlacedBlock block;
   @override
   State<_CourseDetailFlow> createState() => _CourseDetailFlowState();
@@ -427,7 +448,11 @@ class _CourseDetailFlowState extends State<_CourseDetailFlow> {
           child: Offstage(
             offstage: _pending != null,
             child: SingleChildScrollView(
-              child: _CourseDetail(block: widget.block, pickLocation: _pick),
+              child: _CourseDetail(
+                block: widget.block,
+                pickLocation: _pick,
+                assistUserId: widget.assistUserId,
+              ),
             ),
           ),
         ),
@@ -446,7 +471,12 @@ class _CourseDetailFlowState extends State<_CourseDetailFlow> {
 }
 
 class _CourseDetail extends StatelessWidget {
-  const _CourseDetail({required this.block, this.pickLocation});
+  const _CourseDetail({
+    required this.block,
+    this.pickLocation,
+    this.assistUserId,
+  });
+  final int? assistUserId;
   final TimetablePlacedBlock block;
   final Future<SavedLocation?> Function(String?, LatLng?)? pickLocation;
 
@@ -497,6 +527,9 @@ class _CourseDetail extends StatelessWidget {
             courseTitle: c.title,
             displayLocation: c.location,
             pickLocation: pickLocation,
+            assistUserId: assistUserId,
+            meetingKey: courseMeetingKey(block.weekday, block.block),
+            meetings: courseMeetingLabels(c),
           ),
         ],
       ),
