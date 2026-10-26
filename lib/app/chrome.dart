@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:xmu_rollcall/app/shell_tab_exit_guard.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
@@ -227,14 +228,40 @@ class AppTitleBar extends StatelessWidget {
                         children: [
                           const BrandMark(size: 18),
                           const SizedBox(width: 8),
-                          Text(
-                            title,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: p.ink,
+                          Flexible(
+                            child: Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: p.ink,
+                              ),
                             ),
                           ),
+                          if (kDebugMode) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: p.primary.withValues(alpha: .10),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                '开发版',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  height: 1.2,
+                                  fontWeight: FontWeight.w600,
+                                  color: p.primary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
