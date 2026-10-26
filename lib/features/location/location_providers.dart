@@ -54,7 +54,7 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
 
   late final Future<void> ready;
   Future<void> _writes = Future.value();
-  static const _key = 'saved_radar_locations';
+  static const _key = savedRadarLocationsKey;
   final _uuid = const Uuid();
 
   Future<void> _load() async {

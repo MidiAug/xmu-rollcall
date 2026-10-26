@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+const savedRadarLocationsKey = 'saved_radar_locations';
+
 /// Validate before persisting or submitting a coordinate selection.
 void validateRadarLocation({
   required double latitude,

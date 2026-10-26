@@ -38,7 +38,9 @@ class _Repo extends Fake implements RollcallRepository {
     required double longitude,
     double accuracy = 35,
     String? opId,
+    Future<void> Function()? beforeSend,
   }) async {
+    await beforeSend?.call();
     calls++;
     lat = latitude;
     lng = longitude;

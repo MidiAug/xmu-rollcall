@@ -29,6 +29,38 @@ Future<CourseRadarPref?> readAutomaticRadarLocation({
     if (entry is! Map) return null;
     final pref = CourseRadarPref.fromJson(Map<String, dynamic>.from(entry));
     if (pref.courseId != id) return null;
+    if (pref.placeId.isNotEmpty) {
+      final saved = prefs.getString(savedRadarLocationsKey);
+      if (saved == null) return null;
+      final places = jsonDecode(saved);
+      if (places is! List) return null;
+      final matches = places.whereType<Map>().where(
+        (p) => p['id'] == pref.placeId,
+      );
+      if (matches.length != 1) return null;
+      final place = SavedLocation.fromJson(
+        Map<String, dynamic>.from(matches.single),
+      );
+      validateRadarLocation(
+        latitude: place.latitude,
+        longitude: place.longitude,
+        accuracy: place.accuracy,
+      );
+      // Automatic use follows the exact current place, never a deleted snapshot
+      // or a different nearby/name-matched place. Manual confirmation may retain
+      // the old snapshot as a visible suggestion.
+      return CourseRadarPref(
+        courseTitle: pref.courseTitle,
+        courseId: pref.courseId,
+        latitude: place.latitude,
+        longitude: place.longitude,
+        accuracy: place.accuracy,
+        placeId: place.id,
+        obtainedVia: RadarObtainedVia.place.storageKey,
+        labelSnapshot: place.note,
+        userConfigured: pref.userConfigured,
+      );
+    }
     validateRadarLocation(
       latitude: pref.latitude,
       longitude: pref.longitude,

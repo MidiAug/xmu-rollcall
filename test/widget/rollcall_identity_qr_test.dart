@@ -127,7 +127,9 @@ class _Client extends TronHttpClient {
     Object? data,
     Options? options,
     CancelToken? cancelToken,
+    Future<void> Function()? beforeSend,
   }) async {
+    await beforeSend?.call();
     _puts.add((session: sessionKey.storageId, body: data as Map));
     _data[sessionKey.storageId] = [_row(signed: true)];
     return Response<T>(
@@ -807,7 +809,7 @@ void main() {
         .read(activeRollcallsProvider(null).notifier)
         .applyMonitorItems(
           const [],
-      fetchedAt: DateTime(2026, 10, 26, 16, 21, 37).toUtc(),
+          fetchedAt: DateTime(2026, 10, 26, 16, 21, 37).toUtc(),
         );
     await tester.pumpAndSettle();
     expect(find.text('更新于 16:21:37'), findsOneWidget);

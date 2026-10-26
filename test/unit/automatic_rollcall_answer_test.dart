@@ -12,6 +12,9 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
 import 'package:xmu_rollcall/platform/android_monitor_store.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xmu_rollcall/features/location/course_radar_store.dart';
+import 'package:xmu_rollcall/features/location/location_providers.dart';
 
 RollcallItem item({
   bool expired = false,
@@ -42,6 +45,9 @@ class Repo extends Fake implements RollcallRepository {
   void Function()? onCode;
   bool radarOk = true;
   Future<void> Function()? onAttendance;
+  double expectedLatitude = 24.5;
+  double expectedLongitude = 118.2;
+  Future<void> Function()? beforeRadarGuard;
   @override
   Future<AttendanceCount> fetchAttendanceCount(int id, {String? opId}) async {
     calls.add('count');
@@ -93,9 +99,12 @@ class Repo extends Fake implements RollcallRepository {
     required double longitude,
     double accuracy = 35,
     String? opId,
+    Future<void> Function()? beforeSend,
   }) async {
-    expect(latitude, 24.5);
-    expect(longitude, 118.2);
+    await beforeRadarGuard?.call();
+    await beforeSend?.call();
+    expect(latitude, expectedLatitude);
+    expect(longitude, expectedLongitude);
     expect(accuracy, 180);
     calls.add('radar');
     if (answerError != null) throw answerError!;
@@ -104,6 +113,7 @@ class Repo extends Fake implements RollcallRepository {
 }
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   late Repo repo;
   late AutomaticRollcallAnswer automatic;
   late DateTime now;
@@ -157,6 +167,112 @@ void main() {
     await handler.process([item(type: RollcallType.radar)], noWait, () => true);
     expect(repo.calls, isEmpty);
   });
+
+  for (final delete in [false, true]) {
+    test(
+      'saved-place ${delete ? 'deletion' : 'coordinate edit'} during attendance is checked before radar submission',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final places = SavedLocationsController();
+        final defaults = CourseRadarDefaultsController(userId: 1);
+        addTearDown(places.dispose);
+        addTearDown(defaults.dispose);
+        final place = await places.add(
+          note: '教室',
+          latitude: 24.5,
+          longitude: 118.2,
+          accuracy: 180,
+        );
+        await defaults.configureForCourse(
+          courseId: '7',
+          courseTitle: '课程',
+          selection: RadarGeoSelection(
+            latitude: place.latitude,
+            longitude: place.longitude,
+            accuracy: place.accuracy,
+            obtainedVia: RadarObtainedVia.place,
+            placeId: place.id,
+          ),
+        );
+        repo.latest = [radar];
+        repo.count = const AttendanceCount(11, 11);
+        repo.onAttendance = () async {
+          if (delete) {
+            await places.remove(place.id);
+          } else {
+            await places.updateCoords(
+              place.id,
+              latitude: 24.6,
+              longitude: 118.3,
+            );
+            repo.expectedLatitude = 24.6;
+            repo.expectedLongitude = 118.3;
+          }
+        };
+        final handler = withRadar(
+          (_) => readAutomaticRadarLocation(
+            ownerId: 1,
+            assistUserId: null,
+            courseId: '7',
+          ),
+        );
+        await handler.process([radar], percent, () => current);
+        expect(
+          repo.calls,
+          delete ? ['count', 'active'] : ['count', 'active', 'radar'],
+        );
+        if (delete) {
+          // Configuring a fresh point before any submission lets the next cycle proceed.
+          await defaults.configureForCourse(
+            courseId: '7',
+            courseTitle: '课程',
+            selection: const RadarGeoSelection(
+              latitude: 24.5,
+              longitude: 118.2,
+              accuracy: 180,
+              obtainedVia: RadarObtainedVia.map,
+            ),
+          );
+          repo.onAttendance = null;
+          await handler.process([radar], noWait, () => current);
+          expect(repo.calls, ['count', 'active', 'active', 'radar']);
+        }
+      },
+    );
+  }
+
+  test(
+    'queued radar is blocked after stopping or changing its point; unsent work does not consume the attempt',
+    () async {
+      repo.latest = [radar];
+      var point = location();
+      final handler = withRadar((_) async => point);
+      repo.beforeRadarGuard = () async {
+        current = false;
+      };
+      await handler.process([radar], noWait, () => current);
+      expect(repo.calls, ['active']);
+      current = true;
+      now = now.add(const Duration(seconds: 61));
+      repo.beforeRadarGuard = () async {
+        point = const CourseRadarPref(
+          courseTitle: '课程',
+          courseId: '7',
+          latitude: 24.6,
+          longitude: 118.3,
+          accuracy: 180,
+        );
+      };
+      await handler.process([radar], noWait, () => current);
+      expect(repo.calls, ['active', 'active']);
+      now = now.add(const Duration(seconds: 61));
+      repo.beforeRadarGuard = null;
+      repo.expectedLatitude = 24.6;
+      repo.expectedLongitude = 118.3;
+      await handler.process([radar], noWait, () => current);
+      expect(repo.calls, ['active', 'active', 'active', 'radar']);
+    },
+  );
 
   test(
     'configured and successful radar positions share attendance rules and preserve accuracy',

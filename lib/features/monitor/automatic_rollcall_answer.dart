@@ -175,7 +175,6 @@ class AutomaticRollcallAnswer {
         // Mark an attempt before sending: transport failures must not trigger
         // immediate duplicate submissions. The next cycle rechecks server state.
         _retryAt[id] = _now().add(const Duration(seconds: 60));
-        if (item.isRadar) _radarAttempted.add(id);
         if (code != null && code.isNotEmpty) {
           _numberCodes[id] = code;
           while (_numberCodes.length > 100) {
@@ -197,6 +196,28 @@ class AutomaticRollcallAnswer {
                 longitude: location.longitude,
                 accuracy: location.accuracy,
                 opId: opId,
+                beforeSend: () async {
+                  await requireCurrent();
+                  if (!current()) {
+                    throw StateError('Automatic radar task changed');
+                  }
+                  final latestPoint = await _location(item);
+                  if (!current() ||
+                      latestPoint == null ||
+                      latestPoint.latitude != location.latitude ||
+                      latestPoint.longitude != location.longitude ||
+                      latestPoint.accuracy != location.accuracy ||
+                      latestPoint.placeId != location.placeId) {
+                    throw StateError(
+                      'Automatic radar location changed before send',
+                    );
+                  }
+                  // Only a request that reaches the send boundary consumes the attempt.
+                  if (_radarAttempted.contains(id)) {
+                    throw StateError('Automatic radar already attempted');
+                  }
+                  _radarAttempted.add(id);
+                },
               )
             : await repository.answerNumber(
                 rollcallId: id,
