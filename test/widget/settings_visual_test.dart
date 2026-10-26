@@ -23,6 +23,8 @@ import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/settings/settings_page.dart';
+import 'package:xmu_rollcall/features/settings/course_schedule_editor.dart';
+import 'package:xmu_rollcall/features/settings/courses_page.dart';
 import 'package:xmu_rollcall/features/update/app_release.dart';
 import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 import 'package:xmu_rollcall/platform/close_prefs.dart';
@@ -266,6 +268,10 @@ void main() {
         findsNothing,
       );
       await capture(tester, key, 'schedule-chip-${width.toInt()}');
+      await tester.tap(chip);
+      await tester.pumpAndSettle();
+      expect(find.byType(CourseSchedulesPage), findsOneWidget);
+      expect(find.byType(CoursesPage), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }

@@ -11,6 +11,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
+import 'package:xmu_rollcall/core/session/assist_identity.dart';
+import 'package:xmu_rollcall/core/session/session_credential.dart';
+import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
 import 'package:xmu_rollcall/features/location/location_picker.dart';
 import 'package:xmu_rollcall/features/location/location_providers.dart';
@@ -348,7 +351,96 @@ void main() {
             .labelSnapshot,
         '新上课地点',
       );
+      expect(find.byType(CourseSchedulesPage), findsNothing);
+      expect(find.byType(CoursesPage), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
+
+  for (final assistId in [null, 2]) {
+    testWidgets(
+      'finishing last pending course returns once; remaining courses and cancel stay (assist=$assistId)',
+      (tester) async {
+        final uid = assistId ?? 1;
+        await CourseCatalogStore.write(
+          uid,
+          CourseCatalogSnapshot(
+            fetchedAt: DateTime(2026, 10, 27),
+            rolesResolved: true,
+            courses: const [
+              CatalogCourse(id: 'a', title: '课程甲'),
+              CatalogCourse(id: 'b', title: '课程乙'),
+            ],
+          ),
+        );
+        final container = ProviderContainer(
+          overrides: [
+            authControllerProvider.overrideWith((ref) => _Auth()),
+            assistControllerProvider.overrideWith(
+              (ref) => AssistController(
+                ref,
+                bootstrap: false,
+                initial: const AssistUiState(
+                  ready: true,
+                  identities: [
+                    AssistIdentity(
+                      userId: 2,
+                      displayName: '协助同学',
+                      kind: AssistCredentialKind.session,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: AppTheme.light(),
+              home: CoursesPage(assistUserId: assistId),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('补全安排'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('课程甲'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('取消'));
+        await tester.pumpAndSettle();
+        expect(find.byType(CourseSchedulesPage), findsOneWidget);
+        await tester.tap(find.text('课程甲'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('保存'));
+        await tester.pumpAndSettle();
+        expect(find.byType(CourseSchedulesPage), findsOneWidget);
+        expect(find.byType(CourseScheduleEditor), findsNothing);
+        expect(find.text('待完善'), findsOneWidget);
+        await tester.tap(find.text('课程乙'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('保存'));
+        await tester.pumpAndSettle();
+        expect(find.byType(CourseSchedulesPage), findsNothing);
+        expect(find.byType(CoursesPage), findsOneWidget);
+        expect(find.byType(Dialog), findsNothing);
+        expect(await CourseScheduleStore.read(uid, 'a'), hasLength(1));
+        expect(await CourseScheduleStore.read(uid, 'b'), hasLength(1));
+        if (assistId != null) {
+          expect(await CourseScheduleStore.read(1, 'a'), isEmpty);
+        }
+        // This remains the arrangement management entry after all courses are complete.
+        await tester.tap(find.text('补全安排'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('课程甲'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('取消'));
+        await tester.pumpAndSettle();
+        expect(find.byType(CourseSchedulesPage), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }

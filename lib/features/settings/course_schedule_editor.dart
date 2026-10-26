@@ -73,16 +73,16 @@ class CourseSchedulesPage extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        onTap: () {
+                        onTap: () async {
                           final owner = ref
                               .read(authControllerProvider)
                               .profile
                               ?.id;
                           if (owner == null) return;
                           final uid = assistUserId ?? owner;
-                          showDialog<void>(
+                          final pageRoute = ModalRoute.of(context);
+                          final dialog = DialogRoute<bool>(
                             context: context,
-                            useRootNavigator: false,
                             barrierDismissible: false,
                             builder: (_) => CourseScheduleEditor(
                               course: course,
@@ -141,6 +141,23 @@ class CourseSchedulesPage extends ConsumerWidget {
                               },
                             ),
                           );
+                          final saved = await Navigator.of(
+                            context,
+                          ).push(dialog);
+                          await dialog.completed;
+                          if (saved != true ||
+                              !context.mounted ||
+                              ref.read(authControllerProvider).profile?.id !=
+                                  owner) {
+                            return;
+                          }
+                          final latest = ref.read(catalog).valueOrNull;
+                          if (latest != null &&
+                              !latest.courses.any((c) => c.needsSchedule) &&
+                              pageRoute?.isCurrent == true &&
+                              Navigator.of(context).canPop()) {
+                            Navigator.of(context).pop();
+                          }
                         },
                       ),
                     ],
@@ -333,7 +350,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
       await widget.onSaveLocations?.call(locations);
       if (mounted) {
         setState(() => _dirty = false);
-        Navigator.of(context).pop();
+        Navigator.of(context).pop(true);
       }
     } catch (e) {
       if (mounted) {

@@ -12,6 +12,7 @@ import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
 import 'package:xmu_rollcall/features/settings/close_prefs_controller.dart';
 import 'package:xmu_rollcall/features/settings/courses_page.dart';
+import 'package:xmu_rollcall/features/settings/course_schedule_editor.dart';
 import 'package:xmu_rollcall/features/settings/schedule_status_chip.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
@@ -143,7 +144,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (ref.watch(hasIncompleteCourseScheduleProvider)) ...[
-                        const ScheduleStatusChip(),
+                        ScheduleStatusChip(
+                          onTap: () => AppPageRoutes.push(
+                            context,
+                            const CourseSchedulesPage(),
+                          ),
+                        ),
                         const SizedBox(width: 8),
                       ],
                       Icon(Icons.chevron_right, color: p.muted, size: 18),
