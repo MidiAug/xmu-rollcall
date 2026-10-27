@@ -125,6 +125,7 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
   }
 
   Future<void> remove(String id) async {
+    if (id.startsWith('xmu:') || id.startsWith('room:')) return;
     await ready;
     if (!mounted) return;
     state = state.where((e) => e.id != id).toList();
@@ -139,6 +140,7 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
   }
 
   Future<void> rename(String id, String note) async {
+    if (id.startsWith('xmu:') || id.startsWith('room:')) return;
     await ready;
     if (!mounted) return;
     final trimmed = note.trim().isEmpty ? '未命名位置' : note.trim();
@@ -171,6 +173,7 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
     required double latitude,
     required double longitude,
   }) async {
+    if (id.startsWith('xmu:') || id.startsWith('room:')) return;
     await ready;
     if (!mounted) return;
     validateRadarLocation(latitude: latitude, longitude: longitude);

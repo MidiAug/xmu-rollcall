@@ -36,6 +36,19 @@ class _Monitor extends MonitorController {
   void seed(MonitorState value) => state = value;
 }
 
+Future<void> _reveal(WidgetTester tester, Finder finder) async {
+  final scrollable = find.byType(Scrollable).first;
+  tester.state<ScrollableState>(scrollable).position.jumpTo(0);
+  await tester.pumpAndSettle();
+  await tester.scrollUntilVisible(
+    finder,
+    200,
+    scrollable: scrollable,
+    maxScrolls: 30,
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUpAll(() async {
     await loadDesktopPreviewFonts();
@@ -140,9 +153,14 @@ void main() {
         expect(find.byKey(const ValueKey('monitor-jitter')), findsOneWidget);
         expect(find.byKey(const ValueKey('monitor-interval')), findsOneWidget);
         expect(find.text('更多设置'), findsNothing);
-        expect(find.text('签到规则'), findsOneWidget);
-        expect(find.text('检测与提醒'), findsOneWidget);
+        expect(find.text('自动提交'), findsOneWidget);
+        expect(find.text('发现签到'), findsOneWidget);
         await capture('off');
+        await _reveal(
+          tester,
+          find.byKey(const ValueKey('monitor-auto-answer')),
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('monitor-auto-answer')));
         await tester.pumpAndSettle();
         expect(find.text(idle), findsOneWidget);
@@ -169,16 +187,15 @@ void main() {
         expect(find.text(active), findsOneWidget);
         await capture('enabled-running');
         expect(find.text('人数刷新'), findsOneWidget);
-        await tester.ensureVisible(
-          find.byKey(const ValueKey('monitor-jitter')),
-        );
+        await _reveal(tester, find.byKey(const ValueKey('monitor-jitter')));
         await tester.pumpAndSettle();
         await capture('detection');
         await container
             .read(detectionWindowProvider.notifier)
             .save(const DetectionWindow(enabled: true));
         await tester.pumpAndSettle();
-        await tester.ensureVisible(
+        await _reveal(
+          tester,
           find.byKey(const ValueKey('detection-window-switch')),
         );
         await tester.pumpAndSettle();
@@ -191,7 +208,13 @@ void main() {
             .read(detectionWindowProvider.notifier)
             .save(const DetectionWindow(scheduleBased: true, enabled: false));
         await tester.pumpAndSettle();
-        await tester.ensureVisible(
+        await _reveal(
+          tester,
+          find.byKey(const ValueKey('monitor-auto-answer')),
+        );
+        await tester.pumpAndSettle();
+        await _reveal(
+          tester,
           find.byKey(const ValueKey('monitor-auto-answer')),
         );
         await tester.pumpAndSettle();
@@ -244,12 +267,12 @@ void main() {
         fail('Slider could not be reached using Tab');
       }
 
-      await tester.ensureVisible(find.byTooltip('增加人数刷新间隔'));
+      await _reveal(tester, find.byTooltip('增加人数刷新间隔'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('增加人数刷新间隔'));
       await tester.pumpAndSettle();
       final intervalFinder = find.byKey(const ValueKey('monitor-interval'));
-      await tester.ensureVisible(intervalFinder);
+      await _reveal(tester, intervalFinder);
       await tester.pumpAndSettle();
       final slider = tester.widget<Slider>(intervalFinder);
       expect(slider.min, 10);
@@ -293,7 +316,7 @@ void main() {
         20,
       );
       final jitterFinder = find.byKey(const ValueKey('monitor-jitter'));
-      await tester.ensureVisible(jitterFinder);
+      await _reveal(tester, jitterFinder);
       await tester.pumpAndSettle();
       track = tester.getRect(jitterFinder);
       await tester.tapAt(Offset(track.left + 8, track.center.dy));
@@ -409,12 +432,12 @@ void main() {
           isNull,
         );
         expect(find.text('未发现新的签到'), findsNothing);
-        await tester.ensureVisible(find.byKey(const ValueKey('monitor-logs')));
+        await _reveal(tester, find.byKey(const ValueKey('monitor-logs')));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('monitor-logs')));
         await tester.pumpAndSettle();
         expect(find.text('未发现新的签到'), findsOneWidget);
-        await tester.ensureVisible(find.byKey(const ValueKey('monitor-logs')));
+        await _reveal(tester, find.byKey(const ValueKey('monitor-logs')));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('monitor-logs')));
         await tester.pumpAndSettle();

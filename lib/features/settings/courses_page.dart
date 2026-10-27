@@ -1,3 +1,6 @@
+import 'package:xmu_rollcall/features/location/place_providers.dart';
+import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:flutter/material.dart';
@@ -145,6 +148,70 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (ref.watch(unmatchedRoomsProvider).isNotEmpty)
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppSpace.pageXOf(context),
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              backgroundColor: Colors.transparent,
+                              minimumSize: const Size(0, 36),
+                              alignment: Alignment.centerLeft,
+                            ),
+                            onPressed: () => AppPageRoutes.push(
+                              context,
+                              const SavedLocationsPage(),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: p.selected,
+                                    borderRadius: BorderRadius.circular(7),
+                                  ),
+                                  child: Icon(
+                                    AppIcons.location,
+                                    size: 16,
+                                    color: p.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Text(
+                                    '${ref.watch(unmatchedRoomsProvider).length} 个课程地点待补全',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(color: p.muted),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  '打开地图',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: p.primary,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  AppIcons.right,
+                                  size: 14,
+                                  color: p.primary,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     if (value.message != null)
                       Padding(
                         padding: EdgeInsets.symmetric(

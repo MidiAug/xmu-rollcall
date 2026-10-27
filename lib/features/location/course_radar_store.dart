@@ -1,3 +1,4 @@
+import 'campus_places.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
@@ -161,9 +162,10 @@ Future<CourseRadarPref?> readAutomaticRadarLocation({
     final effective = pref.forMeeting(meeting ?? '');
     if (pref.placeId.isNotEmpty) {
       final saved = prefs.getString(savedRadarLocationsKey);
-      if (saved == null) return null;
-      final places = jsonDecode(saved);
-      if (places is! List) return null;
+      final places = [
+        ...campusPlaces.map((p) => p.saved.toJson()),
+        if (saved != null) ...(jsonDecode(saved) as List),
+      ];
       final matches = places.whereType<Map>().where(
         (p) => p['id'] == pref.placeId,
       );

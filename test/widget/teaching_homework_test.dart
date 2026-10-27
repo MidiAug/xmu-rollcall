@@ -202,8 +202,24 @@ void main() {
           6,
         );
         final title = tester.widget<Text>(find.textContaining('已批改的历史作业标题'));
-        expect(title.maxLines, width >= 600 ? 2 : 1);
-        expect(title.overflow, TextOverflow.ellipsis);
+        expect(title.maxLines, 1);
+        expect(title.softWrap, isFalse);
+        expect(title.overflow, TextOverflow.clip);
+        if (width >= 600) {
+          final filter = find.text('全部 3');
+          expect(filter, findsOneWidget);
+          expect(
+            (tester.getCenter(filter).dy -
+                    tester.getCenter(find.text('作业').first).dy)
+                .abs(),
+            lessThan(4),
+          );
+          expect(
+            tester.getTopLeft(filter).dx,
+            greaterThan(tester.getTopRight(find.text('作业').first).dx),
+          );
+        }
+
         await tester.tap(find.text('助教作业4'));
         await tester.pumpAndSettle();
         expect(find.byType(HomeworkDetailPage), findsOneWidget);

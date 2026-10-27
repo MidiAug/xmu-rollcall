@@ -1,3 +1,5 @@
+import 'package:url_launcher/url_launcher.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
@@ -38,62 +40,76 @@ class HomeworkDetailPage extends ConsumerWidget {
       seed: seed,
     );
     final async = ref.watch(homeworkDetailProvider(key));
-    final courseId = seed.courseId;
+    final courseId = async.valueOrNull?.courseId ?? seed.courseId;
 
     return SubpageScaffold(
       title: '作业详情',
       actions: [
         if (courseId != null && courseId > 0)
           TextButton(
-            onPressed: () => _openCourse(context, courseId, seed.courseName),
+            onPressed: () => _openCourse(
+              context,
+              courseId,
+              (async.valueOrNull ?? seed).courseName,
+            ),
             child: const Text('查看该课全部'),
           ),
       ],
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => ListView(
-          padding: EdgeInsets.all(pageX),
-          children: [
-            Panel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '拉取失败',
-                    style: TextStyle(fontWeight: FontWeight.w600, color: p.ink),
-                  ),
-                  const SizedBox(height: 8),
-                  Text('$e', style: TextStyle(color: p.muted)),
-                  const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: () =>
-                        ref.invalidate(homeworkDetailProvider(key)),
-                    child: const Text('重试'),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    '以下为列表缓存摘要',
-                    style: TextStyle(fontSize: 12, color: p.muted),
-                  ),
-                  const SizedBox(height: 8),
-                  _DetailBody(item: seed),
-                ],
-              ),
-            ),
-          ],
-        ),
-        data: (item) => ListView(
-          padding: EdgeInsets.fromLTRB(pageX, AppSpace.md, pageX, AppSpace.xl),
-          children: [
-            _DetailBody(item: item),
-            if (courseId == null || courseId <= 0) ...[
-              const SizedBox(height: AppSpace.md),
-              Text(
-                '该待办缺少课程 id，无法打开「该课全部」。',
-                style: TextStyle(fontSize: 12, color: p.muted),
+      body: AppContentColumn(
+        child: async.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => ListView(
+            padding: EdgeInsets.all(pageX),
+            children: [
+              Panel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '拉取失败',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: p.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text('$e', style: TextStyle(color: p.muted)),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: () =>
+                          ref.invalidate(homeworkDetailProvider(key)),
+                      child: const Text('重试'),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      '以下为列表缓存摘要',
+                      style: TextStyle(fontSize: 12, color: p.muted),
+                    ),
+                    const SizedBox(height: 8),
+                    _DetailBody(item: seed),
+                  ],
+                ),
               ),
             ],
-          ],
+          ),
+          data: (item) => ListView(
+            padding: EdgeInsets.fromLTRB(
+              pageX,
+              AppSpace.md,
+              pageX,
+              AppSpace.xl,
+            ),
+            children: [
+              _DetailBody(item: item),
+              if (courseId == null || courseId <= 0) ...[
+                const SizedBox(height: AppSpace.md),
+                Text(
+                  '该待办缺少课程 id，无法打开「该课全部」。',
+                  style: TextStyle(fontSize: 12, color: p.muted),
+                ),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -112,10 +128,19 @@ class _DetailBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: p.selected,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(AppIcons.homework, color: p.primary, size: 26),
+          ),
+          const SizedBox(height: 16),
           Text(
             item.title.isEmpty ? '未命名作业' : item.title,
             style: TextStyle(
-              fontSize: 17,
+              fontSize: 22,
               fontWeight: FontWeight.w600,
               color: p.ink,
             ),
@@ -123,17 +148,89 @@ class _DetailBody extends StatelessWidget {
           const SizedBox(height: AppSpace.sm),
           _kv('课程', item.courseName.isEmpty ? '—' : item.courseName, p),
           _kv('截止', item.dueLabel, p),
-          if (item.type.isNotEmpty) _kv('类型', item.type, p),
+          if (item.type.isNotEmpty)
+            _kv('类型', item.isHomework ? '课程作业' : item.type, p),
           if (item.status.isNotEmpty) _kv('状态', item.status, p),
-          if (item.description.trim().isNotEmpty) ...[
-            const SizedBox(height: AppSpace.md),
-            Text('说明', style: TextStyle(fontSize: 12, color: p.muted)),
-            const SizedBox(height: AppSpace.xxs),
-            Text(
-              item.description.trim(),
-              style: TextStyle(color: p.ink, height: 1.45),
+          const SizedBox(height: 16),
+          Divider(color: p.border),
+          const SizedBox(height: 12),
+          Text(
+            '作业说明',
+            style: TextStyle(fontWeight: FontWeight.w600, color: p.ink),
+          ),
+          const SizedBox(height: 12),
+          SelectableText(
+            item.description.trim().isEmpty
+                ? '老师暂未提供作业说明'
+                : homeworkDescriptionText(item.description),
+            style: TextStyle(
+              color: item.description.trim().isEmpty ? p.muted : p.ink,
+              height: 1.7,
             ),
-          ],
+          ),
+          const SizedBox(height: 24),
+          Text(
+            '附件${item.attachments.isEmpty ? '' : '（${item.attachments.length}）'}',
+            style: TextStyle(fontWeight: FontWeight.w600, color: p.ink),
+          ),
+          const SizedBox(height: 8),
+          if (item.attachments.isEmpty)
+            Text('暂无附件', style: TextStyle(color: p.muted)),
+          for (final file in item.attachments)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: p.content,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: p.border),
+              ),
+              child: Row(
+                children: [
+                  Icon(AppIcons.document, color: p.primary, size: 22),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(file.name, style: TextStyle(color: p.ink)),
+                        if (file.size != null)
+                          Text(
+                            '${(file.size! / 1024).toStringAsFixed(1)} KB',
+                            style: TextStyle(color: p.muted, fontSize: 12),
+                          ),
+                        if (file.url == null)
+                          Text(
+                            '平台未提供下载链接',
+                            style: TextStyle(color: p.muted, fontSize: 12),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (file.url != null)
+                    IconButton(
+                      tooltip: '下载附件',
+                      icon: const Icon(AppIcons.download, size: 20),
+                      onPressed: () async {
+                        try {
+                          if (!await launchUrl(
+                                file.url!,
+                                mode: LaunchMode.externalApplication,
+                              ) &&
+                              context.mounted) {
+                            AppToast.show(context, '无法打开附件下载链接', error: true);
+                          }
+                        } catch (_) {
+                          if (context.mounted) {
+                            AppToast.show(context, '无法打开附件下载链接', error: true);
+                          }
+                        }
+                      },
+                    ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 16),
           const SizedBox(height: AppSpace.xs),
           HomeworkStatusBadges(item: item),
         ],

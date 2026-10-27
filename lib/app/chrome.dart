@@ -1,3 +1,4 @@
+import 'campus_artwork.dart';
 import 'package:flutter/material.dart';
 export 'status_badge.dart';
 import 'package:flutter/foundation.dart';

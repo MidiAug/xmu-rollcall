@@ -1,3 +1,7 @@
+import 'location_models.dart';
+import 'campus_places.dart';
+import 'campus_map.dart' show CampusSelector;
+import 'place_matching.dart';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/shell_tab_exit_guard.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -59,6 +63,7 @@ class MapPickPanelState extends State<MapPickPanel>
   final _noteFocus = FocusNode();
   final _noteField = GlobalKey();
   String? _noteError;
+  Campus _campus = Campus.xiangan;
 
   LatLng get point => _point;
 
@@ -67,6 +72,17 @@ class MapPickPanelState extends State<MapPickPanel>
     super.initState();
     _point = widget.initial ?? kDefaultMapCenter;
     _note = TextEditingController(text: widget.initialNote);
+    _campus =
+        campusForPoint(
+          SavedLocation(
+            id: '',
+            note: '',
+            latitude: _point.latitude,
+            longitude: _point.longitude,
+            createdAt: DateTime.now(),
+          ),
+        ) ??
+        Campus.xiangan;
     WidgetsBinding.instance.addObserver(this);
     _noteFocus.addListener(_revealNote);
   }
@@ -149,6 +165,21 @@ class MapPickPanelState extends State<MapPickPanel>
             MediaQuery.textScalerOf(context).scale(1);
         final panel = Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: CampusSelector(
+                value: _campus,
+                onChanged: (campus) {
+                  if (widget.busy) return;
+                  setState(() {
+                    _campus = campus;
+                    _point = campus.center;
+                  });
+                  _mapController.move(campus.center, 16);
+                  _draftChanged();
+                },
+              ),
+            ),
             Expanded(
               child: IgnorePointer(
                 ignoring: widget.busy,

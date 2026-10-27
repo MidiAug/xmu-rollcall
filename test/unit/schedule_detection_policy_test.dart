@@ -69,7 +69,7 @@ void main() {
       );
       final unknown = await readScheduleDetectionWindow(3, at: day);
       expect(unknown.allows(day), false);
-      expect(todayDetectionRanges(unknown, day), '今日无可推算的检测范围');
+      expect(todayDetectionRanges(unknown, day), '尚未获取可用课表，可手动检测');
     },
   );
   test(

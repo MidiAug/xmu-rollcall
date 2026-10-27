@@ -1,3 +1,10 @@
+import 'package:xmu_rollcall/features/location/course_location_setting.dart';
+import 'package:xmu_rollcall/features/location/course_meeting.dart';
+import 'package:xmu_rollcall/features/location/campus_map.dart';
+import 'package:xmu_rollcall/features/location/campus_places.dart';
+import 'package:xmu_rollcall/features/location/place_matching.dart';
+import 'package:xmu_rollcall/features/location/location_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'dart:math' as math;
 import 'dart:async';
@@ -7,10 +14,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
-import 'package:xmu_rollcall/features/location/course_location_setting.dart';
 import 'package:xmu_rollcall/features/location/location_picker.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
-import 'package:xmu_rollcall/features/location/course_meeting.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid.dart';
 
 /// Week × period timetable. Keep readable row sizes; scroll instead of shrinking
@@ -414,15 +419,16 @@ String? _separateClassLabel(CatalogCourse course) {
   return label;
 }
 
-class _CourseDetailFlow extends StatefulWidget {
+class _CourseDetailFlow extends ConsumerStatefulWidget {
   const _CourseDetailFlow({required this.block, this.assistUserId});
   final int? assistUserId;
   final TimetablePlacedBlock block;
   @override
-  State<_CourseDetailFlow> createState() => _CourseDetailFlowState();
+  ConsumerState<_CourseDetailFlow> createState() => _CourseDetailFlowState();
 }
 
-class _CourseDetailFlowState extends State<_CourseDetailFlow> {
+class _CourseDetailFlowState extends ConsumerState<_CourseDetailFlow> {
+  bool _map = false;
   Completer<SavedLocation?>? _pending;
   String? _selectedId;
   LatLng? _initial;
@@ -451,46 +457,107 @@ class _CourseDetailFlowState extends State<_CourseDetailFlow> {
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedSize(
-    key: const ValueKey('course-detail-flow'),
-    duration: AppMotion.fast,
-    curve: AppMotion.fastCurve,
-    child: Stack(
-      children: [
-        ExcludeFocus(
-          excluding: _pending != null,
-          child: Offstage(
-            offstage: _pending != null,
-            child: SingleChildScrollView(
-              child: _CourseDetail(
-                block: widget.block,
-                pickLocation: _pick,
-                assistUserId: widget.assistUserId,
-              ),
+  Widget build(BuildContext context) {
+    final room = widget.block.course.location ?? '';
+    final match = matchCoursePlace(room, ref.watch(savedLocationsProvider));
+    final point = match == null
+        ? null
+        : LatLng(match.latitude, match.longitude);
+    final mapView = SizedBox(
+      height: MediaQuery.sizeOf(context).height * .65,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: '返回课程',
+                  onPressed: () => setState(() => _map = false),
+                  icon: const Icon(AppIcons.back),
+                ),
+                Expanded(
+                  child: Text(room.isEmpty ? '上课地点' : room, maxLines: 2),
+                ),
+                IconButton(
+                  tooltip: '关闭',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(AppIcons.close),
+                ),
+              ],
             ),
           ),
-        ),
-        if (_pending != null)
-          LocationPickerContent(
-            title: '选择上课地点',
-            selectedId: _selectedId,
-            initial: _initial,
-            onSelected: _finish,
-            onBack: () => _finish(null),
-            onClose: () => Navigator.of(context).pop(),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: _map
+                  ? CampusMap(
+                      center:
+                          point ??
+                          (campusInName(room) ?? Campus.xiangan).center,
+                      point: point,
+                      places: const [],
+                    )
+                  : const SizedBox.shrink(),
+            ),
           ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+    return PopScope(
+      canPop: !_map,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _map) setState(() => _map = false);
+      },
+      child: SizedBox(
+        key: const ValueKey('course-detail-flow'),
+        child: Stack(
+          children: [
+            Offstage(
+              offstage: _pending != null,
+              child: AnimatedCrossFade(
+                duration: const Duration(milliseconds: 240),
+                reverseDuration: const Duration(milliseconds: 240),
+                sizeCurve: Curves.easeInOutCubic,
+                crossFadeState: _map
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                firstChild: SingleChildScrollView(
+                  child: _CourseDetail(
+                    block: widget.block,
+                    pickLocation: _pick,
+                    onMap: () => setState(() => _map = true),
+                    assistUserId: widget.assistUserId,
+                  ),
+                ),
+                secondChild: mapView,
+              ),
+            ),
+            if (_pending != null)
+              LocationPickerContent(
+                title: '选择上课地点',
+                selectedId: _selectedId,
+                initial: _initial,
+                onSelected: _finish,
+                onBack: () => _finish(null),
+                onClose: () => Navigator.of(context).pop(),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _CourseDetail extends StatelessWidget {
   const _CourseDetail({
     required this.block,
     this.pickLocation,
+    this.onMap,
     this.assistUserId,
   });
   final int? assistUserId;
+  final VoidCallback? onMap;
   final TimetablePlacedBlock block;
   final Future<SavedLocation?> Function(String?, LatLng?)? pickLocation;
 
@@ -518,7 +585,7 @@ class _CourseDetail extends StatelessWidget {
                 tooltip: '关闭课程详情',
                 visualDensity: VisualDensity.compact,
                 onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close_rounded, size: 20),
+                icon: const Icon(AppIcons.close, size: 20),
               ),
             ],
           ),
@@ -529,7 +596,7 @@ class _CourseDetail extends StatelessWidget {
             ),
           const SizedBox(height: 20),
           _DetailRow(
-            icon: Icons.schedule_outlined,
+            icon: AppIcons.clock,
             text:
                 '${weekdayLabel(block.weekday)} ${block.block.sectionLabel}  '
                 '${formatHm(block.block.coreStart)}–${formatHm(block.block.coreEnd)}',
@@ -538,12 +605,7 @@ class _CourseDetail extends StatelessWidget {
             _DetailRow(icon: AppIcons.calendar, text: block.weekLabel!),
           if (c.instructorsLabel.isNotEmpty)
             _DetailRow(icon: AppIcons.person, text: c.instructorsLabel),
-          if (c.id.startsWith('academic:'))
-            _DetailRow(
-              icon: AppIcons.location,
-              text: c.location?.isNotEmpty == true ? c.location! : '教务未提供教室',
-            )
-          else
+          if (!c.id.startsWith('academic:'))
             CourseLocationSetting(
               courseId: c.id,
               courseTitle: c.title,
@@ -553,6 +615,42 @@ class _CourseDetail extends StatelessWidget {
               meetingKey: courseMeetingKey(block.weekday, block.block),
               meetings: courseMeetingLabels(c),
             ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: const ValueKey('course-location-map-link'),
+              onTap: c.location?.isNotEmpty == true ? onMap : null,
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Icon(
+                      AppIcons.location,
+                      size: 18,
+                      color: AppPalette.of(context).primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        c.location?.isNotEmpty == true
+                            ? c.location!
+                            : '教务未提供教室',
+                        style: text.bodyMedium?.copyWith(
+                          color: AppPalette.of(context).primary,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      AppIcons.right,
+                      size: 16,
+                      color: AppPalette.of(context).primary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -571,7 +669,17 @@ class _DetailRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18),
+          SizedBox(
+            width: 18,
+            height:
+                MediaQuery.textScalerOf(
+                  context,
+                ).scale(Theme.of(context).textTheme.bodyMedium!.fontSize!) *
+                (Theme.of(context).textTheme.bodyMedium!.height ?? 1),
+            child: Center(
+              child: Icon(icon, size: 18, color: AppPalette.of(context).muted),
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: SelectableText(

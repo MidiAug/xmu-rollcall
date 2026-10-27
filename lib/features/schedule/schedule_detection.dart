@@ -86,6 +86,7 @@ Future<DetectionWindow> readScheduleDetectionWindow(
     scheduleBased: true,
     startMinute: daily.startMinute,
     endMinute: daily.endMinute,
+    hasSchedule: academic != null || tables.isNotEmpty,
     intervals: scheduleIntervals(tables, at ?? DateTime.now()),
   );
 }

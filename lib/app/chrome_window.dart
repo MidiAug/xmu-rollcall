@@ -19,6 +19,14 @@ class _WindowDragArea extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onPanStart: (_) => _drag(),
+      onDoubleTap: () async {
+        if (!PlatformHooks.isDesktop) return;
+        if (await windowManager.isMaximized()) {
+          await windowManager.unmaximize();
+        } else {
+          await windowManager.maximize();
+        }
+      },
       child: const SizedBox.expand(),
     );
   }
@@ -69,8 +77,37 @@ class AppTitleBar extends StatelessWidget {
   }
 }
 
-class _WindowButtons extends StatelessWidget {
+class _WindowButtons extends StatefulWidget {
   const _WindowButtons();
+  @override
+  State<_WindowButtons> createState() => _WindowButtonsState();
+}
+
+class _WindowButtonsState extends State<_WindowButtons> with WindowListener {
+  bool _maximized = false;
+  @override
+  void initState() {
+    super.initState();
+    windowManager.addListener(this);
+    _sync();
+  }
+
+  Future<void> _sync() async {
+    try {
+      final maximized = await windowManager.isMaximized();
+      if (mounted) setState(() => _maximized = maximized);
+    } catch (_) {}
+  }
+
+  @override
+  void onWindowMaximize() => _sync();
+  @override
+  void onWindowUnmaximize() => _sync();
+  @override
+  void dispose() {
+    windowManager.removeListener(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,8 +122,10 @@ class _WindowButtons extends StatelessWidget {
           color: p.muted,
         ),
         _WinBtn(
-          label: '最大化 / 还原',
-          icon: Icons.crop_square_rounded,
+          label: _maximized ? '恢复' : '最大化',
+          icon: _maximized
+              ? Icons.filter_none_rounded
+              : Icons.crop_square_rounded,
           onTap: () async {
             if (await windowManager.isMaximized()) {
               await windowManager.unmaximize();
@@ -135,7 +174,9 @@ class _WinBtnState extends State<_WinBtn> {
 
   @override
   Widget build(BuildContext context) {
-    final bg = _over ? (widget.hover ?? AppPalette.of(context).hover) : null;
+    final bg = _over
+        ? (widget.hover ?? AppPalette.of(context).ink.withValues(alpha: .14))
+        : null;
     return AppTooltipAnchor(
       child: Tooltip(
         message: widget.label,
@@ -146,7 +187,7 @@ class _WinBtnState extends State<_WinBtn> {
             onTap: widget.onTap,
             splashFactory: NoSplash.splashFactory,
             hoverColor: Colors.transparent,
-            highlightColor: AppPalette.of(context).hover,
+            highlightColor: AppPalette.of(context).ink.withValues(alpha: .22),
             focusColor: AppPalette.of(context).hover,
             child: SizedBox(
               width: 46,

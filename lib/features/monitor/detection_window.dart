@@ -10,9 +10,11 @@ class DetectionWindow {
     this.endMinute = 1320,
     this.intervals,
     this.scheduleBased = false,
+    this.hasSchedule = false,
   });
   final bool enabled;
   final bool scheduleBased;
+  final bool hasSchedule;
   static const schedulePreferenceKey = 'schedule_detection_only_v2';
   final int startMinute;
   final int endMinute;

@@ -61,6 +61,7 @@ void main() {
                                 current: AppDestination.settings,
                                 onSelect: (_) {},
                                 hasUpdate: value.update,
+                                hasPendingPlace: value.pending,
                               ),
                               const Expanded(
                                 child: Center(child: Text('课表待完善')),
@@ -88,15 +89,25 @@ void main() {
             matching: find.text(desktop ? '设置' : '我的'),
           );
           final position = tester.getRect(myTab);
-          final badge = find.descendant(of: nav, matching: find.byType(Badge));
+          final badge = desktop
+              ? find.byKey(const ValueKey('desktop-notice-settings'))
+              : find.descendant(of: nav, matching: find.byType(Badge));
           hints.value = (pending: false, update: true);
           await tester.pumpAndSettle();
           expect(badge, findsOneWidget);
-          expect(tester.widget<Badge>(badge).smallSize, desktop ? 4 : 5);
-          expect(
-            tester.widget<Badge>(badge).backgroundColor,
-            AppPalette.of(tester.element(nav)).primary,
-          );
+          if (desktop) {
+            expect(tester.getSize(badge), const Size(7, 7));
+            expect(
+              tester.getTopLeft(badge).dx,
+              greaterThan(tester.getTopRight(myTab).dx),
+            );
+          } else {
+            expect(tester.widget<Badge>(badge).smallSize, 5);
+            expect(
+              tester.widget<Badge>(badge).backgroundColor,
+              AppPalette.of(tester.element(nav)).primary,
+            );
+          }
           expect(find.byTooltip('有新版本可更新'), findsOneWidget);
           expect(tester.getSize(nav), initial);
           expect(tester.getRect(myTab), position);
@@ -118,6 +129,14 @@ void main() {
           }
           hints.value = (pending: true, update: true);
           await tester.pumpAndSettle();
+          if (desktop) {
+            final tip = find.byTooltip('补全课程地点');
+            expect(tip, findsOneWidget);
+            expect(
+              tester.getRect(tip).contains(tester.getCenter(find.text('课表'))),
+              isTrue,
+            );
+          }
           expect(badge, findsOneWidget);
           expect(find.byTooltip('有新版本可更新'), findsOneWidget);
           hints.value = (pending: false, update: true);

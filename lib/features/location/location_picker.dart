@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/location/place_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -128,8 +129,10 @@ class _LocationPickerState extends ConsumerState<LocationPickerContent> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final text = Theme.of(context).textTheme;
-    final saved = ref.watch(savedLocationsProvider);
-    final locations = widget.locations ?? saved;
+    final saved = ref.watch(knownLocationsProvider);
+    final locations = (widget.locations ?? saved)
+        .where((p) => !p.id.startsWith('room:'))
+        .toList();
     final initial = _draft == null
         ? widget.initial
         : LatLng(_draft!.latitude, _draft!.longitude);

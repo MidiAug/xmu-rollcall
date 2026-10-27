@@ -9,12 +9,14 @@ class AppSidebar extends StatelessWidget {
     this.userLabel,
     this.accountControl,
     this.hasUpdate = false,
+    this.hasPendingPlace = false,
   });
   final AppDestination current;
   final ValueChanged<AppDestination> onSelect;
   final String? userLabel;
   final Widget? accountControl;
   final bool hasUpdate;
+  final bool hasPendingPlace;
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
@@ -34,15 +36,17 @@ class AppSidebar extends StatelessWidget {
                   child: RepaintBoundary(
                     child: Align(
                       alignment: Alignment.bottomCenter,
-                      child: Image.asset(
-                        'assets/illustrations/campus_sidebar.png',
-                        width: AppLayout.sidebarWidthOf(context),
-                        fit: BoxFit.fitWidth,
-                        alignment: Alignment.bottomCenter,
-                        cacheWidth: 512,
-                        filterQuality: FilterQuality.low,
-                        opacity: AlwaysStoppedAnimation(p.isDark ? .20 : .36),
-                        excludeFromSemantics: true,
+                      child: CampusArtworkTreatment(
+                        child: Image.asset(
+                          'assets/illustrations/campus_sidebar.png',
+                          width: AppLayout.sidebarWidthOf(context),
+                          fit: BoxFit.fitWidth,
+                          alignment: Alignment.bottomCenter,
+                          cacheWidth: 512,
+                          filterQuality: FilterQuality.low,
+                          opacity: AlwaysStoppedAnimation(p.isDark ? .28 : .36),
+                          excludeFromSemantics: true,
+                        ),
                       ),
                     ),
                   ),
@@ -59,6 +63,8 @@ class AppSidebar extends StatelessWidget {
                   ))
                     _DesktopNavItem(
                       destination: d,
+                      hasPendingPlace:
+                          hasPendingPlace && d == AppDestination.timetable,
                       selected: d == current,
                       onTap: () => onSelect(d),
                     ),
@@ -105,11 +111,13 @@ class _DesktopNavItem extends StatelessWidget {
     required this.selected,
     required this.onTap,
     this.hasUpdate = false,
+    this.hasPendingPlace = false,
   });
   final AppDestination destination;
   final bool selected;
   final VoidCallback onTap;
   final bool hasUpdate;
+  final bool hasPendingPlace;
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
@@ -118,65 +126,89 @@ class _DesktopNavItem extends StatelessWidget {
       child: Semantics(
         selected: selected,
         button: true,
-        child: SizedBox(
-          height: 40,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: TextButton(
-                  style: TextButton.styleFrom(
-                    alignment: Alignment.centerLeft,
-                    foregroundColor: p.ink,
-                    backgroundColor: selected ? p.selected : null,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  onPressed: onTap,
-                  child: Row(
-                    children: [
-                      _NavigationIcon(
-                        icon: selected
-                            ? destination.selectedIcon
-                            : destination.icon,
-                        size: 24,
-                        color: selected ? p.navigationAccent : p.ink,
-                        hasUpdate: hasUpdate,
-                        dotSize: 4,
+        child: Tooltip(
+          message: hasPendingPlace
+              ? '补全课程地点'
+              : hasUpdate
+              ? '有新版本可更新'
+              : '',
+          child: SizedBox(
+            height: 40,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: TextButton(
+                    style: TextButton.styleFrom(
+                      alignment: Alignment.centerLeft,
+                      foregroundColor: p.ink,
+                      backgroundColor: selected ? p.selected : null,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          destination.desktopLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: selected
-                                ? FontWeight.w600
-                                : FontWeight.w400,
+                    ),
+                    onPressed: onTap,
+                    child: Row(
+                      children: [
+                        _NavigationIcon(
+                          icon: selected
+                              ? destination.selectedIcon
+                              : destination.icon,
+                          size: 24,
+                          color: selected ? p.navigationAccent : p.ink,
+                          hasUpdate: false,
+                          hint: hasPendingPlace ? '有课程地点待补全' : '有新版本可更新',
+                          dotSize: 4,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            destination.desktopLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: selected
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (selected)
-                Positioned(
-                  left: 0,
-                  top: 6,
-                  bottom: 6,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: p.navigationAccent,
-                      borderRadius: BorderRadius.circular(3),
+                        const SizedBox(width: 10),
+                        SizedBox(
+                          width: 7,
+                          height: 7,
+                          child: hasUpdate || hasPendingPlace
+                              ? Container(
+                                  key: ValueKey(
+                                    'desktop-notice-${destination.id}',
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: p.primary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                )
+                              : null,
+                        ),
+                      ],
                     ),
-                    child: const SizedBox(width: 3),
                   ),
                 ),
-            ],
+                if (selected)
+                  Positioned(
+                    left: 0,
+                    top: 6,
+                    bottom: 6,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: p.navigationAccent,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: const SizedBox(width: 3),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -305,8 +337,10 @@ class _NavigationIcon extends StatelessWidget {
     required this.color,
     required this.hasUpdate,
     required this.dotSize,
+    this.hint = '有新版本可更新',
   });
 
+  final String hint;
   final double dotSize;
   final IconData icon;
   final double size;
@@ -318,7 +352,7 @@ class _NavigationIcon extends StatelessWidget {
     final child = Icon(icon, size: size, color: color);
     if (!hasUpdate) return child;
     return Tooltip(
-      message: '有新版本可更新',
+      message: hint,
       child: Badge(
         backgroundColor: AppPalette.of(context).primary,
         smallSize: dotSize,

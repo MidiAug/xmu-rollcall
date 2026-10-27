@@ -95,7 +95,9 @@ void main() {
         of: nav,
         matching: find.text(width < 600 ? '我的' : '设置'),
       );
-      final badges = find.descendant(of: nav, matching: find.byType(Badge));
+      final badges = width < 600
+          ? find.descendant(of: nav, matching: find.byType(Badge))
+          : find.byKey(const ValueKey('desktop-notice-settings'));
       final initialNavSize = tester.getSize(nav);
       final initialTabRect = tester.getRect(myTab);
       expect(badges, findsNothing);
@@ -124,15 +126,17 @@ void main() {
       service.pendingCheck = null;
       await tester.pumpAndSettle();
       expect(badges, findsOneWidget);
-      expect(
-        find.descendant(
-          of: badges,
-          matching: find.byIcon(
-            width < 600 ? AppIcons.person : AppIcons.settings,
-          ),
-        ),
-        findsOneWidget,
-      );
+      if (width < 600) {
+        expect(
+          find.descendant(of: badges, matching: find.byIcon(AppIcons.person)),
+          findsOneWidget,
+        );
+      } else {
+        expect(
+          tester.getRect(badges).left,
+          greaterThan(tester.getRect(myTab).right),
+        );
+      }
       expect(find.byTooltip('有新版本可更新'), findsOneWidget);
       expect(tester.getSize(nav), initialNavSize);
       expect(tester.getRect(myTab), initialTabRect);
@@ -248,9 +252,7 @@ void main() {
 
       expect(find.text('厦大签到'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('签到操作'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('签到记录'));
+      await tester.tap(find.byTooltip('签到记录'));
       await tester.pumpAndSettle();
 
       expect(find.text('签到记录'), findsWidgets);

@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/history/history_summary.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_quick_control.dart';
 import 'package:xmu_rollcall/app/desktop/desktop_workspace.dart';
@@ -238,14 +239,20 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
           ? ref.watch(campusClockProvider).valueOrNull ??
                 ref.read(campusNowProvider)()
           : DateTime.now();
-      final recent = auth.isSignedIn
-          ? ref.watch(ref.watch(localHistoryForProvider(scope)))
-          : const <RollcallHistoryEntry>[];
-      final latest = recent.isEmpty
-          ? null
-          : ([...recent]..sort((a, b) => b.at.compareTo(a.at))).first;
+      final records = auth.isSignedIn
+          ? ref.watch(currentCourseHistoryProvider).valueOrNull ??
+                const <CourseRollcallRecord>[]
+          : const <CourseRollcallRecord>[];
+      final history = HistorySummary(records).records;
+      final latest = history.isEmpty ? null : history.first;
+      final latestAt = latest?.rollcallTime?.toLocal();
+      final latestSigned =
+          latest != null &&
+          historyAttendance(latest) == HistoryAttendance.signed;
       final historyLink = auth.isSignedIn
           ? Column(
+              key: const ValueKey('latest-history-footer'),
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Divider(color: p.border, height: 1),
                 Padding(
@@ -257,21 +264,29 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                             ? const SizedBox.shrink()
                             : Row(
                                 children: [
+                                  Text(
+                                    '上次签到',
+                                    style: TextStyle(
+                                      color: p.muted,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
                                   Container(
                                     width: 32,
                                     height: 32,
                                     decoration: BoxDecoration(
-                                      color: latest.ok
+                                      color: latestSigned
                                           ? p.successSurface
                                           : p.surfaceHigh,
                                       shape: BoxShape.circle,
                                     ),
                                     child: Icon(
-                                      latest.ok
+                                      latestSigned
                                           ? AppIcons.check
                                           : AppIcons.history,
                                       size: 20,
-                                      color: latest.ok
+                                      color: latestSigned
                                           ? p.successAccent
                                           : p.muted,
                                     ),
@@ -289,15 +304,19 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
-                                    '${latest.at.year == now.year && latest.at.month == now.month && latest.at.day == now.day ? '今天' : '${latest.at.month}/${latest.at.day}'} ${latest.at.hour.toString().padLeft(2, '0')}:${latest.at.minute.toString().padLeft(2, '0')}',
+                                    latestAt == null
+                                        ? '时间未提供'
+                                        : '${latestAt.year == now.year && latestAt.month == now.month && latestAt.day == now.day ? '今天' : '${latestAt.month}/${latestAt.day}'} ${latestAt.hour.toString().padLeft(2, '0')}:${latestAt.minute.toString().padLeft(2, '0')}',
                                     style: AppTypography.caption.copyWith(
                                       color: p.muted,
                                     ),
                                   ),
                                   const SizedBox(width: 8),
                                   AppStatusBadge(
-                                    latest.ok ? '已签到' : '未成功',
-                                    tone: latest.ok
+                                    latest.signedStatus.isEmpty
+                                        ? '状态未知'
+                                        : latest.signedStatus,
+                                    tone: latestSigned
                                         ? AppStatusTone.success
                                         : AppStatusTone.danger,
                                   ),
@@ -343,19 +362,33 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
               }
             },
           ),
-          AppActionMenu<String>(
-            tooltip: '签到操作',
-            onSelected: (value) {
-              if (value == 'settings') {
-                _openSettings(context);
-              } else {
-                _openHistory(context);
-              }
-            },
-            actions: const [
-              AppMenuAction('settings', '自动检测设置', icon: AppIcons.settings),
-              AppMenuAction('history', '签到记录', icon: AppIcons.history),
-            ],
+          IconButton(
+            tooltip: '签到设置',
+            style: IconButton.styleFrom(
+              minimumSize: const Size(34, 34),
+              padding: const EdgeInsets.all(7),
+              backgroundColor: p.surface,
+              side: BorderSide(color: p.border),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(7),
+              ),
+            ),
+            onPressed: () => _openSettings(context),
+            icon: const Icon(AppIcons.settings, size: 20),
+          ),
+          IconButton(
+            tooltip: '签到记录',
+            style: IconButton.styleFrom(
+              minimumSize: const Size(34, 34),
+              padding: const EdgeInsets.all(7),
+              backgroundColor: p.surface,
+              side: BorderSide(color: p.border),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(7),
+              ),
+            ),
+            onPressed: () => _openHistory(context),
+            icon: const Icon(AppIcons.history, size: 20),
           ),
         ],
         contextPanel: active && auth.isSignedIn
@@ -420,11 +453,15 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                         embedded: true,
                         showUpdatedAt: false,
                         assistUserId: scope,
-                        footer: historyLink,
                         academicSchedule: cached?.schedule,
                         at: now,
                       ),
               ),
+              if (historyLink != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                  child: historyLink,
+                ),
             ],
           ),
         ),

@@ -76,7 +76,8 @@ class DesktopPageHeader extends StatelessWidget {
             children: actions,
           );
           if (constraints.maxWidth <
-                  420 * MediaQuery.textScalerOf(context).scale(1) &&
+                  (inlineSubtitle ? 300 + actions.length * 52 : 420) *
+                      MediaQuery.textScalerOf(context).scale(1) &&
               actions.isNotEmpty) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,7 +86,12 @@ class DesktopPageHeader extends StatelessWidget {
           }
           return Row(
             children: [
-              Expanded(child: heading),
+              Expanded(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 44),
+                  child: Align(alignment: Alignment.centerLeft, child: heading),
+                ),
+              ),
               if (actions.isNotEmpty) ...[const SizedBox(width: 20), controls],
             ],
           );

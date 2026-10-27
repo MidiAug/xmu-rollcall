@@ -1,3 +1,9 @@
+import 'dart:io';
+import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:xmu_rollcall/features/location/campus_map.dart';
+import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,6 +58,15 @@ class _Repo extends Fake implements RollcallRepository {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() async {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (_) async => (await Directory(
+            'build/map-test-cache',
+          ).create(recursive: true)).absolute.path,
+        );
+  });
   setUp(() => SharedPreferences.setMockInitialValues({}));
   Future<void> desktop(WidgetTester tester) async {
     tester.view.physicalSize = const Size(960, 720);
@@ -86,8 +101,17 @@ void main() {
     'desktop add and update location return to saved list and persist',
     (tester) async {
       await desktop(tester);
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          campusCachedDataProvider.overrideWith(
+            (ref) async => const CampusCachedData(),
+          ),
+        ],
+      );
       addTearDown(container.dispose);
+      await tester.runAsync(
+        () => container.read(savedLocationsProvider.notifier).ready,
+      );
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
@@ -98,29 +122,50 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('添加'));
-      await tester.pumpAndSettle();
-      expect(find.byType(MapPickPanel), findsOneWidget);
-      await tester.tap(find.text('保存'));
-      await tester.pumpAndSettle();
-      expect(find.text('请填写地点备注'), findsOneWidget);
-      expect(find.byType(Dialog), findsNothing);
-      await tester.enterText(find.byType(TextField), '测试教室');
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
-      await tester.pumpAndSettle();
-      expect(find.byType(MapPickPanel), findsNothing);
-      expect(find.text('测试教室'), findsWidgets);
-      final place = container.read(savedLocationsProvider).single;
-      expect(place.latitude, kDefaultMapCenter.latitude);
-      await tester.tap(find.text('测试教室').first);
-      await tester.pumpAndSettle();
-      expect(find.text('更新坐标'), findsOneWidget);
-      await tester.tapAt(
-        tester.getCenter(find.byType(MapPickPanel)) + const Offset(60, -30),
+      expect(find.byType(CampusMap), findsOneWidget);
+      tester.widget<FlutterMap>(find.byType(FlutterMap)).options.onTap!(
+        const TapPosition(Offset.zero, Offset.zero),
+        const LatLng(24.4375, 118.098),
       );
       await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 400));
-      await tester.tap(find.text('更新坐标'));
+      final name = find.byKey(const ValueKey('managed-place-name'));
+      await tester.ensureVisible(name);
+      await tester.pumpAndSettle();
+      await tester.enterText(name, '测试教室');
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('保存地点'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '保存地点'))
+            .onPressed,
+        isNotNull,
+      );
+      final save = tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '保存地点'))
+          .onPressed!;
+      await tester.runAsync(() async => await Function.apply(save, const []));
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsNothing);
+      expect(find.text('地点未能保存，请重试'), findsNothing);
+      final place = container.read(savedLocationsProvider).single;
+      await tester.ensureVisible(find.text('调整位置'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('调整位置'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byType(CampusMap));
+      await tester.pumpAndSettle();
+      tester.widget<FlutterMap>(find.byType(FlutterMap)).options.onTap!(
+        const TapPosition(Offset.zero, Offset.zero),
+        const LatLng(24.4385, 118.098),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('更新位置'));
+      await tester.pumpAndSettle();
+      final update = tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '更新位置'))
+          .onPressed!;
+      await tester.runAsync(() async => await Function.apply(update, const []));
       await tester.pumpAndSettle();
       final updatedLatitude = container
           .read(savedLocationsProvider)
@@ -228,6 +273,7 @@ void main() {
         true,
       );
       await tester.ensureVisible(find.text('用此位置签到'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('用此位置签到'));
       await tester.pumpAndSettle();
       expect(repo.calls, 0);

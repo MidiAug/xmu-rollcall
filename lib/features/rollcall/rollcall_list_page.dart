@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/app/campus_artwork.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
@@ -474,12 +475,14 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
                       width: 300,
                       child: IgnorePointer(
                         child: Opacity(
-                          opacity: p.isDark ? .18 : .72,
-                          child: Image.asset(
-                            'assets/illustrations/campus_mist.png',
-                            cacheWidth: 768,
-                            fit: BoxFit.cover,
-                            alignment: Alignment.centerRight,
+                          opacity: p.isDark ? .26 : .72,
+                          child: CampusArtworkTreatment(
+                            child: Image.asset(
+                              'assets/illustrations/campus_mist.png',
+                              cacheWidth: 768,
+                              fit: BoxFit.cover,
+                              alignment: Alignment.centerRight,
+                            ),
                           ),
                         ),
                       ),

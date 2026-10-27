@@ -11,6 +11,7 @@ class HomeworkItem {
     this.description = '',
     this.raw = const {},
     this.closed,
+    this.attachments = const [],
   });
 
   final int id;
@@ -23,6 +24,7 @@ class HomeworkItem {
   final String description;
   final Map<String, dynamic> raw;
   final bool? closed;
+  final List<HomeworkAttachment> attachments;
 
   bool get isHomework =>
       type.isEmpty ||
@@ -58,6 +60,7 @@ class HomeworkItem {
     Map<String, dynamic>? raw,
     bool clearDueAt = false,
     bool? closed,
+    List<HomeworkAttachment>? attachments,
   }) {
     return HomeworkItem(
       id: id,
@@ -70,6 +73,7 @@ class HomeworkItem {
       description: description ?? this.description,
       raw: raw ?? this.raw,
       closed: closed ?? this.closed,
+      attachments: attachments ?? this.attachments,
     );
   }
 
@@ -122,6 +126,7 @@ class HomeworkItem {
       dueAt: dueAt,
       description: description,
       raw: d,
+      attachments: parseHomeworkAttachments(d),
       closed: d['is_closed'] is bool ? d['is_closed'] as bool : null,
     );
   }
@@ -136,6 +141,8 @@ class HomeworkItem {
     if (dueAt != null) 'due_at': dueAt!.toIso8601String(),
     'description': description,
     if (closed != null) 'is_closed': closed,
+    if (attachments.isNotEmpty)
+      'attachments': attachments.map((a) => a.toJson()).toList(),
   };
 }
 
@@ -180,4 +187,80 @@ DateTime? _asDate(Map<String, dynamic> m, List<String> keys) {
     }
   }
   return null;
+}
+
+/// Teacher-provided files only; never collects submission uploads.
+class HomeworkAttachment {
+  const HomeworkAttachment({required this.name, this.url, this.size});
+  final String name;
+  final Uri? url;
+  final int? size;
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    if (url != null) 'url': '$url',
+    if (size != null) 'size': size,
+  };
+}
+
+Uri? homeworkLink(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return null;
+  final uri = Uri.tryParse(raw.trim());
+  if (uri == null) return null;
+  final resolved = Uri.parse('https://lnt.xmu.edu.cn/').resolveUri(uri);
+  return resolved.scheme == 'https' &&
+          resolved.host.isNotEmpty &&
+          resolved.userInfo.isEmpty
+      ? resolved
+      : null;
+}
+
+List<HomeworkAttachment> parseHomeworkAttachments(Map<String, dynamic> data) {
+  final files = data['attachments'] ?? data['uploads'] ?? data['files'];
+  if (files is! List) return const [];
+  return [
+    for (final raw in files.whereType<Map>())
+      HomeworkAttachment(
+        name:
+            '${raw['name'] ?? raw['file_name'] ?? raw['filename'] ?? '未命名附件'}',
+        url: homeworkLink('${raw['download_url'] ?? raw['url'] ?? ''}'),
+        size: raw['size'] is num ? (raw['size'] as num).toInt() : null,
+      ),
+  ];
+}
+
+/// Readable plain text for the platform's HTML descriptions. No HTML execution,
+/// image requests or third-party embeds when a detail page is opened.
+String homeworkDescriptionText(String source) {
+  var text = source.replaceAll(
+    RegExp(
+      r'<(script|style)[^>]*>.*?</\1>',
+      caseSensitive: false,
+      dotAll: true,
+    ),
+    '',
+  );
+  text = text.replaceAll(
+    RegExp(r'<br\s*/?>|</(?:p|div|li|h[1-6])>', caseSensitive: false),
+    '\n',
+  );
+  text = text.replaceAll(RegExp(r'<[^>]+>'), '');
+  const entities = {
+    '&nbsp;': ' ',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#39;': "'",
+    '&amp;': '&',
+  };
+  for (final e in entities.entries) {
+    text = text.replaceAll(e.key, e.value);
+  }
+  text = text.replaceAllMapped(RegExp(r'&#(x[0-9a-fA-F]+|[0-9]+);'), (m) {
+    final raw = m[1]!;
+    final n = raw.startsWith('x')
+        ? int.tryParse(raw.substring(1), radix: 16)
+        : int.tryParse(raw);
+    return n != null && n > 0 && n <= 0x10ffff ? String.fromCharCode(n) : m[0]!;
+  });
+  return text.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
 }

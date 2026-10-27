@@ -383,6 +383,9 @@ final homeworkDetailProvider = FutureProvider.autoDispose
               type: remote.type.isEmpty ? seed.type : remote.type,
               status: remote.status.isEmpty ? seed.status : remote.status,
               dueAt: remote.dueAt ?? seed.dueAt,
+              attachments: remote.attachments.isEmpty
+                  ? seed.attachments
+                  : remote.attachments,
               description: remote.description.isEmpty
                   ? seed.description
                   : remote.description,

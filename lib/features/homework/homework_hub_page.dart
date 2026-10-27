@@ -79,6 +79,7 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
   DateTime? _lastCheckAt;
   (int?, int?)? _lastCheckIdentity;
   bool _checking = false;
+  _TaskFilter _filter = _TaskFilter.all;
 
   @override
   void initState() {
@@ -154,6 +155,12 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
   }
 
   @override
+  void onShellTabRetap() {
+    super.onShellTabRetap();
+    setState(() => _filter = _TaskFilter.all);
+  }
+
+  @override
   AppDestination get shellTab => AppDestination.homework;
 
   @override
@@ -190,16 +197,32 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
     return PageScaffold(
       title: '作业',
       showHeader: false,
-      trailing: signedIn && hostActions ? const _HomeworkRefreshAction() : null,
+      trailing: signedIn && hostActions
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _HomeworkFilters(
+                  value: _filter,
+                  onChanged: (v) => setState(() => _filter = v),
+                ),
+                const SizedBox(width: 8),
+                const _HomeworkRefreshAction(),
+              ],
+            )
+          : null,
       child: AppContentColumn(
         maxWidth: 960,
-        alignment: Alignment.topLeft,
+        alignment: Alignment.topCenter,
         child: PrimaryScrollController(
           controller: _scroll,
           child: !signedIn
               ? _SignedOutHint(onLogin: () => showLoginDialog(context))
               : active
-              ? _TodosBody(onOpen: _openDetail, showToolbar: !hostActions)
+              ? _TodosBody(
+                  onOpen: _openDetail,
+                  showToolbar: !hostActions,
+                  filter: _filter,
+                )
               : const SizedBox.shrink(),
         ),
       ),
@@ -230,24 +253,20 @@ class _SignedOutHint extends StatelessWidget {
 enum _TaskFilter { all, upcoming, overdue }
 
 class _TodosBody extends ConsumerStatefulWidget {
-  const _TodosBody({required this.onOpen, required this.showToolbar});
+  const _TodosBody({
+    required this.onOpen,
+    required this.showToolbar,
+    required this.filter,
+  });
+  final _TaskFilter filter;
   final bool showToolbar;
   final ValueChanged<HomeworkItem> onOpen;
   @override
   ConsumerState<_TodosBody> createState() => _TodosBodyState();
 }
 
-class _TodosBodyState extends ConsumerState<_TodosBody>
-    with ShellTabAware<_TodosBody> {
-  _TaskFilter _filter = _TaskFilter.all;
-  @override
-  AppDestination get shellTab => AppDestination.homework;
-  @override
-  void onShellTabRetap() {
-    super.onShellTabRetap();
-    setState(() => _filter = _TaskFilter.all);
-  }
-
+class _TodosBodyState extends ConsumerState<_TodosBody> {
+  _TaskFilter get _filter => widget.filter;
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
@@ -338,32 +357,6 @@ class _TodosBodyState extends ConsumerState<_TodosBody>
             final desktop =
                 PlatformHooks.isDesktop && !AppDensity.isTouch(context);
             final rows = <Widget>[
-              if (desktop)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Row(
-                    children: [
-                      AppSegmentedControl<_TaskFilter>(
-                        segments: [
-                          AppSegment(
-                            value: _TaskFilter.all,
-                            label: '全部 ${studentItems.length}',
-                          ),
-                          AppSegment(
-                            value: _TaskFilter.upcoming,
-                            label: '进行中 ${upcoming.length}',
-                          ),
-                          AppSegment(
-                            value: _TaskFilter.overdue,
-                            label: '已截止 ${overdue.length}',
-                          ),
-                        ],
-                        value: _filter,
-                        onChanged: (v) => setState(() => _filter = v),
-                      ),
-                    ],
-                  ),
-                ),
               if (desktop &&
                   ((_filter == _TaskFilter.upcoming && upcoming.isEmpty) ||
                       (_filter == _TaskFilter.overdue && overdue.isEmpty)))
@@ -472,6 +465,40 @@ class _TodosBodyState extends ConsumerState<_TodosBody>
           ),
         ),
         Expanded(child: content),
+      ],
+    );
+  }
+}
+
+class _HomeworkFilters extends ConsumerWidget {
+  const _HomeworkFilters({required this.value, required this.onChanged});
+  final _TaskFilter value;
+  final ValueChanged<_TaskFilter> onChanged;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final teaching =
+        ref.watch(currentTeachingCoursesProvider).valueOrNull ??
+        const <CatalogCourse>[];
+    final ids = teaching.map((c) => c.id).toSet();
+    final items =
+        (ref.watch(homeworkOverviewProvider).valueOrNull?.items ??
+                ref.watch(homeworkTodosProvider).valueOrNull ??
+                const <HomeworkItem>[])
+            .where((i) => !ids.contains('${i.courseId}'))
+            .toList();
+    return AppSegmentedControl<_TaskFilter>(
+      value: value,
+      onChanged: onChanged,
+      segments: [
+        AppSegment(value: _TaskFilter.all, label: '全部 ${items.length}'),
+        AppSegment(
+          value: _TaskFilter.upcoming,
+          label: '进行中 ${items.where((i) => !i.isOverdue).length}',
+        ),
+        AppSegment(
+          value: _TaskFilter.overdue,
+          label: '已截止 ${items.where((i) => i.isOverdue).length}',
+        ),
       ],
     );
   }
@@ -646,7 +673,8 @@ class _TeachingAssignmentRow extends StatelessWidget {
                 Text(
                   item.title.isEmpty ? '未命名作业' : item.title,
                   maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  overflow: TextOverflow.clip,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -718,7 +746,8 @@ class _TodoTile extends StatelessWidget {
                   Text(
                     item.title.isEmpty ? '未命名作业' : item.title,
                     maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                    softWrap: false,
+                    overflow: TextOverflow.clip,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -800,8 +829,9 @@ class _HomeworkInboxRow extends StatelessWidget {
                   children: [
                     Text(
                       item.title.isEmpty ? '未命名作业' : item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.clip,
                       style: AppTypography.body.copyWith(
                         fontWeight: FontWeight.w500,
                         color: p.ink,

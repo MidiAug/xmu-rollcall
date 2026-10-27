@@ -147,14 +147,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 ),
                 SettingsRow(
                   leading: const Icon(AppIcons.location),
-                  title: '常用地点',
-                  subtitle: '管理签到时常用的位置',
+                  title: '地点管理',
+                  subtitle: '课表教室、校区地图与自定义地点',
                   trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: () =>
                       AppPageRoutes.push(context, const SavedLocationsPage()),
                 ),
                 SettingsRow(
-                  leading: const Icon(Icons.handshake_outlined),
+                  leading: const Icon(AppIcons.assist),
                   title: '协助同学',
                   subtitle: assist.ready && assist.identities.isNotEmpty
                       ? '已导入 ${assist.identities.length} 人'
@@ -197,7 +197,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 ),
                 if (desktop)
                   SettingsRow(
-                    leading: const Icon(Icons.desktop_windows_outlined),
+                    leading: const Icon(AppIcons.desktop),
                     title: '关闭窗口时',
                     subtitle: '询问 / 托盘 / 退出',
                     trailing: AppShellSelect<CloseMode>(
@@ -212,7 +212,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   ),
                 if (platform == TargetPlatform.android || desktop)
                   SettingsRow(
-                    leading: const Icon(Icons.notifications_active_outlined),
+                    leading: const Icon(AppIcons.notification),
                     title: desktop ? '桌面提醒' : '后台提醒',
                     subtitle: desktop ? '测试系统通知与后台提醒' : '自动检查，一次确认锁屏提醒',
                     trailing: Icon(AppIcons.right, color: p.muted, size: 18),

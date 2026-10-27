@@ -35,7 +35,9 @@ String todayDetectionRanges(DetectionWindow window, DateTime now) {
       if (range.end.isAfter(day) && range.start.isBefore(end))
         '${range.start.isBefore(day) ? '00:00' : hm(range.start)}—${!range.end.isBefore(end) ? '24:00' : hm(range.end)}',
   ];
-  return ranges.isEmpty ? '今日无可推算的检测范围' : ranges.join('、');
+  return ranges.isEmpty
+      ? (window.hasSchedule ? '今日无课，自动检测休息；仍可手动检测' : '尚未获取可用课表，可手动检测')
+      : ranges.join('、');
 }
 
 class DetectionWindowSetting extends ConsumerStatefulWidget {

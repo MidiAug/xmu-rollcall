@@ -216,8 +216,9 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
                                 children: [
                                   Text(
                                     item.title.isEmpty ? '未命名作业' : item.title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                    softWrap: false,
+                                    overflow: TextOverflow.clip,
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       color: p.ink,

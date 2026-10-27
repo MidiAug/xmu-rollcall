@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/location/place_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account_menu.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
@@ -167,6 +168,9 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                           );
 
                           return AppSidebar(
+                            hasPendingPlace: ref
+                                .watch(unmatchedRoomsProvider)
+                                .isNotEmpty,
                             current: _current,
                             onSelect: _onSelect,
                             userLabel: name,

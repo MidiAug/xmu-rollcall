@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_switch.dart';
@@ -67,6 +68,7 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
             title: '签到设置',
             body: AppContentColumn(
               child: ListView(
+                scrollCacheExtent: const ScrollCacheExtent.pixels(3000),
                 padding: EdgeInsets.fromLTRB(
                   AppSpace.pageXOf(context),
                   AppSpace.md,
@@ -76,7 +78,51 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                 children: [
                   SettingsSection(
                     padTop: false,
-                    header: '签到规则',
+                    header: '发现签到',
+                    hasLeading: false,
+                    rowPadding: rowPadding,
+                    children: [
+                      DetectionWindowSetting(
+                        enabled: ready,
+                        padding: rowPadding,
+                      ),
+                      _SliderSetting(
+                        padding: rowPadding,
+                        title: '检测间隔',
+                        sliderKey: const ValueKey('monitor-interval'),
+                        value: c.effectiveIntervalSeconds.toDouble(),
+                        valueLabel: '${c.effectiveIntervalSeconds} 秒',
+                        min: MonitorConfig.minIntervalSeconds.toDouble(),
+                        max: MonitorConfig.maxIntervalSeconds.toDouble(),
+                        divisions:
+                            (MonitorConfig.maxIntervalSeconds -
+                                MonitorConfig.minIntervalSeconds) ~/
+                            MonitorConfig.intervalStepSeconds,
+                        formatValue: (value) => '${value.round()} 秒',
+                        onChanged: ready
+                            ? (value) => ctrl.setIntervalSeconds(value.round())
+                            : null,
+                        onChangeEnd: ready ? (_) => ctrl.commitPersist() : null,
+                      ),
+                      _SliderSetting(
+                        padding: rowPadding,
+                        title: '随机扰动',
+                        sliderKey: const ValueKey('monitor-jitter'),
+                        value: c.jitterRatio,
+                        valueLabel: '±${(c.jitterRatio * 100).round()}%',
+                        min: 0,
+                        max: 0.5,
+                        divisions: 10,
+                        formatValue: (value) =>
+                            '上下浮动百分之${(value * 100).round()}',
+                        onChanged: ready ? ctrl.setJitterRatio : null,
+                        onChangeEnd: ready ? (_) => ctrl.commitPersist() : null,
+                        description: '$intervalDescription；连接失败时会延后重试。',
+                      ),
+                    ],
+                  ),
+                  SettingsSection(
+                    header: '自动提交',
                     hasLeading: false,
                     rowPadding: rowPadding,
                     children: [
@@ -158,47 +204,10 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                     ],
                   ),
                   SettingsSection(
-                    header: '检测与提醒',
+                    header: '显示与提醒',
                     hasLeading: false,
                     rowPadding: rowPadding,
                     children: [
-                      DetectionWindowSetting(
-                        enabled: ready,
-                        padding: rowPadding,
-                      ),
-                      _SliderSetting(
-                        padding: rowPadding,
-                        title: '检测间隔',
-                        sliderKey: const ValueKey('monitor-interval'),
-                        value: c.effectiveIntervalSeconds.toDouble(),
-                        valueLabel: '${c.effectiveIntervalSeconds} 秒',
-                        min: MonitorConfig.minIntervalSeconds.toDouble(),
-                        max: MonitorConfig.maxIntervalSeconds.toDouble(),
-                        divisions:
-                            (MonitorConfig.maxIntervalSeconds -
-                                MonitorConfig.minIntervalSeconds) ~/
-                            MonitorConfig.intervalStepSeconds,
-                        formatValue: (value) => '${value.round()} 秒',
-                        onChanged: ready
-                            ? (value) => ctrl.setIntervalSeconds(value.round())
-                            : null,
-                        onChangeEnd: ready ? (_) => ctrl.commitPersist() : null,
-                      ),
-                      _SliderSetting(
-                        padding: rowPadding,
-                        title: '随机扰动',
-                        sliderKey: const ValueKey('monitor-jitter'),
-                        value: c.jitterRatio,
-                        valueLabel: '±${(c.jitterRatio * 100).round()}%',
-                        min: 0,
-                        max: 0.5,
-                        divisions: 10,
-                        formatValue: (value) =>
-                            '上下浮动百分之${(value * 100).round()}',
-                        onChanged: ready ? ctrl.setJitterRatio : null,
-                        onChangeEnd: ready ? (_) => ctrl.commitPersist() : null,
-                        description: '$intervalDescription；连接失败时会延后重试。',
-                      ),
                       SettingsRow(
                         contentPadding: rowPadding,
                         subtitleSpacing: 6,
@@ -236,46 +245,54 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                                 : const DesktopNotificationSettingsPage(),
                           ),
                         ),
-                      if (state.logs.isNotEmpty) ...[
-                        SettingsRow(
-                          contentPadding: rowPadding,
-                          subtitleSpacing: 6,
-                          minHeight: 40,
-                          key: const ValueKey('monitor-logs'),
-                          title: '最近运行',
-                          subtitle: _showLogs ? null : '查看最近的检测记录',
-                          trailing: _DisclosureIcon(expanded: _showLogs),
-                          onTap: () => setState(() => _showLogs = !_showLogs),
-                        ),
-                        if (_showLogs)
-                          for (final log in state.logs.take(5))
-                            Padding(
-                              padding: rowPadding,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _formatTime(log.at),
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    log.message,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: log.ok ? p.ink : p.danger,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                      ],
                     ],
                   ),
+                  if (state.logs.isNotEmpty)
+                    SettingsSection(
+                      header: '运行记录',
+                      hasLeading: false,
+                      rowPadding: rowPadding,
+                      children: [
+                        if (state.logs.isNotEmpty) ...[
+                          SettingsRow(
+                            contentPadding: rowPadding,
+                            subtitleSpacing: 6,
+                            minHeight: 40,
+                            key: const ValueKey('monitor-logs'),
+                            title: '最近运行',
+                            subtitle: _showLogs ? null : '查看最近的检测记录',
+                            trailing: _DisclosureIcon(expanded: _showLogs),
+                            onTap: () => setState(() => _showLogs = !_showLogs),
+                          ),
+                          if (_showLogs)
+                            for (final log in state.logs.take(5))
+                              Padding(
+                                padding: rowPadding,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _formatTime(log.at),
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      log.message,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            color: log.ok ? p.ink : p.danger,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                        ],
+                      ],
+                    ),
                 ],
               ),
             ),

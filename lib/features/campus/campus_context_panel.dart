@@ -94,24 +94,15 @@ class CampusContextView extends StatelessWidget {
                 style: TextStyle(color: p.muted, height: 1.7),
               ),
             if (summary.visible.isNotEmpty)
-              Stack(
+              Column(
                 children: [
-                  Positioned(
-                    left: 3.5,
-                    top: 0,
-                    bottom: 0,
-                    width: 1,
-                    child: ColoredBox(color: p.primary.withValues(alpha: .16)),
-                  ),
-                  Column(
-                    children: [
-                      for (final meeting in summary.visible)
-                        _MeetingRow(
-                          meeting: meeting,
-                          current: identical(meeting, summary.current),
-                        ),
-                    ],
-                  ),
+                  for (var i = 0; i < summary.visible.length; i++)
+                    _MeetingRow(
+                      meeting: summary.visible[i],
+                      current: identical(summary.visible[i], summary.current),
+                      first: i == 0,
+                      last: i == summary.visible.length - 1,
+                    ),
                 ],
               ),
             const SizedBox(height: 16),
@@ -219,35 +210,73 @@ class CampusContextView extends StatelessWidget {
 }
 
 class _MeetingRow extends StatelessWidget {
-  const _MeetingRow({required this.meeting, required this.current});
+  const _MeetingRow({
+    required this.meeting,
+    required this.current,
+    required this.first,
+    required this.last,
+  });
   final CampusMeeting meeting;
-  final bool current;
+  final bool current, first, last;
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     String hm(DateTime t) =>
         '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-    return Padding(
+    Widget metadata(IconData icon, String label) => Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: 14,
+          height: MediaQuery.textScalerOf(context).scale(12) * 1.5,
+          child: Center(child: Icon(icon, size: 14, color: p.muted)),
+        ),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(fontSize: 12, color: p.muted, height: 1.5),
+          ),
+        ),
+      ],
+    );
+    return IntrinsicHeight(
       key: ValueKey('campus-meeting-${meeting.id}'),
-      padding: EdgeInsets.only(bottom: current ? 10 : 0),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 7),
-            child: Icon(
-              Icons.circle,
-              size: 8,
-              color: current ? p.primary : p.muted.withValues(alpha: .4),
+          SizedBox(
+            width: 14,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter: CampusTimelinePainter(
+                      first: first,
+                      last: last,
+                      color: p.primary.withValues(alpha: .3),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 15,
+                  left: 0,
+                  child: Icon(
+                    Icons.circle,
+                    size: 14,
+                    color: current ? p.primary : p.muted.withValues(alpha: .4),
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 10),
           Padding(
-            padding: const EdgeInsets.only(top: 3),
+            padding: const EdgeInsets.only(top: 11),
             child: Text(
               hm(meeting.start),
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 14,
                 color: current ? p.primary : p.muted,
                 fontWeight: FontWeight.w500,
               ),
@@ -255,46 +284,45 @@ class _MeetingRow extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Container(
-              padding: EdgeInsets.fromLTRB(10, current ? 8 : 2, 8, 10),
-              decoration: BoxDecoration(
-                color: current ? p.selected : null,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    meeting.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      height: 1.6,
-                      color: p.ink,
-                    ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(10, 8, 8, 10),
+                decoration: BoxDecoration(
+                  color: current ? p.selected : p.surface,
+                  border: Border.all(
+                    color: current
+                        ? p.primary.withValues(alpha: .25)
+                        : p.border,
                   ),
-                  const SizedBox(height: 6),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(AppIcons.location, size: 14, color: p.muted),
-                      const SizedBox(width: 3),
-                      Expanded(
-                        child: Text(
-                          meeting.room.isEmpty ? '教室未提供' : meeting.room,
-                          style: TextStyle(fontSize: 12, color: p.muted),
-                        ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      meeting.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        height: 1.6,
+                        color: p.ink,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '${hm(meeting.start)}–${hm(meeting.end)}',
-                    style: TextStyle(fontSize: 11, color: p.muted, height: 1.5),
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 6),
+                    metadata(
+                      AppIcons.location,
+                      meeting.room.isEmpty ? '教室未提供' : meeting.room,
+                    ),
+                    const SizedBox(height: 6),
+                    metadata(
+                      AppIcons.clock,
+                      '${hm(meeting.start)}–${hm(meeting.end)}',
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -302,4 +330,49 @@ class _MeetingRow extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Short tapered tails extend six pixels beyond the first/last card edge.
+class CampusTimelinePainter extends CustomPainter {
+  const CampusTimelinePainter({
+    required this.first,
+    required this.last,
+    required this.color,
+  });
+  final bool first, last;
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final x = size.width / 2;
+    final top = first ? 2.0 : 0.0;
+    final bottom = last ? size.height - 2 : size.height;
+    final startWidth = first ? 0.5 : 1.5;
+    final endWidth = last ? 0.5 : 1.5;
+    final span = bottom - top;
+    final path = Path()
+      ..moveTo(x - startWidth, top)
+      ..cubicTo(
+        x - 1.5,
+        top + span * .3,
+        x - 1.5,
+        bottom - span * .3,
+        x - endWidth,
+        bottom,
+      )
+      ..lineTo(x + endWidth, bottom)
+      ..cubicTo(
+        x + 1.5,
+        bottom - span * .3,
+        x + 1.5,
+        top + span * .3,
+        x + startWidth,
+        top,
+      )
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(CampusTimelinePainter old) =>
+      first != old.first || last != old.last || color != old.color;
 }

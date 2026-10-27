@@ -4,6 +4,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 abstract final class AppIcons {
   static const rollcall = FluentIcons.calendar_checkmark_20_regular;
   static const homework = FluentIcons.clipboard_task_20_regular;
+  static const clock = FluentIcons.clock_20_regular;
   static const calendar = FluentIcons.calendar_ltr_20_regular;
   static const week = FluentIcons.calendar_week_start_20_regular;
   static const tools = FluentIcons.grid_20_regular;
@@ -13,6 +14,7 @@ abstract final class AppIcons {
   static const calendarSelected = FluentIcons.calendar_ltr_24_filled;
   static const toolsSelected = FluentIcons.grid_24_filled;
   static const settingsSelected = FluentIcons.settings_24_filled;
+  static const search = FluentIcons.search_20_regular;
   static const refresh = FluentIcons.arrow_sync_20_regular;
   static const swap = FluentIcons.arrow_swap_20_regular;
   static const right = FluentIcons.chevron_right_20_regular;
@@ -20,6 +22,7 @@ abstract final class AppIcons {
   static const more = FluentIcons.more_horizontal_20_regular;
   static const person = FluentIcons.person_20_regular;
   static const people = FluentIcons.people_20_regular;
+  static const building = FluentIcons.building_20_regular;
   static const location = FluentIcons.location_20_regular;
   static const check = FluentIcons.checkmark_20_regular;
   static const checkCircle = FluentIcons.checkmark_circle_20_regular;
@@ -37,5 +40,7 @@ abstract final class AppIcons {
   static const download = FluentIcons.arrow_download_20_regular;
   static const sun = FluentIcons.weather_sunny_20_regular;
   static const moon = FluentIcons.weather_moon_20_regular;
+  static const desktop = FluentIcons.desktop_20_regular;
+  static const assist = FluentIcons.people_team_20_regular;
   static const theme = FluentIcons.dark_theme_20_regular;
 }

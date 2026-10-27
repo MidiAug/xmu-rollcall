@@ -65,6 +65,8 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
           window != null &&
           !_outsideWindow;
       return Align(
+        widthFactor: 1,
+        heightFactor: 1,
         alignment: Alignment.centerLeft,
         child: AppTooltipAnchor(
           child: Tooltip(
@@ -145,6 +147,8 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
         : '检测中  ${secs}s';
 
     return Align(
+      widthFactor: 1,
+      heightFactor: 1,
       alignment: Alignment.centerLeft,
       child: Row(
         mainAxisSize: MainAxisSize.min,

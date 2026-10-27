@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/location/campus_places.dart';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,6 +9,50 @@ import 'package:xmu_rollcall/features/location/location_providers.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test(
+    'explicit built-in place uses directory coordinates without custom storage',
+    () async {
+      final place = campusPlaces.first.saved;
+      final ctrl = CourseRadarDefaultsController(userId: 1);
+      addTearDown(ctrl.dispose);
+      expect(
+        await readAutomaticRadarLocation(
+          ownerId: 1,
+          assistUserId: null,
+          courseId: '7',
+        ),
+        isNull,
+      );
+      await ctrl.configureForCourse(
+        courseId: '7',
+        courseTitle: 'test',
+        selection: RadarGeoSelection(
+          latitude: place.latitude,
+          longitude: place.longitude,
+          accuracy: place.accuracy,
+          obtainedVia: RadarObtainedVia.place,
+          placeId: place.id,
+          label: place.note,
+        ),
+      );
+      final pref = await readAutomaticRadarLocation(
+        ownerId: 1,
+        assistUserId: null,
+        courseId: '7',
+      );
+      expect(pref?.placeId, place.id);
+      expect(pref?.latitude, place.latitude);
+      expect(pref?.accuracy, place.accuracy);
+      expect(
+        await readAutomaticRadarLocation(
+          ownerId: 1,
+          assistUserId: 2,
+          courseId: '7',
+        ),
+        isNull,
+      );
+    },
+  );
   test(
     'explicit course setup persists without a successful network submission',
     () async {

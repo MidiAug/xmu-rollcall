@@ -240,13 +240,12 @@ class _StartMonitor extends MonitorController {
 }
 
 Future<void> openHistory(WidgetTester tester) async {
-  if (find.byTooltip('签到操作').evaluate().isNotEmpty) {
-    await tester.tap(find.byTooltip('签到操作'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('签到记录').last);
-  } else {
+  if (find.byTooltip('签到记录').evaluate().isNotEmpty) {
     await tester.tap(find.byTooltip('签到记录'));
+  } else {
+    await tester.tap(find.text('签到记录').last);
   }
+  await tester.pumpAndSettle();
 }
 
 void main() {

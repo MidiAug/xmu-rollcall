@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/location/place_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
@@ -278,7 +279,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
     if (d.selected != null) return d.selected;
     final pref = _preference(d);
     final id = pref?.placeId;
-    for (final place in ref.read(savedLocationsProvider)) {
+    for (final place in ref.read(knownLocationsProvider)) {
       if (place.id == id) return place;
     }
     if (pref == null) {
@@ -542,7 +543,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
   @override
   Widget build(BuildContext context) {
     ref.watch(courseRadarDefaultsForProvider(widget.assistUserId));
-    ref.watch(savedLocationsProvider);
+    ref.watch(knownLocationsProvider);
     final p = AppPalette.of(context);
     final picking = _picking;
     return ShellTabExitGuard(

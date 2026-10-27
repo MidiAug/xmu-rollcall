@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/location/place_providers.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
@@ -88,7 +89,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     }
     final next = selectionFromCoursePref(
       pref,
-      ref.read(savedLocationsProvider),
+      ref.read(knownLocationsProvider),
     );
     final cur = _selection;
     if (cur != null &&
@@ -366,7 +367,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
   }
 
   Future<void> _usePreset() async {
-    final list = ref.read(savedLocationsProvider);
+    final list = ref.read(knownLocationsProvider);
     final picked = await pickSavedLocation(context, list);
     if (picked == null || !mounted) return;
     _pin(picked);

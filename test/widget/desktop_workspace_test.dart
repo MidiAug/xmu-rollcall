@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/core/theme/app_icons.dart';
 import '../fixtures/preview_fonts.dart';
 import 'dart:io';
 import 'dart:convert';
@@ -284,6 +285,19 @@ void main() {
                 rollcallRepositoryForProvider(
                   2,
                 ).overrideWithValue(_Attendance()),
+                currentCourseHistoryProvider.overrideWithValue(
+                  AsyncData([
+                    CourseRollcallRecord(
+                      courseId: '7',
+                      courseTitle: '历史中最新的未签到课程',
+                      rollcallId: '100',
+                      rollcallTime: DateTime(2026, 10, 28, 9),
+                      typeLabel: '数字',
+                      signedStatus: '未签到',
+                      platformStatus: 'closed',
+                    ),
+                  ]),
+                ),
                 campusCachedDataProvider.overrideWith(
                   (ref) async => CampusCachedData(
                     schedule: schedule,
@@ -419,6 +433,15 @@ void main() {
         );
         await mouse.removePointer();
         await tester.pumpAndSettle();
+        expect(find.text('历史中最新的未签到课程'), findsOneWidget);
+        expect(find.text('未签到'), findsOneWidget);
+        expect(
+          find.text('工程伦理'),
+          findsNothing,
+          reason: 'Local submit history is not attendance history',
+        );
+        final footer = find.byKey(const ValueKey('latest-history-footer'));
+        expect(tester.getRect(footer).bottom, closeTo(variant.$2 - 12, 1));
         final record = find.ancestor(
           of: find.text('查看记录'),
           matching: find.byType(AppTextLink),
@@ -500,21 +523,18 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text('6428'), findsOneWidget);
-        await tester.tap(find.byTooltip('签到操作'));
-        await tester.pumpAndSettle();
-        expect(find.text('自动检测设置'), findsOneWidget);
-        await capture('签到菜单');
-        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-        await tester.pumpAndSettle();
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await tester.pumpAndSettle();
-        final menuButton = tester.widget<IconButton>(
-          find.byWidgetPredicate((w) => w is IconButton && w.tooltip == '签到操作'),
-        );
-        expect(menuButton.focusNode!.hasFocus, isTrue);
-        await tester.tapAt(Offset(variant.$1 * .5, variant.$2 - 50));
-        await tester.pumpAndSettle();
-        expect(menuButton.focusNode!.hasFocus, isFalse);
+        for (final label in ['签到设置', '签到记录']) {
+          final button = tester.widget<IconButton>(
+            find.byWidgetPredicate(
+              (w) => w is IconButton && w.tooltip == label,
+            ),
+          );
+          expect(button.style?.side?.resolve({}), isNotNull);
+        }
+        expect(find.byTooltip('签到设置'), findsOneWidget);
+        expect(find.byTooltip('签到记录'), findsOneWidget);
+        expect(find.byTooltip('签到操作'), findsNothing);
+        await capture('签到快捷操作');
         await tester.tap(find.text('查看记录'));
         await tester.pumpAndSettle();
         await capture('签到记录');
@@ -533,4 +553,66 @@ void main() {
       variant: TargetPlatformVariant.only(TargetPlatform.windows),
     );
   }
+  testWidgets(
+    'single course timeline reaches below card and metadata icons align',
+    (tester) async {
+      tester.view.physicalSize = const Size(360, 540);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final boundary = GlobalKey();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark(),
+          home: Scaffold(
+            body: RepaintBoundary(
+              key: boundary,
+              child: CampusContextView(
+                data: CampusCachedData(
+                  schedule: AcademicSchedule(
+                    term: schedule.term,
+                    monday: schedule.monday,
+                    fetchedAt: now,
+                    rows: [schedule.rows[1]],
+                  ),
+                ),
+                now: now,
+                onTimetable: () {},
+                onHomework: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byIcon(AppIcons.clock), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.byIcon(AppIcons.clock)).dx,
+        tester.getTopLeft(find.byIcon(AppIcons.location)).dx,
+      );
+      expect(
+        tester.getCenter(find.byIcon(AppIcons.location)).dy,
+        closeTo(tester.getCenter(find.text('教学楼 A301')).dy, .1),
+      );
+      expect(
+        tester.getCenter(find.byIcon(AppIcons.clock)).dy,
+        closeTo(tester.getCenter(find.text('14:30–16:10')).dy, .1),
+      );
+      expect(tester.takeException(), isNull);
+      if (Platform.environment['CAPTURE_DESKTOP_WORKSPACE'] == '1') {
+        await tester.runAsync(() async {
+          final rendered =
+              await (boundary.currentContext!.findRenderObject()
+                      as RenderRepaintBoundary)
+                  .toImage();
+          final png = await rendered.toByteData(format: ui.ImageByteFormat.png);
+          await File(
+            '.tools/desktop-workspace/timeline-single-dark.png',
+          ).writeAsBytes(png!.buffer.asUint8List());
+          rendered.dispose();
+        });
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }

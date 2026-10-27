@@ -410,3 +410,7 @@ double metersBetween(double lat1, double lon1, double lat2, double lon2) {
           math.pow(math.sin(dLon / 2), 2);
   return 2 * earth * math.asin(math.sqrt(a.toDouble()));
 }
+
+/// Source references are separate from user-confirmed room coordinates.
+bool isReferencePlace(SavedLocation place) =>
+    place.id.startsWith('xmu:') || place.id.startsWith('room:');
