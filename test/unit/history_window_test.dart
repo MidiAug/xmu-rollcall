@@ -289,15 +289,22 @@ void main() {
   });
 
   test(
-    'inferred windows only rank manual probes; outside-window answers can be found',
+    'inferred windows gate manual pulls after final sync but new activity bypasses them',
     () {
       final evidence = [DateTime(2026, 10, 19, 16, 30)];
       final last = DateTime(2026, 10, 26, 20);
       final now = DateTime(2026, 10, 27, 12);
       expect(plan(now, last, evidence: evidence), isEmpty);
+      expect(plan(now, last, evidence: evidence, manual: true), isEmpty);
       expect(
-        plan(now, last, evidence: evidence, manual: true).single.reason,
-        'inferred_fallback',
+        plan(
+          now,
+          last,
+          evidence: evidence,
+          manual: true,
+          changed: true,
+        ).single.reason,
+        'activity_changed',
       );
     },
   );

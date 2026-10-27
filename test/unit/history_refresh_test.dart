@@ -391,7 +391,7 @@ void main() {
   );
 
   test(
-    'manual fallback finds an external answer outside inferred weekdays',
+    'only a new activity triggers history outside inferred weekdays',
     () async {
       now = DateTime(2026, 10, 27, 12);
       await CourseCatalogStore.write(
@@ -414,10 +414,100 @@ void main() {
       await notifier.ensureFresh();
       expect(repo.calls, isEmpty);
       await notifier.refresh();
+      expect(repo.calls, isEmpty);
+      container.read(seenInProgressCourseIdsProvider.notifier).state = {'a'};
+      await notifier.refresh();
       expect(repo.calls, ['a']);
       expect(
         container.read(courseHistoryProvider).requireValue.single.signedStatus,
         '已签到',
+      );
+      now = now.add(const Duration(seconds: 16));
+      await notifier.refresh();
+      expect(repo.calls, ['a']);
+    },
+  );
+
+  test(
+    'Monday final skips Tuesday and Wednesday; next Monday recovers missed Wednesday',
+    () async {
+      CourseRollcallRecord record(String id, DateTime time) =>
+          CourseRollcallRecord(
+            courseId: 'a',
+            courseTitle: 'A',
+            rollcallId: id,
+            rollcallTime: time,
+            typeLabel: '数字',
+            signedStatus: '已签到',
+            platformStatus: 'on_call_fine',
+          );
+      final previous = record('previous-monday', DateTime(2026, 10, 19, 9));
+      final monday = record('this-monday', DateTime(2026, 10, 26, 9));
+      final missed = record('missed-wednesday', DateTime(2026, 10, 28, 9));
+      final nextMonday = record('next-monday', DateTime(2026, 11, 2, 9));
+      await CourseCatalogStore.write(
+        1,
+        CourseCatalogSnapshot(
+          fetchedAt: DateTime.now(),
+          rolesResolved: true,
+          courses: const [CatalogCourse(id: 'a', title: 'A')],
+        ),
+      );
+      await CourseRollcallsStore.writeSuccess(
+        userId: 1,
+        courseId: 'a',
+        courseTitle: 'A',
+        records: [previous],
+        at: DateTime(2026, 10, 26, 9),
+      );
+      now = DateTime(2026, 10, 26, 10, 20);
+      repo.records['a'] = [previous, monday];
+      await container.read(courseHistoryProvider.notifier).refresh();
+      expect(repo.calls, ['a']);
+      // The consumed final is persisted, not just a 15-second in-memory gate.
+      container.invalidate(courseHistoryProvider);
+      await container.read(courseHistoryProvider.future);
+      for (final time in [
+        DateTime(2026, 10, 27, 12),
+        DateTime(2026, 10, 28, 12),
+      ]) {
+        now = time;
+        repo.records['a'] = [previous, monday, missed];
+        final notifier = container.read(courseHistoryProvider.notifier);
+        await notifier.ensureFresh();
+        await notifier.refresh();
+        now = now.add(const Duration(seconds: 16));
+        await notifier.refresh();
+        expect(repo.calls, ['a']);
+        expect(
+          container
+              .read(courseHistoryProvider)
+              .requireValue
+              .any((r) => r.rollcallId == 'missed-wednesday'),
+          isFalse,
+        );
+      }
+      now = DateTime(2026, 11, 2, 9);
+      repo.records['a'] = [previous, monday, missed, nextMonday];
+      await container.read(courseHistoryProvider.notifier).refresh();
+      expect(repo.calls, ['a', 'a']);
+      expect(
+        container
+            .read(courseHistoryProvider)
+            .requireValue
+            .map((r) => r.rollcallId),
+        unorderedEquals([
+          'previous-monday',
+          'this-monday',
+          'missed-wednesday',
+          'next-monday',
+        ]),
+      );
+      expect(
+        inferHistoryWindows(
+          (await CourseRollcallsStore.read(1, 'a'))!.timingEvidence,
+        ).map((w) => w.weekday).toSet(),
+        {1, 3},
       );
     },
   );

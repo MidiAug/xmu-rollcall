@@ -121,8 +121,8 @@ bool _needsFinal(List<HistoryWindow> windows, DateTime through, DateTime now) {
   return false;
 }
 
-/// Reliable schedules exclude closed meetings; uncertain timing only ranks
-/// manual probes, so external-platform answers remain visible.
+/// Schedules and inferred timing gate ordinary pulls. Activity changes can
+/// trigger an early sync; later queries also recover missed earlier records.
 List<HistoryCandidate> selectHistoryCandidates({
   required Map<String, String> courseTitles,
   required Map<String, CourseRollcallsSnapshot?> disks,
@@ -195,8 +195,8 @@ List<HistoryCandidate> selectHistoryCandidates({
           reliable ? 1 : 2,
         );
       }
-    } else if (!reliable && manualRefresh) {
-      add(id, windows.isEmpty ? 'unknown_probe' : 'inferred_fallback', 3);
+    } else if (!reliable && windows.isEmpty && manualRefresh) {
+      add(id, 'unknown_probe', 3);
     }
   }
   // Stable buckets retain catalog order within each tier.
