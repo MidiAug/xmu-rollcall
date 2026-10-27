@@ -148,6 +148,9 @@ void main() {
     container = ProviderContainer(
       overrides: [
         authControllerProvider.overrideWith((ref) => _Auth()),
+        courseHistoryClockProvider.overrideWithValue(
+          () => DateTime(2026, 10, 26, 8, 30),
+        ),
         assistServiceProvider.overrideWith((ref) async => service),
         assistControllerProvider.overrideWith(
           (ref) => AssistController(

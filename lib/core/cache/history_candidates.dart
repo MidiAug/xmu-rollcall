@@ -1,35 +1,128 @@
 import 'package:xmu_rollcall/core/cache/cache_policy.dart';
 import 'package:xmu_rollcall/core/cache/course_rollcalls_store.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
+import 'package:xmu_rollcall/features/settings/course_period_clock.dart';
 
-/// True when no course has ever been successfully fetched — cold / empty cache.
-/// Appear + pull then scan all courses (capped); otherwise use [selectHistoryCandidates].
-bool historyNeedsFullScan(Iterable<CourseRollcallsSnapshot?> snaps) {
-  for (final s in snaps) {
-    if (s?.lastSuccessfulFetch != null) return false;
-  }
-  return true;
-}
+bool historyNeedsFullScan(Iterable<CourseRollcallsSnapshot?> snaps) =>
+    !snaps.any((s) => s?.lastSuccessfulFetch != null);
 
-/// One course considered for incremental history refresh (R-35 §3.3).
 class HistoryCandidate {
   const HistoryCandidate({
     required this.courseId,
     required this.courseTitle,
     required this.reason,
   });
-
   final String courseId;
   final String courseTitle;
   final String reason;
 }
 
-/// Pure: pick which courses to re-fetch between [t0] windows and [now].
-///
-/// - [seenInProgressCourseIds]: newly observed activity or status change
-/// - [timetablesByCourse]: weekday → slots; only drives "period ended" signal
-/// - Manual refresh checks enrolled student courses, bypassing long TTLs.
-/// - Passive appearance never does a clock-based full scan of all courses.
+/// A weekly query hint. Inferred windows never become official course meetings.
+class HistoryWindow {
+  const HistoryWindow(this.weekday, this.startMinute, this.endMinute);
+  final int weekday;
+  final int startMinute;
+  final int endMinute;
+  DateTime startOn(DateTime day) =>
+      DateTime(day.year, day.month, day.day, 0, startMinute);
+  DateTime closeOn(DateTime day) =>
+      DateTime(day.year, day.month, day.day, 0, endMinute + 30);
+}
+
+/// Map observations to the nearest continuous group in the fixed period clock.
+/// A half-hour margin covers in-class observations and uncertain early times.
+List<HistoryWindow> inferHistoryWindows(Iterable<DateTime> observations) {
+  final clock = coursePeriodClock();
+  final groups = splitContiguousBlocks([
+    for (final entry in clock.entries)
+      TimetableSlot(
+        sequence: entry.key,
+        start: DateTime(2000, 1, 3, 0, entry.value.start),
+        end: DateTime(2000, 1, 3, 0, entry.value.end),
+      ),
+  ]);
+  final hints = <String, HistoryWindow>{};
+  for (final raw in observations) {
+    final time = raw.toLocal();
+    final minute = minutesOfDay(time);
+    int distance(SessionBlock b) {
+      final start = minutesOfDay(b.coreStart);
+      final end = minutesOfDay(b.coreEnd);
+      return minute < start
+          ? start - minute
+          : minute > end
+          ? minute - end
+          : 0;
+    }
+
+    final nearest = groups.reduce((a, b) => distance(a) <= distance(b) ? a : b);
+    final int start;
+    final int end;
+    if (distance(nearest) <= 30) {
+      start = minutesOfDay(nearest.coreStart) - 30;
+      end = minutesOfDay(nearest.coreEnd);
+    } else {
+      // Off-clock evidence still gets a conservative local two-hour hint.
+      start = minute - 60;
+      end = minute + 60;
+    }
+    final hint = HistoryWindow(
+      time.weekday,
+      start.clamp(0, 1439),
+      end.clamp(0, 1439),
+    );
+    hints['${hint.weekday}/${hint.startMinute}/${hint.endMinute}'] = hint;
+  }
+  return hints.values.toList()..sort(
+    (a, b) => (a.weekday * 1440 + a.startMinute).compareTo(
+      b.weekday * 1440 + b.startMinute,
+    ),
+  );
+}
+
+List<HistoryWindow> _scheduledWindows(Map<int, List<TimetableSlot>> tables) => [
+  for (final day in tables.entries)
+    for (final block in courseMeetingBlocks(day.value))
+      HistoryWindow(
+        day.key,
+        minutesOfDay(block.coreStart) - 30,
+        minutesOfDay(block.coreEnd),
+      ),
+];
+
+bool _inWindow(List<HistoryWindow> windows, DateTime now) {
+  // Tomorrow's early class can have its pre-class window before midnight.
+  for (var offset = -1; offset <= 1; offset++) {
+    final day = DateTime(now.year, now.month, now.day - offset);
+    for (final w in windows) {
+      if (w.weekday == day.weekday &&
+          !now.isBefore(w.startOn(day)) &&
+          !now.isAfter(w.closeOn(day))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool _needsFinal(List<HistoryWindow> windows, DateTime through, DateTime now) {
+  // One request covers all missed meetings, even after a long absence.
+  for (var offset = 0; offset <= 7; offset++) {
+    final day = DateTime(now.year, now.month, now.day - offset);
+    for (final w in windows) {
+      final close = w.closeOn(day);
+      if (w.weekday == day.weekday &&
+          !close.isAfter(now) &&
+          close.isAfter(through)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/// Reliable schedules exclude closed meetings; uncertain timing only ranks
+/// manual probes, so external-platform answers remain visible.
 List<HistoryCandidate> selectHistoryCandidates({
   required Map<String, String> courseTitles,
   required Map<String, CourseRollcallsSnapshot?> disks,
@@ -40,111 +133,78 @@ List<HistoryCandidate> selectHistoryCandidates({
   bool manualRefresh = false,
   String? requestedCourseId,
 }) {
-  final out = <HistoryCandidate>[];
-  final seen = <String>{};
-
-  void add(String id, String reason) {
-    if (id.isEmpty || seen.contains(id)) return;
-    seen.add(id);
-    out.add(
-      HistoryCandidate(
-        courseId: id,
-        courseTitle: courseTitles[id] ?? disks[id]?.courseTitle ?? '',
-        reason: reason,
-      ),
-    );
+  final ranked = <({HistoryCandidate candidate, int priority})>[];
+  final requested = requestedCourseId?.trim() ?? '';
+  void add(String id, String reason, int priority) => ranked.add((
+    candidate: HistoryCandidate(
+      courseId: id,
+      courseTitle: courseTitles[id] ?? '',
+      reason: reason,
+    ),
+    priority: priority,
+  ));
+  if (manualRefresh && requested.isNotEmpty) {
+    if (courseTitles.containsKey(requested)) add(requested, 'manual_course', 0);
+    return ranked.map((r) => r.candidate).toList();
   }
-
-  if (manualRefresh) {
-    final requested = requestedCourseId?.trim() ?? '';
-    for (final id in courseTitles.keys) {
-      if (requested.isEmpty || id == requested) add(id, 'manual_refresh');
-      if (out.length >= CachePolicy.updateAllMaxCourses) break;
-    }
-    return out;
-  }
-
-  for (final id in seenInProgressCourseIds) {
-    if (courseTitles.containsKey(id)) add(id, 'in_progress');
-  }
-
+  final local = now.toLocal();
   for (final id in courseTitles.keys) {
-    if (seen.contains(id)) continue;
+    if (seenInProgressCourseIds.contains(id)) {
+      add(id, 'activity_changed', 0);
+      continue;
+    }
     final snap = disks[id];
     final last = snap?.lastSuccessfulFetch;
+    final scheduled = _scheduledWindows(timetablesByCourse[id] ?? const {});
+    final reliable = scheduled.isNotEmpty;
     if (last == null) {
-      if (includeNeverChecked) add(id, 'never_checked');
-      continue;
-    }
-    final tables = timetablesByCourse[id];
-    final local = now.toLocal();
-    final slots = tables?[local.weekday];
-    final active =
-        slots != null &&
-        splitContiguousBlocks(
-          slots,
-        ).any((block) => block.containsExpanded(local));
-    if (snap!.isFresh(CachePolicy.activeClassHistoryFreshFor, now: now)) {
-      continue;
-    }
-    if (active) {
-      add(id, 'active_class');
-      continue;
-    }
-    if (tables != null && coursePeriodEndedBetween(tables, last, now)) {
-      add(id, 'period_ended');
-      continue;
-    }
-    if (tables == null || tables.isEmpty) {
-      final weekdays = {
-        for (final record in snap.records)
-          if (!record.isPlaceholder && record.rollcallTime != null)
-            record.rollcallTime!.toLocal().weekday,
-      };
-      if (historyDayEndedBetween(weekdays, last, now)) {
-        add(id, 'observed_day_ended');
-      } else if (historyWeekEndedBetween(last, now)) {
-        // Known weekdays are incomplete evidence, not an exhaustive schedule.
-        add(id, 'week_ended_discovery');
+      // Reliable timing is already known before the first history response.
+      // Bootstrap must obey its window too; today's missed closing check is
+      // allowed once, while genuinely unknown courses remain probe candidates.
+      if (reliable) {
+        if (_inWindow(scheduled, local)) {
+          add(id, 'scheduled_window', 1);
+        } else if (_needsFinal(
+          scheduled,
+          DateTime(local.year, local.month, local.day),
+          local,
+        )) {
+          add(id, 'scheduled_final', 1);
+        }
+      } else if (includeNeverChecked) {
+        add(id, 'never_checked', 4);
       }
       continue;
     }
+    final windows = reliable
+        ? scheduled
+        : inferHistoryWindows(snap!.timingEvidence);
+    final through = (snap!.checkedThrough ?? last).toLocal();
+    if (_needsFinal(windows, through, local)) {
+      add(
+        id,
+        reliable ? 'scheduled_final' : 'inferred_final',
+        reliable ? 1 : 2,
+      );
+    } else if (_inWindow(windows, local)) {
+      if (manualRefresh ||
+          !snap.isFresh(CachePolicy.activeClassHistoryFreshFor, now: now)) {
+        add(
+          id,
+          reliable ? 'scheduled_window' : 'inferred_window',
+          reliable ? 1 : 2,
+        );
+      }
+    } else if (!reliable && manualRefresh) {
+      add(id, windows.isEmpty ? 'unknown_probe' : 'inferred_fallback', 3);
+    }
   }
-
-  return out;
-}
-
-/// One discovery opportunity after a calendar week, including empty histories.
-bool historyWeekEndedBetween(DateTime last, DateTime now) {
-  final local = now.toLocal();
-  final monday = DateTime(
-    local.year,
-    local.month,
-    local.day - local.weekday + 1,
-  );
-  return last.toLocal().isBefore(monday);
-}
-
-/// Calendar boundaries, not elapsed TTL: refresh after each observed class day.
-bool historyDayEndedBetween(Set<int> weekdays, DateTime last, DateTime now) {
-  final start = last.toLocal();
-  final end = now.toLocal();
-  if (!end.isAfter(start) || weekdays.isEmpty) return false;
-  final days = DateTime(
-    end.year,
-    end.month,
-    end.day,
-  ).difference(DateTime(start.year, start.month, start.day)).inDays;
-  // A complete calendar week necessarily contains every candidate weekday.
-  if (days >= 7) return true;
-  var day = DateTime(start.year, start.month, start.day);
-  for (var i = 0; i < 7; i++) {
-    final boundary = DateTime(day.year, day.month, day.day + 1);
-    if (boundary.isAfter(end)) break;
-    if (boundary.isAfter(start) && weekdays.contains(day.weekday)) return true;
-    day = boundary;
-  }
-  return false;
+  // Stable buckets retain catalog order within each tier.
+  return [
+    for (var p = 0; p <= 4; p++)
+      for (final row in ranked)
+        if (row.priority == p) row.candidate,
+  ];
 }
 
 /// True if any session block's [SessionBlock.coreEnd] falls in (t0, now].

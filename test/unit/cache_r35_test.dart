@@ -172,11 +172,11 @@ void main() {
       expect(ids.contains('a'), isTrue); // period ended after stale fetch
       expect(
         candidates.firstWhere((e) => e.courseId == 'b').reason,
-        'in_progress',
+        'activity_changed',
       );
       expect(
         candidates.firstWhere((e) => e.courseId == 'a').reason,
-        'period_ended',
+        'scheduled_final',
       );
     });
   });

@@ -27,6 +27,8 @@ class CourseRollcallsSnapshot {
     this.error,
     this.records = const [],
     this.truncated = false,
+    this.checkedThrough,
+    this.observedTimes = const [],
   });
 
   final String courseId;
@@ -35,6 +37,20 @@ class CourseRollcallsSnapshot {
   final String? error;
   final List<CourseRollcallRecord> records;
   final bool truncated;
+
+  /// Conservative coverage watermark: request start, rather than response end.
+  final DateTime? checkedThrough;
+
+  /// Timing evidence survives an empty/truncated response; it is not a timetable.
+  final List<DateTime> observedTimes;
+  Iterable<DateTime> get timingEvidence sync* {
+    yield* observedTimes;
+    for (final record in records) {
+      if (!record.isPlaceholder && record.rollcallTime != null) {
+        yield record.rollcallTime!;
+      }
+    }
+  }
 
   CourseRollcallsFetchState get fetchState {
     if (error != null && error!.isNotEmpty) {
@@ -56,14 +72,17 @@ class CourseRollcallsSnapshot {
   }
 
   Map<String, dynamic> toJson() => {
-        'courseId': courseId,
-        'courseTitle': courseTitle,
-        if (lastSuccessfulFetch != null)
-          'lastSuccessfulFetch': lastSuccessfulFetch!.toIso8601String(),
-        if (error != null) 'error': error,
-        'records': [for (final r in records) r.toJson()],
-        'truncated': truncated,
-      };
+    'courseId': courseId,
+    'courseTitle': courseTitle,
+    if (lastSuccessfulFetch != null)
+      'lastSuccessfulFetch': lastSuccessfulFetch!.toIso8601String(),
+    if (error != null) 'error': error,
+    'records': [for (final r in records) r.toJson()],
+    'truncated': truncated,
+    if (checkedThrough != null)
+      'checkedThrough': checkedThrough!.toIso8601String(),
+    'observedTimes': [for (final t in observedTimes) t.toIso8601String()],
+  };
 
   factory CourseRollcallsSnapshot.fromJson(Map<String, dynamic> j) {
     final raw = j['records'];
@@ -86,6 +105,12 @@ class CourseRollcallsSnapshot {
       error: j['error'] as String?,
       records: records,
       truncated: j['truncated'] as bool? ?? false,
+      checkedThrough: DateTime.tryParse('${j['checkedThrough'] ?? ''}'),
+      observedTimes: [
+        if (j['observedTimes'] is List)
+          for (final raw in j['observedTimes'] as List)
+            if (DateTime.tryParse('$raw') case final DateTime time) time,
+      ],
     );
   }
 
@@ -96,6 +121,8 @@ class CourseRollcallsSnapshot {
     bool clearError = false,
     List<CourseRollcallRecord>? records,
     bool? truncated,
+    DateTime? checkedThrough,
+    List<DateTime>? observedTimes,
   }) {
     return CourseRollcallsSnapshot(
       courseId: courseId,
@@ -104,6 +131,8 @@ class CourseRollcallsSnapshot {
       error: clearError ? null : (error ?? this.error),
       records: records ?? this.records,
       truncated: truncated ?? this.truncated,
+      checkedThrough: checkedThrough ?? this.checkedThrough,
+      observedTimes: observedTimes ?? this.observedTimes,
     );
   }
 }
@@ -144,13 +173,31 @@ abstract final class CourseRollcallsStore {
     required List<CourseRollcallRecord> records,
     bool truncated = false,
     DateTime? at,
+    DateTime? checkedThrough,
   }) async {
+    final previous = await read(userId, courseId);
+    final previousThrough =
+        previous?.checkedThrough ?? previous?.lastSuccessfulFetch;
+    if (checkedThrough != null &&
+        previousThrough != null &&
+        previousThrough.isAfter(checkedThrough)) {
+      return previous!;
+    }
+    final evidence = <DateTime>{
+      ...?previous?.timingEvidence.map((t) => t.toUtc()),
+      for (final record in records)
+        if (!record.isPlaceholder && record.rollcallTime != null)
+          record.rollcallTime!.toUtc(),
+    }.toList()..sort((a, b) => b.compareTo(a));
+    final completedAt = at ?? DateTime.now();
     final snap = CourseRollcallsSnapshot(
       courseId: courseId,
       courseTitle: courseTitle,
-      lastSuccessfulFetch: at ?? DateTime.now(),
+      lastSuccessfulFetch: completedAt,
       records: records,
       truncated: truncated,
+      checkedThrough: checkedThrough ?? completedAt,
+      observedTimes: evidence.take(128).toList(),
     );
     await write(userId, snap);
     return snap;
@@ -164,23 +211,26 @@ abstract final class CourseRollcallsStore {
     required Object error,
     CourseRollcallsSnapshot? previous,
   }) async {
-    final snap = (previous ??
-            CourseRollcallsSnapshot(
-              courseId: courseId,
-              courseTitle: courseTitle,
-            ))
-        .copyWith(
-      courseTitle: courseTitle.isNotEmpty
-          ? courseTitle
-          : previous?.courseTitle,
-      error: '$error',
-    );
+    final snap =
+        (previous ??
+                CourseRollcallsSnapshot(
+                  courseId: courseId,
+                  courseTitle: courseTitle,
+                ))
+            .copyWith(
+              courseTitle: courseTitle.isNotEmpty
+                  ? courseTitle
+                  : previous?.courseTitle,
+              error: '$error',
+            );
     await write(userId, snap);
     return snap;
   }
 
   /// Rows for the flat history list (success empty → placeholder; never → status row).
-  static List<CourseRollcallRecord> toHistoryRows(CourseRollcallsSnapshot snap) {
+  static List<CourseRollcallRecord> toHistoryRows(
+    CourseRollcallsSnapshot snap,
+  ) {
     switch (snap.fetchState) {
       case CourseRollcallsFetchState.hasRecords:
         return [
@@ -226,9 +276,7 @@ abstract final class CourseRollcallsStore {
       case CourseRollcallsFetchState.failed:
         if (snap.records.isNotEmpty) {
           return [
-            ...toHistoryRows(
-              snap.copyWith(clearError: true),
-            ),
+            ...toHistoryRows(snap.copyWith(clearError: true)),
             CourseRollcallRecord(
               courseId: snap.courseId,
               courseTitle: snap.courseTitle,
