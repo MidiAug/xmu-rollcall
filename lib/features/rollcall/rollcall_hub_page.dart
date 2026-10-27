@@ -457,7 +457,9 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
         : next.difference(DateTime.now()).inSeconds.clamp(0, 9999);
     final failed = monitor.consecutiveFailures > 0;
     final paused = _outsideWindow;
-    final label = paused
+    final label = !monitor.discovering
+        ? '自动签到处理中'
+        : paused
         ? '${DetectionWindow.formatMinute(window!.startMinute)} 继续'
         : failed
         ? '重试中  ${secs}s'
@@ -470,13 +472,15 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
         children: [
           AppTooltipAnchor(
             child: Tooltip(
-              message: paused
+              message: !monitor.discovering
+                  ? '已停止发现新活动，继续处理本轮自动签到'
+                  : paused
                   ? '时段外暂停检测，到时自动恢复'
                   : failed
                   ? '上次检测失败，点击立即重试'
                   : '立即检测一次',
               child: AppQuietPill(
-                onTap: paused ? null : ctrl.pollNow,
+                onTap: paused || !monitor.discovering ? null : ctrl.pollNow,
                 background: failed && !paused
                     ? p.danger.withValues(alpha: 0.12)
                     : p.selected,
@@ -496,7 +500,7 @@ class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
           const SizedBox(width: 6),
           AppTooltipAnchor(
             child: IconButton(
-              tooltip: '停止检测',
+              tooltip: monitor.discovering ? '停止检测' : '停止自动签到',
               visualDensity: VisualDensity.compact,
               onPressed: ctrl.stop,
               icon: Icon(Icons.stop_circle_outlined, color: p.muted, size: 22),

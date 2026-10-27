@@ -32,6 +32,7 @@ class MonitorState {
   const MonitorState({
     required this.config,
     this.running = false,
+    this.discovering = true,
     this.starting = false,
     this.lastPollAt,
     this.lastSuccessfulPollAt,
@@ -42,6 +43,7 @@ class MonitorState {
   });
   final MonitorConfig config;
   final bool running;
+  final bool discovering;
   final bool starting;
   final bool loadingSettings;
   final DateTime? lastPollAt;
@@ -52,6 +54,7 @@ class MonitorState {
   MonitorState copyWith({
     MonitorConfig? config,
     bool? running,
+    bool? discovering,
     bool? starting,
     bool? loadingSettings,
     DateTime? lastPollAt,
@@ -63,6 +66,7 @@ class MonitorState {
   }) => MonitorState(
     config: config ?? this.config,
     running: running ?? this.running,
+    discovering: discovering ?? this.discovering,
     starting: starting ?? this.starting,
     loadingSettings: loadingSettings ?? this.loadingSettings,
     lastPollAt: lastPollAt ?? this.lastPollAt,
@@ -293,6 +297,7 @@ class MonitorController extends StateNotifier<MonitorState> {
         : DateTime.fromMillisecondsSinceEpoch(lastMs);
     state = state.copyWith(
       running: running,
+      discovering: data['discovering'] as bool? ?? true,
       starting: false,
       config: state.config.copyWith(
         enabled: running,
@@ -567,7 +572,7 @@ class MonitorController extends StateNotifier<MonitorState> {
         final status = await AndroidMonitorShell.instance.readStatus();
         if (!current()) return StartMonitorResult.cancelled;
         if (status != null && status['runId'] == id) _onSnapshot(status);
-        return state.running
+        return state.running || status?['reason'] == 'activity_found'
             ? StartMonitorResult.started
             : StartMonitorResult.fgsFailed;
       }
@@ -635,6 +640,7 @@ class MonitorController extends StateNotifier<MonitorState> {
         },
         processAutomatic: automatic.process,
         completedAutomaticIds: () => automatic.completedIds,
+        terminalAutomaticIds: () => automatic.terminalIds,
         automaticNumberCodes: () => automatic.numberCodes,
         notify: (items) async {
           if (!current()) return false;
@@ -674,6 +680,12 @@ class MonitorController extends StateNotifier<MonitorState> {
             return;
           }
           state = state.copyWith(
+            running: update.running,
+            discovering: update.discovering,
+            clearNext: update.discovering == false || update.running == false,
+            config: update.running == null
+                ? null
+                : state.config.copyWith(enabled: update.running),
             nextPollAt: update.nextPollAt,
             lastPollAt: update.lastPollAt,
             lastSuccessfulPollAt: update.ok == true ? update.lastPollAt : null,
@@ -702,6 +714,7 @@ class MonitorController extends StateNotifier<MonitorState> {
       );
       state = state.copyWith(
         running: true,
+        discovering: true,
         config: state.config.copyWith(enabled: true),
         consecutiveFailures: 0,
       );

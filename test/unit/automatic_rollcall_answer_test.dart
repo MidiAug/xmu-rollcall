@@ -136,6 +136,20 @@ void main() {
   Future<String?> run([MonitorConfig c = percent]) =>
       automatic.process([item()], c, () => current);
 
+  test(
+    'restored terminal activity is never revalidated or submitted again',
+    () async {
+      final restored = AutomaticRollcallAnswer(
+        repository: repo,
+        requireCurrent: () async {},
+        terminalIds: {item().rollcallId},
+      );
+      await restored.process([item()], noWait, () => true);
+      expect(repo.calls, isEmpty);
+      expect(restored.terminalIds, contains(item().rollcallId));
+    },
+  );
+
   final radar = item(type: RollcallType.radar, courseId: '7');
 
   test(
@@ -322,10 +336,10 @@ void main() {
         );
         repo.count = const AttendanceCount(3, 11);
         await handler.process([radar], percent, () => true);
-        expect(repo.calls, ['count']);
+        expect(repo.calls, ['count', 'active']);
         repo.count = const AttendanceCount(4, 11);
         await handler.process([radar], percent, () => true);
-        expect(repo.calls, ['count', 'count', 'active', 'radar']);
+        expect(repo.calls, ['count', 'active', 'count', 'active', 'radar']);
         expect(handler.completedIds, contains(9));
       }
     },
@@ -589,10 +603,10 @@ void main() {
   test('percentage rounds up, waits, refreshes code, submits once', () async {
     repo.count = const AttendanceCount(3, 11);
     expect(await run(), contains('3/4'));
-    expect(repo.calls, ['count']);
+    expect(repo.calls, ['count', 'active']);
     repo.count = const AttendanceCount(4, 11);
     expect(await run(), contains('成功'));
-    expect(repo.calls, ['count', 'count', 'active', 'code', 'put']);
+    expect(repo.calls, ['count', 'active', 'count', 'active', 'code', 'put']);
     await run();
     expect(repo.calls.where((v) => v == 'put'), hasLength(1));
   });
@@ -608,8 +622,35 @@ void main() {
       ),
       contains('2/3'),
     );
-    expect(repo.calls, ['count']);
+    expect(repo.calls, ['count', 'active']);
   });
+
+  test(
+    'external completion below the count threshold settles without a put',
+    () async {
+      repo.count = const AttendanceCount(1, 100);
+      repo.latest = [item(answered: true)];
+      await run();
+      expect(automatic.completedIds, contains(item().rollcallId));
+      expect(automatic.terminalIds, contains(item().rollcallId));
+      expect(repo.calls, ['count', 'active']);
+      await run();
+      expect(repo.calls, ['count', 'active']);
+    },
+  );
+
+  test(
+    'ended activity below the count threshold settles without adopting new events',
+    () async {
+      repo.count = const AttendanceCount(1, 100);
+      repo.latest = [];
+      await run();
+      await run();
+      expect(automatic.terminalIds, contains(item().rollcallId));
+      expect(automatic.completedIds, isEmpty);
+      expect(repo.calls, ['count', 'active']);
+    },
+  );
   test(
     'no-wait mode skips attendance lookup but checks current event',
     () async {
@@ -634,6 +675,11 @@ void main() {
       ]) {
         repo.calls.clear();
         repo.latest = rows;
+        automatic = AutomaticRollcallAnswer(
+          repository: repo,
+          requireCurrent: () async {},
+          now: () => now,
+        );
         await run(noWait);
         expect(repo.calls, ['active']);
       }

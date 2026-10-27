@@ -196,6 +196,11 @@ class _RunningMonitor extends MonitorController {
   }
   void finish() =>
       state = state.copyWith(running: false, loadingSettings: false);
+  void handoff() => state = state.copyWith(
+    running: true,
+    discovering: false,
+    clearNext: true,
+  );
 }
 
 class _History extends CourseHistoryNotifier {
@@ -642,6 +647,33 @@ void main() {
       ),
     );
   }
+
+  testWidgets(
+    'handoff shows automatic processing and completion restores start',
+    (tester) async {
+      tester.view.physicalSize = const Size(960, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await show(tester, const RollcallHubPage(), visibleTab: true);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(RollcallHubPage)),
+      );
+      final monitor =
+          container.read(monitorControllerProvider.notifier) as _RunningMonitor;
+      monitor.handoff();
+      await tester.pumpAndSettle();
+      expect(find.text('自动签到处理中'), findsOneWidget);
+      expect(find.byTooltip('停止自动签到'), findsOneWidget);
+      expect(find.textContaining('检测中  '), findsNothing);
+      await captureDesktopUi(tester, 'automatic-handoff');
+      monitor.finish();
+      await tester.pumpAndSettle();
+      expect(find.text('开始检测'), findsOneWidget);
+      expect(find.text('自动签到处理中'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   for (final scenario in [
     (hour: 7, minute: 29, enabled: true, overnight: false, allowed: false),

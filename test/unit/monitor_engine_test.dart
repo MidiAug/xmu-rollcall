@@ -62,7 +62,7 @@ void main() {
         [2],
       ]);
       await tester.pump(const Duration(seconds: 120));
-      expect(discoveries, 3);
+      expect(discoveries, 2);
       expect(alerts, [
         [2],
       ]);
@@ -163,6 +163,150 @@ void main() {
   );
 
   final now = DateTime(2026, 10, 11, 10);
+
+  testWidgets(
+    'discovery hands off a fixed batch, waits independently, then finishes',
+    (tester) async {
+      var discoveries = 0;
+      var checks = 0;
+      final completed = <int>{};
+      final phases = <MonitorEngineUpdate>[];
+      final batches = <List<int>>[];
+      final validity = <bool>[];
+      engine = MonitorEngine(
+        config: const MonitorConfig(
+          autoAnswer: true,
+          intervalSeconds: 10,
+          jitterRatio: 0,
+          attendanceIntervalSeconds: 15,
+        ),
+        fetch: () async {
+          discoveries++;
+          return [item(1)];
+        },
+        notify: (_) async => true,
+        completedAutomaticIds: () => completed,
+        processAutomatic: (items, _, current) async {
+          batches.add(items.map((i) => i.rollcallId).toList());
+          validity.add(current());
+          if (++checks == 3) completed.add(1);
+          return checks == 3 ? 'signed' : 'waiting';
+        },
+        now: tester.binding.clock.now,
+        onUpdate: phases.add,
+      );
+      engine.start();
+      await engine.pollNow();
+      expect(
+        phases.any((u) => u.discovering == false && u.running == true),
+        isTrue,
+      );
+      expect(checks, 1);
+      await engine.pollNow();
+      await tester.pump(const Duration(seconds: 15));
+      expect(checks, 2, reason: phases.map((u) => u.message).join('|'));
+      await tester.pump(const Duration(seconds: 15));
+      expect(checks, 3);
+      expect(batches, [
+        [1],
+        [1],
+        [1],
+      ]);
+      expect(validity, everyElement(isTrue));
+      expect(phases.last.running, isFalse);
+      expect(
+        phases.where((u) => u.items != null).last.items!.single.isAnswered,
+        isTrue,
+      );
+      await tester.pump(const Duration(minutes: 2));
+      expect(discoveries, 1);
+      expect(checks, 3);
+    },
+  );
+
+  testWidgets('no-wait automatic retry also survives discovery stopping', (
+    tester,
+  ) async {
+    var checks = 0;
+    final completed = <int>{};
+    engine = MonitorEngine(
+      config: const MonitorConfig(
+        autoAnswer: true,
+        answerWaitMode: AnswerWaitMode.none,
+        attendanceIntervalSeconds: 15,
+      ),
+      fetch: () async => [item(1)],
+      notify: (_) async => true,
+      completedAutomaticIds: () => completed,
+      processAutomatic: (_, _, _) async {
+        if (++checks == 2) completed.add(1);
+        return 'retry';
+      },
+      now: tester.binding.clock.now,
+      onUpdate: (_) {},
+    );
+    engine.start();
+    await engine.pollNow();
+    await tester.pump(const Duration(seconds: 14));
+    expect(checks, 1);
+    await tester.pump(const Duration(seconds: 1));
+    expect(checks, 2);
+    await tester.pump(const Duration(minutes: 1));
+    expect(checks, 2);
+  });
+
+  testWidgets('explicit stop cancels the automatic handoff timer too', (
+    tester,
+  ) async {
+    var checks = 0;
+    engine = MonitorEngine(
+      config: const MonitorConfig(autoAnswer: true),
+      fetch: () async => [item(1)],
+      notify: (_) async => true,
+      processAutomatic: (_, _, _) async {
+        checks++;
+        return 'waiting';
+      },
+      now: tester.binding.clock.now,
+      onUpdate: (_) {},
+    );
+    engine.start();
+    await engine.pollNow();
+    engine.stop();
+    await tester.pump(const Duration(minutes: 2));
+    expect(checks, 1);
+  });
+
+  testWidgets('restoring a handed-off batch never restarts discovery', (
+    tester,
+  ) async {
+    var discoveries = 0;
+    var checks = 0;
+    final completed = <int>{};
+    engine = MonitorEngine(
+      config: const MonitorConfig(autoAnswer: true),
+      fetch: () async {
+        discoveries++;
+        return [item(99)];
+      },
+      notify: (_) async => true,
+      completedAutomaticIds: () => completed,
+      processAutomatic: (items, _, _) async {
+        checks++;
+        completed.add(items.single.rollcallId);
+        return 'signed';
+      },
+      now: tester.binding.clock.now,
+      onUpdate: (_) {},
+    );
+    engine.start(handedOffItems: [item(1)]);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(minutes: 1));
+    expect(discoveries, 0);
+    expect(checks, 1);
+    expect(completed, {1});
+  });
   final updates = <MonitorEngineUpdate>[];
   setUp(updates.clear);
   tearDown(() => engine.stop());
@@ -207,30 +351,34 @@ void main() {
     expect(updates.where((u) => u.ok == true).single.count, 0);
   });
 
-  test('keeps polling after discovery and alerts only for new ids', () async {
-    var items = [item(1)];
-    final alerts = <List<int>>[];
-    create(
-      fetch: () async => items,
-      notify: (items) async {
-        alerts.add(items.map((i) => i.rollcallId).toList());
-        return true;
-      },
-    ).start();
-    await engine.pollNow();
-    await engine.pollNow();
-    items = [item(1), item(2)];
-    await engine.pollNow();
-    expect(alerts, [
-      [1],
-      [2],
-    ]);
-    expect(engine.notifiedIds, {1, 2});
-    expect(updates.last.nextPollAt, isNotNull);
-  });
+  test(
+    'discovery ends after a pending batch; explicit restart finds new ids',
+    () async {
+      var items = [item(1)];
+      final alerts = <List<int>>[];
+      create(
+        fetch: () async => items,
+        notify: (items) async {
+          alerts.add(items.map((i) => i.rollcallId).toList());
+          return true;
+        },
+      ).start();
+      await engine.pollNow();
+      await engine.pollNow();
+      items = [item(1), item(2)];
+      engine.start();
+      await engine.pollNow();
+      expect(alerts, [
+        [1],
+        [2],
+      ]);
+      expect(engine.notifiedIds, {1, 2});
+      expect(updates.last.running, isFalse);
+    },
+  );
 
   test(
-    'failed notification is retried instead of being deduplicated',
+    'failed notification can retry after explicit restart without repeating discovery',
     () async {
       var attempts = 0;
       create(
@@ -239,6 +387,7 @@ void main() {
       ).start();
       await engine.pollNow();
       expect(engine.notifiedIds, isEmpty);
+      engine.start();
       await engine.pollNow();
       expect(attempts, 2);
       expect(engine.notifiedIds, {1});

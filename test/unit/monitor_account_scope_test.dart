@@ -259,7 +259,8 @@ void main() {
       expect(a.puts, 0);
       expect(b.puts, 0);
       expect(service.sessions, [2]);
-      expect(container.read(monitorControllerProvider).running, isTrue);
+      expect(container.read(monitorControllerProvider).running, isFalse);
+      expect(container.read(monitorControllerProvider).discovering, isFalse);
     },
   );
 

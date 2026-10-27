@@ -16,7 +16,10 @@ class AutomaticRollcallAnswer {
     this.radarLocation,
     this.onRadarSuccess,
     this.runId,
-  }) : _now = now ?? DateTime.now;
+    Set<int> terminalIds = const {},
+  }) : _now = now ?? DateTime.now {
+    _unavailable.addAll(terminalIds);
+  }
   final RollcallRepository repository;
   final Future<void> Function() requireCurrent;
   final Future<void> Function(RollcallItem, AnswerResult)? onAnswered;
@@ -30,8 +33,14 @@ class AutomaticRollcallAnswer {
   final _roundStarted = <int, DateTime>{};
   final _retryAt = <int, DateTime>{};
   final _radarAttempted = <int>{};
+  final _unavailable = <int>{};
 
   Set<int> get completedIds => Set.unmodifiable(_completed);
+  Set<int> get terminalIds => {
+    ..._completed,
+    ..._radarAttempted,
+    ..._unavailable,
+  };
 
   Future<CourseRadarPref?> _location(RollcallItem item) async {
     final id = item.courseId;
@@ -62,6 +71,7 @@ class AutomaticRollcallAnswer {
       if ((!item.isNumber && !item.isRadar) ||
           item.isAnswered ||
           item.isExpired ||
+          _unavailable.contains(id) ||
           _completed.contains(id)) {
         continue;
       }
@@ -125,6 +135,23 @@ class AutomaticRollcallAnswer {
             'target': target,
           });
           if (count.signed < target) {
+            // Discovery has handed off this fixed batch. Check only whether
+            // its activity still needs us; never adopt newly discovered ids.
+            final latest = await repository.fetchActive(opId: opId);
+            if (!current()) break;
+            final matches = latest.where((i) => i.rollcallId == id);
+            if (matches.isEmpty ||
+                matches.first.isExpired ||
+                matches.first.isAnswered) {
+              if (matches.isNotEmpty && matches.first.isAnswered) {
+                _completed.add(id);
+                message = '签到已完成';
+              } else {
+                _unavailable.add(id);
+                message = '签到活动已结束，请检查签到记录';
+              }
+              continue;
+            }
             message = target >= count.total
                 ? '当前 ${count.signed}/$target 人；课程共 ${count.total} 人，门槛可能无法达到，请调整规则'
                 : '等待同学签到：${count.signed}/$target 人';
@@ -144,6 +171,11 @@ class AutomaticRollcallAnswer {
           trace('monitor.auto.decision', {
             'reason': 'event_unavailable_or_changed',
           });
+          if (matches.isNotEmpty && matches.first.isAnswered) {
+            _completed.add(id);
+          } else {
+            _unavailable.add(id);
+          }
           continue;
         }
         stage = 'number_code';
