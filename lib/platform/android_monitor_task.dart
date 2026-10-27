@@ -169,6 +169,12 @@ class AndroidMonitorTaskHandler extends TaskHandler {
         );
         _engine = MonitorEngine(
           config: run.config,
+          manualFetch: () async {
+            await _requireCurrentAccount();
+            final items = await repo.fetchActive(manual: true);
+            await _requireCurrentAccount();
+            return items;
+          },
           loadDetectionWindow: () =>
               readScheduleDetectionWindow(run.userId, reload: true),
           processAutomatic: automatic.process,
@@ -464,7 +470,9 @@ class AndroidMonitorTaskHandler extends TaskHandler {
   void onReceiveData(Object data) {
     if (data is! Map || data['runId'] != _run?.id) return;
     if (data['action'] == 'poll_now') {
-      unawaited(_engine?.pollNow() ?? Future.value());
+      unawaited(
+        _engine?.pollNow(manual: data['manual'] == true) ?? Future.value(),
+      );
     }
     if (data['action'] == 'sync') {
       FlutterForegroundTask.sendDataToMain(

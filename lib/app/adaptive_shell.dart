@@ -265,7 +265,24 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           onPopInvokedWithResult: (didPop, _) {
             if (!didPop) _onSystemBack();
           },
-          child: scaffold,
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: PlatformHooks.isDesktop
+                ? (event) {
+                    final focus = FocusManager.instance.primaryFocus;
+                    final box = focus?.context?.findRenderObject();
+                    if (box is RenderBox &&
+                        box.attached &&
+                        box.hasSize &&
+                        !(box.localToGlobal(Offset.zero) & box.size).contains(
+                          event.position,
+                        )) {
+                      focus?.unfocus();
+                    }
+                  }
+                : null,
+            child: scaffold,
+          ),
         ),
       ),
     );

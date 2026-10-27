@@ -137,7 +137,7 @@ class AppTextLink extends StatelessWidget {
     style: TextButton.styleFrom(
       minimumSize: Size.zero,
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,

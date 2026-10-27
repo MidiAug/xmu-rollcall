@@ -22,20 +22,14 @@ class AppSidebar extends StatelessWidget {
       width: AppLayout.sidebarWidthOf(context),
       child: ColoredBox(
         color: p.sidebar,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 24, 10, 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final d in desktopDestinations.where(
-                (d) => d != AppDestination.settings,
-              ))
-                _DesktopNavItem(
-                  destination: d,
-                  selected: d == current,
-                  onTap: () => onSelect(d),
-                ),
-              Expanded(
+        child: Stack(
+          children: [
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 220,
+              bottom: 118,
+              child: IgnorePointer(
                 child: ClipRect(
                   child: RepaintBoundary(
                     child: Align(
@@ -54,34 +48,51 @@ class AppSidebar extends StatelessWidget {
                   ),
                 ),
               ),
-              Divider(color: p.border, height: 16),
-              _DesktopNavItem(
-                destination: AppDestination.settings,
-                selected: current == AppDestination.settings,
-                hasUpdate: hasUpdate,
-                onTap: () => onSelect(AppDestination.settings),
-              ),
-              const SizedBox(height: 2),
-              accountControl ??
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.account_circle_outlined,
-                        color: p.muted,
-                        size: 24,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          userLabel ?? '未登录',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 24, 10, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final d in desktopDestinations.where(
+                    (d) => d != AppDestination.settings,
+                  ))
+                    _DesktopNavItem(
+                      destination: d,
+                      selected: d == current,
+                      onTap: () => onSelect(d),
+                    ),
+                  const Spacer(),
+                  Divider(color: p.border, height: 16),
+                  _DesktopNavItem(
+                    destination: AppDestination.settings,
+                    selected: current == AppDestination.settings,
+                    hasUpdate: hasUpdate,
+                    onTap: () => onSelect(AppDestination.settings),
                   ),
-            ],
-          ),
+                  const SizedBox(height: 2),
+                  accountControl ??
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.account_circle_outlined,
+                            color: p.muted,
+                            size: 24,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              userLabel ?? '未登录',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

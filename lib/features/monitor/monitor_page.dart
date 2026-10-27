@@ -40,10 +40,7 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
     final intervalDescription = shortest == longest
         ? '每 $shortest 秒检查一次'
         : '约 $shortest–$longest 秒检查一次';
-    final rowPadding = EdgeInsets.symmetric(
-      horizontal: AppDensity.isTouch(context) ? 12 : 20,
-      vertical: 12,
-    );
+    final rowPadding = EdgeInsets.symmetric(horizontal: 16, vertical: 16);
     final theme = Theme.of(context);
 
     return Theme(
@@ -82,12 +79,6 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                     header: '签到规则',
                     hasLeading: false,
                     rowPadding: rowPadding,
-                    footer: c.autoAnswer
-                        ? Text(
-                            '雷达使用本课已保存的位置；缺少位置或失败时请手动处理。二维码需扫码。',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          )
-                        : null,
                     children: [
                       SettingsRow(
                         contentPadding: rowPadding,
@@ -307,13 +298,9 @@ class _DisclosureIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedRotation(
-    turns: expanded ? 0.5 : 0,
+    turns: expanded ? 0.25 : 0,
     duration: AppMotion.fast,
-    child: Icon(
-      Icons.expand_more_rounded,
-      size: 18,
-      color: AppPalette.of(context).muted,
-    ),
+    child: Icon(AppIcons.right, size: 18, color: AppPalette.of(context).muted),
   );
 }
 

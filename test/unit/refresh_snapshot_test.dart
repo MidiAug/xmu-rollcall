@@ -88,7 +88,9 @@ void main() {
   late Rollcalls rollcalls;
   late Homework homework;
   setUp(() {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      'schedule_detection_only_v2': false,
+    });
     rollcalls = Rollcalls();
     homework = Homework();
     container = ProviderContainer(

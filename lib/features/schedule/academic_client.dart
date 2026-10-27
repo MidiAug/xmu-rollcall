@@ -36,6 +36,10 @@ class AcademicClient {
   final RateLimiter limiter;
   final CookieJar jar = CookieJar();
   int? _boundUid;
+  Future<bool> Function()? identityGuard;
+  Future<bool> _identityCurrent(int uid) async => identityGuard != null
+      ? identityGuard!()
+      : await store.read(SecureStore.keyUserId) == '$uid';
   static final jw = Uri.parse('https://jw.xmu.edu.cn');
   static final ids = Uri.parse('https://ids.xmu.edu.cn');
   static String credentialKey(int uid) => 'academic_session_v1_$uid';
@@ -52,8 +56,7 @@ class AcademicClient {
     final watch = Stopwatch()..start();
     return limiter
         .schedule(() async {
-          if (_boundUid != null &&
-              await store.read(SecureStore.keyUserId) != '$_boundUid') {
+          if (_boundUid != null && !await _identityCurrent(_boundUid!)) {
             throw StateError('账号已切换');
           }
           return dio.requestUri<dynamic>(
@@ -289,7 +292,7 @@ class AcademicClient {
         clock: clock,
         anchorFromUser: anchorFromUser,
       );
-      if (await store.read(SecureStore.keyUserId) != '$uid') {
+      if (!await _identityCurrent(uid)) {
         throw StateError('账号已切换');
       }
       await store.write(
@@ -344,18 +347,34 @@ String selectAcademicTerm(List rows, DateTime now) {
   return codes.last;
 }
 
+class AcademicIdentity {
+  const AcademicIdentity({
+    this.username,
+    this.password,
+    this.sso,
+    required this.isCurrent,
+  });
+  final String? username, password;
+  final CookieJar? sso;
+  final Future<bool> Function() isCurrent;
+}
+
 class AcademicSync {
   AcademicSync(
     this.store, {
     AcademicClient Function(SecureStore)? createClient,
     this.onUpdated,
     this.currentSso,
+    this.resolveIdentity,
+    this.currentUserId,
     this.periodic = false,
   }) : createClient = createClient ?? ((store) => AcademicClient(store: store));
   final SecureStore store;
   final AcademicClient Function(SecureStore) createClient;
   final void Function(int uid)? onUpdated;
   final CookieJar? Function()? currentSso;
+  final Future<AcademicIdentity?> Function(int uid)? resolveIdentity;
+  final int? Function()? currentUserId;
   final bool periodic;
   Timer? _timer;
   bool _disposed = false;
@@ -363,9 +382,9 @@ class AcademicSync {
     _timer ??= Timer.periodic(const Duration(hours: 12), (_) {
       unawaited(
         () async {
-          final uid = int.tryParse(
-            await store.read(SecureStore.keyUserId) ?? '',
-          );
+          final uid =
+              currentUserId?.call() ??
+              int.tryParse(await store.read(SecureStore.keyUserId) ?? '');
           if (!_disposed && uid != null) await sync(uid);
         }().catchError((Object _) {}),
       );
@@ -405,7 +424,7 @@ class AcademicSync {
     bool force = false,
   }) {
     final existing = _flights[uid];
-    if (existing != null && password != null) {
+    if (existing != null && (password != null || sso != null)) {
       return existing.then((_) async {
         if (needsLogin(uid)) {
           await sync(
@@ -437,12 +456,37 @@ class AcademicSync {
     String? password,
     bool force = false,
   }) async {
-    if (_disposed || await store.read(SecureStore.keyUserId) != '$uid') return;
-    final freshLogin = password != null;
-    username ??= await store.read(SecureStore.keyLastUsername);
-    password ??= await store.read(SecureStore.keyOwnerPassword);
-    sso ??= currentSso?.call();
-    if (username == null || username.isEmpty) {
+    final owner = await store.read(SecureStore.keyUserId);
+    if (_disposed || owner == null) return;
+    final freshLogin = password != null || sso != null;
+    AcademicIdentity? access;
+    try {
+      access = resolveIdentity == null ? null : await resolveIdentity!(uid);
+    } catch (_) {
+      _setError(uid, '该账号的认证信息不可用，请重新导入', login: true);
+      return;
+    }
+    if ('$uid' != owner && access == null) {
+      _setError(uid, '请补充该协助账号的认证信息以连接教务课表', login: true);
+      return;
+    }
+    Future<bool> current() async =>
+        !_disposed &&
+        await store.read(SecureStore.keyUserId) == owner &&
+        (access == null || await access.isCurrent());
+    if (!await current()) return;
+    if ('$uid' == owner) {
+      username ??= await store.read(SecureStore.keyLastUsername);
+      password ??= await store.read(SecureStore.keyOwnerPassword);
+      sso ??= currentSso?.call();
+    } else {
+      username ??= access!.username;
+      password ??= access!.password;
+      sso ??= access!.sso;
+    }
+    if ((username == null || username.isEmpty) &&
+        sso == null &&
+        await store.read(AcademicClient.credentialKey(uid)) == null) {
       _setError(uid, '请重新登录账号以连接教务课表', login: true);
       return;
     }
@@ -495,6 +539,7 @@ class AcademicSync {
     AppLog.event(
       'academic.sync.start',
       fields: {
+        'session': '$uid' == owner ? 'owner' : 'assist',
         'hasCachedSchedule': cached != null,
         'hasSso': sso != null,
         'hasSavedPassword': password != null,
@@ -502,11 +547,15 @@ class AcademicSync {
       },
     );
     try {
-      final next = await createClient(
-        store,
-      ).fetch(uid, sso: sso, username: username, password: password);
+      final client = createClient(store)..identityGuard = current;
+      final next = await client.fetch(
+        uid,
+        sso: sso,
+        username: username,
+        password: password,
+      );
       // A late request must never publish after sign-out or account switch.
-      if (_disposed || await store.read(SecureStore.keyUserId) != '$uid') {
+      if (!await current()) {
         return;
       }
       await AcademicScheduleStore.write(uid, next);
@@ -517,6 +566,7 @@ class AcademicSync {
       AppLog.event(
         'academic.sync.success',
         fields: {
+          'session': '$uid' == owner ? 'owner' : 'assist',
           'term': next.term,
           'courses': next.groups.length,
           'meetings': next.rows.length,
@@ -524,7 +574,7 @@ class AcademicSync {
       );
       onUpdated?.call(uid);
     } catch (e) {
-      if (_disposed || await store.read(SecureStore.keyUserId) != '$uid') {
+      if (!await current()) {
         return;
       }
       final login = e is AcademicLoginRequired;
@@ -532,6 +582,7 @@ class AcademicSync {
         'academic.sync.failure',
         level: 'W',
         fields: {
+          'session': '$uid' == owner ? 'owner' : 'assist',
           ...LogRedactor.exceptionFields(error: e),
           'reason': login
               ? 'login_required'

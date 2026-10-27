@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/core/identity/device_identity.dart';
 import 'package:xmu_rollcall/features/schedule/academic_client.dart';
 import 'package:dio/dio.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
@@ -10,7 +11,12 @@ import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/ids_auth.dart';
 
 class AuthRepository {
-  AuthRepository({required this.http, required this.store});
+  AuthRepository({
+    required this.http,
+    required this.store,
+    DeviceIdentity? identity,
+  }) : identity = identity ?? DeviceIdentity(store);
+  final DeviceIdentity identity;
 
   final TronHttpClient http;
   final SecureStore store;
@@ -51,6 +57,7 @@ class AuthRepository {
     AppLog.event('login.step', fields: {'step': 'oauth_token'});
     final profile = await completeOAuthCode(code);
     await store.write(SecureStore.keyLastUsername, username);
+    await identity.bindStudentNumber(profile.studentNo ?? username);
     await store.write(SecureStore.keyRememberPassword, '$rememberPassword');
     if (rememberPassword) {
       await store.write(SecureStore.keyOwnerPassword, password);
@@ -162,6 +169,9 @@ class AuthRepository {
     if (profile.id == 0) throw AuthException('资料接口返回无效账号');
     await store.write(SecureStore.keyUserDisplayName, profile.name);
     await store.write(SecureStore.keyUserId, '${profile.id}');
+    if (profile.studentNo != null) {
+      await identity.bindStudentNumber(profile.studentNo);
+    }
     await http.persistCookies();
     return profile;
   }

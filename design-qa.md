@@ -1,44 +1,41 @@
-# Desktop design QA — 2026-10-28
+# Desktop interaction and identity QA — 2026-10-28
 
 final result: passed
 
-This pass implements the user's latest corrections to the selected sea-salt teal Flutter desktop design. Subjective acceptance and native drag-resize frame rate remain separate from these checks.
+This gate covers the requested stable UI states and identity/detection contracts. Continuous native resize flicker remains an explicit acceptance limit, not a claim of complete elimination.
 
-## Sources and visual evidence
+## Sources and comparison
 
-- Original selected layout: `codex-clipboard-ac00b792-f086-4f72-a61c-8a02976c32ba.png` (892×635). Later user instructions remove duplicate branding and request the supplied sidebar illustration.
-- Latest timetable source: `codex-clipboard-e94a9329-dccf-4647-ae24-47fa29608f53.png`; latest sidebar asset: `codex-clipboard-efcdfb68-a654-4600-a66e-2377b518e262.png`. The latter is copied unchanged into `assets/illustrations/campus_sidebar.png`.
-- `.tools/refine-comparison.png` puts the original layout and current Flutter render together at 900×640. Differences required by subsequent corrections (branding, icon style, controls, dates/content) are intentional; this is not a pixel-identical clone claim.
-- `.tools/desktop-workspace/*-dpr*.png`: five root pages plus open attendance menu and history at six viewport/density/scale combinations (42 views). Includes 900×640 DPR1/2, 960×720, 1120×780, dark 1440×1024 DPR2, and 1120×820 at 1.3 text scale.
-- `.tools/academic-stacks/*`: even/odd front variants and full rooms at DPR1/2. `.tools/polish-interactions/*`: an intermediate slider frame and the shared end-aligned menu.
-- Renders load real local CJK/Segoe fonts and package Fluent icon fonts. All account/course/person values in fixtures are synthetic; production account data is not injected or modified.
+- User references: `codex-clipboard-c313270d-4ddd-4942-bdc4-7af07c301f4a.png` (course menu), `codex-clipboard-b21e8321-11c2-4ddb-803d-ddbd1ea13a5e.png` (sidebar margins), and `codex-clipboard-273667fd-28ed-4061-ad1a-aca3f8cbbd07.png` (text-action padding), plus the written corrections.
+- `.tools/identity-menu-comparison.png` puts the source and current course-action cluster together. Fixture course names/counts differ deliberately; comparison concerns arrow, menu width, control alignment and spacing, not a pixel-identical course-data clone.
+- Actual widget renders: `build/desktop-ui-review/homework-course-menu-{320,384,960}.png`, `schedule-detection-{320,384,960}.png`, `.tools/monitor-typography/monitor-settings-*.png`, and `.tools/desktop-workspace/*-dpr*.png`.
+- Renders load real CJK and bundled icon fonts. An initial capture used default test fonts for homework body text; it was corrected to the production AppTheme and recaptured before comparison.
 
-## Findings, corrections and recheck
+## Findings fixed and rechecked
 
-1. P2 segmented feedback: transitioning semi-transparent fills could pass through a dark color. A single opaque mint selection plate now slides under stable button labels; intermediate position, luminance, final position and keyboard selection are tested. Reduced-motion settings are respected.
-2. P2 popup inconsistency: attendance actions used a different popup route and invisible tap padding. They now use the same anchored overlay, gap, animation, close registry and keyboard handling as account/filter menus. End/right alignment and Escape/action dismissal are checked.
-3. P2 alignment: narrow content columns are centered below an independent page title; wide homework stays explicitly left-aligned. Settings/history large-window renders and history center-coordinate assertions verify this. Date text is bottom-aligned to the attendance title.
-4. P2 course presentation: full room text replaces suffix-only captions; overlong tails clip on one line, and detail preserves the full value. Compact single-period cards reserve room space. Header metadata no longer uses dot separators.
-5. P2 teaching consistency: instructor/assistant assignments reuse the student inbox row's icon, padding, bounded title and responsive metadata layout. Long teaching-course headings remain one bounded line. Student submission semantics are not applied to teaching rows.
-6. P2 navigation: the requested supplied transparent illustration fills the lower sidebar without covering controls. Selected icons use fuller variants at 24px, with a continuous brighter teal rail. Sidebar branding stays omitted.
-7. P2 retained-page lifecycle: freezing hidden tickers initially prevented nested exit animations from disposing. After the existing draft/busy guard succeeds, tab route observers remove nested routes immediately. Ordinary in-page back transitions remain unchanged. Route reset, cancelled/confirmed drafts and busy editors pass regression again.
+1. P2 arrow direction: account uses right-to-up; normal selects and disclosure controls use right-to-down. The half-turn behavior is removed.
+2. P2 course menu geometry: fixed menu width follows the filter + gap + refresh group (142 logical pixels on desktop). Tests assert both menu edges equal the corresponding action-group edges, including a real course-page flow.
+3. P2 focus residue: background pointer clicks outside the focused control dismiss its focus. Menu selection/Escape still return keyboard focus for reopening. The root-page regression presses Tab, closes the menu, clicks blank content and checks that trigger focus clears across six viewports/scales.
+4. P2 layout: text links have 10px horizontal padding; sidebar illustration lives on the full-width background rather than inside control padding; settings group captions align to the card outer edge and row padding is consistent. Requested radar/QR footer is removed.
+5. P2 settings behavior: the obsolete daily clock editor is removed. The form displays the selected identity's merged course windows for today, a clear no-range state and the automatic-only policy switch. 320/384/960 widths, light/dark and large text were checked.
 
-The original generated attendance illustration remains `campus_mist.png`. No new illustration was generated.
+## Identity and detection verification
 
-## Resize evidence and limits
+- Academic sync resolves separate owner/assist credentials, IDS jar and JW cache. Sending and publication recheck target membership, management owner and session revision. A removed identity cannot publish a late result. Assist authentication recovery opens assist import rather than owner login.
+- Restarted Windows Debug actually authenticated the selected assist and fetched term 20261: **3 courses / 7 schedule rows**. The live timetable was inspected. No attendance submission was performed.
+- Student UUIDv5 uses the fixed app URL namespace and normalized student number across platforms/installations. Known identities migrate once; unknown student numbers preserve existing IDs. Migration updates the in-memory owner cache; parallel roster mutations preserve both identities. Durable rules: `test/fixtures/account_identity.md`.
+- Automatic discovery uses the union of actual class windows, 30 minutes before/after; no timetable means waiting. Explicit manual list/engine requests bypass the time policy. Android messages distinguish explicit manual requests from automatic rescheduling. Old daily clock preferences no longer constrain the new policy.
 
-The old IndexedStack lays out every visited child during resizing. The retained viewport freezes hidden layout constraints and MediaQuery geometry, isolates painting and disables hidden tickers/focus while preserving route/root state. A five-page, 60-resize comparison records 300 baseline layouts versus 60 active layouts and zero hidden layouts; switching back verifies retained state and updated geometry. Widget-test elapsed time is not native FPS or a claim that all desktop resize latency is eliminated. Debug overhead and native compositor behavior remain outside that measurement.
+## Native resize work and limits
 
-## Durable course evidence
+The Windows host now clips the Flutter child surface, avoids full-parent invalidation and suppresses redundant GDI background erasure for the host/view. The clipping behavior follows [Microsoft's window-style documentation](https://learn.microsoft.com/en-us/windows/win32/winmsg/window-styles). This addresses a concrete redraw path; it does not establish a measured native FPS improvement or prove that all flicker is gone.
 
-`test/fixtures/academic_complex.md` records sanitized field meanings, same-course odd/even room variants, parallel-room merging, continuous-period boundaries, date-exclusive stacks and current published-row authority. Neither the supplied example nor the existing cache showed a different-course date-exclusive overlapping pair; a separate synthetic regression covers it. Raw requests, credentials and personal fields are not retained.
+The rebuilt Debug process was restarted and inspected with the real assist timetable. A shrink attempt produced no reliable size change. A later drag was rejected because user input was detected, so further pointer control stopped. There is no reliable continuous-frame recording of live resizing in this pass. Previous retained-tab layout-count regressions still cover skipped hidden-page layouts.
 
-## Verification
+## Final checks
 
-- Full regression: 691 passed; 2 network tests skipped by existing configuration (`.tools/refine-verified-tests.log`).
-- Final timetable/workspace/route regression after layout refinements: 47 passed (`.tools/refine-last-layout.log`).
-- Single-period full-room/clip regression in desktop/touch/large-text scenarios: 5 passed (`.tools/refine-room-clip.log`).
-- Six viewport menu/history captures and centering assertions: 6 passed (`.tools/refine-history-visual.log`).
-- Analyze: no issues. Final saved-source logs: `.tools/refine-delivery-analyze.log`, `.tools/refine-delivery-windows2.log` (a serial verbose retry after a custom-build-step failure).
-- Final Windows Release build succeeded (serial retry, exit 0); no install/publish. Live Debug remains running with hot reload.
-- Android device behavior and complete native window/notification interactions are not claimed as manually verified in this pass.
+- `flutter analyze --no-pub`: no issues (`.tools/identity-last-analyze.log`).
+- `flutter test --no-pub`: 699 passed; 2 network tests skipped by existing configuration (`.tools/identity-last-tests.log`).
+- Final account/route/workspace subset: 55 passed; identity/storage subset: 12 passed; visual/policy subset: 22 passed; final course-menu capture: 3 passed; settings visual subset: 7 passed.
+- Final saved-source Windows Release succeeded, exit 0 (`.tools/identity-last-windows.log`). Debug remains running with the final hot reload.
+- No installation, publication or push. Android device behavior is not claimed as physically verified.

@@ -86,6 +86,16 @@ class AssistController extends StateNotifier<AssistUiState> {
 
   final Ref _ref;
 
+  void updateIdentity(AssistIdentity identity) {
+    if (!state.identities.any((i) => i.userId == identity.userId)) return;
+    state = state.copyWith(
+      identities: [
+        for (final current in state.identities)
+          if (current.userId == identity.userId) identity else current,
+      ],
+    );
+  }
+
   Future<AssistService> _service() => _ref.read(assistServiceProvider.future);
 
   Future<void> _bootstrap() async {

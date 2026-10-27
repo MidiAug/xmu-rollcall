@@ -10,6 +10,7 @@ class MonitorEngine {
   MonitorEngine({
     required MonitorConfig config,
     required this.fetch,
+    this.manualFetch,
     required this.notify,
     required this.onUpdate,
     this.processAutomatic,
@@ -25,6 +26,7 @@ class MonitorEngine {
   }
 
   final Future<List<RollcallItem>> Function() fetch;
+  final Future<List<RollcallItem>> Function()? manualFetch;
   final Future<DetectionWindow> Function()? loadDetectionWindow;
   final Future<bool> Function(List<RollcallItem> items) notify;
   final void Function(MonitorEngineUpdate update) onUpdate;
@@ -265,7 +267,7 @@ class MonitorEngine {
     _timer = Timer(delay, () => unawaited(pollNow()));
   }
 
-  Future<void> pollNow() async {
+  Future<void> pollNow({bool manual = false}) async {
     if (!_running || !_discovering || _busy) return;
     _timer?.cancel();
     _busy = true;
@@ -273,7 +275,7 @@ class MonitorEngine {
     bool current() => _running && generation == _generation;
     Duration? pausedDelay;
     try {
-      if (loadDetectionWindow != null) {
+      if (!manual && loadDetectionWindow != null) {
         final window = await loadDetectionWindow!();
         if (!current()) return;
         if (!window.allows(_now())) {
@@ -290,7 +292,7 @@ class MonitorEngine {
           return;
         }
       }
-      final items = await fetch();
+      final items = await (manual ? (manualFetch ?? fetch) : fetch)();
       if (!current()) return;
       _latestItems = items;
       if (items.any((i) => !i.isExpired && !i.isAnswered)) {

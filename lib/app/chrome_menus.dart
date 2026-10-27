@@ -15,6 +15,7 @@ class AppShellSelect<T> extends StatefulWidget {
     this.iconOf,
     this.width = 132,
     this.menuWidth,
+    this.fixedMenuWidth = false,
     this.wrapMenuLabels = false,
     this.leading,
     this.semanticLabel,
@@ -44,6 +45,7 @@ class AppShellSelect<T> extends StatefulWidget {
   triggerBuilder;
   final double width;
   final double? menuWidth;
+  final bool fixedMenuWidth;
   final bool wrapMenuLabels;
 
   static final List<VoidCallback> _closeHooks = [];
@@ -178,8 +180,12 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
             if (painter.width > labelWidth) labelWidth = painter.width;
           }
           painter.dispose();
-          final menuWidth = (labelWidth + 88 + (widget.iconOf == null ? 0 : 28))
-              .clamp(widget.width.clamp(0.0, maxMenuWidth), maxMenuWidth);
+          final menuWidth = widget.fixedMenuWidth
+              ? maxMenuWidth
+              : (labelWidth + 88 + (widget.iconOf == null ? 0 : 28)).clamp(
+                  widget.width.clamp(0.0, maxMenuWidth),
+                  maxMenuWidth,
+                );
           final left =
               (widget.alignMenuEnd
                       ? origin.dx + info.childSize.width - menuWidth
@@ -323,6 +329,10 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
         },
         child: TapRegion(
           groupId: _tapGroup,
+          onTapOutside: (_) {
+            _triggerFocus.unfocus();
+            _hide(restoreFocus: false);
+          },
           child: SizedBox(
             width: widget.width,
             child: Semantics(

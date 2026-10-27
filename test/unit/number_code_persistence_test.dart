@@ -72,7 +72,11 @@ class _Repo extends RollcallRepository {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(
+    () => SharedPreferences.setMockInitialValues({
+      'schedule_detection_only_v2': false,
+    }),
+  );
   ProviderContainer make(_Repo repo, {int owner = 1}) => ProviderContainer(
     overrides: [
       authControllerProvider.overrideWith((ref) => _Auth(owner)),

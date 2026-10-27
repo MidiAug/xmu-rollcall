@@ -1,3 +1,6 @@
+import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import '../fixtures/preview_fonts.dart';
+import '../fixtures/desktop_ui_capture.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -74,6 +77,10 @@ class _Overview extends HomeworkOverviewNotifier {
 }
 
 void main() {
+  setUpAll(() async {
+    await loadDesktopPreviewFonts();
+    await loadDesktopUiCaptureFonts();
+  });
   for (final width in [320.0, 384.0, 960.0]) {
     testWidgets(
       'compact aligned homework rows fit $width and details still link all four',
@@ -126,7 +133,13 @@ void main() {
                 ],
               ),
             ],
-            child: const MaterialApp(home: Scaffold(body: HomeworkHubPage())),
+            child: RepaintBoundary(
+              key: const ValueKey('desktop-ui-capture'),
+              child: MaterialApp(
+                theme: AppTheme.light(),
+                home: const Scaffold(body: HomeworkHubPage()),
+              ),
+            ),
           ),
         );
         await tester.pumpAndSettle();
@@ -199,6 +212,24 @@ void main() {
         for (var i = 1; i <= 4; i++) {
           expect(find.text('助教作业$i'), findsOneWidget);
         }
+        final filter = find.byKey(const ValueKey('homework-course-filter'));
+        final left = tester.getRect(filter).left;
+        final right = tester.getRect(find.byType(AppRefreshButton).last).right;
+        await tester.tap(filter);
+        await tester.pumpAndSettle();
+        final surface = find
+            .ancestor(
+              of: find.byType(AppMenuOption).first,
+              matching: find.byWidgetPredicate(
+                (w) => w is Material && w.shape is RoundedRectangleBorder,
+              ),
+            )
+            .first;
+        if (width >= 600) {
+          expect(tester.getRect(surface).left, closeTo(left, 1));
+          expect(tester.getRect(surface).right, closeTo(right, 1));
+        }
+        await captureDesktopUi(tester, 'homework-course-menu-${width.toInt()}');
         expect(tester.takeException(), isNull);
       },
     );

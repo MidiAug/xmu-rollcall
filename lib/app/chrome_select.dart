@@ -127,13 +127,9 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
                   ),
                   SizedBox(width: widget.compact ? 4 : 8),
                   AnimatedRotation(
-                    turns: widget.open ? 0.5 : 0,
+                    turns: widget.open ? (widget.plain ? -0.25 : 0.25) : 0,
                     duration: AppMotion.fast,
-                    child: Icon(
-                      widget.plain ? AppIcons.right : AppIcons.down,
-                      size: 18,
-                      color: p.muted,
-                    ),
+                    child: Icon(AppIcons.right, size: 18, color: p.muted),
                   ),
                 ],
               ),

@@ -261,11 +261,12 @@ class AndroidMonitorShell {
     FlutterForegroundTask.sendDataToTask({'action': 'config', 'runId': run.id});
   });
 
-  Future<void> pollNow() async {
+  Future<void> pollNow({bool manual = true}) async {
     final run = await AndroidMonitorStore.readRun();
     if (run != null) {
       FlutterForegroundTask.sendDataToTask({
         'action': 'poll_now',
+        'manual': manual,
         'runId': run.id,
       });
     }

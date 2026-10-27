@@ -83,27 +83,39 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
     final title = widget.courseName.isEmpty ? '课程作业' : widget.courseName;
     final async = ref.watch(courseHomeworkProvider(widget.courseId));
 
+    final refreshExtent = AppDensity.isTouch(context) ? 44.0 : 34.0;
     return SubpageScaffold(
       title: title,
       actions: [
-        Center(
-          child: AppShellSelect<HomeworkCourseFilter>(
-            key: const ValueKey('homework-course-filter'),
-            value: _filter,
-            items: HomeworkCourseFilter.values,
-            labelOf: (v) => v.label,
-            menuTrailingOf: (v) => async.hasValue
-                ? '(${async.requireValue.where(v.matches).length})'
-                : '',
-            onChanged: (v) => setState(() => _filter = v),
-            width: 100,
-            menuWidth: 180,
-          ),
-        ),
-        AppRefreshButton(
-          onRefresh: () => ref
-              .read(courseHomeworkProvider(widget.courseId).notifier)
-              .refresh(),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: AppShellSelect<HomeworkCourseFilter>(
+                key: const ValueKey('homework-course-filter'),
+                value: _filter,
+                items: HomeworkCourseFilter.values,
+                labelOf: (v) => v.label,
+                menuTrailingOf: (v) => async.hasValue
+                    ? '(${async.requireValue.where(v.matches).length})'
+                    : '',
+                onChanged: (v) => setState(() => _filter = v),
+                width: 100,
+                menuWidth: 108 + refreshExtent,
+                fixedMenuWidth: true,
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: refreshExtent,
+              height: refreshExtent,
+              child: AppRefreshButton(
+                onRefresh: () => ref
+                    .read(courseHomeworkProvider(widget.courseId).notifier)
+                    .refresh(),
+              ),
+            ),
+          ],
         ),
       ],
       body: AppContentColumn(

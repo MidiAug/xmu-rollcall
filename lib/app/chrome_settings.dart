@@ -31,7 +31,7 @@ class SettingsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final rowPad = rowPadding ?? AppDensity.rowPadding(context);
-    final captionInset = rowPadding?.left ?? AppSpace.sm;
+    const captionInset = 0.0;
     final dividerIndent =
         rowPad.left + (hasLeading ? 20 + AppDensity.rowInnerGap(context) : 0);
 

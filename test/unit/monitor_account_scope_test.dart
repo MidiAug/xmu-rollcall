@@ -33,6 +33,9 @@ class _Auth extends AuthController {
 }
 
 class _Service extends Fake implements AssistService {
+  @override
+  Future<AssistIdentity> ensureDeviceId(AssistIdentity identity) async =>
+      identity;
   final sessions = <int>[];
   @override
   Future<void> ensureSession(AssistIdentity identity) async {
@@ -140,6 +143,7 @@ void main() {
   late _Service service;
   setUp(() {
     SharedPreferences.setMockInitialValues({
+      'schedule_detection_only_v2': false,
       'monitor_auto_answer': true,
       'monitor_answer_wait_mode': 0,
     });

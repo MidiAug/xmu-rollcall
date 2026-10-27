@@ -10,6 +10,10 @@ import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid_view.dart';
+import 'package:xmu_rollcall/features/assist/assist_dialogs.dart';
+import 'package:xmu_rollcall/features/assist/assist_controller.dart';
+import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/core/session/session_key.dart';
 
 /// Direct academic timetable, independent of TronClass course discovery.
 class CoursesPage extends ConsumerStatefulWidget {
@@ -53,7 +57,45 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
       action: FilledButton(
         onPressed: () async {
           if (login) {
-            await showLoginDialog(context);
+            if (widget.assistUserId == null) {
+              await showLoginDialog(context);
+            } else {
+              final ctrl = ref.read(assistControllerProvider.notifier);
+              await showAssistImportDialog(
+                context,
+                onImportToken: (token) async {
+                  final imported = await ctrl.importToken(token);
+                  if (imported.userId == widget.assistUserId) {
+                    await ref
+                        .read(academicSyncProvider)
+                        .sync(
+                          imported.userId,
+                          sso: ref
+                              .read(sessionClientRegistryProvider)
+                              .forKey(SessionKey.assist(imported.userId))
+                              .cookieJar,
+                          force: true,
+                        );
+                  }
+                },
+                onImportPlain: (username, password) async {
+                  final imported = await ctrl.importPlainAccount(
+                    username: username,
+                    password: password,
+                  );
+                  if (imported.userId == widget.assistUserId) {
+                    await ref
+                        .read(academicSyncProvider)
+                        .sync(
+                          imported.userId,
+                          username: username,
+                          password: password,
+                          force: true,
+                        );
+                  }
+                },
+              );
+            }
           } else if (uid != null) {
             await ref.read(academicSyncProvider).sync(uid, force: true);
           }

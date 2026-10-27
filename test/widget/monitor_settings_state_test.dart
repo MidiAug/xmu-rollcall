@@ -1,3 +1,4 @@
+import '../fixtures/preview_fonts.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -37,6 +38,7 @@ class _Monitor extends MonitorController {
 
 void main() {
   setUpAll(() async {
+    await loadDesktopPreviewFonts();
     final font = Platform.environment['MONITOR_UI_FONT'];
     if (font == null) return;
     await (FontLoader(
@@ -145,7 +147,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text(idle), findsOneWidget);
         expect(find.text(off), findsNothing);
-        expect(find.textContaining('雷达使用本课'), findsOneWidget);
+        expect(find.textContaining('雷达使用本课'), findsNothing);
         expect(container.read(monitorControllerProvider).running, isFalse);
         final select = tester.getRect(
           find.byType(AppShellSelect<AnswerWaitMode>),
@@ -180,13 +182,14 @@ void main() {
           find.byKey(const ValueKey('detection-window-switch')),
         );
         await tester.pumpAndSettle();
-        expect(find.text('07:30'), findsOneWidget);
-        expect(find.text('22:00'), findsOneWidget);
+        expect(find.text('今日检测范围'), findsOneWidget);
+        expect(find.text('07:30'), findsNothing);
+        expect(find.text('22:00'), findsNothing);
         await capture('detection-window');
         expect(tester.takeException(), isNull);
         await container
             .read(detectionWindowProvider.notifier)
-            .save(const DetectionWindow());
+            .save(const DetectionWindow(scheduleBased: true, enabled: false));
         await tester.pumpAndSettle();
         await tester.ensureVisible(
           find.byKey(const ValueKey('monitor-auto-answer')),

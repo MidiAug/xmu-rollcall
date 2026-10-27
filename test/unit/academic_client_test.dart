@@ -41,6 +41,93 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
   test(
+    'assist timetable uses its own credentials and IDS jar, and writes only its cache',
+    () async {
+      final store = SecureStore.memory({
+        SecureStore.keyUserId: '1',
+        SecureStore.keyLastUsername: '2099000000001',
+        SecureStore.keyOwnerPassword: 'owner-password',
+      });
+      final assistJar = CookieJar();
+      final client = _PendingClient(
+        store,
+        () async => AcademicSchedule(
+          term: '20261',
+          monday: DateTime(2026, 9, 14),
+          fetchedAt: DateTime.now(),
+          rows: [],
+        ),
+      );
+      final sync = AcademicSync(
+        store,
+        createClient: (_) => client,
+        currentSso: () =>
+            throw StateError('must not read owner SSO for assist'),
+        resolveIdentity: (uid) async => AcademicIdentity(
+          username: '2099000000002',
+          password: 'assist-password',
+          sso: assistJar,
+          isCurrent: () async => true,
+        ),
+      );
+      await sync.sync(2);
+      expect(client.receivedPassword, 'assist-password');
+      expect(client.receivedSso, same(assistJar));
+      expect(await AcademicScheduleStore.read(2), isNotNull);
+      expect(await AcademicScheduleStore.read(1), isNull);
+      sync.dispose();
+    },
+  );
+  test(
+    'removing an assist while the request is pending prevents publication',
+    () async {
+      final store = SecureStore.memory({SecureStore.keyUserId: '1'});
+      var present = true;
+      final result = Completer<AcademicSchedule>();
+      final entered = Completer<void>();
+      final client = _PendingClient(store, () {
+        entered.complete();
+        return result.future;
+      });
+      final sync = AcademicSync(
+        store,
+        createClient: (_) => client,
+        resolveIdentity: (_) async => AcademicIdentity(
+          username: '2099000000002',
+          password: 'assist-password',
+          isCurrent: () async => present,
+        ),
+      );
+      final request = sync.sync(2);
+      await entered.future;
+      present = false;
+      result.complete(
+        AcademicSchedule(
+          term: '20261',
+          monday: DateTime(2026, 9, 14),
+          fetchedAt: DateTime.now(),
+          rows: [],
+        ),
+      );
+      await request;
+      expect(await AcademicScheduleStore.read(2), isNull);
+      sync.dispose();
+    },
+  );
+  test(
+    'queued academic requests validate the target identity before sending',
+    () async {
+      final client = AcademicClient(
+        store: SecureStore.memory({SecureStore.keyUserId: '1'}),
+        limiter: RateLimiter(minInterval: Duration.zero, maxPerMinute: 100),
+      )..identityGuard = () async => false;
+      await expectLater(
+        client.fetch(2, username: '2099000000002'),
+        throwsStateError,
+      );
+    },
+  );
+  test(
     'restored account reuses secure remembered password and current IDS jar after upgrade',
     () async {
       final prefs = await SharedPreferences.getInstance();

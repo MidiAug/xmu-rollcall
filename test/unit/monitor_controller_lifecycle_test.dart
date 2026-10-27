@@ -51,6 +51,7 @@ void main() {
   late Auth auth;
   setUp(() {
     SharedPreferences.setMockInitialValues({
+      'schedule_detection_only_v2': false,
       'monitor_interval': 60,
       'monitor_jitter': 0.0,
     });
@@ -71,7 +72,10 @@ void main() {
   test(
     'legacy five-second interval loads on the new ten-second grid',
     () async {
-      SharedPreferences.setMockInitialValues({'monitor_interval': 25});
+      SharedPreferences.setMockInitialValues({
+        'schedule_detection_only_v2': false,
+        'monitor_interval': 25,
+      });
       container.read(monitorControllerProvider);
       await Future<void>.delayed(Duration.zero);
       final state = container.read(monitorControllerProvider);
@@ -169,6 +173,10 @@ void main() {
   test(
     'changing semester Monday reschedules a waiting monitor, without starting a stopped one',
     () async {
+      await (await SharedPreferences.getInstance()).setBool(
+        'schedule_detection_only_v2',
+        true,
+      );
       final now = DateTime.now();
       final term = currentSemester(now);
       final start =

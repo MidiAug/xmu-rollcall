@@ -96,13 +96,13 @@ class MonitorController extends StateNotifier<MonitorState> {
     _ref.listen(detectionWindowProvider, (previous, next) {
       if (previous == null || next == null || !state.running) return;
       if (PlatformHooks.isAndroid) {
-        unawaited(AndroidMonitorShell.instance.pollNow());
+        unawaited(AndroidMonitorShell.instance.pollNow(manual: false));
       } else {
         unawaited(_engine?.pollNow());
       }
     });
     _ref.listen(academicRevisionProvider, (previous, next) {
-      if (previous != next) pollNow();
+      if (previous != next) pollNow(manual: false);
     });
     _ref.listen(selectedRollcallAccountProvider, (previous, next) {
       if (previous == next) return;
@@ -523,7 +523,9 @@ class MonitorController extends StateNotifier<MonitorState> {
             .firstWhere((a) => a.userId == scope);
         final service = await _ref.read(assistServiceProvider.future);
         await service.ensureSession(account);
+        final healed = await service.ensureDeviceId(account);
         if (!current()) return StartMonitorResult.cancelled;
+        _ref.read(assistControllerProvider.notifier).updateIdentity(healed);
       }
       if (PlatformHooks.isAndroid) {
         if (!await AndroidMonitorShell.instance.prepareStart()) {
@@ -627,6 +629,7 @@ class MonitorController extends StateNotifier<MonitorState> {
       );
       _engine = MonitorEngine(
         config: state.config,
+        manualFetch: () => repo.fetchActive(manual: true),
         loadDetectionWindow: () async {
           await _ref.read(detectionWindowProvider.notifier).ready;
           return readScheduleDetectionWindow(
@@ -773,12 +776,12 @@ class MonitorController extends StateNotifier<MonitorState> {
     }
   }
 
-  void pollNow() {
+  void pollNow({bool manual = true}) {
     if (!state.running) return;
     if (PlatformHooks.isAndroid) {
-      unawaited(AndroidMonitorShell.instance.pollNow());
+      unawaited(AndroidMonitorShell.instance.pollNow(manual: manual));
     } else {
-      unawaited(_engine?.pollNow() ?? Future.value());
+      unawaited(_engine?.pollNow(manual: manual) ?? Future.value());
     }
   }
 

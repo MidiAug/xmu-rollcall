@@ -362,9 +362,10 @@ class ActiveRollcallsNotifier
     final beforeLoad = _revision;
     await ref.read(detectionWindowProvider.notifier).ready;
     if (beforeLoad != _revision) return;
-    if (!ref
-        .read(detectionWindowProvider)!
-        .allows(ref.read(activeRollcallClockProvider)())) {
+    if (!manual &&
+        !ref
+            .read(detectionWindowProvider)!
+            .allows(ref.read(activeRollcallClockProvider)())) {
       return;
     }
     final revision = ++_revision;

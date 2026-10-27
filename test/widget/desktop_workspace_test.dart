@@ -504,8 +504,17 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('自动检测设置'), findsOneWidget);
         await capture('签到菜单');
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
+        final menuButton = tester.widget<IconButton>(
+          find.byWidgetPredicate((w) => w is IconButton && w.tooltip == '签到操作'),
+        );
+        expect(menuButton.focusNode!.hasFocus, isTrue);
+        await tester.tapAt(Offset(variant.$1 * .5, variant.$2 - 50));
+        await tester.pumpAndSettle();
+        expect(menuButton.focusNode!.hasFocus, isFalse);
         await tester.tap(find.text('查看记录'));
         await tester.pumpAndSettle();
         await capture('签到记录');

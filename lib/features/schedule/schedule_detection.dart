@@ -58,6 +58,7 @@ Future<DetectionWindow> readScheduleDetectionWindow(
   DateTime? at,
 }) async {
   final daily = await DetectionWindow.read(reload: reload);
+  if (!daily.enabled) return daily;
   if (uid == null) return daily;
   final academic = await AcademicScheduleStore.read(uid, reload: reload);
   final catalog = await CourseCatalogStore.read(uid);
@@ -73,9 +74,16 @@ Future<DetectionWindow> readScheduleDetectionWindow(
     for (final c in effective)
       if (!c.academicMatched && c.timetables.isNotEmpty) c.timetables,
   ];
-  if (tables.isEmpty) return daily;
+  if (tables.isEmpty) {
+    return DetectionWindow(
+      scheduleBased: true,
+      enabled: daily.enabled,
+      intervals: const [],
+    );
+  }
   return DetectionWindow(
     enabled: daily.enabled,
+    scheduleBased: true,
     startMinute: daily.startMinute,
     endMinute: daily.endMinute,
     intervals: scheduleIntervals(tables, at ?? DateTime.now()),

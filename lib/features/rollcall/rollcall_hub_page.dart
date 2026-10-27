@@ -5,6 +5,7 @@ import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
 import 'package:xmu_rollcall/app/shell_navigation.dart';
 import 'package:xmu_rollcall/features/campus/campus_context_panel.dart';
 import 'package:xmu_rollcall/features/settings/courses_page.dart';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'dart:async';
 
@@ -120,7 +121,12 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
           .firstWhere((e) => e.userId == id);
       final service = await ref.read(assistServiceProvider.future);
       await service.ensureSession(identity);
+      final healed = await service.ensureDeviceId(identity);
       if (!mounted || revision != _switchRevision) return;
+      ref.read(assistControllerProvider.notifier).updateIdentity(healed);
+      unawaited(
+        ref.read(academicSyncProvider).sync(id).catchError((Object _) {}),
+      );
       // Reload even when this identity already has a cached list.
       await ref.read(activeRollcallsProvider(id).notifier).refresh();
     } catch (error, stack) {

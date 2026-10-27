@@ -11,6 +11,7 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
     http: ref.watch(tronHttpClientProvider),
     store: ref.watch(secureStoreProvider),
+    identity: ref.watch(deviceIdentityProvider),
   );
 });
 

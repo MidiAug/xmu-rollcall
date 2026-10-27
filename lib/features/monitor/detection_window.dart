@@ -9,8 +9,11 @@ class DetectionWindow {
     this.startMinute = 450,
     this.endMinute = 1320,
     this.intervals,
+    this.scheduleBased = false,
   });
   final bool enabled;
+  final bool scheduleBased;
+  static const schedulePreferenceKey = 'schedule_detection_only_v2';
   final int startMinute;
   final int endMinute;
 
@@ -20,11 +23,18 @@ class DetectionWindow {
 
   static String formatMinute(int minute) =>
       '${(minute ~/ 60).toString().padLeft(2, '0')}:${(minute % 60).toString().padLeft(2, '0')}';
-  String get label => intervals == null
+  String get label => scheduleBased
+      ? '课前30分钟至课后30分钟'
+      : intervals == null
       ? '${formatMinute(startMinute)}–${formatMinute(endMinute)}'
       : '按课表：课前30分钟至课后30分钟';
 
   bool allows(DateTime at) {
+    if (scheduleBased) {
+      return !enabled ||
+          intervals == null ||
+          intervals!.any((r) => !at.isBefore(r.start) && at.isBefore(r.end));
+    }
     if (intervals != null &&
         !intervals!.any((r) => !at.isBefore(r.start) && !at.isAfter(r.end))) {
       return false;
@@ -39,6 +49,14 @@ class DetectionWindow {
 
   DateTime nextStart(DateTime at) {
     final local = at.toLocal();
+    if (scheduleBased) {
+      if (!enabled) return local;
+      for (final range in intervals ?? <({DateTime start, DateTime end})>[]) {
+        if (!range.end.isAfter(local)) continue;
+        return range.start.isAfter(local) ? range.start : local;
+      }
+      return DateTime(local.year, local.month, local.day + 1);
+    }
     if (intervals != null) {
       for (final range in intervals!) {
         if (range.end.isBefore(local)) continue;
@@ -81,25 +99,12 @@ class DetectionWindow {
   static Future<DetectionWindow> read({bool reload = false}) async {
     final prefs = await SharedPreferences.getInstance();
     if (reload) await prefs.reload();
-    try {
-      final raw = prefs.getString(preferencesKey);
-      if (raw == null) return const DetectionWindow();
-      final json = jsonDecode(raw) as Map;
-      final start = json['start'] as int;
-      final end = json['end'] as int;
-      if (start < 0 || start > 1439 || end < 0 || end > 1439 || start == end) {
-        return const DetectionWindow();
-      }
-      return DetectionWindow(
-        enabled: json['enabled'] == true,
-        startMinute: start,
-        endMinute: end,
-      );
-    } on FormatException {
-      return const DetectionWindow();
-    } on TypeError {
-      return const DetectionWindow();
-    }
+    // Legacy clock-hour restrictions are retired. Existing schedule gating
+    // remains enabled by default; the new switch explicitly controls it.
+    return DetectionWindow(
+      scheduleBased: true,
+      enabled: prefs.getBool(schedulePreferenceKey) ?? true,
+    );
   }
 }
 
@@ -127,6 +132,17 @@ class DetectionWindowController extends StateNotifier<DetectionWindow?> {
   }
 
   Future<void> save(DetectionWindow window) async {
+    if (window.scheduleBased) {
+      final prefs = await SharedPreferences.getInstance();
+      if (!await prefs.setBool(
+        DetectionWindow.schedulePreferenceKey,
+        window.enabled,
+      )) {
+        throw StateError('无法保存检测范围');
+      }
+      if (mounted) state = window;
+      return;
+    }
     if (window.startMinute == window.endMinute ||
         window.startMinute < 0 ||
         window.endMinute < 0 ||

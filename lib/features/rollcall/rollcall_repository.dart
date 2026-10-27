@@ -63,19 +63,10 @@ class RollcallRepository {
     String? opId,
     bool manual = false,
   }) async {
-    if (loadDetectionWindow != null) {
+    if (!manual && loadDetectionWindow != null) {
       final window = await loadDetectionWindow!();
       final now = discoveryClock();
-      final effective = manual && window.intervals != null
-          ? DetectionWindow(
-              enabled: window.enabled,
-              startMinute: window.startMinute,
-              endMinute: window.endMinute,
-            )
-          : window;
-      if (!effective.allows(now)) {
-        throw DetectionWindowClosed(window, now);
-      }
+      if (!window.allows(now)) throw DetectionWindowClosed(window, now);
     }
     await http.init();
     final res = await http.getUri<Map<String, dynamic>>(

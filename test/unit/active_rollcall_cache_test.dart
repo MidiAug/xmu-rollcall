@@ -206,27 +206,34 @@ void main() {
       expect(repo.calls, 1);
     },
   );
-  test('expired scheduled cache stays local; unknown identity waits for real results', () async {
-    await seed();
-    for (final scope in [null, 2]) {
-      final repo = _Repo()..pending = Completer<List<RollcallItem>>();
-      final container = make(
-        repo,
-        () => scope == null ? observed.add(const Duration(hours: 2)) : observed,
-      );
-      final future = container.read(activeRollcallsProvider(scope).future);
-      await Future<void>.delayed(Duration.zero);
-      if (scope == null) {
+  test(
+    'expired scheduled and unknown timetable caches stay local until manual detection',
+    () async {
+      await seed();
+      for (final scope in [null, 2]) {
+        final repo = _Repo()..pending = Completer<List<RollcallItem>>();
+        final container = make(
+          repo,
+          () =>
+              scope == null ? observed.add(const Duration(hours: 2)) : observed,
+        );
+        final future = container.read(activeRollcallsProvider(scope).future);
+        await Future<void>.delayed(Duration.zero);
+        if (scope == null) {
+          expect(await future, isEmpty);
+          expect(repo.calls, 0);
+        } else {
+          expect(
+            container.read(activeRollcallsProvider(scope)).hasValue,
+            isTrue,
+          );
+        }
+        repo.pending!.complete([]);
         expect(await future, isEmpty);
-        expect(repo.calls, 0);
-      } else {
-        expect(container.read(activeRollcallsProvider(scope)).hasValue, isFalse);
+        container.dispose();
       }
-      repo.pending!.complete([]);
-      expect(await future, isEmpty);
-      container.dispose();
-    }
-  });
+    },
+  );
   test(
     'scheduled reentry never queries; expired form hides locally; manual pull still queries',
     () async {
@@ -276,6 +283,8 @@ void main() {
     addTearDown(container.dispose);
     await container.read(activeRollcallsProvider(null).future);
     final notifier = container.read(activeRollcallsProvider(null).notifier);
+    expect(notifier.lastUpdatedAt, isNull);
+    await notifier.refresh(manual: true);
     expect(notifier.lastUpdatedAt, observed);
     now = now.add(const Duration(seconds: 30));
     notifier.applyMonitorItems([signed]); // Local automatic-answer feedback.
