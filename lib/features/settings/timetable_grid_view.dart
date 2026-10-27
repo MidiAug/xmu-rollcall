@@ -535,7 +535,7 @@ class _CourseDetail extends StatelessWidget {
           if (c.id.startsWith('academic:'))
             _DetailRow(
               icon: Icons.place_outlined,
-              text: c.location ?? '教务课程，尚未对应畅课课程',
+              text: c.location?.isNotEmpty == true ? c.location! : '教务未提供教室',
             )
           else
             CourseLocationSetting(

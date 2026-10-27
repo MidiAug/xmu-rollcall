@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
+import 'package:xmu_rollcall/features/schedule/academic_calendar.dart';
 import 'package:xmu_rollcall/core/cache/course_schedule_store.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -41,10 +43,12 @@ class AcademicSchedule {
     required this.monday,
     required this.fetchedAt,
     required this.rows,
+    this.anchorFromUser = false,
   });
   final String term;
   final DateTime monday;
   final DateTime fetchedAt;
+  final bool anchorFromUser;
 
   /// Only course metadata; identity and credentials are never cached here.
   final List<Map<String, dynamic>> rows;
@@ -70,6 +74,7 @@ class AcademicSchedule {
     required DateTime at,
     required Map<String, dynamic> payload,
     required Map<int, ({int start, int end})> clock,
+    bool anchorFromUser = false,
   }) {
     if (payload['success'] != true || payload['pkjgList'] is! List) {
       throw const FormatException('教务未返回完整课表');
@@ -136,6 +141,7 @@ class AcademicSchedule {
       monday: monday,
       fetchedAt: at,
       rows: rows,
+      anchorFromUser: anchorFromUser,
     );
   }
 
@@ -150,6 +156,7 @@ class AcademicSchedule {
   Map<int, List<TimetableSlot>> tables(List<Map<String, dynamic>> entries) {
     final out = <int, List<TimetableSlot>>{};
     for (final r in entries) {
+      if (academicWeeks(r['ZCBH']).isEmpty) continue;
       final day = academicInt(r['XQ']);
       final start = academicInt(r['startMinute']);
       final end = academicInt(r['endMinute']);
@@ -267,12 +274,14 @@ class AcademicSchedule {
 
   Map<String, dynamic> toJson() => {
     'term': term,
+    'anchorFromUser': anchorFromUser,
     'monday': monday.toIso8601String(),
     'fetchedAt': fetchedAt.toIso8601String(),
     'rows': rows,
   };
   factory AcademicSchedule.fromJson(Map<String, dynamic> j) => AcademicSchedule(
     term: j['term'] as String,
+    anchorFromUser: j['anchorFromUser'] == true,
     monday: DateTime.parse(j['monday'] as String),
     fetchedAt: DateTime.parse(j['fetchedAt'] as String),
     rows: (j['rows'] as List)
@@ -283,14 +292,33 @@ class AcademicSchedule {
 
 abstract final class AcademicScheduleStore {
   static String key(int uid) => 'academic_schedule_v1_$uid';
-  static Future<AcademicSchedule?> read(int uid, {bool reload = false}) async {
+  static Future<AcademicSchedule?> read(
+    int uid, {
+    bool reload = false,
+    bool useUserStart = true,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
     if (reload) await prefs.reload();
     try {
       final raw = prefs.getString(key(uid));
-      return raw == null
-          ? null
-          : AcademicSchedule.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      if (raw == null) return null;
+      final parsed = AcademicSchedule.fromJson(
+        jsonDecode(raw) as Map<String, dynamic>,
+      );
+      if (!useUserStart) return parsed;
+      final manual = await SemesterPreferences.read(uid, parsed.term);
+      final start =
+          manual ??
+          academicMondays[parsed.term] ??
+          (parsed.anchorFromUser ? null : parsed.monday);
+      if (start == null) return null;
+      return AcademicSchedule(
+        term: parsed.term,
+        monday: start,
+        fetchedAt: parsed.fetchedAt,
+        rows: parsed.rows,
+        anchorFromUser: parsed.anchorFromUser,
+      );
     } catch (_) {
       return null;
     }
@@ -341,12 +369,7 @@ Future<CourseCatalogSnapshot?> readAcademicCatalog(int uid) async {
   for (final c in raw.courses) {
     courses.add(c.withMeetings(await CourseScheduleStore.read(uid, c.id)));
   }
-  final effective = academic == null
-      ? courses
-      : academic.apply(
-          courses,
-          bindings: await AcademicBindings.read(uid, academic.term),
-        );
+  final effective = academic == null ? courses : academic.apply(courses);
   return CourseCatalogSnapshot(
     fetchedAt: raw.fetchedAt,
     academicTerm: raw.academicTerm,

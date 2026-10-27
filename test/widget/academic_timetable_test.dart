@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -86,10 +88,25 @@ void main() {
             ],
           },
         );
+        final academicCourses = [course('current', 0), course('next', 7)];
         final catalog = _Catalog(
           CourseCatalogSnapshot(
             fetchedAt: now,
-            courses: [course('current', 0), course('next', 7)],
+            courses: [
+              ...academicCourses,
+              CatalogCourse(
+                id: 'ta',
+                title: '助教课程不得显示',
+                roles: const ['instructor_assistant'],
+                timetables: course('ta', 0).timetables,
+              ),
+              CatalogCourse(
+                id: 'teacher',
+                title: '教师课程不得显示',
+                roles: const ['instructor'],
+                timetables: course('teacher', 0).timetables,
+              ),
+            ],
           ),
         );
         final boundary = GlobalKey();
@@ -115,6 +132,30 @@ void main() {
               overrides: [
                 authControllerProvider.overrideWith((ref) => _Auth()),
                 courseCatalogProvider.overrideWith(() => catalog),
+                academicTimetableProvider(1).overrideWith(
+                  (ref) async => AcademicTimetableState(
+                    schedule: AcademicSchedule(
+                      term: '20261',
+                      monday: monday,
+                      fetchedAt: now,
+                      rows: [
+                        for (final (i, c) in academicCourses.indexed)
+                          {
+                            'KCDM': c.id,
+                            'BJDM': 'A',
+                            'KCMC': c.title,
+                            'XQ': 1,
+                            'KSJCDM': 3,
+                            'JSJCDM': 4,
+                            'startMinute': 610,
+                            'endMinute': 710,
+                            'JASMC': '教学楼 A101',
+                            'ZCBH': i == 0 ? '10' : '01',
+                          },
+                      ],
+                    ),
+                  ),
+                ),
               ],
               child: MaterialApp(
                 debugShowCheckedModeBanner: false,
@@ -130,9 +171,12 @@ void main() {
               .widget<TimetableGridView>(find.byType(TimetableGridView))
               .courses
               .map((c) => c.id),
-          ['current'],
+          ['academic:current/A'],
         );
-        await tester.tap(find.widgetWithText(TextButton, '本周'));
+        expect(find.byType(PopupMenuButton<String>), findsNothing);
+        expect(find.text('补全安排'), findsNothing);
+        expect(find.text('关联课程'), findsNothing);
+        await tester.tap(find.text('学期'));
         await tester.pumpAndSettle();
         expect(
           tester
@@ -141,6 +185,8 @@ void main() {
           hasLength(2),
         );
         expect(catalog.requests, 0);
+        expect(find.text('助教课程不得显示'), findsNothing);
+        expect(find.text('教师课程不得显示'), findsNothing);
         expect(tester.takeException(), isNull);
         if (Platform.environment['CAPTURE_ACADEMIC_UI'] == '1') {
           await tester.runAsync(() async {

@@ -24,6 +24,8 @@ class _AcademicMappingPageState extends ConsumerState<AcademicMappingPage> {
   Map<String, String> _bindings = {};
   String? _error;
   bool _busy = true;
+  bool _dirty = false;
+  final Set<String> _editing = {};
   @override
   void initState() {
     super.initState();
@@ -64,9 +66,12 @@ class _AcademicMappingPageState extends ConsumerState<AcademicMappingPage> {
       }
       await AcademicBindings.write(widget.userId, schedule.term, _bindings);
       ref.read(academicRevisionProvider.notifier).state++;
-      if (mounted) Navigator.of(context).pop();
+      if (mounted) {
+        setState(() => _dirty = false);
+        Navigator.of(context).pop();
+      }
     } catch (_) {
-      if (mounted) setState(() => _error = '未保存，请检查是否重复对应，或账号、学期已变化');
+      if (mounted) setState(() => _error = '未保存，请检查课程是否重复关联');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -75,24 +80,34 @@ class _AcademicMappingPageState extends ConsumerState<AcademicMappingPage> {
   @override
   Widget build(BuildContext context) {
     final groups = _schedule?.groups ?? {};
+    final courses = widget.courses.where((c) => !c.isTeaching).toList();
+    final pending = courses
+        .where(
+          (c) =>
+              !c.academicMatched ||
+              _bindings.containsKey(c.id) ||
+              _editing.contains(c.id),
+        )
+        .toList();
+    final matched = courses.where((c) => !pending.contains(c)).toList();
     return SubpageScaffold(
-      title: '课程对应',
+      title: '关联课程',
+      hasUnsavedChanges: () => _dirty,
+      isBusy: () => _busy,
       actions: [
         TextButton(
-          onPressed: _busy || _schedule == null ? null : _save,
+          onPressed: _busy || _schedule == null || !_dirty ? null : _save,
           child: const Text('保存'),
         ),
       ],
       body: _busy
           ? const Center(child: CircularProgressIndicator())
           : _schedule == null
-          ? const Center(child: Text('尚未获取教务课表，请先同步课表'))
+          ? const Center(child: Text('请先同步教务课表'))
           : ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                const Text(
-                  '能唯一识别的课程会自动对应。同名多班或名称不同的课程，可在这里指定教务教学班；选择自动对应可移除手动指定。',
-                ),
+                Text(pending.isEmpty ? '课程已自动关联' : '请选择对应的教务课程'),
                 if (_error != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
@@ -103,7 +118,7 @@ class _AcademicMappingPageState extends ConsumerState<AcademicMappingPage> {
                       ),
                     ),
                   ),
-                for (final c in widget.courses.where((c) => !c.isTeaching))
+                for (final c in pending)
                   Padding(
                     padding: const EdgeInsets.only(top: 20),
                     child: DropdownButtonFormField<String>(
@@ -114,7 +129,7 @@ class _AcademicMappingPageState extends ConsumerState<AcademicMappingPage> {
                           : '',
                       decoration: InputDecoration(labelText: c.title),
                       items: [
-                        const DropdownMenuItem(value: '', child: Text('自动对应')),
+                        const DropdownMenuItem(value: '', child: Text('自动关联')),
                         for (final e in groups.entries)
                           DropdownMenuItem(
                             value: e.key,
@@ -126,12 +141,31 @@ class _AcademicMappingPageState extends ConsumerState<AcademicMappingPage> {
                           ),
                       ],
                       onChanged: (value) => setState(() {
+                        _dirty = true;
                         if (value == null || value.isEmpty) {
                           _bindings.remove(c.id);
                         } else {
                           _bindings[c.id] = value;
                         }
                       }),
+                    ),
+                  ),
+                if (matched.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: ExpansionTile(
+                      title: Text('已关联（${matched.length}）'),
+                      children: [
+                        for (final c in matched)
+                          ListTile(
+                            title: Text(c.title),
+                            trailing: TextButton(
+                              onPressed: () =>
+                                  setState(() => _editing.add(c.id)),
+                              child: const Text('修改'),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
               ],

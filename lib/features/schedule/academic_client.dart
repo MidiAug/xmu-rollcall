@@ -1,3 +1,6 @@
+import 'package:xmu_rollcall/core/logging/app_log.dart';
+import 'package:xmu_rollcall/core/logging/log_redactor.dart';
+import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'dart:async';
 import 'package:xmu_rollcall/features/schedule/academic_calendar.dart';
 import 'dart:convert';
@@ -16,6 +19,10 @@ class AcademicSessionRequired implements Exception {
   const AcademicSessionRequired();
 }
 
+class AcademicLoginRequired extends FormatException {
+  const AcademicLoginRequired([super.message = '请重新登录账号以连接教务课表']);
+}
+
 /// Independent, per-identity JW/IDS jar. No TronClass access token is forwarded.
 class AcademicClient {
   AcademicClient({required this.store, Dio? dio, RateLimiter? limiter})
@@ -28,6 +35,7 @@ class AcademicClient {
   final Dio dio;
   final RateLimiter limiter;
   final CookieJar jar = CookieJar();
+  int? _boundUid;
   static final jw = Uri.parse('https://jw.xmu.edu.cn');
   static final ids = Uri.parse('https://ids.xmu.edu.cn');
   static String credentialKey(int uid) => 'academic_session_v1_$uid';
@@ -41,22 +49,55 @@ class AcademicClient {
     if (uri.scheme != 'https' || !{jw.host, ids.host}.contains(uri.host)) {
       throw const FormatException('教务登录跳转地址异常');
     }
-    return limiter.schedule(
-      () => dio.requestUri<dynamic>(
-        uri,
-        data: data,
-        options: Options(
-          method: method,
-          followRedirects: false,
-          maxRedirects: 0,
-          responseType: ResponseType.plain,
-          contentType: contentType,
-          validateStatus: (s) => s != null && s < 500,
-          headers: {'User-Agent': TronEndpoints.userAgent},
-        ),
-      ),
-      priority: RequestPriority.background,
-    );
+    final watch = Stopwatch()..start();
+    return limiter
+        .schedule(() async {
+          if (_boundUid != null &&
+              await store.read(SecureStore.keyUserId) != '$_boundUid') {
+            throw StateError('账号已切换');
+          }
+          return dio.requestUri<dynamic>(
+            uri,
+            data: data,
+            options: Options(
+              method: method,
+              followRedirects: false,
+              maxRedirects: 0,
+              responseType: ResponseType.plain,
+              contentType: contentType,
+              validateStatus: (s) => s != null && s < 500,
+              headers: {'User-Agent': TronEndpoints.userAgent},
+            ),
+          );
+        }, priority: RequestPriority.background)
+        .then(
+          (response) {
+            AppLog.event(
+              'academic.http.result',
+              fields: {
+                'method': method,
+                'host': uri.host,
+                'path': uri.path,
+                'status': response.statusCode,
+                'elapsedMs': watch.elapsedMilliseconds,
+              },
+            );
+            return response;
+          },
+          onError: (Object error, StackTrace stack) {
+            AppLog.event(
+              'academic.http.error',
+              level: 'W',
+              fields: {
+                ...LogRedactor.exceptionFields(error: error),
+                'host': uri.host,
+                'path': uri.path,
+                'elapsedMs': watch.elapsedMilliseconds,
+              },
+            );
+            Error.throwWithStackTrace(error, stack);
+          },
+        );
   }
 
   Future<void> open(Uri uri, {String? username, String? password}) async {
@@ -75,12 +116,26 @@ class AcademicClient {
       final html = '${response.data ?? ''}';
       if (html.contains('pwdEncryptSalt')) {
         if (submitted || username == null || password == null) {
-          throw const FormatException('教务需要重新登录，请重新登录账号以连接课表');
+          throw const AcademicLoginRequired();
         }
         submitted = true;
-        uri = await IdsAuth(
-          hop,
-        ).submit(url: uri, html: html, username: username, password: password);
+        try {
+          uri = await IdsAuth(hop).submit(
+            url: uri,
+            html: html,
+            username: username,
+            password: password,
+          );
+        } on FormatException catch (error) {
+          if (error.source == null &&
+              const {
+                '需要验证码，请在统一认证中完成登录',
+                '统一认证未通过，请检查账号密码',
+              }.contains(error.message)) {
+            throw AcademicLoginRequired(error.message);
+          }
+          rethrow;
+        }
         continue;
       }
       final location = response.headers.value('location');
@@ -108,6 +163,9 @@ class AcademicClient {
       data: data,
       contentType: data == null ? null : Headers.formUrlEncodedContentType,
     );
+    if ({301, 302, 303, 307, 308, 401}.contains(response.statusCode)) {
+      throw const AcademicLoginRequired();
+    }
     if (response.statusCode != 200) throw const FormatException('教务会话失效或暂不可用');
     final decoded = jsonDecode('${response.data}');
     if (decoded is! Map<String, dynamic>) {
@@ -123,6 +181,7 @@ class AcademicClient {
     String? password,
     DateTime? at,
   }) async {
+    _boundUid = uid;
     final now = at ?? DateTime.now();
     dio.interceptors.add(CookieManager(jar));
     try {
@@ -189,13 +248,24 @@ class AcademicClient {
       if (week['success'] != true || currentWeek < 1 || currentWeek > 30) {
         throw const FormatException('教务当前周次不可用');
       }
-      final cached = await AcademicScheduleStore.read(uid);
-      final monday = academicMonday(
-        term,
-        currentWeek,
-        now,
-        cached: cached?.term == term ? cached!.monday : null,
-      );
+      final cached = await AcademicScheduleStore.read(uid, useUserStart: false);
+      late final DateTime monday;
+      var anchorFromUser = false;
+      try {
+        monday = academicMonday(
+          term,
+          currentWeek,
+          now,
+          cached: cached?.term == term && cached?.anchorFromUser != true
+              ? cached!.monday
+              : null,
+        );
+      } on AcademicCalendarUnavailable {
+        final manual = await SemesterPreferences.read(uid, term);
+        if (manual == null) rethrow;
+        monday = manual;
+        anchorFromUser = true;
+      }
       final periods = await json(
         '${base}wdkcb/queryXsskjc.do',
         data: {'XNXQDM': term, 'XH': student},
@@ -217,6 +287,7 @@ class AcademicClient {
         at: now,
         payload: payload,
         clock: clock,
+        anchorFromUser: anchorFromUser,
       );
       if (await store.read(SecureStore.keyUserId) != '$uid') {
         throw StateError('账号已切换');
@@ -254,7 +325,7 @@ String selectAcademicTerm(List rows, DateTime now) {
   final known =
       academicMondays.entries.where((e) => !e.value.isAfter(now)).toList()
         ..sort((a, b) => a.value.compareTo(b.value));
-  if (known.isNotEmpty && now.isBefore(DateTime(2027, 9, 1))) {
+  if (known.isNotEmpty && academicMondays.containsKey('$year$season')) {
     ceiling = known.last.key;
   }
   final codes =
@@ -278,11 +349,13 @@ class AcademicSync {
     this.store, {
     AcademicClient Function(SecureStore)? createClient,
     this.onUpdated,
+    this.currentSso,
     this.periodic = false,
   }) : createClient = createClient ?? ((store) => AcademicClient(store: store));
   final SecureStore store;
   final AcademicClient Function(SecureStore) createClient;
   final void Function(int uid)? onUpdated;
+  final CookieJar? Function()? currentSso;
   final bool periodic;
   Timer? _timer;
   bool _disposed = false;
@@ -306,6 +379,24 @@ class AcademicSync {
 
   final Map<int, Future<void>> _flights = {};
   String? error;
+  final Map<int, String> _errors = {};
+  final Set<int> _loginRequired = {};
+  String? errorFor(int uid) => _errors[uid];
+  bool needsLogin(int uid) => _loginRequired.contains(uid);
+  void _setError(int uid, String? message, {bool login = false}) {
+    error = message;
+    if (message == null) {
+      _errors.remove(uid);
+    } else {
+      _errors[uid] = message;
+    }
+    if (login) {
+      _loginRequired.add(uid);
+    } else {
+      _loginRequired.remove(uid);
+    }
+  }
+
   Future<void> sync(
     int uid, {
     CookieJar? sso,
@@ -313,6 +404,20 @@ class AcademicSync {
     String? password,
     bool force = false,
   }) {
+    final existing = _flights[uid];
+    if (existing != null && password != null) {
+      return existing.then((_) async {
+        if (needsLogin(uid)) {
+          await sync(
+            uid,
+            sso: sso,
+            username: username,
+            password: password,
+            force: true,
+          );
+        }
+      });
+    }
     return _flights[uid] ??=
         _sync(
           uid,
@@ -333,34 +438,69 @@ class AcademicSync {
     bool force = false,
   }) async {
     if (_disposed || await store.read(SecureStore.keyUserId) != '$uid') return;
+    final freshLogin = password != null;
     username ??= await store.read(SecureStore.keyLastUsername);
-    if (username == null || username.isEmpty) return;
+    password ??= await store.read(SecureStore.keyOwnerPassword);
+    sso ??= currentSso?.call();
+    if (username == null || username.isEmpty) {
+      _setError(uid, '请重新登录账号以连接教务课表', login: true);
+      return;
+    }
     if (periodic) startPeriodic();
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now();
     final cached = await AcademicScheduleStore.read(uid);
-    final last = prefs.getInt('academic_attempt_$uid');
+    final missingTerm = prefs.getString('academic_calendar_missing_$uid');
+    final calendarCorrected =
+        missingTerm != null &&
+        await SemesterPreferences.read(uid, missingTerm) != null;
+    final last = calendarCorrected
+        ? null
+        : prefs.getInt('academic_attempt_$uid');
     final failure = prefs.getInt('academic_failure_$uid');
+    final failureKind = prefs.getString('academic_failure_kind_$uid');
+    if (failureKind == 'login_required') {
+      _setError(uid, '请重新登录账号以连接教务课表', login: true);
+    }
+    // Legacy failures had no diagnostics; allow one classified attempt after upgrade.
+    final legacyFailure = failure != null && failureKind == null;
     if (failure != null &&
+        failureKind == 'request' &&
         now.millisecondsSinceEpoch - failure <
             const Duration(minutes: 30).inMilliseconds) {
-      error = '教务同步暂缓，请30分钟后再试；保留上次课表';
+      _setError(uid, cached == null ? '教务暂时无法连接，请稍后再试' : '教务暂时无法连接，显示上次课表');
+      AppLog.event(
+        'academic.sync.skipped',
+        fields: {'reason': 'failure_backoff'},
+      );
       return;
     }
     // Stable term weekly, semester boundaries daily, failures 30 minutes.
     final nearStart = {2, 3, 8, 9}.contains(now.month);
-    if (last != null &&
+    if (!freshLogin &&
+        !legacyFailure &&
+        last != null &&
         now.millisecondsSinceEpoch - last <
             (force ? const Duration(seconds: 15) : const Duration(minutes: 30))
                 .inMilliseconds) {
       return;
     }
     if (!force &&
+        !calendarCorrected &&
         cached != null &&
         now.difference(cached.fetchedAt) < Duration(days: nearStart ? 1 : 7)) {
       return;
     }
     await prefs.setInt('academic_attempt_$uid', now.millisecondsSinceEpoch);
+    AppLog.event(
+      'academic.sync.start',
+      fields: {
+        'hasCachedSchedule': cached != null,
+        'hasSso': sso != null,
+        'hasSavedPassword': password != null,
+        'freshLogin': freshLogin,
+      },
+    );
     try {
       final next = await createClient(
         store,
@@ -371,16 +511,59 @@ class AcademicSync {
       }
       await AcademicScheduleStore.write(uid, next);
       await prefs.remove('academic_failure_$uid');
-      error = null;
+      await prefs.remove('academic_failure_kind_$uid');
+      await prefs.remove('academic_calendar_missing_$uid');
+      _setError(uid, null);
+      AppLog.event(
+        'academic.sync.success',
+        fields: {
+          'term': next.term,
+          'courses': next.groups.length,
+          'meetings': next.rows.length,
+        },
+      );
       onUpdated?.call(uid);
     } catch (e) {
-      await prefs.setInt(
-        'academic_failure_$uid',
-        DateTime.now().millisecondsSinceEpoch,
+      if (_disposed || await store.read(SecureStore.keyUserId) != '$uid') {
+        return;
+      }
+      final login = e is AcademicLoginRequired;
+      AppLog.event(
+        'academic.sync.failure',
+        level: 'W',
+        fields: {
+          ...LogRedactor.exceptionFields(error: e),
+          'reason': login
+              ? 'login_required'
+              : e is AcademicCalendarUnavailable
+              ? 'calendar_unavailable'
+              : 'request',
+          'hasCachedSchedule': cached != null,
+        },
       );
-      error = e is FormatException && e.source == null
-          ? '教务课表未更新：${e.message}'
-          : '教务暂时无法连接，保留上次课表，请稍后同步';
+      if (login) {
+        await prefs.remove('academic_failure_$uid');
+        await prefs.setString('academic_failure_kind_$uid', 'login_required');
+      } else if (e is AcademicCalendarUnavailable) {
+        await prefs.setString('academic_calendar_missing_$uid', e.term);
+      } else if (!login) {
+        await prefs.setString('academic_failure_kind_$uid', 'request');
+        await prefs.setInt(
+          'academic_failure_$uid',
+          DateTime.now().millisecondsSinceEpoch,
+        );
+      }
+      _setError(
+        uid,
+        login
+            ? e.message
+            : e is FormatException && e.source == null
+            ? '教务课表未更新：${e.message}'
+            : cached == null
+            ? '暂时无法获取教务课表，请稍后重试'
+            : '教务暂时无法连接，显示上次课表',
+        login: login,
+      );
     }
   }
 }

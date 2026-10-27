@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -98,6 +99,12 @@ Widget _app({
   return ProviderScope(
     overrides: [
       secureStoreProvider.overrideWithValue(SecureStore.memory()),
+      academicTimetableProvider(1).overrideWith(
+        (ref) async => const AcademicTimetableState(
+          message: '请重新登录账号以连接教务课表',
+          needsLogin: true,
+        ),
+      ),
       authControllerProvider.overrideWith(
         (ref) => _Auth(signedIn: needsSchedule),
       ),
@@ -258,31 +265,17 @@ void main() {
         of: row,
         matching: find.byIcon(Icons.chevron_right),
       );
-      expect(chip, findsOneWidget);
-      expect(
-        tester.getBottomRight(chip).dx,
-        lessThan(tester.getTopLeft(arrow).dx),
-      );
-      expect(
-        find.descendant(of: row, matching: find.byType(Badge)),
-        findsNothing,
-      );
-      await capture(tester, key, 'schedule-chip-${width.toInt()}');
-      await tester.tap(chip);
-      await tester.pumpAndSettle();
-      expect(find.byType(CourseSchedulesPage), findsOneWidget);
-      expect(find.byType(CoursesPage), findsNothing);
-      await tester.tap(find.byTooltip('返回'));
-      await tester.pumpAndSettle();
+      expect(chip, findsNothing);
+      await capture(tester, key, 'schedule-direct-${width.toInt()}');
       await tester.tap(find.text('本学期课表'));
       await tester.pumpAndSettle();
-      expect(find.byType(CourseSchedulesPage), findsOneWidget);
-      expect(find.byType(CoursesPage), findsNothing);
+      expect(find.byType(CoursesPage), findsOneWidget);
+      expect(find.byType(CourseSchedulesPage), findsNothing);
       await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
       await tester.tap(arrow);
       await tester.pumpAndSettle();
-      expect(find.byType(CourseSchedulesPage), findsOneWidget);
+      expect(find.byType(CoursesPage), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }

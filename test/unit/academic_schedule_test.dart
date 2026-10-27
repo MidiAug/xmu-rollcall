@@ -56,6 +56,31 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
   test(
+    'teacher and both assistant roles never consume the student academic match',
+    () {
+      final academic = schedule();
+      final courses = academic.apply([
+        const CatalogCourse(id: 'student', title: '计算机网络', courseCode: 'CS1'),
+        for (final role in [
+          'instructor',
+          'instructor_assistant',
+          'student_assistant',
+        ])
+          CatalogCourse(
+            id: role,
+            title: '计算机网络',
+            courseCode: 'CS1',
+            roles: [role],
+          ),
+      ]);
+      expect(courses.first.academicMatched, isTrue);
+      expect(courses.skip(1).every((c) => !c.academicMatched), isTrue);
+      expect(academic.displayOnlyCourses(const []).map((c) => c.title), [
+        '计算机网络',
+      ]);
+    },
+  );
+  test(
     'authoritative odd weeks, actual period clock, room, account disk isolation',
     () async {
       final academic = schedule();

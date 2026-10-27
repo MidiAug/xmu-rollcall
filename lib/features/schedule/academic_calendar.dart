@@ -1,3 +1,8 @@
+class AcademicCalendarUnavailable extends FormatException {
+  const AcademicCalendarUnavailable(this.term) : super('请设置第一周起始日');
+  final String term;
+}
+
 /// Published XMU teaching-week anchors, rather than registration Sundays.
 /// Sources:
 /// https://dblab.xmu.edu.cn/post/xmucalendar2026to2027/
@@ -23,7 +28,7 @@ DateTime academicMonday(
   if (known != null) return known;
   if (cached != null) return cached;
   if (week < 2 || week > 30) {
-    throw const FormatException('教务当前周次不足以确定新学期校历，请稍后同步');
+    throw AcademicCalendarUnavailable(term);
   }
   return DateTime(
     now.year,

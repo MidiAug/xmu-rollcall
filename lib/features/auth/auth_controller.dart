@@ -15,11 +15,16 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 });
 
 class AuthController extends StateNotifier<AuthState> {
-  AuthController(this._repo, {this.beforeSignOut, this.afterSignIn})
-    : super(const AuthState(status: AuthStatus.unknown));
+  AuthController(
+    this._repo, {
+    this.beforeSignOut,
+    this.afterSignIn,
+    this.afterRestore,
+  }) : super(const AuthState(status: AuthStatus.unknown));
 
   final AuthRepository _repo;
   final Future<void> Function()? beforeSignOut;
+  final Future<void> Function(UserProfile)? afterRestore;
   final Future<void> Function(UserProfile, String, String)? afterSignIn;
   int _generation = 0;
 
@@ -68,6 +73,10 @@ class AuthController extends StateNotifier<AuthState> {
           },
         );
         state = AuthState(status: AuthStatus.signedIn, profile: profile);
+        final sync = afterRestore;
+        if (sync != null) {
+          unawaited(sync(profile).catchError((Object _) {}));
+        }
       } else {
         AppLog.event(
           'auth.restore.fail',
@@ -147,6 +156,8 @@ final StateNotifierProvider<AuthController, AuthState> authControllerProvider =
     StateNotifierProvider<AuthController, AuthState>((ref) {
       return AuthController(
         ref.watch(authRepositoryProvider),
+        afterRestore: (profile) =>
+            ref.read(academicSyncProvider).sync(profile.id),
         afterSignIn: (profile, username, password) async {
           await ref
               .read(academicSyncProvider)

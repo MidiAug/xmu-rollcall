@@ -163,9 +163,8 @@ void main() {
       );
       container.read(pending.notifier).state = true;
       await tester.pumpAndSettle();
-      expect(badges, findsOneWidget);
-      expect(find.byTooltip('课表待完善'), findsOneWidget);
-      expect(tester.widget<Badge>(badges).smallSize, width < 600 ? 5 : 4);
+      expect(badges, findsNothing);
+      expect(find.byTooltip('课表待完善'), findsNothing);
       expect(tester.getRect(myTab), initialTabRect);
       container.read(pending.notifier).state = false;
       await tester.pumpAndSettle();

@@ -32,6 +32,23 @@ class Repo extends Fake implements AuthRepository {
 
 void main() {
   test(
+    'restored login triggers independent academic connection without another password login',
+    () async {
+      final repo = Repo()..result = const UserProfile(id: 1, name: 'Test');
+      var restored = 0;
+      final auth = AuthController(
+        repo,
+        afterRestore: (profile) async {
+          restored = profile.id;
+        },
+      );
+      await auth.bootstrap();
+      expect(auth.state.isSignedIn, isTrue);
+      expect(restored, 1);
+      auth.dispose();
+    },
+  );
+  test(
     'cached account is visible while network validation is pending',
     () async {
       final repo = Repo()

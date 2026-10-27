@@ -16,7 +16,6 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
-import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account_menu.dart';
 import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
@@ -206,9 +205,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                                     label: const Text('登录账号'),
                                   ),
                             hasUpdate: hasUpdate,
-                            hasPendingSchedule: ref.watch(
-                              hasIncompleteCourseScheduleProvider,
-                            ),
+                            hasPendingSchedule: false,
                           );
                         },
                       ),
@@ -240,9 +237,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
               builder: (context, ref, _) => AppMobileNav(
                 current: _current,
                 onSelect: _onSelect,
-                hasPendingSchedule: ref.watch(
-                  hasIncompleteCourseScheduleProvider,
-                ),
+                hasPendingSchedule: false,
                 hasUpdate: ref.watch(
                   appUpdateControllerProvider.select((c) => c.update != null),
                 ),

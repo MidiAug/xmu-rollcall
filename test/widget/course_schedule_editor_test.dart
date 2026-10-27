@@ -18,7 +18,6 @@ import 'package:xmu_rollcall/features/location/location_models.dart';
 import 'package:xmu_rollcall/features/location/location_picker.dart';
 import 'package:xmu_rollcall/features/location/location_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
-import 'package:xmu_rollcall/features/settings/courses_page.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/cache/course_schedule_store.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
@@ -53,6 +52,23 @@ class _Catalog extends CourseCatalogNotifier {
   );
 }
 
+/// The retained editor is tested independently of the direct academic timetable.
+class _ScheduleEditorHarness extends StatelessWidget {
+  const _ScheduleEditorHarness({this.assistUserId});
+  final int? assistUserId;
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: TextButton(
+      onPressed: () => Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CourseSchedulesPage(assistUserId: assistUserId),
+        ),
+      ),
+      child: const Text('补全安排'),
+    ),
+  );
+}
+
 void main() {
   setUp(
     () => SharedPreferences.setMockInitialValues({
@@ -81,20 +97,20 @@ void main() {
       }
     }
   });
-  testWidgets('missing schedule chip opens editor even when grid is empty', (
-    tester,
-  ) async {
+  testWidgets('retained editor opens from isolated harness', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           authControllerProvider.overrideWith((ref) => _Auth()),
           courseCatalogProvider.overrideWith(_Catalog.new),
         ],
-        child: MaterialApp(theme: AppTheme.light(), home: const CoursesPage()),
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: const _ScheduleEditorHarness(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('暂无课表安排'), findsOneWidget);
     await tester.tap(find.text('补全安排'));
     await tester.pumpAndSettle();
     expect(find.text('待完善'), findsOneWidget);
@@ -305,7 +321,7 @@ void main() {
           container: container,
           child: MaterialApp(
             theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
-            home: const CoursesPage(),
+            home: const _ScheduleEditorHarness(),
           ),
         ),
       );
@@ -352,7 +368,7 @@ void main() {
         '新上课地点',
       );
       expect(find.byType(CourseSchedulesPage), findsNothing);
-      expect(find.byType(CoursesPage), findsOneWidget);
+      expect(find.byType(_ScheduleEditorHarness), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -400,7 +416,7 @@ void main() {
             container: container,
             child: MaterialApp(
               theme: AppTheme.light(),
-              home: CoursesPage(assistUserId: assistId),
+              home: _ScheduleEditorHarness(assistUserId: assistId),
             ),
           ),
         );
@@ -424,7 +440,7 @@ void main() {
         await tester.tap(find.text('保存'));
         await tester.pumpAndSettle();
         expect(find.byType(CourseSchedulesPage), findsNothing);
-        expect(find.byType(CoursesPage), findsOneWidget);
+        expect(find.byType(_ScheduleEditorHarness), findsOneWidget);
         expect(find.byType(Dialog), findsNothing);
         expect(await CourseScheduleStore.read(uid, 'a'), hasLength(1));
         expect(await CourseScheduleStore.read(uid, 'b'), hasLength(1));

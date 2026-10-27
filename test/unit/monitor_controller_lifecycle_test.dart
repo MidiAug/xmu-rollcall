@@ -1,3 +1,7 @@
+import 'package:xmu_rollcall/features/schedule/academic_calendar.dart';
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
+import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -162,4 +166,58 @@ void main() {
     expect(container.read(monitorControllerProvider).starting, isFalse);
     expect(repo.calls, 0);
   });
+  test(
+    'changing semester Monday reschedules a waiting monitor, without starting a stopped one',
+    () async {
+      final now = DateTime.now();
+      final term = currentSemester(now);
+      final start =
+          academicMondays[term] ??
+          DateTime(now.year, now.month, now.day - now.weekday + 1);
+      final week = semesterDate(now).difference(start).inDays ~/ 7;
+      final minute = now.hour * 60 + now.minute;
+      await AcademicScheduleStore.write(
+        1,
+        AcademicSchedule(
+          term: term,
+          monday: start,
+          fetchedAt: now,
+          rows: [
+            {
+              'KCDM': 'fake',
+              'KCMC': '测试课程',
+              'BJDM': 'A',
+              'XQ': now.weekday,
+              'ZCBH': List.generate(60, (i) => i == week ? '1' : '0').join(),
+              'KSJCDM': 1,
+              'JSJCDM': 2,
+              'startMinute': (minute - 10).clamp(0, 1438),
+              'endMinute': (minute + 10).clamp(1, 1439),
+            },
+          ],
+        ),
+      );
+      await SemesterPreferences.save(
+        1,
+        term,
+        start.add(const Duration(days: 7)),
+      );
+      final ctrl = container.read(monitorControllerProvider.notifier);
+      container.read(academicRevisionProvider.notifier).state++;
+      await Future<void>.delayed(Duration.zero);
+      expect(repo.calls, 0);
+      expect(container.read(monitorControllerProvider).running, isFalse);
+      expect(await ctrl.startAsync(), StartMonitorResult.started);
+      for (var i = 0; i < 30; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      }
+      expect(repo.calls, 0);
+      expect(container.read(monitorControllerProvider).running, isTrue);
+      await SemesterPreferences.save(1, term, null);
+      container.read(academicRevisionProvider.notifier).state++;
+      await repo.entered.future.timeout(const Duration(seconds: 2));
+      expect(repo.calls, 1);
+      ctrl.stop();
+    },
+  );
 }

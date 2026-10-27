@@ -67,12 +67,7 @@ Future<DetectionWindow> readScheduleDetectionWindow(
       courses.add(c.withMeetings(await CourseScheduleStore.read(uid, c.id)));
     }
   }
-  final effective = academic == null
-      ? courses
-      : academic.apply(
-          courses,
-          bindings: await AcademicBindings.read(uid, academic.term),
-        );
+  final effective = academic == null ? courses : academic.apply(courses);
   final tables = [
     if (academic != null) academic.allTables,
     for (final c in effective)

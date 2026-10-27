@@ -21,7 +21,6 @@ import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
-import 'package:xmu_rollcall/features/settings/courses_page.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid_view.dart';
 
 class _AuthRepository extends Fake implements AuthRepository {}
@@ -103,6 +102,19 @@ List<CatalogCourse> _courses(bool weekend) {
   ];
 }
 
+/// Keep grid/location regressions independent of the direct JW data source.
+class _GridHarness extends ConsumerWidget {
+  const _GridHarness();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => SubpageScaffold(
+    title: '课表',
+    body: TimetableGridView(
+      courses:
+          ref.watch(courseCatalogProvider).valueOrNull?.courses ?? const [],
+    ),
+  );
+}
+
 class _DesktopFrame extends StatelessWidget {
   const _DesktopFrame({required this.chrome});
   final DesktopShellChromeController chrome;
@@ -131,7 +143,7 @@ class _DesktopFrame extends StatelessWidget {
                       destination: AppDestination.settings,
                       child: Navigator(
                         onGenerateRoute: (_) => MaterialPageRoute<void>(
-                          builder: (_) => const CoursesPage(),
+                          builder: (_) => const _GridHarness(),
                         ),
                       ),
                     ),
@@ -274,7 +286,7 @@ void main() {
                 ),
                 home: desktop
                     ? _DesktopFrame(chrome: chrome)
-                    : const CoursesPage(),
+                    : const _GridHarness(),
               ),
             ),
           ),

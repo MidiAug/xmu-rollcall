@@ -174,12 +174,7 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
       );
     }
     final academic = await AcademicScheduleStore.read(uid);
-    final effective = academic == null
-        ? courses
-        : academic.apply(
-            courses,
-            bindings: await AcademicBindings.read(uid, academic.term),
-          );
+    final effective = academic == null ? courses : academic.apply(courses);
     return CourseCatalogSnapshot(
       fetchedAt: snap.fetchedAt,
       academicTerm: snap.academicTerm,

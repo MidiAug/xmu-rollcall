@@ -1,142 +1,137 @@
-import 'package:xmu_rollcall/features/schedule/academic_mapping_page.dart';
+import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
-import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
-import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid_view.dart';
-import 'package:xmu_rollcall/features/settings/course_schedule_editor.dart';
-import 'package:xmu_rollcall/app/app_page_routes.dart';
 
-/// 我的 → 本学期课表：周×节网格（Sticky Catalog）。
+/// Direct academic timetable, independent of TronClass course discovery.
 class CoursesPage extends ConsumerStatefulWidget {
   const CoursesPage({super.key, this.assistUserId, this.accountName});
   final int? assistUserId;
   final String? accountName;
-
   @override
   ConsumerState<CoursesPage> createState() => _CoursesPageState();
 }
 
 class _CoursesPageState extends ConsumerState<CoursesPage> {
   bool _semester = false;
-  int? get assistUserId => widget.assistUserId;
-  String? get accountName => widget.accountName;
+
   @override
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
-    final catalog = ref.watch(scopedCourseCatalogProvider(assistUserId));
-    final async = ref.watch(catalog);
+    final uid = widget.assistUserId ?? auth.profile?.id;
+    final timetable = auth.isSignedIn && uid != null
+        ? ref.watch(academicTimetableProvider(uid))
+        : null;
+    final info = uid == null
+        ? null
+        : ref.watch(semesterInfoProvider(uid)).valueOrNull;
     final p = AppPalette.of(context);
-
+    Widget failure(String message, {bool login = false}) => EmptyHint(
+      icon: Icons.calendar_view_week_outlined,
+      title: '暂时无法获取教务课表',
+      detail: message,
+      action: FilledButton(
+        onPressed: () async {
+          if (login) {
+            await showLoginDialog(context);
+          } else if (uid != null) {
+            await ref.read(academicSyncProvider).sync(uid, force: true);
+          }
+          if (mounted && uid != null) {
+            ref.invalidate(academicTimetableProvider(uid));
+          }
+        },
+        child: Text(login ? '重新登录' : '重试'),
+      ),
+    );
     return SubpageScaffold(
-      title: accountName == null ? '课表' : '$accountName的课表',
+      title: widget.accountName == null ? '课表' : '${widget.accountName}的课表',
       actions: [
-        if (auth.isSignedIn &&
-            async.valueOrNull?.courses.any((c) => !c.hasPlatformSchedule) ==
-                true)
-          TextButton.icon(
-            onPressed: () => AppPageRoutes.push(
-              context,
-              CourseSchedulesPage(assistUserId: assistUserId),
-            ),
-            icon: const Icon(Icons.edit_calendar_outlined),
-            label: const Text('补全安排'),
-          ),
         if (auth.isSignedIn)
-          TextButton(
-            onPressed: () => setState(() => _semester = !_semester),
-            child: Text(_semester ? '学期' : '本周'),
-          ),
-        if (auth.isSignedIn)
-          PopupMenuButton<String>(
-            tooltip: '课表操作',
-            onSelected: (value) async {
-              if (value == 'mapping') {
-                final uid = auth.profile?.id;
-                if (uid != null) {
-                  AppPageRoutes.push(
-                    context,
-                    AcademicMappingPage(
-                      userId: uid,
-                      courses: async.valueOrNull?.courses ?? const [],
-                    ),
-                  );
-                }
-                return;
-              }
-              await ref.read(catalog.notifier).refresh();
-              if (context.mounted) {
-                final error = ref.read(academicSyncProvider).error;
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text(error ?? '课表已更新')));
-              }
-            },
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'sync', child: Text('同步课表')),
-              if (assistUserId == null)
-                const PopupMenuItem(value: 'mapping', child: Text('课程对应')),
+          AppSegmentedControl<bool>(
+            segments: const [
+              AppSegment(
+                value: false,
+                label: '本周',
+                icon: Icons.calendar_view_week_outlined,
+              ),
+              AppSegment(
+                value: true,
+                label: '学期',
+                icon: Icons.calendar_month_outlined,
+              ),
             ],
+            value: _semester,
+            onChanged: (value) => setState(() => _semester = value),
           ),
       ],
       body: !auth.isSignedIn
           ? EmptyHint(
               icon: Icons.lock_outline,
               title: '尚未登录',
-              detail: '登录后可查看本学期课表',
-              action: FilledButton.icon(
+              detail: '登录后可查看教务课表',
+              action: FilledButton(
                 onPressed: () => showLoginDialog(context),
-                icon: const Icon(Icons.login, size: 18),
-                label: const Text('登录'),
+                child: const Text('登录'),
               ),
             )
-          : async.when(
-              skipLoadingOnReload: true,
-              skipLoadingOnRefresh: true,
+          : timetable == null
+          ? const SizedBox.shrink()
+          : timetable.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => AppPullToRefresh(
-                color: p.primary,
-                onRefresh: () => ref.read(catalog.notifier).refresh(),
-                child: ListView(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(24),
+              error: (_, _) => failure('请稍后重试'),
+              data: (value) {
+                final schedule = value.schedule;
+                if (schedule == null) {
+                  return failure(
+                    value.message ?? '尚未连接教务，请重新登录账号',
+                    login: value.needsLogin,
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Panel(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '暂时无法更新课表',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: p.ink,
+                    if (value.message != null)
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: AppSpace.pageXOf(context),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                value.message!,
+                                style: TextStyle(color: p.muted),
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text('$e', style: TextStyle(color: p.muted)),
-                          const SizedBox(height: 12),
-                          FilledButton(
-                            onPressed: () =>
-                                ref.read(catalog.notifier).refresh(),
-                            child: const Text('重试'),
-                          ),
-                        ],
+                            if (value.needsLogin)
+                              TextButton(
+                                onPressed: () => showLoginDialog(context),
+                                child: const Text('重新登录'),
+                              ),
+                          ],
+                        ),
+                      ),
+                    Expanded(
+                      child: _TimetableBody(
+                        snap: CourseCatalogSnapshot(
+                          fetchedAt: schedule.fetchedAt,
+                          courses: schedule.displayOnlyCourses(const []),
+                        ),
+                        assistUserId: widget.assistUserId,
+                        semester: _semester,
+                        semesterInfo: info,
                       ),
                     ),
                   ],
-                ),
-              ),
-              data: (snap) => _TimetableBody(
-                snap: snap,
-                assistUserId: assistUserId,
-                semester: _semester,
-              ),
+                );
+              },
             ),
     );
   }
@@ -147,8 +142,10 @@ class _TimetableBody extends StatelessWidget {
     required this.snap,
     this.assistUserId,
     this.semester = false,
+    this.semesterInfo,
   });
   final bool semester;
+  final SemesterInfo? semesterInfo;
   final int? assistUserId;
 
   final CourseCatalogSnapshot? snap;
@@ -179,14 +176,17 @@ class _TimetableBody extends StatelessWidget {
       return EmptyHint(
         icon: Icons.calendar_view_week_outlined,
         title: all.isNotEmpty && !semester ? '本周没有课程安排' : '暂无课表安排',
-        detail: '可切换学期查看，或在课表操作中同步课表',
+        detail: all.isNotEmpty && !semester ? '切换到学期查看全部课程' : '教务暂无课程安排',
       );
     }
 
-    final fetched = snap?.fetchedAt;
-    final meta = fetched == null
-        ? null
-        : '${semester ? '学期课表' : '本周课表'} · 更新于 ${fetched.toLocal().toString().substring(0, 19)}';
+    final weekStart = '${monday.month}月${monday.day}日';
+    final sunday = monday.add(const Duration(days: 6));
+    final meta = semester
+        ? semesterInfo == null
+              ? '学期课表'
+              : semesterLabel(semesterInfo!.term)
+        : '${semesterInfo?.weekLabel(now) ?? '本周课表'} · $weekStart—${sunday.month}月${sunday.day}日';
     return Padding(
       padding: EdgeInsets.fromLTRB(
         AppSpace.pageXOf(context),
@@ -197,11 +197,10 @@ class _TimetableBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (meta != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpace.sm),
-              child: Text(meta, style: Theme.of(context).textTheme.bodySmall),
-            ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpace.sm),
+            child: Text(meta, style: Theme.of(context).textTheme.bodySmall),
+          ),
           Expanded(
             child: TimetableGridView(
               courses: withSlots,
