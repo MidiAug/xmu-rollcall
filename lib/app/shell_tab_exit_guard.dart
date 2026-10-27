@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
-import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
+import 'package:xmu_rollcall/app/shell_destination_scope.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 
 /// Checks live editor state before the shell discards a tab's route stack.

@@ -187,6 +187,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
           ),
       ],
       body: AppContentColumn(
+        alignment: Alignment.topCenter,
         child: PrimaryScrollController(
           controller: _scroll,
           child: Column(

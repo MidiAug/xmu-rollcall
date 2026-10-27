@@ -67,7 +67,7 @@ class CourseSchedulesPage extends ConsumerWidget {
                               const SizedBox(width: 8),
                             ],
                             Icon(
-                              Icons.chevron_right_rounded,
+                              AppIcons.right,
                               color: p.muted,
                               size: 18,
                             ),
@@ -165,7 +165,7 @@ class CourseSchedulesPage extends ConsumerWidget {
                 ),
               if (courses.isEmpty)
                 const EmptyHint(
-                  icon: Icons.event_available_outlined,
+                  icon: AppIcons.rollcall,
                   title: '课程安排已完整',
                   detail: '所有课程都已有上课安排',
                 ),
@@ -521,7 +521,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
             onTap: _saving ? null : () => setState(() => _picking = d),
             child: Row(
               children: [
-                Icon(Icons.place_outlined, size: 18, color: p.muted),
+                Icon(AppIcons.location, size: 18, color: p.muted),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -530,7 +530,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(Icons.chevron_right_rounded, size: 18, color: p.muted),
+                Icon(AppIcons.right, size: 18, color: p.muted),
               ],
             ),
           ),

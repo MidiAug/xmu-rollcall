@@ -3,7 +3,7 @@ import 'package:xmu_rollcall/app/destinations.dart';
 
 /// Shell → tab pages: which destination is visible, and re-tap signals.
 ///
-/// Root pages stay in [IndexedStack]; leaving discards nested routes, and
+/// Root pages stay in retained viewports; leaving discards nested routes, and
 /// selecting a tab restores its root scroll position and temporary UI.
 class ShellTabScope extends InheritedWidget {
   const ShellTabScope({
@@ -11,10 +11,12 @@ class ShellTabScope extends InheritedWidget {
     required this.current,
     required this.retapEpoch,
     required this.retapDestination,
+    this.hasGlobalIdentityControl = false,
     required super.child,
   });
 
   final AppDestination current;
+  final bool hasGlobalIdentityControl;
 
   /// Increments on each explicit tab selection, including a re-tap.
   final int retapEpoch;
@@ -36,7 +38,8 @@ class ShellTabScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(ShellTabScope oldWidget) {
-    return current != oldWidget.current ||
+    return hasGlobalIdentityControl != oldWidget.hasGlobalIdentityControl ||
+        current != oldWidget.current ||
         retapEpoch != oldWidget.retapEpoch ||
         retapDestination != oldWidget.retapDestination;
   }

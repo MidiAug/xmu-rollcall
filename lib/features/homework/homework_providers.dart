@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/core/cache/cache_revisions.dart';
 import 'package:xmu_rollcall/features/homework/homework_candidates.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/providers.dart';
@@ -180,6 +181,9 @@ class HomeworkTodosNotifier extends AsyncNotifier<List<HomeworkItem>> {
             for (final e in data) e.toJson(),
           ], fetchedAt: _fetchedAt);
         }
+        if (_boundUserId == uid && revision == _revision) {
+          ref.read(homeworkCacheRevisionProvider.notifier).state++;
+        }
         return detailed;
       },
       countOf: (d) => d.items.length,
@@ -332,6 +336,9 @@ class CourseHomeworkNotifier
           await JsonDiskCache.writeList(suffix, [
             for (final e in data) e.toJson(),
           ], fetchedAt: _fetchedAt);
+        }
+        if (_boundUserId == uid && revision == _revision) {
+          ref.read(homeworkCacheRevisionProvider.notifier).state++;
         }
         return data;
       },

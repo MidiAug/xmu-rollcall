@@ -1,11 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/core/theme/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:xmu_rollcall/app/adaptive_shell.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
-import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
@@ -91,7 +91,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       final nav = find.byType(width < 600 ? AppMobileNav : AppSidebar);
-      final myTab = find.descendant(of: nav, matching: find.text('我的'));
+      final myTab = find.descendant(
+        of: nav,
+        matching: find.text(width < 600 ? '我的' : '设置'),
+      );
       final badges = find.descendant(of: nav, matching: find.byType(Badge));
       final initialNavSize = tester.getSize(nav);
       final initialTabRect = tester.getRect(myTab);
@@ -124,7 +127,9 @@ void main() {
       expect(
         find.descendant(
           of: badges,
-          matching: find.byIcon(Icons.person_outline),
+          matching: find.byIcon(
+            width < 600 ? AppIcons.person : AppIcons.settings,
+          ),
         ),
         findsOneWidget,
       );
@@ -215,12 +220,12 @@ void main() {
     expect(find.byType(AppSidebar), findsOneWidget);
     expect(find.text('签到'), findsWidgets);
     expect(find.text('作业'), findsWidgets);
-    expect(find.text('我的'), findsWidgets);
+    expect(find.text(PlatformHooks.isDesktop ? '设置' : '我的'), findsWidgets);
     expect(find.text('XMU TronClass'), findsNothing);
   });
 
   testWidgets(
-    'desktop nested subpage hosts chrome in AppTitleBar',
+    'desktop nested subpage owns its header while window identity remains stable',
     (tester) async {
       tester.view.physicalSize = const Size(1100, 800);
       tester.view.devicePixelRatio = 1.0;
@@ -243,24 +248,32 @@ void main() {
 
       expect(find.text('厦大签到'), findsOneWidget);
 
-      await tester.tap(find.byTooltip('签到记录'));
+      await tester.tap(find.byTooltip('签到操作'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('签到记录'));
       await tester.pumpAndSettle();
 
       expect(find.text('签到记录'), findsWidgets);
       expect(find.byTooltip('返回'), findsOneWidget);
-      expect(find.text('厦大签到'), findsNothing);
+      expect(find.text('厦大签到'), findsOneWidget);
       expect(
         find.descendant(
           of: find.byType(AppTitleBar),
           matching: find.byTooltip('返回'),
         ),
-        findsOneWidget,
+        findsNothing,
       );
 
-      final oldBack = DesktopShellChromeScope.of(
-        tester.element(find.byType(AppTitleBar)),
-        listen: false,
-      ).activeClaim!.onBack;
+      final oldBack = tester
+          .widget<IconButton>(
+            find
+                .ancestor(
+                  of: find.byTooltip('返回'),
+                  matching: find.byType(IconButton),
+                )
+                .first,
+          )
+          .onPressed!;
       await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
       expect(find.text('厦大签到'), findsOneWidget);

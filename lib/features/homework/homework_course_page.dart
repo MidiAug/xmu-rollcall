@@ -167,7 +167,7 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
                       SliverFillRemaining(
                         hasScrollBody: false,
                         child: EmptyHint(
-                          icon: Icons.assignment_outlined,
+                          icon: AppIcons.homework,
                           title: items.isEmpty
                               ? '本课暂无作业'
                               : '当前没有${_filter.label}的作业',
@@ -230,7 +230,7 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
                                 ],
                               ),
                             ),
-                            Icon(Icons.chevron_right_rounded, color: p.muted),
+                            Icon(AppIcons.right, color: p.muted),
                           ],
                         ),
                       ),

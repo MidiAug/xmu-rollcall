@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
-import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'package:xmu_rollcall/app/refresh_feedback.dart';
@@ -187,26 +186,21 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
         ShellTabScope.maybeOf(context)?.isActive(AppDestination.homework) ??
         true;
 
-    final hostActions =
-        PlatformHooks.isDesktop &&
-        MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint &&
-        DesktopShellChromeScope.maybeOf(context, listen: false) != null &&
-        ShellTabDestination.maybeOf(context) != null;
-    return DesktopRootActions(
-      enabled: signedIn && hostActions,
-      actions: const [_HomeworkRefreshAction()],
-      child: PageScaffold(
-        title: '作业',
-        showHeader: false,
-        child: AppContentColumn(
-          child: PrimaryScrollController(
-            controller: _scroll,
-            child: !signedIn
-                ? _SignedOutHint(onLogin: () => showLoginDialog(context))
-                : active
-                ? _TodosBody(onOpen: _openDetail, showToolbar: !hostActions)
-                : const SizedBox.shrink(),
-          ),
+    final hostActions = PlatformHooks.isDesktop && !AppDensity.isTouch(context);
+    return PageScaffold(
+      title: '作业',
+      showHeader: false,
+      trailing: signedIn && hostActions ? const _HomeworkRefreshAction() : null,
+      child: AppContentColumn(
+        maxWidth: 960,
+        alignment: Alignment.topLeft,
+        child: PrimaryScrollController(
+          controller: _scroll,
+          child: !signedIn
+              ? _SignedOutHint(onLogin: () => showLoginDialog(context))
+              : active
+              ? _TodosBody(onOpen: _openDetail, showToolbar: !hostActions)
+              : const SizedBox.shrink(),
         ),
       ),
     );
@@ -233,14 +227,29 @@ class _SignedOutHint extends StatelessWidget {
   }
 }
 
-class _TodosBody extends ConsumerWidget {
+enum _TaskFilter { all, upcoming, overdue }
+
+class _TodosBody extends ConsumerStatefulWidget {
   const _TodosBody({required this.onOpen, required this.showToolbar});
   final bool showToolbar;
-
   final ValueChanged<HomeworkItem> onOpen;
+  @override
+  ConsumerState<_TodosBody> createState() => _TodosBodyState();
+}
+
+class _TodosBodyState extends ConsumerState<_TodosBody>
+    with ShellTabAware<_TodosBody> {
+  _TaskFilter _filter = _TaskFilter.all;
+  @override
+  AppDestination get shellTab => AppDestination.homework;
+  @override
+  void onShellTabRetap() {
+    super.onShellTabRetap();
+    setState(() => _filter = _TaskFilter.all);
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final pageX = AppSpace.pageXOf(context);
     final async = ref.watch(homeworkTodosProvider);
@@ -326,7 +335,45 @@ class _TodosBody extends ConsumerWidget {
             final overdue = studentItems
                 .where((e) => e.isOverdue)
                 .toList(growable: false);
+            final desktop =
+                PlatformHooks.isDesktop && !AppDensity.isTouch(context);
             final rows = <Widget>[
+              if (desktop)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Row(
+                    children: [
+                      AppSegmentedControl<_TaskFilter>(
+                        segments: [
+                          AppSegment(
+                            value: _TaskFilter.all,
+                            label: '全部 ${studentItems.length}',
+                          ),
+                          AppSegment(
+                            value: _TaskFilter.upcoming,
+                            label: '进行中 ${upcoming.length}',
+                          ),
+                          AppSegment(
+                            value: _TaskFilter.overdue,
+                            label: '已截止 ${overdue.length}',
+                          ),
+                        ],
+                        value: _filter,
+                        onChanged: (v) => setState(() => _filter = v),
+                      ),
+                    ],
+                  ),
+                ),
+              if (desktop &&
+                  ((_filter == _TaskFilter.upcoming && upcoming.isEmpty) ||
+                      (_filter == _TaskFilter.overdue && overdue.isEmpty)))
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    '当前分组暂无作业',
+                    style: AppTypography.body.copyWith(color: p.muted),
+                  ),
+                ),
               if ((overview.valueOrNull?.failedCourses ?? 0) > 0)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -338,22 +385,46 @@ class _TodosBody extends ConsumerWidget {
 
               if (teachingCourses.isNotEmpty) ...[
                 for (final course in teachingCourses)
-                  _TeachingCourseCard(course: course, onOpen: onOpen),
+                  _TeachingCourseCard(course: course, onOpen: widget.onOpen),
                 if (studentItems.isNotEmpty)
                   const SizedBox(height: AppSpace.md),
               ],
-              if (upcoming.isNotEmpty) ...[
-                _SectionLabel(label: '进行中  ${upcoming.length}'),
-                const SizedBox(height: AppSpace.xs),
-                for (final item in upcoming)
-                  _TodoTile(item: item, onTap: () => onOpen(item)),
+              if (upcoming.isNotEmpty &&
+                  (!desktop || _filter != _TaskFilter.overdue)) ...[
+                if (desktop)
+                  SettingsSection(
+                    header: '进行中',
+                    padTop: false,
+                    children: [
+                      for (final item in upcoming)
+                        _TodoTile(item: item, onTap: () => widget.onOpen(item)),
+                    ],
+                  )
+                else ...[
+                  _SectionLabel(label: '进行中  ${upcoming.length}'),
+                  const SizedBox(height: AppSpace.xs),
+                  for (final item in upcoming)
+                    _TodoTile(item: item, onTap: () => widget.onOpen(item)),
+                ],
               ],
-              if (overdue.isNotEmpty) ...[
+              if (overdue.isNotEmpty &&
+                  (!desktop || _filter != _TaskFilter.upcoming)) ...[
                 if (upcoming.isNotEmpty) const SizedBox(height: AppSpace.md),
-                _SectionLabel(label: '已截止  ${overdue.length}'),
-                const SizedBox(height: AppSpace.xs),
-                for (final item in overdue.reversed)
-                  _TodoTile(item: item, onTap: () => onOpen(item)),
+                if (desktop)
+                  SettingsSection(
+                    header: '已截止',
+                    padTop: false,
+                    children: [
+                      for (final item in overdue.reversed)
+                        _TodoTile(item: item, onTap: () => widget.onOpen(item)),
+                    ],
+                  )
+                else ...[
+                  _SectionLabel(label: '已截止  ${overdue.length}'),
+                  const SizedBox(height: AppSpace.xs),
+                  for (final item in overdue.reversed)
+                    _TodoTile(item: item, onTap: () => widget.onOpen(item)),
+                ],
               ],
             ];
             return ListView.builder(
@@ -371,7 +442,7 @@ class _TodosBody extends ConsumerWidget {
         ),
       ),
     );
-    if (!showToolbar) return content;
+    if (!widget.showToolbar) return content;
     return Column(
       children: [
         Padding(
@@ -383,7 +454,7 @@ class _TodosBody extends ConsumerWidget {
                   ShellTabScope.maybeOf(context) != null)
                 const Spacer()
               else ...[
-                Icon(Icons.person_outline_rounded, size: 17, color: p.muted),
+                Icon(AppIcons.person, size: 17, color: p.muted),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -441,7 +512,10 @@ class _TeachingCourseCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 10),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.sm,
+              vertical: 10,
+            ),
             child: Row(
               children: [
                 Text(
@@ -452,7 +526,7 @@ class _TeachingCourseCard extends ConsumerWidget {
                 Expanded(
                   child: Text(
                     course.title,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 13,
@@ -464,64 +538,67 @@ class _TeachingCourseCard extends ConsumerWidget {
               ],
             ),
           ),
-          Panel(
-            padding: EdgeInsets.zero,
-            child: async.when(
-              skipLoadingOnReload: false,
-              loading: () => const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: LinearProgressIndicator(minHeight: 2),
-              ),
-              error: (_, _) => Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '暂时无法更新课程作业',
-                        style: TextStyle(fontSize: 12, color: p.muted),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => ref
-                          .read(courseHomeworkProvider(id).notifier)
-                          .refresh(),
-                      child: const Text('重试'),
-                    ),
-                  ],
+          SettingsSection(
+            padTop: false,
+            children: [
+              async.when(
+                skipLoadingOnReload: false,
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: LinearProgressIndicator(minHeight: 2),
                 ),
-              ),
-              data: (items) {
-                final open = items.where((i) => !i.isOverdue).toList();
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (open.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(16),
+                error: (_, _) => Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Expanded(
                         child: Text(
-                          '当前没有进行中的作业',
+                          '暂时无法更新课程作业',
                           style: TextStyle(fontSize: 12, color: p.muted),
                         ),
                       ),
-                    for (var i = 0; i < open.length; i++) ...[
-                      if (i > 0)
-                        Divider(
-                          height: 1,
-                          color: p.border,
-                          indent: 16,
-                          endIndent: 16,
-                        ),
-                      _TeachingAssignmentRow(
-                        item: open[i],
-                        onTap: () =>
-                            onOpen(open[i].copyWith(courseName: course.title)),
+                      TextButton(
+                        onPressed: () => ref
+                            .read(courseHomeworkProvider(id).notifier)
+                            .refresh(),
+                        child: const Text('重试'),
                       ),
                     ],
-                  ],
-                );
-              },
-            ),
+                  ),
+                ),
+                data: (items) {
+                  final open = items.where((i) => !i.isOverdue).toList();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (open.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            '当前没有进行中的作业',
+                            style: TextStyle(fontSize: 12, color: p.muted),
+                          ),
+                        ),
+                      for (var i = 0; i < open.length; i++) ...[
+                        if (i > 0)
+                          Divider(
+                            height: 1,
+                            color: p.border,
+                            indent: 16,
+                            endIndent: 16,
+                          ),
+                        _TeachingAssignmentRow(
+                          item: open[i],
+                          onTap: () => onOpen(
+                            open[i].copyWith(courseName: course.title),
+                          ),
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              ),
+            ],
           ),
         ],
       ),
@@ -542,6 +619,19 @@ class _TeachingAssignmentRow extends StatelessWidget {
         ? '无截止日期'
         : '${due.year == DateTime.now().year ? '' : '${due.year}/'}${due.month}/${due.day} '
               '${due.hour.toString().padLeft(2, '0')}:${due.minute.toString().padLeft(2, '0')} 截止';
+    if (PlatformHooks.isDesktop && !AppDensity.isTouch(context)) {
+      return _HomeworkInboxRow(
+        item: item,
+        subtitle: '',
+        onTap: onTap,
+        trailing: Text(
+          dueLabel,
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+          style: AppTypography.caption.copyWith(color: p.muted),
+        ),
+      );
+    }
     return AppHoverSurface(
       onTap: onTap,
       borderRadius: BorderRadius.zero,
@@ -569,7 +659,7 @@ class _TeachingAssignmentRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Icon(Icons.chevron_right, size: 18, color: p.muted),
+          Icon(AppIcons.right, size: 18, color: p.muted),
         ],
       ),
     );
@@ -605,6 +695,15 @@ class _TodoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    if (PlatformHooks.isDesktop && !AppDensity.isTouch(context)) {
+      return _HomeworkInboxRow(
+        item: item,
+        subtitle: item.courseName,
+        onTap: onTap,
+        trailing: HomeworkStatusBadges(item: item, withDeadline: true),
+      );
+    }
+
     return Padding(
       padding: EdgeInsets.only(bottom: AppSpace.stackOf(context) * 0.55),
       child: AppHoverSurface(
@@ -646,9 +745,90 @@ class _TodoTile extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, size: 18, color: p.muted),
+            Icon(AppIcons.right, size: 18, color: p.muted),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Shared inbox row for student tasks and instructor/assistant assignments.
+class _HomeworkInboxRow extends StatelessWidget {
+  const _HomeworkInboxRow({
+    required this.item,
+    required this.subtitle,
+    required this.trailing,
+    required this.onTap,
+  });
+  final HomeworkItem item;
+  final String subtitle;
+  final Widget trailing;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return AppHoverSurface(
+      onTap: onTap,
+      outlined: false,
+      borderRadius: BorderRadius.zero,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      child: LayoutBuilder(
+        builder: (context, bounds) {
+          final wide = bounds.maxWidth >= 560;
+          final metadata = trailing;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: p.isDark ? p.selected : const Color(0xFFEAF4FF),
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(
+                  AppIcons.document,
+                  size: 20,
+                  color: p.isDark ? p.primary : const Color(0xFF247DD2),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title.isEmpty ? '未命名作业' : item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.body.copyWith(
+                        fontWeight: FontWeight.w500,
+                        color: p.ink,
+                      ),
+                    ),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.caption.copyWith(color: p.muted),
+                      ),
+                    ],
+                    if (!wide) ...[const SizedBox(height: 8), metadata],
+                  ],
+                ),
+              ),
+              if (wide) ...[
+                const SizedBox(width: 20),
+                SizedBox(width: 240, child: metadata),
+              ],
+              const SizedBox(width: 12),
+              Icon(AppIcons.right, size: 16, color: p.muted),
+            ],
+          );
+        },
       ),
     );
   }

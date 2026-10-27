@@ -287,7 +287,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
               SettingsRow(
                 leading: Icon(
                   verified
-                      ? Icons.check_circle_outline
+                      ? AppIcons.checkCircle
                       : Icons.notifications_active_outlined,
                 ),
                 title: waiting
@@ -335,7 +335,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
               header: '按表现调整',
               children: [
                 SettingsRow(
-                  leading: const Icon(Icons.notifications_outlined),
+                  leading: const Icon(AppIcons.notification),
                   title: '通知出现，但没有震动或横幅',
                   subtitle: '检查「签到发现」中的声音、震动和悬浮选项',
                   onTap: () => _open(

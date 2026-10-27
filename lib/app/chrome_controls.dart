@@ -9,6 +9,7 @@ class AppQuietPill extends StatelessWidget {
     this.onTap,
     this.background,
     this.border = true,
+    this.radius = 18,
     this.padding = const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
   });
 
@@ -16,6 +17,7 @@ class AppQuietPill extends StatelessWidget {
   final VoidCallback? onTap;
   final Color? background;
   final bool border;
+  final double radius;
   final EdgeInsetsGeometry padding;
 
   @override
@@ -26,10 +28,10 @@ class AppQuietPill extends StatelessWidget {
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       child: Material(
         type: MaterialType.transparency,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(radius),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(radius),
           hoverColor: p.hover,
           splashFactory: NoSplash.splashFactory,
           highlightColor: Colors.transparent,
@@ -43,7 +45,7 @@ class AppQuietPill extends StatelessWidget {
               padding: padding,
               decoration: BoxDecoration(
                 color: background ?? p.surfaceHigh,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(radius),
                 border: border ? Border.all(color: p.border) : null,
               ),
               child: child,

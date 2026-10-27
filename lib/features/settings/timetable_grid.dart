@@ -11,12 +11,14 @@ class TimetablePlacedBlock {
     required this.weekday,
     required this.block,
     this.weekLabel,
+    this.dates,
   });
 
   final CatalogCourse course;
   final int weekday;
   final SessionBlock block;
   final String? weekLabel;
+  final Set<String>? dates;
 }
 
 /// Vertical axis row: a period, or a break band (午休 / 晚休).
@@ -235,6 +237,7 @@ List<TimetablePlacedBlock> placeTimetableBlocks(
             weekday: e.key,
             block: b,
             weekLabel: slot.weekLabel,
+            dates: slot.dates,
           ),
         );
       }
@@ -253,41 +256,75 @@ Map<int, int> sequenceToRowIndex(List<TimetableAxisRow> rows) {
   return map;
 }
 
-/// Separate overlapping term meetings (including alternating weeks) so neither
-/// card obscures the other. Non-overlapping meetings share a column.
+/// Date-disjoint variants in the same period use one stack. True same-date
+/// conflicts are separate groups and are still assigned distinct columns.
+List<List<TimetablePlacedBlock>> timetableStacks(
+  List<TimetablePlacedBlock> blocks,
+) {
+  final groups = <List<TimetablePlacedBlock>>[];
+  for (final block in blocks) {
+    final target = groups
+        .where(
+          (g) => g.every(
+            (other) =>
+                other.weekday == block.weekday &&
+                other.block.id == block.block.id &&
+                other.dates != null &&
+                block.dates != null &&
+                other.dates!.intersection(block.dates!).isEmpty,
+          ),
+        )
+        .firstOrNull;
+    if (target == null) {
+      groups.add([block]);
+    } else {
+      target.add(block);
+    }
+  }
+  return groups;
+}
+
 Map<TimetablePlacedBlock, ({int column, int count})> timetableColumns(
   List<TimetablePlacedBlock> blocks,
 ) {
   final result = <TimetablePlacedBlock, ({int column, int count})>{};
+  final stacks = timetableStacks(blocks);
   for (final day in blocks.map((b) => b.weekday).toSet()) {
-    final sorted = blocks.where((b) => b.weekday == day).toList()
-      ..sort((a, b) => a.block.startSequence.compareTo(b.block.startSequence));
-    final group = <TimetablePlacedBlock>[];
+    final sorted = stacks.where((g) => g.first.weekday == day).toList()
+      ..sort(
+        (a, b) =>
+            a.first.block.startSequence.compareTo(b.first.block.startSequence),
+      );
+    final group = <List<TimetablePlacedBlock>>[];
     var end = 0;
     void flush() {
       final ends = <int>[];
-      final assignments = <TimetablePlacedBlock, int>{};
-      for (final b in group) {
+      final assignments = <List<TimetablePlacedBlock>, int>{};
+      for (final stack in group) {
+        final b = stack.first;
         var column = ends.indexWhere((e) => e < b.block.startSequence);
         if (column == -1) {
           column = ends.length;
           ends.add(0);
         }
         ends[column] = b.block.endSequence;
-        assignments[b] = column;
+        assignments[stack] = column;
       }
-      for (final b in group) {
-        result[b] = (column: assignments[b]!, count: ends.length);
+      for (final stack in group) {
+        for (final block in stack) {
+          result[block] = (column: assignments[stack]!, count: ends.length);
+        }
       }
       group.clear();
     }
 
-    for (final b in sorted) {
+    for (final stack in sorted) {
+      final b = stack.first;
       if (group.isNotEmpty && b.block.startSequence > end) {
         flush();
         end = 0;
       }
-      group.add(b);
+      group.add(stack);
       if (b.block.endSequence > end) end = b.block.endSequence;
     }
     flush();

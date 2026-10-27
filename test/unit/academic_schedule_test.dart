@@ -152,7 +152,7 @@ void main() {
     },
   );
   test(
-    'adjustment removes old date, moves weekday/period and uses new room',
+    'current pkjgList is authoritative; historical changes are not applied twice',
     () {
       final academic = schedule(
         rows: [meeting(mask: '001000')],
@@ -175,28 +175,28 @@ void main() {
       final c = academic.apply([
         const CatalogCourse(id: 'c', title: '计算机网络'),
       ]).single;
-      expect(c.timetablesOn(DateTime(2026, 9, 21)), isEmpty);
-      final changed = c.timetablesOn(DateTime(2026, 9, 30))[3]!.single;
-      expect(changed.sequence, 5);
-      expect(changed.classroom, '新教室');
-      expect(changed.start.hour, 14);
+      expect(c.timetablesOn(DateTime(2026, 9, 21))[1]!.single.sequence, 3);
+      expect(c.timetablesOn(DateTime(2026, 9, 30)), isEmpty);
     },
   );
-  test('invalid mask/time/unknown adjustment cannot replace a good cache', () {
-    expect(
-      () => schedule(rows: [meeting(mask: '1-8周')]),
-      throwsFormatException,
-    );
-    expect(() => schedule(rows: [meeting(first: 19)]), throwsFormatException);
-    expect(
-      () => schedule(
-        changes: [
-          {'YSKZC': '100', 'XSKZC': '010'},
-        ],
-      ),
-      throwsFormatException,
-    );
-  });
+  test(
+    'invalid mask/time fail, unrelated historical changes cannot reject a current timetable',
+    () {
+      expect(
+        () => schedule(rows: [meeting(mask: '1-8周')]),
+        throwsFormatException,
+      );
+      expect(() => schedule(rows: [meeting(first: 19)]), throwsFormatException);
+      expect(
+        schedule(
+          changes: [
+            {'YSKZC': 'invalid history', 'XSKZC': '010'},
+          ],
+        ).allTables,
+        isNotEmpty,
+      );
+    },
+  );
   test(
     'window union retains gaps, exact boundaries, odd weeks and midnight dates',
     () {
@@ -330,7 +330,7 @@ void main() {
   );
 
   test(
-    'sanitized undergraduate EMAP fixture applies real adjustment shape and numeric clocks',
+    'sanitized undergraduate EMAP fixture keeps published rows and numeric clocks',
     () {
       final fixture =
           jsonDecode(
@@ -352,9 +352,12 @@ void main() {
             ),
         },
       );
-      expect(parsed.rows, hasLength(8));
+      expect(
+        parsed.rows,
+        hasLength((fixture['payload'] as Map)['pkjgList'].length),
+      );
       expect(parsed.allTables, isNotEmpty);
-      expect(parsed.rows.any((r) => r['JASMC'] == '调课后教室'), isTrue);
+      expect(parsed.rows.any((r) => r['JASMC'] == '调课后教室'), isFalse);
     },
   );
   test(

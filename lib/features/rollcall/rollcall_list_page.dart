@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +18,8 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_answer_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/session_prior_panel.dart';
+import 'package:xmu_rollcall/features/campus/campus_summary.dart';
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 
 class RollcallListPage extends ConsumerWidget {
   const RollcallListPage({
@@ -25,6 +28,9 @@ class RollcallListPage extends ConsumerWidget {
     this.showUpdatedAt = true,
     this.assistUserId,
     this.enableAssistMulti = true,
+    this.footer,
+    this.academicSchedule,
+    this.at,
   });
 
   /// When true, omit outer [PageScaffold] (used inside hub pages).
@@ -37,11 +43,17 @@ class RollcallListPage extends ConsumerWidget {
   /// When false (assist hub), QR page has no multi-person assist UI.
   final bool enableAssistMulti;
 
+  /// Contextual, non-task content follows the tasks in the same scroll surface.
+  final Widget? footer;
+  final AcademicSchedule? academicSchedule;
+  final DateTime? at;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authControllerProvider);
     final palette = AppPalette.of(context);
     final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
+    final desktop = PlatformHooks.isDesktop && !AppDensity.isTouch(context);
     final forAssist = assistUserId != null;
 
     if (!forAssist && !auth.isSignedIn) {
@@ -105,6 +117,7 @@ class RollcallListPage extends ConsumerWidget {
                 ],
               ),
             ),
+            ?footer,
           ],
         ),
         data: (items) {
@@ -114,13 +127,27 @@ class RollcallListPage extends ConsumerWidget {
             }
             return CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
-              slivers: const [
+              slivers: [
                 SliverFillRemaining(
                   hasScrollBody: false,
-                  child: EmptyHint(
-                    icon: Icons.inbox_outlined,
-                    title: '暂无进行中的签到',
-                    detail: '下拉刷新，或开启自动检测',
+                  child: Column(
+                    children: [
+                      const Expanded(
+                        child: EmptyHint(
+                          icon: Icons.inbox_outlined,
+                          title: '暂无进行中的签到',
+                          detail: '下拉刷新，或开启自动检测',
+                        ),
+                      ),
+                      if (footer != null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 28,
+                            vertical: 24,
+                          ),
+                          child: footer!,
+                        ),
+                    ],
                   ),
                 ),
               ],
@@ -129,20 +156,29 @@ class RollcallListPage extends ConsumerWidget {
           return ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.fromLTRB(
-              AppSpace.pageXOf(context),
+              desktop ? 24 : AppSpace.pageXOf(context),
               AppSpace.xxs,
-              AppSpace.pageXOf(context),
+              desktop ? 24 : AppSpace.pageXOf(context),
               AppSpace.xl,
             ),
-            itemCount: items.length,
+            itemCount: items.length + (footer == null ? 0 : 1),
             separatorBuilder: (context, _) =>
                 SizedBox(height: AppSpace.stackOf(context)),
-            itemBuilder: (context, i) => _RollcallTile(
-              key: ValueKey(items[i].rollcallId),
-              item: items[i],
-              assistUserId: assistUserId,
-              enableAssistMulti: enableAssistMulti,
-            ),
+            itemBuilder: (context, i) => i == items.length
+                ? footer!
+                : _RollcallTile(
+                    key: ValueKey(items[i].rollcallId),
+                    item: items[i],
+                    assistUserId: assistUserId,
+                    enableAssistMulti: enableAssistMulti,
+                    meeting: academicSchedule == null
+                        ? null
+                        : selectCampusMeetingForTitle(
+                            academicSchedule!,
+                            at ?? DateTime.now(),
+                            items[i].courseTitle,
+                          ),
+                  ),
           );
         },
       ),
@@ -179,17 +215,20 @@ class _RollcallTile extends ConsumerStatefulWidget {
     required this.item,
     this.assistUserId,
     this.enableAssistMulti = true,
+    this.meeting,
   });
 
   final RollcallItem item;
   final int? assistUserId;
   final bool enableAssistMulti;
+  final CampusMeeting? meeting;
 
   @override
   ConsumerState<_RollcallTile> createState() => _RollcallTileState();
 }
 
 class _RollcallTileState extends ConsumerState<_RollcallTile> {
+  bool get _desktop => PlatformHooks.isDesktop && !AppDensity.isTouch(context);
   bool _hover = false;
   bool _submitting = false;
 
@@ -297,11 +336,11 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = AppPalette.of(context);
+    final p = AppPalette.of(context);
     final item = widget.item;
     final title = item.courseTitle.isEmpty ? '未命名课程' : item.courseTitle;
+    if (_desktop) return _desktopCard(p, item, title);
     final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
-
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
@@ -309,53 +348,277 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
         duration: AppMotion.fast,
         curve: AppMotion.fastCurve,
         decoration: BoxDecoration(
-          color: _hover ? palette.cardHover : palette.surface,
+          color: _hover ? p.cardHover : p.surface,
           borderRadius: BorderRadius.circular(AppRadii.card),
-          border: Border.all(
-            color: _hover ? palette.borderStrong : palette.border,
-          ),
+          border: Border.all(color: _hover ? p.borderStrong : p.border),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpace.md),
+        padding: const EdgeInsets.all(AppSpace.md),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _identifyHeader(p, item, title),
+            if (!item.isAnswered) ...[
+              const SizedBox(height: AppSpace.xs),
+              _attendance(item),
+            ],
+            if (item.isNumber) ...[
+              const SizedBox(height: AppSpace.sm),
+              _numberTaskStrip(p, item, wide: wide),
+            ],
+            if (item.type == RollcallType.unknown) ...[
+              const SizedBox(height: AppSpace.xs),
+              Text(
+                '暂不支持此签到类型，可下拉刷新重试',
+                style: TextStyle(fontSize: 12, height: 1.35, color: p.muted),
+              ),
+            ],
+            if (!item.isAnswered && (item.courseId?.isNotEmpty ?? false))
+              SessionPriorPanel(
+                courseId: item.courseId!,
+                assistUserId: widget.assistUserId,
+                currentType: item.type,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _attendance(RollcallItem item, {bool compact = false}) =>
+      AttendanceCountRow(
+        key: ValueKey((
+          ref.watch(authControllerProvider).profile?.id,
+          widget.assistUserId,
+          item.rollcallId,
+        )),
+        rollcallId: item.rollcallId,
+        assistUserId: widget.assistUserId,
+        expired: item.isExpired,
+        compact: compact,
+      );
+
+  Widget _courseMenu(AppPalette p, RollcallItem item) => AppActionMenu<String>(
+    tooltip: '课程操作',
+    framed: false,
+    enabled: !_submitting && !item.isExpired,
+    onSelected: (value) {
+      if (value == 'manual') {
+        _openSecondary();
+      } else {
+        _showCourseReference();
+      }
+    },
+    actions: [
+      if (item.isNumber)
+        const AppMenuAction('manual', '手动输入', icon: AppIcons.document),
+      if (item.courseId?.isNotEmpty == true)
+        const AppMenuAction('prior', '课堂参考', icon: AppIcons.history),
+    ],
+  );
+
+  Widget _desktopCard(AppPalette p, RollcallItem item, String title) {
+    final meeting = widget.meeting;
+    String hm(DateTime value) =>
+        '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hover = true),
+      onExit: (_) => setState(() => _hover = false),
+      child: AnimatedContainer(
+        duration: AppMotion.fast,
+        curve: AppMotion.fastCurve,
+        decoration: BoxDecoration(
+          color: p.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: p.primary.withValues(alpha: _hover ? .25 : .13),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: p.primary.withValues(alpha: p.isDark ? .02 : .045),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(11),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _identifyHeader(palette, item, title),
-              if (!item.isAnswered) ...[
-                const SizedBox(height: AppSpace.xs),
-                AttendanceCountRow(
-                  key: ValueKey((
-                    ref.watch(authControllerProvider).profile?.id,
-                    widget.assistUserId,
-                    item.rollcallId,
-                  )),
-                  rollcallId: item.rollcallId,
-                  assistUserId: widget.assistUserId,
-                  expired: item.isExpired,
+              Stack(
+                children: [
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomLeft,
+                          end: Alignment.topRight,
+                          colors: [
+                            p.surface,
+                            p.isDark
+                                ? Color.alphaBlend(
+                                    p.primary.withValues(alpha: .08),
+                                    p.surface,
+                                  )
+                                : const Color(0xFFD7FAF4),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (!item.isAnswered)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: 300,
+                      child: IgnorePointer(
+                        child: Opacity(
+                          opacity: p.isDark ? .18 : .72,
+                          child: Image.asset(
+                            'assets/illustrations/campus_mist.png',
+                            cacheWidth: 768,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.centerRight,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(22, 20, 18, 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: _titleStyle(p),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            if ((item.isExpired && !item.isAnswered) ||
+                                (item.isAnswered &&
+                                    item.type == RollcallType.unknown))
+                              _statusChip(p, item)
+                            else
+                              Text(
+                                '${item.typeLabel}签到',
+                                style: TextStyle(fontSize: 12, color: p.muted),
+                              ),
+                            const Spacer(),
+                            if (!item.isAnswered &&
+                                (item.isNumber ||
+                                    item.courseId?.isNotEmpty == true))
+                              _courseMenu(p, item),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Icon(
+                              meeting == null
+                                  ? AppIcons.person
+                                  : AppIcons.location,
+                              size: 17,
+                              color: p.ink,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                meeting == null
+                                    ? (item.createdByName.isEmpty
+                                          ? '课堂签到'
+                                          : item.createdByName)
+                                    : '${meeting.room.isEmpty ? '教室未提供' : meeting.room}  ·  ${hm(meeting.start)}–${hm(meeting.end)}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(fontSize: 13, color: p.ink),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              Divider(
+                color: p.primary.withValues(alpha: .08),
+                height: 1,
+                indent: 22,
+                endIndent: 22,
+              ),
+              Padding(
+                padding: const EdgeInsets.all(22),
+                child: item.type == RollcallType.unknown
+                    ? Text(
+                        '暂不支持此签到类型，可下拉刷新重试',
+                        style: TextStyle(fontSize: 12, color: p.muted),
+                      )
+                    : item.isNumber
+                    ? _numberTaskStrip(p, item, wide: true)
+                    : Row(
+                        children: [
+                          if (!item.isAnswered)
+                            Expanded(child: _attendance(item, compact: true))
+                          else
+                            const Spacer(),
+                          if (_secondaryCta(item) != null) _secondaryCta(item)!,
+                        ],
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showCourseReference() {
+    showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 540),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        '课堂参考',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '关闭',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
                 ),
-              ],
-              if (item.isNumber) ...[
-                const SizedBox(height: AppSpace.sm),
-                _numberTaskStrip(palette, item, wide: wide),
-              ],
-              if (item.type == RollcallType.unknown) ...[
-                const SizedBox(height: AppSpace.xs),
-                Text(
-                  '暂不支持此签到类型，可下拉刷新重试',
-                  style: TextStyle(
-                    fontSize: 12,
-                    height: 1.35,
-                    color: palette.muted,
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: SessionPriorPanel(
+                      courseId: widget.item.courseId!,
+                      assistUserId: widget.assistUserId,
+                      currentType: widget.item.type,
+                    ),
                   ),
                 ),
               ],
-              if (!item.isAnswered && (item.courseId?.isNotEmpty ?? false))
-                SessionPriorPanel(
-                  courseId: item.courseId!,
-                  assistUserId: widget.assistUserId,
-                  currentType: item.type,
-                ),
-            ],
+            ),
           ),
         ),
       ),
@@ -418,7 +681,7 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
 
   Widget? _secondaryCta(RollcallItem item) {
     if (item.isNumber) {
-      if (item.isAnswered) return null;
+      if (item.isAnswered || _desktop) return null;
       return TextButton(
         onPressed: (_submitting || item.isAnswered || item.isExpired)
             ? null
@@ -427,7 +690,15 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
       );
     }
     if (item.isAnswered && (item.isRadar || item.type == RollcallType.qrcode)) {
-      return const FilledButton(onPressed: null, child: Text('已签到'));
+      final p = AppPalette.of(context);
+      return FilledButton(
+        style: FilledButton.styleFrom(
+          disabledBackgroundColor: p.successSurface,
+          disabledForegroundColor: p.success,
+        ),
+        onPressed: null,
+        child: const Text('已签到'),
+      );
     }
     if (item.isRadar) {
       return FilledButton(
@@ -444,43 +715,18 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     return null;
   }
 
-  Widget _statusChip(AppPalette palette, RollcallItem item) {
-    final answered = item.isAnswered;
-    final expired = item.isExpired;
-    final label = expired ? '已结束' : (answered ? '已签到' : '待签到');
-    final Color fg;
-    final Color bg;
-    if (expired) {
-      fg = palette.muted;
-      bg = palette.surfaceHigh;
-    } else if (answered) {
-      fg = palette.primary;
-      bg = palette.selected;
-    } else {
-      fg = palette.ink;
-      bg = palette.hover;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(AppRadii.control),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: fg,
-          fontWeight: FontWeight.w600,
-          fontSize: 11,
-          height: 1.2,
-        ),
-      ),
-    );
-  }
+  Widget _statusChip(AppPalette palette, RollcallItem item) => AppStatusBadge(
+    item.isExpired
+        ? '已结束'
+        : item.isAnswered
+        ? '已签到'
+        : '待签到',
+    tone: item.isAnswered ? AppStatusTone.success : AppStatusTone.neutral,
+  );
 
   TextStyle _titleStyle(AppPalette palette) {
     return TextStyle(
-      fontSize: 15,
+      fontSize: _desktop ? 20 : 15,
       fontWeight: FontWeight.w600,
       letterSpacing: -0.2,
       height: 1.25,
@@ -488,12 +734,75 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     );
   }
 
-  /// Task strip: large copyable code + primary CTA.
+  Widget _numberAction(AppPalette p, RollcallItem item) => FilledButton(
+    style: _desktop
+        ? FilledButton.styleFrom(
+            minimumSize: const Size(160, 44),
+            disabledBackgroundColor: item.isAnswered ? p.successSurface : null,
+            disabledForegroundColor: item.isAnswered ? p.success : null,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          )
+        : null,
+    onPressed: (_submitting || item.isAnswered || item.isExpired)
+        ? null
+        : (item.numberCode?.isNotEmpty == true
+              ? _oneClickNumber
+              : _openSecondary),
+    child: Text(
+      _submitting
+          ? '提交中…'
+          : item.isAnswered
+          ? '已签到'
+          : item.isExpired
+          ? '已结束'
+          : item.numberCode?.isNotEmpty == true
+          ? (_desktop ? '确认签到' : '一键签到')
+          : '输入签到码',
+      style: _desktop ? const TextStyle(fontSize: 14) : null,
+    ),
+  );
+
+  /// One row: code, live attendance and confirmed action. The mobile strip keeps
+  /// its existing presentation while sharing the same submission handler.
   Widget _numberTaskStrip(
-    AppPalette palette,
+    AppPalette p,
     RollcallItem item, {
     required bool wide,
   }) {
+    if (_desktop) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 104 * MediaQuery.textScalerOf(context).scale(1),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('签到码', style: TextStyle(fontSize: 11, color: p.muted)),
+                const SizedBox(height: 5),
+                _codeAnchor(p, item, wide: true),
+              ],
+            ),
+          ),
+          Container(
+            height: 44,
+            width: 1,
+            color: p.borderStrong,
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+          ),
+          Expanded(
+            child: item.isAnswered
+                ? const SizedBox.shrink()
+                : _attendance(item, compact: true),
+          ),
+          const SizedBox(width: 10),
+          _numberAction(p, item),
+        ],
+      );
+    }
     return Container(
       padding: EdgeInsets.fromLTRB(
         AppSpace.sm,
@@ -502,31 +811,14 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
         wide ? AppSpace.xs : 6,
       ),
       decoration: BoxDecoration(
-        color: palette.content,
+        color: p.content,
         borderRadius: BorderRadius.circular(AppRadii.control),
       ),
       child: Row(
         children: [
-          Expanded(child: _codeAnchor(palette, item, wide: wide)),
+          Expanded(child: _codeAnchor(p, item, wide: wide)),
           const SizedBox(width: AppSpace.sm),
-          FilledButton(
-            onPressed: (_submitting || item.isAnswered || item.isExpired)
-                ? null
-                : (item.numberCode?.isNotEmpty == true
-                      ? _oneClickNumber
-                      : _openSecondary),
-            child: Text(
-              _submitting
-                  ? '提交中…'
-                  : item.isAnswered
-                  ? '已签到'
-                  : item.isExpired
-                  ? '已结束'
-                  : item.numberCode?.isNotEmpty == true
-                  ? '一键签到'
-                  : '输入签到码',
-            ),
-          ),
+          _numberAction(p, item),
         ],
       ),
     );
@@ -552,9 +844,18 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     final text = Text(
       code,
       style: TextStyle(
-        fontSize: wide ? 28 : 22,
+        fontSize: _desktop
+            ? 36
+            : wide
+            ? 28
+            : 22,
+        fontFamily: _desktop ? 'Segoe UI' : null,
         fontWeight: FontWeight.w600,
-        letterSpacing: wide ? 4 : 2.5,
+        letterSpacing: _desktop
+            ? -.7
+            : wide
+            ? 4
+            : 2.5,
         height: 1.15,
         color: palette.ink,
         fontFeatures: const [FontFeature.tabularFigures()],
@@ -570,8 +871,10 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
           child: Row(
             children: [
               Flexible(child: text),
-              const SizedBox(width: AppSpace.xs),
-              Icon(Icons.copy_rounded, size: 15, color: palette.muted),
+              if (!_desktop) ...[
+                const SizedBox(width: AppSpace.xs),
+                Icon(Icons.copy_rounded, size: 15, color: palette.muted),
+              ],
             ],
           ),
         ),

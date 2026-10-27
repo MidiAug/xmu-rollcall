@@ -373,15 +373,21 @@ void main() {
       await container.read(provider.future);
       expect(repo.statusCalls, 1);
       repo.fail = true;
+      final manualStarted = Completer<void>();
+      repo.duringStatus = () async => manualStarted.complete();
+      final persisted = await JsonDiskCache.readList(
+        'homework_submission_1_10',
+      );
       container.read(homeworkManualRefreshAtProvider(1).notifier).state =
-          DateTime.now();
+          persisted!.fetchedAt.add(const Duration(microseconds: 1));
       expect(
         (await container.read(provider.future)).submission,
         HomeworkSubmission.submitted,
       );
-      await Future<void>.delayed(Duration.zero);
+      await manualStarted.future.timeout(const Duration(seconds: 2));
       await container.pump();
       expect(repo.statusCalls, 2);
+      repo.duringStatus = null;
       container.read(homeworkManualRefreshAtProvider(1).notifier).state = null;
       await JsonDiskCache.writeList(
         'homework_submission_1_10',
@@ -405,10 +411,16 @@ void main() {
         dueAt: DateTime.now().subtract(const Duration(minutes: 1)),
       );
       final deadlineProvider = homeworkSubmissionProvider(deadlineKey);
-      final deadlineSub = container.listen(deadlineProvider, (_, _) {});
+      final deadlineUpdated = Completer<void>();
+      final deadlineSub = container.listen(deadlineProvider, (_, next) {
+        if (next.valueOrNull?.grading == HomeworkGrading.pending &&
+            !deadlineUpdated.isCompleted) {
+          deadlineUpdated.complete();
+        }
+      });
       addTearDown(deadlineSub.close);
       await container.read(deadlineProvider.future);
-      await Future<void>.delayed(Duration.zero);
+      await deadlineUpdated.future.timeout(const Duration(seconds: 2));
       await container.pump();
       expect(
         repo.statusCalls,

@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/schedule/academic_meetings.dart';
 import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'package:xmu_rollcall/features/schedule/academic_calendar.dart';
 import 'package:xmu_rollcall/core/cache/course_schedule_store.dart';
@@ -83,43 +84,8 @@ class AcademicSchedule {
       for (final raw in payload['pkjgList'] as List)
         {for (final key in fields) key: (raw as Map)[key]},
     ];
-    // Apply original -> replacement week masks before expanding calendar dates.
-    for (final change in payload['ttbList'] as List? ?? const []) {
-      final c = change as Map;
-      final original = academicWeeks(c['YSKZC']);
-      final replacement = academicWeeks(c['XSKZC']);
-      final matches = rows
-          .where(
-            (r) =>
-                r['KCDM'] == c['KCDM'] &&
-                r['BJDM'] == c['BJDM'] &&
-                academicInt(r['XQ']) == academicInt(c['YSKXQ']) &&
-                academicInt(r['KSJCDM']) == academicInt(c['YKSJC']) &&
-                academicInt(r['JSJCDM']) == academicInt(c['YJSJC']),
-          )
-          .toList();
-      if (matches.isEmpty) throw const FormatException('调课安排无法对应原课次');
-      final source = Map<String, dynamic>.from(matches.first);
-      for (final r in matches) {
-        final remaining = academicWeeks(r['ZCBH']).difference(original);
-        r['ZCBH'] = List.generate(
-          60,
-          (i) => remaining.contains(i + 1) ? '1' : '0',
-        ).join();
-      }
-      if (replacement.isNotEmpty) {
-        source.addAll({
-          'ZCBH': c['XSKZC'],
-          'XQ': c['XSKXQ'],
-          'KSJCDM': c['XKSJC'],
-          'JSJCDM': c['XJSJC'],
-          'KSSJ': null,
-          'JSSJ': null,
-          'JASMC': c['XJASMC'] ?? source['JASMC'],
-        });
-        rows.add(source);
-      }
-    }
+    // pkjgList is the current authoritative timetable. Historical ttbList
+    // entries may already be reflected there; never apply them a second time.
     for (final r in rows) {
       final start = clock[academicInt(r['KSJCDM'])];
       final end = clock[academicInt(r['JSJCDM'])];
@@ -154,25 +120,25 @@ class AcademicSchedule {
   }
 
   Map<int, List<TimetableSlot>> tables(List<Map<String, dynamic>> entries) {
-    final out = <int, List<TimetableSlot>>{};
+    final groups = <String, List<TimetableSlot>>{};
+    final weekdays = <String, int>{};
     for (final r in entries) {
-      if (academicWeeks(r['ZCBH']).isEmpty) continue;
+      final weeks = academicWeeks(r['ZCBH']);
+      if (weeks.isEmpty) continue;
       final day = academicInt(r['XQ']);
-      final start = academicInt(r['startMinute']);
-      final end = academicInt(r['endMinute']);
-      out
-          .putIfAbsent(day, () => [])
+      final key = '${r['KCDM']}/${r['BJDM']}/$day';
+      weekdays[key] = day;
+      groups
+          .putIfAbsent(key, () => [])
           .add(
             TimetableSlot(
               sequence: academicInt(r['KSJCDM']),
               endSequence: academicInt(r['JSJCDM']),
-              start: DateTime(2000, 1, 3, 0, start),
-              end: DateTime(2000, 1, 3, 0, end),
+              start: DateTime(2000, 1, 3, 0, academicInt(r['startMinute'])),
+              end: DateTime(2000, 1, 3, 0, academicInt(r['endMinute'])),
               classroom: academicText(r['JASMC']),
-              weekLabel:
-                  '第${(academicWeeks(r['ZCBH']).toList()..sort()).join('、')}周',
               dates: {
-                for (final w in academicWeeks(r['ZCBH']))
+                for (final w in weeks)
                   TimetableSlot.dateKey(
                     monday.add(Duration(days: (w - 1) * 7 + day - 1)),
                   ),
@@ -180,7 +146,13 @@ class AcademicSchedule {
             ),
           );
     }
-    return out;
+    final result = <int, List<TimetableSlot>>{};
+    for (final entry in groups.entries) {
+      result
+          .putIfAbsent(weekdays[entry.key]!, () => [])
+          .addAll(normalizeAcademicSlots(entry.value, monday));
+    }
+    return result;
   }
 
   /// Union of every academic course, including courses absent from TronClass.

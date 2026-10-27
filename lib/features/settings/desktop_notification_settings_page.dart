@@ -70,7 +70,7 @@ class _DesktopNotificationSettingsPageState
                   header: '通知测试',
                   children: [
                     SettingsRow(
-                      leading: const Icon(Icons.notifications_outlined),
+                      leading: const Icon(AppIcons.notification),
                       title: '测试系统通知',
                       subtitle: '使用示例课程测试通知，不会提交签到。',
                       trailing: FilledButton(
@@ -100,7 +100,7 @@ class _DesktopNotificationSettingsPageState
                               children: [
                                 if (confirmed) ...[
                                   Icon(
-                                    Icons.check_circle_outline,
+                                    AppIcons.checkCircle,
                                     size: 18,
                                     color: p.muted,
                                   ),
@@ -146,7 +146,7 @@ class _DesktopNotificationSettingsPageState
                       ),
                     if (_showHelp)
                       SettingsRow(
-                        leading: const Icon(Icons.settings_outlined),
+                        leading: const Icon(AppIcons.settings),
                         title: PlatformHooks.isWindows
                             ? '检查 Windows 通知设置'
                             : '检查系统通知设置',

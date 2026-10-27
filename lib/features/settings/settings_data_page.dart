@@ -54,7 +54,7 @@ class SettingsDataPage extends ConsumerWidget {
                   leading: const Icon(Icons.cleaning_services_outlined),
                   title: '清除本机课程数据',
                   subtitle: '清除已保存的课表、作业与签到记录；主题、常用地点与本机标识会保留',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: () => _confirmClearCache(context, ref),
                 ),
               ],
@@ -117,7 +117,7 @@ class SettingsDataPage extends ConsumerWidget {
                   leading: const Icon(Icons.receipt_long_outlined),
                   title: '最近日志',
                   subtitle: '本机诊断事件，可按关键词搜索',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: () =>
                       AppPageRoutes.push(context, const RecentLogsPage()),
                 ),
@@ -132,7 +132,7 @@ class SettingsDataPage extends ConsumerWidget {
                     leading: const Icon(Icons.system_update_alt_rounded),
                     title: '更新流程',
                     subtitle: '说明、检查、下载、线路与安装确认',
-                    trailing: const Icon(Icons.chevron_right, size: 18),
+                    trailing: const Icon(AppIcons.right, size: 18),
                     onTap: () =>
                         AppPageRoutes.push(context, UpdatePreviewPage()),
                   ),
@@ -141,7 +141,7 @@ class SettingsDataPage extends ConsumerWidget {
                       leading: const Icon(Icons.qr_code_scanner),
                       title: '电脑扫码  透明浮窗',
                       subtitle: '屏幕识别  拖入图片  选择图片，不提交签到',
-                      trailing: const Icon(Icons.chevron_right, size: 18),
+                      trailing: const Icon(AppIcons.right, size: 18),
                       onTap: () => AppPageRoutes.push(
                         context,
                         const DesktopQrPreviewPage(),
@@ -152,7 +152,7 @@ class SettingsDataPage extends ConsumerWidget {
                     title: '雷达签到  空态',
                     subtitle: '无本课记忆，确认卡为空',
                     trailing: Icon(
-                      Icons.chevron_right,
+                      AppIcons.right,
                       color: p.muted,
                       size: 18,
                     ),
@@ -167,7 +167,7 @@ class SettingsDataPage extends ConsumerWidget {
                     title: '雷达签到  记忆预设',
                     subtitle: '预填「翔安教学楼」',
                     trailing: Icon(
-                      Icons.chevron_right,
+                      AppIcons.right,
                       color: p.muted,
                       size: 18,
                     ),
@@ -182,7 +182,7 @@ class SettingsDataPage extends ConsumerWidget {
                     title: '雷达签到  记忆定位',
                     subtitle: '预填系统定位坐标',
                     trailing: Icon(
-                      Icons.chevron_right,
+                      AppIcons.right,
                       color: p.muted,
                       size: 18,
                     ),
@@ -197,18 +197,18 @@ class SettingsDataPage extends ConsumerWidget {
                     title: '上课段先验',
                     subtitle: '符合 / 突然数字 / 样本不足 / 无课表',
                     trailing: Icon(
-                      Icons.chevron_right,
+                      AppIcons.right,
                       color: p.muted,
                       size: 18,
                     ),
                     onTap: () => openSessionPriorPreview(context),
                   ),
                   SettingsRow(
-                    leading: const Icon(Icons.calendar_view_week_outlined),
+                    leading: const Icon(AppIcons.week),
                     title: '课表样式',
                     subtitle: '周末列  有无 10–11 节  假数据',
                     trailing: Icon(
-                      Icons.chevron_right,
+                      AppIcons.right,
                       color: p.muted,
                       size: 18,
                     ),
@@ -216,7 +216,7 @@ class SettingsDataPage extends ConsumerWidget {
                   ),
                   if (PlatformHooks.isDesktop || PlatformHooks.isAndroid) ...[
                     SettingsRow(
-                      leading: const Icon(Icons.notifications_outlined),
+                      leading: const Icon(AppIcons.notification),
                       title: PlatformHooks.isDesktop
                           ? '托盘  立即测试通知'
                           : 'Android  立即测试发现通知',
@@ -224,7 +224,7 @@ class SettingsDataPage extends ConsumerWidget {
                           ? '最小化后发一条发现通知（L1）'
                           : '直接测试声音与震动，不影响正在进行的检测',
                       trailing: Icon(
-                        Icons.chevron_right,
+                        AppIcons.right,
                         color: p.muted,
                         size: 18,
                       ),
@@ -239,7 +239,7 @@ class SettingsDataPage extends ConsumerWidget {
                           ? '由后台服务发送，可回桌或锁屏验证'
                           : '延时测试通知，不修改真实签到列表',
                       trailing: Icon(
-                        Icons.chevron_right,
+                        AppIcons.right,
                         color: p.muted,
                         size: 18,
                       ),
@@ -395,7 +395,7 @@ class _ExportLogsRowState extends ConsumerState<_ExportLogsRow> {
             height: 18,
             child: CircularProgressIndicator(strokeWidth: 2),
           )
-        : const Icon(Icons.chevron_right, size: 18),
+        : const Icon(AppIcons.right, size: 18),
     onTap: _busy ? null : _export,
   );
 }

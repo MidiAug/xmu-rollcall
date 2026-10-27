@@ -45,11 +45,13 @@ class AttendanceCountRow extends ConsumerStatefulWidget {
     required this.rollcallId,
     required this.expired,
     this.assistUserId,
+    this.compact = false,
   });
 
   final int rollcallId;
   final int? assistUserId;
   final bool expired;
+  final bool compact;
 
   @override
   ConsumerState<AttendanceCountRow> createState() => _AttendanceCountRowState();
@@ -262,6 +264,65 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
             0,
             _seconds,
           );
+    if (widget.compact) {
+      final label = count != null
+          ? '${count.signed} / ${count.total} 人'
+          : widget.expired
+          ? '已结束'
+          : _failed
+          ? '暂不可用'
+          : _manuallyPaused
+          ? '未更新'
+          : '查询中…';
+      return Tooltip(
+        message:
+            '已签到人数${_manuallyPaused
+                ? ' · 已暂停'
+                : remaining != null
+                ? ' · ${remaining}s 后刷新'
+                : ''}',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(AppIcons.people, size: 20, color: p.ink),
+            const SizedBox(width: 8),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: TextStyle(fontSize: 13, color: p.ink),
+                ),
+              ),
+            ),
+            if (!widget.expired && !automaticCountWait)
+              IconButton(
+                tooltip: _manuallyPaused ? '继续刷新人数' : '暂停刷新人数',
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(20, 28),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: EdgeInsets.zero,
+                ),
+                onPressed: _togglePause,
+                icon: Icon(
+                  _manuallyPaused
+                      ? AppIcons.play
+                      : AppIcons.pause,
+                ),
+                iconSize: 13,
+                color: p.muted,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints.tightFor(
+                  width: 24,
+                  height: 28,
+                ),
+              ),
+          ],
+        ),
+      );
+    }
     return Wrap(
       spacing: 8,
       runSpacing: 2,
@@ -280,7 +341,7 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
                 ),
               )
             else
-              Icon(Icons.people_outline_rounded, size: 15, color: p.muted),
+              Icon(AppIcons.people, size: 15, color: p.muted),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -334,8 +395,8 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
                 onPressed: _togglePause,
                 icon: Icon(
                   _manuallyPaused
-                      ? Icons.play_arrow_rounded
-                      : Icons.pause_rounded,
+                      ? AppIcons.play
+                      : AppIcons.pause,
                 ),
                 iconSize: 16,
                 color: p.muted,

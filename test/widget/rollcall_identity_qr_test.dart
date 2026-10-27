@@ -239,6 +239,16 @@ class _StartMonitor extends MonitorController {
   }
 }
 
+Future<void> openHistory(WidgetTester tester) async {
+  if (find.byTooltip('签到操作').evaluate().isNotEmpty) {
+    await tester.tap(find.byTooltip('签到操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('签到记录').last);
+  } else {
+    await tester.tap(find.byTooltip('签到记录'));
+  }
+}
+
 void main() {
   setUpAll(loadDesktopUiCaptureFonts);
   tearDown(AppToast.dismiss);
@@ -363,14 +373,14 @@ void main() {
       expect(refresh, findsOneWidget);
       expect(
         find.descendant(of: find.byType(AppTitleBar), matching: refresh),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.descendant(
           of: find.byType(HomeworkHubPage),
           matching: find.byType(AppRefreshButton),
         ),
-        findsNothing,
+        findsOneWidget,
       );
       await tester.tap(refresh);
       await tester.pumpAndSettle();
@@ -437,7 +447,7 @@ void main() {
           await tester.pumpAndSettle();
         }
 
-        await tester.tap(find.byTooltip('签到记录'));
+        await openHistory(tester);
         await tester.pumpAndSettle();
         final oldHistory = tester.state(find.byType(HistoryPage));
         for (final filter in [
@@ -476,12 +486,12 @@ void main() {
         );
         await select('签到');
         expect(find.byType(HistoryPage), findsNothing);
-        await tester.tap(find.byTooltip('签到记录'));
+        await openHistory(tester);
         await tester.pumpAndSettle();
         for (final label in ['全部状态', '全部类型', '全部课程', '全部时间']) {
           expect(find.text(label), findsOneWidget);
         }
-        await select('我的');
+        await select(width < 600 ? '我的' : '设置');
         final list = tester.widget<ListView>(
           find.descendant(
             of: find.byType(SettingsPage),
@@ -502,7 +512,12 @@ void main() {
             paintedScrolling =
                 list.controller!.position.isScrollingNotifier.value;
           });
-          await tester.tap(find.descendant(of: nav, matching: find.text('我的')));
+          await tester.tap(
+            find.descendant(
+              of: nav,
+              matching: find.text(width < 600 ? '我的' : '设置'),
+            ),
+          );
           await tester.pump();
           expect(paintedOffset, 0, reason: 'The first visible frame is at top');
           expect(paintedScrolling, isFalse);
@@ -525,7 +540,7 @@ void main() {
         ShellNavigation.instance.openRollcall();
         await tester.pumpAndSettle();
         expect(find.byTooltip('返回'), findsNothing);
-        await select('我的');
+        await select(width < 600 ? '我的' : '设置');
         expect(find.text('设置详情内容', skipOffstage: false), findsNothing);
         await select('作业');
         Navigator.of(tester.element(find.byType(HomeworkHubPage))).push(
@@ -538,7 +553,12 @@ void main() {
         await select('作业');
         expect(find.text('作业详情内容', skipOffstage: false), findsNothing);
         // Repeated fast selections must not leave a stale title-bar claim.
-        await tester.tap(find.descendant(of: nav, matching: find.text('我的')));
+        await tester.tap(
+          find.descendant(
+            of: nav,
+            matching: find.text(width < 600 ? '我的' : '设置'),
+          ),
+        );
         await tester.pump();
         await tester.tap(find.descendant(of: nav, matching: find.text('签到')));
         await tester.pumpAndSettle();
@@ -567,7 +587,7 @@ void main() {
           await tester.pumpAndSettle();
         }
 
-        await select('我的');
+        await select(width < 600 ? '我的' : '设置');
         final ctx = tester.element(find.byType(SettingsPage));
         Navigator.of(ctx).push(
           MaterialPageRoute<void>(
@@ -586,7 +606,7 @@ void main() {
         expect(find.byType(MapPickPanel), findsOneWidget);
         expect(find.text('未保存的教室'), findsOneWidget);
         await select(
-          '我的',
+          width < 600 ? '我的' : '设置',
         ); // Re-tapping the current tab also protects the draft.
         await tester.tap(find.text('放弃并离开'));
         await tester.pumpAndSettle();

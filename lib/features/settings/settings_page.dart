@@ -93,9 +93,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   : '已登录'));
 
     return PageScaffold(
-      title: '我的',
+      title: PlatformHooks.isDesktop && !AppDensity.isTouch(context)
+          ? '设置'
+          : '我的',
       showHeader: false,
       child: AppContentColumn(
+        alignment: Alignment.topCenter,
         child: ListView(
           controller: _scroll,
           padding: EdgeInsets.fromLTRB(
@@ -134,19 +137,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               header: '常用',
               children: [
                 SettingsRow(
-                  leading: const Icon(Icons.calendar_view_week_outlined),
+                  leading: const Icon(AppIcons.week),
                   title: '本学期课表',
                   subtitle: auth.isSignedIn ? '查看本周上课安排' : '请先登录',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: !auth.isSignedIn
                       ? () => showLoginDialog(context)
                       : () => AppPageRoutes.push(context, const CoursesPage()),
                 ),
                 SettingsRow(
-                  leading: const Icon(Icons.place_outlined),
+                  leading: const Icon(AppIcons.location),
                   title: '常用地点',
                   subtitle: '管理签到时常用的位置',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: () =>
                       AppPageRoutes.push(context, const SavedLocationsPage()),
                 ),
@@ -156,7 +159,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   subtitle: assist.ready && assist.identities.isNotEmpty
                       ? '已导入 ${assist.identities.length} 人'
                       : '导出或导入协助身份',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: () =>
                       AppPageRoutes.push(context, const SettingsAssistPage()),
                 ),
@@ -166,7 +169,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               header: '应用',
               children: [
                 SettingsRow(
-                  leading: const Icon(Icons.brightness_6_outlined),
+                  leading: const Icon(AppIcons.theme),
                   title: '外观',
                   trailing: AppShellSelect<ThemePreference>(
                     value: themePref,
@@ -181,8 +184,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                       ThemePreference.system => '跟随系统',
                     },
                     iconOf: (value) => switch (value) {
-                      ThemePreference.light => Icons.wb_sunny_outlined,
-                      ThemePreference.dark => Icons.dark_mode_outlined,
+                      ThemePreference.light => AppIcons.sun,
+                      ThemePreference.dark => AppIcons.moon,
                       ThemePreference.system =>
                         PlatformHooks.systemAppearanceIcon(context),
                     },
@@ -212,11 +215,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                     leading: const Icon(Icons.notifications_active_outlined),
                     title: desktop ? '桌面提醒' : '后台提醒',
                     subtitle: desktop ? '测试系统通知与后台提醒' : '自动检查，一次确认锁屏提醒',
-                    trailing: Icon(
-                      Icons.chevron_right,
-                      color: p.muted,
-                      size: 18,
-                    ),
+                    trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                     onTap: () => AppPageRoutes.push(
                       context,
                       desktop
@@ -225,10 +224,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                     ),
                   ),
                 SettingsRow(
-                  leading: const Icon(Icons.storage_outlined),
+                  leading: const Icon(AppIcons.data),
                   title: '数据与诊断',
                   subtitle: '清除课程数据、本机标识与日志',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: () =>
                       AppPageRoutes.push(context, const SettingsDataPage()),
                 ),

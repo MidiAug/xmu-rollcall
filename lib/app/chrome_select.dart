@@ -23,6 +23,8 @@ class AppSelectTrigger extends StatefulWidget {
     this.leading,
     this.focusNode,
     this.compact = false,
+    this.subtitle,
+    this.plain = false,
   });
   final String label;
   final VoidCallback? onTap;
@@ -30,6 +32,8 @@ class AppSelectTrigger extends StatefulWidget {
   final Widget? leading;
   final FocusNode? focusNode;
   final bool compact;
+  final String? subtitle;
+  final bool plain;
 
   @override
   State<AppSelectTrigger> createState() => _AppSelectTriggerState();
@@ -73,14 +77,23 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
                 vertical: 6,
               ),
               decoration: BoxDecoration(
-                color: _pressed && enabled
-                    ? p.surfaceHigh
-                    : hovering
-                    ? Color.alphaBlend(p.hover, p.surface)
-                    : p.content,
+                color: Color.alphaBlend(
+                  p.primary.withValues(
+                    alpha: _pressed && enabled
+                        ? .075
+                        : hovering
+                        ? .04
+                        : 0,
+                  ),
+                  widget.plain ? p.sidebar : p.content,
+                ),
                 borderRadius: BorderRadius.circular(AppRadii.control),
                 border: Border.all(
-                  color: hovering || outlined ? p.borderStrong : p.border,
+                  color: hovering || outlined
+                      ? p.borderStrong
+                      : widget.plain
+                      ? AppPalette.clearOf(p.primary)
+                      : p.border,
                 ),
               ),
               child: Row(
@@ -91,14 +104,25 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
                     const SizedBox(width: 8),
                   ],
                   Expanded(
-                    child: AppTruncatedText(
-                      widget.label,
-                      style: TextStyle(
-                        fontSize: widget.compact ? 13 : 14,
-                        height: 1.4,
-                        fontWeight: FontWeight.w500,
-                        color: enabled ? p.ink : p.muted,
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppTruncatedText(
+                          widget.label,
+                          style: TextStyle(
+                            fontSize: widget.compact ? 13 : 14,
+                            height: 1.4,
+                            fontWeight: FontWeight.w500,
+                            color: enabled ? p.ink : p.muted,
+                          ),
+                        ),
+                        if (widget.subtitle != null)
+                          Text(
+                            widget.subtitle!,
+                            style: TextStyle(fontSize: 11, color: p.muted),
+                          ),
+                      ],
                     ),
                   ),
                   SizedBox(width: widget.compact ? 4 : 8),
@@ -106,7 +130,7 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
                     turns: widget.open ? 0.5 : 0,
                     duration: AppMotion.fast,
                     child: Icon(
-                      Icons.expand_more_rounded,
+                      widget.plain ? AppIcons.right : AppIcons.down,
                       size: 18,
                       color: p.muted,
                     ),

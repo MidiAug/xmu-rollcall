@@ -42,6 +42,7 @@ dependencies:
   desktop_multi_window: ^0.3.1
   desktop_drop: 0.7.0
   file_selector: ^1.1.0
+  fluentui_system_icons: ^1.1.273
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -69,5 +70,7 @@ flutter_launcher_icons:
 flutter:
   uses-material-design: true
   assets:
+    - assets/illustrations/campus_mist.png
+    - assets/illustrations/campus_sidebar.png
     - assets/tray/tray_icon.ico
     - assets/tray/tray_icon.png

@@ -137,7 +137,7 @@ void main() {
         );
         final teachingPanel = find.ancestor(
           of: teachingRow,
-          matching: find.byType(Panel),
+          matching: find.byType(SettingsSection),
         );
         expect(
           tester.getRect(teachingRow).left,
@@ -156,7 +156,7 @@ void main() {
         expect(find.text('未提交'), findsOneWidget);
         expect(find.text('已提交'), findsNWidgets(2));
         expect(find.text('已批改 0 分'), findsOneWidget);
-        expect(find.text('已截止  2'), findsOneWidget);
+        expect(find.textContaining(RegExp(r'^已截止\s*2$')), findsOneWidget);
         expect(find.text('成绩未公布'), findsOneWidget);
         final deadline9 = find.byKey(const ValueKey('homework-deadline-9'));
         final deadline10 = find.byKey(const ValueKey('homework-deadline-10'));
@@ -189,7 +189,7 @@ void main() {
           6,
         );
         final title = tester.widget<Text>(find.textContaining('已批改的历史作业标题'));
-        expect(title.maxLines, 1);
+        expect(title.maxLines, width >= 600 ? 2 : 1);
         expect(title.overflow, TextOverflow.ellipsis);
         await tester.tap(find.text('助教作业4'));
         await tester.pumpAndSettle();

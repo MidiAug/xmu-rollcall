@@ -263,7 +263,7 @@ void main() {
       final chip = find.descendant(of: row, matching: find.text('待完善'));
       final arrow = find.descendant(
         of: row,
-        matching: find.byIcon(Icons.chevron_right),
+        matching: find.byIcon(AppIcons.right),
       );
       expect(chip, findsNothing);
       await capture(tester, key, 'schedule-direct-${width.toInt()}');
@@ -340,6 +340,11 @@ void main() {
 
         expect(find.byKey(const ValueKey('update-route-select')), findsNothing);
         await tester.scrollUntilVisible(find.text('关于'), 180);
+        await Scrollable.ensureVisible(
+          tester.element(find.text('关于')),
+          alignment: .5,
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.text('关于'));
         await tester.pumpAndSettle();
         expect(find.text('检查更新'), findsOneWidget);
@@ -528,6 +533,24 @@ void main() {
         (a > b ? (a + .05) / (b + .05) : (b + .05) / (a + .05)),
         greaterThanOrEqualTo(4.5),
       );
+    }
+  });
+  test('secondary text is readable on semantic desktop surfaces', () {
+    for (final p in [AppPalette.lightPalette, AppPalette.darkPalette]) {
+      for (final surface in [
+        p.canvas,
+        p.surface,
+        p.content,
+        p.sidebar,
+        Color.alphaBlend(p.selected, p.surface),
+      ]) {
+        final a = p.muted.computeLuminance();
+        final b = surface.computeLuminance();
+        expect(
+          (a > b ? (a + .05) / (b + .05) : (b + .05) / (a + .05)),
+          greaterThanOrEqualTo(4.5),
+        );
+      }
     }
   });
 }

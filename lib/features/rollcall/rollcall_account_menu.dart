@@ -11,12 +11,14 @@ class RollcallAccountMenu extends StatelessWidget {
     required this.ownerName,
     required this.onChanged,
     this.width = 180,
+    this.sidebar = false,
   });
   final int value;
   final List<AssistIdentity> identities;
   final String ownerName;
   final ValueChanged<int> onChanged;
   final double width;
+  final bool sidebar;
 
   @override
   Widget build(BuildContext context) => Align(
@@ -25,16 +27,39 @@ class RollcallAccountMenu extends StatelessWidget {
       key: const ValueKey('rollcall-identity-menu'),
       width: width,
       menuWidth: 220,
+      plain: sidebar,
+      compact: sidebar,
+      subtitle: sidebar ? (value == 0 ? '主账号' : '协助账号') : null,
       value: value,
       items: [0, for (final identity in identities) identity.userId],
       labelOf: (id) => id == 0
           ? ownerName
           : identities.firstWhere((item) => item.userId == id).displayName,
-      leading: Icon(
-        Icons.person_outline_rounded,
-        size: 18,
-        color: AppPalette.of(context).primary,
-      ),
+      leading: sidebar
+          ? CircleAvatar(
+              radius: 16,
+              backgroundColor: AppPalette.of(context).selected,
+              child: Text(
+                (value == 0
+                            ? ownerName
+                            : identities
+                                  .firstWhere((item) => item.userId == value)
+                                  .displayName)
+                        .characters
+                        .firstOrNull ??
+                    '我',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppPalette.of(context).primary,
+                ),
+              ),
+            )
+          : Icon(
+              AppIcons.person,
+              size: 18,
+              color: AppPalette.of(context).primary,
+            ),
       onChanged: identities.isEmpty
           ? null
           : (id) {

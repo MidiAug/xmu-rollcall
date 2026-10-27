@@ -38,7 +38,7 @@ class SettingsAssistPage extends ConsumerWidget {
                   leading: const Icon(Icons.upload_outlined),
                   title: '导出协助码',
                   subtitle: auth.isSignedIn ? '生成后复制给同学' : '请先登录',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: !auth.isSignedIn || assist.busy
                       ? null
                       : () => showAssistExportDialog(
@@ -49,10 +49,10 @@ class SettingsAssistPage extends ConsumerWidget {
                           ),
                 ),
                 SettingsRow(
-                  leading: const Icon(Icons.download_outlined),
+                  leading: const Icon(AppIcons.download),
                   title: '导入协助身份',
                   subtitle: '粘贴协助码或输入学号密码',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: assist.busy
                       ? null
                       : () => showAssistImportDialog(
@@ -88,7 +88,7 @@ class SettingsAssistPage extends ConsumerWidget {
                   leading: const Icon(Icons.group_outlined),
                   title: '已导入名单',
                   subtitle: assist.ready ? '${assist.identities.length} 人' : '…',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: () => AppPageRoutes.push(
                     context,
                     const AssistIdentitiesPage(),

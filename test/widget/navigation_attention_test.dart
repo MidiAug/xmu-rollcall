@@ -27,7 +27,7 @@ void main() {
   for (final desktop in [false, true]) {
     for (final dark in [false, true]) {
       testWidgets(
-        'My tab merges red attention dots without resizing desktop=$desktop dark=$dark',
+        'Settings update hint without resizing desktop=$desktop dark=$dark',
         (tester) async {
           tester.view.physicalSize = Size(desktop ? 960 : 320, 720);
           tester.view.devicePixelRatio = 1;
@@ -60,7 +60,6 @@ void main() {
                               AppSidebar(
                                 current: AppDestination.settings,
                                 onSelect: (_) {},
-                                hasPendingSchedule: value.pending,
                                 hasUpdate: value.update,
                               ),
                               const Expanded(
@@ -74,7 +73,6 @@ void main() {
                         : AppMobileNav(
                             current: AppDestination.settings,
                             onSelect: (_) {},
-                            hasPendingSchedule: value.pending,
                             hasUpdate: value.update,
                           ),
                   ),
@@ -85,18 +83,21 @@ void main() {
           await tester.pumpAndSettle();
           final nav = find.byType(desktop ? AppSidebar : AppMobileNav);
           final initial = tester.getSize(nav);
-          final myTab = find.descendant(of: nav, matching: find.text('我的'));
+          final myTab = find.descendant(
+            of: nav,
+            matching: find.text(desktop ? '设置' : '我的'),
+          );
           final position = tester.getRect(myTab);
           final badge = find.descendant(of: nav, matching: find.byType(Badge));
-          hints.value = (pending: true, update: false);
+          hints.value = (pending: false, update: true);
           await tester.pumpAndSettle();
           expect(badge, findsOneWidget);
           expect(tester.widget<Badge>(badge).smallSize, desktop ? 4 : 5);
           expect(
             tester.widget<Badge>(badge).backgroundColor,
-            AppPalette.of(tester.element(nav)).danger,
+            AppPalette.of(tester.element(nav)).primary,
           );
-          expect(find.byTooltip('课表待完善'), findsOneWidget);
+          expect(find.byTooltip('有新版本可更新'), findsOneWidget);
           expect(tester.getSize(nav), initial);
           expect(tester.getRect(myTab), position);
           if (Platform.environment['CAPTURE_NAV_UI'] == '1') {
@@ -118,7 +119,7 @@ void main() {
           hints.value = (pending: true, update: true);
           await tester.pumpAndSettle();
           expect(badge, findsOneWidget);
-          expect(find.byTooltip('课表待完善，有新版本可更新'), findsOneWidget);
+          expect(find.byTooltip('有新版本可更新'), findsOneWidget);
           hints.value = (pending: false, update: true);
           await tester.pumpAndSettle();
           expect(badge, findsOneWidget);

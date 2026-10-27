@@ -20,6 +20,10 @@ class ShellNavigation {
     if (identical(_select, select)) _select = null;
   }
 
+  void open(AppDestination destination, {bool popToRoot = true}) {
+    _select?.call(destination, popToRoot: popToRoot);
+  }
+
   /// Show the rollcall hub list (pop nested routes).
   void openRollcall({bool popToRoot = true}) {
     _select?.call(AppDestination.rollcall, popToRoot: popToRoot);

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
+export 'app_icons.dart';
+export 'app_typography.dart';
 
-/// Quiet Utility surfaces: cold neutrals + clear indigo accent.
-///
-/// Hover is **luminance**, never indigo wash. Light mode sits white cards on
-/// gray [canvas] — do **not** darken fills toward canvas (they melt). Prefer:
-/// keep white + hairline ([cardHover] ≈ [surface]), or a fill still **lighter**
-/// than [canvas] (e.g. [content] / [hover] solid).
+/// Shared sea-salt teal surfaces, navy content and distinct semantic states.
+/// Text/graphic success colors are separate so bright status accents retain
+/// readable labels. Hover surfaces interpolate within opaque theme colors.
 class AppPalette {
   const AppPalette({
     required this.canvas,
@@ -34,14 +33,29 @@ class AppPalette {
   final Color border;
   final Color borderStrong;
 
-  /// Inset-row / chrome hover fill. Light: solid, still lighter than [canvas].
+  /// Inset-row / chrome hover fill. Light: a solid, pale mint tint.
   /// Dark: translucent white lift.
   final Color hover;
 
-  /// Elevated card hover fill. Light: same as [surface] (identity via hairline).
+  /// Elevated card hover fill. Light: a subtle mint tint with a hairline.
   /// Dark: slight lift above [surface].
   final Color cardHover;
   final Color selected;
+  bool get isDark =>
+      ThemeData.estimateBrightnessForColor(canvas) == Brightness.dark;
+  Color get sidebar =>
+      isDark ? const Color(0xFF142B2D) : const Color(0xFFEEF9F7);
+  Color get window =>
+      isDark ? const Color(0xFF13272B) : const Color(0xFFF2FAF9);
+  Color get success =>
+      isDark ? const Color(0xFF69D99D) : const Color(0xFF007A46);
+  Color get successAccent =>
+      isDark ? const Color(0xFF49DB92) : const Color(0xFF00B66A);
+  Color get successSurface =>
+      isDark ? const Color(0xFF173D30) : const Color(0xFFE4FAED);
+  Color get navigationAccent => isDark ? primary : const Color(0xFF00A9AF);
+  Color get warning =>
+      isDark ? const Color(0xFFE6BD7C) : const Color(0xFF9B6B26);
 
   /// Transparent twin of [c] so [AnimatedContainer] color lerps stay in-family
   /// (lerping from [Colors.transparent]/black@0 → light gray flashes dark).
@@ -53,37 +67,37 @@ class AppPalette {
   }
 
   static const darkPalette = AppPalette(
-    canvas: Color(0xFF0F0F12),
-    surface: Color(0xFF1A1A1F),
-    surfaceHigh: Color(0xFF24242A),
-    content: Color(0xFF141418),
-    ink: Color(0xFFF4F4F5),
-    muted: Color(0xFFA1A1AA),
-    primary: Color(0xFF6B8AFF),
+    canvas: Color(0xFF101E23),
+    surface: Color(0xFF182B31),
+    surfaceHigh: Color(0xFF223A40),
+    content: Color(0xFF14252B),
+    ink: Color(0xFFE8F2F2),
+    muted: Color(0xFFA0B5B9),
+    primary: Color(0xFF73D3C7),
     danger: Color(0xFFD97777),
     border: Color(0x14FFFFFF),
     borderStrong: Color(0x22FFFFFF),
     hover: Color(0x14FFFFFF),
-    cardHover: Color(0xFF22222A),
-    selected: Color(0x286B8AFF),
+    cardHover: Color(0xFF1D343A),
+    selected: Color(0x2873D3C7),
   );
 
   static const lightPalette = AppPalette(
-    canvas: Color(0xFFF2F2F4),
+    canvas: Color(0xFFFFFFFF),
     surface: Color(0xFFFFFFFF),
-    surfaceHigh: Color(0xFFE8E8EC),
-    content: Color(0xFFF6F6F8),
-    ink: Color(0xFF18181B),
-    muted: Color(0xFF71717A),
-    primary: Color(0xFF3D5AFE),
+    surfaceHigh: Color(0xFFEAF2F2),
+    content: Color(0xFFF7FCFC),
+    ink: Color(0xFF11203C),
+    muted: Color(0xFF526B82),
+    primary: Color(0xFF007D83),
     danger: Color(0xFFC04444),
     border: Color(0x0F000000),
     borderStrong: Color(0x18000000),
-    // Solid — still lighter than canvas (#F2F2F4); not black@α (that melts).
-    hover: Color(0xFFF6F6F8),
-    // Stay white; AppHoverSurface / list cards signal via hairline only.
-    cardHover: Color(0xFFFFFFFF),
-    selected: Color(0x1A3D5AFE),
+    // Solid, with no dark overlay on the light canvas.
+    hover: Color(0xFFF3F8F7),
+    // A restrained mint lift, shared by elevated surfaces and list cards.
+    cardHover: Color(0xFFF5FBFA),
+    selected: Color(0x16008F95),
   );
 }
 
@@ -115,7 +129,7 @@ abstract final class AppSpace {
 
   /// Space above a settings group (previous card → next caption).
   /// Mirrors Cupertino insetGrouped header top (~16) with Quiet Utility air.
-  static const settingsGroupTop = 28.0;
+  static const settingsGroupTop = 20.0;
 
   /// Narrow-width settings group top gap.
   static const settingsGroupTopCompact = 22.0;
@@ -219,10 +233,15 @@ abstract final class AppMotion {
 
 abstract final class AppLayout {
   static const shellBreakpoint = 600.0;
-  static const sidebarWidth = 228.0;
+  static const sidebarWidth = 184.0;
+  static double sidebarWidthOf(BuildContext context) {
+    final extraText =
+        (MediaQuery.textScalerOf(context).scale(1) - 1).clamp(0, 1) * 72;
+    return (MediaQuery.sizeOf(context).width * .16 + extraText).clamp(144, 240);
+  }
 
-  /// Desktop window chrome / subpage nav share one bar height (no nested bars).
-  static const titleBarHeight = 40.0;
+  /// Native window bar height; content headers have their own layout.
+  static const titleBarHeight = 32.0;
 
   /// Prefer [AppDensity.navItemHeight]; kept for callers that need a constant.
   static const navItemHeight = AppDensity.desktopNav;
@@ -239,7 +258,7 @@ abstract final class AppLayout {
   /// Touch layouts ignore this and stay full-bleed.
   static const contentMaxWidth = 720.0;
 
-  /// Fixed desktop window size ([PlatformHooks.initOptional]; not resizable).
-  /// ≈ sidebar + centered content column with modest chrome.
-  static const Size windowSize = Size(960, 720);
+  /// Initial desktop size; native resize is bounded by [minimumWindowSize].
+  static const Size windowSize = Size(1120, 780);
+  static const Size minimumWindowSize = Size(900, 640);
 }

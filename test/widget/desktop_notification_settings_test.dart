@@ -11,7 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
-import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
+import 'package:xmu_rollcall/app/shell_destination_scope.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/features/settings/desktop_notification_settings_page.dart';
 import 'package:xmu_rollcall/platform/desktop_notifications.dart';
@@ -49,43 +49,39 @@ ThemeData _theme({bool dark = false}) {
 }
 
 class _DesktopFrame extends StatelessWidget {
-  const _DesktopFrame({required this.chrome, required this.child});
-  final DesktopShellChromeController chrome;
+  const _DesktopFrame({required this.child});
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return DesktopShellChromeScope(
-      controller: chrome,
-      child: Scaffold(
-        body: Column(
-          children: [
-            const AppTitleBar(title: '厦大签到'),
-            Container(height: 1, color: p.border),
-            Expanded(
-              child: Row(
-                children: [
-                  AppSidebar(
-                    current: AppDestination.settings,
-                    userLabel: '预览同学',
-                    onSelect: (_) {},
-                  ),
-                  Container(width: 1, color: p.border),
-                  Expanded(
-                    child: ShellTabDestination(
-                      destination: AppDestination.settings,
-                      child: Navigator(
-                        onGenerateRoute: (_) =>
-                            MaterialPageRoute<void>(builder: (_) => child),
-                      ),
+    return Scaffold(
+      body: Column(
+        children: [
+          const AppTitleBar(title: '厦大签到'),
+          Container(height: 1, color: p.border),
+          Expanded(
+            child: Row(
+              children: [
+                AppSidebar(
+                  current: AppDestination.settings,
+                  userLabel: '预览同学',
+                  onSelect: (_) {},
+                ),
+                Container(width: 1, color: p.border),
+                Expanded(
+                  child: ShellTabDestination(
+                    destination: AppDestination.settings,
+                    child: Navigator(
+                      onGenerateRoute: (_) =>
+                          MaterialPageRoute<void>(builder: (_) => child),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -139,9 +135,6 @@ void main() {
         showInApp: (_) => false,
       );
       addTearDown(notifications.dispose);
-      final chrome = DesktopShellChromeController()
-        ..current = AppDestination.settings;
-      addTearDown(chrome.dispose);
       final boundary = GlobalKey();
       Future<void> capture(String state) async {
         expect(tester.takeException(), isNull);
@@ -176,7 +169,6 @@ void main() {
             ),
             home: scenario.width >= 600
                 ? _DesktopFrame(
-                    chrome: chrome,
                     child: DesktopNotificationSettingsPage(
                       notifications: notifications,
                     ),

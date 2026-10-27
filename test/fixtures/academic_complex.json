@@ -1,0 +1,281 @@
+{
+  "success": true,
+  "pkjgList": [
+    {
+      "KCDM": "sample-1",
+      "KCMC": "示例课程A",
+      "BJDM": "sample-class-1",
+      "JSXM": "示例教师",
+      "JASMC": "",
+      "ZCBH": "111111111111111110000000000000",
+      "XQ": 4,
+      "KSJCDM": 9,
+      "JSJCDM": 10
+    },
+    {
+      "KCDM": "sample-2",
+      "KCMC": "示例课程B",
+      "BJDM": "sample-class-2",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 A103",
+      "ZCBH": "111111111111111110000000000000",
+      "XQ": 1,
+      "KSJCDM": 9,
+      "JSJCDM": 10
+    },
+    {
+      "KCDM": "sample-3",
+      "KCMC": "示例课程C",
+      "BJDM": "sample-class-3",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 C401",
+      "ZCBH": "101010100000000000000000000000",
+      "XQ": 1,
+      "KSJCDM": 7,
+      "JSJCDM": 8
+    },
+    {
+      "KCDM": "sample-4",
+      "KCMC": "示例课程D",
+      "BJDM": "sample-class-4",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 C103",
+      "ZCBH": "111111111111111110000000000000",
+      "XQ": 4,
+      "KSJCDM": 5,
+      "JSJCDM": 6
+    },
+    {
+      "KCDM": "sample-5",
+      "KCMC": "示例课程E",
+      "BJDM": "sample-class-5",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 B311",
+      "ZCBH": "111111111111111110000000000000",
+      "XQ": 5,
+      "KSJCDM": 7,
+      "JSJCDM": 8
+    },
+    {
+      "KCDM": "sample-5",
+      "KCMC": "示例课程E",
+      "BJDM": "sample-class-5",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 B511",
+      "ZCBH": "110011001100110010000000000000",
+      "XQ": 5,
+      "KSJCDM": 5,
+      "JSJCDM": 6
+    },
+    {
+      "KCDM": "sample-5",
+      "KCMC": "示例课程E",
+      "BJDM": "sample-class-5",
+      "JSXM": "示例教师",
+      "JASMC": "",
+      "ZCBH": "001100110011001100000000000000",
+      "XQ": 5,
+      "KSJCDM": 5,
+      "JSJCDM": 6
+    },
+    {
+      "KCDM": "sample-6",
+      "KCMC": "示例课程F",
+      "BJDM": "sample-class-6",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 A206",
+      "ZCBH": "111111111111111110000000000000",
+      "XQ": 1,
+      "KSJCDM": 3,
+      "JSJCDM": 4
+    },
+    {
+      "KCDM": "sample-6",
+      "KCMC": "示例课程F",
+      "BJDM": "sample-class-6",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 A204",
+      "ZCBH": "101010101010101010000000000000",
+      "XQ": 2,
+      "KSJCDM": 1,
+      "JSJCDM": 2
+    },
+    {
+      "KCDM": "sample-7",
+      "KCMC": "示例课程G",
+      "BJDM": "sample-class-7",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 B311",
+      "ZCBH": "111111111111111110000000000000",
+      "XQ": 3,
+      "KSJCDM": 3,
+      "JSJCDM": 4
+    },
+    {
+      "KCDM": "sample-7",
+      "KCMC": "示例课程G",
+      "BJDM": "sample-class-7",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 B311",
+      "ZCBH": "101010101010101010000000000000",
+      "XQ": 5,
+      "KSJCDM": 1,
+      "JSJCDM": 2
+    },
+    {
+      "KCDM": "sample-8",
+      "KCMC": "操作系统示例",
+      "BJDM": "sample-class-8",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 205",
+      "ZCBH": "111111111111111110000000000000",
+      "XQ": 1,
+      "KSJCDM": 1,
+      "JSJCDM": 2
+    },
+    {
+      "KCDM": "sample-8",
+      "KCMC": "操作系统示例",
+      "BJDM": "sample-class-8",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 205",
+      "ZCBH": "101010101010101010000000000000",
+      "XQ": 2,
+      "KSJCDM": 3,
+      "JSJCDM": 4
+    },
+    {
+      "KCDM": "sample-8",
+      "KCMC": "操作系统示例",
+      "BJDM": "sample-class-8",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 101",
+      "ZCBH": "010101010101010100000000000000",
+      "XQ": 2,
+      "KSJCDM": 3,
+      "JSJCDM": 4
+    },
+    {
+      "KCDM": "sample-8",
+      "KCMC": "操作系统示例",
+      "BJDM": "sample-class-8",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 102",
+      "ZCBH": "010101010101010100000000000000",
+      "XQ": 2,
+      "KSJCDM": 3,
+      "JSJCDM": 4
+    },
+    {
+      "KCDM": "sample-9",
+      "KCMC": "数据挖掘示例",
+      "BJDM": "sample-class-9",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 A302",
+      "ZCBH": "111111111111111110000000000000",
+      "XQ": 3,
+      "KSJCDM": 7,
+      "JSJCDM": 8
+    },
+    {
+      "KCDM": "sample-9",
+      "KCMC": "数据挖掘示例",
+      "BJDM": "sample-class-9",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 A405",
+      "ZCBH": "010101010101010100000000000000",
+      "XQ": 3,
+      "KSJCDM": 9,
+      "JSJCDM": 10
+    },
+    {
+      "KCDM": "sample-9",
+      "KCMC": "数据挖掘示例",
+      "BJDM": "sample-class-9",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 A404",
+      "ZCBH": "010101010101010100000000000000",
+      "XQ": 3,
+      "KSJCDM": 9,
+      "JSJCDM": 10
+    },
+    {
+      "KCDM": "sample-10",
+      "KCMC": "示例课程J",
+      "BJDM": "sample-class-10",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 B512",
+      "ZCBH": "111111111111111110000000000000",
+      "XQ": 4,
+      "KSJCDM": 3,
+      "JSJCDM": 4
+    },
+    {
+      "KCDM": "sample-10",
+      "KCMC": "示例课程J",
+      "BJDM": "sample-class-10",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 B512",
+      "ZCBH": "101010101010101010000000000000",
+      "XQ": 2,
+      "KSJCDM": 5,
+      "JSJCDM": 6
+    },
+    {
+      "KCDM": "sample-10",
+      "KCMC": "示例课程J",
+      "BJDM": "sample-class-10",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 B308",
+      "ZCBH": "010101010101010100000000000000",
+      "XQ": 2,
+      "KSJCDM": 5,
+      "JSJCDM": 6
+    },
+    {
+      "KCDM": "sample-11",
+      "KCMC": "示例课程K",
+      "BJDM": "sample-class-11",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 C404",
+      "ZCBH": "111111111111111110000000000000",
+      "XQ": 1,
+      "KSJCDM": 5,
+      "JSJCDM": 6
+    },
+    {
+      "KCDM": "sample-11",
+      "KCMC": "示例课程K",
+      "BJDM": "sample-class-11",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 A402",
+      "ZCBH": "101010101010101010000000000000",
+      "XQ": 3,
+      "KSJCDM": 5,
+      "JSJCDM": 6
+    },
+    {
+      "KCDM": "sample-11",
+      "KCMC": "示例课程K",
+      "BJDM": "sample-class-11",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 C404",
+      "ZCBH": "010101010101010100000000000000",
+      "XQ": 3,
+      "KSJCDM": 5,
+      "JSJCDM": 6
+    },
+    {
+      "KCDM": "sample-12",
+      "KCMC": "跨学科专题：课程项目与实践案例分析",
+      "BJDM": "sample-class-12",
+      "JSXM": "示例教师",
+      "JASMC": "示例教学楼 A201",
+      "ZCBH": "000001111101111100000000000000",
+      "XQ": 6,
+      "KSJCDM": 2,
+      "JSJCDM": 4
+    }
+  ],
+  "_fixtureNote": "Synthetic course/class identities, names, buildings and teachers; no account data or credentials. Week/period/room relationships reproduce the supplied regression cases."
+}

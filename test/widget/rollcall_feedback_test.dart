@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -95,7 +96,7 @@ void main() {
               ? '扫码签到'
               : type == RollcallType.radar
               ? '选择位置'
-              : '一键签到';
+              : (PlatformHooks.isDesktop && width >= 600 ? '确认签到' : '一键签到');
           expect(
             tester
                 .widget<FilledButton>(
@@ -160,7 +161,18 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(AttendanceCountRow), findsOneWidget);
-      expect(find.byType(SessionPriorPanel), findsOneWidget);
+      if (PlatformHooks.isDesktop) {
+        expect(find.byType(SessionPriorPanel), findsNothing);
+        await tester.tap(find.byTooltip('课程操作'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('课堂参考'));
+        await tester.pumpAndSettle();
+        expect(find.byType(SessionPriorPanel), findsOneWidget);
+        await tester.tap(find.byTooltip('关闭'));
+        await tester.pumpAndSettle();
+      } else {
+        expect(find.byType(SessionPriorPanel), findsOneWidget);
+      }
       expect(repo.calls, 1);
       final container = ProviderScope.containerOf(
         tester.element(find.byType(RollcallListPage)),
@@ -207,7 +219,15 @@ void main() {
       }
 
       await show(item());
-      expect(find.text('手动输入'), findsOneWidget);
+      if (PlatformHooks.isDesktop) {
+        await tester.tap(find.byTooltip('课程操作'));
+        await tester.pumpAndSettle();
+        expect(find.text('手动输入'), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      } else {
+        expect(find.text('手动输入'), findsOneWidget);
+      }
       expect(find.text('输入签到码'), findsOneWidget);
       expect(
         tester
@@ -222,12 +242,14 @@ void main() {
             .onPressed,
         isNull,
       );
-      expect(
-        tester
-            .widget<TextButton>(find.widgetWithText(TextButton, '手动输入'))
-            .onPressed,
-        isNull,
-      );
+      if (!PlatformHooks.isDesktop) {
+        expect(
+          tester
+              .widget<TextButton>(find.widgetWithText(TextButton, '手动输入'))
+              .onPressed,
+          isNull,
+        );
+      }
       await show(item(expired: true, type: RollcallType.qrcode));
       expect(
         tester

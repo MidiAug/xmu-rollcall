@@ -3,6 +3,8 @@ import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/destinations.dart';
+import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
@@ -18,8 +20,20 @@ class CoursesPage extends ConsumerStatefulWidget {
   ConsumerState<CoursesPage> createState() => _CoursesPageState();
 }
 
-class _CoursesPageState extends ConsumerState<CoursesPage> {
+class _CoursesPageState extends ConsumerState<CoursesPage>
+    with ShellTabAware<CoursesPage> {
   bool _semester = false;
+  int _viewEpoch = 0;
+  @override
+  AppDestination get shellTab => AppDestination.timetable;
+  @override
+  void onShellTabRetap() {
+    super.onShellTabRetap();
+    setState(() {
+      _semester = false;
+      _viewEpoch++;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +47,7 @@ class _CoursesPageState extends ConsumerState<CoursesPage> {
         : ref.watch(semesterInfoProvider(uid)).valueOrNull;
     final p = AppPalette.of(context);
     Widget failure(String message, {bool login = false}) => EmptyHint(
-      icon: Icons.calendar_view_week_outlined,
+      icon: AppIcons.week,
       title: '暂时无法获取教务课表',
       detail: message,
       action: FilledButton(
@@ -56,16 +70,8 @@ class _CoursesPageState extends ConsumerState<CoursesPage> {
         if (auth.isSignedIn)
           AppSegmentedControl<bool>(
             segments: const [
-              AppSegment(
-                value: false,
-                label: '本周',
-                icon: Icons.calendar_view_week_outlined,
-              ),
-              AppSegment(
-                value: true,
-                label: '学期',
-                icon: Icons.calendar_month_outlined,
-              ),
+              AppSegment(value: false, label: '本周', icon: AppIcons.week),
+              AppSegment(value: true, label: '学期', icon: AppIcons.calendar),
             ],
             value: _semester,
             onChanged: (value) => setState(() => _semester = value),
@@ -120,6 +126,7 @@ class _CoursesPageState extends ConsumerState<CoursesPage> {
                       ),
                     Expanded(
                       child: _TimetableBody(
+                        key: ValueKey(_viewEpoch),
                         snap: CourseCatalogSnapshot(
                           fetchedAt: schedule.fetchedAt,
                           courses: schedule.displayOnlyCourses(const []),
@@ -139,6 +146,7 @@ class _CoursesPageState extends ConsumerState<CoursesPage> {
 
 class _TimetableBody extends StatelessWidget {
   const _TimetableBody({
+    super.key,
     required this.snap,
     this.assistUserId,
     this.semester = false,
@@ -174,7 +182,7 @@ class _TimetableBody extends StatelessWidget {
           ].where((c) => c.timetables.isNotEmpty).toList();
     if (withSlots.isEmpty) {
       return EmptyHint(
-        icon: Icons.calendar_view_week_outlined,
+        icon: AppIcons.week,
         title: all.isNotEmpty && !semester ? '本周没有课程安排' : '暂无课表安排',
         detail: all.isNotEmpty && !semester ? '切换到学期查看全部课程' : '教务暂无课程安排',
       );
@@ -185,8 +193,8 @@ class _TimetableBody extends StatelessWidget {
     final meta = semester
         ? semesterInfo == null
               ? '学期课表'
-              : semesterLabel(semesterInfo!.term)
-        : '${semesterInfo?.weekLabel(now) ?? '本周课表'} · $weekStart—${sunday.month}月${sunday.day}日';
+              : semesterLabel(semesterInfo!.term).replaceAll(' · ', '  ')
+        : '${semesterInfo?.weekLabel(now) ?? '本周课表'}  $weekStart—${sunday.month}月${sunday.day}日';
     return Padding(
       padding: EdgeInsets.fromLTRB(
         AppSpace.pageXOf(context),
