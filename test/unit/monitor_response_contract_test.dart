@@ -80,4 +80,36 @@ void main() {
       throwsFormatException,
     );
   });
+  test(
+    'manual list refresh bypasses course windows without weakening automatic gate',
+    () async {
+      final client = ResponseClient({'rollcalls': []});
+      final now = DateTime(2026, 10, 26, 10);
+      final repo = RollcallRepository(
+        http: client,
+        identity: DeviceIdentity(SecureStore.memory()),
+        discoveryClock: () => now,
+        loadDetectionWindow: () async => DetectionWindow(
+          intervals: [
+            (
+              start: DateTime(2026, 10, 26, 10, 30),
+              end: DateTime(2026, 10, 26, 12, 30),
+            ),
+          ],
+        ),
+      );
+      await expectLater(
+        repo.fetchActive(),
+        throwsA(isA<DetectionWindowClosed>()),
+      );
+      expect(client.requests, 0);
+      expect(await repo.fetchActiveEnriched(manual: true), isEmpty);
+      expect(client.requests, 1);
+      await expectLater(
+        repo.fetchActive(),
+        throwsA(isA<DetectionWindowClosed>()),
+      );
+      expect(client.requests, 1);
+    },
+  );
 }

@@ -62,6 +62,8 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
     final rows = buildTimetableAxisRows(widget.courses);
     final seqIndex = sequenceToRowIndex(rows);
     final blocks = placeTimetableBlocks(widget.courses);
+    final columns = timetableColumns(blocks);
+    final maxColumns = columns.values.fold(1, (n, v) => math.max(n, v.count));
     final axisW = (touch ? 56.0 : 60.0) * scale;
     final headerH = (touch ? 36.0 : 44.0) * scale;
 
@@ -74,7 +76,7 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
         }
         final gridW = math.max(
           w,
-          axisW + days.length * (touch ? 56 : 108) * scale,
+          axisW + days.length * (touch ? 56 : 108) * scale * maxColumns,
         );
         final dayW = (gridW - axisW) / days.length;
         final breakCount = rows.where((r) => r.isBreak).length;
@@ -105,13 +107,16 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
           final bottom = yOfRow(end) + periodH - 2;
           blockWidgets.add(
             Positioned(
-              left: day * dayW + 2,
-              width: dayW - 4,
+              left:
+                  day * dayW +
+                  columns[block]!.column * dayW / columns[block]!.count +
+                  2,
+              width: dayW / columns[block]!.count - 4,
               top: top,
               height: bottom - top,
               child: _CourseBlockChip(
                 key: ValueKey(
-                  'course-${block.course.id}-${block.weekday}-${block.block.id}',
+                  'course-${block.course.id}-${block.weekday}-${block.block.id}${block.weekLabel == null ? '' : '-${block.weekLabel}-${blocks.indexOf(block)}'}',
                 ),
                 block: block,
                 tint: timetableTintForCourseId(
@@ -520,17 +525,28 @@ class _CourseDetail extends StatelessWidget {
                 '${weekdayLabel(block.weekday)} ${block.block.sectionLabel}  '
                 '${formatHm(block.block.coreStart)}–${formatHm(block.block.coreEnd)}',
           ),
+          if (block.weekLabel != null)
+            _DetailRow(
+              icon: Icons.calendar_month_outlined,
+              text: block.weekLabel!,
+            ),
           if (c.instructorsLabel.isNotEmpty)
             _DetailRow(icon: Icons.person_outline, text: c.instructorsLabel),
-          CourseLocationSetting(
-            courseId: c.id,
-            courseTitle: c.title,
-            displayLocation: c.location,
-            pickLocation: pickLocation,
-            assistUserId: assistUserId,
-            meetingKey: courseMeetingKey(block.weekday, block.block),
-            meetings: courseMeetingLabels(c),
-          ),
+          if (c.id.startsWith('academic:'))
+            _DetailRow(
+              icon: Icons.place_outlined,
+              text: c.location ?? '教务课程，尚未对应畅课课程',
+            )
+          else
+            CourseLocationSetting(
+              courseId: c.id,
+              courseTitle: c.title,
+              displayLocation: c.location,
+              pickLocation: pickLocation,
+              assistUserId: assistUserId,
+              meetingKey: courseMeetingKey(block.weekday, block.block),
+              meetings: courseMeetingLabels(c),
+            ),
         ],
       ),
     );

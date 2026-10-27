@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/core/cache/cache_policy.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
@@ -44,6 +47,7 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
   @override
   Future<CourseCatalogSnapshot?> build() async {
     ref.keepAlive();
+    ref.watch(academicRevisionProvider);
     final auth = ref.watch(authControllerProvider);
     final profile = auth.profile;
     if (!auth.isSignedIn || profile == null || profile.id == 0) {
@@ -53,8 +57,20 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
     }
     final userId = assistUserId ?? profile.id;
     _boundUserId = userId;
+    if (assistUserId == null) {
+      unawaited(
+        Future(() async {
+          await ref.read(academicSyncProvider).sync(userId);
+        }).catchError((Object _) {}),
+      );
+    }
     final disk = await CourseCatalogStore.read(userId);
-    if (disk != null && disk.rolesResolved) return _withSchedules(userId, disk);
+    final academic = await AcademicScheduleStore.read(userId);
+    if (disk != null &&
+        disk.rolesResolved &&
+        (academic == null || disk.academicTerm == academic.term)) {
+      return _withSchedules(userId, disk);
+    }
     if (disk != null) {
       try {
         return await _fetchAndPersist(userId);
@@ -93,6 +109,9 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
     if (uid == null || uid == 0) return;
     final previous = state.valueOrNull;
     try {
+      if (assistUserId == null) {
+        await ref.read(academicSyncProvider).sync(uid, force: true);
+      }
       final next = await _fetchAndPersist(uid);
       if (_boundUserId != uid) return;
       state = AsyncData(next);
@@ -118,13 +137,22 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
         final service = await ref.read(assistServiceProvider.future);
         await service.ensureSession(identity);
       }
-      final snap = await ref
+      final fetched = await ref
           .read(
             assistUserId == null
                 ? rollcallRepositoryProvider
                 : rollcallRepositoryForProvider(assistUserId),
           )
           .fetchCourseCatalog();
+      final academic = await AcademicScheduleStore.read(userId);
+      final snap = CourseCatalogSnapshot(
+        fetchedAt: fetched.fetchedAt,
+        courses: fetched.courses,
+        semesterId: fetched.semesterId,
+        academicYearId: fetched.academicYearId,
+        rolesResolved: fetched.rolesResolved,
+        academicTerm: academic?.term,
+      );
       if (_boundUserId != userId) return snap;
       await CourseCatalogStore.write(userId, snap);
       return _withSchedules(userId, snap);
@@ -145,9 +173,18 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
         course.withMeetings(await CourseScheduleStore.read(uid, course.id)),
       );
     }
+    final academic = await AcademicScheduleStore.read(uid);
+    final effective = academic == null
+        ? courses
+        : academic.apply(
+            courses,
+            bindings: await AcademicBindings.read(uid, academic.term),
+          );
     return CourseCatalogSnapshot(
       fetchedAt: snap.fetchedAt,
-      courses: courses,
+      academicTerm: snap.academicTerm,
+      courses: effective,
+      academicOnlyCourses: academic?.displayOnlyCourses(effective) ?? const [],
       semesterId: snap.semesterId,
       academicYearId: snap.academicYearId,
       rolesResolved: snap.rolesResolved,
@@ -187,5 +224,6 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
     final effective = await _withSchedules(userId, raw);
     requireScope();
     state = AsyncData(effective);
+    ref.read(academicRevisionProvider.notifier).state++;
   }
 }

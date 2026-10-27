@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/schedule/schedule_detection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/app/providers.dart';
@@ -24,7 +26,9 @@ final rollcallRepositoryForProvider = Provider.family<RollcallRepository, int?>(
     return RollcallRepository(
       loadDetectionWindow: () async {
         await ref.read(detectionWindowProvider.notifier).ready;
-        return ref.read(detectionWindowProvider)!;
+        return readScheduleDetectionWindow(
+          assistUserId ?? ref.read(authControllerProvider).profile?.id,
+        );
       },
       http: registry.forKey(key),
       identity: ref.watch(deviceIdentityProvider),

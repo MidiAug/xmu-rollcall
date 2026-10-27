@@ -8,17 +8,27 @@ class DetectionWindow {
     this.enabled = false,
     this.startMinute = 450,
     this.endMinute = 1320,
+    this.intervals,
   });
   final bool enabled;
   final int startMinute;
   final int endMinute;
+
+  /// Absolute local course windows, already unioned. Null = no known schedule.
+  final List<({DateTime start, DateTime end})>? intervals;
   static const preferencesKey = 'rollcall_detection_window';
 
   static String formatMinute(int minute) =>
       '${(minute ~/ 60).toString().padLeft(2, '0')}:${(minute % 60).toString().padLeft(2, '0')}';
-  String get label => '${formatMinute(startMinute)}–${formatMinute(endMinute)}';
+  String get label => intervals == null
+      ? '${formatMinute(startMinute)}–${formatMinute(endMinute)}'
+      : '按课表：课前30分钟至课后30分钟';
 
   bool allows(DateTime at) {
+    if (intervals != null &&
+        !intervals!.any((r) => !at.isBefore(r.start) && !at.isAfter(r.end))) {
+      return false;
+    }
     if (!enabled) return true;
     final local = at.toLocal();
     final minute = local.hour * 60 + local.minute;
@@ -29,6 +39,21 @@ class DetectionWindow {
 
   DateTime nextStart(DateTime at) {
     final local = at.toLocal();
+    if (intervals != null) {
+      for (final range in intervals!) {
+        if (range.end.isBefore(local)) continue;
+        var candidate = range.start.isAfter(local) ? range.start : local;
+        if (!enabled || _dailyAllows(candidate)) return candidate;
+        candidate = DetectionWindow(
+          enabled: true,
+          startMinute: startMinute,
+          endMinute: endMinute,
+        ).nextStart(candidate);
+        if (!candidate.isAfter(range.end)) return candidate;
+      }
+      // Re-evaluate local schedule after the term, without sending a request.
+      return local.add(const Duration(days: 1));
+    }
     final start = DateTime(
       local.year,
       local.month,
@@ -46,6 +71,12 @@ class DetectionWindow {
             startMinute % 60,
           );
   }
+
+  bool _dailyAllows(DateTime at) => DetectionWindow(
+    enabled: enabled,
+    startMinute: startMinute,
+    endMinute: endMinute,
+  ).allows(at);
 
   static Future<DetectionWindow> read({bool reload = false}) async {
     final prefs = await SharedPreferences.getInstance();

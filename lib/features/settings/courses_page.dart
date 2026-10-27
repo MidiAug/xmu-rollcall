@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/schedule/academic_mapping_page.dart';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
@@ -12,13 +14,21 @@ import 'package:xmu_rollcall/features/settings/course_schedule_editor.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
 
 /// 我的 → 本学期课表：周×节网格（Sticky Catalog）。
-class CoursesPage extends ConsumerWidget {
+class CoursesPage extends ConsumerStatefulWidget {
   const CoursesPage({super.key, this.assistUserId, this.accountName});
   final int? assistUserId;
   final String? accountName;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CoursesPage> createState() => _CoursesPageState();
+}
+
+class _CoursesPageState extends ConsumerState<CoursesPage> {
+  bool _semester = false;
+  int? get assistUserId => widget.assistUserId;
+  String? get accountName => widget.accountName;
+  @override
+  Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
     final catalog = ref.watch(scopedCourseCatalogProvider(assistUserId));
     final async = ref.watch(catalog);
@@ -39,8 +49,40 @@ class CoursesPage extends ConsumerWidget {
             label: const Text('补全安排'),
           ),
         if (auth.isSignedIn)
-          AppRefreshButton(
-            onRefresh: () => ref.read(catalog.notifier).refresh(),
+          TextButton(
+            onPressed: () => setState(() => _semester = !_semester),
+            child: Text(_semester ? '学期' : '本周'),
+          ),
+        if (auth.isSignedIn)
+          PopupMenuButton<String>(
+            tooltip: '课表操作',
+            onSelected: (value) async {
+              if (value == 'mapping') {
+                final uid = auth.profile?.id;
+                if (uid != null) {
+                  AppPageRoutes.push(
+                    context,
+                    AcademicMappingPage(
+                      userId: uid,
+                      courses: async.valueOrNull?.courses ?? const [],
+                    ),
+                  );
+                }
+                return;
+              }
+              await ref.read(catalog.notifier).refresh();
+              if (context.mounted) {
+                final error = ref.read(academicSyncProvider).error;
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(error ?? '课表已更新')));
+              }
+            },
+            itemBuilder: (_) => [
+              const PopupMenuItem(value: 'sync', child: Text('同步课表')),
+              if (assistUserId == null)
+                const PopupMenuItem(value: 'mapping', child: Text('课程对应')),
+            ],
           ),
       ],
       body: !auth.isSignedIn
@@ -90,34 +132,61 @@ class CoursesPage extends ConsumerWidget {
                   ],
                 ),
               ),
-              data: (snap) =>
-                  _TimetableBody(snap: snap, assistUserId: assistUserId),
+              data: (snap) => _TimetableBody(
+                snap: snap,
+                assistUserId: assistUserId,
+                semester: _semester,
+              ),
             ),
     );
   }
 }
 
 class _TimetableBody extends StatelessWidget {
-  const _TimetableBody({required this.snap, this.assistUserId});
+  const _TimetableBody({
+    required this.snap,
+    this.assistUserId,
+    this.semester = false,
+  });
+  final bool semester;
   final int? assistUserId;
 
   final CourseCatalogSnapshot? snap;
 
   @override
   Widget build(BuildContext context) {
-    final withSlots = snap?.timetableCourses ?? const <CatalogCourse>[];
+    final now = DateTime.now();
+    final monday = DateTime(now.year, now.month, now.day - now.weekday + 1);
+    final all = snap?.timetableCourses ?? const <CatalogCourse>[];
+    final withSlots = semester
+        ? all
+        : [
+            for (final c in all)
+              c.withTimetables({
+                for (final e in c.timetables.entries)
+                  if (e.value.any(
+                    (s) => s.occursOn(monday.add(Duration(days: e.key - 1))),
+                  ))
+                    e.key: e.value
+                        .where(
+                          (s) =>
+                              s.occursOn(monday.add(Duration(days: e.key - 1))),
+                        )
+                        .toList(),
+              }),
+          ].where((c) => c.timetables.isNotEmpty).toList();
     if (withSlots.isEmpty) {
-      return const EmptyHint(
+      return EmptyHint(
         icon: Icons.calendar_view_week_outlined,
-        title: '暂无课表安排',
-        detail: '可在右上角补全安排，或刷新平台课表',
+        title: all.isNotEmpty && !semester ? '本周没有课程安排' : '暂无课表安排',
+        detail: '可切换学期查看，或在课表操作中同步课表',
       );
     }
 
     final fetched = snap?.fetchedAt;
     final meta = fetched == null
         ? null
-        : '更新于 ${fetched.toLocal().toString().substring(0, 19)}';
+        : '${semester ? '学期课表' : '本周课表'} · 更新于 ${fetched.toLocal().toString().substring(0, 19)}';
     return Padding(
       padding: EdgeInsets.fromLTRB(
         AppSpace.pageXOf(context),

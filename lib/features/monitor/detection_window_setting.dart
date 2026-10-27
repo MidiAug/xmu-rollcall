@@ -56,8 +56,8 @@ class _DetectionWindowSettingState
           contentPadding: widget.padding,
           subtitleSpacing: 6,
           minHeight: 40,
-          title: '检测时段',
-          subtitle: _error ?? '时段外暂停获取签到，手动刷新也适用',
+          title: '额外限制每日时段',
+          subtitle: _error ?? '有课表时按课前30分钟至课后30分钟检测；手动刷新可在课表窗口外查询',
           stackSubtitleOnNarrow: true,
           trailing: SizedBox(
             width: 148,

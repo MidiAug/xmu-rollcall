@@ -32,6 +32,7 @@ class _Repo extends Fake implements RollcallRepository {
   Future<List<RollcallItem>> fetchActiveEnriched({
     CancelToken? cancelToken,
     Map<int, String> cachedNumberCodes = const {},
+    bool manual = false,
   }) async {
     calls++;
     return pending?.future ?? [];
@@ -89,11 +90,11 @@ void main() {
       expect(disk.items.single.containsKey('Cookie'), isFalse);
       expect(disk.items.single.containsKey('data'), isFalse);
       expect(
-        restoreActiveRollcalls(disk, DateTime(2026, 10, 22, 9, 25)),
+        restoreActiveRollcalls(disk, DateTime(2026, 10, 22, 9, 30)),
         hasLength(1),
       );
       expect(
-        restoreActiveRollcalls(disk, DateTime(2026, 10, 22, 9, 25, 1)),
+        restoreActiveRollcalls(disk, DateTime(2026, 10, 22, 9, 30, 1)),
         isEmpty,
       );
       expect(restoreActiveRollcalls(disk, DateTime(2026, 10, 29, 8)), isEmpty);
@@ -107,14 +108,14 @@ void main() {
     },
   );
   test(
-    'pre-class window is 25 minutes; no guessed window without timetable',
+    'pre-class window is 30 minutes; no guessed window without timetable',
     () {
       expect(
-        cacheActiveRollcalls([signed], catalog, DateTime(2026, 10, 22, 7, 35)),
+        cacheActiveRollcalls([signed], catalog, DateTime(2026, 10, 22, 7, 30)),
         hasLength(1),
       );
       expect(
-        cacheActiveRollcalls([signed], catalog, DateTime(2026, 10, 22, 7, 34)),
+        cacheActiveRollcalls([signed], catalog, DateTime(2026, 10, 22, 7, 29)),
         isEmpty,
       );
       expect(cacheActiveRollcalls([signed], null, observed), isEmpty);
@@ -166,7 +167,7 @@ void main() {
     },
   );
   test(
-    'cached card appears before slow network; confirmed empty clears it and disk',
+    'cached card appears without automatic HTTP; explicit refresh clears confirmed empty',
     () async {
       await seed();
       final repo = _Repo()..pending = Completer<List<RollcallItem>>();
@@ -178,7 +179,8 @@ void main() {
       final cached = await container.read(activeRollcallsProvider(null).future);
       expect(cached.single.isAnswered, isTrue);
       await Future<void>.delayed(Duration.zero);
-      expect(container.read(activeRollcallsProvider(null)).isLoading, isTrue);
+      expect(container.read(activeRollcallsProvider(null)).isLoading, isFalse);
+      expect(repo.calls, 0);
       expect(
         container
             .read(activeRollcallsProvider(null))
@@ -204,7 +206,7 @@ void main() {
       expect(repo.calls, 1);
     },
   );
-  test('expired cache and another identity wait for real results', () async {
+  test('expired scheduled cache stays local; unknown identity waits for real results', () async {
     await seed();
     for (final scope in [null, 2]) {
       final repo = _Repo()..pending = Completer<List<RollcallItem>>();
@@ -214,14 +216,19 @@ void main() {
       );
       final future = container.read(activeRollcallsProvider(scope).future);
       await Future<void>.delayed(Duration.zero);
-      expect(container.read(activeRollcallsProvider(scope)).hasValue, isFalse);
+      if (scope == null) {
+        expect(await future, isEmpty);
+        expect(repo.calls, 0);
+      } else {
+        expect(container.read(activeRollcallsProvider(scope)).hasValue, isFalse);
+      }
       repo.pending!.complete([]);
       expect(await future, isEmpty);
       container.dispose();
     }
   });
   test(
-    'warm reentry checks join and throttle; leaving window hides form before confirmation',
+    'scheduled reentry never queries; expired form hides locally; manual pull still queries',
     () async {
       await seed();
       var now = observed.add(const Duration(minutes: 10));
@@ -244,8 +251,8 @@ void main() {
       now = now.add(const Duration(seconds: 1));
       repo.pending = null;
       await notifier.ensureFreshOnAppear();
-      expect(repo.calls, 2);
-      now = DateTime(2026, 10, 22, 9, 26);
+      expect(repo.calls, 1);
+      now = DateTime(2026, 10, 22, 9, 31);
       repo.pending = Completer<List<RollcallItem>>();
       final confirmation = notifier.ensureFreshOnAppear();
       await Future<void>.delayed(Duration.zero);
@@ -253,10 +260,13 @@ void main() {
         container.read(activeRollcallsProvider(null)).valueOrNull,
         isEmpty,
       );
-      expect(container.read(activeRollcallsProvider(null)).isLoading, isTrue);
-      repo.pending!.complete([]);
+      expect(container.read(activeRollcallsProvider(null)).isLoading, isFalse);
       await confirmation;
-      expect(repo.calls, 3);
+      expect(repo.calls, 1);
+      final manual = notifier.refresh();
+      repo.pending!.complete([]);
+      await manual;
+      expect(repo.calls, 2);
     },
   );
   test('only fetched snapshots advance the list check time', () async {

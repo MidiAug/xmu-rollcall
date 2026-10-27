@@ -61,11 +61,19 @@ class RollcallRepository {
   Future<List<RollcallItem>> fetchActive({
     CancelToken? cancelToken,
     String? opId,
+    bool manual = false,
   }) async {
     if (loadDetectionWindow != null) {
       final window = await loadDetectionWindow!();
       final now = discoveryClock();
-      if (!window.allows(now)) {
+      final effective = manual && window.intervals != null
+          ? DetectionWindow(
+              enabled: window.enabled,
+              startMinute: window.startMinute,
+              endMinute: window.endMinute,
+            )
+          : window;
+      if (!effective.allows(now)) {
         throw DetectionWindowClosed(window, now);
       }
     }
@@ -108,8 +116,9 @@ class RollcallRepository {
   Future<List<RollcallItem>> fetchActiveEnriched({
     CancelToken? cancelToken,
     Map<int, String> cachedNumberCodes = const {},
+    bool manual = false,
   }) async {
-    final items = await fetchActive(cancelToken: cancelToken);
+    final items = await fetchActive(cancelToken: cancelToken, manual: manual);
     return enrichActive([
       for (final item in items)
         if (item.isNumber &&
@@ -405,6 +414,7 @@ class RollcallRepository {
         CatalogCourse(
           id: id,
           title: title ?? '',
+          courseCode: m['course_code']?.toString(),
           timetables: parseTimetables(m['timetables']),
           instructorNames: _instructorNames(m),
           teachingClassName: _teachingClassName(m),

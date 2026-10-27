@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
+import 'package:xmu_rollcall/features/schedule/schedule_detection.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:dio/dio.dart';
@@ -114,11 +116,19 @@ class ActiveRollcallsNotifier
       lastUpdatedAt = disk?.fetchedAt;
       return _retainNumberCodes(cached.isNotEmpty ? cached : previous);
     }
+    final scheduleWindow = await readScheduleDetectionWindow(
+      arg ?? _boundOwnerUserId,
+    );
+    if (revision != _revision) return state.valueOrNull ?? const [];
+    if (scheduleWindow.intervals != null) {
+      lastUpdatedAt = disk?.fetchedAt;
+      return _retainNumberCodes(cached.isNotEmpty ? cached : previous);
+    }
     _lastAppearCheckAt = now;
     if (cached.isNotEmpty) {
       lastUpdatedAt = disk!.fetchedAt;
       Future<void>(() async {
-        if (revision == _revision) await refresh();
+        if (revision == _revision) await refresh(manual: false);
       });
       return _retainNumberCodes(cached);
     }
@@ -153,7 +163,7 @@ class ActiveRollcallsNotifier
     if (key == null || uid == null) return;
     _activeWrites = _activeWrites
         .then((_) async {
-          final catalog = await CourseCatalogStore.read(uid);
+          final catalog = await readAcademicCatalog(uid);
           if (revision != _revision) return;
           await JsonDiskCache.writeList(
             key,
@@ -179,7 +189,7 @@ class ActiveRollcallsNotifier
     final revision = _revision;
     final previous = state.valueOrNull;
     if (previous != null && lastUpdatedAt != null) {
-      final catalog = await CourseCatalogStore.read(arg ?? _boundOwnerUserId!);
+      final catalog = await readAcademicCatalog(arg ?? _boundOwnerUserId!);
       if (revision != _revision) return;
       state = AsyncData(
         restoreActiveRollcalls(
@@ -191,7 +201,9 @@ class ActiveRollcallsNotifier
         ),
       );
     }
-    await refresh();
+    final window = await readScheduleDetectionWindow(arg ?? _boundOwnerUserId);
+    if (revision != _revision || window.intervals != null) return;
+    await refresh(manual: false);
   }
 
   Future<void> _restoreNumberCodes(String key) async {
@@ -337,16 +349,16 @@ class ActiveRollcallsNotifier
     };
   }
 
-  Future<void> refresh() {
+  Future<void> refresh({bool manual = true}) {
     if (_refreshing != null) return _refreshing!;
-    final future = _refresh();
+    final future = _refresh(manual: manual);
     _refreshing = future;
     return future.whenComplete(() {
       if (identical(_refreshing, future)) _refreshing = null;
     });
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({required bool manual}) async {
     final beforeLoad = _revision;
     await ref.read(detectionWindowProvider.notifier).ready;
     if (beforeLoad != _revision) return;
@@ -378,6 +390,7 @@ class ActiveRollcallsNotifier
       () => ref
           .read(rollcallRepositoryForProvider(arg))
           .fetchActiveEnriched(
+            manual: manual,
             cancelToken: token,
             cachedNumberCodes: Map.unmodifiable(_numberCodes),
           ),
@@ -1157,7 +1170,7 @@ Future<SessionPriorState> _loadSessionPrior(
   if (byDay == null || byDay.isEmpty) {
     return const SessionPriorState(unscoped: true, missingTimetable: true);
   }
-  final slots = byDay[now.weekday];
+  final slots = byDay[now.weekday]?.where((s) => s.occursOn(now)).toList();
   if (slots == null || slots.isEmpty) {
     return const SessionPriorState(unscoped: true);
   }

@@ -56,6 +56,7 @@ class _Repo extends RollcallRepository {
   Future<List<RollcallItem>> fetchActive({
     CancelToken? cancelToken,
     String? opId,
+    bool manual = false,
   }) async => items;
   @override
   Future<String?> fetchNumberCode(

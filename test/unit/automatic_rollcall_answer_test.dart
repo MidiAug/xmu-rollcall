@@ -61,6 +61,7 @@ class Repo extends Fake implements RollcallRepository {
   Future<List<RollcallItem>> fetchActive({
     CancelToken? cancelToken,
     String? opId,
+    bool manual = false,
   }) async {
     calls.add('active');
     readOpIds.add(opId);

@@ -19,7 +19,15 @@ class HistoryCandidate {
 
 /// A weekly query hint. Inferred windows never become official course meetings.
 class HistoryWindow {
-  const HistoryWindow(this.weekday, this.startMinute, this.endMinute);
+  const HistoryWindow(
+    this.weekday,
+    this.startMinute,
+    this.endMinute, [
+    this.dates,
+  ]);
+  final Set<String>? dates;
+  bool occursOn(DateTime day) =>
+      dates == null || dates!.contains(TimetableSlot.dateKey(day));
   final int weekday;
   final int startMinute;
   final int endMinute;
@@ -81,13 +89,23 @@ List<HistoryWindow> inferHistoryWindows(Iterable<DateTime> observations) {
 }
 
 List<HistoryWindow> _scheduledWindows(Map<int, List<TimetableSlot>> tables) => [
-  for (final day in tables.entries)
-    for (final block in courseMeetingBlocks(day.value))
+  for (final day in tables.entries) ...[
+    for (final slot in day.value.where((s) => s.dates != null))
+      HistoryWindow(
+        day.key,
+        minutesOfDay(slot.start) - 30,
+        minutesOfDay(slot.end),
+        slot.dates,
+      ),
+    for (final block in courseMeetingBlocks(
+      day.value.where((s) => s.dates == null).toList(),
+    ))
       HistoryWindow(
         day.key,
         minutesOfDay(block.coreStart) - 30,
         minutesOfDay(block.coreEnd),
       ),
+  ],
 ];
 
 bool _inWindow(List<HistoryWindow> windows, DateTime now) {
@@ -96,6 +114,7 @@ bool _inWindow(List<HistoryWindow> windows, DateTime now) {
     final day = DateTime(now.year, now.month, now.day - offset);
     for (final w in windows) {
       if (w.weekday == day.weekday &&
+          w.occursOn(day) &&
           !now.isBefore(w.startOn(day)) &&
           !now.isAfter(w.closeOn(day))) {
         return true;
@@ -107,11 +126,12 @@ bool _inWindow(List<HistoryWindow> windows, DateTime now) {
 
 bool _needsFinal(List<HistoryWindow> windows, DateTime through, DateTime now) {
   // One request covers all missed meetings, even after a long absence.
-  for (var offset = 0; offset <= 7; offset++) {
+  for (var offset = 0; offset <= 210; offset++) {
     final day = DateTime(now.year, now.month, now.day - offset);
     for (final w in windows) {
       final close = w.closeOn(day);
       if (w.weekday == day.weekday &&
+          w.occursOn(day) &&
           !close.isAfter(now) &&
           close.isAfter(through)) {
         return true;
@@ -224,8 +244,11 @@ bool coursePeriodEndedBetween(
     guard++;
     final slots = byDay[day.weekday];
     if (slots != null && slots.isNotEmpty) {
-      final blocks = splitContiguousBlocks(slots);
+      final blocks = splitContiguousBlocks(
+        slots.where((s) => s.occursOn(day)).toList(),
+      );
       for (final b in blocks) {
+        if (!slots.any((s) => s.occursOn(day))) continue;
         final end = DateTime(
           day.year,
           day.month,

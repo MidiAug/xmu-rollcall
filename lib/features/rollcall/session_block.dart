@@ -8,6 +8,8 @@ class TimetableSlot {
     required this.end,
     this.endSequence,
     this.classroom,
+    this.dates,
+    this.weekLabel,
   });
 
   /// 1..11 period index.
@@ -16,6 +18,13 @@ class TimetableSlot {
   /// A user-entered meeting stays one block across all its periods.
   final int? endSequence;
   final String? classroom;
+
+  /// Null means weekly; an empty set means no meetings in this term.
+  final Set<String>? dates;
+  final String? weekLabel;
+  bool occursOn(DateTime day) => dates == null || dates!.contains(dateKey(day));
+  static String dateKey(DateTime day) =>
+      '${day.year.toString().padLeft(4, '0')}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
   int get lastSequence => endSequence ?? sequence;
 
   /// Time-of-day on an arbitrary anchor date (date part ignored in compares).
@@ -47,8 +56,8 @@ class SessionBlock {
     return '第$startSequence–$endSequence节';
   }
 
-  static const preBuffer = Duration(minutes: 25);
-  static const postBuffer = Duration(minutes: 25);
+  static const preBuffer = Duration(minutes: 30);
+  static const postBuffer = Duration(minutes: 30);
 
   DateTime get windowStart => coreStart.subtract(preBuffer);
   DateTime get windowEnd => coreEnd.add(postBuffer);
@@ -214,7 +223,19 @@ Map<int, List<TimetableSlot>> parseTimetables(dynamic raw, {DateTime? anchor}) {
       final start = parseDayTime(startS, day);
       final end = parseDayTime(endS, day);
       if (seqN == null || start == null || end == null) continue;
-      slots.add(TimetableSlot(sequence: seqN, start: start, end: end));
+      slots.add(
+        TimetableSlot(
+          sequence: seqN,
+          start: start,
+          end: end,
+          endSequence: slot['endSequence'] as int?,
+          classroom: slot['classroom'] as String?,
+          weekLabel: slot['weekLabel'] as String?,
+          dates: slot['dates'] is List
+              ? (slot['dates'] as List).whereType<String>().toSet()
+              : null,
+        ),
+      );
     }
     if (slots.isNotEmpty) out[wd] = slots;
   }

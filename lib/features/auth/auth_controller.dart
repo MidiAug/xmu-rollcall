@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
@@ -13,11 +15,12 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 });
 
 class AuthController extends StateNotifier<AuthState> {
-  AuthController(this._repo, {this.beforeSignOut})
+  AuthController(this._repo, {this.beforeSignOut, this.afterSignIn})
     : super(const AuthState(status: AuthStatus.unknown));
 
   final AuthRepository _repo;
   final Future<void> Function()? beforeSignOut;
+  final Future<void> Function(UserProfile, String, String)? afterSignIn;
   int _generation = 0;
 
   Future<void> bootstrap() async {
@@ -117,6 +120,10 @@ class AuthController extends StateNotifier<AuthState> {
       );
       if (!mounted || generation != _generation) return;
       state = AuthState(status: AuthStatus.signedIn, profile: profile);
+      final sync = afterSignIn;
+      if (sync != null) {
+        unawaited(sync(profile, username, password).catchError((Object _) {}));
+      }
     } catch (e) {
       if (!mounted || generation != _generation) rethrow;
       state = AuthState(
@@ -136,13 +143,26 @@ class AuthController extends StateNotifier<AuthState> {
   }
 }
 
-final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
-  (ref) {
-    return AuthController(
-      ref.watch(authRepositoryProvider),
-      beforeSignOut: () => ref
-          .read(monitorControllerProvider.notifier)
-          .stopAsync(reason: 'sign_out'),
-    );
-  },
-);
+final StateNotifierProvider<AuthController, AuthState> authControllerProvider =
+    StateNotifierProvider<AuthController, AuthState>((ref) {
+      return AuthController(
+        ref.watch(authRepositoryProvider),
+        afterSignIn: (profile, username, password) async {
+          await ref
+              .read(academicSyncProvider)
+              .sync(
+                profile.id,
+                sso: ref.read(tronHttpClientProvider).cookieJar,
+                username: username,
+                password: password,
+                force: true,
+              );
+          if (ref.read(authControllerProvider).profile?.id == profile.id) {
+            ref.read(academicRevisionProvider.notifier).state++;
+          }
+        },
+        beforeSignOut: () => ref
+            .read(monitorControllerProvider.notifier)
+            .stopAsync(reason: 'sign_out'),
+      );
+    });

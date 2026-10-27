@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
+import 'package:xmu_rollcall/features/schedule/schedule_detection.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -98,6 +100,9 @@ class MonitorController extends StateNotifier<MonitorState> {
       } else {
         unawaited(_engine?.pollNow());
       }
+    });
+    _ref.listen(academicRevisionProvider, (previous, next) {
+      if (previous != next) pollNow();
     });
     _ref.listen(selectedRollcallAccountProvider, (previous, next) {
       if (previous == next) return;
@@ -624,7 +629,9 @@ class MonitorController extends StateNotifier<MonitorState> {
         config: state.config,
         loadDetectionWindow: () async {
           await _ref.read(detectionWindowProvider.notifier).ready;
-          return _ref.read(detectionWindowProvider)!;
+          return readScheduleDetectionWindow(
+            scope ?? _ref.read(authControllerProvider).profile?.id,
+          );
         },
         fetch: () {
           AppLog.event(

@@ -158,7 +158,7 @@ class _AppearanceLists extends _Lists {
   }
 
   @override
-  Future<void> refresh() async {
+  Future<void> refresh({bool manual = true}) async {
     _manualChecks++;
   }
 }

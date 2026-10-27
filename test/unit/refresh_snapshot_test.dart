@@ -45,6 +45,7 @@ class Rollcalls extends Fake implements RollcallRepository {
   Future<List<RollcallItem>> fetchActiveEnriched({
     CancelToken? cancelToken,
     Map<int, String> cachedNumberCodes = const {},
+    bool manual = false,
   }) async {
     if (fail) throw StateError('offline');
     if (initial != null) {

@@ -10,11 +10,13 @@ class TimetablePlacedBlock {
     required this.course,
     required this.weekday,
     required this.block,
+    this.weekLabel,
   });
 
   final CatalogCourse course;
   final int weekday;
   final SessionBlock block;
+  final String? weekLabel;
 }
 
 /// Vertical axis row: a period, or a break band (午休 / 晚休).
@@ -192,9 +194,30 @@ List<TimetablePlacedBlock> placeTimetableBlocks(
   final out = <TimetablePlacedBlock>[];
   for (final c in courses) {
     for (final e in c.timetables.entries) {
-      final blocks = mergeConsecutiveSequenceBlocks(e.value);
-      for (final b in blocks) {
-        final slot = e.value.where((s) => s.sequence == b.startSequence).first;
+      final meetings = [
+        for (final slot in e.value.where((s) => s.dates != null))
+          (
+            slot: slot,
+            block: SessionBlock(
+              startSequence: slot.sequence,
+              endSequence: slot.lastSequence,
+              coreStart: slot.start,
+              coreEnd: slot.end,
+            ),
+          ),
+        for (final block in mergeConsecutiveSequenceBlocks(
+          e.value.where((s) => s.dates == null).toList(),
+        ))
+          (
+            slot: e.value.firstWhere(
+              (s) => s.dates == null && s.sequence == block.startSequence,
+            ),
+            block: block,
+          ),
+      ];
+      for (final meeting in meetings) {
+        final b = meeting.block;
+        final slot = meeting.slot;
         final placedCourse = slot.classroom == null
             ? c
             : CatalogCourse(
@@ -207,7 +230,12 @@ List<TimetablePlacedBlock> placeTimetableBlocks(
                 roles: c.roles,
               );
         out.add(
-          TimetablePlacedBlock(course: placedCourse, weekday: e.key, block: b),
+          TimetablePlacedBlock(
+            course: placedCourse,
+            weekday: e.key,
+            block: b,
+            weekLabel: slot.weekLabel,
+          ),
         );
       }
     }
@@ -223,4 +251,46 @@ Map<int, int> sequenceToRowIndex(List<TimetableAxisRow> rows) {
     if (seq != null) map[seq] = i;
   }
   return map;
+}
+
+/// Separate overlapping term meetings (including alternating weeks) so neither
+/// card obscures the other. Non-overlapping meetings share a column.
+Map<TimetablePlacedBlock, ({int column, int count})> timetableColumns(
+  List<TimetablePlacedBlock> blocks,
+) {
+  final result = <TimetablePlacedBlock, ({int column, int count})>{};
+  for (final day in blocks.map((b) => b.weekday).toSet()) {
+    final sorted = blocks.where((b) => b.weekday == day).toList()
+      ..sort((a, b) => a.block.startSequence.compareTo(b.block.startSequence));
+    final group = <TimetablePlacedBlock>[];
+    var end = 0;
+    void flush() {
+      final ends = <int>[];
+      final assignments = <TimetablePlacedBlock, int>{};
+      for (final b in group) {
+        var column = ends.indexWhere((e) => e < b.block.startSequence);
+        if (column == -1) {
+          column = ends.length;
+          ends.add(0);
+        }
+        ends[column] = b.block.endSequence;
+        assignments[b] = column;
+      }
+      for (final b in group) {
+        result[b] = (column: assignments[b]!, count: ends.length);
+      }
+      group.clear();
+    }
+
+    for (final b in sorted) {
+      if (group.isNotEmpty && b.block.startSequence > end) {
+        flush();
+        end = 0;
+      }
+      group.add(b);
+      if (b.block.endSequence > end) end = b.block.endSequence;
+    }
+    flush();
+  }
+  return result;
 }
