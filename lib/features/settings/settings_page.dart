@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/mobile_campus_header.dart';
+import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -91,6 +93,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               (auth.profile?.email?.isNotEmpty == true
                   ? auth.profile!.email!
                   : '已登录'));
+
+    if (AppMobileUi.useTouchChrome(context)) {
+      return _mobilePage(context, auth, themePref, accountSubtitle);
+    }
 
     return PageScaffold(
       title: PlatformHooks.isDesktop && !AppDensity.isTouch(context)
@@ -267,6 +273,260 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _mobilePage(
+    BuildContext context,
+    AuthState auth,
+    ThemePreference preference,
+    String subtitle,
+  ) {
+    final p = AppPalette.of(context);
+    Widget row(
+      IconData icon,
+      String title,
+      VoidCallback onTap, {
+      Widget? trailing,
+    }) => SettingsRow(
+      leading: SizedBox(
+        width: 24,
+        child: Icon(icon, color: p.primary, size: 23),
+      ),
+      title: title,
+      minHeight: 52,
+      contentPadding: const EdgeInsets.symmetric(vertical: 6),
+      trailing: trailing ?? Icon(AppIcons.right, color: p.muted, size: 17),
+      onTap: onTap,
+    );
+    Widget group(String title, List<Widget> rows) => Padding(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: p.muted,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Material(
+            color: p.surface,
+            borderRadius: BorderRadius.circular(16),
+            clipBehavior: Clip.antiAlias,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  for (var i = 0; i < rows.length; i++) ...[
+                    if (i > 0) Divider(height: 1, color: p.border, indent: 36),
+                    rows[i],
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    final appearance = AppShellSelect<ThemePreference>(
+      semanticLabel: '外观模式',
+      value: preference,
+      items: const [
+        ThemePreference.light,
+        ThemePreference.dark,
+        ThemePreference.system,
+      ],
+      labelOf: (value) => switch (value) {
+        ThemePreference.light => '浅色',
+        ThemePreference.dark => '暗色',
+        ThemePreference.system => '跟随系统',
+      },
+      width: double.infinity,
+      triggerBuilder: (context, open, toggle, focus) => TextButton(
+        focusNode: focus,
+        onPressed: toggle,
+        style: TextButton.styleFrom(
+          padding: EdgeInsets.zero,
+          minimumSize: const Size(48, 64),
+          foregroundColor: p.ink,
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 24,
+              child: Icon(AppIcons.theme, size: 23, color: p.primary),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(child: Text('外观', style: TextStyle(fontSize: 14))),
+            Text(switch (preference) {
+              ThemePreference.light => '浅色',
+              ThemePreference.dark => '暗色',
+              ThemePreference.system => '跟随系统',
+            }, style: TextStyle(fontSize: 13, color: p.muted)),
+            const SizedBox(width: 8),
+            Icon(AppIcons.down, size: 14, color: p.muted),
+          ],
+        ),
+      ),
+      onChanged: (value) =>
+          ref.read(themePreferenceProvider.notifier).set(value),
+    );
+    return PageScaffold(
+      title: '我的',
+      showHeader: false,
+      child: AppContentColumn(
+        child: ColoredBox(
+          color: p.mobileCanvas,
+          child: ListView(
+            controller: _scroll,
+            padding: const EdgeInsets.only(bottom: 24),
+            children: [
+              MobileCampusHeader(
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: p.accentSurface,
+                      child: Icon(AppIcons.person, color: p.primary, size: 32),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            auth.isSignedIn ? auth.profile!.name : '未登录',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w700,
+                              color: p.ink,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 13, color: p.muted),
+                          ),
+                          const SizedBox(height: 8),
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              minimumSize: const Size(48, 48),
+                              alignment: Alignment.centerLeft,
+                              foregroundColor: p.ink,
+                            ),
+                            onPressed: () => auth.isSignedIn
+                                ? _showAccount(context, auth, subtitle)
+                                : showLoginDialog(context),
+                            label: Text(auth.isSignedIn ? '账号管理' : '登录账号'),
+                            icon: const Icon(AppIcons.right, size: 16),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              group('常用', [
+                row(
+                  AppIcons.calendar,
+                  '本学期课表',
+                  () => AppPageRoutes.push(context, const CoursesPage()),
+                ),
+                row(
+                  AppIcons.location,
+                  '地点管理',
+                  () => AppPageRoutes.push(context, const SavedLocationsPage()),
+                ),
+                row(
+                  AppIcons.assist,
+                  '协助同学',
+                  () => AppPageRoutes.push(context, const SettingsAssistPage()),
+                ),
+              ]),
+              group('应用', [
+                appearance,
+                if (Theme.of(context).platform == TargetPlatform.android)
+                  row(
+                    AppIcons.notification,
+                    '后台提醒',
+                    () => AppPageRoutes.push(
+                      context,
+                      const NotificationSettingsPage(),
+                    ),
+                  ),
+                row(
+                  AppIcons.data,
+                  '数据与诊断',
+                  () => AppPageRoutes.push(context, const SettingsDataPage()),
+                ),
+                const AboutSettingsRow(compact: true),
+              ]),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAccount(BuildContext context, AuthState auth, String subtitle) {
+    showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: false,
+      builder: (sheetContext) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      '账号管理',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const AppSheetCloseButton(),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                auth.profile!.name,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(subtitle),
+              const SizedBox(height: 24),
+              OutlinedButton(
+                onPressed: () {
+                  Navigator.pop(sheetContext);
+                  ref.read(authControllerProvider.notifier).signOut();
+                },
+                child: const Text('退出登录'),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -289,3 +289,70 @@ The rebuilt Debug process was restarted and inspected with the real assist timet
 - 回归：build/android-consistency-complete-tests.log全量780通过、2跳过；build/android-consistency-complete-analyze.log无问题；另有选择弹层生命周期、旧移动断言更新、地图键盘边距回归。最终干净校区截图单项测试再次通过（build/android-consistency-clean-preview.log）。早期Ink不支持constraints的编译问题及旧宽度断言均已修复，最终验证在修复后完成。
 - 交付：build/android-ui-review/android-consistency-complete-release.log构建release成功79.8MB，0.3.0+6；证书SHA256与原包一致。设备427b338f执行adb install -r成功并启动，未清数据。Windows已有开发进程热重载49/3261库成功。本轮没有执行真实签到、推送或发布；真机各页的实际观感仍以用户使用反馈为准。
 - 维护边界：本轮抽离了移动呈现规则，地点管理仍有较大的业务Widget；未为纯拆文件扩大改动。规格/验收/架构和ANDROID_UI.md已同步本地docs，该目录按仓库策略忽略，不强制提交。
+
+## 2026-10-28 手机校园视觉第一阶段：签到首页与我的
+
+final result: passed（源码实现、隔离视觉与交互回归）；Android真机安装/逐页观察尚未执行：本轮后半程ADB未发现设备。
+
+- Git起点干净，遵照用户“改之前提交”建立c2c4cff检查点（上一稳定实现0c6702e）。本轮以用户认可的图1顶部+中部减法稿和待签到稿为目标；不重新选择图2/3，也不延伸成营销页或桌面改版。
+- 目标保留在.tools/mobile-campus-reference/idle-and-settings.png、active.png。前者是双页概念板，不能把整张宽度当单页宽；后者853×1844与390×844手机视口基本同宽高比。对照按单页内容/逻辑宽度看构图和层级，不声称高分辨率生成图与真实字体逐像素相同。真实逻辑视口390×844，窄屏320×844、文字1.3倍；没有画设备状态栏或伪造系统安全区。
+- 资产：内置ImageGen生成并实际保存assets/illustrations/campus_header.png（约1.34MB），核心提示为“右侧厦大风格橙瓦教学楼、浅青绿水彩、左上及底部透明留白、无任何文字/UI”，参考选定修订稿。该图为校园氛围插画，非学校官方实景证明。标题、按钮、账号、课程均为真实Flutter组件，图像排除语义和点击；深色复用亮度/饱和度处理。
+- 构图：MobileCampusHeader复用同一顶图，主体无重复白卡；手机20水平留白与选定主页方向相符，地点管理等二级页原16规则不变。主卡保留18内边距，课程/待办以16/15标题和13辅助文字组织；保持必要48触控目标，不为强行一屏塞满而缩字。教室长名称分行显示地点/时间，较目标横排有意调整。长页可滚动，上次签到在内容末尾而不遮挡任务；短页靠近导航上方。
+- 签到：空闲、待签到、运行中、完成、长标题/错误和身份切换沿原状态源呈现；主卡“去签到”进入原数字/定位/二维码流程。数字码预填回归确认入页repo.calls=0，检查后才提交；完成按钮禁用。手机主卡不常驻人数与课堂参考，参考仍可按需由课程菜单展开。检测启动/停止保留在有活动的顶部账号行；时段外和无课仍由原检测窗禁用，不增HTTP定时器或自动提交授权。
+- 课程/待办：CampusContextView.mobile使用原磁盘快照，当前/下一课时间线无卡片和状态徽章；位置/时间icon按行高居中。只展示最近一项待办，课程/标题分别单行省略，点击进入原详情，查看全部进入作业。历史按服务端签到历史最新非占位记录显示，未签到记录不被较早成功记录替代，账号切换沿原Provider隔离。
+- 我的：真实账号标题/可用身份信息，未提供校区时不伪造“翔安”；常用、应用两组无重复说明和图标底块，外观整行可点并有键盘焦点，主题持久化及取消正常；账号管理面板保留退出入口，关于保留新版本标记与原二级页面。四个底部Tab仍只强调icon/文字，无选中背景。
+- 实际查看并同目标对照：build/mobile-campus-design/{idle,active,running,done}-light.png及dark对应图；long-dark.png是320宽1.3倍文字的长课程，不出现横向溢出，待办/历史滚动后可操作；.tools/settings-polish/mobile-account-light.png和dark.png及384-light.png。修正了早期未等待图片解码的空顶部截图，以precacheImage后的截图为最终证据；最终去签到箭头在文案后。
+- 交互与功能：build/mobile-campus-actions-final.log相关45项通过；build/mobile-campus-settings-final.log设置17项通过；build/mobile-campus-delivery-captures.log移动状态10项通过。全量最终build/mobile-campus-verified-all-tests.log为792通过、2跳过；build/mobile-campus-verified-analyze.log无问题。首次全量在编辑数字预填回归期间编译旧版本而失败，最终在源码冻结后完整重跑通过，不将早期结果当完成。
+- 构建：build/android-ui-review/mobile-campus-verified-release.log release成功80.9MB，仍0.3.0+6，最终dist/xmu-rollcall-0.3.0-android.apk；签名SHA256为7c64edfa4cf30722aaa0ec57f05d0ab026f50678243d4821d09de3e26cbe62e5，与前版一致。Windows现有开发进程热重载19/3263库成功。ADB设备列表为空，已向用户询问重连/先交APK，未卸载、未清数据、未在真机提交签到、未推送/发布。
+- 残余P3：真实Android字体与系统上下安全区仍需要接机逐页观察；此处已通过布局、隔离渲染及签名构建，不能代替用户真机观感。背景资产对小尺寸解码使用cacheWidth1200；不增加模糊或持续装饰动画。课表/GPA等二级页沿上轮统一组件，未宣称本轮全部手机页面已重新设计。项目规格/验收/架构/功能台账已更新本地docs，沿仓库忽略策略不强制提交。
+
+## 2026-10-29 安卓覆盖安装补验
+
+用户确认手机重连后，ADB识别设备427b338f（2410DPN6CC）。对上一阶段最终APK再次验证签名一致，执行adb install -r成功并am start启动；安装版本0.3.0+6、targetSdk36。未卸载、未清除应用数据。此项解除上一记录中的“设备未连接，尚未安装”限制；不等同于真机各业务页面已逐项视觉验收，未执行真实签到。
+
+## 2026-10-29 状态栏色带与手机内容层级修正
+
+final result: passed（隔离视觉、系统区域像素回归、完整测试和覆盖安装）；未把本轮手机合成截屏作为业务页视觉验收。
+
+- 用户指出状态栏区域与下方颜色不统一、整页缺少层级。源码证据：PageScaffold安全区绘制mobileCanvas，MobileRollcallHome与移动我的页内层却绘制content；根页没有AnnotatedRegion，二级页才设置系统栏样式。该底色分裂和同等权重的裸列表是本次修复范围。
+- 根页现在统一声明透明状态栏/手势导航区和匹配背景的图标明暗，关闭系统强制对比色带，继续只避让一次SafeArea。pageBackground按Android/iOS平台或桌面窄屏选移动画布，横屏/大屏不会因为宽度变大切回桌面白底。首页、我的正文使用同一mobileCanvas。
+- 内容层级收敛为画布/独立签到操作/课程与待办内容组；课程和待办共用一块surface、组内轻分隔，组标题14辅助色低于课程16主文字。我的常用/应用各一块surface，16圆角/内边距、20外边距，不给每行再加卡。顶图透明度浅色.42、深色.28，降低与文字和控件争抢。历史仍在内容底部，Tab高亮、检测规则、身份隔离、提交确认不变。
+- 视觉证据：build/mobile-hierarchy-review/after/{home-light,active-dark,settings-light,settings-dark}.png；实际查看浅色首页、深色活动、浅深色我的，校验分组、对齐、文本层级和边距。第一次设备截图虽在采集前窗口信息指向本应用，实际出现其他界面/浮层，已拒收并删除本地与设备临时图片，未展示为本产品证据。后续以隔离生产Widget渲染和像素测试验收，不再凭焦点元信息抓取用户画面。
+- 回归：mobile_page_insets_test对浅深色32px顶部安全区取真实RGBA像素，验证顶部与正文画布像素相同、内容只偏移32px，透明系统栏/图标明暗正确。首轮截图Future处于测试假时钟导致等待，终止该任务并将toImage包在runAsync后重跑通过；不把卡住的首轮当完成。
+- build/mobile-hierarchy-review/focused.log相关27项通过，insets-fixed.log新增2项通过；all-tests.log最终全量794通过、2跳过，analyze.log无问题。规格、安卓视觉契约和功能台账已同步本地忽略docs目录；CHANGELOG记录用户可见效果。
+- android-release.log release构建成功80.9MB，最终dist/xmu-rollcall-0.3.0-android.apk仍0.3.0+6。核对SHA256证书与前版一致后，对427b338f执行adb install -r成功，保留数据；没有启动/切换用户正在使用的其他界面，没有执行真实签到。Windows原开发进程热重载97/3263库成功。Android系统栏最终实机观感仍待重新打开应用观察，不用隔离测试代称真机逐页验收；未推送/发布。
+
+## 2026-10-29 手机等高顶区、日期与摘要条目修订
+
+final result: passed（隔离渲染、几何和交互回归、构建/覆盖安装）；未声称真机每页视觉已逐项确认。
+
+- 用户要求签到/我的顶部同高、背景同大小/位置、日期在标题右侧，并改善课程/待办。原图随child撑开，两页不同Padding和内容高度导致画幅不一致。本轮让MobileCampusHeader按相同宽度/字号规则提供184基本高度、窄屏加40、大字每1倍加72（scale限制1–2），图片统一fill/cover/bottomRight，与活动状态或账号说明无关；我的去掉额外垂直16，内容20内边距居中。
+- 首页日期紧随签到标题并共享文字基线，普通宽度显示完整月日，窄屏/大字号简写月/日而保留完整语义。两页背景区到主体20、主体组间20，课程底8，使空白按共同节奏分配，不靠图片拉伸填空。系统栏与正文底色的上一轮修复保持。
+- 当前课程为无边框轻底色选中区，下一课程透明；时间/节点/课程首行对齐，位置/时间icon保持居中。初次渲染发现320宽1.3字号的10:10换行，已让时间列随字号增宽并强制单行；最终截图已复查修正，非忽略视觉缺陷只保留通过断言。
+- 待办为44蓝色文档标识、左侧两行课程/作业名称、右侧两行截止日期/时间；各名称单行省略，日期完整提示保留。点击仍进入该条详情，未改作业/缓存/账号/提交协议；桌面摘要原布局保留。
+- 实际查看build/mobile-header-rhythm/after/home-light.png、settings-light.png及long-dark.png，另有生产状态浅深色截图在build/mobile-campus-design。两页正常顶图在相同390视口呈现一致；长内容页面可滚动看后续待办/历史，不压缩大字体到一屏内。几何回归对不同内容的顶区和图片尺寸/相对偏移作直接比较，覆盖320/390宽和1/1.3/2倍字号6种组合；生产首页验证日期在标题右方、时间单行。
+- focused-final.log相关39项通过；all-tests.log源码冻结后全量800通过、2跳过；analyze.log无问题。android-release.log release构建成功81.0MB，仍0.3.0+6，核对原签名后对427b338f执行adb install -r成功，保留数据；没有执行真实签到或切换用户其他应用，没有推送/发布。桌面现有开发进程热重载4/3263库成功。
+- CHANGELOG与本地规格/验收/安卓契约/台账已同步，docs继续遵循仓库忽略规则。该轮没有新增图片资产，仅统一已有图片的布局边界。
+
+## 2026-10-29 Android顶图上移与浮动导航/校园助手/课程收纳调研
+
+final result: passed（本轮已实现的Android顶图修复）；浮动导航、全局搜索、全天课程合并与收纳仍为调研方案，未宣称已实现。
+
+- 用户提供浮动四Tab+独立搜索截图及Sticky Stack参考，并强调只改Android。顶图由于素材透明天空而偏低，本轮仅在Theme.platform为Android时将绘图区top延伸至-60、bottom仍为0，原顶区裁剪；文字/按钮/顶区等高规则保持。Windows分支仍top=0，几何回归明确断言，不改变桌面样式。
+- 实际查看重新捕获的build/mobile-campus-design/idle-light.png：建筑上沿提高到标题区域附近，下沿继续贴顶区底部，两页共用同样规则。tests.log相关39项通过，其中Android/Windows×320/390×1/1.3/2几何组合12项；analyze.log无问题；android-release.log release构建成功81.0MB，签名与前版一致。验证后的APK已对427b338f覆盖安装成功并保留数据；未执行真实签到或切换用户其他应用。
+- 调研复用了Engineering《界面减法与任务模型》《界面动效自然度调整与回放检查》，知识库没有可直接采用的该款导航/课程收纳实现，公开参考区sliver检索无命中。联网补读Apple浮动Tab与search role、Flutter SliverPersistentHeader/BackdropFilter、sliver_tools README及liquid_glass_renderer要求。本机Flutter3.44，所读玻璃库最新预发布要求3.47和预览GPU API，建议先轻磨砂且不升级SDK。没有添加依赖。
+- 校园内容查到信息与网络中心的2026新生服务指南及信息学院分本科/研究生的问答手册；建议搜索结果以应用功能/帮助、当前账号缓存、带来源与适用范围的官方指南分组，后续自然语言问答另定来源更新与模型边界。未抓取/复制个人凭据，不调用外部模型问答。
+- 课程方案建议上方不变，下方合并课程和签到以避免同一课程重复；需扩展现有仅current/next的摘要为全天课次。下课与签到完成独立，待处理活动不得因动画而隐藏，不明确匹配的活动单列。两种收纳已用英语10:10–11:50例子向用户解释：时间/状态触发默认收起，与滚动距离触发视觉压叠是不同维度；用户尚未选定，不实施相关主页面改写。
+- 具体参考：https://github.com/Kavantix/sliver_tools 、 https://github.com/Fayis2021/collapsible_cards 、 https://api.flutter.dev/flutter/widgets/BackdropFilter-class.html 、 https://inc.xmu.edu.cn/info/1431/9562.htm 、 https://informatics.xmu.edu.cn/welcome/index.html 。collapsible_cards只读README，目录访问/API限额/raw404导致内部源码未核；不声称它是成熟生产方案。完整调研在本地忽略目录docs/research/android-navigation-search-timeline.md，未回写Engineering或强制提交docs。
+
+## 2026-10-29 Android检测融入顶部、内容上移
+
+final result: passed（源码、隔离视觉、相关回归及签名构建）；未声称本轮真机各页已逐项视觉验收。
+
+- 用户确认背景位置可用，只要求签到/我的顶区内容向上、检测状态/开始操作融顶。MobileCampusHeader仅Android将child从centerLeft改topLeft，20内边距、184与字号/宽度增高规则不动，图片top=-60/bottom=0完全不变；Windows仍centerLeft且图片top=0。
+- Android首页账号选择与检测操作同一Wrap行，账号宽144保证常用姓名清晰；下方灰点/单行状态处理尚未检测、时段外/无课、切换加载与失败。未登录和切换重试也融入顶区。运行时由既有检测控件呈现倒计时/停止，避免重复状态行；运行优先于列表加载，即使刷新列表为空且isLoading，停止检测仍可使用。原监控权限、时段、退避、身份守卫和提交确认逻辑未修改。
+- 正文移除Android空闲/加载/未登录的重复状态卡，课程/待办前移；实际签到任务卡与获取失败重试保留。非Android继续原白色状态卡与原顶部控件，桌面页面不调整。
+- 实际查看build/android-header-controls/after/{home-light,running-light,settings-light,long-dark}.png及生产状态浅深色截图。顶部文字较上一轮前移，画幅和建筑位置保持；小屏/1.3字号不横向溢出，图像不是静态UI截图替代真实按钮。
+- delivery-tests.log相关76项通过，包括Android/Windows顶图几何与顶部锚点、日期与检测入口位置、主题/登录/账户管理、无课时段限制、QR路由/账号隔离，以及运行中AsyncLoading不挤走停止操作的新增断言。20.00000000000003与20的浮点误差改为.01容差；一次补丁误命中状态字符串分支造成的编译失败已修正，最终测试在修复后的冻结源码上重跑通过。
+- delivery-analyze.log无问题；delivery-release.log构建release成功81.0MB，仍0.3.0+6。最终包签名与前版一致，已对427b338f覆盖安装成功；未卸载或清数据、未执行真实签到、未切换用户其他应用、未推送发布。只做Android呈现，不对桌面运行实例作热重载。
+- CHANGELOG和本地忽略docs的规格/验收/台账/Android契约已同步。浮动导航/全局搜索/全天课程收纳仍为上一轮调研，不混入本次修改。

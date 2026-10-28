@@ -12,8 +12,15 @@ import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
 
 /// Idle: 「开始检测」pill. Running: capsule with countdown (tap = pollNow) + stop.
 class MonitorQuickControl extends ConsumerStatefulWidget {
-  const MonitorQuickControl({super.key, this.toolbar = false});
+  const MonitorQuickControl({
+    super.key,
+    this.toolbar = false,
+    this.prominent = false,
+    this.quiet = false,
+  });
   final bool toolbar;
+  final bool prominent;
+  final bool quiet;
 
   @override
   ConsumerState<MonitorQuickControl> createState() =>
@@ -81,6 +88,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                   )
                 : '',
             child: AppQuietPill(
+              border: !widget.quiet,
               radius: widget.toolbar ? 7 : 18,
               onTap: enabled
                   ? () async {
@@ -109,7 +117,11 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                       }
                     }
                   : null,
-              background: widget.toolbar
+              background: widget.quiet
+                  ? Colors.transparent
+                  : widget.prominent && enabled
+                  ? p.primary
+                  : widget.toolbar
                   ? p.surface
                   : enabled
                   ? p.selected
@@ -120,7 +132,11 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                   Icon(
                     AppIcons.detect,
                     size: 16,
-                    color: enabled ? p.primary : p.muted,
+                    color: widget.prominent && enabled
+                        ? (p.isDark ? p.canvas : Colors.white)
+                        : enabled
+                        ? p.primary
+                        : p.muted,
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -129,7 +145,11 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       letterSpacing: -0.1,
-                      color: enabled ? p.primary : p.muted,
+                      color: widget.prominent && enabled
+                          ? (p.isDark ? p.canvas : Colors.white)
+                          : enabled
+                          ? p.primary
+                          : p.muted,
                     ),
                   ),
                 ],

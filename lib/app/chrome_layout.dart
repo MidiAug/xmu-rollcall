@@ -91,82 +91,88 @@ class PageScaffold extends StatelessWidget {
       );
     }
     // Canvas extends under the status bar; inset content only (R-23).
-    return ColoredBox(
-      color: p.pageBackground(context),
-      child: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (showHeader)
-              ConstrainedBox(
-                constraints: const BoxConstraints(
-                  minHeight: AppLayout.pageHeaderHeight,
-                ),
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    AppSpace.pageXOf(context),
-                    16,
-                    AppSpace.pageXOf(context),
-                    12,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: _overlayForSurface(p.pageBackground(context)),
+      child: ColoredBox(
+        color: p.pageBackground(context),
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (showHeader)
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    minHeight: AppLayout.pageHeaderHeight,
                   ),
-                  child: Row(
-                    // Top-align so title baseline is identical with/without trailing.
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: (theme.titleLarge ?? const TextStyle())
-                                  .copyWith(
-                                    color: p.ink,
-                                    height: 1.2,
-                                    leadingDistribution:
-                                        TextLeadingDistribution.even,
-                                  ),
-                            ),
-                            const SizedBox(height: AppSpace.xxs),
-                            Text(
-                              subtitle ?? ' ',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: (theme.bodySmall ?? const TextStyle())
-                                  .copyWith(
-                                    color: p.muted,
-                                    height: 1.3,
-                                    leadingDistribution:
-                                        TextLeadingDistribution.even,
-                                  ),
-                            ),
-                          ],
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpace.pageXOf(context),
+                      16,
+                      AppSpace.pageXOf(context),
+                      12,
+                    ),
+                    child: Row(
+                      // Top-align so title baseline is identical with/without trailing.
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: (theme.titleLarge ?? const TextStyle())
+                                    .copyWith(
+                                      color: p.ink,
+                                      height: 1.2,
+                                      leadingDistribution:
+                                          TextLeadingDistribution.even,
+                                    ),
+                              ),
+                              const SizedBox(height: AppSpace.xxs),
+                              Text(
+                                subtitle ?? ' ',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: (theme.bodySmall ?? const TextStyle())
+                                    .copyWith(
+                                      color: p.muted,
+                                      height: 1.3,
+                                      leadingDistribution:
+                                          TextLeadingDistribution.even,
+                                    ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      // Fixed trailing slot → title column width identical on every Tab.
-                      SizedBox(
-                        width: AppLayout.pageHeaderTrailingWidth,
-                        height: 36,
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: trailing == null
-                              ? const SizedBox.shrink()
-                              : IconTheme(
-                                  data: IconThemeData(color: p.muted, size: 20),
-                                  child: trailing!,
-                                ),
+                        // Fixed trailing slot → title column width identical on every Tab.
+                        SizedBox(
+                          width: AppLayout.pageHeaderTrailingWidth,
+                          height: 36,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: trailing == null
+                                ? const SizedBox.shrink()
+                                : IconTheme(
+                                    data: IconThemeData(
+                                      color: p.muted,
+                                      size: 20,
+                                    ),
+                                    child: trailing!,
+                                  ),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            Expanded(child: child),
-          ],
+              Expanded(child: child),
+            ],
+          ),
         ),
       ),
     );

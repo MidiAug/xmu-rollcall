@@ -325,7 +325,7 @@ void main() {
 
         expect(find.text('常用'), findsOneWidget);
         expect(find.text(desktop ? '外观与窗口' : '应用'), findsOneWidget);
-        expect(find.text(desktop ? '通知与维护' : '通知与数据'), findsOneWidget);
+        expect(find.text('通知与维护'), desktop ? findsOneWidget : findsNothing);
         expect(find.text('本学期课表'), desktop ? findsNothing : findsOneWidget);
         for (final removed in ['账号', '检测', '更多', '窗口']) {
           expect(find.text(removed), findsNothing);
@@ -334,14 +334,15 @@ void main() {
         expect(find.text('关闭窗口时'), desktop ? findsOneWidget : findsNothing);
         expect(find.byType(AppSegmentedControl<ThemePreference>), findsNothing);
         final appearance = find.byType(AppShellSelect<ThemePreference>);
-        final group = find.ancestor(
-          of: appearance,
-          matching: find.byType(SettingsSection),
-        );
-        expect(
-          tester.widget<SettingsSection>(group).header,
-          desktop ? '外观与窗口' : '应用',
-        );
+        if (desktop) {
+          final group = find.ancestor(
+            of: appearance,
+            matching: find.byType(SettingsSection),
+          );
+          expect(tester.widget<SettingsSection>(group).header, '外观与窗口');
+        } else {
+          expect(find.byType(SettingsSection), findsNothing);
+        }
         expect(
           tester.getCenter(appearance).dx,
           greaterThan(tester.getCenter(find.text('外观')).dx),
@@ -398,7 +399,9 @@ void main() {
         expect(tester.takeException(), isNull);
         await tester.tap(find.byTooltip('返回'));
         await tester.pumpAndSettle();
-        final login = find.widgetWithText(FilledButton, '登录');
+        final login = desktop
+            ? find.widgetWithText(FilledButton, '登录')
+            : find.widgetWithText(TextButton, '登录账号');
         await tester.scrollUntilVisible(login, -180);
         await Scrollable.ensureVisible(tester.element(login), alignment: .5);
         await tester.pumpAndSettle();
@@ -413,6 +416,46 @@ void main() {
         await tester.pumpWidget(const SizedBox.shrink());
       });
     }
+  }
+
+  for (final dark in [false, true]) {
+    testWidgets('mobile signed-in account management dark=$dark', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({
+        'theme_preference':
+            (dark ? ThemePreference.dark : ThemePreference.light).index,
+      });
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: key,
+          child: _app(platform: TargetPlatform.android, needsSchedule: true),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.runAsync(
+        () => precacheImage(
+          const AssetImage('assets/illustrations/campus_header.png'),
+          tester.element(find.byType(SettingsPage)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await capture(tester, key, 'mobile-account-${dark ? 'dark' : 'light'}');
+      await tester.tap(find.text('账号管理'));
+      await tester.pumpAndSettle();
+      expect(find.text('退出登录'), findsOneWidget);
+      expect(find.text('测试同学'), findsNWidgets(2));
+      await tester.tap(find.byTooltip('关闭'));
+      await tester.pumpAndSettle();
+      expect(find.text('退出登录'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
   }
 
   testWidgets(
@@ -458,7 +501,18 @@ void main() {
           of: menu,
           matching: find.byType(AppSelectTrigger),
         );
-        tester.widget<AppSelectTrigger>(trigger).focusNode!.requestFocus();
+        if (platform == TargetPlatform.windows) {
+          tester.widget<AppSelectTrigger>(trigger).focusNode!.requestFocus();
+        } else {
+          tester
+              .widget<TextButton>(
+                find
+                    .descendant(of: menu, matching: find.byType(TextButton))
+                    .first,
+              )
+              .focusNode!
+              .requestFocus();
+        }
         await tester.pumpAndSettle();
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();

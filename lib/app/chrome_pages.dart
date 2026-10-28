@@ -122,4 +122,13 @@ SystemUiOverlayStyle _overlayForSurface(Color surface) =>
     (ThemeData.estimateBrightnessForColor(surface) == Brightness.dark
             ? SystemUiOverlayStyle.light
             : SystemUiOverlayStyle.dark)
-        .copyWith(statusBarColor: Colors.transparent);
+        .copyWith(
+          statusBarColor: Colors.transparent,
+          systemStatusBarContrastEnforced: false,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarContrastEnforced: false,
+          systemNavigationBarIconBrightness:
+              ThemeData.estimateBrightnessForColor(surface) == Brightness.dark
+              ? Brightness.light
+              : Brightness.dark,
+        );

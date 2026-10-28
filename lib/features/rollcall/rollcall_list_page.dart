@@ -167,7 +167,7 @@ class RollcallListPage extends ConsumerWidget {
                 SizedBox(height: AppSpace.stackOf(context)),
             itemBuilder: (context, i) => i == items.length
                 ? footer!
-                : _RollcallTile(
+                : RollcallTaskCard(
                     key: ValueKey(items[i].rollcallId),
                     item: items[i],
                     assistUserId: assistUserId,
@@ -210,25 +210,27 @@ class RollcallListPage extends ConsumerWidget {
   }
 }
 
-class _RollcallTile extends ConsumerStatefulWidget {
-  const _RollcallTile({
+class RollcallTaskCard extends ConsumerStatefulWidget {
+  const RollcallTaskCard({
     super.key,
     required this.item,
     this.assistUserId,
     this.enableAssistMulti = true,
     this.meeting,
+    this.mobileSummary,
   });
 
   final RollcallItem item;
   final int? assistUserId;
   final bool enableAssistMulti;
   final CampusMeeting? meeting;
+  final String? mobileSummary;
 
   @override
-  ConsumerState<_RollcallTile> createState() => _RollcallTileState();
+  ConsumerState<RollcallTaskCard> createState() => _RollcallTileState();
 }
 
-class _RollcallTileState extends ConsumerState<_RollcallTile> {
+class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
   bool get _desktop => PlatformHooks.isDesktop && !AppDensity.isTouch(context);
   bool _hover = false;
   bool _submitting = false;
@@ -310,7 +312,7 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     }
   }
 
-  void _openSecondary() {
+  void _openSecondary({bool prefillNumber = false}) {
     final item = widget.item;
     if (item.type == RollcallType.qrcode) {
       AppPageRoutes.push(
@@ -325,7 +327,11 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     }
     AppPageRoutes.push(
       context,
-      RollcallAnswerPage(item: item, assistUserId: widget.assistUserId),
+      RollcallAnswerPage(
+        item: item,
+        assistUserId: widget.assistUserId,
+        initialNumberCode: prefillNumber ? item.numberCode : null,
+      ),
     );
   }
 
@@ -341,46 +347,137 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
     final item = widget.item;
     final title = item.courseTitle.isEmpty ? '未命名课程' : item.courseTitle;
     if (_desktop) return _desktopCard(p, item, title);
-    final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: AnimatedContainer(
-        duration: AppMotion.fast,
-        curve: AppMotion.fastCurve,
-        decoration: BoxDecoration(
-          color: _hover ? p.cardHover : p.surface,
-          borderRadius: BorderRadius.circular(AppRadii.card),
-          border: Border.all(color: _hover ? p.borderStrong : p.border),
-        ),
-        padding: const EdgeInsets.all(AppSpace.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _identifyHeader(p, item, title),
-            if (!item.isAnswered) ...[
-              const SizedBox(height: AppSpace.xs),
-              _attendance(item),
-            ],
-            if (item.isNumber) ...[
-              const SizedBox(height: AppSpace.sm),
-              _numberTaskStrip(p, item, wide: wide),
-            ],
-            if (item.type == RollcallType.unknown) ...[
-              const SizedBox(height: AppSpace.xs),
+    return _mobileCard(p, item, title);
+  }
+
+  Widget _mobileCard(AppPalette p, RollcallItem item, String title) {
+    final done = item.isAnswered;
+    final unavailable = item.isExpired || item.type == RollcallType.unknown;
+    final tone = done
+        ? p.success
+        : unavailable
+        ? p.muted
+        : p.primary;
+    final room = widget.meeting?.room.trim();
+    final subtitle = room?.isNotEmpty == true
+        ? room!
+        : item.createdByName.trim();
+    return Container(
+      key: ValueKey('mobile-rollcall-${item.rollcallId}'),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: p.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: tone.withValues(alpha: .2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(color: tone, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  done
+                      ? '签到完成'
+                      : item.isExpired
+                      ? '已结束'
+                      : '待签到',
+                  style: TextStyle(
+                    color: tone,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
               Text(
-                '暂不支持此签到类型，可下拉刷新重试',
-                style: TextStyle(fontSize: 12, height: 1.35, color: p.muted),
+                item.isRadar ? '定位签到' : '${item.typeLabel}签到',
+                style: TextStyle(color: p.muted, fontSize: 12),
               ),
+              if (item.courseId?.isNotEmpty == true && !done)
+                _courseMenu(p, item),
             ],
-            if (!item.isAnswered && (item.courseId?.isNotEmpty ?? false))
-              SessionPriorPanel(
-                courseId: item.courseId!,
-                assistUserId: widget.assistUserId,
-                currentType: item.type,
-              ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 20,
+              height: 1.4,
+              color: p.ink,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          if (subtitle.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  room?.isNotEmpty == true
+                      ? AppIcons.location
+                      : AppIcons.person,
+                  size: 16,
+                  color: p.muted,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: p.muted, fontSize: 14, height: 1.5),
+                  ),
+                ),
+              ],
+            ),
           ],
-        ),
+          const SizedBox(height: 16),
+          Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              if (widget.mobileSummary != null)
+                Text(
+                  widget.mobileSummary!,
+                  style: TextStyle(color: p.muted, fontSize: 12),
+                ),
+              if (done)
+                FilledButton(
+                  onPressed: null,
+                  style: FilledButton.styleFrom(
+                    disabledBackgroundColor: p.successSurface,
+                    disabledForegroundColor: p.success,
+                    minimumSize: const Size(112, 48),
+                  ),
+                  child: const Text('已签到'),
+                )
+              else if (!unavailable)
+                FilledButton.icon(
+                  onPressed: () => _openSecondary(prefillNumber: true),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size(112, 48),
+                  ),
+                  label: const Text('去签到'),
+                  icon: const Icon(AppIcons.right, size: 16),
+                  iconAlignment: IconAlignment.end,
+                )
+              else if (item.type == RollcallType.unknown && !done)
+                Text(
+                  '暂不支持此签到类型',
+                  style: TextStyle(color: p.muted, fontSize: 13),
+                ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -625,60 +722,6 @@ class _RollcallTileState extends ConsumerState<_RollcallTile> {
           ),
         ),
       ),
-    );
-  }
-
-  /// Completed tasks show their status at the action position, leaving the
-  /// course title full width instead of repeating a status beside it.
-  Widget _identifyHeader(AppPalette palette, RollcallItem item, String title) {
-    final cta = _secondaryCta(item);
-    final teacher = item.createdByName.trim();
-    final metaStyle = TextStyle(
-      fontSize: 12,
-      height: 1.35,
-      color: palette.muted,
-    );
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: _titleStyle(palette),
-                    ),
-                  ),
-                  if (!item.isAnswered ||
-                      item.type == RollcallType.unknown) ...[
-                    const SizedBox(width: AppSpace.xs),
-                    _statusChip(palette, item),
-                  ],
-                ],
-              ),
-              if (teacher.isNotEmpty || item.typeLabel.isNotEmpty) ...[
-                const SizedBox(height: AppSpace.xxs),
-                Text(
-                  [
-                    if (teacher.isNotEmpty) teacher,
-                    if (item.typeLabel.isNotEmpty) item.typeLabel,
-                  ].join('  '),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: metaStyle,
-                ),
-              ],
-            ],
-          ),
-        ),
-        if (cta != null) ...[const SizedBox(width: AppSpace.sm), cta],
-      ],
     );
   }
 

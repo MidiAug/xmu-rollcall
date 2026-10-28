@@ -27,6 +27,7 @@ class RollcallAnswerPage extends ConsumerStatefulWidget {
     required this.item,
     this.assistUserId,
     this.previewMode = false,
+    this.initialNumberCode,
   });
 
   final RollcallItem item;
@@ -36,6 +37,9 @@ class RollcallAnswerPage extends ConsumerStatefulWidget {
 
   /// Debug-only: confirm UI without calling the rollcall API.
   final bool previewMode;
+
+  /// Already discovered code offered for review; never submitted on entry.
+  final String? initialNumberCode;
 
   @override
   ConsumerState<RollcallAnswerPage> createState() => _RollcallAnswerPageState();
@@ -58,6 +62,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
   @override
   void initState() {
     super.initState();
+    if (widget.item.isNumber) _codeCtrl.text = widget.initialNumberCode ?? '';
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && widget.item.isRadar) _scopeReady ??= _prepareCoursePref();
     });

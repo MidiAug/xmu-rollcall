@@ -940,7 +940,7 @@ void main() {
       expect(find.text('协助课程'), findsOneWidget);
       expect(find.text('本人课程'), findsNothing);
       expect(service.sessions, contains(2));
-      await tester.tap(find.text('扫码签到'));
+      await tester.tap(find.text('去签到'));
       await tester.pumpAndSettle();
       expect(find.byType(QrAnswerPage), findsOneWidget);
       expect(tester.takeException(), isNull);

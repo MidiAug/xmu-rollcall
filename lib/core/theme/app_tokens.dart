@@ -66,8 +66,13 @@ class AppPalette {
       isDark ? const Color(0xFF294249) : const Color(0xFFEBF3F3);
   Color get accentSurface =>
       isDark ? const Color(0xFF244A4A) : const Color(0xFFDCEFEB);
-  Color pageBackground(BuildContext context) =>
-      AppDensity.isTouch(context) ? mobileCanvas : canvas;
+  Color pageBackground(BuildContext context) {
+    final mobile = switch (Theme.of(context).platform) {
+      TargetPlatform.android || TargetPlatform.iOS => true,
+      _ => AppDensity.isTouch(context),
+    };
+    return mobile ? mobileCanvas : canvas;
+  }
 
   /// Transparent twin of [c] so [AnimatedContainer] color lerps stay in-family
   /// (lerping from [Colors.transparent]/black@0 → light gray flashes dark).

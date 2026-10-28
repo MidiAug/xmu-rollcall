@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/rollcall/mobile_rollcall_home.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
 import 'package:xmu_rollcall/features/history/history_summary.dart';
 import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
@@ -169,7 +170,6 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
 
   @override
   Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
     final p = AppPalette.of(context);
     final auth = ref.watch(authControllerProvider);
     final roster = ref.watch(assistControllerProvider).identities;
@@ -489,112 +489,27 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
       title: '签到',
       showHeader: false,
       child: AppContentColumn(
-        child: PrimaryScrollController(
+        child: MobileRollcallHome(
           controller: _scroll,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppSpace.pageXOf(context),
-                  wide ? AppSpace.sm : AppSpace.xs,
-                  AppSpace.pageXOf(context),
-                  AppSpace.sm,
-                ),
-                child: DecoratedBox(
-                  key: const ValueKey('rollcall-toolbar'),
-                  decoration: BoxDecoration(
-                    color: p.surface,
-                    borderRadius: BorderRadius.circular(AppRadii.group),
-                    border: Border.all(color: p.mobileOutline),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 10, 12),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child:
-                                  wide && ShellTabScope.maybeOf(context) != null
-                                  ? const MonitorQuickControl()
-                                  : RollcallAccountMenu(
-                                      value: scope ?? 0,
-                                      identities: roster,
-                                      ownerName: auth.profile?.name ?? '我',
-                                      onChanged: _selectIdentity,
-                                    ),
-                            ),
-                            const SizedBox(width: 4),
-                            const SizedBox(width: 6),
-                            IconButton(
-                              tooltip: '签到记录',
-                              style: AppControlStyle.touchIcon(context),
-                              visualDensity: VisualDensity.standard,
-                              onPressed: () => _openHistory(context),
-                              icon: Icon(
-                                AppIcons.history,
-                                color: p.muted,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            IconButton(
-                              tooltip: '自动检测设置',
-                              style: AppControlStyle.touchIcon(context),
-                              visualDensity: VisualDensity.standard,
-                              onPressed: () => _openSettings(context),
-                              icon: Icon(
-                                AppIcons.settings,
-                                color: p.muted,
-                                size: 20,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                updatedLabel,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 11, color: p.muted),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            if (!wide || ShellTabScope.maybeOf(context) == null)
-                              const MonitorQuickControl(),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: _switching
-                    ? const Center(child: CircularProgressIndicator())
-                    : _switchError != null
-                    ? EmptyHint(
-                        icon: AppIcons.person,
-                        title: _switchError!,
-                        action: TextButton(
-                          onPressed: () => _selectIdentity(scope ?? 0),
-                          child: const Text('重试'),
-                        ),
-                      )
-                    : RollcallListPage(
-                        key: ValueKey(scope),
-                        embedded: true,
-                        showUpdatedAt: false,
-                        assistUserId: scope,
-                      ),
-              ),
-            ],
+          scope: scope,
+          updatedLabel: updatedLabel,
+          switching: _switching,
+          switchError: _switchError,
+          onRetryIdentity: () => _selectIdentity(scope ?? 0),
+          accountMenu: RollcallAccountMenu(
+            value: scope ?? 0,
+            identities: roster,
+            ownerName: auth.profile?.name ?? '我',
+            onChanged: _selectIdentity,
           ),
+          onHistory: () => _openHistory(context),
+          onSettings: () => _openSettings(context),
+          onTimetable: () =>
+              AppPageRoutes.push(context, CoursesPage(assistUserId: scope)),
+          onHomework: () =>
+              ShellNavigation.instance.open(AppDestination.homework),
+          onOpenHomework: (item) =>
+              AppPageRoutes.push(context, HomeworkDetailPage(seed: item)),
         ),
       ),
     );

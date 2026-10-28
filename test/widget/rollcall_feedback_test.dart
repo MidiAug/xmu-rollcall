@@ -92,7 +92,9 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          final entryLabel = type == RollcallType.qrcode
+          final entryLabel = width < 600
+              ? '去签到'
+              : type == RollcallType.qrcode
               ? '扫码签到'
               : type == RollcallType.radar
               ? '选择位置'
@@ -108,6 +110,20 @@ void main() {
           final container = ProviderScope.containerOf(
             tester.element(find.byType(RollcallListPage)),
           );
+          if (width < 600 && type == RollcallType.number) {
+            await tester.tap(find.widgetWithText(FilledButton, entryLabel));
+            await tester.pumpAndSettle();
+            expect(
+              tester
+                  .widget<TextField>(find.byType(TextField).first)
+                  .controller!
+                  .text,
+              '1234',
+            );
+            expect(repo.calls, 0);
+            Navigator.of(tester.element(find.byType(TextField).first)).pop();
+            await tester.pumpAndSettle();
+          }
           final notifier = container.read(
             activeRollcallsProvider(null).notifier,
           );
