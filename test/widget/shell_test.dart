@@ -1,3 +1,8 @@
+import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
+import 'package:xmu_rollcall/features/location/place_providers.dart';
+import 'package:flutter/services.dart';
+import 'package:xmu_rollcall/app/desktop_back_navigation.dart';
+import '../fixtures/desktop_back_input.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/core/theme/app_icons.dart';
@@ -47,6 +52,56 @@ class _EmptyCourseHistory extends CourseHistoryNotifier {
 }
 
 void main() {
+  testWidgets(
+    'hot reload clears retained place warning after matching rules change',
+    (tester) async {
+      tester.view.physicalSize = const Size(1100, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      var room = '文宣楼B404、C405';
+      final scope = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _TestAuthController()),
+          activeRollcallsProvider.overrideWith(_EmptyRollcalls.new),
+          campusCachedDataProvider.overrideWith(
+            (ref) async => const CampusCachedData(),
+          ),
+          coursePlaceGroupsProvider.overrideWith((ref) {
+            ref.watch(campusCachedDataProvider);
+            return [
+              CoursePlaceGroup(room, [room], ['课程示例']),
+            ];
+          }),
+        ],
+      );
+      addTearDown(scope.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: scope,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const AdaptiveShell(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final hint = find.byTooltip('有上课地点未定位，请在地图上标记');
+      expect(scope.read(unmatchedRoomsProvider), isNotEmpty);
+      expect(hint, findsOneWidget);
+      // Simulate retained pre-reload provider output; the data now resolves to B.
+      room = '文宣楼(4号楼）B404、B405';
+      await tester.pump();
+      expect(scope.read(unmatchedRoomsProvider), isNotEmpty);
+      final reassembled = tester.binding.reassembleApplication();
+      await tester.pumpAndSettle();
+      await reassembled;
+      await tester.pumpAndSettle();
+      expect(scope.read(unmatchedRoomsProvider), isEmpty);
+      expect(hint, findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final width in [320.0, 960.0]) {
     testWidgets('My tab update hint follows shared state at $width', (
       tester,
@@ -235,6 +290,7 @@ void main() {
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
 
+      final desktopNavigator = GlobalKey<NavigatorState>();
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -243,7 +299,12 @@ void main() {
             courseHistoryProvider.overrideWith(_EmptyCourseHistory.new),
           ],
           child: MaterialApp(
-            theme: AppTheme.dark(),
+            navigatorKey: desktopNavigator,
+            builder: (context, child) => DesktopBackNavigation(
+              navigatorKey: desktopNavigator,
+              child: child!,
+            ),
+            theme: AppTheme.dark().copyWith(platform: TargetPlatform.windows),
             home: const AdaptiveShell(),
           ),
         ),
@@ -276,11 +337,16 @@ void main() {
                 .first,
           )
           .onPressed!;
-      await tester.tap(find.byTooltip('返回'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
+      expect(find.byTooltip('返回'), findsNothing);
       expect(find.text('厦大签到'), findsOneWidget);
       oldBack();
       await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('签到记录'));
+      await tester.pumpAndSettle();
+      await mouseBack(tester);
+      expect(find.byTooltip('返回'), findsNothing);
       expect(find.text('厦大签到'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },

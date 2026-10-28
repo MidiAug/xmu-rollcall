@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
 import 'package:xmu_rollcall/features/location/place_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account_menu.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
@@ -51,6 +52,17 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   void initState() {
     super.initState();
     ShellNavigation.instance.bind(_openDestination);
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    // Handwritten providers have no source hash to invalidate on hot reload.
+    // Re-read local snapshots so updated matching rules also refresh badges.
+    ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).invalidate(campusCachedDataProvider);
   }
 
   @override
@@ -110,7 +122,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   void _onSystemBack() {
     final nav = _navKeys[_current]?.currentState;
     if (nav != null && nav.canPop()) {
-      nav.pop();
+      unawaited(nav.maybePop());
       return;
     }
     if (!PlatformHooks.isDesktop) {

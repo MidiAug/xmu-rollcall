@@ -49,10 +49,21 @@ class AppShellSelect<T> extends StatefulWidget {
   final bool wrapMenuLabels;
 
   static final List<VoidCallback> _closeHooks = [];
+  static final Set<VoidCallback> _openHooks = {};
+
+  /// Desktop back closes the transient menu before navigating a page.
+  static bool dismissOpenMenu() {
+    if (_openHooks.isEmpty) return false;
+    closeAll();
+    return true;
+  }
 
   static void _register(VoidCallback close) => _closeHooks.add(close);
 
-  static void _unregister(VoidCallback close) => _closeHooks.remove(close);
+  static void _unregister(VoidCallback close) {
+    _closeHooks.remove(close);
+    _openHooks.remove(close);
+  }
 
   static void _closeOthers(VoidCallback keep) {
     for (final h in List<VoidCallback>.of(_closeHooks)) {
@@ -102,6 +113,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
   void _hide({bool restoreFocus = true}) {
     if (!_portal.isShowing) return;
     _portal.hide();
+    AppShellSelect._openHooks.remove(_closeHook);
     if (mounted) {
       setState(() {});
       if (restoreFocus) _triggerFocus.requestFocus();
@@ -129,6 +141,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
     }
     AppShellSelect._closeOthers(_closeHook);
     _portal.show();
+    AppShellSelect._openHooks.add(_closeHook);
     setState(() {});
   }
 
@@ -202,7 +215,11 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
           final maxHeight = (openAbove ? above : below).clamp(48.0, 320.0);
           return TapRegion(
             groupId: _tapGroup,
-            onTapOutside: (_) => _hide(restoreFocus: false),
+            onTapOutside: (event) {
+              if (event.buttons & kBackMouseButton == 0) {
+                _hide(restoreFocus: false);
+              }
+            },
             child: Stack(
               children: [
                 Positioned(
@@ -329,7 +346,8 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
         },
         child: TapRegion(
           groupId: _tapGroup,
-          onTapOutside: (_) {
+          onTapOutside: (event) {
+            if (event.buttons & kBackMouseButton != 0) return;
             _triggerFocus.unfocus();
             _hide(restoreFocus: false);
           },

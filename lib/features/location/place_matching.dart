@@ -34,11 +34,45 @@ String coursePlaceGroup(String room) {
           ? r - 0xfee0
           : r,
     ),
-  );
+  ).replaceAll('（', '(').replaceAll('）', ')');
   if (RegExp(
-    r'[/、；;]',
+    r'[/、；;,，]',
   ).hasMatch(trimmed.replaceAll(RegExp(r'（[^）]*）|\([^)]*\)'), ''))) {
-    return trimmed;
+    // Split only outside parenthesized building aliases. A list of rooms in
+    // one wing is one point; different wings/buildings remain unresolved.
+    final parts = <String>[];
+    var depth = 0, start = 0;
+    for (var i = 0; i < trimmed.length; i++) {
+      final char = trimmed[i];
+      if (char == '(') depth++;
+      if (char == ')' && depth > 0) depth--;
+      if (depth == 0 && RegExp(r'[/、；;,，]').hasMatch(char)) {
+        parts.add(trimmed.substring(start, i).trim());
+        start = i + 1;
+      }
+    }
+    parts.add(trimmed.substring(start).trim());
+    if (parts.any((p) => p.isEmpty)) return trimmed;
+    final first = coursePlaceGroup(parts.first);
+    final wing = RegExp(
+      r'^(.*?)\s+([ABC])区$',
+      caseSensitive: false,
+    ).firstMatch(first);
+    final building = wing?.group(1) ?? first;
+    for (final part in parts.skip(1)) {
+      final next = RegExp(r'^\d{2,5}(?:室|教室)?$').hasMatch(part)
+          ? first
+          : coursePlaceGroup(
+              RegExp(
+                    r'^[ABC](?:区)?\s*\d{2,5}(?:室|教室)?$',
+                    caseSensitive: false,
+                  ).hasMatch(part)
+                  ? '$building $part'
+                  : part,
+            );
+      if (normalizePlaceName(next) != normalizePlaceName(first)) return trimmed;
+    }
+    return first;
   }
   final wing = RegExp(
     r'^(.*?)[\s　]*([A-Za-zＡ-Ｚａ-ｚ])(?:区)?[\s　]*\d{2,5}(?:室|教室)?$',
@@ -130,9 +164,18 @@ SavedLocation? matchCoursePlace(
   List<SavedLocation> custom, {
   Campus? campus,
 }) {
-  final outsideBrackets = room.replaceAll(RegExp(r'（[^）]*）|\([^)]*\)'), '');
-  if (room.trim().isEmpty || RegExp(r'[/、；;]').hasMatch(outsideBrackets)) {
-    return null;
+  if (room.trim().isEmpty) return null;
+  final grouped = coursePlaceGroup(room);
+  final outsideBrackets = grouped.replaceAll(RegExp(r'（[^）]*）|\([^)]*\)'), '');
+  if (RegExp(r'[/、；;,，]').hasMatch(outsideBrackets)) return null;
+  // Resolve combined rooms through their common building/wing, preserving
+  // the original classroom string in timetable data.
+  final originalOutside = room
+      .replaceAll('（', '(')
+      .replaceAll('）', ')')
+      .replaceAll(RegExp(r'\([^)]*\)'), '');
+  if (RegExp(r'[/、；;,，]').hasMatch(originalOutside)) {
+    return matchCoursePlace(grouped, custom, campus: campus);
   }
   final hint = campusInName(room) ?? campus;
   var key = normalizePlaceName(room);

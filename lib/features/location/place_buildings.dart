@@ -52,11 +52,22 @@ class ManagedBuilding {
   List<String> get courses =>
       children.expand((e) => e.courses).toSet().toList();
   LatLng? get center {
-    final points = children
+    final actual = children
         .map((e) => e.place)
         .whereType<SavedLocation>()
         .toList();
-    if (points.isEmpty) return null;
+    if (actual.isEmpty) return null;
+    // A building's overview center must not move with the user's courses.
+    final presetRegions = teachingPlaces
+        .where(
+          (p) =>
+              p.campus == campusForPoint(actual.first) &&
+              placeBuildingName(p.name) == name,
+        )
+        .toList();
+    final points = presetRegions.length > 1
+        ? presetRegions.map((p) => p.saved).toList()
+        : actual;
     // Display-only midpoint of the region bounds, independent of old
     // building reference coordinates or marker label size.
     return LatLng(

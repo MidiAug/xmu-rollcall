@@ -492,6 +492,7 @@ class _CourseDetailFlowState extends ConsumerState<_CourseDetailFlow> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: _map
                   ? CampusMap(
+                      zoom: 17,
                       center:
                           point ??
                           (campusInName(room) ?? Campus.xiangan).center,

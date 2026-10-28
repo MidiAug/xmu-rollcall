@@ -1,3 +1,4 @@
+import '../fixtures/preview_fonts.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -11,6 +12,9 @@ import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 void main() {
   setUpAll(() async {
+    if (Platform.environment['CAPTURE_NAV_UI'] == '1') {
+      await loadDesktopPreviewFonts();
+    }
     for (final entry in {
       'NavUi': 'C:/Windows/Fonts/msyh.ttc',
       'MaterialIcons':
@@ -95,6 +99,7 @@ void main() {
           hints.value = (pending: false, update: true);
           await tester.pumpAndSettle();
           expect(badge, findsOneWidget);
+          expect(find.byTooltip('有上课地点未定位，请在地图上标记'), findsNothing);
           if (desktop) {
             expect(tester.getSize(badge), const Size(7, 7));
             expect(
@@ -130,8 +135,32 @@ void main() {
           hints.value = (pending: true, update: true);
           await tester.pumpAndSettle();
           if (desktop) {
-            final tip = find.byTooltip('补全课程地点');
+            final tip = find.byTooltip('有上课地点未定位，请在地图上标记');
             expect(tip, findsOneWidget);
+            if (Platform.environment['CAPTURE_NAV_UI'] == '1') {
+              final mouse = await tester.createGesture(
+                kind: ui.PointerDeviceKind.mouse,
+              );
+              await mouse.addPointer(location: Offset.zero);
+              await mouse.moveTo(tester.getCenter(tip));
+              await tester.pump(const Duration(seconds: 1));
+              await tester.pumpAndSettle();
+              await tester.runAsync(() async {
+                final image =
+                    await (key.currentContext!.findRenderObject()!
+                            as RenderRepaintBoundary)
+                        .toImage();
+                final bytes = await image.toByteData(
+                  format: ui.ImageByteFormat.png,
+                );
+                await File(
+                  'build/desktop-ui-review/place-tooltip-${dark ? 'dark' : 'light'}.png',
+                ).writeAsBytes(bytes!.buffer.asUint8List());
+                image.dispose();
+              });
+              await mouse.removePointer();
+              await tester.pumpAndSettle();
+            }
             expect(
               tester.getRect(tip).contains(tester.getCenter(find.text('课表'))),
               isTrue,

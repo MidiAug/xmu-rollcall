@@ -66,7 +66,14 @@ final campusCachedDataProvider = FutureProvider.autoDispose<CampusCachedData>((
   final items = <String, HomeworkItem>{};
   void collect(List<Map<String, dynamic>> rows) {
     for (final row in rows) {
-      final item = HomeworkItem.fromJson(row);
+      var item = HomeworkItem.fromJson(row);
+      if (item.courseName.trim().isEmpty) {
+        final title = catalog?.courses
+            .where((c) => c.id == '${item.courseId}')
+            .firstOrNull
+            ?.title;
+        if (title != null) item = item.copyWith(courseName: title);
+      }
       if (!item.isHomework ||
           item.closed == true ||
           teachingIds.contains('${item.courseId}')) {

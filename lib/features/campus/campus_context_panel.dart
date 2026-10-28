@@ -124,21 +124,24 @@ class CampusContextView extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Container(
-                        width: 36,
-                        height: 36,
+                        key: const ValueKey('todo-document-mark'),
+                        width: 48,
+                        height: 64,
                         decoration: BoxDecoration(
                           color: p.isDark
-                              ? p.selected
+                              ? const Color(0xFF163D57)
                               : const Color(0xFFE7F4FF),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
-                          AppIcons.document,
-                          color: p.isDark ? p.primary : const Color(0xFF1685D9),
-                          size: 22,
+                          AppIcons.todoDocument,
+                          color: p.isDark
+                              ? const Color(0xFF70BEFF)
+                              : const Color(0xFF087CE5),
+                          size: 34,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -147,17 +150,32 @@ class CampusContextView extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              pending.first.title,
-                              maxLines: 2,
+                              pending.first.courseName.trim().isEmpty
+                                  ? '课程作业'
+                                  : pending.first.courseName,
+                              key: const ValueKey('todo-course-name'),
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 14,
+                                height: 1.5,
+                                color: p.ink,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              pending.first.title,
+                              key: const ValueKey('todo-homework-title'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 13,
                                 color: p.ink,
                                 height: 1.5,
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 3),
                             Text(
                               _due(pending.first),
                               style: TextStyle(

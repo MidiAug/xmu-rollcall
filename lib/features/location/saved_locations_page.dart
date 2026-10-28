@@ -99,7 +99,6 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
   LatLng? _point;
   LatLng? _viewCenter;
   final _name = TextEditingController();
-  String _query = '';
   bool _creating = false, _busy = false;
   String? _error;
   String? _editingId;
@@ -293,20 +292,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
         .map((g) => coursePlaceIdentity(g.name))
         .toSet();
     final entries = groupPlaceEntries(
-      rawEntries
-          .where(
-            (e) =>
-                _mine || courseIdentities.contains(coursePlaceIdentity(e.name)),
-          )
-          .where(
-            (e) =>
-                (normalizePlaceName(
-                  e.name,
-                ).contains(normalizePlaceName(_query)) ||
-                normalizePlaceName(
-                  e.courses.join(' '),
-                ).contains(normalizePlaceName(_query))),
-          ),
+      rawEntries.where(
+        (e) => _mine || courseIdentities.contains(coursePlaceIdentity(e.name)),
+      ),
     );
     entries.sort((a, b) {
       final status = (a.pending > 0 ? 0 : 1).compareTo(b.pending > 0 ? 0 : 1);
@@ -375,24 +363,13 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                       ],
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                    child: TextField(
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(AppIcons.search, size: 18),
-                        hintText: _mine ? '搜索我的地点' : '搜索课程或地点',
-                        isDense: true,
-                      ),
-                      onChanged: (v) => setState(() => _query = v),
-                    ),
-                  ),
                   Expanded(
                     child: entries.isEmpty
                         ? Center(
                             child: Padding(
                               padding: const EdgeInsets.all(20),
                               child: Text(
-                                _mine ? '暂无自定义地点，点击右上角添加' : '本校区暂无符合条件的课程地点',
+                                _mine ? '暂无自定义地点，点击右上角添加' : '本校区暂无课程地点',
                                 style: TextStyle(color: p.muted),
                               ),
                             ),
@@ -685,7 +662,15 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                   ),
               ],
             );
-            if (!wide) return _mobileMap ? map : list;
+            if (!wide) {
+              return PopScope(
+                canPop: !_mobileMap,
+                onPopInvokedWithResult: (didPop, _) {
+                  if (!didPop && _mobileMap) setState(() => _mobileMap = false);
+                },
+                child: _mobileMap ? map : list,
+              );
+            }
             return Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

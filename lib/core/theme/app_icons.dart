@@ -27,6 +27,7 @@ abstract final class AppIcons {
   static const check = FluentIcons.checkmark_20_regular;
   static const checkCircle = FluentIcons.checkmark_circle_20_regular;
   static const history = FluentIcons.history_20_regular;
+  static const todoDocument = FluentIcons.document_text_24_filled;
   static const document = FluentIcons.document_text_20_regular;
   static const play = FluentIcons.play_20_filled;
   static const pause = FluentIcons.pause_20_filled;

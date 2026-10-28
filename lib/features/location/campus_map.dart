@@ -68,7 +68,7 @@ class _CampusMapState extends State<CampusMap> {
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
     )..layout();
-    final width = (painter.width + 31).clamp(58.0, 240.0);
+    final width = (painter.width + 37).clamp(58.0, 240.0);
     painter.dispose();
     return width;
   }
@@ -94,7 +94,7 @@ class _CampusMapState extends State<CampusMap> {
           onTap: onTap,
           borderRadius: BorderRadius.circular(18),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 9),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [

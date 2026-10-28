@@ -198,3 +198,20 @@ The rebuilt Debug process was restarted and inspected with the real assist timet
 - 课程地点列表仅列当前课程使用的地点，不再把闲置内置预设混入已定位列表；地图仍显示预设标注。无匹配课程只显示空态，不再显示A/B/C操作按钮；有匹配课程继续紧凑分组。自定义地点列表及补全流程保留。
 - 实际查看build/place-ui-review/building-overview.png、building-region-courses-960.0.png、building-region-selected.png，核对定位图标、仅两个实际课程楼宇的列表、空态无按钮。Widget网络被拦截，截图不作为在线底图验收。
 - 最终相关25项回归通过（build/location-course-only-tests-final.log），含浅深色384/960流程及课程区域存储；5个变更Dart文件静态检查无问题（build/location-course-only-analyze-final.log）。Windows当前Debug保留原进程并热重载；Android真机未实测。
+
+
+# 桌面设置审阅、分层返回与待办 — 2026-10-28
+
+1. 设置首页（已调整）：本轮先捕获并查看build/settings-before-desktop.png，看到桌面常用区重复提供侧栏课表、应用组混放外观/窗口/提醒/维护。随后按原组件体系重组，保留账户、地点与协助入口，去掉桌面重复课表入口；手机保留课表入口。修改后实际查看.tools/settings-polish/960-light.png，外观/关闭窗口两选择器仍等宽、右对齐；通知与维护单独成组。
+2. 低频维护（可用）：实际查看.tools/settings-polish/960-light-about.png，更新和下载线路继续位于关于二级页，数据诊断保留二级入口；不把低频工具展开到首页，不增加没有需求的开关。设置测试覆盖320/960、浅深色、1.3倍文本、指针与键盘、外观保存和诊断复制。截图使用虚构账号；未验收系统读屏器或Android真机。
+3. 分层返回（通过回归）：新增桌面早期Esc处理与鼠标后退键；只关闭菜单、再退页面，根层停留。根Navigator.maybePop与Tab的maybePop保留PopScope内部步骤，课表地图和窄屏地点地图先退内部视图。回归专门断言不可直接关闭的弹窗先回课程步骤、选择菜单与页面分开退、首页不关闭应用；额外鼠标按键不触发菜单外点关闭造成连续退两层。没有操控用户日常窗口验证这些动作，使用隔离测试。
+4. 地点与待办（已调整）：取消地点搜索框，标注左右各9px，课程地图默认17级。已知楼宇聚合中心从完整内置区域集合计算，单一A区课程不能使聚合点移到A区；多教室同区字符串含混合括号可匹配B区，跨区/跨楼继续未匹配。实际查看build/todo-ui-review/todo-false.png和todo-true.png，课程名、单行省略标题、截止信息依次显示，48×64图标底与信息块对齐，34px实心文档图形提高辨识；仅从当前身份课程目录补齐待办课程名。
+
+最终验证：地点/桌面工作区/选点25项通过（build/workspace-refinement-flow-tests.log）；设置/返回/待办/课程区域/缓存44项通过（build/workspace-refinement-controls-final.log），合计69项。flutter analyze --no-pub lib test无问题（build/workspace-refinement-analyze-final.log）。图形测试里的地图瓦片被拦截，不作为本轮在线底图验收。Windows当前开发进程热重载102个库成功；没有重启、推送或发布。
+
+
+# 课表地点提醒热重载一致性 — 2026-10-28
+
+- 检查本机Riverpod 2.6.1源码：debugReassemble只在debugGetCreateSourceHash变化时使Provider失效；本项目手写Provider没有该hash。地点管理直接调用新匹配函数，而未匹配列表可能仍保留旧派生状态。Shell.reassemble现在只使当前本地校园快照失效，连带重算分组和提醒；不清持久数据，不触发课程联网刷新。
+- 新增真实reassembleApplication回归：同一Provider容器先保留旧未匹配项，切成“文宣楼(4号楼）B404、B405”后普通重建仍保留，执行热重载后变为空且导航提示消失。14项相关回归通过（build/place-warning-delivery-tests.log）；4种导航主题/尺寸复核通过（build/place-warning-tooltip-visual.log）。静态检查无问题（build/place-warning-delivery-analyze.log）。
+- 提示为“有上课地点未定位，请在地图上标记”，课表入口为“X个上课地点未定位 / 打开地图”。已实际查看build/desktop-ui-review/place-tooltip-light.png，确认全文单行可见、指向地图标记操作；已生成深色版本。原始日常窗口没有被自动点击，当前开发进程成功热重载49个库。

@@ -1,3 +1,4 @@
+import '../fixtures/preview_fonts.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -199,6 +200,15 @@ void main() {
   });
 
   setUpAll(() async {
+    if (Platform.environment['CAPTURE_SETTINGS_UI'] == '1') {
+      await loadDesktopPreviewFonts();
+      await (FontLoader('MaterialIcons')..addFont(
+            File(
+              'D:/Dev/Flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+            ).readAsBytes().then(ByteData.sublistView),
+          ))
+          .load();
+    }
     final font = Platform.environment['SETTINGS_UI_FONT'];
     if (font == null) return;
     await (FontLoader(
@@ -267,6 +277,10 @@ void main() {
       );
       expect(chip, findsNothing);
       await capture(tester, key, 'schedule-direct-${width.toInt()}');
+      if (width > 600) {
+        expect(find.text('本学期课表'), findsNothing);
+        return;
+      }
       await tester.tap(find.text('本学期课表'));
       await tester.pumpAndSettle();
       expect(find.byType(CoursesPage), findsOneWidget);
@@ -310,7 +324,9 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('常用'), findsOneWidget);
-        expect(find.text('应用'), findsOneWidget);
+        expect(find.text(desktop ? '外观与窗口' : '应用'), findsOneWidget);
+        expect(find.text(desktop ? '通知与维护' : '通知与数据'), findsOneWidget);
+        expect(find.text('本学期课表'), desktop ? findsNothing : findsOneWidget);
         for (final removed in ['账号', '检测', '更多', '窗口']) {
           expect(find.text(removed), findsNothing);
         }
@@ -322,7 +338,10 @@ void main() {
           of: appearance,
           matching: find.byType(SettingsSection),
         );
-        expect(tester.widget<SettingsSection>(group).header, '应用');
+        expect(
+          tester.widget<SettingsSection>(group).header,
+          desktop ? '外观与窗口' : '应用',
+        );
         expect(
           tester.getCenter(appearance).dx,
           greaterThan(tester.getCenter(find.text('外观')).dx),

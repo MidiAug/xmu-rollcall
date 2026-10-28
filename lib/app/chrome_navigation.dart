@@ -128,7 +128,7 @@ class _DesktopNavItem extends StatelessWidget {
         button: true,
         child: Tooltip(
           message: hasPendingPlace
-              ? '补全课程地点'
+              ? '有上课地点未定位，请在地图上标记'
               : hasUpdate
               ? '有新版本可更新'
               : '',
@@ -157,7 +157,9 @@ class _DesktopNavItem extends StatelessWidget {
                           size: 24,
                           color: selected ? p.navigationAccent : p.ink,
                           hasUpdate: false,
-                          hint: hasPendingPlace ? '有课程地点待补全' : '有新版本可更新',
+                          hint: hasPendingPlace
+                              ? '有上课地点未定位，请在地图上标记'
+                              : '有新版本可更新',
                           dotSize: 4,
                         ),
                         const SizedBox(width: 12),

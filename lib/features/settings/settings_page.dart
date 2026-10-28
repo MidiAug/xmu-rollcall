@@ -136,15 +136,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
             SettingsSection(
               header: '常用',
               children: [
-                SettingsRow(
-                  leading: const Icon(AppIcons.week),
-                  title: '本学期课表',
-                  subtitle: auth.isSignedIn ? '查看本周上课安排' : '请先登录',
-                  trailing: Icon(AppIcons.right, color: p.muted, size: 18),
-                  onTap: !auth.isSignedIn
-                      ? () => showLoginDialog(context)
-                      : () => AppPageRoutes.push(context, const CoursesPage()),
-                ),
+                if (!desktop)
+                  SettingsRow(
+                    leading: const Icon(AppIcons.week),
+                    title: '本学期课表',
+                    subtitle: auth.isSignedIn ? '查看本周上课安排' : '请先登录',
+                    trailing: Icon(AppIcons.right, color: p.muted, size: 18),
+                    onTap: !auth.isSignedIn
+                        ? () => showLoginDialog(context)
+                        : () =>
+                              AppPageRoutes.push(context, const CoursesPage()),
+                  ),
                 SettingsRow(
                   leading: const Icon(AppIcons.location),
                   title: '地点管理',
@@ -166,7 +168,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               ],
             ),
             SettingsSection(
-              header: '应用',
+              header: desktop ? '外观与窗口' : '应用',
               children: [
                 SettingsRow(
                   leading: const Icon(AppIcons.theme),
@@ -210,6 +212,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                       },
                     ),
                   ),
+              ],
+            ),
+            SettingsSection(
+              header: desktop ? '通知与维护' : '通知与数据',
+              children: [
                 if (platform == TargetPlatform.android || desktop)
                   SettingsRow(
                     leading: const Icon(AppIcons.notification),

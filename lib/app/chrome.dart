@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart' show kBackMouseButton;
 import 'campus_artwork.dart';
 import 'package:flutter/material.dart';
 export 'status_badge.dart';

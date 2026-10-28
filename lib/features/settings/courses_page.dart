@@ -185,7 +185,7 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
                                 const SizedBox(width: 8),
                                 Flexible(
                                   child: Text(
-                                    '${ref.watch(unmatchedRoomsProvider).length} 个课程地点待补全',
+                                    '${ref.watch(unmatchedRoomsProvider).length} 个上课地点未定位',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: Theme.of(context).textTheme.bodySmall

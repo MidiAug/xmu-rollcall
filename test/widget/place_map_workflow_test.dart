@@ -127,6 +127,7 @@ void main() {
           await show(const SavedLocationsPage());
           expect(scope.read(preferredCampusProvider), Campus.xiangan);
           expect(find.text('待补全（1）'), findsOneWidget);
+          expect(find.byType(TextField), findsNothing);
           if (width >= 720) {
             expect(find.byType(CampusSelector), findsOneWidget);
             expect(
@@ -309,6 +310,7 @@ void main() {
             courseRoomsProvider.overrideWithValue(const []),
             coursePlaceGroupsProvider.overrideWithValue(const [
               CoursePlaceGroup('学武楼 A区', ['学武楼A404'], ['专业英语', '工程伦理']),
+              CoursePlaceGroup('坤銮楼 A区', ['坤銮楼A206'], ['课程示例']),
               CoursePlaceGroup('学武楼 C区', ['学武楼C201'], ['高级人工智能']),
               CoursePlaceGroup('西部片区2号楼', ['西部片区2号楼108'], ['软件测试', '科技论文写作']),
             ]),
@@ -327,6 +329,14 @@ void main() {
       expect(find.byKey(const ValueKey('managed-room-西部片区4号楼')), findsNothing);
       await tester.tap(find.byKey(const ValueKey('managed-room-西部片区2号楼')));
       await tester.pumpAndSettle();
+      final cluster = tester
+          .widget<MarkerLayer>(find.byType(MarkerLayer).first)
+          .markers
+          .singleWhere(
+            (m) => m.child.key == const ValueKey('map-building-坤銮楼'),
+          );
+      expect(cluster.point.latitude, closeTo(24.6055835, .0000001));
+      expect(cluster.point.longitude, closeTo(118.312744, .0000001));
       final panel = find.byKey(const ValueKey('map-building-inspector'));
       expect(panel, findsOneWidget);
       expect(
@@ -340,7 +350,7 @@ void main() {
       expect(find.text('补充区域位置'), findsNothing);
       await capture(tester, 'building-courses-$width');
       if (width < 720) {
-        await tester.tap(find.byKey(const ValueKey('map-back-to-list')));
+        await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
       }
       await tester.tap(find.byKey(const ValueKey('managed-room-学武楼')));
@@ -523,6 +533,7 @@ void main() {
       expect(find.byType(CampusMap), findsOneWidget);
       expect(find.byType(CampusSelector), findsNothing);
       final map = tester.widget<CampusMap>(find.byType(CampusMap));
+      expect(map.zoom, 17);
       expect(map.places, isEmpty);
       expect(map.point, isNotNull);
       await tester.tap(find.byTooltip('返回课程'));
