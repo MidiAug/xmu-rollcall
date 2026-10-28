@@ -9,6 +9,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_brand.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
+import 'package:xmu_rollcall/features/campus/campus_search_page.dart';
+import 'package:xmu_rollcall/features/homework/homework_badge.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/shell_destination_scope.dart';
@@ -68,6 +71,9 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   @override
   void dispose() {
     ShellNavigation.instance.unbind(_openDestination);
+    for (final observer in _routeObservers.values) {
+      observer.hasSubpage.dispose();
+    }
     super.dispose();
   }
 
@@ -256,14 +262,43 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                 ),
               ],
             ),
-            bottomNavigationBar: Consumer(
-              builder: (context, ref, _) => AppMobileNav(
-                current: _current,
-                onSelect: _onSelect,
-                hasUpdate: ref.watch(
-                  appUpdateControllerProvider.select((c) => c.update != null),
-                ),
-              ),
+            bottomNavigationBar: ValueListenableBuilder<bool>(
+              valueListenable: _routeObservers[_current]!.hasSubpage,
+              builder: (context, hasSubpage, _) =>
+                  Theme.of(context).platform == TargetPlatform.android &&
+                      hasSubpage
+                  ? const SizedBox.shrink()
+                  : Consumer(
+                      builder: (context, ref, _) => AppMobileNav(
+                        current: _current,
+                        onSelect: _onSelect,
+                        homeworkCount:
+                            Theme.of(context).platform == TargetPlatform.android
+                            ? ref
+                                      .watch(homeworkBadgeCountProvider)
+                                      .whenOrNull(
+                                        skipLoadingOnReload: false,
+                                        data: (count) => count,
+                                      ) ??
+                                  0
+                            : 0,
+                        onSearch:
+                            Theme.of(context).platform == TargetPlatform.android
+                            ? () {
+                                AppShellSelect.closeAll();
+                                FocusManager.instance.primaryFocus?.unfocus();
+                                Navigator.of(context, rootNavigator: true).push(
+                                  AppPageRoutes.build(const CampusSearchPage()),
+                                );
+                              }
+                            : null,
+                        hasUpdate: ref.watch(
+                          appUpdateControllerProvider.select(
+                            (c) => c.update != null,
+                          ),
+                        ),
+                      ),
+                    ),
             ),
           );
 
@@ -309,15 +344,26 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
 /// immediately, rather than starting exit animations that a hidden tab mutes.
 class _TabRouteObserver extends NavigatorObserver {
   final _routes = <Route<dynamic>>[];
+  final hasSubpage = ValueNotifier<bool>(false);
+  void _notify() => hasSubpage.value = _routes.any((route) => !route.isFirst);
   @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      _routes.add(route);
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _routes.add(route);
+    _notify();
+  }
+
   @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      _routes.remove(route);
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _routes.remove(route);
+    _notify();
+  }
+
   @override
-  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      _routes.remove(route);
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _routes.remove(route);
+    _notify();
+  }
+
   @override
   void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
     final index = oldRoute == null ? -1 : _routes.indexOf(oldRoute);
@@ -328,6 +374,7 @@ class _TabRouteObserver extends NavigatorObserver {
         _routes[index] = newRoute;
       }
     }
+    _notify();
   }
 
   void resetToRoot() {

@@ -165,6 +165,7 @@ class _SettingsFrame extends StatelessWidget {
         bottomNavigationBar: AppMobileNav(
           current: AppDestination.settings,
           onSelect: (_) {},
+          onSearch: () {},
         ),
       );
     }
@@ -401,7 +402,7 @@ void main() {
         await tester.pumpAndSettle();
         final login = desktop
             ? find.widgetWithText(FilledButton, '登录')
-            : find.widgetWithText(TextButton, '登录账号');
+            : find.byKey(const ValueKey('android-profile-summary'));
         await tester.scrollUntilVisible(login, -180);
         await Scrollable.ensureVisible(tester.element(login), alignment: .5);
         await tester.pumpAndSettle();
@@ -446,7 +447,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       await capture(tester, key, 'mobile-account-${dark ? 'dark' : 'light'}');
-      await tester.tap(find.text('账号管理'));
+      await tester.tap(find.byKey(const ValueKey('android-profile-summary')));
       await tester.pumpAndSettle();
       expect(find.text('退出登录'), findsOneWidget);
       expect(find.text('测试同学'), findsNWidgets(2));

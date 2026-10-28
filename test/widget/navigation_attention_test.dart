@@ -50,10 +50,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       final nav = find.byType(AppMobileNav);
-      expect(tester.getSize(nav).height, AppDensity.mobileBar + 22 + 1);
+      expect(tester.getSize(nav).height, 64 + 16 + 22);
       tester.view.viewInsets = const FakeViewPadding(bottom: 200);
       await tester.pumpAndSettle();
-      expect(tester.getSize(nav).height, AppDensity.mobileBar + 22 + 1);
+      expect(tester.getSize(nav).height, 64 + 16 + 22);
       expect(tester.takeException(), isNull);
     },
   );

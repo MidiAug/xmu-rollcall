@@ -497,6 +497,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
           switchError: _switchError,
           onRetryIdentity: () => _selectIdentity(scope ?? 0),
           accountMenu: RollcallAccountMenu(
+            masthead: Theme.of(context).platform == TargetPlatform.android,
             value: scope ?? 0,
             identities: roster,
             ownerName: auth.profile?.name ?? '我',

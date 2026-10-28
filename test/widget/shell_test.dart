@@ -53,6 +53,50 @@ class _EmptyCourseHistory extends CourseHistoryNotifier {
 }
 
 void main() {
+  testWidgets('Android bottom navigation is only visible on tab home pages', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _TestAuthController()),
+          activeRollcallsProvider.overrideWith(_EmptyRollcalls.new),
+          campusCachedDataProvider.overrideWith(
+            (ref) async => const CampusCachedData(),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
+          home: const AdaptiveShell(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(of: find.byType(AppMobileNav), matching: find.text('我的')),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('数据与诊断'));
+    await tester.tap(find.text('数据与诊断'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AppMobileNav), findsNothing);
+    expect(find.byKey(const ValueKey('global-search-button')), findsNothing);
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AppMobileNav), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('global-search-button')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AppMobileNav), findsNothing);
+    expect(find.byKey(const ValueKey('campus-search-field')), findsOneWidget);
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AppMobileNav), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   testWidgets(
     'hot reload clears retained place warning after matching rules change',
     (tester) async {

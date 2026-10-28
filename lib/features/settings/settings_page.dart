@@ -388,55 +388,73 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
             padding: const EdgeInsets.only(bottom: 24),
             children: [
               MobileCampusHeader(
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 30,
-                      backgroundColor: p.accentSurface,
-                      child: Icon(AppIcons.person, color: p.primary, size: 32),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                child: Theme.of(context).platform == TargetPlatform.android
+                    ? _AndroidProfileHeader(
+                        name: auth.isSignedIn ? auth.profile!.name : '未登录',
+                        subtitle: subtitle,
+                        signedIn: auth.isSignedIn,
+                        onTap: () => auth.isSignedIn
+                            ? _showAccount(context, auth, subtitle)
+                            : showLoginDialog(context),
+                      )
+                    : Row(
                         children: [
-                          Text(
-                            auth.isSignedIn ? auth.profile!.name : '未登录',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.w700,
-                              color: p.ink,
+                          CircleAvatar(
+                            radius: 30,
+                            backgroundColor: p.accentSurface,
+                            child: Icon(
+                              AppIcons.person,
+                              color: p.primary,
+                              size: 32,
                             ),
                           ),
-                          const SizedBox(height: 6),
-                          Text(
-                            subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 13, color: p.muted),
-                          ),
-                          const SizedBox(height: 8),
-                          TextButton.icon(
-                            style: TextButton.styleFrom(
-                              padding: EdgeInsets.zero,
-                              minimumSize: const Size(48, 48),
-                              alignment: Alignment.centerLeft,
-                              foregroundColor: p.ink,
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  auth.isSignedIn ? auth.profile!.name : '未登录',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w700,
+                                    color: p.ink,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  subtitle,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: p.muted,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                TextButton.icon(
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    minimumSize: const Size(48, 48),
+                                    alignment: Alignment.centerLeft,
+                                    foregroundColor: p.ink,
+                                  ),
+                                  onPressed: () => auth.isSignedIn
+                                      ? _showAccount(context, auth, subtitle)
+                                      : showLoginDialog(context),
+                                  label: Text(
+                                    auth.isSignedIn ? '账号管理' : '登录账号',
+                                  ),
+                                  icon: const Icon(AppIcons.right, size: 16),
+                                ),
+                              ],
                             ),
-                            onPressed: () => auth.isSignedIn
-                                ? _showAccount(context, auth, subtitle)
-                                : showLoginDialog(context),
-                            label: Text(auth.isSignedIn ? '账号管理' : '登录账号'),
-                            icon: const Icon(AppIcons.right, size: 16),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
               ),
               group('常用', [
                 row(
@@ -594,6 +612,103 @@ class _SettingsAccountCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AndroidProfileHeader extends StatelessWidget {
+  const _AndroidProfileHeader({
+    required this.name,
+    required this.subtitle,
+    required this.signedIn,
+    required this.onTap,
+  });
+  final String name, subtitle;
+  final bool signedIn;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '我的',
+          style: TextStyle(
+            fontSize: 28,
+            height: 1.3,
+            fontWeight: FontWeight.w700,
+            color: p.ink,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Semantics(
+          button: true,
+          label: signedIn ? '账号管理' : '登录账号',
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            child: InkWell(
+              key: const ValueKey('android-profile-summary'),
+              borderRadius: BorderRadius.circular(14),
+              onTap: onTap,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 60),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: p.accentSurface,
+                      child: signedIn
+                          ? Text(
+                              name.characters.firstOrNull ?? '我',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                color: p.primary,
+                              ),
+                            )
+                          : Icon(AppIcons.person, size: 26, color: p.primary),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 18,
+                              height: 1.3,
+                              fontWeight: FontWeight.w600,
+                              color: p.ink,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          AppTruncatedText(
+                            subtitle,
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.5,
+                              color: p.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(AppIcons.right, size: 18, color: p.muted),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

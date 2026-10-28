@@ -12,10 +12,10 @@ class MobileCampusHeader extends StatelessWidget {
     final p = AppPalette.of(context);
     final android = Theme.of(context).platform == TargetPlatform.android;
     final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0);
-    final height =
-        184.0 +
-        (MediaQuery.sizeOf(context).width < 360 ? 40 : 0) +
-        (scale - 1) * 72;
+    final compact = MediaQuery.sizeOf(context).width < 360;
+    final height = android
+        ? 168.0 + (compact || scale > 1.15 ? 40 : 0) + (scale - 1) * 72
+        : 184.0 + (compact ? 40 : 0) + (scale - 1) * 72;
     return SizedBox(
       key: const ValueKey('mobile-campus-header'),
       height: height,
@@ -23,9 +23,9 @@ class MobileCampusHeader extends StatelessWidget {
         children: [
           Positioned(
             // The painting has transparent sky; lift it without moving controls.
-            top: android ? -60 : 0,
-            left: 0,
-            right: 0,
+            top: android ? -76 : 0,
+            left: android ? 18 : 0,
+            right: android ? -18 : 0,
             bottom: 0,
             child: ExcludeSemantics(
               child: IgnorePointer(
@@ -46,7 +46,9 @@ class MobileCampusHeader extends StatelessWidget {
           ),
           Positioned.fill(
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: android
+                  ? const EdgeInsets.fromLTRB(20, 16, 20, 12)
+                  : const EdgeInsets.all(20),
               child: Align(
                 alignment: android ? Alignment.topLeft : Alignment.centerLeft,
                 child: child,

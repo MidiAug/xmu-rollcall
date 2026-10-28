@@ -86,7 +86,7 @@ class MobileRollcallHome extends ConsumerWidget {
             child: const Text('登录'),
           )
         : running
-        ? const MonitorQuickControl(quiet: true)
+        ? const MonitorQuickControl(quiet: true, masthead: true)
         : checking
         ? const SizedBox(
             width: 48,
@@ -104,8 +104,11 @@ class MobileRollcallHome extends ConsumerWidget {
         : MonitorQuickControl(
             prominent: items.isEmpty,
             quiet: items.isNotEmpty,
+            masthead: true,
           );
-    final history = signedIn ? ref.watch(currentCourseHistoryProvider) : null;
+    final history = signedIn && !android
+        ? ref.watch(currentCourseHistoryProvider)
+        : null;
     final records = history?.isLoading == false ? history?.valueOrNull : null;
     final latest = HistorySummary(records ?? []).records.firstOrNull;
     final time = latest?.rollcallTime?.toLocal();
@@ -195,28 +198,28 @@ class MobileRollcallHome extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: android
-                              ? 144
-                              : items.isNotEmpty
-                              ? 140
-                              : 180,
-                          child: accountMenu,
-                        ),
-                        if (android)
-                          headerAction
-                        else if (items.isNotEmpty)
-                          const MonitorQuickControl(quiet: true),
-                      ],
-                    ),
+                    SizedBox(height: android ? 8 : 12),
+                    if (android)
+                      _AndroidAccountActions(
+                        account: accountMenu,
+                        action: headerAction,
+                      )
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: items.isNotEmpty ? 140 : 180,
+                            child: accountMenu,
+                          ),
+                          if (items.isNotEmpty)
+                            const MonitorQuickControl(quiet: true),
+                        ],
+                      ),
                     if (android && !running) ...[
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Row(
                         children: [
                           Container(
@@ -352,6 +355,7 @@ class MobileRollcallHome extends ConsumerWidget {
                             data: data,
                             now: now,
                             mobile: true,
+                            showHomework: !android,
                             loading: cached?.isLoading == true,
                             onTimetable: onTimetable,
                             onHomework: onHomework,
@@ -364,62 +368,63 @@ class MobileRollcallHome extends ConsumerWidget {
                 ),
               ),
             ),
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 32, 20, 12),
-                  child: signedIn
-                      ? Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Divider(color: p.borderStrong, height: 1),
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: onHistory,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 16,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        AppIcons.history,
-                                        size: 18,
-                                        color: p.muted,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          '上次签到  $historyText',
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: p.muted,
-                                            fontSize: 12,
-                                            height: 1.5,
+            if (!android)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 32, 20, 12),
+                    child: signedIn
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Divider(color: p.borderStrong, height: 1),
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: onHistory,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          AppIcons.history,
+                                          size: 18,
+                                          color: p.muted,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            '上次签到  $historyText',
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: p.muted,
+                                              fontSize: 12,
+                                              height: 1.5,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Icon(
-                                        AppIcons.right,
-                                        size: 16,
-                                        color: p.muted,
-                                      ),
-                                    ],
+                                        const SizedBox(width: 8),
+                                        Icon(
+                                          AppIcons.right,
+                                          size: 16,
+                                          color: p.muted,
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        )
-                      : const SizedBox.shrink(),
+                            ],
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -497,4 +502,34 @@ class _HomeStatus extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AndroidAccountActions extends StatelessWidget {
+  const _AndroidAccountActions({required this.account, required this.action});
+  final Widget account, action;
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, bounds) {
+      final stacked =
+          bounds.maxWidth < 330 ||
+          MediaQuery.textScalerOf(context).scale(1) > 1.15;
+      if (stacked) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            account,
+            const SizedBox(height: 4),
+            Align(alignment: Alignment.centerRight, child: action),
+          ],
+        );
+      }
+      return Row(
+        children: [
+          Expanded(child: account),
+          const SizedBox(width: 12),
+          action,
+        ],
+      );
+    },
+  );
 }

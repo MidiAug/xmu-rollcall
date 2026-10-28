@@ -17,10 +17,12 @@ class MonitorQuickControl extends ConsumerStatefulWidget {
     this.toolbar = false,
     this.prominent = false,
     this.quiet = false,
+    this.masthead = false,
   });
   final bool toolbar;
   final bool prominent;
   final bool quiet;
+  final bool masthead;
 
   @override
   ConsumerState<MonitorQuickControl> createState() =>
@@ -57,6 +59,8 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final masthead =
+        widget.masthead && Theme.of(context).platform == TargetPlatform.android;
     final monitor = ref.watch(monitorControllerProvider);
     final ctrl = ref.read(monitorControllerProvider.notifier);
     final signedIn = ref.watch(authControllerProvider).isSignedIn;
@@ -88,8 +92,12 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                   )
                 : '',
             child: AppQuietPill(
-              border: !widget.quiet,
-              radius: widget.toolbar ? 7 : 18,
+              border: masthead ? widget.quiet : !widget.quiet,
+              radius: masthead
+                  ? 12
+                  : widget.toolbar
+                  ? 7
+                  : 18,
               onTap: enabled
                   ? () async {
                       final plan = ref.read(selectedDetectionWindowProvider);
@@ -117,7 +125,13 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                       }
                     }
                   : null,
-              background: widget.quiet
+              background: masthead
+                  ? widget.quiet
+                        ? p.selected
+                        : enabled
+                        ? p.primary
+                        : p.controlSurface
+                  : widget.quiet
                   ? Colors.transparent
                   : widget.prominent && enabled
                   ? p.primary
@@ -174,51 +188,77 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
         ? '重试中  ${secs}s'
         : '检测中  ${secs}s';
 
-    return Align(
-      widthFactor: 1,
-      heightFactor: 1,
-      alignment: Alignment.centerLeft,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AppTooltipAnchor(
-            child: Tooltip(
-              message: !monitor.discovering
-                  ? '已停止发现新活动，继续处理本轮自动签到'
-                  : paused
-                  ? '时段外暂停检测，到时自动恢复'
-                  : failed
-                  ? '上次检测失败，点击立即重试'
-                  : '立即检测一次',
-              child: AppQuietPill(
-                onTap: paused || !monitor.discovering ? null : ctrl.pollNow,
-                background: failed && !paused
-                    ? p.danger.withValues(alpha: 0.12)
-                    : p.selected,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.1,
-                    color: failed && !paused ? p.danger : p.primary,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+    final control = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AppTooltipAnchor(
+          child: Tooltip(
+            message: !monitor.discovering
+                ? '已停止发现新活动，继续处理本轮自动签到'
+                : paused
+                ? '时段外暂停检测，到时自动恢复'
+                : failed
+                ? '上次检测失败，点击立即重试'
+                : '立即检测一次',
+            child: AppQuietPill(
+              border: !masthead,
+              radius: masthead ? 12 : 18,
+              onTap: paused || !monitor.discovering ? null : ctrl.pollNow,
+              background: masthead
+                  ? Colors.transparent
+                  : failed && !paused
+                  ? p.danger.withValues(alpha: 0.12)
+                  : p.selected,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.1,
+                  color: failed && !paused ? p.danger : p.primary,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
             ),
           ),
-          const SizedBox(width: 6),
-          AppTooltipAnchor(
-            child: IconButton(
-              tooltip: monitor.discovering ? '停止检测' : '停止自动签到',
-              visualDensity: VisualDensity.compact,
-              onPressed: ctrl.stop,
-              icon: Icon(AppIcons.stop, color: p.muted, size: 22),
+        ),
+        const SizedBox(width: 6),
+        AppTooltipAnchor(
+          child: IconButton(
+            tooltip: monitor.discovering ? '停止检测' : '停止自动签到',
+            visualDensity: masthead
+                ? VisualDensity.standard
+                : VisualDensity.compact,
+            style: masthead
+                ? IconButton.styleFrom(
+                    minimumSize: const Size(48, 48),
+                    padding: const EdgeInsets.all(12),
+                    foregroundColor: p.primary,
+                  )
+                : null,
+            onPressed: ctrl.stop,
+            icon: Icon(
+              AppIcons.stop,
+              color: masthead ? p.primary : p.muted,
+              size: 22,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
+    );
+    return Align(
+      widthFactor: 1,
+      heightFactor: 1,
+      alignment: Alignment.centerLeft,
+      child: masthead
+          ? DecoratedBox(
+              decoration: BoxDecoration(
+                color: p.controlSurface,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: control,
+            )
+          : control,
     );
   }
 }

@@ -174,6 +174,7 @@ void main() {
                     controller: scroll,
                     scope: null,
                     accountMenu: RollcallAccountMenu(
+                      masthead: true,
                       value: 0,
                       identities: const [],
                       ownerName: '林同学',
@@ -192,6 +193,7 @@ void main() {
                   bottomNavigationBar: AppMobileNav(
                     current: AppDestination.rollcall,
                     onSelect: (_) {},
+                    onSearch: () {},
                   ),
                 ),
               ),
@@ -275,15 +277,9 @@ void main() {
                 'Refresh must not replace the running stop control with a spinner',
           );
         }
-        await tester.ensureVisible(
-          find.byKey(const ValueKey('todo-course-name')),
-        );
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('todo-course-name')));
-        await tester.pumpAndSettle();
-        expect(opened, 1);
-        await tester.ensureVisible(find.textContaining('上次签到'));
-        expect(find.textContaining('未签到'), findsOneWidget);
+        expect(find.text('待办事项'), findsNothing);
+        expect(find.textContaining('上次签到'), findsNothing);
+        expect(opened, 0);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
       });

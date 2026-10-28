@@ -224,16 +224,86 @@ class AppMobileNav extends StatelessWidget {
     required this.current,
     required this.onSelect,
     this.hasUpdate = false,
+    this.homeworkCount = 0,
+    this.onSearch,
   });
 
   final AppDestination current;
   final ValueChanged<AppDestination> onSelect;
   final bool hasUpdate;
+  final int homeworkCount;
+  final VoidCallback? onSearch;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final bottom = AppDensity.mobileNavBottomInset(context);
+    if (Theme.of(context).platform == TargetPlatform.android) {
+      Widget glass(Widget child, BorderRadius radius) => ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: p.surface.withValues(alpha: .94),
+              borderRadius: radius,
+              border: Border.all(color: p.mobileOutline),
+            ),
+            child: child,
+          ),
+        ),
+      );
+      return ColoredBox(
+        color: p.mobileCanvas,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(12, 8, 12, bottom + 8),
+          child: SizedBox(
+            height: 64,
+            child: Row(
+              children: [
+                Expanded(
+                  child: glass(
+                    Row(
+                      children: [
+                        for (final d in mobileDestinations)
+                          Expanded(
+                            child: _MobileItem(
+                              destination: d,
+                              selected: d == current,
+                              onTap: () => onSelect(d),
+                              hasUpdate:
+                                  hasUpdate && d == AppDestination.settings,
+                              count: d == AppDestination.homework
+                                  ? homeworkCount
+                                  : 0,
+                              floating: true,
+                            ),
+                          ),
+                      ],
+                    ),
+                    BorderRadius.circular(32),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                glass(
+                  SizedBox(
+                    width: 60,
+                    height: 60,
+                    child: IconButton(
+                      key: const ValueKey('global-search-button'),
+                      tooltip: '搜索',
+                      onPressed: onSearch,
+                      icon: Icon(AppIcons.search, size: 25, color: p.ink),
+                    ),
+                  ),
+                  BorderRadius.circular(30),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return Container(
       decoration: BoxDecoration(
         color: p.surface,
@@ -268,12 +338,16 @@ class _MobileItem extends StatefulWidget {
     required this.selected,
     required this.onTap,
     required this.hasUpdate,
+    this.count = 0,
+    this.floating = false,
   });
 
   final AppDestination destination;
   final bool selected;
   final VoidCallback onTap;
   final bool hasUpdate;
+  final int count;
+  final bool floating;
 
   @override
   State<_MobileItem> createState() => _MobileItemState();
@@ -287,6 +361,17 @@ class _MobileItemState extends State<_MobileItem> {
     final p = AppPalette.of(context);
     final selected = widget.selected;
     final color = selected ? p.primary : p.muted;
+    final icon = _NavigationIcon(
+      icon: selected
+          ? widget.destination == AppDestination.settings
+                ? AppIcons.personSelected
+                : widget.destination.selectedIcon
+          : _icon(widget.destination),
+      size: 22,
+      color: color,
+      hasUpdate: widget.hasUpdate,
+      dotSize: 5,
+    );
     return Semantics(
       selected: selected,
       button: true,
@@ -300,30 +385,42 @@ class _MobileItemState extends State<_MobileItem> {
           duration: AppMotion.instant,
           curve: AppMotion.instantCurve,
           opacity: _pressed ? .7 : 1,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _NavigationIcon(
-                icon: selected
-                    ? widget.destination == AppDestination.settings
-                          ? AppIcons.personSelected
-                          : widget.destination.selectedIcon
-                    : _icon(widget.destination),
-                size: 22,
-                color: color,
-                hasUpdate: widget.hasUpdate,
-                dotSize: 5,
-              ),
-              const SizedBox(height: 2),
-              Text(
-                widget.destination.label,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: color,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+          child: AnimatedContainer(
+            duration: AppMotion.fast,
+            margin: widget.floating
+                ? const EdgeInsets.symmetric(horizontal: 3, vertical: 5)
+                : EdgeInsets.zero,
+            decoration: BoxDecoration(
+              color: widget.floating && selected
+                  ? p.selected
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(27),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (widget.count > 0)
+                  Badge(
+                    key: const ValueKey('mobile-nav-count'),
+                    isLabelVisible: widget.count > 0,
+                    label: Text(widget.count > 99 ? '99+' : '${widget.count}'),
+                    backgroundColor: p.danger,
+                    textColor: p.isDark ? p.canvas : Colors.white,
+                    child: icon,
+                  )
+                else
+                  icon,
+                const SizedBox(height: 2),
+                Text(
+                  widget.destination.label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: color,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

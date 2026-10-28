@@ -10,6 +10,7 @@ import 'package:xmu_rollcall/features/homework/homework_models.dart';
 import 'package:xmu_rollcall/features/homework/homework_candidates.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/homework/homework_submission.dart';
+import 'package:xmu_rollcall/features/homework/homework_badge.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 
@@ -323,6 +324,9 @@ final homeworkSubmissionProvider = FutureProvider.autoDispose
           );
           if (!isCurrent()) throw StateError('作业身份已切换');
           await JsonDiskCache.writeList(suffix, [result.toJson()]);
+          if (isCurrent()) {
+            ref.read(homeworkSubmissionRevisionProvider.notifier).state++;
+          }
           return result;
         } catch (_) {
           if (cached != null) return cached;

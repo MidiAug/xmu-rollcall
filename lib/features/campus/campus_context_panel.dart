@@ -45,6 +45,7 @@ class CampusContextView extends StatelessWidget {
     required this.onOpenHomework,
     this.loading = false,
     this.mobile = false,
+    this.showHomework = true,
   });
   final CampusCachedData data;
   final DateTime now;
@@ -52,6 +53,7 @@ class CampusContextView extends StatelessWidget {
   final ValueChanged<HomeworkItem> onOpenHomework;
   final bool loading;
   final bool mobile;
+  final bool showHomework;
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
@@ -106,25 +108,27 @@ class CampusContextView extends StatelessWidget {
               first: i == 0,
               last: i == summary.visible.length - 1,
             ),
-          const SizedBox(height: 12),
-          Divider(height: 1, color: p.border),
-          const SizedBox(height: 12),
-          heading('待办事项', '查看全部', onHomework),
-          const SizedBox(height: 12),
-          if (pending.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                data.hasHomeworkCache ? '暂无待办事项' : '打开作业查看待办',
-                style: TextStyle(color: p.muted, fontSize: 14),
+          if (showHomework) ...[
+            const SizedBox(height: 12),
+            Divider(height: 1, color: p.border),
+            const SizedBox(height: 12),
+            heading('待办事项', '查看全部', onHomework),
+            const SizedBox(height: 12),
+            if (pending.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  data.hasHomeworkCache ? '暂无待办事项' : '打开作业查看待办',
+                  style: TextStyle(color: p.muted, fontSize: 14),
+                ),
+              )
+            else
+              _MobileTodoRow(
+                item: pending.first,
+                deadline: _due(pending.first),
+                onTap: () => onOpenHomework(pending.first),
               ),
-            )
-          else
-            _MobileTodoRow(
-              item: pending.first,
-              deadline: _due(pending.first),
-              onTap: () => onOpenHomework(pending.first),
-            ),
+          ],
         ],
       );
     }

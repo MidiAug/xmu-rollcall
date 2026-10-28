@@ -12,6 +12,7 @@ class RollcallAccountMenu extends StatelessWidget {
     required this.onChanged,
     this.width = 180,
     this.sidebar = false,
+    this.masthead = false,
   });
   final int value;
   final List<AssistIdentity> identities;
@@ -19,6 +20,7 @@ class RollcallAccountMenu extends StatelessWidget {
   final ValueChanged<int> onChanged;
   final double width;
   final bool sidebar;
+  final bool masthead;
 
   @override
   Widget build(BuildContext context) => Align(
@@ -28,6 +30,51 @@ class RollcallAccountMenu extends StatelessWidget {
       key: const ValueKey('rollcall-identity-menu'),
       width: width,
       menuWidth: 220,
+      triggerBuilder:
+          masthead && Theme.of(context).platform == TargetPlatform.android
+          ? (context, open, toggle, focus) {
+              final p = AppPalette.of(context);
+              final name = value == 0
+                  ? ownerName
+                  : identities.firstWhere((e) => e.userId == value).displayName;
+              return TextButton(
+                focusNode: focus,
+                onPressed: identities.isEmpty ? null : toggle,
+                style: TextButton.styleFrom(
+                  minimumSize: const Size(48, 48),
+                  padding: EdgeInsets.zero,
+                  alignment: Alignment.centerLeft,
+                  foregroundColor: p.ink,
+                  disabledForegroundColor: p.ink,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(AppIcons.person, size: 18, color: p.primary),
+                    const SizedBox(width: 7),
+                    Flexible(
+                      child: Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (identities.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Icon(AppIcons.down, size: 13, color: p.muted),
+                    ],
+                  ],
+                ),
+              );
+            }
+          : null,
       plain: sidebar,
       compact: sidebar,
       subtitle: sidebar ? (value == 0 ? '主账号' : '协助账号') : null,

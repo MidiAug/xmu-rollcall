@@ -55,17 +55,22 @@ void main() {
             final lift =
                 tester.getTopLeft(artwork.first).dy -
                 tester.getTopLeft(headers.first).dy;
-            expect(lift, platform == TargetPlatform.android ? -60 : 0);
+            expect(lift, platform == TargetPlatform.android ? -76 : 0);
             if (platform == TargetPlatform.android) {
+              expect(
+                tester.getTopLeft(artwork.first).dx -
+                    tester.getTopLeft(headers.first).dx,
+                18,
+              );
               expect(
                 tester.getTopLeft(find.text('签到')).dy -
                     tester.getTopLeft(headers.first).dy,
-                closeTo(20, .01),
+                closeTo(16, .01),
               );
               expect(
                 tester.getTopLeft(find.text('我的账号')).dy -
                     tester.getTopLeft(headers.last).dy,
-                closeTo(20, .01),
+                closeTo(16, .01),
               );
             }
             expect(tester.takeException(), isNull);

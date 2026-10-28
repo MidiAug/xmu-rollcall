@@ -453,9 +453,17 @@ void main() {
         final cached = container.read(activeRollcallsProvider(null).notifier);
         final nav = find.byType(width < 600 ? AppMobileNav : AppSidebar);
         Future<void> select(String label) async {
-          await tester.tap(
-            find.descendant(of: nav, matching: find.text(label)),
-          );
+          if (width < 600 && nav.evaluate().isEmpty) {
+            // Android detail pages have no bottom bar. Platform navigation
+            // must still respect the same draft/busy guards.
+            ShellNavigation.instance.open(
+              AppDestination.values.singleWhere((d) => d.label == label),
+            );
+          } else {
+            await tester.tap(
+              find.descendant(of: nav, matching: find.text(label)),
+            );
+          }
           await tester.pumpAndSettle();
         }
 
@@ -595,9 +603,15 @@ void main() {
         await show(tester, const AdaptiveShell());
         final nav = find.byType(width < 600 ? AppMobileNav : AppSidebar);
         Future<void> select(String label) async {
-          await tester.tap(
-            find.descendant(of: nav, matching: find.text(label)),
-          );
+          if (width < 600 && nav.evaluate().isEmpty) {
+            ShellNavigation.instance.open(
+              AppDestination.values.singleWhere((d) => d.label == label),
+            );
+          } else {
+            await tester.tap(
+              find.descendant(of: nav, matching: find.text(label)),
+            );
+          }
           await tester.pumpAndSettle();
         }
 
@@ -664,13 +678,22 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.descendant(of: nav, matching: find.text('作业')));
+        if (width < 600) {
+          expect(nav, findsNothing);
+          ShellNavigation.instance.open(AppDestination.homework);
+        } else {
+          await tester.tap(find.descendant(of: nav, matching: find.text('作业')));
+        }
         await tester.pumpAndSettle();
         expect(find.text('正在保存'), findsOneWidget);
         expect(find.text('正在处理，请稍候再切换页面'), findsOneWidget);
         busy = false;
         AppToast.dismiss();
-        await tester.tap(find.descendant(of: nav, matching: find.text('作业')));
+        if (width < 600) {
+          ShellNavigation.instance.open(AppDestination.homework);
+        } else {
+          await tester.tap(find.descendant(of: nav, matching: find.text('作业')));
+        }
         await tester.pumpAndSettle();
         expect(find.text('正在保存', skipOffstage: false), findsNothing);
         expect(tester.takeException(), isNull);
