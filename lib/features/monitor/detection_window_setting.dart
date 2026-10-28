@@ -12,13 +12,20 @@ import 'package:xmu_rollcall/features/schedule/schedule_detection.dart';
 
 final selectedDetectionWindowProvider =
     FutureProvider.autoDispose<DetectionWindow>((ref) async {
-      ref.watch(detectionWindowProvider);
+      final initial = ref.watch(detectionWindowProvider);
       ref.watch(academicRevisionProvider);
       final uid =
           ref.watch(selectedRollcallAccountProvider) ??
           ref.watch(authControllerProvider).profile?.id;
+      final controller = ref.read(detectionWindowProvider.notifier);
+      if (initial == null) {
+        await controller.ready;
+      }
+      final setting = initial ?? ref.read(detectionWindowProvider);
+      if (setting != null && !setting.scheduleBased) return setting;
       return readScheduleDetectionWindow(
         uid,
+        setting: setting,
         at: ref.read(activeRollcallClockProvider)(),
       );
     });

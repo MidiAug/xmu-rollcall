@@ -206,7 +206,19 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
                   onChanged: (v) => setState(() => _filter = v),
                 ),
                 const SizedBox(width: 8),
-                const _HomeworkRefreshAction(),
+                SizedBox(
+                  height: 44,
+                  width: 44,
+                  child: Center(
+                    child: KeyedSubtree(
+                      key: ValueKey((
+                        ref.watch(authControllerProvider).profile?.id,
+                        ref.watch(selectedRollcallAccountProvider),
+                      )),
+                      child: const _HomeworkRefreshAction(),
+                    ),
+                  ),
+                ),
               ],
             )
           : null,
@@ -508,9 +520,11 @@ class _HomeworkRefreshAction extends ConsumerWidget {
   const _HomeworkRefreshAction();
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(homeworkTodosProvider);
     final updatedAt = ref.read(homeworkTodosProvider.notifier).lastUpdatedAt;
     return AppRefreshButton(
       key: const ValueKey('homework-refresh'),
+      extent: 44,
       tooltip: updatedAt == null
           ? '刷新作业'
           : '刷新作业，上次更新 ${updatedAt.toLocal().toString().substring(5, 16)}',

@@ -1,3 +1,36 @@
+# 2026-10-28 账号范围、区域地点和 GPA 工具
+
+Final result: implemented scope verified; authenticated grade endpoint and Android physical-device checks remain unverified.
+
+## Current behavior and evidence
+
+- Refresh controls share the same surface/border. The homework refresh control has a 44px extent matching its segmented control. Timetable cells now use ellipsis for clipped text; full room text remains available in course details.
+- Place filter has a visible selected fill. Course-place groups collapse room numbers into building/wing, resolve building aliases/fullwidth letters and show associated course names; custom wing coordinates apply to the other rooms in that wing. Room numbers remain in the actual timetable.
+- `build/gpa-ui-review/gpa-960.0-false.png` and `gpa-384.0-true.png` were opened for visual inspection, alongside light/dark variants. Fixtures use fictional courses. They confirm app typography, three summary metrics, term selection, local update time, course checkboxes and long-title truncation. Font capture includes the real CJK/Fluent/Material faces; no generated bitmap UI or real grades are embedded.
+- GPA is lazy: the campus tool card does not query grades. Opening the calculator reads its identity-specific snapshot, using a one-day cache; explicit refresh is throttled to at least 15 seconds. First/old caches query all grades, otherwise the server's recent-term identifiers determine replacement. Only server grade points and credits are weighted, with unknown points excluded.
+
+## Isolation audit and regressions
+
+- Existing requests, raw course catalogs, academic timetables, homework, history, attendance and automatic submission paths already carry target identity/session checks. Their account and queue regressions still run.
+- Fixed global saved locations and schedule-gating preference. Scoped keys and legacy migration now keep them separate; only explicitly configured legacy assist point IDs migrate into that assist's list. Logged-out draft locations use a separate key; switching identity resets the location editor and campus selection so a draft cannot be saved into the next identity.
+- Pending GPA response is discarded after selection/owner/session changes, including secure-store owner verification. Local rows exclude student identifiers/session data. Pagination or server error cannot replace a complete cached snapshot.
+- Automatic start and explanation use the same selected-identity planner, wait for that identity's settings and do not borrow loading-state data from the previous identity. New widget regression switches from an allowed owner to an assist with an empty known schedule and asserts disabled start plus the no-class explanation.
+- Term starts use cached TronClass `start_date` metadata, with a one-time old-catalog schema refresh and a unique most-common teaching Monday in the term's season; manual start remains highest priority. Unknown/ambiguous dates keep the published-calendar fallback.
+
+## Validation
+
+- Full suite: 730 passed, 2 existing network-config tests skipped (`build/gpa-all-final.log`).
+- Focused UI/role regressions: 40 passed (`build/gpa-ui-regressions-final.log`).
+- Static analysis: no issues (`build/gpa-final-static.log`); final location/grade subset: 12 passed (`build/gpa-delivery-focused.log`).
+- Live development process: existing Windows app PID 70280, original `flutter run` session retained. Final library changes are hot-reloaded after restart (2 libraries in 3,004ms). Final grade subset: 8 passed; selected-role UI subset: 35 passed. One hot restart is used for the new provider/cache schema so migrations and identity dependencies initialize together; no release installation or duplicate app instance.
+- Source capture `D:/Liu/Desktop/成绩查询.txt` is read-only and is neither committed nor replayed for authentication. Interface contract and audit notes stay in ignored local docs/research/54-grades-and-account-scope.md.
+
+## Remaining checks
+
+Authenticated end-to-end GPA retrieval is left for the first user-opened calculator; the automated suite uses fake records and protocol response shapes. Physical Android execution is not claimed. Device appearance, window/notification settings and imported-account management remain local management state, while business requests and records follow the selected identity.
+
+---
+
 # 2026-10-28 元信息对齐与地点列表微调
 
 - User visual evidence: clipboard-38761503 (icons above text), clipboard-0baa780e (small sidebar dot), clipboard-8c7974a3 (pending link alignment). This is a targeted UI correction, not a new design direction.

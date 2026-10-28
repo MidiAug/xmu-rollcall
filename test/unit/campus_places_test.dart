@@ -35,7 +35,7 @@ void main() {
       addTearDown(container.dispose);
       await container.read(savedLocationsProvider.notifier).ready;
       expect(container.read(knownLocationsProvider).map((p) => p.note), [
-        '学武楼C201',
+        '学武楼 C区',
       ]);
       expect(
         container
@@ -48,7 +48,7 @@ void main() {
           .add(note: '西部片区2号楼108', latitude: 24.606, longitude: 118.3);
       expect(
         container.read(knownLocationsProvider).map((p) => p.note).toSet(),
-        {'学武楼C201', '西部片区2号楼108'},
+        {'学武楼 C区', '西部片区2号楼108'},
       );
       expect(container.read(unmatchedRoomsProvider), isEmpty);
     },
@@ -71,7 +71,7 @@ void main() {
     () {
       final point = custom('mine', '西部片区2号楼108');
       expect(matchCoursePlace('西部片区２号楼 108', [point])?.id, 'mine');
-      expect(matchCoursePlace('西部片区2号楼109', [point]), isNull);
+      expect(matchCoursePlace('西部片区2号楼109', [point])?.id, 'mine');
       expect(matchCoursePlace('学武楼C201/文宣楼A101', []), isNull);
       expect(
         matchCoursePlace('学武楼C201', [

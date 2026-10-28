@@ -302,7 +302,7 @@ class _TimetableBody extends StatelessWidget {
     final meta = semester
         ? semesterInfo == null
               ? '学期课表'
-              : semesterLabel(semesterInfo!.term).replaceAll(' · ', '  ')
+              : '${semesterLabel(semesterInfo!.term)}${semesterInfo!.start == null ? '' : '  ${semesterInfo!.start!.year}年${semesterInfo!.start!.month}月${semesterInfo!.start!.day}日起'}'
         : '${semesterInfo?.weekLabel(now) ?? '本周课表'}  $weekStart—${sunday.month}月${sunday.day}日';
     return Padding(
       padding: EdgeInsets.fromLTRB(

@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 import 'package:xmu_rollcall/features/schedule/academic_calendar.dart';
@@ -9,8 +10,45 @@ String semesterLabel(String term) {
   final year = int.tryParse(term.length >= 4 ? term.substring(0, 4) : term);
   if (year == null || term.length != 5) return term;
   final season = {'1': '秋季', '2': '春季', '3': '夏季'}[term[4]] ?? '';
-  return '$year—${year + 1}学年 · $season';
+  return '${term[4] == '1' ? year : year + 1}年$season学期';
 }
+
+DateTime? teachingMondayFromCourses(
+  Iterable<CatalogCourse> courses,
+  String term,
+) {
+  if (!RegExp(r'^\d{4}[123]$').hasMatch(term)) return null;
+  final year = int.parse(term.substring(0, 4)) + (term[4] == '1' ? 0 : 1);
+  final votes = <DateTime, int>{};
+  for (final c in courses) {
+    final raw = c.startDate;
+    if (raw == null) continue;
+    final start = DateTime(raw.year, raw.month, raw.day);
+    final season = term[4];
+    if (start.year != year ||
+        !(season == '1'
+            ? start.month >= 8 && start.month <= 10
+            : season == '2'
+            ? start.month >= 1 && start.month <= 4
+            : start.month >= 5 && start.month <= 8)) {
+      continue;
+    }
+    final monday = start.add(Duration(days: (8 - start.weekday) % 7));
+    votes[monday] = (votes[monday] ?? 0) + 1;
+  }
+  if (votes.isEmpty) return null;
+  final sorted = votes.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  return sorted.length > 1 && sorted[0].value == sorted[1].value
+      ? null
+      : sorted.first.key;
+}
+
+Future<DateTime?> platformSemesterMonday(int uid, String term) async =>
+    teachingMondayFromCourses(
+      (await CourseCatalogStore.read(uid))?.courses ?? const [],
+      term,
+    );
 
 String currentSemester(DateTime now) {
   final known =

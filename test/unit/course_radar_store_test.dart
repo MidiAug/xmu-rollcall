@@ -167,7 +167,7 @@ void main() {
   test(
     'linked automatic location follows edits and refuses deleted or same-name replacement places',
     () async {
-      final places = SavedLocationsController();
+      final places = SavedLocationsController(ownerId: 1, userId: 1);
       final defaults = CourseRadarDefaultsController(userId: 1);
       addTearDown(places.dispose);
       addTearDown(defaults.dispose);
@@ -207,7 +207,7 @@ void main() {
       // The manual confirmation path can still show the old point as a suggestion.
       expect(defaults.forCourse(courseId: '7')!.latitude, 24.5);
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(savedRadarLocationsKey, '{damaged');
+      await prefs.setString(savedLocationsKey(1, 1), '{damaged');
       expect(await read(), isNull);
     },
   );

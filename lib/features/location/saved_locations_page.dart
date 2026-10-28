@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
@@ -19,10 +21,20 @@ class SavedLocationsPage extends ConsumerStatefulWidget {
 }
 
 class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
-  final _manager = GlobalKey<_LocationManagerState>();
+  var _manager = GlobalKey<_LocationManagerState>();
+  (int?, int?)? _identity;
   Campus? _campus;
   @override
   Widget build(BuildContext context) {
+    final identity = (
+      ref.watch(authControllerProvider).profile?.id,
+      ref.watch(selectedRollcallAccountProvider),
+    );
+    if (identity != _identity) {
+      _identity = identity;
+      _manager = GlobalKey<_LocationManagerState>();
+      _campus = null;
+    }
     final Campus campus = _campus ?? ref.watch<Campus>(preferredCampusProvider);
     return SubpageScaffold(
       title: '地点管理',
@@ -234,7 +246,8 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
     final places = ref.watch(knownLocationsProvider);
     final Campus campus =
         widget.campus ?? ref.watch<Campus>(preferredCampusProvider);
-    final rooms = ref.watch(courseRoomsProvider);
+    final groups = ref.watch(coursePlaceGroupsProvider);
+    final rooms = groups.map((g) => g.name);
     final pending = ref.watch(unmatchedRoomsProvider).toSet();
     bool inCampus(String name, SavedLocation? place) =>
         (place == null ? campusInName(name) : campusForPoint(place)) ==
@@ -252,9 +265,16 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
             .where(
               (e) =>
                   inCampus(e.name, e.place) &&
-                  normalizePlaceName(
-                    e.name,
-                  ).contains(normalizePlaceName(_query)) &&
+                  (normalizePlaceName(
+                        e.name,
+                      ).contains(normalizePlaceName(_query)) ||
+                      groups
+                          .where((g) => g.name == e.name)
+                          .any(
+                            (g) => normalizePlaceName(
+                              g.courses.join(' '),
+                            ).contains(normalizePlaceName(_query)),
+                          )) &&
                   (!_pendingOnly || _mine || pending.contains(e.name)),
             )
             .toList();
@@ -314,6 +334,14 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                               ? IconButton(
                                   tooltip: _pendingOnly ? '显示全部地点' : '只看待补全',
                                   isSelected: _pendingOnly,
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: _pendingOnly
+                                        ? p.selected
+                                        : Colors.transparent,
+                                    foregroundColor: _pendingOnly
+                                        ? p.primary
+                                        : p.muted,
+                                  ),
                                   onPressed: () => setState(
                                     () => _pendingOnly = !_pendingOnly,
                                   ),
@@ -329,7 +357,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                     child: TextField(
                       decoration: InputDecoration(
                         prefixIcon: const Icon(AppIcons.search, size: 18),
-                        hintText: _mine ? '搜索我的地点' : '搜索课程教室',
+                        hintText: _mine ? '搜索我的地点' : '搜索课程或地点',
                         isDense: true,
                       ),
                       onChanged: (v) => setState(() => _query = v),
@@ -415,10 +443,30 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                       ),
                                       subtitle: Text(
                                         isPending
-                                            ? '点击补充位置'
+                                            ? (groups
+                                                          .where(
+                                                            (g) =>
+                                                                g.name ==
+                                                                e.name,
+                                                          )
+                                                          .firstOrNull
+                                                          ?.courses
+                                                          .join('、')
+                                                          .isNotEmpty ==
+                                                      true
+                                                  ? groups
+                                                        .firstWhere(
+                                                          (g) =>
+                                                              g.name == e.name,
+                                                        )
+                                                        .courses
+                                                        .join('、')
+                                                  : '课程地点，点击补充位置')
                                             : isReferencePlace(e.place!)
-                                            ? '楼宇参考，可补充教室位置'
+                                            ? '楼宇参考，可补充区域位置'
                                             : '已保存位置',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
                                         style: Theme.of(context)
                                             .textTheme
                                             .bodySmall
@@ -588,7 +636,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
           const SizedBox(height: 8),
           if (_creating) ...[
             Text(
-              _point == null ? '在地图上点击教室所在位置' : '位置已选择，保存后将重新匹配课程',
+              _point == null ? '在地图上点选区域位置' : '位置已选择，保存后将重新匹配课程',
               style: TextStyle(fontSize: 12, color: p.muted),
             ),
             const SizedBox(height: 12),
@@ -634,7 +682,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
             ),
           ] else if (selected != null) ...[
             Text(
-              isReferencePlace(selected) ? '楼宇参考点，尚非精确教室坐标' : '自定义地点',
+              isReferencePlace(selected) ? '楼宇参考点，可补充区域位置' : '自定义地点',
               style: TextStyle(fontSize: 12, color: p.muted),
             ),
             const SizedBox(height: 12),
@@ -656,7 +704,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                               selected.longitude,
                             );
                           }),
-                    child: Text(isReferencePlace(selected) ? '补充教室位置' : '调整位置'),
+                    child: Text(isReferencePlace(selected) ? '补充区域位置' : '调整位置'),
                   ),
                   if (!isReferencePlace(selected)) ...[
                     TextButton(

@@ -75,6 +75,9 @@ void main() {
   setUp(
     () => SharedPreferences.setMockInitialValues({
       'schedule_detection_only_v2': false,
+      'schedule_detection_only_v2_1': false,
+      'schedule_detection_only_v2_2': false,
+      'schedule_detection_only_v2_3': false,
     }),
   );
   ProviderContainer make(_Repo repo, {int owner = 1}) => ProviderContainer(

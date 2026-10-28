@@ -6,7 +6,7 @@ import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
-import 'package:xmu_rollcall/features/monitor/detection_window.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
 
@@ -29,7 +29,8 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
     super.initState();
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      final window = ref.read(detectionWindowProvider);
+      final planned = ref.read(selectedDetectionWindowProvider);
+      final window = planned.isLoading ? null : planned.valueOrNull;
       final outsideWindow =
           window != null &&
           !window.allows(ref.read(activeRollcallClockProvider)());
@@ -52,7 +53,8 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
     final monitor = ref.watch(monitorControllerProvider);
     final ctrl = ref.read(monitorControllerProvider.notifier);
     final signedIn = ref.watch(authControllerProvider).isSignedIn;
-    final window = ref.watch(detectionWindowProvider);
+    final planned = ref.watch(selectedDetectionWindowProvider);
+    final window = planned.isLoading ? null : planned.valueOrNull;
     _outsideWindow =
         window != null &&
         !window.allows(ref.read(activeRollcallClockProvider)());
@@ -73,13 +75,19 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
             message: !signedIn
                 ? '请先登录'
                 : _outsideWindow
-                ? '检测时段为 ${window!.label}'
+                ? todayDetectionRanges(
+                    window!,
+                    ref.read(activeRollcallClockProvider)(),
+                  )
                 : '',
             child: AppQuietPill(
               radius: widget.toolbar ? 7 : 18,
               onTap: enabled
                   ? () async {
-                      final currentWindow = ref.read(detectionWindowProvider);
+                      final plan = ref.read(selectedDetectionWindowProvider);
+                      final currentWindow = plan.isLoading
+                          ? null
+                          : plan.valueOrNull;
                       if (currentWindow == null ||
                           !currentWindow.allows(
                             ref.read(activeRollcallClockProvider)(),
@@ -141,7 +149,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
     final label = !monitor.discovering
         ? '自动签到处理中'
         : paused
-        ? '${DetectionWindow.formatMinute(window!.startMinute)} 继续'
+        ? '等待课表时段'
         : failed
         ? '重试中  ${secs}s'
         : '检测中  ${secs}s';

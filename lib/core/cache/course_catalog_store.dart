@@ -11,6 +11,7 @@ class CatalogCourse {
     required this.id,
     required this.title,
     this.courseCode,
+    this.startDate,
     this.academicMatched = false,
     this.academicGroup,
     Map<int, List<TimetableSlot>> timetables = const {},
@@ -26,6 +27,7 @@ class CatalogCourse {
   final String id;
   final String title;
   final String? courseCode;
+  final DateTime? startDate;
   final bool academicMatched;
   final String? academicGroup;
 
@@ -53,6 +55,7 @@ class CatalogCourse {
     id: id,
     title: title,
     courseCode: courseCode,
+    startDate: startDate,
     academicMatched: academic ?? academicMatched,
     academicGroup: group ?? academicGroup,
     timetables: value,
@@ -73,6 +76,7 @@ class CatalogCourse {
     id: id,
     title: title,
     courseCode: courseCode,
+    startDate: startDate,
     academicMatched: academicMatched,
     academicGroup: academicGroup,
     timetables: _timetables,
@@ -107,6 +111,7 @@ class CatalogCourse {
     id: id,
     title: title,
     courseCode: courseCode,
+    startDate: startDate,
     academicMatched: academicMatched,
     academicGroup: academicGroup,
     timetables: _timetables,
@@ -123,6 +128,7 @@ class CatalogCourse {
     'id': id,
     'title': title,
     'courseCode': courseCode,
+    if (startDate != null) 'startDate': startDate!.toIso8601String(),
     'academicMatched': academicMatched,
     'academicGroup': academicGroup,
     'roles': roles,
@@ -159,6 +165,7 @@ class CatalogCourse {
       id: '${j['id'] ?? ''}',
       title: j['title'] as String? ?? '',
       courseCode: j['courseCode'] as String?,
+      startDate: DateTime.tryParse('${j['startDate'] ?? ''}'),
       academicMatched: j['academicMatched'] == true,
       academicGroup: j['academicGroup'] as String?,
       timetables: tables,
@@ -204,6 +211,7 @@ class CourseCatalogSnapshot {
     this.semesterId,
     this.academicYearId,
     this.rolesResolved = false,
+    this.startDatesResolved = true,
     this.academicOnlyCourses = const [],
     this.academicTerm,
   });
@@ -213,6 +221,7 @@ class CourseCatalogSnapshot {
   final String? semesterId;
   final String? academicYearId;
   final bool rolesResolved;
+  final bool startDatesResolved;
 
   /// Display only; never used as TronClass attendance IDs.
   final List<CatalogCourse> academicOnlyCourses;
@@ -254,6 +263,7 @@ class CourseCatalogSnapshot {
     'fetchedAt': fetchedAt.toIso8601String(),
     'courses': [for (final c in courses) c.toJson()],
     'rolesResolved': rolesResolved,
+    'startDatesResolved': startDatesResolved,
     if (academicTerm != null) 'academicTerm': academicTerm,
     if (semesterId != null) 'semesterId': semesterId,
     if (academicYearId != null) 'academicYearId': academicYearId,
@@ -277,6 +287,7 @@ class CourseCatalogSnapshot {
       semesterId: j['semesterId'] as String?,
       academicYearId: j['academicYearId'] as String?,
       rolesResolved: j['rolesResolved'] == true,
+      startDatesResolved: j['startDatesResolved'] == true,
       academicTerm: j['academicTerm'] as String?,
     );
   }

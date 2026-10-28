@@ -20,7 +20,9 @@ class CampusContextPanel extends ConsumerWidget {
         ref.watch(campusClockProvider).valueOrNull ??
         ref.read(campusNowProvider)();
     return CampusContextView(
-      data: cached.valueOrNull ?? const CampusCachedData(),
+      data:
+          (cached.isLoading ? null : cached.valueOrNull) ??
+          const CampusCachedData(),
       now: now,
       loading: cached.isLoading,
       onTimetable: onTimetable,

@@ -144,6 +144,9 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({
       'schedule_detection_only_v2': false,
+      'schedule_detection_only_v2_1': false,
+      'schedule_detection_only_v2_2': false,
+      'schedule_detection_only_v2_3': false,
       'monitor_auto_answer': true,
       'monitor_answer_wait_mode': 0,
     });

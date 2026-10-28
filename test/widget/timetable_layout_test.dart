@@ -294,7 +294,7 @@ void main() {
           findsOneWidget,
           reason: 'A single period still reserves the full room caption',
         );
-        expect(tester.widget<Text>(room).overflow, TextOverflow.clip);
+        expect(tester.widget<Text>(room).overflow, TextOverflow.ellipsis);
         expect(
           tester.widget<Text>(find.text('工程伦理')).style!.fontSize,
           greaterThanOrEqualTo(desktop ? 13 : 11),

@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
 import 'package:xmu_rollcall/features/history/history_summary.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_quick_control.dart';
@@ -24,7 +25,6 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/history/history_page.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
-import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_list_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
@@ -174,7 +174,8 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
     final roster = ref.watch(assistControllerProvider).identities;
     final selected = ref.watch(selectedRollcallAccountProvider);
     final scope = roster.any((e) => e.userId == selected) ? selected : null;
-    final window = ref.watch(detectionWindowProvider);
+    final planned = ref.watch(selectedDetectionWindowProvider);
+    final window = planned.isLoading ? null : planned.valueOrNull;
     final outsideWindow =
         window != null &&
         !window.allows(ref.read(activeRollcallClockProvider)());
@@ -187,7 +188,12 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
           .lastUpdatedAt;
     }
     final updatedLabel = outsideWindow
-        ? '时段外暂停获取签到（${window.label}）'
+        ? (window.scheduleBased
+              ? todayDetectionRanges(
+                  window,
+                  ref.read(activeRollcallClockProvider)(),
+                )
+              : '时段外暂停获取签到（${window.label}）')
         : _switching
         ? '正在切换…'
         : confirming
@@ -233,14 +239,21 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                 .length
           : 0;
       final cached = active && auth.isSignedIn
-          ? ref.watch(campusCachedDataProvider).valueOrNull
+          ? ref
+                .watch(campusCachedDataProvider)
+                .whenOrNull(skipLoadingOnReload: false, data: (data) => data)
           : null;
       final now = active && auth.isSignedIn
           ? ref.watch(campusClockProvider).valueOrNull ??
                 ref.read(campusNowProvider)()
           : DateTime.now();
       final records = auth.isSignedIn
-          ? ref.watch(currentCourseHistoryProvider).valueOrNull ??
+          ? ref
+                    .watch(currentCourseHistoryProvider)
+                    .whenOrNull(
+                      skipLoadingOnReload: false,
+                      data: (data) => data,
+                    ) ??
                 const <CourseRollcallRecord>[]
           : const <CourseRollcallRecord>[];
       final history = HistorySummary(records).records;
@@ -350,6 +363,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
             ),
           const MonitorQuickControl(toolbar: true),
           AppRefreshButton(
+            key: ValueKey((auth.profile?.id, scope)),
             iconSize: 20,
             onRefresh: () async {
               if (_switching) return;
@@ -424,7 +438,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        pendingCount > 0
+                        pendingCount > 0 && !outsideWindow
                             ? '已发现 $pendingCount 项待签到'
                             : updatedLabel,
                         style: TextStyle(

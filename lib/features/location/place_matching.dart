@@ -23,6 +23,56 @@ String normalizePlaceName(String text) {
   return value.replaceAll(RegExp(r'[\s　（）()·,，_-]'), '');
 }
 
+/// A building/wing is one physical location; room numbers remain timetable text.
+String coursePlaceGroup(String room) {
+  final trimmed = String.fromCharCodes(
+    room.trim().runes.map(
+      (r) =>
+          (r >= 0xff10 && r <= 0xff19 ||
+              r >= 0xff21 && r <= 0xff3a ||
+              r >= 0xff41 && r <= 0xff5a)
+          ? r - 0xfee0
+          : r,
+    ),
+  );
+  if (RegExp(
+    r'[/、；;]',
+  ).hasMatch(trimmed.replaceAll(RegExp(r'（[^）]*）|\([^)]*\)'), ''))) {
+    return trimmed;
+  }
+  final wing = RegExp(
+    r'^(.*?)[\s　]*([A-Za-zＡ-Ｚａ-ｚ])(?:区)?[\s　]*\d{2,5}(?:室|教室)?$',
+  ).firstMatch(trimmed);
+  if (wing != null) {
+    return '${wing[1]!.trim()} ${normalizePlaceName(wing[2]!).toUpperCase()}区';
+  }
+  final roomNumber = RegExp(
+    r'^(.*(?:楼|馆|中心)(?:（[^）]*）|\([^)]*\))?)[\s　]*\d{2,5}(?:室|教室)?$',
+  ).firstMatch(trimmed);
+  return roomNumber?.group(1)?.trim() ?? trimmed;
+}
+
+String coursePlaceIdentity(String room) {
+  var key = normalizePlaceName(coursePlaceGroup(room));
+  final hint = campusInName(room);
+  for (final campus in Campus.values) {
+    key = key.replaceAll(campus.label, '');
+  }
+  final wing = RegExp(r'([a-z])区$').firstMatch(key);
+  final building = wing == null ? key : key.substring(0, wing.start);
+  final matches = campusPlaces
+      .where(
+        (p) =>
+            (hint == null || p.campus == hint) &&
+            [
+              p.name,
+              ...p.aliases,
+            ].any((a) => normalizePlaceName(a) == building),
+      )
+      .toList();
+  return matches.length == 1 ? '${matches.single.id}:${wing?[1] ?? ''}' : key;
+}
+
 Campus? campusForPoint(SavedLocation place) {
   final ordered = [...Campus.values]
     ..sort(
@@ -78,6 +128,28 @@ SavedLocation? matchCoursePlace(
   for (final c in Campus.values) {
     key = key.replaceAll(c.label, '');
   }
+  final groupKey = normalizePlaceName(coursePlaceGroup(room));
+  final groupExact = custom
+      .where(
+        (p) =>
+            (hint == null || campusForPoint(p) == hint) &&
+            (normalizePlaceName(p.note) == groupKey ||
+                (normalizePlaceName(p.note) ==
+                        normalizePlaceName(coursePlaceGroup(p.note)) &&
+                    coursePlaceIdentity(p.note) == coursePlaceIdentity(room))),
+      )
+      .toList();
+  if (groupExact.length == 1) return groupExact.single;
+  if (groupExact.length > 1) return null;
+  final oldGroup = custom
+      .where(
+        (p) =>
+            (hint == null || campusForPoint(p) == hint) &&
+            coursePlaceIdentity(p.note) == coursePlaceIdentity(room),
+      )
+      .toList();
+  if (oldGroup.length == 1) return oldGroup.single;
+  if (oldGroup.length > 1) return null;
   final exact = custom
       .where(
         (p) =>
@@ -97,7 +169,9 @@ SavedLocation? matchCoursePlace(
       if (alias.isEmpty || !key.startsWith(alias)) continue;
       final tail = key.substring(alias.length);
       if (tail.isNotEmpty &&
-          !RegExp(r'^(?:[a-z]区?)?\d{2,5}(?:室|教室)?$').hasMatch(tail)) {
+          !RegExp(
+            r'^(?:[a-z]区?|(?:[a-z]区?)?\d{2,5}(?:室|教室)?)$',
+          ).hasMatch(tail)) {
         continue;
       }
       if (alias.length > bestLength) {

@@ -16,7 +16,7 @@ import 'package:xmu_rollcall/features/rollcall/attendance_count.dart';
 
 class RollcallRepository {
   static const _catalogFields =
-      'id,name,course_code,timetables,instructors(id,name),course_attributes(teaching_class_name),department(id,name),semester(id),academic_year(id),academic_year_id,semester_id';
+      'id,name,course_code,start_date,timetables,instructors(id,name),course_attributes(teaching_class_name),department(id,name),semester(id),academic_year(id),academic_year_id,semester_id';
   RollcallRepository({
     required this.http,
     required this.identity,
@@ -406,6 +406,7 @@ class RollcallRepository {
           id: id,
           title: title ?? '',
           courseCode: m['course_code']?.toString(),
+          startDate: DateTime.tryParse('${m['start_date'] ?? ''}'),
           timetables: parseTimetables(m['timetables']),
           instructorNames: _instructorNames(m),
           teachingClassName: _teachingClassName(m),

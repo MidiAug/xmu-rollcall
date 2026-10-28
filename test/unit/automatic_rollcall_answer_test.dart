@@ -225,7 +225,7 @@ void main() {
       'saved-place ${delete ? 'deletion' : 'coordinate edit'} during attendance is checked before radar submission',
       () async {
         SharedPreferences.setMockInitialValues({});
-        final places = SavedLocationsController();
+        final places = SavedLocationsController(ownerId: 1, userId: 1);
         final defaults = CourseRadarDefaultsController(userId: 1);
         addTearDown(places.dispose);
         addTearDown(defaults.dispose);

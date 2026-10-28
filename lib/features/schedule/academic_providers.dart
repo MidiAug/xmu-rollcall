@@ -83,6 +83,7 @@ final semesterInfoProvider = FutureProvider.autoDispose
         term: term,
         start:
             manual ??
+            await platformSemesterMonday(uid, term) ??
             academicMondays[term] ??
             (raw?.anchorFromUser != true ? raw?.monday : null),
         manual: manual != null,

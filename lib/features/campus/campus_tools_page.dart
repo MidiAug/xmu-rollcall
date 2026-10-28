@@ -4,9 +4,7 @@ import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
-import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
-import 'package:xmu_rollcall/features/settings/settings_assist_page.dart';
-import 'package:xmu_rollcall/features/settings/settings_data_page.dart';
+import 'package:xmu_rollcall/features/grades/gpa_page.dart';
 
 /// Built-in tool descriptors are the extension seam. No phantom future services.
 class CampusTool {
@@ -24,25 +22,11 @@ class CampusTool {
 
 final campusTools = <CampusTool>[
   CampusTool(
-    id: 'locations',
-    title: '常用地点',
-    description: '管理课堂与签到位置',
-    icon: AppIcons.location,
-    page: (_) => const SavedLocationsPage(),
-  ),
-  CampusTool(
-    id: 'assist',
-    title: '协助同学',
-    description: '管理已授权的协助身份',
-    icon: Icons.handshake_outlined,
-    page: (_) => const SettingsAssistPage(),
-  ),
-  CampusTool(
-    id: 'data',
-    title: '数据与诊断',
-    description: '查看日志与管理本地缓存',
-    icon: AppIcons.data,
-    page: (_) => const SettingsDataPage(),
+    id: 'gpa',
+    title: 'GPA 计算器',
+    description: '查看成绩，按课程与学分计算绩点',
+    icon: AppIcons.homework,
+    page: (_) => const GpaPage(),
   ),
 ];
 

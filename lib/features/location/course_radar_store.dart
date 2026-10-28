@@ -94,6 +94,54 @@ String? courseRadarPreferencesKey(int? ownerId, int? assistUserId) {
 
 /// Read the persisted snapshot in either the UI or the Android worker isolate.
 /// Automatic submission never falls back to a course title or another account.
+Future<List<SavedLocation>> readScopedSavedLocations(
+  SharedPreferences prefs,
+  int ownerId,
+  int uid,
+) async {
+  final key = savedLocationsKey(ownerId, uid);
+  var raw = prefs.getString(key);
+  if (raw == null) {
+    final legacyOwner = prefs.getInt('saved_locations_legacy_owner');
+    if (legacyOwner != null && legacyOwner != ownerId) return const [];
+    if (legacyOwner == null) {
+      await prefs.setInt('saved_locations_legacy_owner', ownerId);
+    }
+    final legacy = prefs.getString(savedRadarLocationsKey);
+    final all = legacy == null
+        ? <Map>[]
+        : (jsonDecode(legacy) as List).whereType<Map>().toList();
+    final allowed = <String>{};
+    if (uid != ownerId) {
+      final configKey = courseRadarPreferencesKey(ownerId, uid);
+      for (final config in prefs.getKeys().where(
+        (k) => k == configKey || k.startsWith('${configKey}_meeting_'),
+      )) {
+        final data = jsonDecode(prefs.getString(config) ?? '{}');
+        final entries = data is Map && data.containsKey('placeId')
+            ? [data]
+            : data is Map
+            ? data.values
+            : const [];
+        for (final entry in entries.whereType<Map>()) {
+          if (entry['userConfigured'] == true && entry['placeId'] is String) {
+            allowed.add(entry['placeId'] as String);
+          }
+        }
+      }
+    }
+    final migrated = uid == ownerId
+        ? all
+        : all.where((p) => allowed.contains(p['id'])).toList();
+    raw = jsonEncode(migrated);
+    if (!await prefs.setString(key, raw)) throw StateError('无法迁移当前账号地点');
+  }
+  return (jsonDecode(raw) as List)
+      .whereType<Map>()
+      .map((p) => SavedLocation.fromJson(Map<String, dynamic>.from(p)))
+      .toList();
+}
+
 Future<CourseRadarPref?> readAutomaticRadarLocation({
   required int ownerId,
   required int? assistUserId,
@@ -161,10 +209,14 @@ Future<CourseRadarPref?> readAutomaticRadarLocation({
     if (scoped == null && !pref.userConfigured) return null;
     final effective = pref.forMeeting(meeting ?? '');
     if (pref.placeId.isNotEmpty) {
-      final saved = prefs.getString(savedRadarLocationsKey);
+      final saved = await readScopedSavedLocations(
+        prefs,
+        ownerId,
+        assistUserId ?? ownerId,
+      );
       final places = [
         ...campusPlaces.map((p) => p.saved.toJson()),
-        if (saved != null) ...(jsonDecode(saved) as List),
+        ...saved.map((p) => p.toJson()),
       ];
       final matches = places.whereType<Map>().where(
         (p) => p['id'] == pref.placeId,

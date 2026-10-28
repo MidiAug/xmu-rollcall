@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -98,14 +100,23 @@ class DetectionWindow {
     endMinute: endMinute,
   ).allows(at);
 
-  static Future<DetectionWindow> read({bool reload = false}) async {
+  static Future<DetectionWindow> read({bool reload = false, int? uid}) async {
     final prefs = await SharedPreferences.getInstance();
     if (reload) await prefs.reload();
     // Legacy clock-hour restrictions are retired. Existing schedule gating
     // remains enabled by default; the new switch explicitly controls it.
     return DetectionWindow(
       scheduleBased: true,
-      enabled: prefs.getBool(schedulePreferenceKey) ?? true,
+      enabled:
+          (uid == null
+              ? null
+              : prefs.getBool('${schedulePreferenceKey}_$uid')) ??
+          ((uid == null ||
+                  prefs.getInt('schedule_detection_legacy_owner') == null ||
+                  prefs.getInt('schedule_detection_legacy_owner') == uid)
+              ? prefs.getBool(schedulePreferenceKey)
+              : null) ??
+          true,
     );
   }
 }
@@ -119,17 +130,27 @@ class DetectionWindowClosed implements Exception {
 }
 
 final detectionWindowProvider =
-    StateNotifierProvider<DetectionWindowController, DetectionWindow?>(
-      (ref) => DetectionWindowController(),
-    );
+    StateNotifierProvider<DetectionWindowController, DetectionWindow?>((ref) {
+      final owner = ref.watch(authControllerProvider).profile?.id;
+      return DetectionWindowController(
+        userId: ref.watch(selectedRollcallAccountProvider) ?? owner,
+        ownerId: owner,
+      );
+    });
 
 class DetectionWindowController extends StateNotifier<DetectionWindow?> {
-  DetectionWindowController() : super(null) {
+  DetectionWindowController({this.userId, this.ownerId}) : super(null) {
     ready = _load();
   }
+  final int? userId, ownerId;
   late final Future<void> ready;
   Future<void> _load() async {
-    final window = await DetectionWindow.read();
+    final prefs = await SharedPreferences.getInstance();
+    if (ownerId != null &&
+        prefs.getInt('schedule_detection_legacy_owner') == null) {
+      await prefs.setInt('schedule_detection_legacy_owner', ownerId!);
+    }
+    final window = await DetectionWindow.read(uid: userId);
     if (mounted) state = window;
   }
 
@@ -137,7 +158,9 @@ class DetectionWindowController extends StateNotifier<DetectionWindow?> {
     if (window.scheduleBased) {
       final prefs = await SharedPreferences.getInstance();
       if (!await prefs.setBool(
-        DetectionWindow.schedulePreferenceKey,
+        userId == null
+            ? DetectionWindow.schedulePreferenceKey
+            : '${DetectionWindow.schedulePreferenceKey}_$userId',
         window.enabled,
       )) {
         throw StateError('无法保存检测范围');

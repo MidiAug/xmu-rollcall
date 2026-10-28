@@ -177,7 +177,9 @@ void main() {
       await tester.runAsync(() => restored.ready);
       final prefs = await SharedPreferences.getInstance();
       expect(
-        jsonDecode(prefs.getString('saved_radar_locations')!)[0]['latitude'],
+        jsonDecode(
+          prefs.getString('saved_radar_locations_signed_out')!,
+        )[0]['latitude'],
         updatedLatitude,
       );
       await tester.pump(const Duration(seconds: 3));

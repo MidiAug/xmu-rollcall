@@ -281,6 +281,7 @@ abstract final class AcademicScheduleStore {
       final manual = await SemesterPreferences.read(uid, parsed.term);
       final start =
           manual ??
+          await platformSemesterMonday(uid, parsed.term) ??
           academicMondays[parsed.term] ??
           (parsed.anchorFromUser ? null : parsed.monday);
       if (start == null) return null;
@@ -349,6 +350,7 @@ Future<CourseCatalogSnapshot?> readAcademicCatalog(int uid) async {
     semesterId: raw.semesterId,
     academicYearId: raw.academicYearId,
     rolesResolved: raw.rolesResolved,
+    startDatesResolved: raw.startDatesResolved,
     academicOnlyCourses: academic?.displayOnlyCourses(effective) ?? const [],
   );
 }

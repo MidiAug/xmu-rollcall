@@ -48,6 +48,7 @@ class AppRefreshButton extends StatefulWidget {
     this.iconSize,
     this.tooltip = '刷新',
     this.visualDensity,
+    this.extent,
   });
 
   final Future<void> Function() onRefresh;
@@ -55,6 +56,7 @@ class AppRefreshButton extends StatefulWidget {
   final double? iconSize;
   final String tooltip;
   final VisualDensity? visualDensity;
+  final double? extent;
 
   @override
   State<AppRefreshButton> createState() => _AppRefreshButtonState();
@@ -104,9 +106,12 @@ class _AppRefreshButtonState extends State<AppRefreshButton>
         tooltip: widget.tooltip,
         style: PlatformHooks.isDesktop && !AppDensity.isTouch(context)
             ? IconButton.styleFrom(
-                minimumSize: const Size(34, 34),
+                minimumSize: Size.square(widget.extent ?? 34),
+                backgroundColor: p.surface,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.standard,
                 padding: const EdgeInsets.all(6),
-                side: BorderSide(color: p.primary.withValues(alpha: .15)),
+                side: BorderSide(color: p.border),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(7),
                 ),

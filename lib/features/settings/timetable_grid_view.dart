@@ -917,7 +917,7 @@ class _CourseBlockChip extends StatelessWidget {
                           footer,
                           maxLines: 1,
                           softWrap: false,
-                          overflow: TextOverflow.clip,
+                          overflow: TextOverflow.ellipsis,
                           style: metaStyle,
                         ),
                       ],

@@ -177,6 +177,181 @@ class AcademicClient {
     return decoded;
   }
 
+  Future<void> _connect(
+    int uid, {
+    CookieJar? sso,
+    String? username,
+    String? password,
+  }) async {
+    final raw = await store.read(credentialKey(uid));
+    if (raw != null) {
+      final saved = jsonDecode(raw) as Map;
+      for (final origin in [jw, ids]) {
+        if (saved[origin.host] is String) {
+          await jar.saveFromResponse(
+            origin,
+            decodeCookies(saved[origin.host] as String),
+          );
+        }
+      }
+    }
+    if (sso != null) {
+      await jar.saveFromResponse(
+        ids,
+        await sso.loadForRequest(ids.resolve('/authserver/login')),
+      );
+    }
+    final app = jw
+        .resolve('/appShow')
+        .replace(queryParameters: {'appId': '4979568947762216'});
+    try {
+      await open(app, username: username, password: password);
+    } on AcademicSessionRequired {
+      await open(
+        ids
+            .resolve('/authserver/login')
+            .replace(
+              queryParameters: {
+                'type': 'userNameLogin',
+                'service':
+                    'https://jw.xmu.edu.cn/login?service=https://jw.xmu.edu.cn/new/index.html',
+              },
+            ),
+        username: username,
+        password: password,
+      );
+      await open(app);
+    }
+  }
+
+  /// Grade query reuses the identity's own JW/IDS jar, never capture-file cookies.
+  Future<({List<Map<String, dynamic>> rows, Set<String> replacedTerms})>
+  fetchGrades(
+    int uid, {
+    CookieJar? sso,
+    String? username,
+    String? password,
+    bool recent = false,
+  }) async {
+    _boundUid = uid;
+    dio.interceptors.add(CookieManager(jar));
+    try {
+      await _connect(uid, sso: sso, username: username, password: password);
+      final identity = await json('/gsapp/sys/wdkbapp/wdkcb/initXsxx.do');
+      final person = identity['data'] is List
+          ? (identity['data'] as List).singleOrNull
+          : identity['data'];
+      final student = person is Map ? academicText(person['XH']) : '';
+      if (identity['success'] != true ||
+          student.isEmpty ||
+          (username != null && student != username)) {
+        throw const FormatException('教务身份与所选账号不一致');
+      }
+      await open(jw.resolve('/jwapp/sys/cjcx/*default/index.do'));
+      const base = '/jwapp/sys/cjcx/modules/cjcx/';
+      final terms = <String>{};
+      if (recent) {
+        final result = await json('${base}cxdqxnxqhsygxnxq.do', data: {});
+        final rows =
+            ((result['datas'] as Map?)?['cxdqxnxqhsygxnxq'] as Map?)?['rows'];
+        if (rows is! List || rows.isEmpty) {
+          throw const FormatException('近两学期信息暂不可用');
+        }
+        for (final row in rows.whereType<Map>()) {
+          final term = academicText(row['XNXQDM']);
+          if (!RegExp(r'^\d{4}-\d{4}-[1239]$').hasMatch(term)) {
+            throw const FormatException('成绩学期格式异常');
+          }
+          terms.add(term);
+        }
+        if (terms.isEmpty) throw const FormatException('近两学期信息暂不可用');
+      }
+      final output = <Map<String, dynamic>>[];
+      final ids = <String>{};
+      for (final term in recent ? terms.cast<String?>() : <String?>[null]) {
+        var loaded = 0;
+        for (var page = 1; page <= 100; page++) {
+          final result = await json(
+            '${base}xscjcx.do',
+            data: {
+              'querySetting': jsonEncode([
+                {
+                  'name': 'SFYX',
+                  'linkOpt': 'AND',
+                  'builder': 'm_value_equal',
+                  'value': '1',
+                },
+                {
+                  'name': 'SHOWMAXCJ',
+                  'linkOpt': 'AND',
+                  'builder': 'm_value_equal',
+                  'value': '0',
+                },
+                if (term != null)
+                  {
+                    'name': 'XNXQDM',
+                    'linkOpt': 'AND',
+                    'builder': 'm_value_equal',
+                    'value': term,
+                  },
+              ]),
+              '*order': '-XNXQDM,-KCH,-KXH',
+              'pageSize': 999,
+              'pageNumber': page,
+            },
+          );
+          final node = (result['datas'] as Map?)?['xscjcx'];
+          if (node is! Map || node['rows'] is! List) {
+            throw const FormatException('成绩数据格式异常');
+          }
+          final meta = node['extParams'];
+          if (meta is Map && meta['code'] != null && '${meta['code']}' != '1') {
+            throw const FormatException('成绩查询未成功，请稍后重试');
+          }
+          final rows = (node['rows'] as List).whereType<Map>().toList();
+          var added = 0;
+          for (final row in rows) {
+            if (row['XH'] != null && academicText(row['XH']) != student) {
+              throw const FormatException('成绩数据身份不一致');
+            }
+            final id = academicText(row['WID']);
+            if (id.isEmpty) throw const FormatException('成绩记录缺少标识');
+            if (!ids.add(id)) continue;
+            added++;
+            // Minimized local data: no student number, identity or session fields.
+            output.add({
+              for (final key in [
+                'WID',
+                'KCH',
+                'KCM',
+                'XSKCM',
+                'XNXQDM',
+                'XNXQDM_DISPLAY',
+                'XF',
+                'JDF',
+                'XFJD',
+                'ZCJ',
+                'DJCJMC',
+                'SFYX',
+              ])
+                key: row[key],
+            });
+          }
+          loaded += rows.length;
+          final total = academicInt(node['totalSize']);
+          if (loaded >= total) break;
+          if (rows.isEmpty || added == 0 || page == 100) {
+            throw const FormatException('成绩分页不完整，请稍后重试');
+          }
+        }
+      }
+      if (!await _identityCurrent(uid)) throw StateError('账号已切换');
+      return (rows: output, replacedTerms: terms);
+    } finally {
+      dio.close();
+    }
+  }
+
   Future<AcademicSchedule> fetch(
     int uid, {
     CookieJar? sso,
@@ -188,45 +363,7 @@ class AcademicClient {
     final now = at ?? DateTime.now();
     dio.interceptors.add(CookieManager(jar));
     try {
-      final raw = await store.read(credentialKey(uid));
-      if (raw != null) {
-        final saved = jsonDecode(raw) as Map;
-        for (final origin in [jw, ids]) {
-          if (saved[origin.host] is String) {
-            await jar.saveFromResponse(
-              origin,
-              decodeCookies(saved[origin.host] as String),
-            );
-          }
-        }
-      }
-      if (sso != null) {
-        await jar.saveFromResponse(
-          ids,
-          await sso.loadForRequest(ids.resolve('/authserver/login')),
-        );
-      }
-      final app = jw
-          .resolve('/appShow')
-          .replace(queryParameters: {'appId': '4979568947762216'});
-      try {
-        await open(app, username: username, password: password);
-      } on AcademicSessionRequired {
-        await open(
-          ids
-              .resolve('/authserver/login')
-              .replace(
-                queryParameters: {
-                  'type': 'userNameLogin',
-                  'service':
-                      'https://jw.xmu.edu.cn/login?service=https://jw.xmu.edu.cn/new/index.html',
-                },
-              ),
-          username: username,
-          password: password,
-        );
-        await open(app);
-      }
+      await _connect(uid, sso: sso, username: username, password: password);
       const base = '/gsapp/sys/wdkbapp/';
       final identity = await json('${base}wdkcb/initXsxx.do');
       final rawPerson = identity['data'];
@@ -255,14 +392,16 @@ class AcademicClient {
       late final DateTime monday;
       var anchorFromUser = false;
       try {
-        monday = academicMonday(
-          term,
-          currentWeek,
-          now,
-          cached: cached?.term == term && cached?.anchorFromUser != true
-              ? cached!.monday
-              : null,
-        );
+        monday =
+            await platformSemesterMonday(uid, term) ??
+            academicMonday(
+              term,
+              currentWeek,
+              now,
+              cached: cached?.term == term && cached?.anchorFromUser != true
+                  ? cached!.monday
+                  : null,
+            );
       } on AcademicCalendarUnavailable {
         final manual = await SemesterPreferences.read(uid, term);
         if (manual == null) rethrow;
@@ -497,7 +636,8 @@ class AcademicSync {
     final missingTerm = prefs.getString('academic_calendar_missing_$uid');
     final calendarCorrected =
         missingTerm != null &&
-        await SemesterPreferences.read(uid, missingTerm) != null;
+        (await SemesterPreferences.read(uid, missingTerm) != null ||
+            await platformSemesterMonday(uid, missingTerm) != null);
     final last = calendarCorrected
         ? null
         : prefs.getInt('academic_attempt_$uid');

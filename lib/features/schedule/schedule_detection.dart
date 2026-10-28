@@ -56,8 +56,9 @@ Future<DetectionWindow> readScheduleDetectionWindow(
   int? uid, {
   bool reload = false,
   DateTime? at,
+  DetectionWindow? setting,
 }) async {
-  final daily = await DetectionWindow.read(reload: reload);
+  final daily = setting ?? await DetectionWindow.read(reload: reload, uid: uid);
   if (!daily.enabled) return daily;
   if (uid == null) return daily;
   final academic = await AcademicScheduleStore.read(uid, reload: reload);

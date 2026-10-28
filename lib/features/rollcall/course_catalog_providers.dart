@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'dart:async';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
@@ -68,6 +69,7 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
     final academic = await AcademicScheduleStore.read(userId);
     if (disk != null &&
         disk.rolesResolved &&
+        disk.startDatesResolved &&
         (academic == null || disk.academicTerm == academic.term)) {
       return _withSchedules(userId, disk);
     }
@@ -151,10 +153,21 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
         semesterId: fetched.semesterId,
         academicYearId: fetched.academicYearId,
         rolesResolved: fetched.rolesResolved,
+        startDatesResolved: fetched.startDatesResolved,
         academicTerm: academic?.term,
       );
       if (_boundUserId != userId) return snap;
+      final previous = await CourseCatalogStore.read(userId);
       await CourseCatalogStore.write(userId, snap);
+      final term = academic?.term;
+      if (fetched.courses.any((c) => c.startDate != null) &&
+          (previous == null ||
+              !previous.startDatesResolved ||
+              (term != null &&
+                  teachingMondayFromCourses(previous.courses, term) !=
+                      teachingMondayFromCourses(fetched.courses, term)))) {
+        ref.read(academicRevisionProvider.notifier).state++;
+      }
       return _withSchedules(userId, snap);
     }();
     _inFlight = future;
@@ -183,6 +196,7 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
       semesterId: snap.semesterId,
       academicYearId: snap.academicYearId,
       rolesResolved: snap.rolesResolved,
+      startDatesResolved: snap.startDatesResolved,
     );
   }
 

@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
 import 'dart:ui' show PointerDeviceKind;
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -266,6 +267,7 @@ void main() {
     WidgetTester tester,
     Widget page, {
     bool visibleTab = false,
+    bool noClassForAssist = false,
     StartMonitorResult? startResult,
     DateTime? now,
     DateTime Function()? clock,
@@ -305,6 +307,17 @@ void main() {
           ),
           if (now != null || clock != null)
             activeRollcallClockProvider.overrideWithValue(clock ?? () => now!),
+          if (noClassForAssist)
+            selectedDetectionWindowProvider.overrideWith(
+              (ref) async => ref.watch(selectedRollcallAccountProvider) == null
+                  ? const DetectionWindow(enabled: false)
+                  : const DetectionWindow(
+                      enabled: true,
+                      scheduleBased: true,
+                      hasSchedule: true,
+                      intervals: [],
+                    ),
+            ),
           if (startResult != null)
             monitorControllerProvider.overrideWith(
               (ref) => _StartMonitor(ref, startResult),
@@ -851,11 +864,41 @@ void main() {
     },
   );
 
+  testWidgets(
+    'switch to an account with no classes disables automatic detection and updates explanation',
+    (tester) async {
+      await show(
+        tester,
+        const RollcallHubPage(),
+        startResult: StartMonitorResult.started,
+        noClassForAssist: true,
+      );
+      final c = ProviderScope.containerOf(
+        tester.element(find.byType(RollcallHubPage)),
+      );
+      AppQuietPill button() => tester.widget<AppQuietPill>(
+        find.ancestor(
+          of: find.text('开始检测'),
+          matching: find.byType(AppQuietPill),
+        ),
+      );
+      expect(button().onTap, isNotNull);
+      c.read(selectedRollcallAccountProvider.notifier).state = 2;
+      await tester.pumpAndSettle();
+      expect(button().onTap, isNull);
+      expect(find.text('今日无课，自动检测休息；仍可手动检测'), findsWidgets);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets('rollcall update time includes seconds', (tester) async {
     await show(tester, const RollcallHubPage(), visibleTab: true);
     final container = ProviderScope.containerOf(
       tester.element(find.byType(RollcallHubPage)),
     );
+    await container
+        .read(detectionWindowProvider.notifier)
+        .save(const DetectionWindow(enabled: false));
     container
         .read(activeRollcallsProvider(null).notifier)
         .applyMonitorItems(

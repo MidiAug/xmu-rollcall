@@ -134,7 +134,7 @@ void main() {
               lessThan(
                 tester
                     .getTopLeft(
-                      find.byKey(const ValueKey('managed-room-西部片区2号楼108')),
+                      find.byKey(const ValueKey('managed-room-西部片区2号楼')),
                     )
                     .dy,
               ),
@@ -142,6 +142,18 @@ void main() {
           } else {
             expect(find.byType(DropdownButton<Campus>), findsOneWidget);
           }
+          await tester.tap(find.byTooltip('只看待补全'));
+          await tester.pumpAndSettle();
+          final filter = tester.widget<IconButton>(
+            find.widgetWithIcon(IconButton, Icons.filter_list),
+          );
+          expect(filter.isSelected, isTrue);
+          expect(
+            filter.style?.backgroundColor?.resolve({}),
+            isNot(Colors.transparent),
+          );
+          await tester.tap(find.byTooltip('显示全部地点'));
+          await tester.pumpAndSettle();
           final tabs = find.byType(AppSegmentedControl<bool>);
           final marker = find.descendant(
             of: tabs,
@@ -163,14 +175,12 @@ void main() {
           await tester.pumpAndSettle();
           expect(
             tester
-                .getSize(find.byKey(const ValueKey('managed-room-西部片区2号楼108')))
+                .getSize(find.byKey(const ValueKey('managed-room-西部片区2号楼')))
                 .height,
             lessThanOrEqualTo(60),
           );
           await capture(tester, 'map-$width-$dark');
-          await tester.tap(
-            find.byKey(const ValueKey('managed-room-西部片区2号楼108')),
-          );
+          await tester.tap(find.byKey(const ValueKey('managed-room-西部片区2号楼')));
           await tester.pumpAndSettle();
           await capture(tester, 'map-edit-$width-$dark');
           final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
@@ -183,7 +193,7 @@ void main() {
           await tester.tap(find.text('保存地点'));
           await tester.pumpAndSettle();
           expect(scope.read(unmatchedRoomsProvider), isEmpty);
-          expect(scope.read(savedLocationsProvider).single.note, '西部片区2号楼108');
+          expect(scope.read(savedLocationsProvider).single.note, '西部片区2号楼');
           await capture(tester, 'map-saved-$width-$dark');
           await show(
             const HomeworkDetailPage(seed: HomeworkItem(id: 1, title: '作业')),

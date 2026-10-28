@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,7 +15,13 @@ final radarMeetingClockProvider = Provider<DateTime Function()>(
 
 final savedLocationsProvider =
     StateNotifierProvider<SavedLocationsController, List<SavedLocation>>((ref) {
-      return SavedLocationsController();
+      final owner = ref.watch(authControllerProvider).profile?.id;
+      final scope = ref.watch(selectedRollcallAccountProvider);
+      return SavedLocationsController(
+        ownerId: owner,
+        userId: scope ?? owner,
+        storageKey: owner == null ? 'saved_radar_locations_signed_out' : null,
+      );
     });
 
 final courseRadarDefaultsProvider =
@@ -52,18 +59,32 @@ courseRadarDefaultsForProvider(int? assistUserId) => assistUserId == null
     : assistCourseRadarDefaultsProvider(assistUserId);
 
 class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
-  SavedLocationsController() : super(const []) {
+  SavedLocationsController({this.ownerId, this.userId, this.storageKey})
+    : super(const []) {
     ready = _load();
   }
 
   late final Future<void> ready;
   Future<void> _writes = Future.value();
-  static const _key = savedRadarLocationsKey;
+  final int? ownerId, userId;
+  final String? storageKey;
+  String get _key =>
+      storageKey ??
+      (ownerId == null || userId == null
+          ? savedRadarLocationsKey
+          : savedLocationsKey(ownerId!, userId!));
   final _uuid = const Uuid();
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
+    if (ownerId != null && userId != null) {
+      try {
+        final saved = await readScopedSavedLocations(prefs, ownerId!, userId!);
+        if (mounted) state = saved;
+      } catch (_) {}
+      return;
+    }
     final raw = prefs.getString(_key);
     if (raw == null || raw.isEmpty) return;
     try {

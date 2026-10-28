@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 const savedRadarLocationsKey = 'saved_radar_locations';
+String savedLocationsKey(int owner, int uid) =>
+    '${savedRadarLocationsKey}_${owner}_$uid';
 
 /// Validate before persisting or submitting a coordinate selection.
 void validateRadarLocation({
