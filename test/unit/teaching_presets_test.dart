@@ -28,7 +28,13 @@ void main() {
     final building = groups.singleWhere((g) => g.name == '学武楼');
     expect(building.children.length, 3);
     expect(building.children.map((e) => e.place!.id).toSet().length, 3);
-    expect(building.center!.latitude, closeTo(24.605485, .000001));
+    expect(building.center!.latitude, closeTo(24.6054805, .0000001));
+    final kunluan = groups.singleWhere((g) => g.name == '坤銮楼');
+    expect(kunluan.center!.latitude, closeTo(24.6055835, .0000001));
+    expect(kunluan.center!.longitude, closeTo(118.312744, .0000001));
+    final west = groups.singleWhere((g) => g.name == '西部片区2号楼');
+    expect(west.center!.latitude, 24.604261);
+    expect(west.center!.longitude, 118.299946);
     expect(placeBuildingName('坤銮楼（2号楼） A区'), '坤銮楼');
     expect(placeWing('学武楼（1号楼）A404'), 'A');
     expect(placeBuildingName('翔安校区学武楼（1号楼）A404'), '学武楼');

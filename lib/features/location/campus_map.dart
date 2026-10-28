@@ -57,18 +57,32 @@ class _CampusMapState extends State<CampusMap> {
     super.dispose();
   }
 
+  double _labelWidth(BuildContext context, String label) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: Theme.of(
+          context,
+        ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final width = (painter.width + 31).clamp(58.0, 240.0);
+    painter.dispose();
+    return width;
+  }
+
   Widget _mapLabel(
     BuildContext context,
     String label, {
-    int? count,
+    bool building = false,
     String? tooltip,
     required VoidCallback onTap,
   }) {
     final p = AppPalette.of(context);
     return Tooltip(
-      key: ValueKey(
-        count == null ? 'map-place-$tooltip' : 'map-building-$label',
-      ),
+      key: ValueKey(building ? 'map-building-$label' : 'map-place-$tooltip'),
       message: tooltip ?? '放大查看$label区域',
       child: Material(
         color: p.surface,
@@ -80,15 +94,11 @@ class _CampusMapState extends State<CampusMap> {
           onTap: onTap,
           borderRadius: BorderRadius.circular(18),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 6),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  count == null ? AppIcons.location : AppIcons.building,
-                  size: 15,
-                  color: p.primary,
-                ),
+                Icon(AppIcons.location, size: 15, color: p.primary),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
@@ -101,15 +111,6 @@ class _CampusMapState extends State<CampusMap> {
                     ),
                   ),
                 ),
-                if (count != null) ...[
-                  const SizedBox(width: 5),
-                  Text(
-                    '$count',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: p.muted),
-                  ),
-                ],
               ],
             ),
           ),
@@ -165,15 +166,13 @@ class _CampusMapState extends State<CampusMap> {
                               entry.$2.center != null)
                             Marker(
                               point: entry.$2.center!,
-                              width: 120,
-                              height: 36,
-                              alignment: entry.$1.isEven
-                                  ? Alignment.topCenter
-                                  : Alignment.bottomCenter,
+                              width: _labelWidth(context, entry.$2.name),
+                              height: 30,
+                              alignment: Alignment.center,
                               child: _mapLabel(
                                 context,
                                 entry.$2.name,
-                                count: entry.$2.children.length,
+                                building: true,
                                 onTap: () {
                                   _controller.move(entry.$2.center!, 18.3);
                                   widget.onBuilding?.call(entry.$2.name);
@@ -188,9 +187,12 @@ class _CampusMapState extends State<CampusMap> {
                                     place.latitude,
                                     place.longitude,
                                   ),
-                                  width: placeWing(item.name) == null
-                                      ? 140
-                                      : 120,
+                                  width: _labelWidth(
+                                    context,
+                                    placeWing(item.name) == null
+                                        ? entry.$2.name
+                                        : '${entry.$2.name} ${placeWing(item.name)}区',
+                                  ),
                                   height: 36,
                                   child: _mapLabel(
                                     context,

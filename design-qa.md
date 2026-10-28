@@ -175,3 +175,26 @@ The rebuilt Debug process was restarted and inspected with the real assist timet
 - GPA education随账号缓存；研究生完整结果不套本科近期合并，空列表可以替换旧数据。第一页缺模型或错误code不能伪装成空成绩；两级制等无效记录规则保留，研究生字母分数不借本科换分。空成绩切换到学年仍为正常状态，不报格式错误。
 - 签到页非检测时段增加短说明，今日无课/缺课表保持原文案。候选清单按官方公共教学服务资料整理，学信楼/西二教学楼核实为西部2号楼别名；未提供坐标的候选不内置，漳州旧设施资料明确标记需当前课表核对。
 - 验证：全量746 passed、2既有网络项skipped（build/region-graduate-all-tests.log）；最后定向33项（含新增权限页分类）通过，校区前缀/标注复核18项通过，研究生空态及GPA复核7项通过（build/region-graduate-delivery-tests.log、build/region-labels-final-tests.log、build/graduate-empty-delivery-tests.log）。最终flutter analyze --no-pub lib test无问题（build/region-graduate-last-analyze.log）。Android真机和研究生非空正式成绩未实测。
+
+# 地点管理控件与聚合标注微调 — 2026-10-28
+
+- 用户四张参考图：小屏返回按钮对比不足，筛选需要矩形选中底，地图标注数量及留白过多、上下锚点不一，左列表课程长名与状态混排。对应修复为不透明返回表面/边框/阴影、8px圆角筛选、高亮底与边框；聚合标注仅楼名，文字测量宽度，统一Alignment.center；以区域边界中点定位，学武接近B区，提交坐标不变。
+- 左列表为28px楼宇图标底、单行标题、简短区域/课程数量、圆角选中态，不再逐行堆长课程名和重复“已定位”；待补全保留课程名，已定位课程全文可悬停查看。选择子区域仍高亮父楼宇。
+- 实际查看build/place-ui-review/building-overview.png、building-region-selected.png、map-edit-384.0-false.png，检查紧凑标注、选中父行及不透明返回控件；既有浅深色/384与960工作流截图也已重建。Widget环境拦截瓦片HTTP400，截图只验证界面及交互，不作为在线底图证据。
+- 初始相关18项回归通过；最后地图/点位9项复核通过（build/location-polish-delivery-tests.log）。全局静态检查无问题，末次5个变更文件定向静态检查无问题（build/location-polish-analyze.log、build/location-polish-delivery-analyze.log）。回归断言筛选矩形边框、返回按钮不透明及边框、聚合居中/无数量、区域几何中心，原视角保持和区域坐标测试继续通过。Android真机未实测。
+
+
+# 地点管理课程面板与原楼宇中心 — 2026-10-28
+
+- 根据本轮四张用户截图修订：缩小地图的分区楼宇使用原目录中的楼宇参考中心（含坤銮楼），放大后仍使用用户给出的精确区域点；无分区的西部教学楼保留用户坐标。聚合点仅用于显示，提交ID与坐标不变。
+- 删除待补全筛选，切换组件占满原列表宽度。已定位课程地点面板直接展示课程；多分区按有课程的区域分组，省略空分区的状态行、箭头和大行距。无课分区楼宇保留紧凑区域入口；点地图上的具体区域只显示该区课程。已定位课程面板移除“补充区域位置”，自定义编辑及待补全流程仍可用。
+- 实际查看 build/place-ui-review/building-region-courses-960.0.png 与 building-courses-384.0.png，确认桌面分组、窄屏直接课程列表及底部紧凑面板。截图使用虚构课程；Widget环境网络被拦截，截图不作为在线底图验证。
+- 25项地点/选点/课程区域存储回归通过（build/location-course-panel-delivery-tests.log），覆盖384/960宽度、浅深色原有工作流、课程直列/分区、点击具体区域只显示对应课程、坤銮原中心及西部楼宇精确点。全项目flutter analyze --no-pub lib test无问题（build/location-course-panel-delivery-analyze.log）。Windows Debug成功热重载24个库，保留原开发进程；Android真机未实测。
+
+
+# 地点列表范围与区域中点纠正 — 2026-10-28
+
+- 本轮用户截图显示旧楼宇参考点偏左上；撤回上一版参考中心选择，使用完整区域经纬度边界中点。侧栏只有部分区域课程时，定位视角仍使用完整楼宇区域集合；区域精确坐标和提交ID不变。缩小标注补上15px定位图标，按图标+文字宽度计算，维持居中锚点。
+- 课程地点列表仅列当前课程使用的地点，不再把闲置内置预设混入已定位列表；地图仍显示预设标注。无匹配课程只显示空态，不再显示A/B/C操作按钮；有匹配课程继续紧凑分组。自定义地点列表及补全流程保留。
+- 实际查看build/place-ui-review/building-overview.png、building-region-courses-960.0.png、building-region-selected.png，核对定位图标、仅两个实际课程楼宇的列表、空态无按钮。Widget网络被拦截，截图不作为在线底图验收。
+- 最终相关25项回归通过（build/location-course-only-tests-final.log），含浅深色384/960流程及课程区域存储；5个变更Dart文件静态检查无问题（build/location-course-only-analyze-final.log）。Windows当前Debug保留原进程并热重载；Android真机未实测。

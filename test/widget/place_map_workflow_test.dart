@@ -142,18 +142,8 @@ void main() {
           } else {
             expect(find.byType(DropdownButton<Campus>), findsOneWidget);
           }
-          await tester.tap(find.byTooltip('只看待补全'));
-          await tester.pumpAndSettle();
-          final filter = tester.widget<IconButton>(
-            find.widgetWithIcon(IconButton, Icons.filter_list),
-          );
-          expect(filter.isSelected, isTrue);
-          expect(
-            filter.style?.backgroundColor?.resolve({}),
-            isNot(Colors.transparent),
-          );
-          await tester.tap(find.byTooltip('显示全部地点'));
-          await tester.pumpAndSettle();
+          expect(find.byTooltip('只看待补全'), findsNothing);
+          expect(find.byTooltip('显示全部地点'), findsNothing);
           final tabs = find.byType(AppSegmentedControl<bool>);
           final marker = find.descendant(
             of: tabs,
@@ -182,6 +172,13 @@ void main() {
           await capture(tester, 'map-$width-$dark');
           await tester.tap(find.byKey(const ValueKey('managed-room-西部片区9号楼')));
           await tester.pumpAndSettle();
+          if (width < 720) {
+            final back = tester.widget<FilledButton>(
+              find.byKey(const ValueKey('map-back-to-list')),
+            );
+            expect(back.style?.backgroundColor?.resolve({})?.a, 1);
+            expect(back.style?.side?.resolve({}), isNotNull);
+          }
           await capture(tester, 'map-edit-$width-$dark');
           final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
           map.options.onTap!(
@@ -232,15 +229,41 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('managed-room-学武楼')), findsOneWidget);
+      expect(find.byKey(const ValueKey('managed-room-学武楼')), findsNothing);
       expect(find.byKey(const ValueKey('managed-room-学武楼 A区')), findsNothing);
       expect(find.text('A区'), findsNothing);
+      final cluster = tester
+          .widget<MarkerLayer>(
+            find.byWidgetPredicate(
+              (w) =>
+                  w is MarkerLayer &&
+                  w.markers.any((m) => m.width != 44 && m.width < 110),
+            ),
+          )
+          .markers
+          .first;
+      expect(cluster.alignment, Alignment.center);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('map-building-学武楼')),
+          matching: find.text('3'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('map-building-学武楼')),
+          matching: find.byType(Icon),
+        ),
+        findsOneWidget,
+      );
       await capture(tester, 'building-overview');
-      await tester.tap(find.byKey(const ValueKey('managed-room-学武楼')));
+      await tester.tap(find.byKey(const ValueKey('map-building-学武楼')));
       await tester.pumpAndSettle();
       final inspector = find.byKey(const ValueKey('map-building-inspector'));
       expect(inspector, findsOneWidget);
-      expect(find.byKey(const ValueKey('managed-wing-学武楼 A区')), findsOneWidget);
+      expect(find.byType(ActionChip), findsNothing);
+      expect(find.text('暂无匹配课程'), findsOneWidget);
       await tester.tap(
         find.descendant(of: inspector, matching: find.byTooltip('关闭')),
       );
@@ -258,12 +281,101 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.camera.center, before.center);
       expect(controller.camera.zoom, before.zoom);
-      expect(find.text('24.605494, 118.313825'), findsOneWidget);
-      expect(find.text('内置教学区域，按课程教室匹配'), findsOneWidget);
+      expect(
+        tester.widget<CampusMap>(find.byType(CampusMap)).point,
+        const LatLng(24.605494, 118.313825),
+      );
+      expect(find.text('暂无匹配课程'), findsOneWidget);
+      expect(find.text('补充区域位置'), findsNothing);
       await capture(tester, 'building-region-selected');
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+  for (final width in [384.0, 960.0]) {
+    testWidgets('building panels show matched courses at $width', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            campusCachedDataProvider.overrideWith(
+              (ref) async => const CampusCachedData(),
+            ),
+            preferredCampusProvider.overrideWithValue(Campus.xiangan),
+            courseRoomsProvider.overrideWithValue(const []),
+            coursePlaceGroupsProvider.overrideWithValue(const [
+              CoursePlaceGroup('学武楼 A区', ['学武楼A404'], ['专业英语', '工程伦理']),
+              CoursePlaceGroup('学武楼 C区', ['学武楼C201'], ['高级人工智能']),
+              CoursePlaceGroup('西部片区2号楼', ['西部片区2号楼108'], ['软件测试', '科技论文写作']),
+            ]),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
+            home: const RepaintBoundary(
+              key: ValueKey('place-capture'),
+              child: SavedLocationsPage(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('managed-room-文宣楼')), findsNothing);
+      expect(find.byKey(const ValueKey('managed-room-西部片区4号楼')), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('managed-room-西部片区2号楼')));
+      await tester.pumpAndSettle();
+      final panel = find.byKey(const ValueKey('map-building-inspector'));
+      expect(panel, findsOneWidget);
+      expect(
+        find.descendant(of: panel, matching: find.text('软件测试')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: panel, matching: find.text('科技论文写作')),
+        findsOneWidget,
+      );
+      expect(find.text('补充区域位置'), findsNothing);
+      await capture(tester, 'building-courses-$width');
+      if (width < 720) {
+        await tester.tap(find.byKey(const ValueKey('map-back-to-list')));
+        await tester.pumpAndSettle();
+      }
+      await tester.tap(find.byKey(const ValueKey('managed-room-学武楼')));
+      await tester.pumpAndSettle();
+      for (final title in ['A区', 'C区', '专业英语', '工程伦理', '高级人工智能']) {
+        expect(
+          find.descendant(of: panel, matching: find.text(title)),
+          findsOneWidget,
+        );
+      }
+      expect(
+        find.descendant(of: panel, matching: find.text('B区')),
+        findsNothing,
+      );
+      expect(tester.getSize(panel).height, lessThan(250));
+      expect(find.text('补充区域位置'), findsNothing);
+      await capture(tester, 'building-region-courses-$width');
+      final controller = tester
+          .widget<FlutterMap>(find.byType(FlutterMap))
+          .mapController!;
+      controller.move(const LatLng(24.605991, 118.313890), 18.3);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('map-place-学武楼 C区')));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: panel, matching: find.text('高级人工智能')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: panel, matching: find.text('专业英语')),
+        findsNothing,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
   testWidgets(
     'map controls consume taps and a draft preserves pan, zoom and equal insets',
     (tester) async {

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:latlong2/latlong.dart';
 import 'campus_places.dart';
 import 'location_models.dart';
@@ -56,9 +57,15 @@ class ManagedBuilding {
         .whereType<SavedLocation>()
         .toList();
     if (points.isEmpty) return null;
+    // Display-only midpoint of the region bounds, independent of old
+    // building reference coordinates or marker label size.
     return LatLng(
-      points.fold(0.0, (v, p) => v + p.latitude) / points.length,
-      points.fold(0.0, (v, p) => v + p.longitude) / points.length,
+      (points.map((p) => p.latitude).reduce(math.min) +
+              points.map((p) => p.latitude).reduce(math.max)) /
+          2,
+      (points.map((p) => p.longitude).reduce(math.min) +
+              points.map((p) => p.longitude).reduce(math.max)) /
+          2,
     );
   }
 }
