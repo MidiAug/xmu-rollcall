@@ -165,3 +165,13 @@ The rebuilt Debug process was restarted and inspected with the real assist timet
 - 流程1：总绩点→学年。只列实际存在的学年，支持多选合并；两学年样例中不存在2024选项，不再有“近1—6学年”列表。取消所有学年显示明确空态。流程2：近学期→数量，只列1到现有学期总数，切换在本地重算。流程3：课程勾选→恢复默认选择，门数、总览及通识筛选同步；长课程名通过公用截断组件补充全文悬停。
 - 参考仅为固定源码：democard/xmu_assistant@bbcedf701f8b66200a5897767e0d14c7c6cef5fe。采用按学期分组和统计口径分离的思路；没有安装、运行或截取该应用真实界面，没有复制上游代码。它仅统计百分制，模拟换算C-为1.5，不能替代校方2022规则；本地模拟、已修学分和排名/证明作为后续参考，不在本轮新增。
 - 检查：21项成绩规则/区域/身份缓存/接口及GPA界面回归通过，静态检查无问题（build/gpa-scope-tests-final.log、build/gpa-scope-analyze-final.log）。320/384/960浅深色六种界面实际指针回归覆盖多选、空选、近学期、通识、恢复默认、规则展开；生成总览与多选截图，并实际查看桌面前后及窄屏深色多选状态。没有发现溢出；未进行系统读屏器或Android真机验收，不能据此宣称完整无障碍合规。
+
+# 教学区域聚合与研究生成绩 — 2026-10-28
+
+- 11个用户提供的翔安区域点已内置（含补充确认的西部4号楼），保存原始6位坐标。主列表按学武/坤銮/文宣/西部2/4号楼聚合，不平铺ABC。地图18级以下聚合，点击楼宇或放大后展示区域；区域标签含楼名以防相邻楼宇ABC混淆。聚合中心是LatLng展示数据，不存在可提交的SavedLocation ID；显式区域选择仍保留精确坐标与身份授权。
+- 真实指针回归：主列表没有A/B/C行；楼宇面板可展开子区；放大后出现具体区域；选B区后视角不重置，坐标24.605494/118.313825。后台读取同一ID返回B区原点而不是均值，协助身份不能借用主号配置。旧78楼宇目录及旧显式绑定兼容，没有把匹配结果自动授权为签到。
+- 实际查看build/place-ui-review/building-overview.png、building-expanded.png、building-region-selected.png与build/gpa-ui-review/graduate-empty.png；测试环境拦截瓦片返回400，图像只验证标注/布局/面板，不声称本轮在线底图实测。末次扩大区域标签避免楼名省略；已有384/960浅深色流程回归继续覆盖。
+- 主账号研究生身份由用户确认。真实只读验证本科入口转向403权限页，研究生成绩应用正常打开，POST xscjcx_by返回HTTP200及0条；用户抓包同样rows=[]/totalSize=0，hqjdxf空值。使用KCMC/KCDM、CJXSZ/CJ、JDZ/XF映射，已发布的真实非空研究生记录尚未出现，非空/重复修读/身份不符/格式错误以虚构样例回归。权限页只分类，不发出HTTP请求或扩大白名单；临时诊断及刷新挂钩已移除。
+- GPA education随账号缓存；研究生完整结果不套本科近期合并，空列表可以替换旧数据。第一页缺模型或错误code不能伪装成空成绩；两级制等无效记录规则保留，研究生字母分数不借本科换分。空成绩切换到学年仍为正常状态，不报格式错误。
+- 签到页非检测时段增加短说明，今日无课/缺课表保持原文案。候选清单按官方公共教学服务资料整理，学信楼/西二教学楼核实为西部2号楼别名；未提供坐标的候选不内置，漳州旧设施资料明确标记需当前课表核对。
+- 验证：全量746 passed、2既有网络项skipped（build/region-graduate-all-tests.log）；最后定向33项（含新增权限页分类）通过，校区前缀/标注复核18项通过，研究生空态及GPA复核7项通过（build/region-graduate-delivery-tests.log、build/region-labels-final-tests.log、build/graduate-empty-delivery-tests.log）。最终flutter analyze --no-pub lib test无问题（build/region-graduate-last-analyze.log）。Android真机和研究生非空正式成绩未实测。

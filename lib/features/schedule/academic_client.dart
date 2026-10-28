@@ -1,3 +1,4 @@
+import 'package:crypto/crypto.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/logging/log_redactor.dart';
 import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
@@ -14,6 +15,23 @@ import 'package:xmu_rollcall/core/session/cookie_codec.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/features/auth/ids_auth.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
+
+class AcademicApplicationDenied extends FormatException {
+  const AcademicApplicationDenied() : super('当前账号无该成绩应用权限');
+}
+
+class AcademicGradeResult {
+  const AcademicGradeResult({
+    required this.rows,
+    required this.replacedTerms,
+    this.education = 'undergraduate',
+    this.complete = false,
+  });
+  final List<Map<String, dynamic>> rows;
+  final Set<String> replacedTerms;
+  final String education;
+  final bool complete;
+}
 
 class AcademicSessionRequired implements Exception {
   const AcademicSessionRequired();
@@ -74,6 +92,7 @@ class AcademicClient {
                 'User-Agent': TronEndpoints.userAgent,
                 if (uri.host == jw.host &&
                     (uri.path.startsWith('/jwapp/sys/cjcx/modules/') ||
+                        uri.path.startsWith('/gsapp/sys/wdcjapp/modules/') ||
                         uri.path ==
                             '/jwapp/sys/jwpubapp/pub/setJwCommonAppRole.do')) ...{
                   'Referer':
@@ -161,13 +180,18 @@ class AcademicClient {
           location.isNotEmpty &&
           {301, 302, 303, 307, 308}.contains(response.statusCode)) {
         uri = uri.resolve(location);
+        if (uri.host == jw.host && uri.path == '/resources/html/403.html') {
+          // A denied application is not an expired CAS session; never fetch its HTTP error page.
+          throw const AcademicApplicationDenied();
+        }
         continue;
       }
       if (response.statusCode != 200 || uri.host == ids.host) {
         throw const FormatException('教务会话未建立');
       }
       if (uri.host == jw.host &&
-          uri.path == '/jwapp/sys/cjcx/*default/index.do') {
+          (uri.path == '/jwapp/sys/cjcx/*default/index.do' ||
+              uri.path == '/gsapp/sys/wdcjapp/*default/index.do')) {
         // Keep signed application parameters in memory only, never in logs/cache.
         _gradeApplicationPage = uri;
       }
@@ -251,8 +275,7 @@ class AcademicClient {
   }
 
   /// Grade query reuses the identity's own JW/IDS jar, never capture-file cookies.
-  Future<({List<Map<String, dynamic>> rows, Set<String> replacedTerms})>
-  fetchGrades(
+  Future<AcademicGradeResult> fetchGrades(
     int uid, {
     CookieJar? sso,
     String? username,
@@ -273,11 +296,20 @@ class AcademicClient {
           (username != null && student != username)) {
         throw const FormatException('教务身份与所选账号不一致');
       }
-      await open(
-        jw
-            .resolve('/appShow')
-            .replace(queryParameters: {'appId': '4768574631264620'}),
-      );
+      try {
+        await open(
+          jw
+              .resolve('/appShow')
+              .replace(queryParameters: {'appId': '4768574631264620'}),
+        );
+      } on AcademicApplicationDenied {
+        await open(
+          jw
+              .resolve('/appShow')
+              .replace(queryParameters: {'appId': '5094115980385668'}),
+        );
+        return await _graduateGrades(student);
+      }
       // The official grade page initializes the student's JW application role
       // before issuing queries; a valid CAS login alone does not do this.
       final role = await json(
@@ -392,10 +424,103 @@ class AcademicClient {
         }
       }
       if (!await _identityCurrent(uid)) throw StateError('账号已切换');
-      return (rows: output, replacedTerms: terms);
+      return AcademicGradeResult(rows: output, replacedTerms: terms);
     } finally {
       dio.close();
     }
+  }
+
+  /// Graduate application uses a different model and publishes no rows before grades exist.
+  Future<AcademicGradeResult> _graduateGrades(String student) async {
+    final output = <Map<String, dynamic>>[];
+    final pages = <String>{};
+    final occurrences = <String, int>{};
+    var loaded = 0;
+    for (var page = 1; page <= 100; page++) {
+      final result = await json(
+        '/gsapp/sys/wdcjapp/modules/wdcj/xscjcx_by.do',
+        data: {'pageSize': 100, 'pageNumber': page},
+      );
+      final node = (result['datas'] as Map?)?['xscjcx_by'];
+      if (node is! Map ||
+          node['rows'] is! List ||
+          result['success'] == false ||
+          (result['code'] != null && '${result['code']}' != '0')) {
+        throw const FormatException('研究生成绩数据格式异常');
+      }
+      final rows = (node['rows'] as List).whereType<Map>().toList();
+      if (rows.length != (node['rows'] as List).length) {
+        throw const FormatException('研究生成绩记录格式异常');
+      }
+      if (!pages.add(
+            sha256.convert(utf8.encode(jsonEncode(rows))).toString(),
+          ) &&
+          rows.isNotEmpty) {
+        throw const FormatException('研究生成绩分页不完整');
+      }
+      for (final row in rows) {
+        if (row['XH'] != null && academicText(row['XH']) != student) {
+          throw const FormatException('成绩数据身份不一致');
+        }
+        final rawTerm = academicText(row['XNXQDM']);
+        final short = RegExp(r'^(\d{4})([1239])$').firstMatch(rawTerm);
+        final term = short == null
+            ? rawTerm
+            : '${short[1]}-${int.parse(short[1]!) + 1}-${short[2]}';
+        final minimal = <String, dynamic>{
+          'KCH': row['KCDM'],
+          'KCM': row['KCMC'],
+          'XNXQDM': term,
+          'XF': row['XF'],
+          'JDF': row['JDZ'],
+          'ZCJ': row['CJ'],
+          'XSZCJMC': row['CJXSZ'] ?? row['CJ'],
+          'SFYX': row['SFYX'] ?? '1',
+          'DJCJLXDM_DISPLAY': row['CJFZDM_DISPLAY'],
+          'KCLBDM_DISPLAY': row['KCLBDM_DISPLAY'],
+          'GRADE_SYSTEM': 'graduate',
+        };
+        final base = sha256
+            .convert(
+              utf8.encode(
+                jsonEncode([
+                  minimal,
+                  row['KSXZDM'],
+                  row['BJDM'],
+                  row['ZTDM'],
+                  row['TSZTDM'],
+                ]),
+              ),
+            )
+            .toString();
+        final occurrence = occurrences.update(
+          base,
+          (n) => n + 1,
+          ifAbsent: () => 0,
+        );
+        minimal['WID'] = academicText(row['WID']).isNotEmpty
+            ? 'gs:${row['WID']}'
+            : 'gs:$base:$occurrence';
+        output.add(minimal);
+      }
+      loaded += rows.length;
+      final total = academicInt(node['totalSize']);
+      if (loaded >= total) {
+        if (_boundUid != null && !await _identityCurrent(_boundUid!)) {
+          throw StateError('账号已切换');
+        }
+        return AcademicGradeResult(
+          rows: output,
+          replacedTerms: const {},
+          education: 'graduate',
+          complete: true,
+        );
+      }
+      if (rows.isEmpty || page == 100) {
+        throw const FormatException('研究生成绩分页不完整');
+      }
+    }
+    throw const FormatException('研究生成绩分页不完整');
   }
 
   Future<AcademicSchedule> fetch(

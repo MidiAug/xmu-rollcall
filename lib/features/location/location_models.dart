@@ -416,3 +416,7 @@ double metersBetween(double lat1, double lon1, double lat2, double lon2) {
 /// Source references are separate from user-confirmed room coordinates.
 bool isReferencePlace(SavedLocation place) =>
     place.id.startsWith('xmu:') || place.id.startsWith('room:');
+
+/// Curated presets are immutable but are not broad building-reference points.
+bool isTeachingPreset(SavedLocation place) =>
+    place.id.startsWith('xmu:teaching:');

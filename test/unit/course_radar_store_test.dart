@@ -10,6 +10,44 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
   test(
+    'explicit teaching region reads its exact point, never a building centroid',
+    () async {
+      final region = teachingPlaces
+          .singleWhere((p) => p.id == 'xmu:teaching:xuewu-b')
+          .saved;
+      final ctrl = CourseRadarDefaultsController(userId: 1);
+      addTearDown(ctrl.dispose);
+      await ctrl.configureForCourse(
+        courseId: 'region',
+        courseTitle: 'fixture',
+        selection: RadarGeoSelection(
+          latitude: region.latitude,
+          longitude: region.longitude,
+          accuracy: region.accuracy,
+          obtainedVia: RadarObtainedVia.place,
+          placeId: region.id,
+          label: region.note,
+        ),
+      );
+      final read = await readAutomaticRadarLocation(
+        ownerId: 1,
+        assistUserId: null,
+        courseId: 'region',
+      );
+      expect(read!.placeId, region.id);
+      expect(read.latitude, 24.605494);
+      expect(read.longitude, 118.313825);
+      expect(
+        await readAutomaticRadarLocation(
+          ownerId: 1,
+          assistUserId: 2,
+          courseId: 'region',
+        ),
+        isNull,
+      );
+    },
+  );
+  test(
     'explicit built-in place uses directory coordinates without custom storage',
     () async {
       final place = campusPlaces.first.saved;

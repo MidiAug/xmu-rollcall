@@ -81,7 +81,7 @@ void main() {
               ),
               courseRoomsProvider.overrideWithValue([
                 '学武楼（1号楼）C201',
-                '西部片区2号楼108',
+                '西部片区9号楼108',
               ]),
               homeworkDetailProvider.overrideWith(
                 (ref, key) async => HomeworkItem(
@@ -134,7 +134,7 @@ void main() {
               lessThan(
                 tester
                     .getTopLeft(
-                      find.byKey(const ValueKey('managed-room-西部片区2号楼')),
+                      find.byKey(const ValueKey('managed-room-西部片区9号楼')),
                     )
                     .dy,
               ),
@@ -175,12 +175,12 @@ void main() {
           await tester.pumpAndSettle();
           expect(
             tester
-                .getSize(find.byKey(const ValueKey('managed-room-西部片区2号楼')))
+                .getSize(find.byKey(const ValueKey('managed-room-西部片区9号楼')))
                 .height,
             lessThanOrEqualTo(60),
           );
           await capture(tester, 'map-$width-$dark');
-          await tester.tap(find.byKey(const ValueKey('managed-room-西部片区2号楼')));
+          await tester.tap(find.byKey(const ValueKey('managed-room-西部片区9号楼')));
           await tester.pumpAndSettle();
           await capture(tester, 'map-edit-$width-$dark');
           final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
@@ -193,7 +193,7 @@ void main() {
           await tester.tap(find.text('保存地点'));
           await tester.pumpAndSettle();
           expect(scope.read(unmatchedRoomsProvider), isEmpty);
-          expect(scope.read(savedLocationsProvider).single.note, '西部片区2号楼');
+          expect(scope.read(savedLocationsProvider).single.note, '西部片区9号楼');
           await capture(tester, 'map-saved-$width-$dark');
           await show(
             const HomeworkDetailPage(seed: HomeworkItem(id: 1, title: '作业')),
@@ -206,6 +206,64 @@ void main() {
       );
     }
   }
+  testWidgets(
+    'building overview expands regions while a region keeps exact coordinates',
+    (tester) async {
+      tester.view.physicalSize = const Size(960, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            campusCachedDataProvider.overrideWith(
+              (ref) async => const CampusCachedData(),
+            ),
+            preferredCampusProvider.overrideWithValue(Campus.xiangan),
+            courseRoomsProvider.overrideWithValue(const []),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
+            home: const RepaintBoundary(
+              key: ValueKey('place-capture'),
+              child: SavedLocationsPage(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('managed-room-学武楼')), findsOneWidget);
+      expect(find.byKey(const ValueKey('managed-room-学武楼 A区')), findsNothing);
+      expect(find.text('A区'), findsNothing);
+      await capture(tester, 'building-overview');
+      await tester.tap(find.byKey(const ValueKey('managed-room-学武楼')));
+      await tester.pumpAndSettle();
+      final inspector = find.byKey(const ValueKey('map-building-inspector'));
+      expect(inspector, findsOneWidget);
+      expect(find.byKey(const ValueKey('managed-wing-学武楼 A区')), findsOneWidget);
+      await tester.tap(
+        find.descendant(of: inspector, matching: find.byTooltip('关闭')),
+      );
+      await tester.pumpAndSettle();
+      final controller = tester
+          .widget<FlutterMap>(find.byType(FlutterMap))
+          .mapController!;
+      controller.move(const LatLng(24.605494, 118.313825), 18.3);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('map-place-学武楼 B区')), findsOneWidget);
+      expect(find.byKey(const ValueKey('map-building-学武楼')), findsNothing);
+      await capture(tester, 'building-expanded');
+      final before = controller.camera;
+      await tester.tap(find.byKey(const ValueKey('map-place-学武楼 B区')));
+      await tester.pumpAndSettle();
+      expect(controller.camera.center, before.center);
+      expect(controller.camera.zoom, before.zoom);
+      expect(find.text('24.605494, 118.313825'), findsOneWidget);
+      expect(find.text('内置教学区域，按课程教室匹配'), findsOneWidget);
+      await capture(tester, 'building-region-selected');
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   testWidgets(
     'map controls consume taps and a draft preserves pan, zoom and equal insets',
     (tester) async {

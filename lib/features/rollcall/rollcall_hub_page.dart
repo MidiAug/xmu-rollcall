@@ -189,7 +189,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
     }
     final updatedLabel = outsideWindow
         ? (window.scheduleBased
-              ? todayDetectionRanges(
+              ? detectionStatusLabel(
                   window,
                   ref.read(activeRollcallClockProvider)(),
                 )

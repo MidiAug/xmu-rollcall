@@ -24,7 +24,7 @@ SavedLocation custom(
 );
 void main() {
   test(
-    'only actual timetable classrooms and custom locations are offered on the map',
+    'only curated teaching presets, actual classrooms and custom locations are offered',
     () async {
       SharedPreferences.setMockInitialValues({});
       final container = ProviderContainer(
@@ -34,21 +34,20 @@ void main() {
       );
       addTearDown(container.dispose);
       await container.read(savedLocationsProvider.notifier).ready;
-      expect(container.read(knownLocationsProvider).map((p) => p.note), [
-        '学武楼 C区',
-      ]);
       expect(
-        container
-            .read(knownLocationsProvider)
-            .every((p) => p.id.startsWith('room:')),
-        isTrue,
+        container.read(knownLocationsProvider).map((p) => p.note),
+        containsAll([...teachingPlaces.map((p) => p.name), '学武楼 C区']),
+      );
+      expect(
+        container.read(knownLocationsProvider).any((p) => p.note == '德旺图书馆'),
+        isFalse,
       );
       await container
           .read(savedLocationsProvider.notifier)
           .add(note: '西部片区2号楼108', latitude: 24.606, longitude: 118.3);
       expect(
         container.read(knownLocationsProvider).map((p) => p.note).toSet(),
-        {'学武楼 C区', '西部片区2号楼108'},
+        containsAll({'学武楼 C区', '西部片区2号楼108'}),
       );
       expect(container.read(unmatchedRoomsProvider), isEmpty);
     },
@@ -62,7 +61,7 @@ void main() {
   });
   test('room aliases, fullwidth, spacing and number normalization', () {
     for (final room in ['学武楼（1号楼） C201', '学武楼(１号楼)Ｃ２０１', '学武楼C201']) {
-      expect(matchCoursePlace(room, [])?.note, '学武楼');
+      expect(matchCoursePlace(room, [])?.note, '学武楼 C区');
     }
     expect(matchCoursePlace('嘉庚三 201', [])?.note, '颂恩楼（嘉庚三）');
   });

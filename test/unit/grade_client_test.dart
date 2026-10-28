@@ -36,6 +36,24 @@ class GradeAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
+class DeniedGradeAdapter extends GradeAdapter {
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? stream,
+    Future<void>? cancel,
+  ) async {
+    requests.add(options);
+    return ResponseBody.fromString(
+      '',
+      302,
+      headers: {
+        'location': ['http://jw.xmu.edu.cn/resources/html/403.html'],
+      },
+    );
+  }
+}
+
 class Client extends AcademicClient {
   Client() : super(store: SecureStore.memory({SecureStore.keyUserId: '1'}));
   final queries = <Map<String, dynamic>>[];
@@ -100,8 +118,115 @@ class Client extends AcademicClient {
   }
 }
 
+class GraduateClient extends Client {
+  List<Map<String, dynamic>> rows = [];
+  bool malformed = false;
+  int responseCode = 0;
+  @override
+  Future<void> open(Uri uri, {String? username, String? password}) async {
+    opened.add(uri);
+    if (uri.queryParameters['appId'] == '4768574631264620') {
+      throw const AcademicApplicationDenied();
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> json(
+    String path, {
+    Map<String, dynamic>? data,
+  }) async {
+    if (!path.contains('xscjcx_by')) return super.json(path, data: data);
+    queries.add(data!);
+    return {
+      'code': '$responseCode',
+      'datas': malformed
+          ? {}
+          : {
+              'xscjcx_by': {'rows': rows, 'totalSize': rows.length},
+            },
+    };
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'application denial is classified before following its HTTP error page',
+    () async {
+      final adapter = DeniedGradeAdapter();
+      final client = AcademicClient(
+        store: SecureStore.memory(),
+        dio: Dio()..httpClientAdapter = adapter,
+        limiter: RateLimiter(minInterval: Duration.zero),
+      );
+      await expectLater(
+        client.open(AcademicClient.jw.resolve('/appShow')),
+        throwsA(isA<AcademicApplicationDenied>()),
+      );
+      expect(adapter.requests.length, 1);
+      expect(adapter.requests.single.uri.scheme, 'https');
+      client.dio.close();
+    },
+  );
+  test(
+    'graduate application returns a valid empty result for unpublished grades',
+    () async {
+      final client = GraduateClient();
+      final result = await client.fetchGrades(
+        1,
+        username: 'sample',
+        recent: true,
+      );
+      expect(client.opened.last.queryParameters['appId'], '5094115980385668');
+      expect(result.education, 'graduate');
+      expect(result.complete, isTrue);
+      expect(result.rows, isEmpty);
+      expect(client.queries.single, {'pageSize': 100, 'pageNumber': 1});
+      await expectLater(
+        (GraduateClient()..malformed = true).fetchGrades(1, username: 'sample'),
+        throwsFormatException,
+      );
+      await expectLater(
+        (GraduateClient()..responseCode = 1).fetchGrades(1, username: 'sample'),
+        throwsFormatException,
+      );
+    },
+  );
+  test(
+    'graduate JDZ and course fields map independently without losing repeated attempts',
+    () async {
+      final client = GraduateClient()
+        ..rows = [
+          for (var n = 0; n < 2; n++)
+            {
+              'XH': 'sample',
+              'KCDM': 'GS101',
+              'KCMC': '研究生测试课',
+              'XNXQDM': '20261',
+              'XF': 3,
+              'CJXSZ': '88',
+              'CJ': 88,
+              'JDZ': 3.5,
+              'SFYX': '1',
+            },
+        ];
+      final result = await client.fetchGrades(1, username: 'sample');
+      expect(result.rows.length, 2);
+      expect(result.rows.map((r) => r['WID']).toSet().length, 2);
+      expect(result.rows.first['JDF'], 3.5);
+      expect(result.rows.first['XNXQDM'], '2026-2027-1');
+      expect(result.rows.first.containsKey('XH'), isFalse);
+      expect(result.rows.first['GRADE_SYSTEM'], 'graduate');
+      await expectLater(
+        (GraduateClient()
+              ..rows = [
+                {'XH': 'another'},
+              ])
+            .fetchGrades(1, username: 'sample'),
+        throwsFormatException,
+      );
+    },
+  );
   test(
     'grade AJAX retains its application context and same-origin headers',
     () async {

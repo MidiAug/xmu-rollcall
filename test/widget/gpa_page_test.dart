@@ -53,6 +53,16 @@ class Grades extends GradeNotifier {
   );
 }
 
+class GraduateEmptyGrades extends GradeNotifier {
+  @override
+  Future<GradeSnapshot> build() async => GradeSnapshot(
+    at: DateTime(2026, 10, 28),
+    term: '20261',
+    records: [],
+    education: 'graduate',
+  );
+}
+
 void main() {
   setUpAll(() async {
     await loadDesktopPreviewFonts();
@@ -66,6 +76,58 @@ void main() {
     }
   });
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets(
+    'graduate unpublished grades are a normal empty state with separate rules',
+    (tester) async {
+      tester.view.physicalSize = const Size(960, 780);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final captureKey = GlobalKey();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authControllerProvider.overrideWith((ref) => Auth()),
+            gradeSnapshotProvider.overrideWith(GraduateEmptyGrades.new),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
+            home: RepaintBoundary(key: captureKey, child: const GpaPage()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('教务查询成功，暂未发布成绩；出分后可手动刷新'), findsOneWidget);
+      expect(find.text('暂时无法读取成绩'), findsNothing);
+      await tester.tap(find.text('学年'));
+      await tester.pumpAndSettle();
+      expect(find.text('成绩发布后显示可选学年'), findsOneWidget);
+      expect(find.text('教务查询成功，暂未发布成绩；出分后可手动刷新'), findsOneWidget);
+      await tester.tap(find.text('总绩点'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('计算规则与来源'));
+      await tester.tap(find.text('计算规则与来源'));
+      await tester.pumpAndSettle();
+      expect(find.text('本科生成绩管理办法'), findsNothing);
+      expect(find.text('研究生成绩管理文件'), findsOneWidget);
+      if (Platform.environment['CAPTURE_GPA_UI'] == '1') {
+        await tester.runAsync(() async {
+          final render =
+              captureKey.currentContext!.findRenderObject()!
+                  as RenderRepaintBoundary;
+          final im = await render.toImage();
+          final data = await im.toByteData(format: ui.ImageByteFormat.png);
+          await Directory('build/gpa-ui-review').create(recursive: true);
+          await File(
+            'build/gpa-ui-review/graduate-empty.png',
+          ).writeAsBytes(data!.buffer.asUint8List());
+          im.dispose();
+        });
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   for (final width in [320.0, 384.0, 960.0]) {
     for (final dark in [false, true]) {
       testWidgets(

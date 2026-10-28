@@ -32,15 +32,11 @@ class _Auth extends AuthController {
 class _Client extends AcademicClient {
   _Client(SecureStore store) : super(store: store);
   final entered = Completer<void>();
-  final result =
-      Completer<
-        ({List<Map<String, dynamic>> rows, Set<String> replacedTerms})
-      >();
+  final result = Completer<AcademicGradeResult>();
   String? receivedPassword;
   bool? receivedRecent;
   @override
-  Future<({List<Map<String, dynamic>> rows, Set<String> replacedTerms})>
-  fetchGrades(
+  Future<AcademicGradeResult> fetchGrades(
     int uid, {
     CookieJar? sso,
     String? username,
@@ -88,16 +84,69 @@ void main() {
       addTearDown(sub.close);
       await client.entered.future;
       expect(client.receivedRecent, isFalse);
-      client.result.complete((
-        rows: [
-          {'WID': 'new', 'XF': 2, 'XFJD': 4, 'DJCJLXDM': '100'},
-        ],
-        replacedTerms: <String>{},
-      ));
+      client.result.complete(
+        AcademicGradeResult(
+          rows: [
+            {'WID': 'new', 'XF': 2, 'XFJD': 4, 'DJCJLXDM': '100'},
+          ],
+          replacedTerms: <String>{},
+        ),
+      );
       final snapshot = await c.read(gradeSnapshotProvider.future);
       expect(snapshot.version, 2);
       expect(snapshot.records.single.id, 'new');
       expect(jsonDecode(prefs.getString(gradeCacheKey(1, 1))!)['version'], 2);
+    },
+  );
+  test(
+    'graduate full refresh replaces stale rows rather than treating empty grades as failure',
+    () async {
+      final now = DateTime(2026, 10, 28);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        gradeCacheKey(1, 1),
+        jsonEncode(
+          GradeSnapshot(
+            at: now.subtract(const Duration(days: 2)),
+            term: '20261',
+            education: 'graduate',
+            records: [
+              const GradeRecord({'WID': 'old', 'KCM': 'withdrawn'}),
+            ],
+          ).toJson(),
+        ),
+      );
+      final store = SecureStore.memory({SecureStore.keyUserId: '1'});
+      final client = _Client(store);
+      final c = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          secureStoreProvider.overrideWithValue(store),
+          gradeClockProvider.overrideWithValue(() => now),
+          academicSyncProvider.overrideWith((ref) => AcademicSync(store)),
+          gradeClientProvider.overrideWithValue(() => client),
+        ],
+      );
+      addTearDown(c.dispose);
+      final sub = c.listen(gradeSnapshotProvider, (_, _) {});
+      addTearDown(sub.close);
+      await client.entered.future;
+      expect(client.receivedRecent, isTrue);
+      client.result.complete(
+        const AcademicGradeResult(
+          rows: [],
+          replacedTerms: {},
+          education: 'graduate',
+          complete: true,
+        ),
+      );
+      final result = await c.read(gradeSnapshotProvider.future);
+      expect(result.records, isEmpty);
+      expect(result.education, 'graduate');
+      expect(
+        jsonDecode(prefs.getString(gradeCacheKey(1, 1))!)['education'],
+        'graduate',
+      );
     },
   );
   test(
@@ -220,12 +269,14 @@ void main() {
       );
       c.read(selectedRollcallAccountProvider.notifier).state = null;
       await c.read(gradeSnapshotProvider.future);
-      client.result.complete((
-        rows: [
-          {'WID': 'private', 'KCM': 'assist grade'},
-        ],
-        replacedTerms: <String>{},
-      ));
+      client.result.complete(
+        AcademicGradeResult(
+          rows: [
+            {'WID': 'private', 'KCM': 'assist grade'},
+          ],
+          replacedTerms: <String>{},
+        ),
+      );
       await Future<void>.delayed(const Duration(milliseconds: 20));
       expect(prefs.getString(gradeCacheKey(1, 2)), isNull);
       expect(c.read(gradeSnapshotProvider).requireValue.records, isEmpty);

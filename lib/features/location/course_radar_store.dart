@@ -216,6 +216,7 @@ Future<CourseRadarPref?> readAutomaticRadarLocation({
       );
       final places = [
         ...campusPlaces.map((p) => p.saved.toJson()),
+        ...teachingPlaces.map((p) => p.saved.toJson()),
         ...saved.map((p) => p.toJson()),
       ];
       final matches = places.whereType<Map>().where(

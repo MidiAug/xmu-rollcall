@@ -59,6 +59,10 @@ void main() {
       );
       final window = await readScheduleDetectionWindow(2, at: day);
       expect(todayDetectionRanges(window, day), '08:30—11:40、14:00—16:40');
+      expect(
+        detectionStatusLabel(window, DateTime(2026, 10, 28, 12)),
+        '非检测时段，今日 08:30—11:40、14:00—16:40',
+      );
       expect(window.allows(DateTime(2026, 10, 28, 8, 29)), false);
       expect(window.allows(DateTime(2026, 10, 28, 8, 30)), true);
       expect(window.allows(DateTime(2026, 10, 28, 11, 40)), false);

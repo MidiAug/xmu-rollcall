@@ -33,10 +33,127 @@ class CampusPlace {
     note: name,
     latitude: latitude,
     longitude: longitude,
-    accuracy: 80,
+    accuracy: id.startsWith('xmu:teaching:') ? 35 : 80,
     createdAt: DateTime(2026, 10, 28),
   );
 }
+
+// User-supplied teaching coordinates, 2026-10-28 (GCJ-02 map coordinates).
+// These are deliberate teaching presets, distinct from the broad building catalogue.
+const teachingPlaces = <CampusPlace>[
+  CampusPlace(
+    'xmu:teaching:xuewu-a',
+    '学武楼 A区',
+    Campus.xiangan,
+    24.604970,
+    118.313776,
+    ['学武楼A', '学武楼（1号楼）A', '学武楼（1号楼）A区', '主楼群1号楼A', '主楼群1号楼A区'],
+  ),
+  CampusPlace(
+    'xmu:teaching:xuewu-b',
+    '学武楼 B区',
+    Campus.xiangan,
+    24.605494,
+    118.313825,
+    ['学武楼B', '学武楼（1号楼）B', '学武楼（1号楼）B区', '主楼群1号楼B', '主楼群1号楼B区'],
+  ),
+  CampusPlace(
+    'xmu:teaching:xuewu-c',
+    '学武楼 C区',
+    Campus.xiangan,
+    24.605991,
+    118.313890,
+    ['学武楼C', '学武楼（1号楼）C', '学武楼（1号楼）C区', '主楼群1号楼C', '主楼群1号楼C区'],
+  ),
+  CampusPlace(
+    'xmu:teaching:kunluan-a',
+    '坤銮楼 A区',
+    Campus.xiangan,
+    24.605083,
+    118.312672,
+    [
+      '坤銮楼A',
+      '坤銮楼（2号楼）A',
+      '坤銮楼（2号楼）A区',
+      '主楼群2号楼A',
+      '主楼群2号楼A区',
+      '坤銮楼（国际学院/海外教育学院）A',
+      '坤銮楼（国际学院/海外教育学院）A区',
+    ],
+  ),
+  CampusPlace(
+    'xmu:teaching:kunluan-b',
+    '坤銮楼 B区',
+    Campus.xiangan,
+    24.605577,
+    118.312748,
+    [
+      '坤銮楼B',
+      '坤銮楼（2号楼）B',
+      '坤銮楼（2号楼）B区',
+      '主楼群2号楼B',
+      '主楼群2号楼B区',
+      '坤銮楼（国际学院/海外教育学院）B',
+      '坤銮楼（国际学院/海外教育学院）B区',
+    ],
+  ),
+  CampusPlace(
+    'xmu:teaching:kunluan-c',
+    '坤銮楼 C区',
+    Campus.xiangan,
+    24.606084,
+    118.312816,
+    [
+      '坤銮楼C',
+      '坤銮楼（2号楼）C',
+      '坤銮楼（2号楼）C区',
+      '主楼群2号楼C',
+      '主楼群2号楼C区',
+      '坤銮楼（国际学院/海外教育学院）C',
+      '坤銮楼（国际学院/海外教育学院）C区',
+    ],
+  ),
+  CampusPlace(
+    'xmu:teaching:wenxuan-a',
+    '文宣楼 A区',
+    Campus.xiangan,
+    24.604756,
+    118.310254,
+    ['文宣楼A', '文宣楼（4号楼）A', '文宣楼（4号楼）A区', '主楼群4号楼A', '主楼群4号楼A区'],
+  ),
+  CampusPlace(
+    'xmu:teaching:wenxuan-b',
+    '文宣楼 B区',
+    Campus.xiangan,
+    24.605236,
+    118.310050,
+    ['文宣楼B', '文宣楼（4号楼）B', '文宣楼（4号楼）B区', '主楼群4号楼B', '主楼群4号楼B区'],
+  ),
+  CampusPlace(
+    'xmu:teaching:wenxuan-c',
+    '文宣楼 C区',
+    Campus.xiangan,
+    24.605691,
+    118.309850,
+    ['文宣楼C', '文宣楼（4号楼）C', '文宣楼（4号楼）C区', '主楼群4号楼C', '主楼群4号楼C区'],
+  ),
+  CampusPlace(
+    'xmu:teaching:west-2',
+    '西部片区2号楼',
+    Campus.xiangan,
+    24.604261,
+    118.299946,
+    ['西部片区2号楼', '西部区2号楼', '学信楼', '西二教学楼'],
+  ),
+  CampusPlace(
+    'xmu:teaching:west-4',
+    '西部片区4号楼',
+    Campus.xiangan,
+    24.605264,
+    118.300235,
+    ['西部片区4号楼', '西部区4号楼'],
+  ),
+];
 
 const campusPlaces = <CampusPlace>[
   CampusPlace(

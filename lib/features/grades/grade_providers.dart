@@ -125,7 +125,8 @@ class GradeNotifier extends AutoDisposeAsyncNotifier<GradeSnapshot> {
     final next = GradeSnapshot(
       at: now,
       term: currentSemester(now),
-      records: recent
+      education: result.education,
+      records: recent && !result.complete
           ? mergeRecentGrades(cache.records, fresh, result.replacedTerms)
           : fresh,
     );

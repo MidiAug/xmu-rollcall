@@ -125,19 +125,23 @@ class GradeSnapshot {
     required this.term,
     required this.records,
     this.version = 2,
+    this.education = 'undergraduate',
   });
+  final String education;
   final int version;
   final DateTime at;
   final String term;
   final List<GradeRecord> records;
   Map<String, dynamic> toJson() => {
     'version': version,
+    'education': education,
     'at': at.toIso8601String(),
     'term': term,
     'records': records.map((r) => r.data).toList(),
   };
   factory GradeSnapshot.fromJson(Map<String, dynamic> j) => GradeSnapshot(
     version: j['version'] as int? ?? 1,
+    education: j['education'] as String? ?? 'undergraduate',
     at: DateTime.parse(j['at'] as String),
     term: j['term'] as String,
     records: (j['records'] as List)
@@ -180,19 +184,21 @@ List<GradeRecord> mergeRecentGrades(
     weighted += r.credits * r.points!;
     final score =
         gradeNumber(r.score) ??
-        const <String, double>{
-          'A+': 100,
-          'A': 94,
-          'A-': 89,
-          'B+': 84,
-          'B': 80,
-          'B-': 77,
-          'C+': 74,
-          'C': 71,
-          'C-': 67,
-          'D': 63,
-          'F': 59,
-        }[r.score.trim().toUpperCase()];
+        (r.data['GRADE_SYSTEM'] == 'graduate'
+            ? null
+            : const <String, double>{
+                'A+': 100,
+                'A': 94,
+                'A-': 89,
+                'B+': 84,
+                'B': 80,
+                'B-': 77,
+                'C+': 74,
+                'C': 71,
+                'C-': 67,
+                'D': 63,
+                'F': 59,
+              }[r.score.trim().toUpperCase()]);
     if (score != null) {
       scoreCredits += r.credits;
       scoreTotal += score * r.credits;

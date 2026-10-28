@@ -47,6 +47,26 @@ String todayDetectionRanges(DetectionWindow window, DateTime now) {
       : ranges.join('、');
 }
 
+String detectionStatusLabel(DetectionWindow window, DateTime now) {
+  final ranges = todayDetectionRanges(window, now);
+  final day = DateTime(now.year, now.month, now.day);
+  final end = day.add(const Duration(days: 1));
+  final hasToday =
+      window.intervals?.any(
+        (r) => r.end.isAfter(day) && r.start.isBefore(end),
+      ) ??
+      false;
+  if (!window.enabled ||
+      window.allows(now) ||
+      !window.hasSchedule ||
+      window.intervals == null ||
+      window.intervals!.isEmpty ||
+      !hasToday) {
+    return ranges;
+  }
+  return '非检测时段，今日 $ranges';
+}
+
 class DetectionWindowSetting extends ConsumerStatefulWidget {
   const DetectionWindowSetting({
     super.key,

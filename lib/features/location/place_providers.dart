@@ -86,6 +86,7 @@ final courseRoomLocationsProvider = Provider<List<SavedLocation>>((ref) {
 final knownLocationsProvider = Provider<List<SavedLocation>>(
   (ref) => [
     ...ref.watch(savedLocationsProvider),
+    ...teachingPlaces.map((p) => p.saved),
     ...ref.watch(courseRoomLocationsProvider),
   ],
 );

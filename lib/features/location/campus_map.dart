@@ -1,3 +1,4 @@
+import 'place_buildings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -23,6 +24,8 @@ class CampusMap extends StatefulWidget {
     this.onTap,
     this.onPlace,
     this.zoom = 16,
+    this.groupBuildings = false,
+    this.onBuilding,
   });
   final LatLng center;
   final List<SavedLocation> places;
@@ -30,6 +33,8 @@ class CampusMap extends StatefulWidget {
   final ValueChanged<LatLng>? onTap;
   final ValueChanged<SavedLocation>? onPlace;
   final double zoom;
+  final bool groupBuildings;
+  final ValueChanged<String>? onBuilding;
   @override
   State<CampusMap> createState() => _CampusMapState();
 }
@@ -50,6 +55,67 @@ class _CampusMapState extends State<CampusMap> {
   void dispose() {
     _controller.dispose();
     super.dispose();
+  }
+
+  Widget _mapLabel(
+    BuildContext context,
+    String label, {
+    int? count,
+    String? tooltip,
+    required VoidCallback onTap,
+  }) {
+    final p = AppPalette.of(context);
+    return Tooltip(
+      key: ValueKey(
+        count == null ? 'map-place-$tooltip' : 'map-building-$label',
+      ),
+      message: tooltip ?? '放大查看$label区域',
+      child: Material(
+        color: p.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: BorderSide(color: p.primary.withValues(alpha: .35)),
+        ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  count == null ? AppIcons.location : AppIcons.building,
+                  size: 15,
+                  color: p.primary,
+                ),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: p.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (count != null) ...[
+                  const SizedBox(width: 5),
+                  Text(
+                    '$count',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: p.muted),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -86,34 +152,92 @@ class _CampusMapState extends State<CampusMap> {
                 subdomains: kAmapTileSubdomains,
                 userAgentPackageName: 'com.xmu.rollcall',
               ),
-              MarkerLayer(
-                markers: [
-                  for (final place in widget.places)
-                    Marker(
-                      point: LatLng(place.latitude, place.longitude),
-                      width: 36,
-                      height: 36,
-                      child: Tooltip(
-                        message: place.note,
-                        child: IconButton(
-                          style: IconButton.styleFrom(
-                            backgroundColor: p.surface,
-                            side: BorderSide(
-                              color: p.primary.withValues(alpha: .3),
+              if (widget.groupBuildings)
+                Builder(
+                  builder: (context) {
+                    final expanded = MapCamera.of(context).zoom >= 18;
+                    final groups = mapBuildingGroups(widget.places);
+                    return MarkerLayer(
+                      markers: [
+                        for (final entry in groups.indexed)
+                          if (!expanded &&
+                              entry.$2.grouped &&
+                              entry.$2.center != null)
+                            Marker(
+                              point: entry.$2.center!,
+                              width: 120,
+                              height: 36,
+                              alignment: entry.$1.isEven
+                                  ? Alignment.topCenter
+                                  : Alignment.bottomCenter,
+                              child: _mapLabel(
+                                context,
+                                entry.$2.name,
+                                count: entry.$2.children.length,
+                                onTap: () {
+                                  _controller.move(entry.$2.center!, 18.3);
+                                  widget.onBuilding?.call(entry.$2.name);
+                                },
+                              ),
+                            )
+                          else
+                            for (final item in entry.$2.children)
+                              if (item.place case final place?)
+                                Marker(
+                                  point: LatLng(
+                                    place.latitude,
+                                    place.longitude,
+                                  ),
+                                  width: placeWing(item.name) == null
+                                      ? 140
+                                      : 120,
+                                  height: 36,
+                                  child: _mapLabel(
+                                    context,
+                                    placeWing(item.name) == null
+                                        ? entry.$2.name
+                                        : '${entry.$2.name} ${placeWing(item.name)}区',
+                                    tooltip: item.name,
+                                    onTap: () => widget.onPlace?.call(place),
+                                  ),
+                                ),
+                      ],
+                    );
+                  },
+                )
+              else
+                MarkerLayer(
+                  markers: [
+                    for (final place in widget.places)
+                      Marker(
+                        point: LatLng(place.latitude, place.longitude),
+                        width: 36,
+                        height: 36,
+                        child: Tooltip(
+                          message: place.note,
+                          child: IconButton(
+                            style: IconButton.styleFrom(
+                              backgroundColor: p.surface,
+                              side: BorderSide(
+                                color: p.primary.withValues(alpha: .3),
+                              ),
                             ),
-                          ),
-                          padding: EdgeInsets.zero,
-                          onPressed: () => widget.onPlace?.call(place),
-                          icon: Icon(
-                            place.id.startsWith('xmu:')
-                                ? AppIcons.building
-                                : AppIcons.location,
-                            size: 18,
-                            color: p.primary,
+                            padding: EdgeInsets.zero,
+                            onPressed: () => widget.onPlace?.call(place),
+                            icon: Icon(
+                              place.id.startsWith('xmu:')
+                                  ? AppIcons.building
+                                  : AppIcons.location,
+                              size: 18,
+                              color: p.primary,
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                  ],
+                ),
+              MarkerLayer(
+                markers: [
                   if (widget.point != null)
                     Marker(
                       point: widget.point!,

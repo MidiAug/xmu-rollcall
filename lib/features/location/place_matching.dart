@@ -58,6 +58,17 @@ String coursePlaceIdentity(String room) {
   for (final campus in Campus.values) {
     key = key.replaceAll(campus.label, '');
   }
+  final teaching = teachingPlaces
+      .where(
+        (p) =>
+            (hint == null || p.campus == hint) &&
+            [
+              p.name,
+              ...p.aliases,
+            ].any((a) => normalizePlaceName(coursePlaceGroup(a)) == key),
+      )
+      .toList();
+  if (teaching.length == 1) return teaching.single.id;
   final wing = RegExp(r'([a-z])区$').firstMatch(key);
   final building = wing == null ? key : key.substring(0, wing.start);
   final matches = campusPlaces
@@ -185,7 +196,7 @@ SavedLocation? matchCoursePlace(
   for (final p in custom) {
     consider(p, [p.note]);
   }
-  for (final p in campusPlaces) {
+  for (final p in [...campusPlaces, ...teachingPlaces]) {
     consider(p.saved, [p.name, ...p.aliases]);
   }
   return matches.length == 1 ? matches.values.single : null;

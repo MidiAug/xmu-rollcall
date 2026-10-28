@@ -1,3 +1,4 @@
+import 'place_buildings.dart';
 import 'map_pick_panel.dart' show kMapOverlayInset;
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
@@ -93,6 +94,7 @@ class LocationManagerContent extends ConsumerStatefulWidget {
 class _LocationManagerState extends ConsumerState<LocationManagerContent> {
   bool _mine = false, _pendingOnly = false, _mobileMap = false;
   String? _focusedRoom;
+  String? _focusedBuilding;
   SavedLocation? _selected;
   LatLng? _point;
   LatLng? _viewCenter;
@@ -211,6 +213,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
       _point = null;
       _editingId = null;
       _focusedRoom = null;
+      _focusedBuilding = null;
       _name.clear();
       _error = null;
     });
@@ -219,6 +222,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
   void _choose(String room, SavedLocation? place, {bool focusMap = true}) {
     if (_busy) return;
     setState(() {
+      _focusedBuilding = null;
       _focusedRoom = room;
       _selected = place;
       if (focusMap && place != null) {
@@ -242,6 +246,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
       _point = null;
       _creating = false;
       _focusedRoom = null;
+      _focusedBuilding = null;
       _editingId = null;
       _mobileMap = false;
       _name.clear();
@@ -256,43 +261,62 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
     final Campus campus =
         widget.campus ?? ref.watch<Campus>(preferredCampusProvider);
     final groups = ref.watch(coursePlaceGroupsProvider);
-    final rooms = groups.map((g) => g.name);
-    final pending = ref.watch(unmatchedRoomsProvider).toSet();
     bool inCampus(String name, SavedLocation? place) =>
         (place == null ? campusInName(name) : campusForPoint(place)) ==
             campus ||
         ((place == null ? campusInName(name) : campusForPoint(place)) == null &&
             campus == ref.read(preferredCampusProvider));
-    final entries =
-        <({String name, SavedLocation? place})>[
-              if (_mine)
-                for (final place in custom) (name: place.note, place: place)
-              else
-                for (final room in rooms)
-                  (name: room, place: matchCoursePlace(room, custom)),
-            ]
-            .where(
-              (e) =>
-                  inCampus(e.name, e.place) &&
-                  (normalizePlaceName(
-                        e.name,
-                      ).contains(normalizePlaceName(_query)) ||
-                      groups
-                          .where((g) => g.name == e.name)
-                          .any(
-                            (g) => normalizePlaceName(
-                              g.courses.join(' '),
-                            ).contains(normalizePlaceName(_query)),
-                          )) &&
-                  (!_pendingOnly || _mine || pending.contains(e.name)),
-            )
-            .toList();
+    final rawEntries = <ManagedPlaceEntry>[
+      if (_mine)
+        for (final place in custom) ManagedPlaceEntry(place.note, place)
+      else ...[
+        for (final g in groups)
+          ManagedPlaceEntry(
+            g.name,
+            matchCoursePlace(g.name, custom),
+            g.courses,
+          ),
+        for (final preset in teachingPlaces)
+          if (!groups.any(
+            (g) =>
+                coursePlaceIdentity(g.name) == coursePlaceIdentity(preset.name),
+          ))
+            ManagedPlaceEntry(
+              preset.name,
+              matchCoursePlace(preset.name, custom),
+            ),
+      ],
+    ].where((e) => inCampus(e.name, e.place)).toList();
+    final allBuildings = groupPlaceEntries(rawEntries);
+    final entries = groupPlaceEntries(
+      rawEntries.where(
+        (e) =>
+            (normalizePlaceName(e.name).contains(normalizePlaceName(_query)) ||
+                normalizePlaceName(
+                  e.courses.join(' '),
+                ).contains(normalizePlaceName(_query))) &&
+            (!_pendingOnly || _mine || e.place == null),
+      ),
+    );
     entries.sort((a, b) {
-      final status = (a.place == null ? 0 : 1).compareTo(
-        b.place == null ? 0 : 1,
-      );
+      final status = (a.pending > 0 ? 0 : 1).compareTo(b.pending > 0 ? 0 : 1);
       return status != 0 ? status : a.name.compareTo(b.name);
     });
+    final activeBuilding = allBuildings
+        .where((e) => e.name == _focusedBuilding)
+        .firstOrNull;
+    void openBuilding(ManagedBuilding building, {bool focusMap = true}) {
+      setState(() {
+        _focusedBuilding = building.name;
+        _focusedRoom = null;
+        _selected = null;
+        _point = null;
+        _creating = false;
+        _mobileMap = true;
+        if (focusMap && building.center != null) _viewCenter = building.center;
+      });
+    }
+
     final visible = places.where((e) => campusForPoint(e) == campus).toList();
     final point =
         _point ??
@@ -388,9 +412,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                             itemCount: entries.length,
                             itemBuilder: (context, i) {
                               final e = entries[i];
-                              final isPending = e.place == null;
+                              final isPending = e.pending > 0;
                               final previous = i > 0
-                                  ? entries[i - 1].place == null
+                                  ? entries[i - 1].pending > 0
                                   : null;
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -407,8 +431,8 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                         _mine
                                             ? '已保存（${entries.length}）'
                                             : isPending
-                                            ? '待补全（${entries.where((e) => e.place == null).length}）'
-                                            : '已定位（${entries.where((e) => e.place != null).length}）',
+                                            ? '待补全（${entries.where((e) => e.pending > 0).length}）'
+                                            : '已定位（${entries.where((e) => e.pending == 0).length}）',
                                         style: TextStyle(
                                           color: p.ink,
                                           fontWeight: FontWeight.w600,
@@ -417,7 +441,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                       ),
                                     ),
                                   Material(
-                                    color: _focusedRoom == e.name
+                                    color:
+                                        _focusedBuilding == e.name ||
+                                            _focusedRoom == e.name
                                         ? p.selected
                                         : Colors.transparent,
                                     child: ListTile(
@@ -451,26 +477,14 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                             ),
                                       ),
                                       subtitle: Text(
-                                        isPending
-                                            ? (groups
-                                                          .where(
-                                                            (g) =>
-                                                                g.name ==
-                                                                e.name,
-                                                          )
-                                                          .firstOrNull
-                                                          ?.courses
-                                                          .join('、')
-                                                          .isNotEmpty ==
-                                                      true
-                                                  ? groups
-                                                        .firstWhere(
-                                                          (g) =>
-                                                              g.name == e.name,
-                                                        )
-                                                        .courses
-                                                        .join('、')
-                                                  : '课程地点，点击补充位置')
+                                        e.grouped
+                                            ? '${e.children.length} 个区域${e.pending > 0 ? '，${e.pending} 个待补全' : '，已定位'}${e.courses.isEmpty ? '' : '，${e.courses.join('、')}'}'
+                                            : e.courses.isNotEmpty
+                                            ? e.courses.join('、')
+                                            : isPending
+                                            ? '课程地点，点击补充位置'
+                                            : isTeachingPreset(e.place!)
+                                            ? '内置教学地点'
                                             : isReferencePlace(e.place!)
                                             ? '楼宇参考，可补充区域位置'
                                             : '已保存位置',
@@ -491,7 +505,12 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                       ),
                                       onTap: _busy
                                           ? null
-                                          : () => _choose(e.name, e.place),
+                                          : () => e.grouped
+                                                ? openBuilding(e)
+                                                : _choose(
+                                                    e.children.single.name,
+                                                    e.place,
+                                                  ),
                                     ),
                                   ),
                                   Divider(
@@ -516,6 +535,15 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                     center: _viewCenter ?? campus.center,
                     point: point,
                     places: visible,
+                    groupBuildings: true,
+                    onBuilding: (name) {
+                      final building = allBuildings
+                          .where((e) => e.name == name)
+                          .firstOrNull;
+                      if (building != null) {
+                        openBuilding(building, focusMap: false);
+                      }
+                    },
                     onPlace: _busy
                         ? null
                         : (place) =>
@@ -527,6 +555,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                               _editingId = null;
                               _name.text = _focusedRoom ?? '';
                             }
+                            _focusedBuilding = null;
                             _point = value;
                             _creating = true;
                           }),
@@ -542,7 +571,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                       label: const Text('地点列表'),
                     ),
                   ),
-                if (_creating || _selected != null)
+                if (_creating || _selected != null || activeBuilding != null)
                   Positioned(
                     right: kMapOverlayInset,
                     bottom: kMapOverlayInset,
@@ -551,7 +580,12 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                       width: wide
                           ? (bounds.maxWidth - 350).clamp(240.0, 340.0)
                           : null,
-                      child: _inspector(context),
+                      child:
+                          activeBuilding != null &&
+                              !_creating &&
+                              _selected == null
+                          ? _buildingInspector(context, activeBuilding)
+                          : _inspector(context),
                     ),
                   )
                 else
@@ -569,7 +603,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                           child: Padding(
                             padding: const EdgeInsets.all(12),
                             child: Text(
-                              '选择左侧教室，或点击地图添加地点',
+                              '选择楼宇查看区域，或点击地图添加地点',
                               style: TextStyle(fontSize: 12, color: p.muted),
                             ),
                           ),
@@ -589,6 +623,82 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
               ],
             );
           },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildingInspector(BuildContext context, ManagedBuilding building) {
+    final p = AppPalette.of(context);
+    return Material(
+      key: const ValueKey('map-building-inspector'),
+      color: p.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: p.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Icon(AppIcons.building, color: p.primary, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    building.name,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: '关闭',
+                  onPressed: () => setState(() => _focusedBuilding = null),
+                  icon: const Icon(AppIcons.close, size: 18),
+                ),
+              ],
+            ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 230),
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  for (final child in building.children)
+                    ListTile(
+                      key: ValueKey('managed-wing-${child.name}'),
+                      dense: true,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+                      leading: Icon(
+                        AppIcons.location,
+                        size: 18,
+                        color: child.place == null ? p.muted : p.primary,
+                      ),
+                      title: Text(
+                        placeWing(child.name) == null
+                            ? child.name
+                            : '${placeWing(child.name)}区',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                      subtitle: Text(
+                        child.courses.isNotEmpty
+                            ? child.courses.join('、')
+                            : child.place == null
+                            ? '待补全位置'
+                            : '已定位',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      trailing: const Icon(AppIcons.right, size: 16),
+                      onTap: () => _choose(child.name, child.place),
+                    ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -662,6 +772,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                         _selected = null;
                         _point = null;
                         _focusedRoom = null;
+                        _focusedBuilding = null;
                       }),
                 icon: const Icon(AppIcons.close, size: 16),
               ),
@@ -716,7 +827,11 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
             ),
           ] else if (selected != null) ...[
             Text(
-              isReferencePlace(selected) ? '楼宇参考点，可补充区域位置' : '自定义地点',
+              isTeachingPreset(selected)
+                  ? '内置教学区域，按课程教室匹配'
+                  : isReferencePlace(selected)
+                  ? '楼宇参考点，可补充区域位置'
+                  : '自定义地点',
               style: TextStyle(fontSize: 12, color: p.muted),
             ),
             const SizedBox(height: 12),
