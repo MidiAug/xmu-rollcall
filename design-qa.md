@@ -225,3 +225,23 @@ The rebuilt Debug process was restarted and inspected with the real assist timet
 - 保存校正必须选不同坐标；只更新既有绑定的坐标与地点引用，保留课程、课次及授权标记，既不添加新课程授权，也不打开自动提交。原样保存不能解除错误；旧反馈不覆盖新坐标。失败版本含坐标，避免清除旧记录时误删新错误；账号间、主/协助间独立。
 - 隔离真实指针/持久化回归覆盖384/960宽度：错误在待定位之前、只读名称、绑定新坐标、清除错误、旧无地名绑定校正、预设坐标未被改写、已存在授权保留。实际查看build/place-ui-review/binding-errors-960.0.png和binding-correction-384.0.png；这些是虚构课程与模拟服务端失败，地图瓦片在Widget测试中被拦截，不能当成在线地图或真实签到成功证据。
 - 本轮全量767 passed、2个既有联网配置项skipped（build/location-binding-final-all-tests.log）。此前完整回归发现全角括号显示回退，修正后全部通过；最后绑定相关18项也通过（build/location-binding-last-flow-tests.log）。全项目静态检查无问题（build/location-binding-final-analyze.log）。末次再收紧时间/权限范围及定位超时排除词，34项分类/自动签到回归通过（build/location-binding-classification-final.log），对应两文件静态检查见build/location-binding-classification-analyze.log。Windows当前开发窗口已热重载；Android后台代码已接入但未做真机签到验收，没有发起真实签到验证。
+
+
+# 待办层级与Android真机体验构建 — 2026-10-28
+
+- 用户截图三行等重内容难以区分，长课程名和作业名更明显。概览改为课程/截止的次级顶行与作业标题主行，使用独立轻边框卡片、40px方形文档底和加粗标题；日期标签省去重复“截止”字样，完整截止日期保留在提示中。课程和标题只截断时出现全文提示，不删减源文本，不改变作业点击入口。
+- 实际查看build/todo-ui-review/todo-false-1.0.png和todo-true-1.3.png；浅深色及1.0/1.3字体四种组合重建。11项待办/桌面工作区回归通过（build/todo-hierarchy-final-tests.log），覆盖同行课程/截止、主标题单行、长按显示全文且不误触跳转、正常点击仍进入作业。静态检查见build/todo-hierarchy-final-analyze.log。
+- 连接Android 16/API36真机（2410DPN6CC），已装应用为0.2.0/versionCode5。使用scripts/package-android.ps1 -NoPub构建当前源码release成功，约79.8MB（build/android-ui-review/build-release.log），版本标识沿用0.3.0+6，不是新发布版本。
+- 从手机读取旧APK并与新APK比较证书SHA-256，一致；通过adb install -r覆盖安装成功，未卸载或清理数据。安装后查询versionCode6/versionName0.3.0，启动现有包成功，看到原账号及正常签到首页；实际查看build/android-ui-review/phone-home.png。刚启动时的加载中截图phone-current.png未作为验收页面。只观察启动和首页，未代用户点击签到或执行真实提交，也未宣称全部手机页面均已逐项验收。
+- APK：dist/xmu-rollcall-0.3.0-android.apk，SHA-256 BC22C10AC2BAF5399C49A3F746381CC4AE496843E7E9F889F42AAD8D54DFFF83。手机使用触控布局，共享设置/作业详情/地图等更新随本次源码构建进入，桌面右侧概览仍为宽屏区域。Windows开发进程另行热重载，设备截图与APK均不入Git；没有推送或发布。
+
+
+# 移动选择器、学院校区回退与待办详情 — 2026-10-28
+
+- 地点管理窄屏右上校区、学期设置与课程关联移除原生DropdownButton/FormField，使用AppShellSelect，保留标题/字段标签及长文本裁切。384宽度回归验证初始翔安、打开菜单后切到漳州，且无布局异常。桌面继续页头右侧分段切换。
+- 默认校区优先实际课堂地点，无可识别地点才参考学生学院名称。学院来源为已有initXsxx身份响应中的明确名称字段，不用开课学院，不新增请求；仅保存学院名称至当前uid课表快照。官方招生目录与漳州校区介绍核对常见学院；未知名称不猜测。旧缓存为空，需正常课表同步后补入；未宣称当前真实账号必然返回学院。回归覆盖教务响应提取、误用教学单位排除、旧快照兼容及账号隔离。
+- 三处BottomSheet关闭顶部拖拽条并补齐内容顶距；课程详情及同层地图共用加深加粗的24px关闭图形与44px触控范围，课程标题行向上对齐。使用真实Fluent字体重建并实际查看.tools/timetable-polish/mobile-light-03-detail.png，确认顶部无条、关闭图形与标题同一行；另覆盖深色大字号及桌面布局。Widget地图瓦片请求由测试环境拒绝，不作为在线地图证据。
+- 待办预览将单项和查看全部拆成不同回调，单项使用对应HomeworkItem打开HomeworkDetailPage。桌面真实Shell回归验证seed.id=3、详情返回；长按显示全文不误触，正常点击回传指定作业。查看全部继续进入列表。
+- 72项聚焦回归通过（build/campus-ui-final-regression.log）；覆盖教务解析/缓存、校区与地点、课表弹层、选择菜单、作业详情和桌面导航。初次视觉运行曾因本地Material字体路径配置错误导致setUpAll失败，修正为D:/Dev/Flutter后重跑通过；最终渲染加入preview_fonts加载Fluent字体。
+- Android已构建release并与现有APK核对签名相同，首次覆盖安装成功并观察正常首页（build/android-ui-review/campus-refresh-home.png），数据保留。Windows开发进程热重载110个库成功。最终学院元数据加载保护与联合学院名称补充后再次构建/安装记录见下。未执行真实签到。
+- 最终静态检查无问题（build/campus-ui-final-analyze.log）；最终Android release构建成功（build/android-ui-review/campus-final-release.log，79.8MB），证书再次一致，adb install -r成功，versionName0.3.0/versionCode6，启动成功。最终Windows热重载23个库成功。保持现有账号与数据，没有推送、发布或执行真实签到。

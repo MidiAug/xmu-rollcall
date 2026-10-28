@@ -17,87 +17,119 @@ void main() {
     }
   });
   for (final dark in [false, true]) {
-    testWidgets(
-      'todo course precedes clipped title with aligned document dark=$dark',
-      (tester) async {
-        tester.view.physicalSize = const Size(300, 500);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        var opens = 0;
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: dark ? AppTheme.dark() : AppTheme.light(),
-            home: Scaffold(
-              body: RepaintBoundary(
-                key: const ValueKey('todo-capture'),
-                child: CampusContextView(
-                  data: CampusCachedData(
-                    homework: [
-                      HomeworkItem(
-                        id: 1,
-                        title: '实验报告：面向对象程序设计与实现，需要完整说明的很长标题',
-                        courseName: '软件工程导论',
-                        dueAt: DateTime(2026, 10, 29, 23, 59),
-                      ),
-                    ],
+    for (final scale in [1.0, 1.3]) {
+      testWidgets(
+        'todo has two visual rows with full-text hints dark=$dark scale=$scale',
+        (tester) async {
+          tester.view.physicalSize = const Size(300, 500);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          var opens = 0;
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: dark ? AppTheme.dark() : AppTheme.light(),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
+                child: child!,
+              ),
+              home: Scaffold(
+                body: RepaintBoundary(
+                  key: const ValueKey('todo-capture'),
+                  child: CampusContextView(
+                    data: CampusCachedData(
+                      homework: [
+                        HomeworkItem(
+                          id: 1,
+                          title: '实验报告：面向对象程序设计与实现，需要完整说明的很长标题',
+                          courseName: '软件工程导论与工程实践（研究生）',
+                          dueAt: DateTime(2026, 10, 29, 23, 59),
+                        ),
+                      ],
+                    ),
+                    now: DateTime(2026, 10, 28),
+                    onTimetable: () {},
+                    onHomework: () => fail('Item must not open the list'),
+                    onOpenHomework: (item) {
+                      expect(item.id, 1);
+                      opens++;
+                    },
                   ),
-                  now: DateTime(2026, 10, 28),
-                  onTimetable: () {},
-                  onHomework: () => opens++,
                 ),
               ),
             ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        final course = find.byKey(const ValueKey('todo-course-name'));
-        final title = find.byKey(const ValueKey('todo-homework-title'));
-        final due = find.text('明天 23:59 截止');
-        final mark = find.byKey(const ValueKey('todo-document-mark'));
-        expect(
-          tester.getTopLeft(course).dy,
-          lessThan(tester.getTopLeft(title).dy),
-        );
-        expect(
-          tester.getTopLeft(title).dy,
-          lessThan(tester.getTopLeft(due).dy),
-        );
-        expect(tester.widget<Text>(title).maxLines, 1);
-        expect(tester.widget<Text>(title).overflow, TextOverflow.ellipsis);
-        expect(
-          tester.getRect(mark).top,
-          closeTo(tester.getRect(course).top, 3),
-        );
-        expect(
-          tester.getRect(mark).bottom,
-          closeTo(tester.getRect(due).bottom, 3),
-        );
-        expect(
-          tester.widget<Icon>(find.byIcon(AppIcons.todoDocument)).size,
-          greaterThanOrEqualTo(32),
-        );
-        if (Platform.environment['CAPTURE_TODO_UI'] == '1') {
-          await tester.runAsync(() async {
-            final boundary = tester.renderObject<RenderRepaintBoundary>(
-              find.byKey(const ValueKey('todo-capture')),
-            );
-            final image = await boundary.toImage();
-            final bytes = await image.toByteData(
-              format: ui.ImageByteFormat.png,
-            );
-            await Directory('build/todo-ui-review').create(recursive: true);
-            await File(
-              'build/todo-ui-review/todo-$dark.png',
-            ).writeAsBytes(bytes!.buffer.asUint8List());
-            image.dispose();
-          });
-        }
-        await tester.tap(title);
-        await tester.pumpAndSettle();
-        expect(opens, 1);
-        expect(tester.takeException(), isNull);
-      },
-    );
+          );
+          await tester.pumpAndSettle();
+          final course = find.byKey(const ValueKey('todo-course-name'));
+          final title = find.byKey(const ValueKey('todo-homework-title'));
+          final due = find.byKey(const ValueKey('todo-deadline'));
+          final mark = find.byKey(const ValueKey('todo-document-mark'));
+          expect(
+            tester.getTopLeft(course).dy,
+            lessThan(tester.getTopLeft(title).dy),
+          );
+          expect(
+            tester.getCenter(course).dy,
+            closeTo(tester.getCenter(due).dy, 1),
+          );
+          expect(
+            tester.getCenter(mark).dy,
+            closeTo(tester.getCenter(title).dy, 1),
+          );
+          final titleText = find.descendant(
+            of: title,
+            matching: find.byType(Text),
+          );
+          expect(tester.widget<Text>(titleText).maxLines, 1);
+          expect(
+            tester.widget<Text>(titleText).overflow,
+            TextOverflow.ellipsis,
+          );
+          expect(find.byTooltip('软件工程导论与工程实践（研究生）'), findsOneWidget);
+          expect(
+            find.byTooltip('实验报告：面向对象程序设计与实现，需要完整说明的很长标题'),
+            findsOneWidget,
+          );
+          expect(find.text('明天 23:59'), findsOneWidget);
+          expect(
+            tester.widget<Icon>(find.byIcon(AppIcons.todoDocument)).size,
+            greaterThanOrEqualTo(32),
+          );
+          if (Platform.environment['CAPTURE_TODO_UI'] == '1') {
+            await tester.runAsync(() async {
+              final boundary = tester.renderObject<RenderRepaintBoundary>(
+                find.byKey(const ValueKey('todo-capture')),
+              );
+              final image = await boundary.toImage();
+              final bytes = await image.toByteData(
+                format: ui.ImageByteFormat.png,
+              );
+              await Directory('build/todo-ui-review').create(recursive: true);
+              await File(
+                'build/todo-ui-review/todo-$dark-$scale.png',
+              ).writeAsBytes(bytes!.buffer.asUint8List());
+              image.dispose();
+            });
+          }
+          final fullTitle = find.text(
+            '实验报告：面向对象程序设计与实现，需要完整说明的很长标题',
+            findRichText: true,
+          );
+          final before = fullTitle.evaluate().length;
+          await tester.longPress(title);
+          await tester.pumpAndSettle();
+          expect(fullTitle.evaluate().length, greaterThan(before));
+          expect(opens, 0);
+          Tooltip.dismissAllToolTips();
+          await tester.pumpAndSettle();
+          await tester.tap(title);
+          await tester.pumpAndSettle();
+          expect(opens, 1);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
   }
 }

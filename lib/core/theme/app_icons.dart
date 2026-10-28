@@ -48,6 +48,7 @@ abstract final class AppIcons {
   static const detect = FluentIcons.pulse_20_regular;
   static const stop = FluentIcons.stop_20_regular;
   static const close = FluentIcons.dismiss_20_regular;
+  static const closeStrong = FluentIcons.dismiss_24_filled;
   static const back = FluentIcons.arrow_left_20_regular;
   static const info = FluentIcons.info_20_regular;
   static const notification = FluentIcons.alert_20_regular;

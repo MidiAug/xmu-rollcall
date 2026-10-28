@@ -599,6 +599,7 @@ class AcademicClient {
         monday: monday,
         at: now,
         payload: payload,
+        studentCollege: academicStudentCollege(person),
         clock: clock,
         anchorFromUser: anchorFromUser,
       );

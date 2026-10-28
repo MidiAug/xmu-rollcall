@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
 import 'package:xmu_rollcall/core/theme/app_icons.dart';
 import '../fixtures/preview_fonts.dart';
 import 'dart:io';
@@ -325,6 +326,9 @@ void main() {
                   ],
                 ),
                 courseHomeworkProvider.overrideWith(_TeachingTasks.new),
+                homeworkDetailProvider.overrideWith(
+                  (ref, key) async => key.seed!,
+                ),
                 homeworkTodosProvider.overrideWith(_Todos.new),
                 homeworkOverviewProvider.overrideWith(_Overview.new),
                 homeworkSubmissionProvider.overrideWith(
@@ -389,6 +393,19 @@ void main() {
         );
         expect(find.text('已结束课程'), findsNothing);
         expect(find.text('更晚课程'), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('todo-homework-title')));
+        await tester.pumpAndSettle();
+        expect(find.byType(HomeworkDetailPage), findsOneWidget);
+        expect(
+          tester
+              .widget<HomeworkDetailPage>(find.byType(HomeworkDetailPage))
+              .seed
+              .id,
+          3,
+        );
+        Navigator.of(tester.element(find.byType(HomeworkDetailPage))).pop();
+        await tester.pumpAndSettle();
+        expect(find.byType(HomeworkDetailPage), findsNothing);
         expect(tester.takeException(), isNull);
         final trigger = find.descendant(
           of: sidebar,
@@ -583,6 +600,7 @@ void main() {
                 now: now,
                 onTimetable: () {},
                 onHomework: () {},
+                onOpenHomework: (_) {},
               ),
             ),
           ),

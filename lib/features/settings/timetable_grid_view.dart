@@ -387,7 +387,7 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
         useRootNavigator: true,
         useSafeArea: true,
         isScrollControlled: true,
-        showDragHandle: true,
+        showDragHandle: false,
         backgroundColor: AppPalette.of(context).surface,
         builder: (sheetContext) => Padding(
           padding: EdgeInsets.only(
@@ -479,11 +479,7 @@ class _CourseDetailFlowState extends ConsumerState<_CourseDetailFlow> {
                 Expanded(
                   child: Text(room.isEmpty ? '上课地点' : room, maxLines: 2),
                 ),
-                IconButton(
-                  tooltip: '关闭',
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(AppIcons.close),
-                ),
+                const AppSheetCloseButton(),
               ],
             ),
           ),
@@ -582,11 +578,9 @@ class _CourseDetail extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton(
+              const AppSheetCloseButton(
                 tooltip: '关闭课程详情',
-                visualDensity: VisualDensity.compact,
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(AppIcons.close, size: 20),
+                alignWithTitle: true,
               ),
             ],
           ),

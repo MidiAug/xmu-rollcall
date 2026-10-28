@@ -1,5 +1,29 @@
 part of 'chrome.dart';
 
+/// Strong, consistently aligned dismissal action with a full touch target.
+class AppSheetCloseButton extends StatelessWidget {
+  const AppSheetCloseButton({
+    super.key,
+    this.tooltip = '关闭',
+    this.alignWithTitle = false,
+  });
+  final String tooltip;
+  final bool alignWithTitle;
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: tooltip,
+    padding: EdgeInsets.zero,
+    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+    alignment: alignWithTitle ? Alignment.topCenter : Alignment.center,
+    color: AppPalette.of(context).ink,
+    onPressed: () => Navigator.of(context).pop(),
+    icon: Padding(
+      padding: EdgeInsets.only(top: alignWithTitle ? 2 : 0),
+      child: const Icon(AppIcons.closeStrong, size: 24),
+    ),
+  );
+}
+
 /// Soft pill strip for grouped icon actions (desktop toolbars).
 /// Soft stadium control without Material ripple (poll / quick actions).
 class AppQuietPill extends StatelessWidget {

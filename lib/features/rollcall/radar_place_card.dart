@@ -220,7 +220,7 @@ Future<RadarLocationAction?> showRadarLocationSheet(BuildContext context) {
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,
-    showDragHandle: true,
+    showDragHandle: false,
     backgroundColor: AppPalette.of(context).surface,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(
@@ -232,7 +232,7 @@ Future<RadarLocationAction?> showRadarLocationSheet(BuildContext context) {
       final pageX = AppSpace.pageXOf(ctx);
       return SafeArea(
         child: Padding(
-          padding: EdgeInsets.fromLTRB(pageX, 0, pageX, AppSpace.md),
+          padding: EdgeInsets.fromLTRB(pageX, 16, pageX, AppSpace.md),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

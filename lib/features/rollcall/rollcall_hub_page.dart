@@ -1,5 +1,6 @@
 import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
 import 'package:xmu_rollcall/features/history/history_summary.dart';
+import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_quick_control.dart';
 import 'package:xmu_rollcall/app/desktop/desktop_workspace.dart';
@@ -419,6 +420,8 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                 },
                 onHomework: () =>
                     ShellNavigation.instance.open(AppDestination.homework),
+                onOpenHomework: (item) =>
+                    AppPageRoutes.push(context, HomeworkDetailPage(seed: item)),
               )
             : null,
         child: PrimaryScrollController(

@@ -10,6 +10,28 @@ import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 int academicInt(Object? value) => int.tryParse('$value') ?? 0;
 String academicText(Object? value) => value?.toString().trim() ?? '';
 
+/// Read only the student's named college, never a course's teaching department.
+String academicStudentCollege(Object? person) {
+  if (person is! Map) return '';
+  for (final key in const [
+    'XYMC',
+    'YXMC',
+    'YXBMC',
+    'XYDM_DISPLAY',
+    'YXDM_DISPLAY',
+    'DWDM_DISPLAY',
+    'DWMC',
+    'college_name',
+    'department_name',
+  ]) {
+    final value = person[key];
+    if (value is String && value.contains(RegExp('学院|研究院|学部'))) {
+      return value.trim();
+    }
+  }
+  return '';
+}
+
 /// EMAP sends numeric HHmm; some deployments return HH:mm strings.
 int academicMinute(Object? value) {
   final raw = academicText(value);
@@ -45,11 +67,13 @@ class AcademicSchedule {
     required this.fetchedAt,
     required this.rows,
     this.anchorFromUser = false,
+    this.studentCollege = '',
   });
   final String term;
   final DateTime monday;
   final DateTime fetchedAt;
   final bool anchorFromUser;
+  final String studentCollege;
 
   /// Only course metadata; identity and credentials are never cached here.
   final List<Map<String, dynamic>> rows;
@@ -76,6 +100,7 @@ class AcademicSchedule {
     required Map<String, dynamic> payload,
     required Map<int, ({int start, int end})> clock,
     bool anchorFromUser = false,
+    String studentCollege = '',
   }) {
     if (payload['success'] != true || payload['pkjgList'] is! List) {
       throw const FormatException('教务未返回完整课表');
@@ -108,6 +133,7 @@ class AcademicSchedule {
       fetchedAt: at,
       rows: rows,
       anchorFromUser: anchorFromUser,
+      studentCollege: studentCollege,
     );
   }
 
@@ -246,6 +272,7 @@ class AcademicSchedule {
 
   Map<String, dynamic> toJson() => {
     'term': term,
+    'studentCollege': studentCollege,
     'anchorFromUser': anchorFromUser,
     'monday': monday.toIso8601String(),
     'fetchedAt': fetchedAt.toIso8601String(),
@@ -253,6 +280,7 @@ class AcademicSchedule {
   };
   factory AcademicSchedule.fromJson(Map<String, dynamic> j) => AcademicSchedule(
     term: j['term'] as String,
+    studentCollege: j['studentCollege'] as String? ?? '',
     anchorFromUser: j['anchorFromUser'] == true,
     monday: DateTime.parse(j['monday'] as String),
     fetchedAt: DateTime.parse(j['fetchedAt'] as String),
@@ -287,6 +315,7 @@ abstract final class AcademicScheduleStore {
       if (start == null) return null;
       return AcademicSchedule(
         term: parsed.term,
+        studentCollege: parsed.studentCollege,
         monday: start,
         fetchedAt: parsed.fetchedAt,
         rows: parsed.rows,

@@ -297,7 +297,11 @@ SavedLocation? matchCoursePlace(
   return matches.length == 1 ? matches.values.single : null;
 }
 
-Campus preferredCampus(Iterable<String> rooms, List<SavedLocation> custom) {
+Campus preferredCampus(
+  Iterable<String> rooms,
+  List<SavedLocation> custom, {
+  Campus? collegeCampus,
+}) {
   final votes = <Campus, int>{};
   for (final room in rooms) {
     final place = matchCoursePlace(room, custom);
@@ -305,6 +309,7 @@ Campus preferredCampus(Iterable<String> rooms, List<SavedLocation> custom) {
         campusInName(room) ?? (place == null ? null : campusForPoint(place));
     if (campus != null) votes[campus] = (votes[campus] ?? 0) + 1;
   }
+  if (votes.isEmpty) return collegeCampus ?? Campus.siming;
   return Campus.values.reduce(
     (a, b) => (votes[b] ?? 0) > (votes[a] ?? 0) ? b : a,
   );

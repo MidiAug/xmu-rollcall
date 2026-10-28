@@ -1,3 +1,4 @@
+import '../fixtures/preview_fonts.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -161,6 +162,7 @@ class _DesktopFrame extends StatelessWidget {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   setUpAll(() async {
+    await loadDesktopPreviewFonts();
     final cache = await Directory(
       '.tools/timetable-polish/cache',
     ).create(recursive: true);
@@ -326,6 +328,12 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('海韵教学楼 205'), findsWidgets);
         expect(find.byTooltip('关闭课程详情'), findsOneWidget);
+        if (!desktop) {
+          expect(
+            tester.widget<BottomSheet>(find.byType(BottomSheet)).showDragHandle,
+            isFalse,
+          );
+        }
         expect(find.byType(Dialog), desktop ? findsOneWidget : findsNothing);
         await capture('03-detail');
         final flow = find.byKey(const ValueKey('course-detail-flow'));

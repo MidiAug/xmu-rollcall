@@ -48,20 +48,14 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
             onChanged: (v) => setState(() => _campus = v),
           )
         else
-          DropdownButtonHideUnderline(
-            child: DropdownButton<Campus>(
-              value: campus,
-              items: [
-                for (final c in Campus.values)
-                  DropdownMenuItem(
-                    value: c,
-                    child: Text(c.label, style: const TextStyle(fontSize: 13)),
-                  ),
-              ],
-              onChanged: (v) {
-                if (v != null) setState(() => _campus = v);
-              },
-            ),
+          AppShellSelect<Campus>(
+            value: campus,
+            items: Campus.values,
+            labelOf: (c) => c.label,
+            semanticLabel: '切换校区',
+            width: 120,
+            alignMenuEnd: true,
+            onChanged: (v) => setState(() => _campus = v),
           ),
       ],
       body: LocationManagerContent(key: _manager, campus: campus),

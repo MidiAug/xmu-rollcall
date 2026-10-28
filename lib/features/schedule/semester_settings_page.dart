@@ -146,23 +146,18 @@ class _SemesterSettingsPageState extends ConsumerState<SemesterSettingsPage> {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              DropdownButtonFormField<String>(
-                key: ValueKey('semester-$_term'),
-                initialValue: _term,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: '学期'),
-                items: [
-                  for (final term in terms)
-                    DropdownMenuItem(
-                      value: term,
-                      child: Text(semesterLabel(term)),
-                    ),
-                ],
-                onChanged: _busy
-                    ? null
-                    : (term) {
-                        if (term != null) _load(term);
-                      },
+              const Text('学期'),
+              const SizedBox(height: 8),
+              LayoutBuilder(
+                builder: (context, constraints) => AppShellSelect<String>(
+                  key: ValueKey('semester-$_term'),
+                  value: _term ?? terms.first,
+                  width: constraints.maxWidth,
+                  items: terms,
+                  labelOf: semesterLabel,
+                  semanticLabel: '选择学期',
+                  onChanged: _busy ? null : _load,
+                ),
               ),
               const SizedBox(height: 20),
               Panel(

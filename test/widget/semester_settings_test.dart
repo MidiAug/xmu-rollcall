@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/features/schedule/academic_mapping_page.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'dart:io';
@@ -205,7 +206,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('关联课程'), findsOneWidget);
-      expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
+      expect(find.byType(AppShellSelect<String>), findsOneWidget);
       expect(find.text('已关联（1）'), findsOneWidget);
       expect(find.text('已关联课'), findsNothing);
       await tester.tap(find.text('已关联（1）'));
@@ -213,7 +214,7 @@ void main() {
       expect(find.text('已关联课'), findsOneWidget);
       await tester.tap(find.text('修改'));
       await tester.pumpAndSettle();
-      expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(2));
+      expect(find.byType(AppShellSelect<String>), findsNWidgets(2));
       expect(tester.takeException(), isNull);
     },
   );

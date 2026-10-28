@@ -11,8 +11,10 @@ class CampusContextPanel extends ConsumerWidget {
     super.key,
     required this.onTimetable,
     required this.onHomework,
+    required this.onOpenHomework,
   });
   final VoidCallback onTimetable, onHomework;
+  final ValueChanged<HomeworkItem> onOpenHomework;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cached = ref.watch(campusCachedDataProvider);
@@ -27,6 +29,7 @@ class CampusContextPanel extends ConsumerWidget {
       loading: cached.isLoading,
       onTimetable: onTimetable,
       onHomework: onHomework,
+      onOpenHomework: onOpenHomework,
     );
   }
 }
@@ -39,11 +42,13 @@ class CampusContextView extends StatelessWidget {
     required this.now,
     required this.onTimetable,
     required this.onHomework,
+    required this.onOpenHomework,
     this.loading = false,
   });
   final CampusCachedData data;
   final DateTime now;
   final VoidCallback onTimetable, onHomework;
+  final ValueChanged<HomeworkItem> onOpenHomework;
   final bool loading;
   @override
   Widget build(BuildContext context) {
@@ -118,78 +123,11 @@ class CampusContextView extends StatelessWidget {
                 style: TextStyle(color: p.muted, height: 1.7),
               )
             else
-              InkWell(
-                onTap: onHomework,
-                borderRadius: BorderRadius.circular(10),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Container(
-                        key: const ValueKey('todo-document-mark'),
-                        width: 48,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          color: p.isDark
-                              ? const Color(0xFF163D57)
-                              : const Color(0xFFE7F4FF),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          AppIcons.todoDocument,
-                          color: p.isDark
-                              ? const Color(0xFF70BEFF)
-                              : const Color(0xFF087CE5),
-                          size: 34,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              pending.first.courseName.trim().isEmpty
-                                  ? '课程作业'
-                                  : pending.first.courseName,
-                              key: const ValueKey('todo-course-name'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14,
-                                height: 1.5,
-                                color: p.ink,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              pending.first.title,
-                              key: const ValueKey('todo-homework-title'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: p.ink,
-                                height: 1.5,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              _due(pending.first),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: p.muted,
-                                height: 1.6,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+              _TodoPreview(
+                item: pending.first,
+                deadline: _due(pending.first),
+                overdue: pending.first.dueAt?.isBefore(now) == true,
+                onTap: () => onOpenHomework(pending.first),
               ),
             if (pending.length > 1)
               Align(
@@ -224,8 +162,135 @@ class CampusContextView extends StatelessWidget {
         ? '今天'
         : day == 1
         ? '明天'
-        : '${due.month}月${due.day}日';
-    return '$date ${due.hour.toString().padLeft(2, '0')}:${due.minute.toString().padLeft(2, '0')} ${due.isBefore(now) ? '已截止' : '截止'}';
+        : '${due.month}/${due.day}';
+    if (due.isBefore(now)) return '已截止';
+    return '$date ${due.hour.toString().padLeft(2, '0')}:${due.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+/// Two visual levels: course/deadline metadata, then the assignment itself.
+class _TodoPreview extends StatelessWidget {
+  const _TodoPreview({
+    required this.item,
+    required this.deadline,
+    required this.overdue,
+    required this.onTap,
+  });
+  final HomeworkItem item;
+  final String deadline;
+  final bool overdue;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Material(
+      color: p.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: p.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        hoverColor: p.hover,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: AppTruncatedText(
+                      item.courseName.trim().isEmpty ? '课程作业' : item.courseName,
+                      key: const ValueKey('todo-course-name'),
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.5,
+                        fontWeight: FontWeight.w500,
+                        color: p.muted,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: item.dueAt == null ? '' : '截止：${item.dueLabel}',
+                    child: Container(
+                      key: const ValueKey('todo-deadline'),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: overdue
+                            ? p.danger.withValues(alpha: .08)
+                            : p.surfaceHigh,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            AppIcons.clock,
+                            size: 12,
+                            color: overdue ? p.danger : p.muted,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            deadline,
+                            style: TextStyle(
+                              fontSize: 11,
+                              height: 1.5,
+                              color: overdue ? p.danger : p.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Container(
+                    key: const ValueKey('todo-document-mark'),
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: p.isDark
+                          ? const Color(0xFF163D57)
+                          : const Color(0xFFE7F4FF),
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Icon(
+                      AppIcons.todoDocument,
+                      size: 32,
+                      color: p.isDark
+                          ? const Color(0xFF70BEFF)
+                          : const Color(0xFF087CE5),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: AppTruncatedText(
+                      item.title,
+                      key: const ValueKey('todo-homework-title'),
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.5,
+                        fontWeight: FontWeight.w600,
+                        color: p.ink,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

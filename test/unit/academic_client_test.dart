@@ -325,7 +325,7 @@ void main() {
                   body = {
                     'success': true,
                     'data': [
-                      {'XH': 'fake-student'},
+                      {'XH': 'fake-student', 'XYMC': '信息学院'},
                     ],
                   };
                 case '/gsapp/sys/wdkbapp/modules/xskcb/kfdxnxqcx.do':
@@ -395,6 +395,7 @@ void main() {
         );
         expect(result.monday, DateTime(2026, 9, 7));
         expect(result.rows.single.containsKey('XH'), isFalse);
+        expect(result.studentCollege, '信息学院');
         expect(
           requests.where(
             (r) => r.uri.host == 'ids.xmu.edu.cn' && r.method == 'POST',

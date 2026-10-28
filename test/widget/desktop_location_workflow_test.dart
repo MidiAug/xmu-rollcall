@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/features/location/campus_places.dart';
 import 'package:xmu_rollcall/features/location/place_providers.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
@@ -75,6 +77,48 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
   }
+
+  testWidgets('mobile campus uses shared menu and keeps explicit selection', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(384, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          campusCachedDataProvider.overrideWith(
+            (ref) async => const CampusCachedData(),
+          ),
+          preferredCampusProvider.overrideWithValue(Campus.xiangan),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: const SavedLocationsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DropdownButton<Campus>), findsNothing);
+    expect(
+      tester
+          .widget<AppShellSelect<Campus>>(find.byType(AppShellSelect<Campus>))
+          .value,
+      Campus.xiangan,
+    );
+    await tester.tap(find.byType(AppShellSelect<Campus>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('漳州校区'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<AppShellSelect<Campus>>(find.byType(AppShellSelect<Campus>))
+          .value,
+      Campus.zhangzhou,
+    );
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('mobile add location keeps note above keyboard', (tester) async {
     tester.view.physicalSize = const Size(390, 844);

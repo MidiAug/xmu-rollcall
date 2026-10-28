@@ -4,6 +4,7 @@ import 'campus_places.dart';
 import 'location_models.dart';
 import 'location_providers.dart';
 import 'place_matching.dart';
+import 'college_campuses.dart';
 
 final courseRoomsProvider = Provider<List<String>>((ref) {
   final schedule = ref
@@ -60,6 +61,14 @@ final preferredCampusProvider = Provider<Campus>(
   (ref) => preferredCampus(
     ref.watch(courseRoomsProvider).expand(coursePlaceNames),
     ref.watch(savedLocationsProvider),
+    collegeCampus: campusForCollege(
+      ref
+              .watch(campusCachedDataProvider)
+              .whenOrNull(skipLoadingOnReload: false, data: (data) => data)
+              ?.schedule
+              ?.studentCollege ??
+          '',
+    ),
   ),
 );
 final unmatchedRoomsProvider = Provider<List<String>>((ref) {

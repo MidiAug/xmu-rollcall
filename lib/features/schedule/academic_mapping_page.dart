@@ -121,33 +121,34 @@ class _AcademicMappingPageState extends ConsumerState<AcademicMappingPage> {
                 for (final c in pending)
                   Padding(
                     padding: const EdgeInsets.only(top: 20),
-                    child: DropdownButtonFormField<String>(
-                      key: ValueKey('academic-binding-${c.id}'),
-                      isExpanded: true,
-                      initialValue: groups.containsKey(_bindings[c.id])
-                          ? _bindings[c.id]
-                          : '',
-                      decoration: InputDecoration(labelText: c.title),
-                      items: [
-                        const DropdownMenuItem(value: '', child: Text('自动关联')),
-                        for (final e in groups.entries)
-                          DropdownMenuItem(
-                            value: e.key,
-                            child: Text(
-                              '${e.value.first['KCMC']} · ${e.value.first['BJMC'] ?? ''} · ${e.value.first['JSXM'] ?? ''}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        AppTruncatedText(c.title),
+                        const SizedBox(height: 8),
+                        LayoutBuilder(
+                          builder: (context, constraints) => AppShellSelect<String>(
+                            key: ValueKey('academic-binding-${c.id}'),
+                            width: constraints.maxWidth,
+                            value: groups.containsKey(_bindings[c.id])
+                                ? _bindings[c.id]!
+                                : '',
+                            items: ['', ...groups.keys],
+                            wrapMenuLabels: true,
+                            labelOf: (key) => key.isEmpty
+                                ? '自动关联'
+                                : '${groups[key]!.first['KCMC']} · ${groups[key]!.first['BJMC'] ?? ''} · ${groups[key]!.first['JSXM'] ?? ''}',
+                            onChanged: (value) => setState(() {
+                              _dirty = true;
+                              if (value.isEmpty) {
+                                _bindings.remove(c.id);
+                              } else {
+                                _bindings[c.id] = value;
+                              }
+                            }),
                           ),
+                        ),
                       ],
-                      onChanged: (value) => setState(() {
-                        _dirty = true;
-                        if (value == null || value.isEmpty) {
-                          _bindings.remove(c.id);
-                        } else {
-                          _bindings[c.id] = value;
-                        }
-                      }),
                     ),
                   ),
                 if (matched.isNotEmpty)
