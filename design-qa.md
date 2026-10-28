@@ -142,3 +142,11 @@ The rebuilt Debug process was restarted and inspected with the real assist timet
 - Final account/route/workspace subset: 55 passed; identity/storage subset: 12 passed; visual/policy subset: 22 passed; final course-menu capture: 3 passed; settings visual subset: 7 passed.
 - Final saved-source Windows Release succeeded, exit 0 (`.tools/identity-last-windows.log`). Debug remains running with the final hot reload.
 - No installation, publication or push. Android device behavior is not claimed as physically verified.
+
+# 地图视角与浮层修复 — 2026-10-28
+
+- 校区公开瓦片抽样：z18 返回正常图像；z19/z20 虽 HTTP 200，却返回 256×256 单色占位图。因此原生层级限制为18，最高允许本地放大到21；坐标计算精度不因瓦片放大而提升。
+- 选点与视角状态分离：平移及缩放后点选只更新草稿和面板；点击列表中已有地点保留倍率并定位，切换校区重新定位。地图来源和 logo 控件在地图手势层外，移至右上角，展开内容也阻止点击穿透。
+- 提示左/下与编辑面板右/下统一12px。标题旁显示六位小数的纬度、经度（GCJ-02），可选中复制。实际查看 build/place-ui-review/map-viewport-draft.png，确认坐标同行、右上来源控件和底部面板布局；另生成384/960宽度、浅深色地点流程截图。测试 HTTP 被拦截为400，截图不作为在线底图渲染证据。
+- 验证：flutter analyze --no-pub lib test 无问题；地点地图流程、选点、桌面地点工作流和课表布局20项通过。新增真实指针回归断言来源控件不选点、20级选点前后中心/倍率不变、浮层边距及坐标文本。日志 build/map-viewport-analyze-final.log、build/map-viewport-tests-final.log。
+- 当前 Windows Debug 已热重载（23 libraries）；未进行Android真机或全校区在线瓦片覆盖验收。

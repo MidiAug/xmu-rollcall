@@ -1,3 +1,4 @@
+import 'map_pick_panel.dart' show kMapOverlayInset;
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:flutter/material.dart';
@@ -94,6 +95,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
   String? _focusedRoom;
   SavedLocation? _selected;
   LatLng? _point;
+  LatLng? _viewCenter;
   final _name = TextEditingController();
   String _query = '';
   bool _creating = false, _busy = false;
@@ -103,6 +105,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
   void initState() {
     super.initState();
     _selected = widget.place;
+    if (widget.place != null) {
+      _viewCenter = LatLng(widget.place!.latitude, widget.place!.longitude);
+    }
     _creating = !widget.readOnly && widget.initialRoom != null;
     _name.text = widget.initialRoom ?? '';
   }
@@ -211,11 +216,14 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
     });
   }
 
-  void _choose(String room, SavedLocation? place) {
+  void _choose(String room, SavedLocation? place, {bool focusMap = true}) {
     if (_busy) return;
     setState(() {
       _focusedRoom = room;
       _selected = place;
+      if (focusMap && place != null) {
+        _viewCenter = LatLng(place.latitude, place.longitude);
+      }
       _mobileMap = true;
       _point = null;
       _editingId = null;
@@ -229,6 +237,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
   void didUpdateWidget(covariant LocationManagerContent oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.campus != widget.campus && !_busy) {
+      _viewCenter = null;
       _selected = null;
       _point = null;
       _creating = false;
@@ -503,12 +512,14 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
               children: [
                 Positioned.fill(
                   child: CampusMap(
-                    center: point ?? campus.center,
+                    key: ValueKey(campus),
+                    center: _viewCenter ?? campus.center,
                     point: point,
                     places: visible,
                     onPlace: _busy
                         ? null
-                        : (place) => _choose(place.note, place),
+                        : (place) =>
+                              _choose(place.note, place, focusMap: false),
                     onTap: widget.readOnly || _busy
                         ? null
                         : (value) => setState(() {
@@ -533,8 +544,8 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                   ),
                 if (_creating || _selected != null)
                   Positioned(
-                    right: 12,
-                    bottom: 36,
+                    right: kMapOverlayInset,
+                    bottom: kMapOverlayInset,
                     left: wide ? null : 12,
                     child: SizedBox(
                       width: wide
@@ -545,13 +556,14 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                   )
                 else
                   Positioned(
-                    left: 16,
-                    bottom: 36,
-                    right: 16,
+                    left: kMapOverlayInset,
+                    bottom: kMapOverlayInset,
+                    right: kMapOverlayInset,
                     child: IgnorePointer(
                       child: Align(
                         alignment: Alignment.bottomLeft,
                         child: Material(
+                          key: const ValueKey('map-idle-hint'),
                           color: p.surface,
                           borderRadius: BorderRadius.circular(8),
                           child: Padding(
@@ -585,7 +597,13 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
   Widget _inspector(BuildContext context) {
     final p = AppPalette.of(context);
     final selected = _selected;
+    final coordinate =
+        _point ??
+        (selected == null
+            ? null
+            : LatLng(selected.latitude, selected.longitude));
     return Container(
+      key: const ValueKey('map-place-inspector'),
       decoration: BoxDecoration(
         color: p.surface,
         border: Border.all(color: p.border),
@@ -608,14 +626,30 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
               Icon(AppIcons.location, size: 20, color: p.primary),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  _focusedRoom ?? selected?.note ?? '添加地点',
-                  maxLines: 2,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: p.ink,
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      _focusedRoom ?? selected?.note ?? '添加地点',
+                      maxLines: 2,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: p.ink,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (coordinate != null)
+                      Tooltip(
+                        message: '纬度，经度（GCJ-02）',
+                        child: SelectableText(
+                          '${coordinate.latitude.toStringAsFixed(6)}, ${coordinate.longitude.toStringAsFixed(6)}',
+                          key: const ValueKey('managed-place-coordinates'),
+                          style: TextStyle(fontSize: 11, color: p.muted),
+                        ),
+                      ),
+                  ],
                 ),
               ),
               IconButton(

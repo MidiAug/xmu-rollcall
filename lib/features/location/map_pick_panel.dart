@@ -1,6 +1,6 @@
 import 'location_models.dart';
 import 'campus_places.dart';
-import 'campus_map.dart' show CampusSelector;
+import 'campus_map.dart' show CampusSelector, MapAttributionControls;
 import 'place_matching.dart';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/shell_tab_exit_guard.dart';
@@ -13,6 +13,11 @@ const LatLng kDefaultMapCenter = LatLng(24.608429, 118.309669);
 
 const String kAmapTileUrlTemplate =
     'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}';
+
+// This source returns solid-color placeholders beyond z18; overzoom locally.
+const int kAmapMaxNativeZoom = 18;
+const double kAmapMaxZoom = 21;
+const double kMapOverlayInset = 12;
 
 const List<String> kAmapTileSubdomains = ['1', '2', '3', '4'];
 
@@ -183,41 +188,51 @@ class MapPickPanelState extends State<MapPickPanel>
             Expanded(
               child: IgnorePointer(
                 ignoring: widget.busy,
-                child: FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    backgroundColor: p.surfaceHigh,
-                    initialCenter: _point,
-                    initialZoom: 16,
-                    onTap: (_, latLng) {
-                      FocusScope.of(context).unfocus();
-                      setState(() => _point = latLng);
-                      _draftChanged();
-                    },
-                  ),
+                child: Stack(
                   children: [
-                    TileLayer(
-                      urlTemplate: kAmapTileUrlTemplate,
-                      subdomains: kAmapTileSubdomains,
-                      userAgentPackageName: 'com.xmu.rollcall',
-                    ),
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: _point,
-                          width: 40,
-                          height: 40,
-                          alignment: Alignment.topCenter,
-                          child: Icon(
-                            Icons.location_on,
-                            color: p.primary,
-                            size: 40,
-                          ),
+                    FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(
+                        backgroundColor: p.surfaceHigh,
+                        initialCenter: _point,
+                        initialZoom: 16,
+                        minZoom: 3,
+                        maxZoom: kAmapMaxZoom,
+                        onTap: (_, latLng) {
+                          FocusScope.of(context).unfocus();
+                          setState(() => _point = latLng);
+                          _draftChanged();
+                        },
+                      ),
+                      children: [
+                        TileLayer(
+                          maxNativeZoom: kAmapMaxNativeZoom,
+                          minNativeZoom: 3,
+                          urlTemplate: kAmapTileUrlTemplate,
+                          subdomains: kAmapTileSubdomains,
+                          userAgentPackageName: 'com.xmu.rollcall',
+                        ),
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: _point,
+                              width: 40,
+                              height: 40,
+                              alignment: Alignment.topCenter,
+                              child: Icon(
+                                Icons.location_on,
+                                color: p.primary,
+                                size: 40,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    const RichAttributionWidget(
-                      attributions: [TextSourceAttribution('高德地图')],
+                    const Positioned(
+                      top: kMapOverlayInset,
+                      right: kMapOverlayInset,
+                      child: MapAttributionControls(),
                     ),
                   ],
                 ),

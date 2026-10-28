@@ -207,6 +207,93 @@ void main() {
     }
   }
   testWidgets(
+    'map controls consume taps and a draft preserves pan, zoom and equal insets',
+    (tester) async {
+      tester.view.physicalSize = const Size(960, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            campusCachedDataProvider.overrideWith(
+              (ref) async => const CampusCachedData(),
+            ),
+            courseRoomsProvider.overrideWithValue(const []),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
+            home: const RepaintBoundary(
+              key: ValueKey('place-capture'),
+              child: SavedLocationsPage(),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final mapFinder = find.byType(CampusMap);
+      final mapRect = tester.getRect(mapFinder);
+      final hint = tester.getRect(find.byKey(const ValueKey('map-idle-hint')));
+      expect(hint.left - mapRect.left, closeTo(12, .1));
+      expect(mapRect.bottom - hint.bottom, closeTo(12, .1));
+      final controller = tester
+          .widget<FlutterMap>(find.byType(FlutterMap))
+          .mapController!;
+      controller.move(const LatLng(24.6068, 118.3118), 20);
+      await tester.pumpAndSettle();
+      final before = controller.camera;
+      expect(
+        tester.widget<TileLayer>(find.byType(TileLayer)).maxNativeZoom,
+        18,
+      );
+      expect(before.zoom, 20);
+      await tester.tap(find.byTooltip('地图来源'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('map-attribution-panel')),
+        findsOneWidget,
+      );
+      expect(tester.widget<CampusMap>(mapFinder).point, isNull);
+      final controls = tester.getRect(find.byType(MapAttributionControls));
+      expect(controls.top - mapRect.top, closeTo(12, .1));
+      expect(mapRect.right - controls.right, closeTo(12, .1));
+      await tester.tap(find.byTooltip('flutter_map'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<CampusMap>(mapFinder).point, isNull);
+      expect(find.byKey(const ValueKey('map-attribution-panel')), findsNothing);
+      await tester.tapAt(mapRect.topLeft + const Offset(100, 140));
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      final point = tester.widget<CampusMap>(mapFinder).point!;
+      final after = controller.camera;
+      expect(after.center.latitude, closeTo(before.center.latitude, 1e-10));
+      expect(after.center.longitude, closeTo(before.center.longitude, 1e-10));
+      expect(after.zoom, before.zoom);
+      final inspector = tester.getRect(
+        find.byKey(const ValueKey('map-place-inspector')),
+      );
+      expect(mapRect.right - inspector.right, closeTo(12, .1));
+      expect(mapRect.bottom - inspector.bottom, closeTo(12, .1));
+      final coordinates = tester.widget<SelectableText>(
+        find.byKey(const ValueKey('managed-place-coordinates')),
+      );
+      expect(
+        coordinates.data,
+        '${point.latitude.toStringAsFixed(6)}, ${point.longitude.toStringAsFixed(6)}',
+      );
+      await tester.tap(find.byTooltip('地图来源'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('map-attribution-panel')));
+      await tester.pumpAndSettle();
+      expect(tester.widget<CampusMap>(mapFinder).point, point);
+      expect(controller.camera.center, after.center);
+      expect(controller.camera.zoom, after.zoom);
+      await capture(tester, 'map-viewport-draft');
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
     'academic course opens and returns from a map within one dialog',
     (tester) async {
       tester.view.physicalSize = const Size(960, 900);
