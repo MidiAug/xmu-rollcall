@@ -44,6 +44,8 @@ class Repo extends Fake implements RollcallRepository {
   Completer<String?>? pendingCode;
   void Function()? onCode;
   bool radarOk = true;
+  AnswerResult? radarResult;
+  void Function()? onRadarResult;
   Future<void> Function()? onAttendance;
   double expectedLatitude = 24.5;
   double expectedLongitude = 118.2;
@@ -109,7 +111,8 @@ class Repo extends Fake implements RollcallRepository {
     expect(accuracy, 180);
     calls.add('radar');
     if (answerError != null) throw answerError!;
-    return AnswerResult(ok: radarOk);
+    onRadarResult?.call();
+    return radarResult ?? AnswerResult(ok: radarOk);
   }
 }
 
@@ -207,6 +210,54 @@ void main() {
     now: () => now,
   );
 
+  test(
+    'location rejection records once; stale coordinates and generic errors do not',
+    () async {
+      repo.latest = [radar];
+      repo.radarResult = const AnswerResult(
+        ok: false,
+        status: 400,
+        raw: {'code': 'out_of_range'},
+      );
+      var recorded = 0;
+      final handler = AutomaticRollcallAnswer(
+        repository: repo,
+        requireCurrent: () async {},
+        radarLocation: (_) async => location(),
+        onRadarRejected: (_) async => recorded++,
+        now: () => now,
+      );
+      await handler.process([radar], noWait, () => true);
+      await handler.process([radar], noWait, () => true);
+      expect(recorded, 1);
+      expect(repo.calls.where((c) => c == 'radar').length, 1);
+      repo = Repo()..latest = [radar];
+      repo.radarResult = const AnswerResult(
+        ok: false,
+        status: 400,
+        raw: {'code': 'out_of_range'},
+      );
+      var changed = false;
+      repo.onRadarResult = () => changed = true;
+      final stale = AutomaticRollcallAnswer(
+        repository: repo,
+        requireCurrent: () async {},
+        radarLocation: (_) async => changed
+            ? CourseRadarPref(
+                courseId: '7',
+                courseTitle: '课',
+                latitude: 24.51,
+                longitude: 118.2,
+                accuracy: 180,
+              )
+            : location(),
+        onRadarRejected: (_) async => recorded++,
+        now: () => now,
+      );
+      await stale.process([radar], noWait, () => true);
+      expect(recorded, 1);
+    },
+  );
   test('radar requires opt-in and an exact current-course location', () async {
     repo.latest = [radar];
     for (final pref in [null, location(courseId: 'other')]) {

@@ -2,6 +2,20 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 
 /// One optical family for navigation, actions and metadata (20px regular).
 abstract final class AppIcons {
+  static const upload = FluentIcons.arrow_upload_20_regular;
+  static const copy = FluentIcons.copy_20_regular;
+  static const code = FluentIcons.code_20_regular;
+  static const clean = FluentIcons.broom_20_regular;
+  static const devices = FluentIcons.phone_desktop_20_regular;
+  static const share = FluentIcons.share_20_regular;
+  static const bookmark = FluentIcons.bookmark_20_regular;
+  static const radar = FluentIcons.radar_20_regular;
+  static const qr = FluentIcons.qr_code_20_regular;
+  static const battery = FluentIcons.battery_0_20_regular;
+  static const error = FluentIcons.error_circle_20_regular;
+  static const add = FluentIcons.add_20_regular;
+  static const remove = FluentIcons.subtract_circle_20_regular;
+  static const lock = FluentIcons.lock_closed_20_regular;
   static const rollcall = FluentIcons.calendar_checkmark_20_regular;
   static const homework = FluentIcons.clipboard_task_20_regular;
   static const clock = FluentIcons.clock_20_regular;
@@ -43,5 +57,5 @@ abstract final class AppIcons {
   static const moon = FluentIcons.weather_moon_20_regular;
   static const desktop = FluentIcons.desktop_20_regular;
   static const assist = FluentIcons.people_team_20_regular;
-  static const theme = FluentIcons.dark_theme_20_regular;
+  static const theme = FluentIcons.color_20_regular;
 }

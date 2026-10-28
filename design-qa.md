@@ -215,3 +215,13 @@ The rebuilt Debug process was restarted and inspected with the real assist timet
 - 检查本机Riverpod 2.6.1源码：debugReassemble只在debugGetCreateSourceHash变化时使Provider失效；本项目手写Provider没有该hash。地点管理直接调用新匹配函数，而未匹配列表可能仍保留旧派生状态。Shell.reassemble现在只使当前本地校园快照失效，连带重算分组和提醒；不清持久数据，不触发课程联网刷新。
 - 新增真实reassembleApplication回归：同一Provider容器先保留旧未匹配项，切成“文宣楼(4号楼）B404、B405”后普通重建仍保留，执行热重载后变为空且导航提示消失。14项相关回归通过（build/place-warning-delivery-tests.log）；4种导航主题/尺寸复核通过（build/place-warning-tooltip-visual.log）。静态检查无问题（build/place-warning-delivery-analyze.log）。
 - 提示为“有上课地点未定位，请在地图上标记”，课表入口为“X个上课地点未定位 / 打开地图”。已实际查看build/desktop-ui-review/place-tooltip-light.png，确认全文单行可见、指向地图标记操作；已生成深色版本。原始日常窗口没有被自动点击，当前开发进程成功热重载49个库。
+
+
+# 设置控件统一与课表地点绑定闭环 — 2026-10-28
+
+- 设置部分统一Fluent regular20图标，替换关于、诊断、通知与协助等页混用的Material符号；外观图标改为线性调色板，避免半实心圆造成粗细差异。SettingsSection内操作统一14px/500字重、10px圆角、18px按钮图标及36px桌面/44px触控最小高度，保持主操作填色、次操作描边；退出使用描边。实际查看.tools/settings-polish/960-light.png，确认外观图标、行入口与右侧控件的密度；浅深色设置截图均重建，视觉复核2项通过（build/location-binding-settings-visual.log）。
+- 地点管理取消加号、自由空白选点新建及我的地点Tab，只保留课程来源。相同楼宇/区域去重合并，多个区域教室先拆区；全角括号按原输入显示。用户先选择未定位条目，再选坐标；名称只读，说明尽量与教务或导入课表一致。没有把已有个人数据删掉，也不修改全局预设。
+- 新增严格的位置拒绝分类，排除网络、401/429、5xx、权限及活动结束等通用失败。桌面与Android自动任务持久化当前owner/user的失败点版本，活动仍只尝试一次；自动读取会拒绝已失败的点。错误优先排在地点管理，明确显示位置校验未通过。具体课次能从当前目录唯一归属时使用该地名，无法定位到教室的旧绑定单独列出；不误标同一门课其他区域。
+- 保存校正必须选不同坐标；只更新既有绑定的坐标与地点引用，保留课程、课次及授权标记，既不添加新课程授权，也不打开自动提交。原样保存不能解除错误；旧反馈不覆盖新坐标。失败版本含坐标，避免清除旧记录时误删新错误；账号间、主/协助间独立。
+- 隔离真实指针/持久化回归覆盖384/960宽度：错误在待定位之前、只读名称、绑定新坐标、清除错误、旧无地名绑定校正、预设坐标未被改写、已存在授权保留。实际查看build/place-ui-review/binding-errors-960.0.png和binding-correction-384.0.png；这些是虚构课程与模拟服务端失败，地图瓦片在Widget测试中被拦截，不能当成在线地图或真实签到成功证据。
+- 本轮全量767 passed、2个既有联网配置项skipped（build/location-binding-final-all-tests.log）。此前完整回归发现全角括号显示回退，修正后全部通过；最后绑定相关18项也通过（build/location-binding-last-flow-tests.log）。全项目静态检查无问题（build/location-binding-final-analyze.log）。末次再收紧时间/权限范围及定位超时排除词，34项分类/自动签到回归通过（build/location-binding-classification-final.log），对应两文件静态检查见build/location-binding-classification-analyze.log。Windows当前开发窗口已热重载；Android后台代码已接入但未做真机签到验收，没有发起真实签到验证。

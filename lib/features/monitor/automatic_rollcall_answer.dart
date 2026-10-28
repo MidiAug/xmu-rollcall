@@ -15,6 +15,7 @@ class AutomaticRollcallAnswer {
     this.onAnswered,
     this.radarLocation,
     this.onRadarSuccess,
+    this.onRadarRejected,
     this.runId,
     Set<int> terminalIds = const {},
   }) : _now = now ?? DateTime.now {
@@ -25,6 +26,7 @@ class AutomaticRollcallAnswer {
   final Future<void> Function(RollcallItem, AnswerResult)? onAnswered;
   final Future<CourseRadarPref?> Function(RollcallItem)? radarLocation;
   final Future<void> Function(CourseRadarPref)? onRadarSuccess;
+  final Future<void> Function(CourseRadarPref)? onRadarRejected;
   final DateTime Function() _now;
   final String? runId;
   final _numberCodes = <int, String>{};
@@ -282,6 +284,27 @@ class AutomaticRollcallAnswer {
           }
         } else {
           message = item.isRadar ? '雷达自动签到未成功，请手动确认位置' : '自动签到未成功，稍后重新检查';
+          if (current() &&
+              submittedPoint != null &&
+              result.isLocationRejected) {
+            final latest = await _location(item);
+            if (current() &&
+                latest != null &&
+                latest.latitude == submittedPoint!.latitude &&
+                latest.longitude == submittedPoint!.longitude &&
+                latest.placeId == submittedPoint!.placeId) {
+              try {
+                await onRadarRejected?.call(submittedPoint!);
+                message = '上课地点未通过位置校验，请到地点管理校正';
+              } catch (error, stack) {
+                trace(
+                  'monitor.auto.location_issue_failed',
+                  LogRedactor.exceptionFields(error: error, stackTrace: stack),
+                  'W',
+                );
+              }
+            }
+          }
         }
         if (current()) {
           stage = 'feedback';

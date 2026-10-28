@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/location/location_validation_store.dart';
 import 'package:xmu_rollcall/features/schedule/schedule_detection.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -138,6 +139,14 @@ class AndroidMonitorTaskHandler extends TaskHandler {
                     .whereType<int>()
                     .toSet()
               : const {},
+          onRadarRejected: (point) async {
+            await _requireCurrentAccount();
+            await recordLocationIssue(
+              run.ownerUserId,
+              run.assistUserId ?? run.ownerUserId,
+              point,
+            );
+          },
           onRadarSuccess: (point) async {
             await _requireCurrentAccount();
             await persistMeetingRadarPoint(

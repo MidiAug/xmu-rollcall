@@ -286,9 +286,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
             children: [
               SettingsRow(
                 leading: Icon(
-                  verified
-                      ? AppIcons.checkCircle
-                      : Icons.notifications_active_outlined,
+                  verified ? AppIcons.checkCircle : AppIcons.notification,
                 ),
                 title: waiting
                     ? '请锁屏等待  ${remaining}s'
@@ -345,7 +343,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                   ),
                 ),
                 SettingsRow(
-                  leading: const Icon(Icons.battery_saver_outlined),
+                  leading: const Icon(AppIcons.battery),
                   title: '锁屏没收到，解锁后才收到',
                   subtitle: xiaomi ? '打开省电策略，选择「无限制」' : '在应用信息中允许后台运行，取消省电限制',
                   onTap: () => _open(

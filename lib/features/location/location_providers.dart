@@ -1,3 +1,4 @@
+import 'location_validation_store.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'dart:convert';
 
@@ -8,6 +9,14 @@ import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
 import 'package:xmu_rollcall/features/location/course_radar_store.dart';
+
+final locationIssuesProvider =
+    FutureProvider.autoDispose<List<LocationValidationIssue>>((ref) {
+      final owner = ref.watch(authControllerProvider).profile?.id;
+      final user = ref.watch(selectedRollcallAccountProvider) ?? owner;
+      if (owner == null || user == null) return [];
+      return readLocationIssues(owner, user);
+    });
 
 final radarMeetingClockProvider = Provider<DateTime Function()>(
   (ref) => DateTime.now,

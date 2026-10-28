@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/location/place_providers.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
@@ -106,6 +107,7 @@ void main() {
           campusCachedDataProvider.overrideWith(
             (ref) async => const CampusCachedData(),
           ),
+          courseRoomsProvider.overrideWithValue(const ['测试教室']),
         ],
       );
       addTearDown(container.dispose);
@@ -123,6 +125,12 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(CampusMap), findsOneWidget);
+      expect(
+        tester.widget<FlutterMap>(find.byType(FlutterMap)).options.onTap,
+        isNull,
+      );
+      await tester.tap(find.byKey(const ValueKey('managed-room-测试教室')));
+      await tester.pumpAndSettle();
       tester.widget<FlutterMap>(find.byType(FlutterMap)).options.onTap!(
         const TapPosition(Offset.zero, Offset.zero),
         const LatLng(24.4375, 118.098),
@@ -131,27 +139,27 @@ void main() {
       final name = find.byKey(const ValueKey('managed-place-name'));
       await tester.ensureVisible(name);
       await tester.pumpAndSettle();
-      await tester.enterText(name, '测试教室');
+      expect(tester.widget<TextField>(name).readOnly, isTrue);
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('保存地点'));
+      await tester.ensureVisible(find.text('保存坐标'));
       await tester.pumpAndSettle();
       expect(
         tester
-            .widget<FilledButton>(find.widgetWithText(FilledButton, '保存地点'))
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '保存坐标'))
             .onPressed,
         isNotNull,
       );
       final save = tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, '保存地点'))
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '保存坐标'))
           .onPressed!;
       await tester.runAsync(() async => await Function.apply(save, const []));
       await tester.pumpAndSettle();
       expect(find.byType(Dialog), findsNothing);
       expect(find.text('地点未能保存，请重试'), findsNothing);
       final place = container.read(savedLocationsProvider).single;
-      await tester.ensureVisible(find.text('调整位置'));
+      await tester.ensureVisible(find.text('校正坐标'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('调整位置'));
+      await tester.tap(find.text('校正坐标'));
       await tester.pumpAndSettle();
       await tester.ensureVisible(find.byType(CampusMap));
       await tester.pumpAndSettle();
@@ -160,10 +168,10 @@ void main() {
         const LatLng(24.4385, 118.098),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('更新位置'));
+      await tester.ensureVisible(find.text('保存校正'));
       await tester.pumpAndSettle();
       final update = tester
-          .widget<FilledButton>(find.widgetWithText(FilledButton, '更新位置'))
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '保存校正'))
           .onPressed!;
       await tester.runAsync(() async => await Function.apply(update, const []));
       await tester.pumpAndSettle();

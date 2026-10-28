@@ -1,3 +1,5 @@
+import 'place_matching.dart';
+import 'location_validation_store.dart';
 import 'campus_places.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -234,7 +236,7 @@ Future<CourseRadarPref?> readAutomaticRadarLocation({
       // Automatic use follows the exact current place, never a deleted snapshot
       // or a different nearby/name-matched place. Manual confirmation may retain
       // the old snapshot as a visible suggestion.
-      return CourseRadarPref(
+      final resolved = CourseRadarPref(
         courseTitle: pref.courseTitle,
         courseId: pref.courseId,
         latitude: place.latitude,
@@ -247,13 +249,22 @@ Future<CourseRadarPref?> readAutomaticRadarLocation({
         meetingKey: effective.meetingKey,
         updatedAtMicros: effective.updatedAtMicros,
       );
+      return await isRejectedLocation(
+            ownerId,
+            assistUserId ?? ownerId,
+            resolved,
+          )
+          ? null
+          : resolved;
     }
     validateRadarLocation(
       latitude: pref.latitude,
       longitude: pref.longitude,
       accuracy: pref.accuracy,
     );
-    return effective;
+    return await isRejectedLocation(ownerId, assistUserId ?? ownerId, effective)
+        ? null
+        : effective;
   } on FormatException {
     return null;
   } on TypeError {
@@ -261,4 +272,68 @@ Future<CourseRadarPref?> readAutomaticRadarLocation({
   } on ArgumentError {
     return null;
   }
+}
+
+/// Update existing authorized bindings for this named place; never create consent.
+Future<void> updateRadarPlaceBindings(
+  int owner,
+  int? assist,
+  List<LocationValidationIssue> issues,
+  SavedLocation place,
+) async {
+  if (issues.any(
+    (e) =>
+        e.point.latitude == place.latitude &&
+        e.point.longitude == place.longitude,
+  )) {
+    throw ArgumentError('请选择与原定位不同的位置');
+  }
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.reload();
+  final base = courseRadarPreferencesKey(owner, assist);
+  final prefix = courseRadarMeetingPreferencePrefix(owner, assist);
+  if (base == null) return;
+  Map<String, dynamic> patch(Map<String, dynamic> json) {
+    final point = CourseRadarPref.fromJson(json);
+    final rejected = issues.any((e) => e.matches(point));
+    final sameNamedPlace =
+        point.placeId.isNotEmpty &&
+        point.labelSnapshot.isNotEmpty &&
+        coursePlaceIdentity(point.labelSnapshot) ==
+            coursePlaceIdentity(place.note);
+    if (!rejected && !sameNamedPlace) return json;
+    return {
+      ...json,
+      'latitude': place.latitude,
+      'longitude': place.longitude,
+      'accuracy': place.accuracy,
+      'placeId': place.id,
+      'labelSnapshot': place.note,
+      'obtainedVia': RadarObtainedVia.place.name,
+      'updatedAtMicros': DateTime.now().microsecondsSinceEpoch,
+    };
+  }
+
+  for (final key
+      in prefs
+          .getKeys()
+          .where((k) => k == base || k.startsWith(prefix))
+          .toList()) {
+    final raw = prefs.getString(key);
+    if (raw == null) continue;
+    final json = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    final updated = key == base
+        ? {
+            for (final e in json.entries)
+              e.key: e.value is Map
+                  ? patch(Map<String, dynamic>.from(e.value as Map))
+                  : e.value,
+          }
+        : patch(json);
+    if (jsonEncode(updated) != raw &&
+        !await prefs.setString(key, jsonEncode(updated))) {
+      throw StateError('无法更新已绑定地点');
+    }
+  }
+  await clearLocationIssues(owner, assist ?? owner, issues.map((e) => e.key));
 }

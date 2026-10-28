@@ -79,7 +79,7 @@ class SettingsSection extends StatelessWidget {
                       indent: dividerIndent,
                       endIndent: rowPad.right,
                     ),
-                  children[i],
+                  _SettingsControlTheme(child: children[i]),
                 ],
               ],
             ),
@@ -245,6 +245,56 @@ class _SettingsRowState extends State<SettingsRow> {
           child: content,
         ),
       ),
+    );
+  }
+}
+
+/// One weight, radius and height across controls embedded in settings rows.
+class _SettingsControlTheme extends StatelessWidget {
+  const _SettingsControlTheme({required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final common = ButtonStyle(
+      minimumSize: WidgetStatePropertyAll(
+        Size(0, AppDensity.isTouch(context) ? 44 : 36),
+      ),
+      padding: const WidgetStatePropertyAll(
+        EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.control),
+        ),
+      ),
+      textStyle: WidgetStatePropertyAll(
+        theme.textTheme.bodyMedium?.copyWith(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      iconSize: const WidgetStatePropertyAll(18),
+    );
+    return Theme(
+      data: theme.copyWith(
+        filledButtonTheme: FilledButtonThemeData(
+          style: (theme.filledButtonTheme.style ?? const ButtonStyle()).merge(
+            common,
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: (theme.outlinedButtonTheme.style ?? const ButtonStyle()).merge(
+            common,
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: (theme.textButtonTheme.style ?? const ButtonStyle()).merge(
+            common,
+          ),
+        ),
+      ),
+      child: child,
     );
   }
 }

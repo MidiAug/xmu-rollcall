@@ -15,7 +15,7 @@ class AboutSettingsRow extends ConsumerWidget {
     );
     final p = AppPalette.of(context);
     return SettingsRow(
-      leading: const Icon(Icons.info_outline_rounded),
+      leading: const Icon(AppIcons.info),
       title: '关于',
       subtitle: '版本与应用信息',
       trailing: Row(

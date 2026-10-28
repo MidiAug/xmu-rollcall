@@ -124,7 +124,7 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
       ],
       body: !auth.isSignedIn
           ? EmptyHint(
-              icon: Icons.lock_outline,
+              icon: AppIcons.lock,
               title: '尚未登录',
               detail: '登录后可查看教务课表',
               action: FilledButton(

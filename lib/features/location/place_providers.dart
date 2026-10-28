@@ -33,15 +33,20 @@ final coursePlaceGroupsProvider = Provider<List<CoursePlaceGroup>>((ref) {
           ?.schedule
           ?.rows ??
       const <Map<String, dynamic>>[];
-  final groups = <String, List<String>>{};
+  final groups = <String, Set<String>>{};
+  final names = <String, String>{};
   for (final room in rooms) {
-    (groups[coursePlaceIdentity(room)] ??= []).add(room);
+    for (final name in coursePlaceNames(room)) {
+      final key = coursePlaceIdentity(name);
+      names.putIfAbsent(key, () => name);
+      (groups[key] ??= {}).add(room);
+    }
   }
   return [
     for (final e in groups.entries)
       CoursePlaceGroup(
-        coursePlaceGroup(e.value.first),
-        e.value,
+        names[e.key]!,
+        e.value.toList(),
         {
           for (final row in rows)
             if (e.value.any((room) => room == '${row['JASMC'] ?? ''}'.trim()) &&
@@ -53,7 +58,7 @@ final coursePlaceGroupsProvider = Provider<List<CoursePlaceGroup>>((ref) {
 });
 final preferredCampusProvider = Provider<Campus>(
   (ref) => preferredCampus(
-    ref.watch(courseRoomsProvider),
+    ref.watch(courseRoomsProvider).expand(coursePlaceNames),
     ref.watch(savedLocationsProvider),
   ),
 );

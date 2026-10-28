@@ -118,7 +118,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                       : '未登录',
                   subtitle: accountSubtitle,
                   trailing: auth.isSignedIn
-                      ? TextButton(
+                      ? OutlinedButton(
                           onPressed: () async {
                             await ref
                                 .read(authControllerProvider.notifier)
@@ -150,7 +150,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 SettingsRow(
                   leading: const Icon(AppIcons.location),
                   title: '地点管理',
-                  subtitle: '课表教室、校区地图与自定义地点',
+                  subtitle: '为课表地点绑定坐标、校正定位错误',
                   trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: () =>
                       AppPageRoutes.push(context, const SavedLocationsPage()),

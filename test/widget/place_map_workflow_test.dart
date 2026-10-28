@@ -1,3 +1,10 @@
+import 'package:xmu_rollcall/features/location/location_validation_store.dart';
+import 'package:xmu_rollcall/features/location/course_radar_store.dart';
+import 'package:xmu_rollcall/features/location/location_models.dart';
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/auth/auth_repository.dart';
+import 'package:xmu_rollcall/features/auth/auth_models.dart';
+import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -41,6 +48,17 @@ Future<void> capture(WidgetTester tester, String name) async {
     ).writeAsBytes(data!.buffer.asUint8List());
     image.dispose();
   });
+}
+
+class _IssueAuthRepo extends Fake implements AuthRepository {}
+
+class _IssueAuth extends AuthController {
+  _IssueAuth() : super(_IssueAuthRepo()) {
+    state = const AuthState(
+      status: AuthStatus.signedIn,
+      profile: UserProfile(id: 1, name: '测试同学'),
+    );
+  }
 }
 
 void main() {
@@ -126,7 +144,7 @@ void main() {
 
           await show(const SavedLocationsPage());
           expect(scope.read(preferredCampusProvider), Campus.xiangan);
-          expect(find.text('待补全（1）'), findsOneWidget);
+          expect(find.text('待定位（1）'), findsOneWidget);
           expect(find.byType(TextField), findsNothing);
           if (width >= 720) {
             expect(find.byType(CampusSelector), findsOneWidget);
@@ -145,25 +163,8 @@ void main() {
           }
           expect(find.byTooltip('只看待补全'), findsNothing);
           expect(find.byTooltip('显示全部地点'), findsNothing);
-          final tabs = find.byType(AppSegmentedControl<bool>);
-          final marker = find.descendant(
-            of: tabs,
-            matching: find.byType(FractionallySizedBox),
-          );
-          final tabsWidth = tester.getSize(tabs).width;
-          expect(
-            tester.getCenter(marker).dx,
-            closeTo(tester.getCenter(find.text('课程地点')).dx, 1),
-          );
-          await tester.tap(find.text('我的地点'));
-          await tester.pumpAndSettle();
-          expect(
-            tester.getCenter(marker).dx,
-            closeTo(tester.getCenter(find.text('我的地点')).dx, 1),
-          );
-          expect(tester.getSize(tabs).width, tabsWidth);
-          await tester.tap(find.text('课程地点'));
-          await tester.pumpAndSettle();
+          expect(find.byType(AppSegmentedControl<bool>), findsNothing);
+          expect(find.byTooltip('添加地点'), findsNothing);
           expect(
             tester
                 .getSize(find.byKey(const ValueKey('managed-room-西部片区9号楼')))
@@ -180,6 +181,15 @@ void main() {
             expect(back.style?.backgroundColor?.resolve({})?.a, 1);
             expect(back.style?.side?.resolve({}), isNotNull);
           }
+          expect(
+            tester
+                .widget<TextField>(
+                  find.byKey(const ValueKey('managed-place-name')),
+                )
+                .readOnly,
+            isTrue,
+          );
+          expect(find.text('地点名称沿用教务或导入课表，请保持一致以便自动匹配。'), findsOneWidget);
           await capture(tester, 'map-edit-$width-$dark');
           final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
           map.options.onTap!(
@@ -187,8 +197,8 @@ void main() {
             const LatLng(24.606, 118.30),
           );
           await tester.pumpAndSettle();
-          await tester.ensureVisible(find.text('保存地点'));
-          await tester.tap(find.text('保存地点'));
+          await tester.ensureVisible(find.text('保存坐标'));
+          await tester.tap(find.text('保存坐标'));
           await tester.pumpAndSettle();
           expect(scope.read(unmatchedRoomsProvider), isEmpty);
           expect(scope.read(savedLocationsProvider).single.note, '西部片区9号楼');
@@ -386,6 +396,169 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
+  for (final width in [384.0, 960.0]) {
+    testWidgets(
+      'rejected place is prioritized, corrected and unlocked for existing bindings at $width',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final point = CourseRadarPref(
+          courseId: '7',
+          courseTitle: '课程一',
+          meetingKey: 'm',
+          placeId: 'xmu:teaching:xuewu-a',
+          labelSnapshot: '学武楼 A区',
+          latitude: 24.604970,
+          longitude: 118.313776,
+          userConfigured: true,
+        );
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          courseRadarPreferencesKey(1, null)!,
+          jsonEncode({'id:7': point.toJson()}),
+        );
+        await recordLocationIssue(1, 1, point);
+        final scope = ProviderContainer(
+          overrides: [
+            authControllerProvider.overrideWith((ref) => _IssueAuth()),
+            campusCachedDataProvider.overrideWith(
+              (ref) async => const CampusCachedData(),
+            ),
+            preferredCampusProvider.overrideWithValue(Campus.xiangan),
+            coursePlaceGroupsProvider.overrideWithValue(const [
+              CoursePlaceGroup('学武楼 A区', ['学武楼A404'], ['课程一']),
+              CoursePlaceGroup('新教学楼', ['新教学楼101'], ['课程二']),
+            ]),
+          ],
+        );
+        addTearDown(scope.dispose);
+        await scope.read(savedLocationsProvider.notifier).ready;
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: scope,
+            child: MaterialApp(
+              theme: AppTheme.light(),
+              home: const RepaintBoundary(
+                key: ValueKey('place-capture'),
+                child: SavedLocationsPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('待校正（1）'), findsOneWidget);
+        expect(
+          tester.getTopLeft(find.text('待校正（1）')).dy,
+          lessThan(tester.getTopLeft(find.text('待定位（1）')).dy),
+        );
+        await capture(tester, 'binding-errors-$width');
+        await tester.tap(find.byKey(const ValueKey('managed-room-学武楼')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('校正A区位置'));
+        await tester.pumpAndSettle();
+        final name = tester.widget<TextField>(
+          find.byKey(const ValueKey('managed-place-name')),
+        );
+        expect(name.readOnly, isTrue);
+        expect(name.controller!.text, '学武楼 A区');
+        final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
+        map.options.onTap!(
+          const TapPosition(Offset.zero, Offset.zero),
+          const LatLng(24.6051, 118.3139),
+        );
+        await tester.pumpAndSettle();
+        await capture(tester, 'binding-correction-$width');
+        await tester.tap(find.text('保存坐标'));
+        await tester.pumpAndSettle();
+        expect(await readLocationIssues(1, 1), isEmpty);
+        final saved = await readAutomaticRadarLocation(
+          ownerId: 1,
+          assistUserId: null,
+          courseId: '7',
+          meetingKey: 'm',
+        );
+        expect(saved!.latitude, 24.6051);
+        expect(saved.placeId, scope.read(savedLocationsProvider).single.id);
+        expect(saved.userConfigured, isTrue);
+        expect(find.text('待校正（1）'), findsNothing);
+        expect(teachingPlaces.first.latitude, 24.604970);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+  testWidgets(
+    'a rejected legacy point without a classroom is corrected as its own course binding',
+    (tester) async {
+      tester.view.physicalSize = const Size(960, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      const point = CourseRadarPref(
+        courseId: '7',
+        courseTitle: '旧绑定课程',
+        meetingKey: 'm',
+        latitude: 24.605,
+        longitude: 118.313,
+        userConfigured: true,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        courseRadarPreferencesKey(1, null)!,
+        jsonEncode({'id:7': point.toJson()}),
+      );
+      await recordLocationIssue(1, 1, point);
+      final scope = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _IssueAuth()),
+          campusCachedDataProvider.overrideWith(
+            (ref) async => const CampusCachedData(),
+          ),
+          preferredCampusProvider.overrideWithValue(Campus.xiangan),
+          coursePlaceGroupsProvider.overrideWithValue(const []),
+        ],
+      );
+      addTearDown(scope.dispose);
+      await scope.read(savedLocationsProvider.notifier).ready;
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: scope,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const SavedLocationsPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('待校正（1）'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('managed-room-旧绑定课程上课地点')));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const ValueKey('managed-place-name')))
+            .readOnly,
+        isTrue,
+      );
+      tester.widget<FlutterMap>(find.byType(FlutterMap)).options.onTap!(
+        const TapPosition(Offset.zero, Offset.zero),
+        const LatLng(24.6052, 118.3132),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('保存坐标'));
+      await tester.pumpAndSettle();
+      expect(await readLocationIssues(1, 1), isEmpty);
+      final saved = await readAutomaticRadarLocation(
+        ownerId: 1,
+        assistUserId: null,
+        courseId: '7',
+        meetingKey: 'm',
+      );
+      expect(saved!.latitude, 24.6052);
+      expect(saved.userConfigured, isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   testWidgets(
     'map controls consume taps and a draft preserves pan, zoom and equal insets',
     (tester) async {
@@ -399,7 +572,7 @@ void main() {
             campusCachedDataProvider.overrideWith(
               (ref) async => const CampusCachedData(),
             ),
-            courseRoomsProvider.overrideWithValue(const []),
+            courseRoomsProvider.overrideWithValue(const ['西部片区9号楼108']),
           ],
           child: MaterialApp(
             theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
@@ -416,6 +589,12 @@ void main() {
       final hint = tester.getRect(find.byKey(const ValueKey('map-idle-hint')));
       expect(hint.left - mapRect.left, closeTo(12, .1));
       expect(mapRect.bottom - hint.bottom, closeTo(12, .1));
+      expect(
+        tester.widget<FlutterMap>(find.byType(FlutterMap)).options.onTap,
+        isNull,
+      );
+      await tester.tap(find.byKey(const ValueKey('managed-room-西部片区9号楼')));
+      await tester.pumpAndSettle();
       final controller = tester
           .widget<FlutterMap>(find.byType(FlutterMap))
           .mapController!;

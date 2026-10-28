@@ -50,7 +50,7 @@ class CourseSchedulesPage extends ConsumerWidget {
                   child: SettingsSection(
                     children: [
                       SettingsRow(
-                        leading: const Icon(Icons.event_note_outlined),
+                        leading: const Icon(AppIcons.calendar),
                         title: course.title,
                         subtitle: course.needsSchedule
                             ? '尚未设置上课安排'
@@ -67,11 +67,7 @@ class CourseSchedulesPage extends ConsumerWidget {
                               const ScheduleStatusChip(),
                               const SizedBox(width: 8),
                             ],
-                            Icon(
-                              AppIcons.right,
-                              color: p.muted,
-                              size: 18,
-                            ),
+                            Icon(AppIcons.right, color: p.muted, size: 18),
                           ],
                         ),
                         onTap: () async {
@@ -425,11 +421,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
                         _drafts.remove(d);
                         _dirty = true;
                       }),
-                icon: Icon(
-                  Icons.remove_circle_outline_rounded,
-                  size: 18,
-                  color: p.muted,
-                ),
+                icon: Icon(AppIcons.remove, size: 18, color: p.muted),
               ),
             ],
           ),
@@ -503,7 +495,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
           const SizedBox(height: 14),
           Row(
             children: [
-              Icon(Icons.schedule_rounded, size: 16, color: p.muted),
+              Icon(AppIcons.clock, size: 16, color: p.muted),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -619,7 +611,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
                                           _drafts.add(_MeetingDraft());
                                           _dirty = true;
                                         }),
-                                  icon: const Icon(Icons.add_rounded, size: 18),
+                                  icon: const Icon(AppIcons.add, size: 18),
                                   label: const Text('添加一次上课'),
                                 ),
                               ],

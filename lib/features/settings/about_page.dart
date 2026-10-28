@@ -101,7 +101,7 @@ class _AboutPageState extends State<AboutPage> {
               header: '开源项目',
               children: [
                 SettingsRow(
-                  leading: const Icon(Icons.code_rounded),
+                  leading: const Icon(AppIcons.code),
                   title: 'GitHub 仓库',
                   subtitle: 'MidiAug/xmu-rollcall',
                   onTap: _openRepository,
@@ -113,7 +113,7 @@ class _AboutPageState extends State<AboutPage> {
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       visualDensity: VisualDensity.standard,
                     ),
-                    icon: Icon(Icons.copy_rounded, size: 17, color: p.muted),
+                    icon: Icon(AppIcons.copy, size: 17, color: p.muted),
                   ),
                 ),
               ],

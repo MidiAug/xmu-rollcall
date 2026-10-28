@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/location/location_validation_store.dart';
+import 'package:xmu_rollcall/features/location/location_providers.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/features/schedule/schedule_detection.dart';
 import 'dart:async';
@@ -593,6 +595,11 @@ class MonitorController extends StateNotifier<MonitorState> {
       final automatic = AutomaticRollcallAnswer(
         repository: repo,
         runId: desktopRunId,
+        onRadarRejected: (point) async {
+          if (!current()) return;
+          await recordLocationIssue(userId, scope ?? userId, point);
+          if (current()) _ref.invalidate(locationIssuesProvider);
+        },
         onRadarSuccess: (point) async {
           if (current()) await persistMeetingRadarPoint(userId, scope, point);
         },

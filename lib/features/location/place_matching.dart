@@ -25,6 +25,9 @@ String normalizePlaceName(String text) {
 
 /// A building/wing is one physical location; room numbers remain timetable text.
 String coursePlaceGroup(String room) {
+  String display(String value) => room.contains('（') || room.contains('）')
+      ? value.replaceAll('(', '（').replaceAll(')', '）')
+      : value;
   final trimmed = String.fromCharCodes(
     room.trim().runes.map(
       (r) =>
@@ -52,7 +55,7 @@ String coursePlaceGroup(String room) {
       }
     }
     parts.add(trimmed.substring(start).trim());
-    if (parts.any((p) => p.isEmpty)) return trimmed;
+    if (parts.any((p) => p.isEmpty)) return display(trimmed);
     final first = coursePlaceGroup(parts.first);
     final wing = RegExp(
       r'^(.*?)\s+([ABC])区$',
@@ -70,20 +73,69 @@ String coursePlaceGroup(String room) {
                   ? '$building $part'
                   : part,
             );
-      if (normalizePlaceName(next) != normalizePlaceName(first)) return trimmed;
+      if (normalizePlaceName(next) != normalizePlaceName(first)) {
+        return display(trimmed);
+      }
     }
-    return first;
+    return display(first);
   }
   final wing = RegExp(
     r'^(.*?)[\s　]*([A-Za-zＡ-Ｚａ-ｚ])(?:区)?[\s　]*\d{2,5}(?:室|教室)?$',
   ).firstMatch(trimmed);
   if (wing != null) {
-    return '${wing[1]!.trim()} ${normalizePlaceName(wing[2]!).toUpperCase()}区';
+    return display(
+      '${wing[1]!.trim()} ${normalizePlaceName(wing[2]!).toUpperCase()}区',
+    );
   }
   final roomNumber = RegExp(
     r'^(.*(?:楼|馆|中心)(?:（[^）]*）|\([^)]*\))?)[\s　]*\d{2,5}(?:室|教室)?$',
   ).firstMatch(trimmed);
-  return roomNumber?.group(1)?.trim() ?? trimmed;
+  return display(roomNumber?.group(1)?.trim() ?? trimmed);
+}
+
+/// Expand a combined classroom string into physical building/wing groups.
+/// Abbreviated room suffixes inherit the preceding building, not another wing.
+List<String> coursePlaceNames(String room) {
+  final text = String.fromCharCodes(
+    room.runes.map((r) => r >= 0xff01 && r <= 0xff5e ? r - 0xfee0 : r),
+  ).replaceAll('（', '(').replaceAll('）', ')');
+  final parts = <String>[];
+  var depth = 0, start = 0;
+  for (var i = 0; i < text.length; i++) {
+    if (text[i] == '(') depth++;
+    if (text[i] == ')' && depth > 0) depth--;
+    if (depth == 0 && RegExp(r'[/、；;,，]').hasMatch(text[i])) {
+      parts.add(text.substring(start, i).trim());
+      start = i + 1;
+    }
+  }
+  parts.add(text.substring(start).trim());
+  if (parts.any((p) => p.isEmpty)) return [coursePlaceGroup(room)];
+  var previous = coursePlaceGroup(parts.first);
+  final names = <String>[previous];
+  for (final part in parts.skip(1)) {
+    final building = previous.replaceFirst(
+      RegExp(r'\s+[ABC]区$', caseSensitive: false),
+      '',
+    );
+    final expanded =
+        RegExp(
+          r'^[ABC](?:区)?\s*\d{2,5}(?:室|教室)?$',
+          caseSensitive: false,
+        ).hasMatch(part)
+        ? '$building $part'
+        : RegExp(r'^\d{2,5}(?:室|教室)?$').hasMatch(part)
+        ? '$previous $part'
+        : part;
+    previous = coursePlaceGroup(expanded);
+    names.add(previous);
+  }
+  return {
+    for (final name in names)
+      coursePlaceIdentity(name): (room.contains('（') || room.contains('）')
+          ? name.replaceAll('(', '（').replaceAll(')', '）')
+          : name),
+  }.values.toList();
 }
 
 String coursePlaceIdentity(String room) {

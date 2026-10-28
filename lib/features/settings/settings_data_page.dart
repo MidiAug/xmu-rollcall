@@ -51,7 +51,7 @@ class SettingsDataPage extends ConsumerWidget {
               header: '本机数据',
               children: [
                 SettingsRow(
-                  leading: const Icon(Icons.cleaning_services_outlined),
+                  leading: const Icon(AppIcons.clean),
                   title: '清除本机课程数据',
                   subtitle: '清除已保存的课表、作业与签到记录；主题、常用地点与本机标识会保留',
                   trailing: Icon(AppIcons.right, color: p.muted, size: 18),
@@ -67,7 +67,7 @@ class SettingsDataPage extends ConsumerWidget {
                   builder: (context, snap) {
                     final id = snap.data;
                     return SettingsRow(
-                      leading: const Icon(Icons.devices_outlined),
+                      leading: const Icon(AppIcons.devices),
                       title: '本机标识',
                       subtitleWidget: Text(
                         id ?? (snap.hasError ? '暂时无法读取' : '…'),
@@ -84,11 +84,7 @@ class SettingsDataPage extends ConsumerWidget {
                       ),
                       trailing: Tooltip(
                         message: '复制本机标识',
-                        child: Icon(
-                          Icons.copy_outlined,
-                          color: p.muted,
-                          size: 18,
-                        ),
+                        child: Icon(AppIcons.copy, color: p.muted, size: 18),
                       ),
                       onTap: id == null
                           ? null
@@ -114,7 +110,7 @@ class SettingsDataPage extends ConsumerWidget {
                   },
                 ),
                 SettingsRow(
-                  leading: const Icon(Icons.receipt_long_outlined),
+                  leading: const Icon(AppIcons.document),
                   title: '最近日志',
                   subtitle: '本机诊断事件，可按关键词搜索',
                   trailing: Icon(AppIcons.right, color: p.muted, size: 18),
@@ -129,7 +125,7 @@ class SettingsDataPage extends ConsumerWidget {
                 header: '开发预览',
                 children: [
                   SettingsRow(
-                    leading: const Icon(Icons.system_update_alt_rounded),
+                    leading: const Icon(AppIcons.download),
                     title: '更新流程',
                     subtitle: '说明、检查、下载、线路与安装确认',
                     trailing: const Icon(AppIcons.right, size: 18),
@@ -138,7 +134,7 @@ class SettingsDataPage extends ConsumerWidget {
                   ),
                   if (PlatformHooks.isWindows)
                     SettingsRow(
-                      leading: const Icon(Icons.qr_code_scanner),
+                      leading: const Icon(AppIcons.qr),
                       title: '电脑扫码  透明浮窗',
                       subtitle: '屏幕识别  拖入图片  选择图片，不提交签到',
                       trailing: const Icon(AppIcons.right, size: 18),
@@ -148,14 +144,10 @@ class SettingsDataPage extends ConsumerWidget {
                       ),
                     ),
                   SettingsRow(
-                    leading: const Icon(Icons.radar_outlined),
+                    leading: const Icon(AppIcons.radar),
                     title: '雷达签到  空态',
                     subtitle: '无本课记忆，确认卡为空',
-                    trailing: Icon(
-                      AppIcons.right,
-                      color: p.muted,
-                      size: 18,
-                    ),
+                    trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                     onTap: () => openRadarPreview(
                       context,
                       ref,
@@ -163,14 +155,10 @@ class SettingsDataPage extends ConsumerWidget {
                     ),
                   ),
                   SettingsRow(
-                    leading: const Icon(Icons.bookmark_outline),
+                    leading: const Icon(AppIcons.bookmark),
                     title: '雷达签到  记忆预设',
                     subtitle: '预填「翔安教学楼」',
-                    trailing: Icon(
-                      AppIcons.right,
-                      color: p.muted,
-                      size: 18,
-                    ),
+                    trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                     onTap: () => openRadarPreview(
                       context,
                       ref,
@@ -178,14 +166,10 @@ class SettingsDataPage extends ConsumerWidget {
                     ),
                   ),
                   SettingsRow(
-                    leading: const Icon(Icons.my_location_outlined),
+                    leading: const Icon(AppIcons.location),
                     title: '雷达签到  记忆定位',
                     subtitle: '预填系统定位坐标',
-                    trailing: Icon(
-                      AppIcons.right,
-                      color: p.muted,
-                      size: 18,
-                    ),
+                    trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                     onTap: () => openRadarPreview(
                       context,
                       ref,
@@ -193,25 +177,17 @@ class SettingsDataPage extends ConsumerWidget {
                     ),
                   ),
                   SettingsRow(
-                    leading: const Icon(Icons.insights_outlined),
+                    leading: const Icon(AppIcons.data),
                     title: '上课段先验',
                     subtitle: '符合 / 突然数字 / 样本不足 / 无课表',
-                    trailing: Icon(
-                      AppIcons.right,
-                      color: p.muted,
-                      size: 18,
-                    ),
+                    trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                     onTap: () => openSessionPriorPreview(context),
                   ),
                   SettingsRow(
                     leading: const Icon(AppIcons.week),
                     title: '课表样式',
                     subtitle: '周末列  有无 10–11 节  假数据',
-                    trailing: Icon(
-                      AppIcons.right,
-                      color: p.muted,
-                      size: 18,
-                    ),
+                    trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                     onTap: () => openTimetablePreview(context),
                   ),
                   if (PlatformHooks.isDesktop || PlatformHooks.isAndroid) ...[
@@ -223,26 +199,18 @@ class SettingsDataPage extends ConsumerWidget {
                       subtitle: PlatformHooks.isDesktop
                           ? '最小化后发一条发现通知（L1）'
                           : '直接测试声音与震动，不影响正在进行的检测',
-                      trailing: Icon(
-                        AppIcons.right,
-                        color: p.muted,
-                        size: 18,
-                      ),
+                      trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                       onTap: () => ShellDebugPreview.notifyNow(context),
                     ),
                     SettingsRow(
-                      leading: const Icon(Icons.timer_outlined),
+                      leading: const Icon(AppIcons.clock),
                       title: PlatformHooks.isDesktop
                           ? '托盘  10s 模拟发现'
                           : 'Android  30s 模拟发现',
                       subtitle: PlatformHooks.isAndroid
                           ? '由后台服务发送，可回桌或锁屏验证'
                           : '延时测试通知，不修改真实签到列表',
-                      trailing: Icon(
-                        AppIcons.right,
-                        color: p.muted,
-                        size: 18,
-                      ),
+                      trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                       onTap: () => ShellDebugPreview.scheduleDiscovery(
                         context,
                         ref,
@@ -384,7 +352,7 @@ class _ExportLogsRowState extends ConsumerState<_ExportLogsRow> {
 
   @override
   Widget build(BuildContext context) => SettingsRow(
-    leading: const Icon(Icons.ios_share_outlined),
+    leading: const Icon(AppIcons.share),
     title: _busy ? '正在准备诊断日志…' : '导出诊断日志',
     subtitle: PlatformHooks.isDesktop
         ? '打包请求流水和错误详情，另存为 ZIP'

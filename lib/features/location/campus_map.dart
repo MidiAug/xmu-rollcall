@@ -134,7 +134,9 @@ class _CampusMapState extends State<CampusMap> {
               minZoom: 3,
               maxZoom: kAmapMaxZoom,
               backgroundColor: p.surfaceHigh,
-              onTap: (_, point) => widget.onTap?.call(point),
+              onTap: widget.onTap == null
+                  ? null
+                  : (_, point) => widget.onTap?.call(point),
             ),
             children: [
               TileLayer(

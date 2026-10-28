@@ -1,3 +1,5 @@
+import 'location_validation_store.dart';
+import 'course_radar_store.dart';
 import 'place_buildings.dart';
 import 'map_pick_panel.dart' show kMapOverlayInset;
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
@@ -5,7 +7,6 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/shell_tab_exit_guard.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -62,12 +63,6 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
               },
             ),
           ),
-        const SizedBox(width: 8),
-        IconButton(
-          tooltip: '添加地点',
-          onPressed: () => _manager.currentState?._startNew(),
-          icon: const Icon(Icons.add, size: 20),
-        ),
       ],
       body: LocationManagerContent(key: _manager, campus: campus),
     );
@@ -92,7 +87,7 @@ class LocationManagerContent extends ConsumerStatefulWidget {
 }
 
 class _LocationManagerState extends ConsumerState<LocationManagerContent> {
-  bool _mine = false, _mobileMap = false, _regionOnly = false;
+  bool _mobileMap = false, _regionOnly = false;
   String? _focusedRoom;
   String? _focusedBuilding;
   SavedLocation? _selected;
@@ -121,6 +116,38 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
 
   Future<void> _save() async {
     if (_point == null || _name.text.trim().isEmpty || _busy) return;
+    final owner = ref.read(authControllerProvider).profile?.id;
+    final scope = ref.read(selectedRollcallAccountProvider);
+    final issues =
+        ref
+            .read(locationIssuesProvider)
+            .valueOrNull
+            ?.where(
+              (e) =>
+                  _selected?.id == 'room:issue:${e.point.courseId}' ||
+                  e.concerns(
+                    _name.text,
+                    ref
+                        .read(coursePlaceGroupsProvider)
+                        .where(
+                          (g) =>
+                              coursePlaceIdentity(g.name) ==
+                              coursePlaceIdentity(_name.text),
+                        )
+                        .expand((g) => g.courses)
+                        .toList(),
+                  ),
+            )
+            .toList() ??
+        <LocationValidationIssue>[];
+    if (issues.any(
+      (e) =>
+          e.point.latitude == _point!.latitude &&
+          e.point.longitude == _point!.longitude,
+    )) {
+      setState(() => _error = '请选择与原定位不同的位置后保存');
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
@@ -134,7 +161,6 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
           latitude: _point!.latitude,
           longitude: _point!.longitude,
         );
-        await controller.rename(_editingId!, _name.text);
         place = ref
             .read(savedLocationsProvider)
             .firstWhere((p) => p.id == _editingId);
@@ -146,9 +172,15 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
         );
       }
       if (!mounted) return;
+      if (owner != null) {
+        await updateRadarPlaceBindings(owner, scope, issues, place);
+        if (!mounted) return;
+        ref.invalidate(courseRadarDefaultsForProvider(scope));
+      }
+      ref.invalidate(locationIssuesProvider);
       setState(() {
         _selected = place;
-        _focusedRoom = place.note;
+        _focusedRoom = _name.text;
         _creating = false;
         _point = null;
         _editingId = null;
@@ -160,65 +192,12 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
     }
   }
 
-  Future<void> _edit(bool remove) async {
-    final place = _selected;
-    if (place == null || isReferencePlace(place) || _busy) return;
-    final note = remove
-        ? null
-        : await showAppPromptDialog(
-            context,
-            title: '重命名',
-            initialValue: place.note,
-            labelText: '地点名称',
-          );
-    if (!mounted || (!remove && (note == null || note.trim().isEmpty))) return;
-    if (remove &&
-        !await showAppConfirmDialog(
-          context,
-          title: '删除位置',
-          message: '删除「${place.note}」？',
-          confirmLabel: '删除',
-          destructive: true,
-        )) {
-      return;
-    }
-    if (!mounted) return;
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final ctrl = ref.read(savedLocationsProvider.notifier);
-      if (remove) {
-        await ctrl.remove(place.id);
-      } else {
-        await ctrl.rename(place.id, note!);
-      }
-      if (mounted) setState(() => _selected = null);
-    } catch (_) {
-      if (mounted) setState(() => _error = '操作未能保存，请重试');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  void _startNew() {
-    if (_busy) return;
-    setState(() {
-      _mine = true;
-      _mobileMap = true;
-      _creating = true;
-      _selected = null;
-      _point = null;
-      _editingId = null;
-      _focusedRoom = null;
-      _focusedBuilding = null;
-      _name.clear();
-      _error = null;
-    });
-  }
-
-  void _choose(String room, SavedLocation? place, {bool focusMap = true}) {
+  void _choose(
+    String room,
+    SavedLocation? place, {
+    bool focusMap = true,
+    bool correcting = false,
+  }) {
     if (_busy) return;
     setState(() {
       _focusedBuilding = null;
@@ -230,8 +209,10 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
       }
       _mobileMap = true;
       _point = null;
-      _editingId = null;
-      _creating = place == null;
+      _editingId = correcting && place != null && !isReferencePlace(place)
+          ? place.id
+          : null;
+      _creating = place == null || correcting;
       _name.text = room;
       _error = null;
     });
@@ -261,43 +242,71 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
     final Campus campus =
         widget.campus ?? ref.watch<Campus>(preferredCampusProvider);
     final groups = ref.watch(coursePlaceGroupsProvider);
+    final issues =
+        ref.watch(locationIssuesProvider).valueOrNull ??
+        <LocationValidationIssue>[];
+    final orphans = issues
+        .where((issue) => !groups.any((g) => issue.concerns(g.name, g.courses)))
+        .map((issue) {
+          final name = issue.point.labelSnapshot.trim().isEmpty
+              ? '${issue.point.courseTitle}上课地点'
+              : coursePlaceGroup(issue.point.labelSnapshot);
+          return ManagedPlaceEntry(
+            name,
+            SavedLocation(
+              id: 'room:issue:${issue.point.courseId}',
+              note: name,
+              latitude: issue.point.latitude,
+              longitude: issue.point.longitude,
+              createdAt: issue.at,
+            ),
+            [issue.point.courseTitle],
+          );
+        })
+        .toList();
     bool inCampus(String name, SavedLocation? place) =>
         (place == null ? campusInName(name) : campusForPoint(place)) ==
             campus ||
         ((place == null ? campusInName(name) : campusForPoint(place)) == null &&
             campus == ref.read(preferredCampusProvider));
     final rawEntries = <ManagedPlaceEntry>[
-      if (_mine)
-        for (final place in custom) ManagedPlaceEntry(place.note, place)
-      else ...[
-        for (final g in groups)
-          ManagedPlaceEntry(
-            g.name,
-            matchCoursePlace(g.name, custom),
-            g.courses,
-          ),
-        for (final preset in teachingPlaces)
-          if (!groups.any(
-            (g) =>
-                coursePlaceIdentity(g.name) == coursePlaceIdentity(preset.name),
-          ))
-            ManagedPlaceEntry(
-              preset.name,
-              matchCoursePlace(preset.name, custom),
-            ),
-      ],
+      ...orphans,
+      for (final g in groups)
+        ManagedPlaceEntry(g.name, matchCoursePlace(g.name, custom), g.courses),
+      for (final preset in teachingPlaces)
+        if (!groups.any(
+              (g) =>
+                  coursePlaceIdentity(g.name) ==
+                  coursePlaceIdentity(preset.name),
+            ) &&
+            !orphans.any(
+              (e) =>
+                  coursePlaceIdentity(e.name) ==
+                  coursePlaceIdentity(preset.name),
+            ))
+          ManagedPlaceEntry(preset.name, matchCoursePlace(preset.name, custom)),
     ].where((e) => inCampus(e.name, e.place)).toList();
     final allBuildings = groupPlaceEntries(rawEntries);
-    final courseIdentities = groups
-        .map((g) => coursePlaceIdentity(g.name))
-        .toSet();
+    final courseIdentities = {
+      ...groups.map((g) => coursePlaceIdentity(g.name)),
+      ...orphans.map((e) => coursePlaceIdentity(e.name)),
+    };
     final entries = groupPlaceEntries(
       rawEntries.where(
-        (e) => _mine || courseIdentities.contains(coursePlaceIdentity(e.name)),
+        (e) => courseIdentities.contains(coursePlaceIdentity(e.name)),
       ),
     );
+
+    bool needsCorrection(ManagedBuilding b) => b.children.any(
+      (e) => issues.any((issue) => issue.concerns(e.name, e.courses)),
+    );
+    int rank(ManagedBuilding b) => needsCorrection(b)
+        ? 0
+        : b.pending > 0
+        ? 1
+        : 2;
     entries.sort((a, b) {
-      final status = (a.pending > 0 ? 0 : 1).compareTo(b.pending > 0 ? 0 : 1);
+      final status = rank(a).compareTo(rank(b));
       return status != 0 ? status : a.name.compareTo(b.name);
     });
     final activeBuilding = allBuildings
@@ -350,26 +359,13 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: AppSegmentedControl<bool>(
-                      key: const ValueKey('location-list-tabs'),
-                      value: _mine,
-                      expanded: true,
-                      onChanged: (v) => setState(() => _mine = v),
-                      segments: const [
-                        AppSegment(value: false, label: '课程地点'),
-                        AppSegment(value: true, label: '我的地点'),
-                      ],
-                    ),
-                  ),
                   Expanded(
                     child: entries.isEmpty
                         ? Center(
                             child: Padding(
                               padding: const EdgeInsets.all(20),
                               child: Text(
-                                _mine ? '暂无自定义地点，点击右上角添加' : '本校区暂无课程地点',
+                                '本校区暂无课程地点',
                                 style: TextStyle(color: p.muted),
                               ),
                             ),
@@ -380,18 +376,20 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                             itemBuilder: (context, i) {
                               final e = entries[i];
                               final isPending = e.pending > 0;
+                              final invalid = needsCorrection(e);
+                              final status = rank(e);
                               final rowSelected =
                                   _focusedBuilding == e.name ||
                                   (_focusedRoom != null &&
                                       placeBuildingName(_focusedRoom!) ==
                                           e.name);
                               final previous = i > 0
-                                  ? entries[i - 1].pending > 0
+                                  ? rank(entries[i - 1])
                                   : null;
                               return Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  if (i == 0 || previous != isPending)
+                                  if (i == 0 || previous != status)
                                     Padding(
                                       padding: const EdgeInsets.fromLTRB(
                                         16,
@@ -400,11 +398,11 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                         8,
                                       ),
                                       child: Text(
-                                        _mine
-                                            ? '已保存（${entries.length}）'
+                                        invalid
+                                            ? '待校正（${entries.where(needsCorrection).length}）'
                                             : isPending
-                                            ? '待补全（${entries.where((e) => e.pending > 0).length}）'
-                                            : '已定位（${entries.where((e) => e.pending == 0).length}）',
+                                            ? '待定位（${entries.where((e) => rank(e) == 1).length}）'
+                                            : '已定位（${entries.where((e) => rank(e) == 2).length}）',
                                         style: TextStyle(
                                           color: p.ink,
                                           fontWeight: FontWeight.w600,
@@ -448,7 +446,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                           width: 28,
                                           height: 28,
                                           decoration: BoxDecoration(
-                                            color: isPending
+                                            color: invalid
+                                                ? p.danger.withValues(alpha: .1)
+                                                : isPending
                                                 ? p.surfaceHigh
                                                 : p.primary.withValues(
                                                     alpha: .08,
@@ -462,7 +462,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                                 ? AppIcons.building
                                                 : AppIcons.location,
                                             size: 17,
-                                            color: isPending
+                                            color: invalid
+                                                ? p.danger
+                                                : isPending
                                                 ? p.muted
                                                 : p.primary,
                                           ),
@@ -483,7 +485,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                               ? ''
                                               : e.courses.join('、'),
                                           child: Text(
-                                            isPending
+                                            invalid
+                                                ? '位置校验未通过，点击校正'
+                                                : isPending
                                                 ? (e.courses.isNotEmpty
                                                       ? e.courses.join('、')
                                                       : '${e.pending} 个区域待补全')
@@ -520,14 +524,19 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                         ),
                                         onTap: _busy
                                             ? null
-                                            : () =>
-                                                  (!_mine && e.pending == 0) ||
-                                                      e.grouped
-                                                  ? openBuilding(e)
-                                                  : _choose(
-                                                      e.children.single.name,
-                                                      e.place,
-                                                    ),
+                                            : () {
+                                                if (!e.grouped &&
+                                                    (invalid ||
+                                                        e.pending > 0)) {
+                                                  _choose(
+                                                    e.children.single.name,
+                                                    e.place,
+                                                    correcting: invalid,
+                                                  );
+                                                } else {
+                                                  openBuilding(e);
+                                                }
+                                              },
                                       ),
                                     ),
                                   ),
@@ -549,6 +558,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                     places: visible,
                     groupBuildings: true,
                     onBuilding: (name) {
+                      if (_creating) return;
                       final building = allBuildings
                           .where((e) => e.name == name)
                           .firstOrNull;
@@ -559,13 +569,22 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                     onPlace: _busy
                         ? null
                         : (place) {
+                            if (_creating) {
+                              setState(
+                                () => _point = LatLng(
+                                  place.latitude,
+                                  place.longitude,
+                                ),
+                              );
+                              return;
+                            }
                             final building = allBuildings
                                 .where(
                                   (e) =>
                                       e.name == placeBuildingName(place.note),
                                 )
                                 .firstOrNull;
-                            if (!_mine && building != null) {
+                            if (building != null) {
                               setState(() {
                                 _focusedBuilding = building.name;
                                 _focusedRoom = place.note;
@@ -578,17 +597,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                               _choose(place.note, place, focusMap: false);
                             }
                           },
-                    onTap: widget.readOnly || _busy
+                    onTap: widget.readOnly || _busy || !_creating
                         ? null
-                        : (value) => setState(() {
-                            if (!_creating) {
-                              _editingId = null;
-                              _name.text = _focusedRoom ?? '';
-                            }
-                            _focusedBuilding = null;
-                            _point = value;
-                            _creating = true;
-                          }),
+                        : (value) => setState(() => _point = value),
                   ),
                 ),
                 if (!wide)
@@ -628,7 +639,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                       width: wide
                           ? (bounds.maxWidth - 350).clamp(240.0, 340.0)
                           : null,
-                      child: activeBuilding != null && !_creating && !_mine
+                      child: activeBuilding != null && !_creating
                           ? _buildingInspector(
                               context,
                               activeBuilding,
@@ -652,7 +663,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                           child: Padding(
                             padding: const EdgeInsets.all(12),
                             child: Text(
-                              '选择楼宇查看区域，或点击地图添加地点',
+                              '先选择未定位的课表地点，再在地图上选点',
                               style: TextStyle(fontSize: 12, color: p.muted),
                             ),
                           ),
@@ -702,6 +713,12 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
               .toList();
     final matched = regions.where((e) => e.courses.isNotEmpty).toList();
     final grouped = regionOnly == null && building.grouped;
+    final issues =
+        ref.watch(locationIssuesProvider).valueOrNull ??
+        <LocationValidationIssue>[];
+    final corrections = regions
+        .where((e) => issues.any((issue) => issue.concerns(e.name, e.courses)))
+        .toList();
     return Material(
       key: const ValueKey('map-building-inspector'),
       color: p.surface,
@@ -758,6 +775,40 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                           ).textTheme.bodySmall?.copyWith(color: p.muted),
                         ),
                       ),
+                    for (final child in regions.where((e) => e.place == null))
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: OutlinedButton.icon(
+                          onPressed: _busy
+                              ? null
+                              : () => _choose(child.name, null),
+                          icon: const Icon(AppIcons.location, size: 16),
+                          label: Text(
+                            '为${placeWing(child.name) == null ? child.name : '${placeWing(child.name)}区'}定位',
+                          ),
+                        ),
+                      ),
+                    for (final child in corrections)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: OutlinedButton.icon(
+                          onPressed: _busy
+                              ? null
+                              : () => _choose(
+                                  child.name,
+                                  child.place,
+                                  correcting: true,
+                                ),
+                          icon: Icon(
+                            AppIcons.location,
+                            size: 16,
+                            color: p.danger,
+                          ),
+                          label: Text(
+                            '校正${placeWing(child.name) == null ? '位置' : '${placeWing(child.name)}区位置'}',
+                          ),
+                        ),
+                      ),
                     for (final child in matched) ...[
                       if (grouped)
                         Padding(
@@ -772,11 +823,6 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                       fontWeight: FontWeight.w600,
                                     ),
                               ),
-                              if (child.place == null)
-                                TextButton(
-                                  onPressed: () => _choose(child.name, null),
-                                  child: const Text('补全位置'),
-                                ),
                             ],
                           ),
                         ),
@@ -839,7 +885,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
-                      _focusedRoom ?? selected?.note ?? '添加地点',
+                      _focusedRoom ?? selected?.note ?? '绑定课表地点',
                       maxLines: 2,
                       style: TextStyle(
                         fontSize: 14,
@@ -885,12 +931,19 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
             TextField(
               key: const ValueKey('managed-place-name'),
               controller: _name,
-              enabled: !_busy,
+              readOnly: true,
               decoration: const InputDecoration(
-                labelText: '地点名称',
+                labelText: '课表地点（名称已锁定）',
                 isDense: true,
               ),
               onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              selected?.id.startsWith('room:issue:') == true
+                  ? '名称沿用原有课程绑定；请尽量与教务或导入课表的地点名称保持一致。'
+                  : '地点名称沿用教务或导入课表，请保持一致以便自动匹配。',
+              style: TextStyle(fontSize: 12, color: p.muted),
             ),
             const SizedBox(height: 12),
             Row(
@@ -905,8 +958,8 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                       _busy
                           ? '保存中…'
                           : _editingId == null
-                          ? '保存地点'
-                          : '更新位置',
+                          ? '保存坐标'
+                          : '保存校正',
                     ),
                   ),
                 ),
@@ -923,46 +976,18 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
               ],
             ),
           ] else if (selected != null) ...[
-            Text(
-              isTeachingPreset(selected)
-                  ? '内置教学区域，按课程教室匹配'
-                  : isReferencePlace(selected)
-                  ? '楼宇参考点，可补充区域位置'
-                  : '自定义地点',
-              style: TextStyle(fontSize: 12, color: p.muted),
-            ),
-            const SizedBox(height: 12),
+            Text('坐标已绑定到课表地点', style: TextStyle(fontSize: 12, color: p.muted)),
+            const SizedBox(height: 8),
             if (!widget.readOnly)
-              Wrap(
-                spacing: 4,
-                children: [
-                  OutlinedButton(
-                    onPressed: _busy
-                        ? null
-                        : () => setState(() {
-                            _creating = true;
-                            _editingId = isReferencePlace(selected)
-                                ? null
-                                : selected.id;
-                            _name.text = _focusedRoom ?? selected.note;
-                            _point = LatLng(
-                              selected.latitude,
-                              selected.longitude,
-                            );
-                          }),
-                    child: Text(isReferencePlace(selected) ? '补充区域位置' : '调整位置'),
-                  ),
-                  if (!isReferencePlace(selected)) ...[
-                    TextButton(
-                      onPressed: _busy ? null : () => _edit(false),
-                      child: const Text('重命名'),
-                    ),
-                    TextButton(
-                      onPressed: _busy ? null : () => _edit(true),
-                      child: Text('删除', style: TextStyle(color: p.danger)),
-                    ),
-                  ],
-                ],
+              OutlinedButton(
+                onPressed: _busy
+                    ? null
+                    : () => _choose(
+                        _focusedRoom ?? selected.note,
+                        selected,
+                        correcting: true,
+                      ),
+                child: const Text('校正坐标'),
               ),
           ],
           if (_error != null)
