@@ -42,6 +42,7 @@ class Grades extends GradeNotifier {
       }),
       const GradeRecord({
         'WID': 'b',
+        'KCLBDM_DISPLAY': '通识教育课程',
         'KCM': '课程名称很长的另一门测试课程用于检查边界',
         'XNXQDM': '2025-2026-2',
         'XF': 1,
@@ -65,7 +66,7 @@ void main() {
     }
   });
   setUp(() => SharedPreferences.setMockInitialValues({}));
-  for (final width in [384.0, 960.0]) {
+  for (final width in [320.0, 384.0, 960.0]) {
     for (final dark in [false, true]) {
       testWidgets(
         'GPA layout, selection and cached metadata at $width dark=$dark',
@@ -96,10 +97,11 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          expect(find.text('3.333'), findsOneWidget);
+          expect(find.text('3.33'), findsOneWidget);
           expect(find.textContaining('2026-10-28 10:00'), findsOneWidget);
           expect(tester.takeException(), isNull);
-          if (Platform.environment['CAPTURE_GPA_UI'] == '1') {
+          Future<void> capture(String name) async {
+            if (Platform.environment['CAPTURE_GPA_UI'] != '1') return;
             await tester.runAsync(() async {
               final render =
                   key.currentContext!.findRenderObject()!
@@ -108,15 +110,64 @@ void main() {
               final data = await im.toByteData(format: ui.ImageByteFormat.png);
               await Directory('build/gpa-ui-review').create(recursive: true);
               await File(
-                'build/gpa-ui-review/gpa-$width-$dark.png',
+                'build/gpa-ui-review/$name-$width-$dark.png',
               ).writeAsBytes(data!.buffer.asUint8List());
               im.dispose();
             });
           }
+
+          await capture('gpa');
           await tester.ensureVisible(find.byKey(const ValueKey('grade-b')));
           await tester.tap(find.byKey(const ValueKey('grade-b')));
           await tester.pumpAndSettle();
-          expect(find.text('4.000'), findsOneWidget);
+          expect(find.text('4.00'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+          await tester.tap(find.byKey(const ValueKey('grade-b')));
+          await tester.pumpAndSettle();
+          await tester.ensureVisible(find.byKey(const ValueKey('grade-range')));
+          await tester.tap(find.text('学年'));
+          await tester.pumpAndSettle();
+          expect(find.text('4.00'), findsOneWidget);
+          expect(find.byKey(const ValueKey('grade-year-2026')), findsOneWidget);
+          expect(find.byKey(const ValueKey('grade-year-2025')), findsOneWidget);
+          expect(find.byKey(const ValueKey('grade-year-2024')), findsNothing);
+          expect(find.text('近几个学年'), findsNothing);
+          await tester.tap(find.byKey(const ValueKey('grade-year-2025')));
+          await tester.pumpAndSettle();
+          expect(find.text('3.33'), findsOneWidget);
+          await capture('gpa-years');
+          await tester.tap(find.byKey(const ValueKey('grade-year-2026')));
+          await tester.pumpAndSettle();
+          expect(find.text('2.00'), findsOneWidget);
+          await tester.tap(find.byKey(const ValueKey('grade-year-2025')));
+          await tester.pumpAndSettle();
+          expect(find.text('选择学年后查看课程与 GPA'), findsOneWidget);
+          expect(find.byKey(const ValueKey('grade-b')), findsNothing);
+          await tester.tap(find.byKey(const ValueKey('grade-year-2025')));
+          await tester.pumpAndSettle();
+          expect(find.text('2.00'), findsOneWidget);
+          await tester.tap(find.text('近学期'));
+          await tester.pumpAndSettle();
+          expect(find.text('3.33'), findsOneWidget);
+          await tester.tap(find.byKey(const ValueKey('grade-recent')));
+          await tester.pumpAndSettle();
+          expect(find.text('近 3 个学期'), findsNothing);
+          await tester.tap(find.text('近 1 个学期').last);
+          await tester.pumpAndSettle();
+          expect(find.text('4.00'), findsOneWidget);
+          await tester.tap(find.text('总绩点'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('排除通识课程'));
+          await tester.pumpAndSettle();
+          expect(find.text('4.00'), findsOneWidget);
+          await tester.ensureVisible(find.text('恢复默认选择'));
+          await tester.tap(find.text('恢复默认选择'));
+          await tester.pumpAndSettle();
+          expect(find.text('3.33'), findsOneWidget);
+          await tester.ensureVisible(find.text('计算规则与来源'));
+          await tester.tap(find.text('计算规则与来源'));
+          await tester.pumpAndSettle();
+          expect(find.text('本科生成绩管理办法'), findsOneWidget);
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox.shrink());
         },

@@ -36,6 +36,7 @@ class AcademicClient {
   final RateLimiter limiter;
   final CookieJar jar = CookieJar();
   int? _boundUid;
+  Uri? _gradeApplicationPage;
   Future<bool> Function()? identityGuard;
   Future<bool> _identityCurrent(int uid) async => identityGuard != null
       ? identityGuard!()
@@ -69,7 +70,21 @@ class AcademicClient {
               responseType: ResponseType.plain,
               contentType: contentType,
               validateStatus: (s) => s != null && s < 500,
-              headers: {'User-Agent': TronEndpoints.userAgent},
+              headers: {
+                'User-Agent': TronEndpoints.userAgent,
+                if (uri.host == jw.host &&
+                    (uri.path.startsWith('/jwapp/sys/cjcx/modules/') ||
+                        uri.path ==
+                            '/jwapp/sys/jwpubapp/pub/setJwCommonAppRole.do')) ...{
+                  'Referer':
+                      (_gradeApplicationPage ??
+                              jw.resolve('/jwapp/sys/cjcx/*default/index.do'))
+                          .toString(),
+                  'Origin': jw.origin,
+                  'X-Requested-With': 'XMLHttpRequest',
+                  'Accept': 'application/json, text/javascript, */*; q=0.01',
+                },
+              },
             ),
           );
         }, priority: RequestPriority.background)
@@ -151,6 +166,11 @@ class AcademicClient {
       if (response.statusCode != 200 || uri.host == ids.host) {
         throw const FormatException('教务会话未建立');
       }
+      if (uri.host == jw.host &&
+          uri.path == '/jwapp/sys/cjcx/*default/index.do') {
+        // Keep signed application parameters in memory only, never in logs/cache.
+        _gradeApplicationPage = uri;
+      }
       return;
     }
     throw const FormatException('教务登录跳转过多');
@@ -168,6 +188,12 @@ class AcademicClient {
     );
     if ({301, 302, 303, 307, 308, 401}.contains(response.statusCode)) {
       throw const AcademicLoginRequired();
+    }
+    if (response.statusCode == 403) {
+      throw const FormatException('教务拒绝访问（403），请稍后重试');
+    }
+    if (response.statusCode == 429) {
+      throw const FormatException('教务请求过于频繁，请稍后重试');
     }
     if (response.statusCode != 200) throw const FormatException('教务会话失效或暂不可用');
     final decoded = jsonDecode('${response.data}');
@@ -247,7 +273,20 @@ class AcademicClient {
           (username != null && student != username)) {
         throw const FormatException('教务身份与所选账号不一致');
       }
-      await open(jw.resolve('/jwapp/sys/cjcx/*default/index.do'));
+      await open(
+        jw
+            .resolve('/appShow')
+            .replace(queryParameters: {'appId': '4768574631264620'}),
+      );
+      // The official grade page initializes the student's JW application role
+      // before issuing queries; a valid CAS login alone does not do this.
+      final role = await json(
+        '/jwapp/sys/jwpubapp/pub/setJwCommonAppRole.do',
+        data: {},
+      );
+      if (role['success'] != true && '${role['success']}' != '1') {
+        throw const FormatException('教务成绩应用初始化失败，请稍后重试');
+      }
       const base = '/jwapp/sys/cjcx/modules/cjcx/';
       final terms = <String>{};
       if (recent) {
@@ -333,6 +372,13 @@ class AcademicClient {
                 'ZCJ',
                 'DJCJMC',
                 'SFYX',
+                'XSZCJMC',
+                'DJCJLXDM',
+                'DJCJLXDM_DISPLAY',
+                'KCXZDM_DISPLAY',
+                'KCLBDM_DISPLAY',
+                'XDFSDM_DISPLAY',
+                'SFZX_DISPLAY',
               ])
                 key: row[key],
             });

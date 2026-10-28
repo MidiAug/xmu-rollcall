@@ -53,6 +53,7 @@ class GradeNotifier extends AutoDisposeAsyncNotifier<GradeSnapshot> {
     } catch (_) {}
     final now = ref.read(gradeClockProvider)();
     if (_cache != null &&
+        _cache!.version >= 2 &&
         now.difference(_cache!.at) < const Duration(days: 1) &&
         !now.isBefore(_cache!.at)) {
       return _cache!;
@@ -92,7 +93,8 @@ class GradeNotifier extends AutoDisposeAsyncNotifier<GradeSnapshot> {
     if (!await current()) throw StateError('账号已切换');
     final client = ref.read(gradeClientProvider)()..identityGuard = current;
     final now = ref.read(gradeClockProvider)();
-    final recent = useRecentGrades(cache, now);
+    final recent =
+        cache != null && cache.version >= 2 && useRecentGrades(cache, now);
     final attempts = await SharedPreferences.getInstance();
     final attemptKey = 'grade_attempt_${owner}_$uid';
     final last = attempts.getInt(attemptKey);
@@ -124,7 +126,7 @@ class GradeNotifier extends AutoDisposeAsyncNotifier<GradeSnapshot> {
       at: now,
       term: currentSemester(now),
       records: recent
-          ? mergeRecentGrades(cache!.records, fresh, result.replacedTerms)
+          ? mergeRecentGrades(cache.records, fresh, result.replacedTerms)
           : fresh,
     );
     final prefs = await SharedPreferences.getInstance();

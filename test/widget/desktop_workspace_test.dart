@@ -531,6 +531,10 @@ void main() {
           );
           expect(button.style?.side?.resolve({}), isNotNull);
         }
+        expect(
+          tester.getCenter(find.byTooltip('签到设置')).dx,
+          greaterThan(tester.getCenter(find.byTooltip('签到记录')).dx),
+        );
         expect(find.byTooltip('签到设置'), findsOneWidget);
         expect(find.byTooltip('签到记录'), findsOneWidget);
         expect(find.byTooltip('签到操作'), findsNothing);

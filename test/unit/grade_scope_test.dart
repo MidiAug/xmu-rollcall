@@ -58,6 +58,49 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
   test(
+    'legacy grade cache reloads complete classification data even within one day',
+    () async {
+      final at = DateTime(2026, 10, 28);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        gradeCacheKey(1, 1),
+        jsonEncode({
+          'at': at.toIso8601String(),
+          'term': '20261',
+          'records': [
+            {'WID': 'old', 'XF': 2, 'XFJD': 4},
+          ],
+        }),
+      );
+      final store = SecureStore.memory({SecureStore.keyUserId: '1'});
+      final client = _Client(store);
+      final c = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          secureStoreProvider.overrideWithValue(store),
+          gradeClockProvider.overrideWithValue(() => at),
+          academicSyncProvider.overrideWith((ref) => AcademicSync(store)),
+          gradeClientProvider.overrideWithValue(() => client),
+        ],
+      );
+      addTearDown(c.dispose);
+      final sub = c.listen(gradeSnapshotProvider, (_, _) {});
+      addTearDown(sub.close);
+      await client.entered.future;
+      expect(client.receivedRecent, isFalse);
+      client.result.complete((
+        rows: [
+          {'WID': 'new', 'XF': 2, 'XFJD': 4, 'DJCJLXDM': '100'},
+        ],
+        replacedTerms: <String>{},
+      ));
+      final snapshot = await c.read(gradeSnapshotProvider.future);
+      expect(snapshot.version, 2);
+      expect(snapshot.records.single.id, 'new');
+      expect(jsonDecode(prefs.getString(gradeCacheKey(1, 1))!)['version'], 2);
+    },
+  );
+  test(
     'fresh account caches load separately without a network client',
     () async {
       final at = DateTime(2026, 10, 28);

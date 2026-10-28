@@ -377,20 +377,6 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
             },
           ),
           IconButton(
-            tooltip: '签到设置',
-            style: IconButton.styleFrom(
-              minimumSize: const Size(34, 34),
-              padding: const EdgeInsets.all(7),
-              backgroundColor: p.surface,
-              side: BorderSide(color: p.border),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(7),
-              ),
-            ),
-            onPressed: () => _openSettings(context),
-            icon: const Icon(AppIcons.settings, size: 20),
-          ),
-          IconButton(
             tooltip: '签到记录',
             style: IconButton.styleFrom(
               minimumSize: const Size(34, 34),
@@ -403,6 +389,20 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
             ),
             onPressed: () => _openHistory(context),
             icon: const Icon(AppIcons.history, size: 20),
+          ),
+          IconButton(
+            tooltip: '签到设置',
+            style: IconButton.styleFrom(
+              minimumSize: const Size(34, 34),
+              padding: const EdgeInsets.all(7),
+              backgroundColor: p.surface,
+              side: BorderSide(color: p.border),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(7),
+              ),
+            ),
+            onPressed: () => _openSettings(context),
+            icon: const Icon(AppIcons.settings, size: 20),
           ),
         ],
         contextPanel: active && auth.isSignedIn
