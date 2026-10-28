@@ -24,8 +24,8 @@ final campusTools = <CampusTool>[
   CampusTool(
     id: 'gpa',
     title: 'GPA 计算器',
-    description: '查看成绩，按课程与学分计算绩点',
-    icon: AppIcons.homework,
+    description: '查看成绩，计算学分加权绩点',
+    icon: AppIcons.calculator,
     page: (_) => const GpaPage(),
   ),
 ];
@@ -52,39 +52,74 @@ class _CampusToolsPageState extends State<CampusToolsPage>
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final touch = AppDensity.isTouch(context);
     return PageScaffold(
-      title: '校园工具',
-      subtitle: '常用入口，集中在这里',
-      child: SingleChildScrollView(
-        controller: _scroll,
-        padding: const EdgeInsets.fromLTRB(28, 4, 28, 28),
-        child: Align(
-          alignment: Alignment.topLeft,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 900),
-            child: Wrap(
+      title: '工具',
+      subtitle: '成绩查询与绩点计算',
+      child: AppContentColumn(
+        maxWidth: 900,
+        child: SingleChildScrollView(
+          controller: _scroll,
+          padding: EdgeInsets.fromLTRB(
+            AppSpace.pageXOf(context),
+            4,
+            AppSpace.pageXOf(context),
+            24,
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) => Wrap(
               spacing: 20,
               runSpacing: 20,
               children: [
                 for (final tool in campusTools)
                   SizedBox(
-                    width: 260,
-                    child: Card(
+                    width: touch ? constraints.maxWidth : 280,
+                    child: Material(
+                      key: ValueKey('tool-${tool.id}'),
+                      color: p.surface,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        side: BorderSide(
+                          color: touch ? p.mobileOutline : p.borderStrong,
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(AppRadii.card),
                         onTap: () =>
                             AppPageRoutes.push(context, tool.page(context)),
                         child: Padding(
-                          padding: const EdgeInsets.all(24),
+                          padding: const EdgeInsets.all(20),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(tool.icon, color: p.primary, size: 26),
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      color: p.accentSurface,
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: Icon(
+                                      tool.icon,
+                                      color: p.primary,
+                                      size: 26,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Icon(
+                                    AppIcons.right,
+                                    color: p.primary,
+                                    size: 20,
+                                  ),
+                                ],
+                              ),
                               const SizedBox(height: 24),
                               Text(
                                 tool.title,
                                 style: TextStyle(
-                                  fontSize: 17,
+                                  fontSize: 19,
                                   fontWeight: FontWeight.w600,
                                   color: p.ink,
                                 ),
@@ -92,7 +127,11 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                               const SizedBox(height: 8),
                               Text(
                                 tool.description,
-                                style: TextStyle(color: p.muted, height: 1.5),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: p.muted,
+                                  height: 1.5,
+                                ),
                               ),
                             ],
                           ),

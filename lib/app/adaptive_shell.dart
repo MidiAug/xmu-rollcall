@@ -152,7 +152,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     final scaffold = wide
         ? Scaffold(
             resizeToAvoidBottomInset: false,
-            backgroundColor: p.canvas,
+            backgroundColor: p.pageBackground(context),
             body: Column(
               children: [
                 if (showTitleBar) const AppTitleBar(title: kAppDisplayName),
@@ -242,7 +242,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           )
         : Scaffold(
             resizeToAvoidBottomInset: false,
-            backgroundColor: p.canvas,
+            backgroundColor: p.pageBackground(context),
             body: Column(
               children: [
                 if (showTitleBar) const AppTitleBar(title: kAppDisplayName),

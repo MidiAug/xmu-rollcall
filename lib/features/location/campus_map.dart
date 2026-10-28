@@ -26,6 +26,8 @@ class CampusMap extends StatefulWidget {
     this.zoom = 16,
     this.groupBuildings = false,
     this.onBuilding,
+    this.borderRadius = const BorderRadius.all(Radius.circular(12)),
+    this.overlayInset = kMapOverlayInset,
   });
   final LatLng center;
   final List<SavedLocation> places;
@@ -33,6 +35,8 @@ class CampusMap extends StatefulWidget {
   final ValueChanged<LatLng>? onTap;
   final ValueChanged<SavedLocation>? onPlace;
   final double zoom;
+  final BorderRadius borderRadius;
+  final double overlayInset;
   final bool groupBuildings;
   final ValueChanged<String>? onBuilding;
   @override
@@ -123,7 +127,7 @@ class _CampusMapState extends State<CampusMap> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: widget.borderRadius,
       child: Stack(
         children: [
           FlutterMap(
@@ -294,9 +298,9 @@ class _CampusMapState extends State<CampusMap> {
                 ),
               ),
             ),
-          const Positioned(
-            top: kMapOverlayInset,
-            right: kMapOverlayInset,
+          Positioned(
+            top: widget.overlayInset,
+            right: widget.overlayInset,
             child: MapAttributionControls(),
           ),
         ],

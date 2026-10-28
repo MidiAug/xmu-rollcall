@@ -1,3 +1,4 @@
+import '../fixtures/preview_fonts.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'dart:io';
@@ -44,6 +45,7 @@ class _Catalog extends CourseCatalogNotifier {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   setUpAll(() async {
+    await loadDesktopPreviewFonts();
     final font = Platform.environment['SETTINGS_UI_FONT'];
     if (font != null) {
       await (FontLoader('MaterialIcons')..addFont(

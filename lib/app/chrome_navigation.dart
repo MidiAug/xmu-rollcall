@@ -237,7 +237,7 @@ class AppMobileNav extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: p.surface,
-        border: Border(top: BorderSide(color: p.border)),
+        border: Border(top: BorderSide(color: p.mobileOutline)),
       ),
       child: Padding(
         padding: EdgeInsets.only(bottom: bottom),
@@ -287,36 +287,44 @@ class _MobileItemState extends State<_MobileItem> {
     final p = AppPalette.of(context);
     final selected = widget.selected;
     final color = selected ? p.primary : p.muted;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedContainer(
-        duration: AppMotion.instant,
-        curve: AppMotion.instantCurve,
-        color: _pressed && !selected ? p.hover : AppPalette.clearOf(p.hover),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _NavigationIcon(
-              icon: _icon(widget.destination),
-              size: 22,
-              color: color,
-              hasUpdate: widget.hasUpdate,
-              dotSize: 5,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              widget.destination.label,
-              style: TextStyle(
-                fontSize: 11,
-                color: selected ? p.ink : p.muted,
-                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTap: widget.onTap,
+        child: AnimatedOpacity(
+          duration: AppMotion.instant,
+          curve: AppMotion.instantCurve,
+          opacity: _pressed ? .7 : 1,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _NavigationIcon(
+                icon: selected
+                    ? widget.destination == AppDestination.settings
+                          ? AppIcons.personSelected
+                          : widget.destination.selectedIcon
+                    : _icon(widget.destination),
+                size: 22,
+                color: color,
+                hasUpdate: widget.hasUpdate,
+                dotSize: 5,
               ),
-            ),
-          ],
+              const SizedBox(height: 2),
+              Text(
+                widget.destination.label,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: color,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

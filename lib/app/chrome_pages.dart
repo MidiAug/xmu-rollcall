@@ -6,12 +6,14 @@ class SubpageScaffold extends StatelessWidget {
     required this.title,
     required this.body,
     this.actions,
+    this.onBack,
     this.hasUnsavedChanges,
     this.isBusy,
   });
   final String title;
   final Widget body;
   final List<Widget>? actions;
+  final VoidCallback? onBack;
   final bool Function()? hasUnsavedChanges;
   final bool Function()? isBusy;
   @override
@@ -24,22 +26,26 @@ class SubpageScaffold extends StatelessWidget {
           (route != null && (!route.isCurrent || !route.isActive))) {
         return;
       }
-      navigator.maybePop();
+      if (onBack != null) {
+        onBack!();
+      } else {
+        navigator.maybePop();
+      }
     }
 
     Widget child;
-    if (PlatformHooks.isDesktop && !AppDensity.isTouch(context)) {
+    if (PlatformHooks.isDesktop && !AppMobileUi.useTouchChrome(context)) {
       final root = navigator == Navigator.of(context, rootNavigator: true);
       child = Scaffold(
         resizeToAvoidBottomInset: false,
-        backgroundColor: p.canvas,
+        backgroundColor: p.pageBackground(context),
         body: Column(
           children: [
             if (root) const AppTitleBar(title: kAppDisplayName),
             Expanded(
               child: DesktopPage(
                 title: title,
-                onBack: navigator.canPop() ? back : null,
+                onBack: onBack != null || navigator.canPop() ? back : null,
                 actions: actions ?? const [],
                 child: body,
               ),
@@ -50,7 +56,7 @@ class SubpageScaffold extends StatelessWidget {
     } else {
       child = Scaffold(
         resizeToAvoidBottomInset: false,
-        backgroundColor: p.canvas,
+        backgroundColor: p.pageBackground(context),
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -63,12 +69,16 @@ class SubpageScaffold extends StatelessWidget {
                     top: MediaQuery.viewPaddingOf(context).top,
                   ),
                   child: SizedBox(
-                    height: 48,
+                    height: AppMobileUi.toolbarHeight,
                     child: Row(
                       children: [
-                        if (navigator.canPop())
+                        if (onBack != null || navigator.canPop())
                           IconButton(
                             tooltip: '返回',
+                            constraints: const BoxConstraints.tightFor(
+                              width: 48,
+                              height: 48,
+                            ),
                             onPressed: back,
                             icon: const Icon(AppIcons.back),
                           )
@@ -80,7 +90,7 @@ class SubpageScaffold extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 15,
+                              fontSize: 18,
                               fontWeight: FontWeight.w600,
                               color: p.ink,
                             ),

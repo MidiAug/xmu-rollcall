@@ -508,7 +508,7 @@ void main() {
         }
 
         await capture('rollcall');
-        for (final label in ['作业', '课表', '校园工具', '设置']) {
+        for (final label in ['作业', '课表', '工具', '设置']) {
           await tester.tap(
             find.descendant(of: sidebar, matching: find.text(label)),
           );

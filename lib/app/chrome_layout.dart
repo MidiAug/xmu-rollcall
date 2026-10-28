@@ -82,7 +82,7 @@ class PageScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final theme = Theme.of(context).textTheme;
-    if (PlatformHooks.isDesktop && !AppDensity.isTouch(context)) {
+    if (PlatformHooks.isDesktop && !AppMobileUi.useTouchChrome(context)) {
       return DesktopPage(
         title: title,
         subtitle: subtitle,
@@ -92,15 +92,17 @@ class PageScaffold extends StatelessWidget {
     }
     // Canvas extends under the status bar; inset content only (R-23).
     return ColoredBox(
-      color: p.canvas,
+      color: p.pageBackground(context),
       child: SafeArea(
         bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (showHeader)
-              SizedBox(
-                height: AppLayout.pageHeaderHeight,
+              ConstrainedBox(
+                constraints: const BoxConstraints(
+                  minHeight: AppLayout.pageHeaderHeight,
+                ),
                 child: Padding(
                   padding: EdgeInsets.fromLTRB(
                     AppSpace.pageXOf(context),
@@ -255,8 +257,16 @@ class Panel extends StatelessWidget {
       color: p.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadii.card),
-        side: outlined ? BorderSide(color: p.borderStrong) : BorderSide.none,
+        borderRadius: BorderRadius.circular(
+          AppMobileUi.useTouchChrome(context)
+              ? AppMobileUi.panelRadius
+              : AppRadii.card,
+        ),
+        side: AppMobileUi.useTouchChrome(context)
+            ? BorderSide(color: p.mobileOutline)
+            : outlined
+            ? BorderSide(color: p.borderStrong)
+            : BorderSide.none,
       ),
       clipBehavior: Clip.antiAlias,
       child: Padding(

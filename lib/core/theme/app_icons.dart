@@ -21,6 +21,7 @@ abstract final class AppIcons {
   static const clock = FluentIcons.clock_20_regular;
   static const calendar = FluentIcons.calendar_ltr_20_regular;
   static const week = FluentIcons.calendar_week_start_20_regular;
+  static const calculator = FluentIcons.calculator_20_regular;
   static const tools = FluentIcons.grid_20_regular;
   static const settings = FluentIcons.settings_20_regular;
   static const rollcallSelected = FluentIcons.calendar_checkmark_24_filled;
@@ -34,6 +35,7 @@ abstract final class AppIcons {
   static const right = FluentIcons.chevron_right_20_regular;
   static const down = FluentIcons.chevron_down_20_regular;
   static const more = FluentIcons.more_horizontal_20_regular;
+  static const personSelected = FluentIcons.person_24_filled;
   static const person = FluentIcons.person_20_regular;
   static const people = FluentIcons.people_20_regular;
   static const building = FluentIcons.building_20_regular;

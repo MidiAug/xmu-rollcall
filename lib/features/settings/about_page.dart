@@ -104,6 +104,7 @@ class _AboutPageState extends State<AboutPage> {
                   leading: const Icon(AppIcons.code),
                   title: 'GitHub 仓库',
                   subtitle: 'MidiAug/xmu-rollcall',
+                  subtitleMaxLines: 1,
                   onTap: _openRepository,
                   trailing: IconButton(
                     tooltip: '复制仓库地址',

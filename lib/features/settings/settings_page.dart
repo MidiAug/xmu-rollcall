@@ -108,31 +108,55 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
             AppSpace.xl,
           ),
           children: [
-            SettingsSection(
-              padTop: false,
-              children: [
-                SettingsRow(
-                  leading: const BrandMark(size: 36),
-                  title: auth.isSignedIn
-                      ? (auth.profile?.name ?? '已登录')
-                      : '未登录',
-                  subtitle: accountSubtitle,
-                  trailing: auth.isSignedIn
-                      ? OutlinedButton(
-                          onPressed: () async {
-                            await ref
-                                .read(authControllerProvider.notifier)
-                                .signOut();
-                          },
-                          child: const Text('退出'),
-                        )
-                      : FilledButton(
-                          onPressed: () => showLoginDialog(context),
-                          child: const Text('登录'),
+            if (AppDensity.isTouch(context))
+              _SettingsAccountCard(
+                title: auth.isSignedIn ? (auth.profile?.name ?? '已登录') : '未登录',
+                subtitle: accountSubtitle,
+                action: auth.isSignedIn
+                    ? OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: p.surface,
+                          side: BorderSide(color: p.mobileOutline),
+                          minimumSize: const Size(64, 44),
                         ),
-                ),
-              ],
-            ),
+                        onPressed: () =>
+                            ref.read(authControllerProvider.notifier).signOut(),
+                        child: const Text('退出'),
+                      )
+                    : FilledButton(
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(64, 44),
+                        ),
+                        onPressed: () => showLoginDialog(context),
+                        child: const Text('登录'),
+                      ),
+              )
+            else
+              SettingsSection(
+                padTop: false,
+                children: [
+                  SettingsRow(
+                    leading: const BrandMark(size: 36),
+                    title: auth.isSignedIn
+                        ? (auth.profile?.name ?? '已登录')
+                        : '未登录',
+                    subtitle: accountSubtitle,
+                    trailing: auth.isSignedIn
+                        ? OutlinedButton(
+                            onPressed: () async {
+                              await ref
+                                  .read(authControllerProvider.notifier)
+                                  .signOut();
+                            },
+                            child: const Text('退出'),
+                          )
+                        : FilledButton(
+                            onPressed: () => showLoginDialog(context),
+                            child: const Text('登录'),
+                          ),
+                  ),
+                ],
+              ),
             SettingsSection(
               header: '常用',
               children: [
@@ -174,6 +198,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   leading: const Icon(AppIcons.theme),
                   title: '外观',
                   trailing: AppShellSelect<ThemePreference>(
+                    semanticLabel: '外观模式',
                     value: themePref,
                     items: const [
                       ThemePreference.light,
@@ -241,6 +266,71 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 const AboutSettingsRow(),
               ],
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A single account summary anchors the personal page without nested cards.
+class _SettingsAccountCard extends StatelessWidget {
+  const _SettingsAccountCard({
+    required this.title,
+    required this.subtitle,
+    required this.action,
+  });
+  final String title, subtitle;
+  final Widget action;
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return DecoratedBox(
+      key: const ValueKey('settings-account-card'),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.alphaBlend(p.primary.withValues(alpha: .09), p.surface),
+            p.surface,
+          ],
+        ),
+        border: Border.all(color: p.mobileOutline),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            const BrandMark(size: 48),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 19,
+                      fontWeight: FontWeight.w600,
+                      color: p.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, height: 1.5, color: p.muted),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            action,
           ],
         ),
       ),

@@ -32,6 +32,7 @@ class AppSelectTrigger extends StatefulWidget {
   final Widget? leading;
   final FocusNode? focusNode;
   final bool compact;
+
   final String? subtitle;
   final bool plain;
 
@@ -70,7 +71,9 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
             child: AnimatedContainer(
               duration: AppMotion.fast,
               constraints: BoxConstraints(
-                minHeight: AppDensity.isTouch(context) ? 44 : 36,
+                minHeight: AppMobileUi.useTouchChrome(context)
+                    ? AppMobileUi.target
+                    : 36,
               ),
               padding: EdgeInsets.symmetric(
                 horizontal: widget.compact ? 8 : 10,
@@ -85,7 +88,11 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
                         ? .04
                         : 0,
                   ),
-                  widget.plain ? p.sidebar : p.content,
+                  widget.plain
+                      ? p.sidebar
+                      : AppMobileUi.useTouchChrome(context)
+                      ? p.controlSurface
+                      : p.content,
                 ),
                 borderRadius: BorderRadius.circular(AppRadii.control),
                 border: Border.all(
@@ -93,6 +100,8 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
                       ? p.borderStrong
                       : widget.plain
                       ? AppPalette.clearOf(p.primary)
+                      : AppMobileUi.useTouchChrome(context)
+                      ? p.mobileOutline
                       : p.border,
                 ),
               ),

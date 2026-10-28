@@ -7,6 +7,7 @@ enum AppDestination { rollcall, homework, settings, timetable, campusTools }
 const mobileDestinations = [
   AppDestination.rollcall,
   AppDestination.homework,
+  AppDestination.campusTools,
   AppDestination.settings,
 ];
 const desktopDestinations = [
@@ -24,7 +25,7 @@ extension AppDestinationX on AppDestination {
     AppDestination.homework => '作业',
     AppDestination.settings => '我的',
     AppDestination.timetable => '课表',
-    AppDestination.campusTools => '校园工具',
+    AppDestination.campusTools => '工具',
   };
   String get desktopLabel => this == AppDestination.settings ? '设置' : label;
   String get title => label;

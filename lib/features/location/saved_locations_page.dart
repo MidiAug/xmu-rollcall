@@ -17,6 +17,9 @@ import 'location_providers.dart';
 import 'place_matching.dart';
 import 'place_providers.dart';
 
+const _locationSplitWidth = 700.0;
+const _locationFrameBreakpoint = _locationSplitWidth + 48;
+
 class SavedLocationsPage extends ConsumerStatefulWidget {
   const SavedLocationsPage({super.key});
   @override
@@ -27,6 +30,7 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
   var _manager = GlobalKey<_LocationManagerState>();
   (int?, int?)? _identity;
   Campus? _campus;
+  bool _mapView = false;
   @override
   Widget build(BuildContext context) {
     final identity = (
@@ -37,28 +41,44 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
       _identity = identity;
       _manager = GlobalKey<_LocationManagerState>();
       _campus = null;
+      _mapView = false;
     }
     final Campus campus = _campus ?? ref.watch<Campus>(preferredCampusProvider);
-    return SubpageScaffold(
-      title: '地点管理',
-      actions: [
-        if (MediaQuery.sizeOf(context).width >= 720)
-          CampusSelector(
-            value: campus,
-            onChanged: (v) => setState(() => _campus = v),
-          )
-        else
-          AppShellSelect<Campus>(
-            value: campus,
-            items: Campus.values,
-            labelOf: (c) => c.label,
-            semanticLabel: '切换校区',
-            width: 120,
-            alignMenuEnd: true,
-            onChanged: (v) => setState(() => _campus = v),
+    return LayoutBuilder(
+      builder: (context, frame) {
+        final singlePane = frame.maxWidth < _locationFrameBreakpoint;
+        return SubpageScaffold(
+          title: singlePane && _mapView ? '地点列表' : '地点管理',
+          onBack: singlePane && _mapView
+              ? () => _manager.currentState?.showList()
+              : null,
+          actions: [
+            if (!AppMobileUi.useTouchChrome(context) &&
+                MediaQuery.sizeOf(context).width >= 720)
+              CampusSelector(
+                value: campus,
+                onChanged: (v) => setState(() => _campus = v),
+              )
+            else
+              AppToolbarChoice<Campus>(
+                title: '选择校区',
+                value: campus,
+                items: Campus.values,
+                labelOf: (c) => c.label,
+                width: 120,
+                onChanged: (v) => setState(() => _campus = v),
+              ),
+          ],
+          body: LocationManagerContent(
+            key: _manager,
+            campus: campus,
+            showMobileListButton: false,
+            onMapViewChanged: (value) {
+              if (value != _mapView) setState(() => _mapView = value);
+            },
           ),
-      ],
-      body: LocationManagerContent(key: _manager, campus: campus),
+        );
+      },
     );
   }
 }
@@ -70,11 +90,15 @@ class LocationManagerContent extends ConsumerStatefulWidget {
     this.place,
     this.readOnly = false,
     this.campus,
+    this.showMobileListButton = true,
+    this.onMapViewChanged,
   });
   final String? initialRoom;
   final SavedLocation? place;
   final bool readOnly;
   final Campus? campus;
+  final bool showMobileListButton;
+  final ValueChanged<bool>? onMapViewChanged;
   @override
   ConsumerState<LocationManagerContent> createState() =>
       _LocationManagerState();
@@ -89,6 +113,12 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
   LatLng? _viewCenter;
   final _name = TextEditingController();
   bool _creating = false, _busy = false;
+  void showList() {
+    if (_busy) return;
+    setState(() => _mobileMap = false);
+    widget.onMapViewChanged?.call(false);
+  }
+
   String? _error;
   String? _editingId;
   @override
@@ -210,6 +240,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
       _name.text = room;
       _error = null;
     });
+    widget.onMapViewChanged?.call(true);
   }
 
   @override
@@ -225,6 +256,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
       _editingId = null;
       _mobileMap = false;
       _name.clear();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onMapViewChanged?.call(_mobileMap);
+      });
     }
   }
 
@@ -322,6 +356,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
           _viewCenter = fullBuilding.center;
         }
       });
+      widget.onMapViewChanged?.call(true);
     }
 
     final visible = places.where((e) => campusForPoint(e) == campus).toList();
@@ -334,358 +369,414 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
       hasUnsavedChanges: () =>
           _creating && (_point != null || _name.text.trim().isNotEmpty),
       isBusy: () => _busy,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          MediaQuery.sizeOf(context).width < 600 ? 12 : 24,
-          0,
-          MediaQuery.sizeOf(context).width < 600 ? 12 : 24,
-          20 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: LayoutBuilder(
-          builder: (context, bounds) {
-            final wide = bounds.maxWidth >= 700;
-            final list = Container(
-              decoration: BoxDecoration(
-                color: p.surface,
-                border: Border.all(color: p.border),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    child: entries.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(20),
-                              child: Text(
-                                '本校区暂无课程地点',
-                                style: TextStyle(color: p.muted),
-                              ),
-                            ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            itemCount: entries.length,
-                            itemBuilder: (context, i) {
-                              final e = entries[i];
-                              final isPending = e.pending > 0;
-                              final invalid = needsCorrection(e);
-                              final status = rank(e);
-                              final rowSelected =
-                                  _focusedBuilding == e.name ||
-                                  (_focusedRoom != null &&
-                                      placeBuildingName(_focusedRoom!) ==
-                                          e.name);
-                              final previous = i > 0
-                                  ? rank(entries[i - 1])
-                                  : null;
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  if (i == 0 || previous != status)
-                                    Padding(
-                                      padding: const EdgeInsets.fromLTRB(
-                                        16,
-                                        10,
-                                        16,
-                                        8,
-                                      ),
-                                      child: Text(
-                                        invalid
-                                            ? '待校正（${entries.where(needsCorrection).length}）'
-                                            : isPending
-                                            ? '待定位（${entries.where((e) => rank(e) == 1).length}）'
-                                            : '已定位（${entries.where((e) => rank(e) == 2).length}）',
-                                        style: TextStyle(
-                                          color: p.ink,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                    ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    child: Material(
-                                      color: rowSelected
-                                          ? Color.alphaBlend(
-                                              p.primary.withValues(alpha: .09),
-                                              p.surface,
-                                            )
-                                          : p.surface,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
-                                        side: BorderSide(
-                                          color: rowSelected
-                                              ? p.primary.withValues(alpha: .22)
-                                              : Colors.transparent,
-                                        ),
-                                      ),
-                                      clipBehavior: Clip.antiAlias,
-                                      child: ListTile(
-                                        key: ValueKey('managed-room-${e.name}'),
-                                        dense: true,
-                                        minTileHeight: 56,
-                                        minVerticalPadding: 6,
-                                        minLeadingWidth: 28,
-                                        horizontalTitleGap: 10,
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                            ),
-                                        leading: Container(
-                                          width: 28,
-                                          height: 28,
-                                          decoration: BoxDecoration(
-                                            color: invalid
-                                                ? p.danger.withValues(alpha: .1)
-                                                : isPending
-                                                ? p.surfaceHigh
-                                                : p.primary.withValues(
-                                                    alpha: .08,
-                                                  ),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
+      child: LayoutBuilder(
+        builder: (context, frame) {
+          final useSplit = frame.maxWidth >= _locationFrameBreakpoint;
+          final fullMap = !useSplit && _mobileMap;
+          final inset = useSplit ? kMapOverlayInset : AppMobileUi.inset;
+          return Padding(
+            padding: fullMap
+                ? EdgeInsets.only(
+                    bottom: MediaQuery.viewInsetsOf(context).bottom,
+                  )
+                : EdgeInsets.fromLTRB(
+                    useSplit ? 24 : 16,
+                    useSplit ? 0 : 12,
+                    useSplit ? 24 : 16,
+                    (useSplit ? 20 : 16) +
+                        MediaQuery.viewInsetsOf(context).bottom,
+                  ),
+            child: LayoutBuilder(
+              builder: (context, bounds) {
+                final wide = useSplit;
+                final list = Container(
+                  decoration: BoxDecoration(
+                    color: wide ? p.surface : Colors.transparent,
+                    border: Border.all(
+                      color: wide ? p.border : Colors.transparent,
+                    ),
+                    borderRadius: BorderRadius.circular(wide ? 12 : 0),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: entries.isEmpty
+                            ? Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(20),
+                                  child: Text(
+                                    '本校区暂无课程地点',
+                                    style: TextStyle(color: p.muted),
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                itemCount: entries.length,
+                                itemBuilder: (context, i) {
+                                  final e = entries[i];
+                                  final isPending = e.pending > 0;
+                                  final invalid = needsCorrection(e);
+                                  final status = rank(e);
+                                  final rowSelected =
+                                      _focusedBuilding == e.name ||
+                                      (_focusedRoom != null &&
+                                          placeBuildingName(_focusedRoom!) ==
+                                              e.name);
+                                  final previous = i > 0
+                                      ? rank(entries[i - 1])
+                                      : null;
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      if (i == 0 || previous != status)
+                                        Padding(
+                                          padding: EdgeInsets.fromLTRB(
+                                            wide ? 16 : 0,
+                                            10,
+                                            wide ? 16 : 0,
+                                            8,
                                           ),
-                                          child: Icon(
-                                            e.grouped || e.name.contains('楼')
-                                                ? AppIcons.building
-                                                : AppIcons.location,
-                                            size: 17,
-                                            color: invalid
-                                                ? p.danger
-                                                : isPending
-                                                ? p.muted
-                                                : p.primary,
-                                          ),
-                                        ),
-                                        title: AppTruncatedText(
-                                          e.name,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodyMedium
-                                              ?.copyWith(
-                                                fontSize: 13,
-                                                color: p.ink,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                        ),
-                                        subtitle: Tooltip(
-                                          message: e.courses.isEmpty
-                                              ? ''
-                                              : e.courses.join('、'),
                                           child: Text(
                                             invalid
-                                                ? '位置校验未通过，点击校正'
+                                                ? '待校正（${entries.where(needsCorrection).length}）'
                                                 : isPending
-                                                ? (e.courses.isNotEmpty
-                                                      ? e.courses.join('、')
-                                                      : '${e.pending} 个区域待补全')
-                                                : [
-                                                    if (e.grouped)
-                                                      '${e.children.length} 个区域',
-                                                    if (e.courses.isNotEmpty)
-                                                      '${e.courses.length} 门课程',
-                                                    if (!e.grouped &&
-                                                        e.courses.isEmpty)
-                                                      isTeachingPreset(e.place!)
-                                                          ? '内置教学地点'
-                                                          : isReferencePlace(
-                                                              e.place!,
-                                                            )
-                                                          ? '楼宇参考'
-                                                          : '个人地点',
-                                                  ].join('，'),
-                                            maxLines: isPending ? 2 : 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  fontSize: 11,
-                                                  color: p.muted,
-                                                ),
+                                                ? '待定位（${entries.where((e) => rank(e) == 1).length}）'
+                                                : '已定位（${entries.where((e) => rank(e) == 2).length}）',
+                                            style: TextStyle(
+                                              color: p.ink,
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13,
+                                            ),
                                           ),
                                         ),
-                                        trailing: Icon(
-                                          AppIcons.right,
-                                          size: 15,
-                                          color: p.muted,
+                                      Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          horizontal: wide ? 8 : 0,
+                                          vertical: 4,
                                         ),
-                                        onTap: _busy
-                                            ? null
-                                            : () {
-                                                if (!e.grouped &&
-                                                    (invalid ||
-                                                        e.pending > 0)) {
-                                                  _choose(
-                                                    e.children.single.name,
-                                                    e.place,
-                                                    correcting: invalid,
-                                                  );
-                                                } else {
-                                                  openBuilding(e);
-                                                }
-                                              },
+                                        child: Material(
+                                          color: rowSelected
+                                              ? Color.alphaBlend(
+                                                  p.primary.withValues(
+                                                    alpha: .09,
+                                                  ),
+                                                  p.surface,
+                                                )
+                                              : p.surface,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            side: BorderSide(
+                                              color: rowSelected
+                                                  ? p.primary.withValues(
+                                                      alpha: .22,
+                                                    )
+                                                  : Colors.transparent,
+                                            ),
+                                          ),
+                                          clipBehavior: Clip.antiAlias,
+                                          child: ListTile(
+                                            key: ValueKey(
+                                              'managed-room-${e.name}',
+                                            ),
+                                            dense: true,
+                                            minTileHeight: 56,
+                                            minVerticalPadding: 6,
+                                            minLeadingWidth: 28,
+                                            horizontalTitleGap: 10,
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                ),
+                                            leading: Container(
+                                              width: 28,
+                                              height: 28,
+                                              decoration: BoxDecoration(
+                                                color: invalid
+                                                    ? p.danger.withValues(
+                                                        alpha: .1,
+                                                      )
+                                                    : isPending
+                                                    ? p.surfaceHigh
+                                                    : p.primary.withValues(
+                                                        alpha: .08,
+                                                      ),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: Icon(
+                                                e.grouped ||
+                                                        e.name.contains('楼')
+                                                    ? AppIcons.building
+                                                    : AppIcons.location,
+                                                size: 17,
+                                                color: invalid
+                                                    ? p.danger
+                                                    : isPending
+                                                    ? p.muted
+                                                    : p.primary,
+                                              ),
+                                            ),
+                                            title: AppTruncatedText(
+                                              e.name,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodyMedium
+                                                  ?.copyWith(
+                                                    fontSize: 13,
+                                                    color: p.ink,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                            ),
+                                            subtitle: Tooltip(
+                                              message: e.courses.isEmpty
+                                                  ? ''
+                                                  : e.courses.join('、'),
+                                              child: Text(
+                                                invalid
+                                                    ? '位置校验未通过，点击校正'
+                                                    : isPending
+                                                    ? (e.courses.isNotEmpty
+                                                          ? e.courses.join('、')
+                                                          : '${e.pending} 个区域待补全')
+                                                    : [
+                                                        if (e.grouped)
+                                                          '${e.children.length} 个区域',
+                                                        if (e
+                                                            .courses
+                                                            .isNotEmpty)
+                                                          '${e.courses.length} 门课程',
+                                                        if (!e.grouped &&
+                                                            e.courses.isEmpty)
+                                                          isTeachingPreset(
+                                                                e.place!,
+                                                              )
+                                                              ? '内置教学地点'
+                                                              : isReferencePlace(
+                                                                  e.place!,
+                                                                )
+                                                              ? '楼宇参考'
+                                                              : '个人地点',
+                                                      ].join('，'),
+                                                maxLines: isPending ? 2 : 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .bodySmall
+                                                    ?.copyWith(
+                                                      fontSize: 11,
+                                                      color: p.muted,
+                                                    ),
+                                              ),
+                                            ),
+                                            trailing: Icon(
+                                              AppIcons.right,
+                                              size: 15,
+                                              color: p.muted,
+                                            ),
+                                            onTap: _busy
+                                                ? null
+                                                : () {
+                                                    if (!e.grouped &&
+                                                        (invalid ||
+                                                            e.pending > 0)) {
+                                                      _choose(
+                                                        e.children.single.name,
+                                                        e.place,
+                                                        correcting: invalid,
+                                                      );
+                                                    } else {
+                                                      openBuilding(e);
+                                                    }
+                                                  },
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-            );
-            final map = Stack(
-              children: [
-                Positioned.fill(
-                  child: CampusMap(
-                    key: ValueKey(campus),
-                    center: _viewCenter ?? campus.center,
-                    point: point,
-                    places: visible,
-                    groupBuildings: true,
-                    onBuilding: (name) {
-                      if (_creating) return;
-                      final building = allBuildings
-                          .where((e) => e.name == name)
-                          .firstOrNull;
-                      if (building != null) {
-                        openBuilding(building, focusMap: false);
-                      }
-                    },
-                    onPlace: _busy
-                        ? null
-                        : (place) {
-                            if (_creating) {
-                              setState(
-                                () => _point = LatLng(
-                                  place.latitude,
-                                  place.longitude,
-                                ),
-                              );
-                              return;
-                            }
-                            final building = allBuildings
-                                .where(
-                                  (e) =>
-                                      e.name == placeBuildingName(place.note),
-                                )
-                                .firstOrNull;
-                            if (building != null) {
-                              setState(() {
-                                _focusedBuilding = building.name;
-                                _focusedRoom = place.note;
-                                _selected = place;
-                                _point = null;
-                                _creating = false;
-                                _regionOnly = true;
-                              });
-                            } else {
-                              _choose(place.note, place, focusMap: false);
-                            }
-                          },
-                    onTap: widget.readOnly || _busy || !_creating
-                        ? null
-                        : (value) => setState(() => _point = value),
-                  ),
-                ),
-                if (!wide)
-                  Positioned(
-                    left: 12,
-                    top: 12,
-                    child: FilledButton.tonalIcon(
-                      key: const ValueKey('map-back-to-list'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: p.surface,
-                        foregroundColor: p.primary,
-                        side: BorderSide(
-                          color: p.primary.withValues(alpha: .45),
-                        ),
-                        elevation: 3,
-                        shadowColor: Colors.black.withValues(alpha: .18),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        minimumSize: const Size(0, 36),
+                                    ],
+                                  );
+                                },
+                              ),
                       ),
-                      onPressed: () => setState(() => _mobileMap = false),
-                      icon: const Icon(AppIcons.back, size: 16),
-                      label: const Text('地点列表'),
-                    ),
+                    ],
                   ),
-                if (_creating || _selected != null || activeBuilding != null)
-                  Positioned(
-                    right: kMapOverlayInset,
-                    bottom: kMapOverlayInset,
-                    left: wide ? null : 12,
-                    child: SizedBox(
-                      width: wide
-                          ? (bounds.maxWidth - 350).clamp(240.0, 340.0)
-                          : null,
-                      child: activeBuilding != null && !_creating
-                          ? _buildingInspector(
-                              context,
-                              activeBuilding,
-                              regionOnly: _regionOnly ? _focusedRoom : null,
-                            )
-                          : _inspector(context),
+                );
+                final map = Stack(
+                  children: [
+                    Positioned.fill(
+                      child: CampusMap(
+                        key: ValueKey(campus),
+                        borderRadius: wide
+                            ? const BorderRadius.all(Radius.circular(12))
+                            : BorderRadius.zero,
+                        overlayInset: inset,
+                        center: _viewCenter ?? campus.center,
+                        point: point,
+                        places: visible,
+                        groupBuildings: true,
+                        onBuilding: (name) {
+                          if (_creating) return;
+                          final building = allBuildings
+                              .where((e) => e.name == name)
+                              .firstOrNull;
+                          if (building != null) {
+                            openBuilding(building, focusMap: false);
+                          }
+                        },
+                        onPlace: _busy
+                            ? null
+                            : (place) {
+                                if (_creating) {
+                                  setState(
+                                    () => _point = LatLng(
+                                      place.latitude,
+                                      place.longitude,
+                                    ),
+                                  );
+                                  return;
+                                }
+                                final building = allBuildings
+                                    .where(
+                                      (e) =>
+                                          e.name ==
+                                          placeBuildingName(place.note),
+                                    )
+                                    .firstOrNull;
+                                if (building != null) {
+                                  setState(() {
+                                    _focusedBuilding = building.name;
+                                    _focusedRoom = place.note;
+                                    _selected = place;
+                                    _point = null;
+                                    _creating = false;
+                                    _regionOnly = true;
+                                  });
+                                } else {
+                                  _choose(place.note, place, focusMap: false);
+                                }
+                              },
+                        onTap: widget.readOnly || _busy || !_creating
+                            ? null
+                            : (value) => setState(() => _point = value),
+                      ),
                     ),
-                  )
-                else
-                  Positioned(
-                    left: kMapOverlayInset,
-                    bottom: kMapOverlayInset,
-                    right: kMapOverlayInset,
-                    child: IgnorePointer(
-                      child: Align(
-                        alignment: Alignment.bottomLeft,
-                        child: Material(
-                          key: const ValueKey('map-idle-hint'),
-                          color: p.surface,
-                          borderRadius: BorderRadius.circular(8),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text(
-                              '先选择未定位的课表地点，再在地图上选点',
-                              style: TextStyle(fontSize: 12, color: p.muted),
+                    if (!wide && widget.showMobileListButton)
+                      Positioned(
+                        left: 12,
+                        top: 12,
+                        child: FilledButton.tonalIcon(
+                          key: const ValueKey('map-back-to-list'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: p.surface,
+                            foregroundColor: p.primary,
+                            side: BorderSide(
+                              color: p.primary.withValues(alpha: .45),
+                            ),
+                            elevation: 3,
+                            shadowColor: Colors.black.withValues(alpha: .18),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            minimumSize: const Size(0, 36),
+                          ),
+                          onPressed: showList,
+                          icon: const Icon(AppIcons.back, size: 16),
+                          label: const Text('地点列表'),
+                        ),
+                      ),
+                    if (_creating ||
+                        _selected != null ||
+                        activeBuilding != null)
+                      Positioned(
+                        right: inset,
+                        bottom: inset,
+                        left: wide ? null : inset,
+                        child: SizedBox(
+                          width: wide
+                              ? (bounds.maxWidth - 350).clamp(240.0, 340.0)
+                              : null,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxHeight: (bounds.maxHeight - 2 * inset).clamp(
+                                0.0,
+                                bounds.maxHeight,
+                              ),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(
+                                AppMobileUi.panelRadius,
+                              ),
+                              child: SingleChildScrollView(
+                                child: activeBuilding != null && !_creating
+                                    ? _buildingInspector(
+                                        context,
+                                        activeBuilding,
+                                        regionOnly: _regionOnly
+                                            ? _focusedRoom
+                                            : null,
+                                      )
+                                    : _inspector(context),
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                    else
+                      Positioned(
+                        left: inset,
+                        bottom: inset,
+                        right: inset,
+                        child: IgnorePointer(
+                          child: Align(
+                            alignment: Alignment.bottomLeft,
+                            child: Material(
+                              key: const ValueKey('map-idle-hint'),
+                              color: p.surface,
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Text(
+                                  '先选择未定位的课表地点，再在地图上选点',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: p.muted,
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-              ],
-            );
-            if (!wide) {
-              return PopScope(
-                canPop: !_mobileMap,
-                onPopInvokedWithResult: (didPop, _) {
-                  if (!didPop && _mobileMap) setState(() => _mobileMap = false);
-                },
-                child: _mobileMap ? map : list,
-              );
-            }
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                SizedBox(width: 300, child: list),
-                const SizedBox(width: 16),
-                Expanded(child: map),
-              ],
-            );
-          },
-        ),
+                  ],
+                );
+                if (!wide) {
+                  return PopScope(
+                    canPop: !_mobileMap,
+                    onPopInvokedWithResult: (didPop, _) {
+                      if (!didPop && _mobileMap) showList();
+                    },
+                    child: _mobileMap ? map : list,
+                  );
+                }
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(width: 300, child: list),
+                    const SizedBox(width: 16),
+                    Expanded(child: map),
+                  ],
+                );
+              },
+            ),
+          );
+        },
       ),
     );
   }
@@ -717,11 +808,11 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
       key: const ValueKey('map-building-inspector'),
       color: p.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppMobileUi.panelRadius),
         side: BorderSide(color: p.border),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 6, 10, 12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -740,16 +831,14 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                     ),
                   ),
                 ),
-                IconButton(
-                  tooltip: '关闭',
-                  visualDensity: VisualDensity.compact,
+                AppSheetCloseButton(
+                  tooltip: '关闭地点详情',
                   onPressed: () => setState(() {
                     _focusedBuilding = null;
                     _selected = null;
                     _focusedRoom = null;
                     _regionOnly = false;
                   }),
-                  icon: const Icon(AppIcons.close, size: 16),
                 ),
               ],
             ),
@@ -854,7 +943,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
       decoration: BoxDecoration(
         color: p.surface,
         border: Border.all(color: p.border),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppMobileUi.panelRadius),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: .08),
@@ -879,7 +968,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Text(
-                      _focusedRoom ?? selected?.note ?? '绑定课表地点',
+                      _creating
+                          ? (selected == null ? '绑定地点' : '校正定位')
+                          : _focusedRoom ?? selected?.note ?? '课表地点',
                       maxLines: 2,
                       style: TextStyle(
                         fontSize: 14,
@@ -899,19 +990,16 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                   ],
                 ),
               ),
-              IconButton(
+              AppSheetCloseButton(
                 tooltip: '关闭地点详情',
-                visualDensity: VisualDensity.compact,
-                onPressed: _busy
-                    ? null
-                    : () => setState(() {
-                        _creating = false;
-                        _selected = null;
-                        _point = null;
-                        _focusedRoom = null;
-                        _focusedBuilding = null;
-                      }),
-                icon: const Icon(AppIcons.close, size: 16),
+                enabled: !_busy,
+                onPressed: () => setState(() {
+                  _creating = false;
+                  _selected = null;
+                  _point = null;
+                  _focusedRoom = null;
+                  _focusedBuilding = null;
+                }),
               ),
             ],
           ),
@@ -944,6 +1032,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
               children: [
                 Expanded(
                   child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                    ),
                     onPressed:
                         _point == null || _name.text.trim().isEmpty || _busy
                         ? null
@@ -959,6 +1050,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 48),
+                  ),
                   onPressed: _busy
                       ? null
                       : () => setState(() {

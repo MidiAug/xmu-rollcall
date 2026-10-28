@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/campus/campus_tools_page.dart';
 import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
 import 'package:xmu_rollcall/features/location/place_providers.dart';
 import 'package:flutter/services.dart';
@@ -258,6 +259,22 @@ void main() {
     expect(find.text('签到'), findsWidgets);
     expect(find.text('作业'), findsWidgets);
     expect(find.text('我的'), findsWidgets);
+    final nav = find.byType(AppMobileNav);
+    expect(find.descendant(of: nav, matching: find.text('工具')), findsOneWidget);
+    expect(find.byType(CampusToolsPage), findsNothing);
+    await tester.tap(find.descendant(of: nav, matching: find.text('工具')));
+    await tester.pumpAndSettle();
+    expect(find.byType(CampusToolsPage), findsOneWidget);
+    expect(find.text('GPA 计算器'), findsOneWidget);
+    expect(
+      tester.widget<AppMobileNav>(nav).current,
+      AppDestination.campusTools,
+    );
+    expect(find.text('校园工具'), findsNothing);
+    await tester.tap(find.descendant(of: nav, matching: find.text('签到')));
+    await tester.pumpAndSettle();
+    expect(find.byType(CampusToolsPage), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('AdaptiveShell shows sidebar on wide width', (tester) async {

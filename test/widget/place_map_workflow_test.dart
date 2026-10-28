@@ -159,7 +159,7 @@ void main() {
               ),
             );
           } else {
-            expect(find.byType(DropdownButton<Campus>), findsOneWidget);
+            expect(find.byType(AppShellSelect<Campus>), findsOneWidget);
           }
           expect(find.byTooltip('只看待补全'), findsNothing);
           expect(find.byTooltip('显示全部地点'), findsNothing);
@@ -175,11 +175,12 @@ void main() {
           await tester.tap(find.byKey(const ValueKey('managed-room-西部片区9号楼')));
           await tester.pumpAndSettle();
           if (width < 720) {
-            final back = tester.widget<FilledButton>(
+            expect(
               find.byKey(const ValueKey('map-back-to-list')),
+              findsNothing,
             );
-            expect(back.style?.backgroundColor?.resolve({})?.a, 1);
-            expect(back.style?.side?.resolve({}), isNotNull);
+            expect(find.text('地点列表'), findsOneWidget);
+            expect(find.byTooltip('返回'), findsOneWidget);
           }
           expect(
             tester
@@ -276,7 +277,7 @@ void main() {
       expect(find.byType(ActionChip), findsNothing);
       expect(find.text('暂无匹配课程'), findsOneWidget);
       await tester.tap(
-        find.descendant(of: inspector, matching: find.byTooltip('关闭')),
+        find.descendant(of: inspector, matching: find.byTooltip('关闭地点详情')),
       );
       await tester.pumpAndSettle();
       final controller = tester

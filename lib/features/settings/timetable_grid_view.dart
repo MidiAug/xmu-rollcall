@@ -849,9 +849,12 @@ class _CourseBlockChip extends StatelessWidget {
           splashFactory: NoSplash.splashFactory,
           child: ExcludeSemantics(
             child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: touch ? 6 : 10,
-                vertical: compact ? (touch ? 2 : 4) : (touch ? 6 : 8),
+              padding: EdgeInsets.fromLTRB(
+                touch ? 6 : 10,
+                (compact ? (touch ? 2 : 4) : (touch ? 6 : 8)) +
+                    (touch && controlInset > 0 ? 24 : 0),
+                touch ? 6 : 10,
+                compact ? (touch ? 2 : 4) : (touch ? 6 : 8),
               ),
               child: LayoutBuilder(
                 builder: (context, bounds) {
@@ -881,7 +884,9 @@ class _CourseBlockChip extends StatelessWidget {
                           children: [
                             Flexible(
                               child: Padding(
-                                padding: EdgeInsets.only(right: controlInset),
+                                padding: EdgeInsets.only(
+                                  right: touch ? 0 : controlInset,
+                                ),
                                 child: Text(
                                   c.title.trim().isEmpty ? '未命名课程' : c.title,
                                   maxLines: titleLines,

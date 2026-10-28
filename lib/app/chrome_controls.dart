@@ -1,22 +1,45 @@
 part of 'chrome.dart';
 
+/// Secondary touch actions share the same surface, outline and hit target.
+abstract final class AppControlStyle {
+  static ButtonStyle touchIcon(BuildContext context) {
+    final p = AppPalette.of(context);
+    return IconButton.styleFrom(
+      minimumSize: const Size(AppMobileUi.target, AppMobileUi.target),
+      visualDensity: VisualDensity.standard,
+      backgroundColor: p.controlSurface,
+      foregroundColor: p.primary,
+      side: BorderSide(color: p.mobileOutline),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      padding: const EdgeInsets.all(10),
+    );
+  }
+}
+
 /// Strong, consistently aligned dismissal action with a full touch target.
 class AppSheetCloseButton extends StatelessWidget {
   const AppSheetCloseButton({
     super.key,
     this.tooltip = '关闭',
     this.alignWithTitle = false,
+    this.onPressed,
+    this.enabled = true,
   });
   final String tooltip;
   final bool alignWithTitle;
+  final VoidCallback? onPressed;
+  final bool enabled;
   @override
   Widget build(BuildContext context) => IconButton(
     tooltip: tooltip,
     padding: EdgeInsets.zero,
-    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+    constraints: BoxConstraints(
+      minWidth: AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 44,
+      minHeight: AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 44,
+    ),
     alignment: alignWithTitle ? Alignment.topCenter : Alignment.center,
     color: AppPalette.of(context).ink,
-    onPressed: () => Navigator.of(context).pop(),
+    onPressed: enabled ? onPressed ?? () => Navigator.of(context).pop() : null,
     icon: Padding(
       padding: EdgeInsets.only(top: alignWithTitle ? 2 : 0),
       child: const Icon(AppIcons.closeStrong, size: 24),
@@ -65,14 +88,21 @@ class AppQuietPill extends StatelessWidget {
             duration: AppMotion.instant,
             curve: AppMotion.instantCurve,
             opacity: enabled ? 1 : 0.72,
-            child: Ink(
-              padding: padding,
-              decoration: BoxDecoration(
-                color: background ?? p.surfaceHigh,
-                borderRadius: BorderRadius.circular(radius),
-                border: border ? Border.all(color: p.border) : null,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: AppMobileUi.useTouchChrome(context)
+                    ? AppMobileUi.target
+                    : 0,
               ),
-              child: child,
+              child: Ink(
+                padding: padding,
+                decoration: BoxDecoration(
+                  color: background ?? p.surfaceHigh,
+                  borderRadius: BorderRadius.circular(radius),
+                  border: border ? Border.all(color: p.border) : null,
+                ),
+                child: child,
+              ),
             ),
           ),
         ),

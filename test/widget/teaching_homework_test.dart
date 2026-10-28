@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/core/theme/app_icons.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import '../fixtures/preview_fonts.dart';
 import '../fixtures/desktop_ui_capture.dart';
@@ -136,7 +137,11 @@ void main() {
             child: RepaintBoundary(
               key: const ValueKey('desktop-ui-capture'),
               child: MaterialApp(
-                theme: AppTheme.light(),
+                theme: AppTheme.light().copyWith(
+                  platform: width < 600
+                      ? TargetPlatform.android
+                      : TargetPlatform.windows,
+                ),
                 home: const Scaffold(body: HomeworkHubPage()),
               ),
             ),
@@ -144,6 +149,10 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text('助教作业4'), findsOneWidget);
+        if (width < 600) {
+          expect(find.byKey(const ValueKey('homework-refresh')), findsNothing);
+          expect(find.byIcon(AppIcons.person), findsNothing);
+        }
         final teachingRow = find.ancestor(
           of: find.text('助教作业4'),
           matching: find.byType(AppHoverSurface),
@@ -204,7 +213,7 @@ void main() {
         final title = tester.widget<Text>(find.textContaining('已批改的历史作业标题'));
         expect(title.maxLines, 1);
         expect(title.softWrap, isFalse);
-        expect(title.overflow, TextOverflow.clip);
+        expect(title.overflow, TextOverflow.ellipsis);
         if (width >= 600) {
           final filter = find.text('全部 3');
           expect(filter, findsOneWidget);
@@ -220,6 +229,7 @@ void main() {
           );
         }
 
+        await captureDesktopUi(tester, 'homework-hub-${width.toInt()}');
         await tester.tap(find.text('助教作业4'));
         await tester.pumpAndSettle();
         expect(find.byType(HomeworkDetailPage), findsOneWidget);

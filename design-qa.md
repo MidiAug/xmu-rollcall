@@ -245,3 +245,47 @@ The rebuilt Debug process was restarted and inspected with the real assist timet
 - 72项聚焦回归通过（build/campus-ui-final-regression.log）；覆盖教务解析/缓存、校区与地点、课表弹层、选择菜单、作业详情和桌面导航。初次视觉运行曾因本地Material字体路径配置错误导致setUpAll失败，修正为D:/Dev/Flutter后重跑通过；最终渲染加入preview_fonts加载Fluent字体。
 - Android已构建release并与现有APK核对签名相同，首次覆盖安装成功并观察正常首页（build/android-ui-review/campus-refresh-home.png），数据保留。Windows开发进程热重载110个库成功。最终学院元数据加载保护与联合学院名称补充后再次构建/安装记录见下。未执行真实签到。
 - 最终静态检查无问题（build/campus-ui-final-analyze.log）；最终Android release构建成功（build/android-ui-review/campus-final-release.log，79.8MB），证书再次一致，adb install -r成功，versionName0.3.0/versionCode6，启动成功。最终Windows热重载23个库成功。保持现有账号与数据，没有推送、发布或执行真实签到。
+
+
+# Android工具导航与移动视觉层次 — 2026-10-28
+
+- 设计知识实际命中并阅读Engineering的20-主题/09-深色界面的氛围与信息层级.md和08-界面减法与任务模型.md。采用画布/卡片/控件的颜色角色、重要信息字号与分组，以及实际截图校验；不照搬视频中的紫蓝环境光、不增加占位工具或重复说明。本轮只读知识库，项目选择保存在本仓库。
+- 修改前实际查看build/mobile-style-review/settings-before.png：白色页面和白色分组只有很浅的线分隔，账户权重与普通行相近，图标偏小。移动画布改青灰、内容维持白色，深色区分画布/卡片/控件；个人页账户摘要增大，常用入口提供36px图标底座，按钮与选择菜单使用单独底色和边界。实际查看.tools/settings-polish的384-light/dark与320-dark，确认长描述可换行、大字号不挤压操作；最终副本build/mobile-style-review/settings-after-light.png、settings-after-dark.png。
+- 安卓底栏为签到/作业/工具/我的，工具复用campusTools身份及独立Navigator；桌面文案统一工具。圆角选中底色和Semantics.selected保留更新点在图标右上，更新状态切换前后导航尺寸和位置一致，返回流程不变。工具页仅GPA真实入口，窄屏卡片填满内容宽度；实际查看build/mobile-style-review/tools-320.0-false.png，320宽1.3字体验证点卡片进入GPA、返回恢复工具页，另覆盖384宽及深色。
+- 首次窄屏大字截图发现PageScaffold固定页头高度造成8px底部溢出；改最小高度后重建并复核同一截图。选择菜单回归中的默认颜色断言同步新移动控件角色，悬停、键盘、选择、Esc与边缘定位断言继续执行。辅助文字在新增移动语义表面的对比测试通过，不据此宣称整应用无障碍认证。
+- 签到触控工具栏刷新/记录/设置统一44px底色和边界、设置最右，复用Fluent图标；通用Panel与二级页按移动画布显示，桌面宽屏画布与密度沿用原规则。
+- 74项相关回归通过（build/mobile-style-final-regression.log），覆盖四Tab懒加载、工具GPA往返、浅深色设置、更新点、选择菜单键盘/悬停、课表、作业详情和桌面工作区。全项目flutter analyze无问题（build/mobile-style-final-analyze.log）。
+- Android最终release构建成功（build/android-ui-review/mobile-style-final-release.log，79.8MB），证书SHA-256与原安装一致，adb install -r成功、启动命令成功；沿用0.3.0+6，不是发布新版本，不清数据。随后只读截图显示用户正在打开手机控制中心，已拒绝作为页面验收证据并删除该临时截图，没有操作用户控制中心；页面视觉依据为隔离Flutter渲染，未宣称真机逐页验收。Windows现有开发进程热重载100个库成功。未执行真实签到，没有推送或发布。
+
+
+# Android地点单顶栏与手势条间距 — 2026-10-28
+
+- 地点管理的单栏列表/地图共用同一顶栏：初始地点管理，选地点后地点列表，地图内浮动列表返回入口隐藏。顶栏返回与系统返回都执行showList，回到列表再按返回才按原路由离开；宽屏两栏不改标题，独立嵌入组件仍可保留自己的返回入口。校区变化后的地图状态用帧后回调同步，不在父组件构建期间setState。
+- 校区选择器增加inToolbar呈现，背景32px、外部上下各6px可点击留白，总触控高度44px，48px顶栏内可见上下各8px边距。普通选择器高度与菜单键盘/关闭行为保持原规则。实际查看build/location-header-review/list.png与map.png，确认标题切换、地图内没有第二个返回按钮，校区控件和标题居中；隔离测试不加载真实地图瓦片，空白地图不作为在线地图验收。
+- mobileNavBottomTrim由8改为2，有系统手势安全区时增加最多6px留白，仍只计算一次viewPadding，不受键盘viewInsets影响。24px模拟手势区下，底栏总高为56内容+22留白+1边框=79，键盘打开后高度保持一致。更新点位置和菜单关闭回归继续通过。
+- 54项聚焦回归通过（build/mobile-location-header-verified-tests.log），含顶栏/系统返回、校区切换、保存坐标、同层地图详情、Esc、表单选择菜单与更新点。首轮旧测试仍查找已移除的原生下拉和地图浮动返回按钮，已同步新契约；新底栏高度断言补计原有1px边框。
+- Android release构建成功（build/android-ui-review/location-header-release.log，79.8MB），证书SHA-256与原包一致，adb install -r成功、启动命令成功；保留原0.3.0+6与账户数据。真机未执行签到；页面几何与返回行为为隔离渲染和自动化回归证据。Windows开发窗口另行热重载，最终状态见后附记录。
+- 最终flutter analyze无问题（build/mobile-location-header-final-analyze.log），Windows现有开发进程热重载95个库成功；没有重启或清理应用数据，没有推送或发布。
+
+
+# 安卓刷新入口减法与无背景Tab强调 — 2026-10-28
+
+- 签到触控工具栏移除刷新，仅保留账号、记录及设置，宽屏桌面刷新保持；作业Tab在Android/iOS主题下不显示姓名/刷新行，原下拉刷新与缓存/身份逻辑不变。AppRefreshButton触控状态去掉背景和边框，保留点击范围、旋转反馈及原刷新回调，覆盖GPA和课程作业页。
+- 底部Tab移除选中背景块，选中图标采用同语义实心Fluent版本（我的仍为人物）并与文字同用primary；图标下方2px间距，不再有30px底板带来的额外空隙。按压仅轻微透明度反馈，原手势条间距和更新点保留。实际查看build/desktop-ui-review/nav-mobile-light.png，确认图标/文字整体强调、无背景块；图中央是隔离测试占位，不作整个业务页验收。
+- 作业列表和课程作业列表全部原clip单行文本改ellipsis；课程信息和摘要已用ellipsis的继续保留，数据不截短。实际查看build/desktop-ui-review/homework-hub-384.png：顶部不再出现账户/刷新行，长历史作业标题出现省略号，详情仍可打开。该隔离测试有debug banner，非发布截图。实际查看build/gpa-ui-review/gpa-384.0-false.png，右上只有刷新图标、无圆角背景。
+- 83项相关回归通过（build/mobile-simplify-final-tests.log），覆盖320/384/960布局、作业详情/课程全部入口、账号隔离与刷新节奏、导航更新点、GPA及桌面工作区。首轮测试补漏图标import、恢复未选中我的Tab仍为regular图标的正确断言后重跑通过。全项目flutter analyze无问题（build/mobile-simplify-final-analyze.log）。
+- Android release构建成功（build/android-ui-review/mobile-simplify-release.log，79.8MB），新包证书与原包一致，adb install -r及启动成功，沿用0.3.0+6并保留账户数据。Windows现有开发进程热重载100个库成功。视觉证据来自隔离渲染，未声称真机全部页面已逐项验收，未执行真实签到；没有推送或发布。
+
+## 2026-10-28 安卓适配层与交互一致性审查
+
+- 范围：地点管理列表→地图→坐标绑定/校正，校区选择，课表与叠课，GPA、作业课程筛选、签到历史、设置与关于页。先捕获本轮修改前截图，再修改和复核；没有把隔离截图当作真机业务验收。
+- 依据：Engineering《界面减法与任务模型》《深色界面的氛围与信息层级》；Flutter adaptive best practices/input、Android touch target指引。采用按任务区分组件角色、语义表面和共享触控尺寸，不另造一套页面主题。
+- 实际债务：移动选择器原先复用桌面锚定菜单并叠加inToolbar补丁；页面又重复决定触控/布局；地图外层padding与弹层inset相加造成屏幕边距不等；视图切换混用桌面胶囊；32/36/44尺寸散落；关于页URL换行导致同组行高不齐。并非单独改一个圆角就能解决。
+- 统一规则：AppMobileUi集中56顶栏、48触控目标、16内容边距/面板圆角；触控呈现和分栏布局独立。移动顶栏用文字+箭头选择入口，选择从底部展开，有标题/当前勾选/关闭，无拖拽白条；长列表打开定位到当前项。课表、GPA等视图切换改文字和下划线；桌面保留原锚定菜单和分段轨道。
+- 地点管理：手机地图铺满可用区域；绑定面板左右下16，内容过高可滚动；320×640、1.3倍文字、键盘260场景保存操作仍可到达。列表去掉全高白色嵌套容器，保留行层级和选中态；单一顶部返回逻辑不变。坐标绑定、地点匹配、提交逻辑未修改。
+- 交互：补全选择弹层的返回、关闭全部、调用组件销毁、当前值更新时清理；退出后不调用失效context；清理空闲弹层主动安排帧；打开选择先释放输入焦点。模态弹层遮罩会阻止点击底部Tab，测试改为程序导航验证路由清理，不将遮罩行为误判为Tab缺陷。
+- 细节：关于URL仅显示一行但复制完整值；课表叠课切换按钮在手机上改为顶部预留空间，避免标题被挤成逐字竖排；刷新入口保持手机无背景样式；已有底部Tab文字/icon强调、无背景的约定保留。
+- 证据：build/android-consistency-review/before/{location-form,gpa,settings}.png；after/{location-form,campus-sheet,gpa,settings,timetable}.png。实际查看前后设置、绑定表单、GPA、课表和校区弹层。早期课表缺字体、弹层截图未覆盖root overlay均被拒收并重新捕获；最终校区图关闭debug banner。测试地图屏蔽网络瓦片，仅验证控件与几何，不据此宣称地图网络已验证。
+- 回归：build/android-consistency-complete-tests.log全量780通过、2跳过；build/android-consistency-complete-analyze.log无问题；另有选择弹层生命周期、旧移动断言更新、地图键盘边距回归。最终干净校区截图单项测试再次通过（build/android-consistency-clean-preview.log）。早期Ink不支持constraints的编译问题及旧宽度断言均已修复，最终验证在修复后完成。
+- 交付：build/android-ui-review/android-consistency-complete-release.log构建release成功79.8MB，0.3.0+6；证书SHA256与原包一致。设备427b338f执行adb install -r成功并启动，未清数据。Windows已有开发进程热重载49/3261库成功。本轮没有执行真实签到、推送或发布；真机各页的实际观感仍以用户使用反馈为准。
+- 维护边界：本轮抽离了移动呈现规则，地点管理仍有较大的业务Widget；未为纯拆文件扩大改动。规格/验收/架构和ANDROID_UI.md已同步本地docs，该目录按仓库策略忽略，不强制提交。

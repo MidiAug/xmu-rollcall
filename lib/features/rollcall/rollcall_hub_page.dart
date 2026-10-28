@@ -506,7 +506,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                   decoration: BoxDecoration(
                     color: p.surface,
                     borderRadius: BorderRadius.circular(AppRadii.group),
-                    border: Border.all(color: p.border),
+                    border: Border.all(color: p.mobileOutline),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(12, 10, 10, 12),
@@ -526,39 +526,26 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                                     ),
                             ),
                             const SizedBox(width: 4),
-                            AppRefreshButton(
-                              visualDensity: VisualDensity.compact,
-                              color: p.muted,
-                              iconSize: 20,
-                              onRefresh: () async {
-                                if (_switching) return;
-                                if (_switchError != null) {
-                                  await _selectIdentity(scope ?? 0);
-                                } else {
-                                  await ref
-                                      .read(
-                                        activeRollcallsProvider(scope).notifier,
-                                      )
-                                      .refresh();
-                                }
-                              },
-                            ),
+                            const SizedBox(width: 6),
                             IconButton(
-                              tooltip: '自动检测设置',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () => _openSettings(context),
+                              tooltip: '签到记录',
+                              style: AppControlStyle.touchIcon(context),
+                              visualDensity: VisualDensity.standard,
+                              onPressed: () => _openHistory(context),
                               icon: Icon(
-                                Icons.tune_rounded,
+                                AppIcons.history,
                                 color: p.muted,
                                 size: 20,
                               ),
                             ),
+                            const SizedBox(width: 6),
                             IconButton(
-                              tooltip: '签到记录',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () => _openHistory(context),
+                              tooltip: '自动检测设置',
+                              style: AppControlStyle.touchIcon(context),
+                              visualDensity: VisualDensity.standard,
+                              onPressed: () => _openSettings(context),
                               icon: Icon(
-                                AppIcons.history,
+                                AppIcons.settings,
                                 color: p.muted,
                                 size: 20,
                               ),

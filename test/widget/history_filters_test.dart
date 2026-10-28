@@ -441,12 +441,19 @@ void main() {
         final menu = tester.getRect(option);
         expect(menu.left, greaterThanOrEqualTo(0));
         expect(menu.right, lessThanOrEqualTo(width));
-        expect(menu.width, lessThanOrEqualTo(240));
+        expect(
+          menu.width,
+          width < 680 ? closeTo(width - 32, 1) : lessThanOrEqualTo(240),
+        );
         final menuText = tester.widget<Text>(
           find.descendant(of: option, matching: find.byType(Text)).first,
         );
-        expect(menuText.maxLines, 1);
-        expect(menuText.overflow, TextOverflow.ellipsis);
+        if (width < 680) {
+          expect(menuText.maxLines, isNull);
+        } else {
+          expect(menuText.maxLines, 1);
+          expect(menuText.overflow, TextOverflow.ellipsis);
+        }
         final countLabel = find.descendant(
           of: option,
           matching: find.text('(2)'),

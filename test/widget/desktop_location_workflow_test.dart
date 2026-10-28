@@ -1,3 +1,6 @@
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
+import '../fixtures/preview_fonts.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/features/location/campus_places.dart';
 import 'package:xmu_rollcall/features/location/place_providers.dart';
@@ -62,6 +65,9 @@ class _Repo extends Fake implements RollcallRepository {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
+    if (Platform.environment['CAPTURE_LOCATION_HEADER'] == '1') {
+      await loadDesktopPreviewFonts();
+    }
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
           const MethodChannel('plugins.flutter.io/path_provider'),
@@ -85,17 +91,39 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    final screen = GlobalKey();
+    Future<void> capture(String state) async {
+      if (Platform.environment['CAPTURE_LOCATION_HEADER'] != '1') return;
+      await tester.runAsync(() async {
+        final image =
+            await (screen.currentContext!.findRenderObject()
+                    as RenderRepaintBoundary)
+                .toImage();
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await Directory('build/location-header-review').create(recursive: true);
+        await File(
+          'build/location-header-review/$state.png',
+        ).writeAsBytes(bytes!.buffer.asUint8List());
+        image.dispose();
+      });
+    }
+
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          courseRoomsProvider.overrideWithValue(const ['学武楼A404']),
           campusCachedDataProvider.overrideWith(
             (ref) async => const CampusCachedData(),
           ),
           preferredCampusProvider.overrideWithValue(Campus.xiangan),
         ],
-        child: MaterialApp(
-          theme: AppTheme.light(),
-          home: const SavedLocationsPage(),
+        child: RepaintBoundary(
+          key: screen,
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light(),
+            home: const SavedLocationsPage(),
+          ),
         ),
       ),
     );
@@ -107,8 +135,36 @@ void main() {
           .value,
       Campus.xiangan,
     );
+    final trigger = find.byType(AppToolbarChoice<Campus>);
+    expect(tester.getSize(trigger).height, 48);
+    expect(find.byType(AppSelectTrigger), findsNothing);
+    await capture('list');
+    await tester.tap(find.byKey(const ValueKey('managed-room-学武楼')));
+    await tester.pumpAndSettle();
+    expect(find.text('地点管理'), findsNothing);
+    expect(find.text('地点列表'), findsOneWidget);
+    expect(find.byKey(const ValueKey('map-back-to-list')), findsNothing);
+    final mapRect = tester.getRect(find.byType(FlutterMap));
+    final panel = tester.getRect(
+      find.byKey(const ValueKey('map-building-inspector')),
+    );
+    expect(mapRect.left, 0);
+    expect(mapRect.right, 384);
+    expect(panel.left - mapRect.left, 16);
+    expect(mapRect.right - panel.right, 16);
+    expect(mapRect.bottom - panel.bottom, 16);
+    await capture('map');
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    expect(find.text('地点管理'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('managed-room-学武楼')));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('地点管理'), findsOneWidget);
     await tester.tap(find.byType(AppShellSelect<Campus>));
     await tester.pumpAndSettle();
+    await capture('campus-sheet');
     await tester.tap(find.text('漳州校区'));
     await tester.pumpAndSettle();
     expect(
@@ -117,6 +173,58 @@ void main() {
           .value,
       Campus.zhangzhou,
     );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('small map form keeps equal edges and scrolls above keyboard', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          courseRoomsProvider.overrideWithValue(const ['西部片区9号楼']),
+          preferredCampusProvider.overrideWithValue(Campus.xiangan),
+          campusCachedDataProvider.overrideWith(
+            (ref) async => const CampusCachedData(),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(1.3)),
+            child: child!,
+          ),
+          home: const SavedLocationsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('managed-room-西部片区9号楼')));
+    await tester.pumpAndSettle();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+    await tester.pumpAndSettle();
+    final panel = find.byKey(const ValueKey('map-place-inspector'));
+    final clip = find
+        .ancestor(of: panel, matching: find.byType(ClipRRect))
+        .first;
+    final bounds = tester.getRect(clip);
+    final map = tester.getRect(find.byType(FlutterMap));
+    expect(bounds.left - map.left, 16);
+    expect(map.right - bounds.right, 16);
+    expect(map.bottom - bounds.bottom, 16);
+    expect(bounds.height, lessThanOrEqualTo(map.height - 32));
+    final save = find.widgetWithText(FilledButton, '保存坐标');
+    await tester.ensureVisible(save);
+    await tester.pumpAndSettle();
+    expect(bounds.contains(tester.getCenter(save)), isTrue);
     expect(tester.takeException(), isNull);
   });
 

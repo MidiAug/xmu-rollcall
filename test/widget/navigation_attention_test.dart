@@ -28,6 +28,36 @@ void main() {
       }
     }
   });
+  testWidgets(
+    'mobile nav retains extra gesture clearance when keyboard opens',
+    (tester) async {
+      tester.view.physicalSize = const Size(384, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewPadding = const FakeViewPadding(bottom: 24);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetViewPadding);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            bottomNavigationBar: AppMobileNav(
+              current: AppDestination.rollcall,
+              onSelect: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final nav = find.byType(AppMobileNav);
+      expect(tester.getSize(nav).height, AppDensity.mobileBar + 22 + 1);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 200);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(nav).height, AppDensity.mobileBar + 22 + 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final desktop in [false, true]) {
     for (final dark in [false, true]) {
       testWidgets(

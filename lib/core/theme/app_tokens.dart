@@ -57,6 +57,18 @@ class AppPalette {
   Color get warning =>
       isDark ? const Color(0xFFE6BD7C) : const Color(0xFF9B6B26);
 
+  /// Touch pages separate the canvas, content cards and actionable controls.
+  Color get mobileCanvas =>
+      isDark ? const Color(0xFF101E23) : const Color(0xFFF0F5F5);
+  Color get mobileOutline =>
+      isDark ? const Color(0xFF354C52) : const Color(0xFFD7E4E5);
+  Color get controlSurface =>
+      isDark ? const Color(0xFF294249) : const Color(0xFFEBF3F3);
+  Color get accentSurface =>
+      isDark ? const Color(0xFF244A4A) : const Color(0xFFDCEFEB);
+  Color pageBackground(BuildContext context) =>
+      AppDensity.isTouch(context) ? mobileCanvas : canvas;
+
   /// Transparent twin of [c] so [AnimatedContainer] color lerps stay in-family
   /// (lerping from [Colors.transparent]/black@0 → light gray flashes dark).
   static Color clearOf(Color c) => c.withValues(alpha: 0);
@@ -166,9 +178,9 @@ abstract final class AppDensity {
   static const touchNav = 44.0;
   static const mobileBar = 56.0;
 
-  /// Extra air trimmed from the home-indicator inset under [AppMobileNav]
+  /// Small trim from the home-indicator inset under [AppMobileNav]
   /// (see docs/research/18-flutter-mobile-nav-bottom-inset.md).
-  static const mobileNavBottomTrim = 8.0;
+  static const mobileNavBottomTrim = 2.0;
 
   static const desktopRowPadH = AppSpace.md;
   static const desktopRowPadV = AppSpace.xs;

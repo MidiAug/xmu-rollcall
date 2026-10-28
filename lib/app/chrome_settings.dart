@@ -30,10 +30,12 @@ class SettingsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final touch = AppMobileUi.useTouchChrome(context);
     final rowPad = rowPadding ?? AppDensity.rowPadding(context);
     const captionInset = 0.0;
     final dividerIndent =
-        rowPad.left + (hasLeading ? 20 + AppDensity.rowInnerGap(context) : 0);
+        rowPad.left +
+        (hasLeading ? (touch ? 36 : 20) + AppDensity.rowInnerGap(context) : 0);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -53,9 +55,10 @@ class SettingsSection extends StatelessWidget {
               ),
               child: Text(
                 header!,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(color: p.muted),
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: p.muted,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -64,7 +67,7 @@ class SettingsSection extends StatelessWidget {
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppRadii.group),
-              side: BorderSide(color: p.border),
+              side: BorderSide(color: touch ? p.mobileOutline : p.border),
             ),
             clipBehavior: Clip.antiAlias,
             child: Column(
@@ -173,10 +176,26 @@ class _SettingsRowState extends State<SettingsRow> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 if (widget.leading != null) ...[
-                  IconTheme(
-                    data: IconThemeData(color: p.muted, size: 20),
-                    child: widget.leading!,
-                  ),
+                  if (AppMobileUi.useTouchChrome(context) &&
+                      widget.leading is Icon)
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: p.accentSurface,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      alignment: Alignment.center,
+                      child: IconTheme(
+                        data: IconThemeData(color: p.primary, size: 20),
+                        child: widget.leading!,
+                      ),
+                    )
+                  else
+                    IconTheme(
+                      data: IconThemeData(color: p.muted, size: 20),
+                      child: widget.leading!,
+                    ),
                   SizedBox(width: gap),
                 ],
                 Expanded(
@@ -258,7 +277,7 @@ class _SettingsControlTheme extends StatelessWidget {
     final theme = Theme.of(context);
     final common = ButtonStyle(
       minimumSize: WidgetStatePropertyAll(
-        Size(0, AppDensity.isTouch(context) ? 44 : 36),
+        Size(0, AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 36),
       ),
       padding: const WidgetStatePropertyAll(
         EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -284,9 +303,22 @@ class _SettingsControlTheme extends StatelessWidget {
           ),
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
-          style: (theme.outlinedButtonTheme.style ?? const ButtonStyle()).merge(
-            common,
-          ),
+          style: (theme.outlinedButtonTheme.style ?? const ButtonStyle())
+              .merge(common)
+              .merge(
+                AppMobileUi.useTouchChrome(context)
+                    ? ButtonStyle(
+                        backgroundColor: WidgetStatePropertyAll(
+                          AppPalette.of(context).controlSurface,
+                        ),
+                        side: WidgetStatePropertyAll(
+                          BorderSide(
+                            color: AppPalette.of(context).mobileOutline,
+                          ),
+                        ),
+                      )
+                    : const ButtonStyle(),
+              ),
         ),
         textButtonTheme: TextButtonThemeData(
           style: (theme.textButtonTheme.style ?? const ButtonStyle()).merge(

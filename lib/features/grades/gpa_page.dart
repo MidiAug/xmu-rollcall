@@ -119,14 +119,19 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                 return AppContentColumn(
                   maxWidth: 960,
                   child: ListView(
-                    padding: const EdgeInsets.fromLTRB(24, 4, 24, 24),
+                    padding: EdgeInsets.fromLTRB(
+                      AppSpace.pageXOf(context),
+                      12,
+                      AppSpace.pageXOf(context),
+                      24,
+                    ),
                     children: [
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: p.surface,
                           border: Border.all(color: p.border),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(AppRadii.group),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,6 +240,7 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                               const SizedBox(height: 12),
                               AppShellSelect<int>(
                                 key: const ValueKey('grade-recent'),
+                                semanticLabel: '最近学期数量',
                                 width: 164,
                                 value: recentCount,
                                 items: [
@@ -255,6 +261,7 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                               const SizedBox(height: 12),
                               AppShellSelect<String>(
                                 key: const ValueKey('grade-term'),
+                                semanticLabel: '选择学期',
                                 width: 210,
                                 value: effectiveTerm,
                                 items: terms,
@@ -499,7 +506,7 @@ class _GpaPageState extends ConsumerState<GpaPage> {
       decoration: BoxDecoration(
         color: p.surface,
         border: Border.all(color: p.border),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppRadii.group),
       ),
       child: LayoutBuilder(
         builder: (context, bounds) => bounds.maxWidth >= 560

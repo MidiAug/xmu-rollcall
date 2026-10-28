@@ -232,7 +232,10 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
               : active
               ? _TodosBody(
                   onOpen: _openDetail,
-                  showToolbar: !hostActions,
+                  showToolbar:
+                      !hostActions &&
+                      Theme.of(context).platform != TargetPlatform.android &&
+                      Theme.of(context).platform != TargetPlatform.iOS,
                   filter: _filter,
                 )
               : const SizedBox.shrink(),
@@ -668,7 +671,7 @@ class _TeachingAssignmentRow extends StatelessWidget {
         trailing: Text(
           dueLabel,
           maxLines: 1,
-          overflow: TextOverflow.clip,
+          overflow: TextOverflow.ellipsis,
           style: AppTypography.caption.copyWith(color: p.muted),
         ),
       );
@@ -688,7 +691,7 @@ class _TeachingAssignmentRow extends StatelessWidget {
                   item.title.isEmpty ? '未命名作业' : item.title,
                   maxLines: 1,
                   softWrap: false,
-                  overflow: TextOverflow.clip,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
@@ -761,7 +764,7 @@ class _TodoTile extends StatelessWidget {
                     item.title.isEmpty ? '未命名作业' : item.title,
                     maxLines: 1,
                     softWrap: false,
-                    overflow: TextOverflow.clip,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -845,7 +848,7 @@ class _HomeworkInboxRow extends StatelessWidget {
                       item.title.isEmpty ? '未命名作业' : item.title,
                       maxLines: 1,
                       softWrap: false,
-                      overflow: TextOverflow.clip,
+                      overflow: TextOverflow.ellipsis,
                       style: AppTypography.body.copyWith(
                         fontWeight: FontWeight.w500,
                         color: p.ink,

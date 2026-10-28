@@ -114,12 +114,22 @@ void main() {
           final palette = AppPalette.of(
             tester.element(find.byType(AppSelectTrigger)),
           );
-          expect(triggerDecoration().color, palette.content);
+          expect(
+            triggerDecoration().color,
+            width < AppLayout.shellBreakpoint
+                ? palette.controlSurface
+                : palette.content,
+          );
           // Focus returns to the trigger after selection, so keyboard can reopen it.
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           await tester.pumpAndSettle();
           expect(find.byType(AppMenuOption), findsNWidgets(3));
-          expect(triggerDecoration().color, palette.content);
+          expect(
+            triggerDecoration().color,
+            width < AppLayout.shellBreakpoint
+                ? palette.controlSurface
+                : palette.content,
+          );
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           await tester.pumpAndSettle();
           expect(find.byType(AppMenuOption), findsNothing);

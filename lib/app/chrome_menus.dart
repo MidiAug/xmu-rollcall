@@ -85,6 +85,9 @@ class AppShellSelect<T> extends StatefulWidget {
 class _AppShellSelectState<T> extends State<AppShellSelect<T>>
     with WidgetsBindingObserver {
   final _portal = OverlayPortalController();
+  ModalRoute<dynamic>? _sheetRoute;
+  NavigatorState? _sheetNavigator;
+  bool _sheetOpen = false;
   late final VoidCallback _closeHook;
   final _triggerFocus = FocusNode();
   final _tapGroup = Object();
@@ -104,13 +107,31 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
   void dispose() {
     AppShellSelect._unregister(_closeHook);
     WidgetsBinding.instance.removeObserver(this);
+    _dismissSheet();
     if (_portal.isShowing) _portal.hide();
     _triggerFocus.dispose();
     _menuFocus.dispose();
     super.dispose();
   }
 
+  void _dismissSheet() {
+    final route = _sheetRoute;
+    final navigator = _sheetNavigator;
+    _sheetRoute = null;
+    _sheetNavigator = null;
+    if (route != null && navigator != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (navigator.mounted && route.isActive) navigator.removeRoute(route);
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+    }
+  }
+
   void _hide({bool restoreFocus = true}) {
+    if (_sheetOpen) {
+      _dismissSheet();
+      return;
+    }
     if (!_portal.isShowing) return;
     _portal.hide();
     AppShellSelect._openHooks.remove(_closeHook);
@@ -128,15 +149,53 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
   @override
   void didUpdateWidget(covariant AppShellSelect<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.onChanged == null || widget.items.isEmpty) {
+    if (widget.onChanged == null ||
+        widget.items.isEmpty ||
+        widget.value != oldWidget.value ||
+        !listEquals(widget.items, oldWidget.items)) {
       _hide(restoreFocus: false);
+    }
+  }
+
+  Future<void> _openTouchChoice() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    AppShellSelect._closeOthers(_closeHook);
+    setState(() => _sheetOpen = true);
+    AppShellSelect._openHooks.add(_closeHook);
+    final result = await _showChoiceSheet<T>(
+      context,
+      title: widget.semanticLabel ?? '请选择',
+      value: widget.value,
+      items: List<T>.of(widget.items),
+      labelOf: widget.menuLabelOf ?? widget.labelOf,
+      trailingOf: widget.menuTrailingOf,
+      iconOf: widget.iconOf,
+      onPresented: (context) {
+        if (_sheetOpen) {
+          _sheetRoute = ModalRoute.of(context);
+          _sheetNavigator = Navigator.of(context);
+        }
+      },
+    );
+    _sheetRoute = null;
+    _sheetNavigator = null;
+    AppShellSelect._openHooks.remove(_closeHook);
+    if (!mounted) return;
+    setState(() => _sheetOpen = false);
+    _triggerFocus.requestFocus();
+    if (result != null && widget.items.contains(result.value)) {
+      widget.onChanged?.call(result.value);
     }
   }
 
   void _toggle() {
     if (widget.onChanged == null || widget.items.isEmpty) return;
-    if (_portal.isShowing) {
+    if (_sheetOpen || _portal.isShowing) {
       _hide();
+      return;
+    }
+    if (AppMobileUi.useTouchChrome(context)) {
+      _openTouchChoice();
       return;
     }
     AppShellSelect._closeOthers(_closeHook);
@@ -148,7 +207,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final open = _portal.isShowing;
+    final open = _portal.isShowing || _sheetOpen;
     return PopScope<void>(
       canPop: !open,
       onPopInvokedWithResult: (didPop, _) {
@@ -347,6 +406,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
         child: TapRegion(
           groupId: _tapGroup,
           onTapOutside: (event) {
+            if (_sheetOpen) return;
             if (event.buttons & kBackMouseButton != 0) return;
             _triggerFocus.unfocus();
             _hide(restoreFocus: false);
@@ -465,7 +525,9 @@ class _AppMenuOptionState extends State<AppMenuOption> {
               duration: const Duration(milliseconds: 100),
               curve: Curves.easeOut,
               constraints: BoxConstraints(
-                minHeight: AppDensity.isTouch(context) ? 44 : 40,
+                minHeight: AppMobileUi.useTouchChrome(context)
+                    ? AppMobileUi.choiceRow
+                    : 40,
               ),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
@@ -545,7 +607,7 @@ class AppActionMenu<T> extends StatelessWidget {
       labelOf: (value) => actions.firstWhere((a) => a.value == value).label,
       iconOf: (value) =>
           actions.firstWhere((a) => a.value == value).icon ?? AppIcons.more,
-      width: 32,
+      width: AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 32,
       menuWidth: 240,
       alignMenuEnd: true,
       onChanged: enabled
@@ -560,11 +622,19 @@ class AppActionMenu<T> extends StatelessWidget {
           onPressed: toggle,
           icon: const Icon(AppIcons.more, size: 20),
           style: IconButton.styleFrom(
-            backgroundColor: open ? p.selected : AppPalette.clearOf(p.primary),
+            backgroundColor: AppMobileUi.useTouchChrome(context)
+                ? Colors.transparent
+                : open
+                ? p.selected
+                : AppPalette.clearOf(p.primary),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            minimumSize: const Size(32, 32),
+            minimumSize: Size.square(
+              AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 32,
+            ),
             padding: const EdgeInsets.all(6),
-            side: framed ? BorderSide(color: p.borderStrong) : BorderSide.none,
+            side: framed && !AppMobileUi.useTouchChrome(context)
+                ? BorderSide(color: p.borderStrong)
+                : BorderSide.none,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(7),
             ),

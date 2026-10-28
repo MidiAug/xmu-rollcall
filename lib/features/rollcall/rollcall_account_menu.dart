@@ -24,6 +24,7 @@ class RollcallAccountMenu extends StatelessWidget {
   Widget build(BuildContext context) => Align(
     alignment: Alignment.centerLeft,
     child: AppShellSelect<int>(
+      semanticLabel: '切换签到账号',
       key: const ValueKey('rollcall-identity-menu'),
       width: width,
       menuWidth: 220,

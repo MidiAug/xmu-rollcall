@@ -561,6 +561,9 @@ void main() {
         p.surface,
         p.content,
         p.sidebar,
+        p.mobileCanvas,
+        p.controlSurface,
+        p.accentSurface,
         Color.alphaBlend(p.selected, p.surface),
       ]) {
         final a = p.muted.computeLuminance();

@@ -104,7 +104,7 @@ class _AppRefreshButtonState extends State<AppRefreshButton>
     return AppTooltipAnchor(
       child: IconButton(
         tooltip: widget.tooltip,
-        style: PlatformHooks.isDesktop && !AppDensity.isTouch(context)
+        style: PlatformHooks.isDesktop && !AppMobileUi.useTouchChrome(context)
             ? IconButton.styleFrom(
                 minimumSize: Size.square(widget.extent ?? 34),
                 backgroundColor: p.surface,
@@ -115,6 +115,14 @@ class _AppRefreshButtonState extends State<AppRefreshButton>
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(7),
                 ),
+              )
+            : AppMobileUi.useTouchChrome(context)
+            ? IconButton.styleFrom(
+                minimumSize: const Size(AppMobileUi.target, AppMobileUi.target),
+                visualDensity: VisualDensity.standard,
+                backgroundColor: Colors.transparent,
+                side: BorderSide.none,
+                hoverColor: Colors.transparent,
               )
             : null,
         visualDensity: widget.visualDensity,

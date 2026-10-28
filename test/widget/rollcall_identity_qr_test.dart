@@ -482,7 +482,9 @@ void main() {
         }
         await tester.tap(find.byKey(const ValueKey('history-status-filter')));
         await tester.pumpAndSettle();
-        await select('作业');
+        // A mobile choice is modal; programmatic tab navigation must dismiss it.
+        ShellNavigation.instance.open(AppDestination.homework);
+        await tester.pumpAndSettle();
         expect(find.byType(AppMenuOption), findsNothing);
         expect(find.byType(HistoryPage, skipOffstage: false), findsNothing);
         expect(oldHistory.mounted, isFalse);
@@ -931,7 +933,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.getSize(find.byType(AppMenuOption).first).width,
-        lessThanOrEqualTo(220),
+        closeTo(320 - 32, 1),
       );
       await tester.tap(find.text('未签同学').last);
       await tester.pumpAndSettle();

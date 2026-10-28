@@ -23,4 +23,5 @@ part 'chrome_segments.dart';
 part 'chrome_pages.dart';
 part 'chrome_navigation.dart';
 part 'chrome_menus.dart';
+part 'chrome_mobile.dart';
 part 'chrome_layout.dart';

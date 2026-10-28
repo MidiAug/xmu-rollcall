@@ -108,6 +108,12 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
       if (width > segmentWidth) segmentWidth = width;
     }
     painter.dispose();
+    final touch = AppMobileUi.useTouchChrome(context);
+    if (touch) {
+      segmentWidth =
+          (segmentWidth - (widget.segments.any((s) => s.icon != null) ? 24 : 0))
+              .clamp(48.0, double.infinity);
+    }
     final selected = widget.segments.indexWhere((s) => s.value == widget.value);
     final rtl = Directionality.of(context) == TextDirection.rtl;
     final x = widget.segments.length < 2
@@ -117,6 +123,53 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
                       2 -
                   1) *
               (rtl ? -1 : 1);
+    if (touch) {
+      return Focus(
+        canRequestFocus: false,
+        includeSemantics: false,
+        onKeyEvent: _handleKey,
+        child: SizedBox(
+          height: AppMobileUi.target,
+          child: Stack(
+            children: [
+              if (selected >= 0)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 2,
+                  child: AnimatedAlign(
+                    alignment: Alignment(x, 0),
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : AppMotion.fast,
+                    child: FractionallySizedBox(
+                      widthFactor: 1 / widget.segments.length,
+                      heightFactor: 1,
+                      child: ColoredBox(
+                        key: const ValueKey('segment-selection'),
+                        color: p.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              Row(
+                mainAxisSize: widget.expanded
+                    ? MainAxisSize.max
+                    : MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < widget.segments.length; i++)
+                    if (widget.expanded)
+                      Expanded(child: _segment(i))
+                    else
+                      SizedBox(width: segmentWidth, child: _segment(i)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Focus(
       canRequestFocus: false,
       includeSemantics: false,
@@ -211,6 +264,32 @@ class _SegmentButtonState extends State<_SegmentButton> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final foreground = widget.selected ? p.primary : p.muted;
+    if (AppMobileUi.useTouchChrome(context)) {
+      return Semantics(
+        selected: widget.selected,
+        inMutuallyExclusiveGroup: true,
+        child: TextButton(
+          focusNode: widget.focusNode,
+          onPressed: widget.onTap,
+          style: TextButton.styleFrom(
+            minimumSize: const Size(AppMobileUi.target, AppMobileUi.target),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            foregroundColor: foreground,
+            shape: const RoundedRectangleBorder(),
+            textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
+              fontSize: 13,
+              fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w500,
+            ),
+          ),
+          child: Text(
+            widget.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
+    }
+
     final active = _hovered || _pressed;
     final radius = BorderRadius.circular(AppRadii.control);
     return Semantics(
@@ -238,11 +317,13 @@ class _SegmentButtonState extends State<_SegmentButton> {
                 : AppMotion.instant,
             curve: AppMotion.instantCurve,
             constraints: BoxConstraints(
-              minHeight: AppDensity.isTouch(context) ? 44 : 36,
+              minHeight: AppMobileUi.useTouchChrome(context)
+                  ? AppMobileUi.target
+                  : 36,
             ),
             padding: EdgeInsets.symmetric(
               horizontal: 8,
-              vertical: AppDensity.isTouch(context) ? 8 : 4,
+              vertical: AppMobileUi.useTouchChrome(context) ? 8 : 4,
             ),
             decoration: BoxDecoration(
               color: p.primary.withValues(alpha: active ? .04 : 0),

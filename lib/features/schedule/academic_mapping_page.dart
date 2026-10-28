@@ -129,6 +129,7 @@ class _AcademicMappingPageState extends ConsumerState<AcademicMappingPage> {
                         LayoutBuilder(
                           builder: (context, constraints) => AppShellSelect<String>(
                             key: ValueKey('academic-binding-${c.id}'),
+                            semanticLabel: '关联教务课程',
                             width: constraints.maxWidth,
                             value: groups.containsKey(_bindings[c.id])
                                 ? _bindings[c.id]!

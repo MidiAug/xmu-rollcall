@@ -83,7 +83,9 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
     final title = widget.courseName.isEmpty ? '课程作业' : widget.courseName;
     final async = ref.watch(courseHomeworkProvider(widget.courseId));
 
-    final refreshExtent = AppDensity.isTouch(context) ? 44.0 : 34.0;
+    final refreshExtent = AppDensity.isTouch(context)
+        ? AppMobileUi.target
+        : 34.0;
     return SubpageScaffold(
       title: title,
       actions: [
@@ -91,19 +93,32 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Center(
-              child: AppShellSelect<HomeworkCourseFilter>(
-                key: const ValueKey('homework-course-filter'),
-                value: _filter,
-                items: HomeworkCourseFilter.values,
-                labelOf: (v) => v.label,
-                menuTrailingOf: (v) => async.hasValue
-                    ? '(${async.requireValue.where(v.matches).length})'
-                    : '',
-                onChanged: (v) => setState(() => _filter = v),
-                width: 100,
-                menuWidth: 108 + refreshExtent,
-                fixedMenuWidth: true,
-              ),
+              child: AppDensity.isTouch(context)
+                  ? AppToolbarChoice<HomeworkCourseFilter>(
+                      key: const ValueKey('homework-course-filter'),
+                      title: '筛选作业',
+                      value: _filter,
+                      items: HomeworkCourseFilter.values,
+                      labelOf: (v) => v.label,
+                      trailingOf: (v) => async.hasValue
+                          ? '(${async.requireValue.where(v.matches).length})'
+                          : '',
+                      onChanged: (v) => setState(() => _filter = v),
+                      width: 88,
+                    )
+                  : AppShellSelect<HomeworkCourseFilter>(
+                      key: const ValueKey('homework-course-filter'),
+                      value: _filter,
+                      items: HomeworkCourseFilter.values,
+                      labelOf: (v) => v.label,
+                      menuTrailingOf: (v) => async.hasValue
+                          ? '(${async.requireValue.where(v.matches).length})'
+                          : '',
+                      onChanged: (v) => setState(() => _filter = v),
+                      width: 100,
+                      menuWidth: 108 + refreshExtent,
+                      fixedMenuWidth: true,
+                    ),
             ),
             const SizedBox(width: 8),
             SizedBox(
@@ -218,7 +233,7 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
                                     item.title.isEmpty ? '未命名作业' : item.title,
                                     maxLines: 1,
                                     softWrap: false,
-                                    overflow: TextOverflow.clip,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
                                       color: p.ink,

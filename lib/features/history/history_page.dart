@@ -204,6 +204,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   children: [
                     Expanded(
                       child: _HistoryFilter<HistorySignedFilter>(
+                        title: '签到状态',
                         key: const ValueKey('history-status-filter'),
                         value: _signed,
                         items: HistorySignedFilter.values,
@@ -215,6 +216,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                     const SizedBox(width: AppSpace.xs),
                     Expanded(
                       child: _HistoryFilter<HistoryTypeFilter>(
+                        title: '签到类型',
                         key: const ValueKey('history-type-filter'),
                         value: _type,
                         items: HistoryTypeFilter.values,
@@ -226,6 +228,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                     const SizedBox(width: AppSpace.xs),
                     Expanded(
                       child: _HistoryFilter<String>(
+                        title: '筛选课程',
                         key: const ValueKey('history-course-filter'),
                         value: courseId,
                         items: courses.keys.toList(),
@@ -271,6 +274,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 class _HistoryFilter<T> extends StatelessWidget {
   const _HistoryFilter({
     super.key,
+    required this.title,
     required this.value,
     required this.items,
     required this.labelOf,
@@ -284,11 +288,13 @@ class _HistoryFilter<T> extends StatelessWidget {
   final int Function(T) countOf;
   final ValueChanged<T> onChanged;
   final bool wideMenu;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, bounds) => AppShellSelect<T>(
+        semanticLabel: title,
         value: value,
         items: items,
         labelOf: labelOf,
@@ -520,11 +526,23 @@ class _HistoryDateFilter extends StatelessWidget {
   Widget build(BuildContext context) {
     if (expand) {
       return _HistoryFilter<_HistoryPeriod>(
+        title: '时间范围',
         key: const ValueKey('history-date-filter'),
         value: value,
         items: _HistoryPeriod.values,
         labelOf: (v) => labels[v]!,
         countOf: countOf,
+        onChanged: onSelected,
+      );
+    }
+    if (AppMobileUi.useTouchChrome(context)) {
+      return AppToolbarChoice<_HistoryPeriod>(
+        key: const ValueKey('history-date-filter'),
+        title: '时间范围',
+        value: value,
+        items: _HistoryPeriod.values,
+        labelOf: (v) => labels[v]!,
+        trailingOf: (v) => '(${countOf(v)})',
         onChanged: onSelected,
       );
     }
