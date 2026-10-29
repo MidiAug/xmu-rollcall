@@ -1,10 +1,4 @@
-import 'package:xmu_rollcall/features/auth/auth_controller.dart';
-import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
-import 'dart:convert';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-/// A device-local daily discovery window, shared by owner and assist sessions.
+/// Discovery bounds for one selected account; interval operations are pure.
 class DetectionWindow {
   const DetectionWindow({
     this.enabled = false,
@@ -99,26 +93,6 @@ class DetectionWindow {
     startMinute: startMinute,
     endMinute: endMinute,
   ).allows(at);
-
-  static Future<DetectionWindow> read({bool reload = false, int? uid}) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (reload) await prefs.reload();
-    // Legacy clock-hour restrictions are retired. Existing schedule gating
-    // remains enabled by default; the new switch explicitly controls it.
-    return DetectionWindow(
-      scheduleBased: true,
-      enabled:
-          (uid == null
-              ? null
-              : prefs.getBool('${schedulePreferenceKey}_$uid')) ??
-          ((uid == null ||
-                  prefs.getInt('schedule_detection_legacy_owner') == null ||
-                  prefs.getInt('schedule_detection_legacy_owner') == uid)
-              ? prefs.getBool(schedulePreferenceKey)
-              : null) ??
-          true,
-    );
-  }
 }
 
 class DetectionWindowClosed implements Exception {
@@ -127,64 +101,4 @@ class DetectionWindowClosed implements Exception {
   final DateTime at;
   @override
   String toString() => '当前不在检测时段（${window.label}），暂不获取签到';
-}
-
-final detectionWindowProvider =
-    StateNotifierProvider<DetectionWindowController, DetectionWindow?>((ref) {
-      final owner = ref.watch(authControllerProvider).profile?.id;
-      return DetectionWindowController(
-        userId: ref.watch(selectedRollcallAccountProvider) ?? owner,
-        ownerId: owner,
-      );
-    });
-
-class DetectionWindowController extends StateNotifier<DetectionWindow?> {
-  DetectionWindowController({this.userId, this.ownerId}) : super(null) {
-    ready = _load();
-  }
-  final int? userId, ownerId;
-  late final Future<void> ready;
-  Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (ownerId != null &&
-        prefs.getInt('schedule_detection_legacy_owner') == null) {
-      await prefs.setInt('schedule_detection_legacy_owner', ownerId!);
-    }
-    final window = await DetectionWindow.read(uid: userId);
-    if (mounted) state = window;
-  }
-
-  Future<void> save(DetectionWindow window) async {
-    if (window.scheduleBased) {
-      final prefs = await SharedPreferences.getInstance();
-      if (!await prefs.setBool(
-        userId == null
-            ? DetectionWindow.schedulePreferenceKey
-            : '${DetectionWindow.schedulePreferenceKey}_$userId',
-        window.enabled,
-      )) {
-        throw StateError('无法保存检测范围');
-      }
-      if (mounted) state = window;
-      return;
-    }
-    if (window.startMinute == window.endMinute ||
-        window.startMinute < 0 ||
-        window.endMinute < 0 ||
-        window.startMinute > 1439 ||
-        window.endMinute > 1439) {
-      throw ArgumentError('无效检测时段');
-    }
-    final prefs = await SharedPreferences.getInstance();
-    final ok = await prefs.setString(
-      DetectionWindow.preferencesKey,
-      jsonEncode({
-        'enabled': window.enabled,
-        'start': window.startMinute,
-        'end': window.endMinute,
-      }),
-    );
-    if (!ok) throw StateError('无法保存检测时段');
-    if (mounted) state = window;
-  }
 }

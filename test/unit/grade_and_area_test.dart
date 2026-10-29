@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_store.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,7 +34,7 @@ void main() {
       final result = calculateGpa([
         grade('a', '2026-2027-1'),
         grade('b', '2026-2027-1', points: 0, credits: 1),
-        const GradeRecord({'WID': 'u', 'XF': 5}),
+        GradeRecord({'WID': 'u', 'XF': 5}),
       ]);
       expect(result.gpa, closeTo(8 / 3, .0001));
       expect(result.credits, 3);
@@ -115,8 +117,8 @@ void main() {
       await a.save(const DetectionWindow(scheduleBased: true, enabled: false));
       final b = DetectionWindowController(ownerId: 1, userId: 2);
       await b.ready;
-      expect((await DetectionWindow.read(uid: 1)).enabled, isFalse);
-      expect((await DetectionWindow.read(uid: 2)).enabled, isTrue);
+      expect((await DetectionWindowStore.read(uid: 1)).enabled, isFalse);
+      expect((await DetectionWindowStore.read(uid: 2)).enabled, isTrue);
       a.dispose();
       b.dispose();
     },

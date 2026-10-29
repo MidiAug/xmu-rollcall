@@ -10,6 +10,9 @@ import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
+import 'package:xmu_rollcall/features/homework/homework_badge.dart';
+import 'package:xmu_rollcall/features/homework/homework_overview.dart';
+import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
@@ -29,6 +32,65 @@ class _Auth extends AuthController {
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test(
+    'course-only homework reaches real summary and badge without network',
+    () async {
+      for (final uid in [1, 2]) {
+        await CourseCatalogStore.write(
+          uid,
+          CourseCatalogSnapshot(
+            fetchedAt: DateTime.now(),
+            courses: [
+              CatalogCourse(
+                id: '10',
+                title: '账号$uid课程',
+                roles: const ['student'],
+                timetables: {
+                  1: [
+                    TimetableSlot(
+                      sequence: 1,
+                      start: DateTime(2000, 1, 3, 8),
+                      end: DateTime(2000, 1, 3, 9),
+                    ),
+                  ],
+                },
+              ),
+            ],
+          ),
+        );
+        await JsonDiskCache.writeList('homework_todos_$uid', []);
+        await JsonDiskCache.writeList('course_homework_${uid}_10', [
+          {'id': uid, 'title': '账号$uid独有作业', 'due_at': '2099-01-01T00:00:00'},
+          {'id': 99, 'title': '已完成', 'status': 'submitted'},
+        ]);
+      }
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          assistControllerProvider.overrideWith(
+            (ref) => AssistController(
+              ref,
+              bootstrap: false,
+              initial: const AssistUiState(ready: true),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final sub = container.listen(homeworkBadgeCountProvider, (_, _) {});
+      addTearDown(sub.close);
+      for (final uid in [1, 2]) {
+        container.read(selectedRollcallAccountProvider.notifier).state =
+            uid == 1 ? null : uid;
+        expect(await container.read(homeworkBadgeCountProvider.future), 1);
+        final summary = await container.read(campusCachedDataProvider.future);
+        expect(summary.homework.single.title, '账号$uid独有作业');
+        expect(summary.homework.single.courseName, '账号$uid课程');
+      }
+      expect(container.exists(homeworkOverviewProvider), isFalse);
+      expect(container.exists(homeworkTodosProvider), isFalse);
+    },
+  );
   test(
     'summary reads isolated disk snapshots without mounting network providers',
     () async {

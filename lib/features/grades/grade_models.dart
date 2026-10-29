@@ -6,34 +6,45 @@ double? gradeNumber(Object? value) {
 }
 
 class GradeRecord {
-  const GradeRecord(this.data);
+  GradeRecord(Map<String, dynamic> source)
+    : data = Map.unmodifiable(source),
+      id = '${source['WID']}',
+      title = _gradeText(source, const ['XSKCM', 'KCM'], '未命名课程'),
+      term = '${source['XNXQDM'] ?? ''}',
+      score = _gradeText(source, const ['XSZCJMC', 'ZCJ', 'DJCJMC'], '未公布'),
+      credits = gradeNumber(source['XF']) ?? 0,
+      points = gradeNumber(source['JDF']) ?? gradeNumber(source['XFJD']),
+      category = '${source['KCLBDM_DISPLAY'] ?? ''}',
+      nature = '${source['KCXZDM_DISPLAY'] ?? ''}',
+      _valid = '${source['SFYX'] ?? '1'}' == '1',
+      _scoreType = '${source['DJCJLXDM_DISPLAY'] ?? ''}',
+      _scoreTypeCode = '${source['DJCJLXDM']}',
+      _notCounted = const [
+        'JDF',
+        'XFJD',
+      ].any((key) => '${source[key]}'.trim().toUpperCase() == 'N/A') {
+    _status = score.trim().toUpperCase();
+    numericScore = _numericGradeScore(
+      score,
+      source['GRADE_SYSTEM'] == 'graduate',
+    );
+  }
+
   final Map<String, dynamic> data;
-  String get id => '${data['WID']}';
-  String get title =>
-      [data['XSKCM'], data['KCM']]
-          .where((v) => v != null && '$v'.trim().isNotEmpty)
-          .map((v) => '$v')
-          .firstOrNull ??
-      '未命名课程';
-  String get term => '${data['XNXQDM'] ?? ''}';
-  String get score =>
-      [data['XSZCJMC'], data['ZCJ'], data['DJCJMC']]
-          .where((v) => v != null && '$v'.trim().isNotEmpty)
-          .map((v) => '$v')
-          .firstOrNull ??
-      '未公布';
-  double get credits => gradeNumber(data['XF']) ?? 0;
-  // XFJD is the course's grade point in the captured XMU grade application,
-  // not credits multiplied by grade point. Preserve server honors points.
-  double? get points => gradeNumber(data['JDF']) ?? gradeNumber(data['XFJD']);
-  String get category => '${data['KCLBDM_DISPLAY'] ?? ''}';
-  String get nature => '${data['KCXZDM_DISPLAY'] ?? ''}';
+  final String id, title, term, score, category, nature;
+  final double credits;
+  // XFJD is the course point, not credits multiplied by grade point.
+  final double? points;
+  final bool _valid, _notCounted;
+  final String _scoreType, _scoreTypeCode;
+  late final String _status;
+  late final double? numericScore;
   bool get generalEducation => category.contains('通识');
   String? get exclusionReason {
-    if ('${data['SFYX'] ?? '1'}' != '1') return '无效成绩';
-    final type = '${data['DJCJLXDM_DISPLAY'] ?? ''}';
-    final status = score.trim().toUpperCase();
-    if ('${data['DJCJLXDM']}' == '200' ||
+    if (!_valid) return '无效成绩';
+    final type = _scoreType;
+    final status = _status;
+    if (_scoreTypeCode == '200' ||
         type.contains('两级') ||
         const {'P', 'NP', '合格', '不合格', '通过', '不通过'}.contains(status)) {
       return '两级制不计绩点';
@@ -43,10 +54,7 @@ class GradeRecord {
       return '免修、缓考或退课不计绩点';
     }
     if (credits <= 0) return '无有效学分';
-    if (const [
-      'JDF',
-      'XFJD',
-    ].any((key) => '${data[key]}'.trim().toUpperCase() == 'N/A')) {
+    if (_notCounted) {
       return '教务标记不计绩点';
     }
     if (points == null || points! < 0) return '教务未提供有效绩点';
@@ -54,6 +62,37 @@ class GradeRecord {
   }
 
   bool get eligible => exclusionReason == null;
+}
+
+String _gradeText(
+  Map<String, dynamic> source,
+  List<String> keys,
+  String fallback,
+) {
+  for (final key in keys) {
+    final value = source[key];
+    if (value != null && '$value'.trim().isNotEmpty) return '$value';
+  }
+  return fallback;
+}
+
+double? _numericGradeScore(String score, bool graduate) {
+  return gradeNumber(score) ??
+      (graduate
+          ? null
+          : const <String, double>{
+              'A+': 100,
+              'A': 94,
+              'A-': 89,
+              'B+': 84,
+              'B': 80,
+              'B-': 77,
+              'C+': 74,
+              'C': 71,
+              'C-': 67,
+              'D': 63,
+              'F': 59,
+            }[score.trim().toUpperCase()]);
 }
 
 /// Grade application term codes differ from timetable semester codes.
@@ -182,23 +221,7 @@ List<GradeRecord> mergeRecentGrades(
   for (final r in records.where((r) => r.eligible)) {
     credits += r.credits;
     weighted += r.credits * r.points!;
-    final score =
-        gradeNumber(r.score) ??
-        (r.data['GRADE_SYSTEM'] == 'graduate'
-            ? null
-            : const <String, double>{
-                'A+': 100,
-                'A': 94,
-                'A-': 89,
-                'B+': 84,
-                'B': 80,
-                'B-': 77,
-                'C+': 74,
-                'C': 71,
-                'C-': 67,
-                'D': 63,
-                'F': 59,
-              }[r.score.trim().toUpperCase()]);
+    final score = r.numericScore;
     if (score != null) {
       scoreCredits += r.credits;
       scoreTotal += score * r.credits;

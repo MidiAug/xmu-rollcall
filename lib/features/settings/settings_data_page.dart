@@ -10,7 +10,12 @@ import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/cache/session_lifecycle.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
-import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
+import 'package:xmu_rollcall/core/cache/remote_course_cache.dart';
+import 'package:xmu_rollcall/core/cache/cache_revisions.dart';
+import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
+import 'package:xmu_rollcall/features/grades/grade_providers.dart';
+import 'package:xmu_rollcall/features/homework/homework_overview.dart';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/rollcall/radar_preview.dart';
 import 'package:xmu_rollcall/features/rollcall/session_prior_preview.dart';
@@ -53,7 +58,7 @@ class SettingsDataPage extends ConsumerWidget {
                 SettingsRow(
                   leading: const Icon(AppIcons.clean),
                   title: '清除本机课程数据',
-                  subtitle: '清除已保存的课表、作业与签到记录；主题、常用地点与本机标识会保留',
+                  subtitle: '清除已缓存的课表、成绩、作业与签到记录；手工安排、地点与本机设置会保留',
                   trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: () => _confirmClearCache(context, ref),
                 ),
@@ -234,8 +239,8 @@ class SettingsDataPage extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('清除本机课程数据？'),
         content: const Text(
-          '将删除已保存的课表、作业与签到记录。'
-          '主题、常用地点与本机标识会保留。',
+          '将删除已缓存的课表、成绩、作业与签到记录。'
+          '手工课程安排、学期日期、地点与本机设置会保留。',
         ),
         actions: [
           TextButton(
@@ -250,9 +255,15 @@ class SettingsDataPage extends ConsumerWidget {
       ),
     );
     if (ok != true) return;
-    await JsonDiskCache.clearAll();
-    invalidateOwnerRemoteMemoryFromWidget(ref);
+    await clearRemoteCourseCache();
     if (!context.mounted) return;
+    invalidateRemoteCourseMemoryFromWidget(ref);
+    ref.read(academicRevisionProvider.notifier).state++;
+    ref.read(homeworkCacheRevisionProvider.notifier).state++;
+    ref.invalidate(campusCachedDataProvider);
+    ref.invalidate(homeworkOverviewProvider);
+    ref.invalidate(homeworkSubmissionProvider);
+    ref.invalidate(gradeSnapshotProvider);
     AppToast.show(context, '已清除本机课程数据');
   }
 }

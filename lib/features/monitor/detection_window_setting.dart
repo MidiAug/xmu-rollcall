@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_switch.dart';

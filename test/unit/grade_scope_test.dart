@@ -111,7 +111,7 @@ void main() {
             term: '20261',
             education: 'graduate',
             records: [
-              const GradeRecord({'WID': 'old', 'KCM': 'withdrawn'}),
+              GradeRecord({'WID': 'old', 'KCM': 'withdrawn'}),
             ],
           ).toJson(),
         ),

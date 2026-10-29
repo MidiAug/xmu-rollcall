@@ -12,14 +12,7 @@ bool isUnfinishedActiveHomework(HomeworkItem item, DateTime now) =>
     item.isHomework &&
     item.closed != true &&
     (item.dueAt == null || item.dueAt!.isAfter(now)) &&
-    !const {
-      'submitted',
-      'graded',
-      'completed',
-      '已提交',
-      '已批改',
-      '已完成',
-    }.contains(item.status.trim().toLowerCase());
+    !item.isSubmitted;
 
 /// Reads scoped disk mirrors only; a badge must not start course discovery.
 final homeworkBadgeCountProvider = FutureProvider.autoDispose<int>((ref) async {

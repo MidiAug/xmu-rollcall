@@ -30,6 +30,15 @@ class HomeworkItem {
       type.isEmpty ||
       ['homework', 'assignment', '作业'].any(type.toLowerCase().contains);
 
+  bool get isSubmitted => const {
+    'submitted',
+    'graded',
+    'completed',
+    '已提交',
+    '已批改',
+    '已完成',
+  }.contains(status.trim().toLowerCase());
+
   bool get isOverdue {
     if (closed == true) return true;
     final d = dueAt;

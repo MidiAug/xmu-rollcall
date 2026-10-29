@@ -11,6 +11,8 @@ import 'package:xmu_rollcall/features/homework/homework_candidates.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/homework/homework_submission.dart';
 import 'package:xmu_rollcall/features/homework/homework_badge.dart';
+import 'package:xmu_rollcall/features/homework/homework_cache.dart';
+import 'package:xmu_rollcall/core/cache/cache_revisions.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 
@@ -44,7 +46,7 @@ class HomeworkOverviewNotifier
   int? _scope;
   int? _owner;
   DateTime? _checkedAt;
-  Future<void>? _refreshing;
+  Future<bool>? _refreshing;
   int? _workRevision;
   bool _active = true;
 
@@ -91,7 +93,8 @@ class HomeworkOverviewNotifier
     final uid = _scope ?? _owner!;
     final scope = _scope;
     final repository = ref.read(homeworkRepositoryProvider);
-    final merged = <String, HomeworkItem>{};
+    final merged = <HomeworkItem>[];
+    CourseCatalogSnapshot? catalog;
     var failed = 0;
     var needsNetwork = false;
     var todos = <HomeworkItem>[];
@@ -113,7 +116,7 @@ class HomeworkOverviewNotifier
         needsNetwork = true;
       }
       for (final item in todos) {
-        merged['${item.courseId}/${item.id}'] = item;
+        merged.add(item);
       }
     } catch (_) {
       _check(revision);
@@ -121,7 +124,7 @@ class HomeworkOverviewNotifier
     }
     final catalogProvider = ref.read(scopedCourseCatalogProvider(scope));
     try {
-      final catalog = await ref.read(catalogProvider.future);
+      catalog = await ref.read(catalogProvider.future);
       _check(revision);
       for (final course
           in catalog?.timetableCourses.where((c) => !c.isTeaching) ??
@@ -158,6 +161,7 @@ class HomeworkOverviewNotifier
             ]);
             _check(revision);
             ref.invalidate(courseHomeworkProvider(cid));
+            ref.read(homeworkCacheRevisionProvider.notifier).state++;
           } catch (_) {
             _check(revision);
             failed++;
@@ -167,14 +171,14 @@ class HomeworkOverviewNotifier
         }
         for (final item in items) {
           final seeded = item.copyWith(courseId: cid, courseName: course.title);
-          merged['$cid/${item.id}'] = seeded;
+          merged.add(seeded);
         }
       }
     } catch (_) {
       _check(revision);
       failed++;
     }
-    final items = merged.values.toList()
+    final items = mergeHomeworkItems(merged, catalog)
       ..sort(
         (a, b) =>
             (a.dueAt ?? DateTime(9999)).compareTo(b.dueAt ?? DateTime(9999)),
@@ -189,34 +193,35 @@ class HomeworkOverviewNotifier
     );
   }
 
-  Future<void> ensureFresh({bool force = false}) async {
+  /// False for a fresh snapshot or a check already owned by another caller.
+  Future<bool> ensureFresh({bool force = false}) async {
     final existing = _refreshing;
     if (existing != null) {
       final revision = _workRevision;
       await existing;
-      if (revision == _revision) return;
+      if (revision == _revision) return false;
     }
     _workRevision = _revision;
     final work = _refresh(force);
     _refreshing = work;
     try {
-      await work;
+      return await work;
     } finally {
       if (identical(_refreshing, work)) _refreshing = null;
     }
   }
 
-  Future<void> _refresh(bool force) async {
+  Future<bool> _refresh(bool force) async {
     final revision = _revision;
     try {
       await future;
     } catch (_) {}
-    if (revision != _revision) return;
-    if (_owner == null || !_active) return;
+    if (revision != _revision) return false;
+    if (_owner == null || !_active) return false;
     if (!force &&
         _checkedAt != null &&
         ref.read(homeworkClockProvider)().difference(_checkedAt!) < checkTtl) {
-      return;
+      return false;
     }
     final previous = state.valueOrNull;
     // A check (including a failed one) is throttled across tab switches.
@@ -224,10 +229,11 @@ class HomeworkOverviewNotifier
     final next = await AsyncValue.guard(
       () => _load(force: force, revision: revision),
     );
-    if (revision != _revision) return;
+    if (revision != _revision) return false;
     state = next.hasValue || previous == null
         ? next
         : next.copyWithPrevious(AsyncData(previous));
+    return true;
   }
 }
 

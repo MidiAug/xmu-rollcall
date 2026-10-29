@@ -1,10 +1,10 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_store.dart';
 import 'dart:convert';
 import 'dart:async';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -196,7 +196,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
           final repo = RollcallRepository(
             http: client,
             identity: identity,
-            loadDetectionWindow: DetectionWindow.read,
+            loadDetectionWindow: DetectionWindowStore.read,
           );
           final active = await repo.fetchActive();
           _checkSession();
@@ -491,7 +491,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
       await client.init();
       _checkSession();
       final repo = RollcallRepository(
-        loadDetectionWindow: DetectionWindow.read,
+        loadDetectionWindow: DetectionWindowStore.read,
         http: client,
         identity: ref.read(deviceIdentityProvider),
         deviceIdOverride: deviceId,

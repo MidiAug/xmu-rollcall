@@ -134,12 +134,12 @@ void main() {
       }
       expect(repo.courses, [1, 2]);
       repo.fail = true;
-      await notifier.ensureFresh(force: true);
+      expect(await notifier.ensureFresh(force: true), isTrue);
       final afterFailure = repo.courses.length;
       sub.close();
       await container.pump();
       sub = container.listen(homeworkOverviewProvider, (_, _) {});
-      await notifier.ensureFresh();
+      expect(await notifier.ensureFresh(), isFalse);
       expect(repo.courses.length, afterFailure);
       expect(
         container.read(homeworkOverviewProvider).requireValue.items,

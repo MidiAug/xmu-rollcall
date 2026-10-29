@@ -368,3 +368,23 @@ final result: passed（源码、隔离视觉、相关回归及签名构建）；
 - final-release.log构建Android release成功81.1MB，仍0.3.0+6；校验既有证书SHA256一致后对427b338f执行install -r成功。未卸载或清数据、未执行真实签到、不接管用户其他应用，未push或发布。构建中的既有Kotlin插件迁移提示不阻止当前构建。
 - CHANGELOG及本地忽略docs的规格/验收/台账已同步；不强制添加docs。全天课程收纳仍留待后续，未在本次擅自改写。
 - 最终delivery-tests.log完整套件812项通过、2项既有跳过，无失败；delivery-analyze.log无问题。按新要求，原先3项Android二级页点击Tab的旧回归改为通过平台导航入口验证同样的草稿/忙碌守卫，identity-final.log 35项通过后又重跑完整套件。新增首页/二级页底栏显隐回归同时通过。
+
+## 2026-10-29 维护阶段1
+规则与四阶段计划已写入本地忽略的AGENTS.md和docs/spec/ROADMAP.md，未修改忽略策略。新增共享作业缓存读取/合并，角标/摘要/搜索能读取课程接口独有作业；Overview写入课程镜像同步修订。新增远端课程缓存清理服务，覆盖教务/成绩与刷新标记并失效内存；用户手工安排/日期/地点保留。
+stage1-tests.log相关31项通过，含真实缓存/Provider的课程独有任务与所选身份切换；stage1-focused-analyze.log对9个修改项检查无问题，CHANGELOG结构检查通过。全库分析仍在运行，最终阶段再执行完整检查。本阶段无协议或外观变更，未构建安装。
+
+## 2026-10-29 维护阶段2：检测范围边界
+DetectionWindow仅保留区间模型/运算与异常；DetectionWindowStore负责原键名的读取/保存/旧偏好归属，detectionWindowProvider单独接入账号状态。所有使用点改显式导入，不通过模型重新导出Provider。依赖遍历确认MonitorEngine只传递依赖4个Dart文件、不再到达认证或platform，区间模型无项目依赖。stage2-tests.log 80项通过（含身份隔离、旧偏好、时段、忙碌/草稿及QR），stage2-verified-analyze.log无问题。全库分析曾扫到上轮build内的临时审查探针并报测试专用API位置警告，已删除该自有临时文件，未通过修改分析配置屏蔽警告。
+
+## 2026-10-29 维护阶段3：刷新职责与明确状态
+作业页取消_lastCheckAt/_lastCheckIdentity/_checking，Overview统一负责有效期和在途合并，ensureFresh返回本调用是否完成检查，避免页面重复刷新提交状态/助教任务。页面仍负责可见性、前后台和计时触发。可见性回归现在调用真实Overview刷新算法，仅替换数据边界并记录实际检查次数。签到顶区通过outsideDetectionWindow接收明确状态，取消根据中文文案contains反推。
+stage3-verified-tests.log 65项通过，新增结果契约断言后stage3-unit-final.log 9项通过；stage3-analyze.log对相关7项无问题。保留现有界面与提交/身份约束。
+
+## 2026-10-29 维护阶段4：呈现方式与读取入口
+检测按钮从4个可任意组合的布尔开关改为实际使用的MonitorControlStyle，动作流程/布局不变。搜索功能与官方指南目录移到campus_search_index.dart，个人结果导航复用同一身份边界，删除无效图标条件。GradeRecord构造时解析学分、绩点和数值成绩并固定原始快照；计算使用typed fields，保留本科字母分数、研究生、合格制、N/A与荣誉绩点规则，缓存格式不变。
+final-tests.log全套815项通过/2项既有跳过（最后补充的清理页回归随后单独验证）；final-analyze.log无问题，stage4-grade-tests.log 20项通过，final-captures.log生产组件11项通过。已实看浅色首页及窄屏深色长内容；idle-light/idle-dark与改动前SHA256分别相同，证明样式参数整理保持这两种画面逐字节一致。未执行真实签到/联网成绩查询，未操作日常窗口或重建安装包。
+
+## 2026-10-29 沿途修复：清缓存覆盖协助账号内存
+显式清理远端缓存改为invalidateRemoteCourseMemoryFromWidget，覆盖各账号的活动列表、目录、历史与先验；登出仍沿用原主号失效范围，不删磁盘。移除仅用于转发invalidate/clearSeen的一次性包装，两个入口直接表达各自清理范围。新增SettingsDataPage实际点击/确认回归，验证教务磁盘删除及协助活动Provider重新读取；首次测试遗漏Toast计时器清理，已按现有AppToast.dismiss收尾，未修改产品代码规避测试。
+clear-flow-verified.log 11项通过；冻结源码后delivery-tests.log完整816项通过/2项既有跳过，delivery-analyze.log无问题，delivery-ci-tests.log交付21项通过，CHANGELOG结构检查通过。所有四个维护阶段完成。全量教务行DTO迁移、其余页面间循环依赖与本地规范公开化不在本轮迁移范围，后续在对应功能触及时处理；未新增框架/依赖或生成代码修改。
+- 最终Android Release构建成功81.1MB（android-release.log），仍0.3.0+6，证书SHA256与既有包一致。ADB当前无设备，因此没有安装或清理真机数据；未push/发布。安装包保留dist/xmu-rollcall-0.3.0-android.apk供后续覆盖安装。

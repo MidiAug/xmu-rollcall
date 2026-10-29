@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
 import '../fixtures/preview_fonts.dart';
 import 'dart:io';
 import 'dart:ui' as ui;

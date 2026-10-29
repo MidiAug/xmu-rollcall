@@ -5,39 +5,30 @@ import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 
-/// Drop in-memory remote views for the owner session (R-35 S0).
-///
-/// Disk mirrors are intentionally left intact.
+/// Auth transitions invalidate owner views without deleting disk snapshots.
 void invalidateOwnerRemoteMemory(Ref ref) {
-  _invalidateOwnerRemote(
-    invalidate: ref.invalidate,
-    clearSeen: () {
-      ref.read(seenInProgressCourseIdsProvider.notifier).state = {};
-    },
-  );
+  ref.invalidate(courseCatalogProvider);
+  ref.invalidate(courseHistoryProvider);
+  ref.invalidate(homeworkTodosProvider);
+  ref.invalidate(courseHomeworkProvider);
+  ref.invalidate(activeRollcallsProvider(null));
+  ref.invalidate(sessionPriorProvider);
+  ref.read(seenInProgressCourseIdsProvider.notifier).state = {};
 }
 
-/// WidgetRef variant (settings「清缓存」等).
-void invalidateOwnerRemoteMemoryFromWidget(WidgetRef ref) {
-  _invalidateOwnerRemote(
-    invalidate: ref.invalidate,
-    clearSeen: () {
-      ref.read(seenInProgressCourseIdsProvider.notifier).state = {};
-    },
-  );
-}
-
-void _invalidateOwnerRemote({
-  required void Function(ProviderOrFamily provider) invalidate,
-  required void Function() clearSeen,
-}) {
-  invalidate(courseCatalogProvider);
-  invalidate(courseHistoryProvider);
-  invalidate(homeworkTodosProvider);
-  invalidate(courseHomeworkProvider);
-  invalidate(activeRollcallsProvider(null));
-  invalidate(sessionPriorProvider);
-  clearSeen();
+/// The explicit clear action covers owner and imported accounts.
+void invalidateRemoteCourseMemoryFromWidget(WidgetRef ref) {
+  ref.invalidate(courseCatalogProvider);
+  ref.invalidate(scopedCourseCatalogProvider);
+  ref.invalidate(courseHistoryProvider);
+  ref.invalidate(scopedCourseHistoryProvider);
+  ref.invalidate(homeworkTodosProvider);
+  ref.invalidate(courseHomeworkProvider);
+  ref.invalidate(activeRollcallsProvider);
+  ref.invalidate(sessionPriorProvider);
+  ref.invalidate(scopedSessionPriorProvider);
+  ref.invalidate(importedSeenCourseIdsProvider);
+  ref.read(seenInProgressCourseIdsProvider.notifier).state = {};
 }
 
 /// Watches auth transitions and clears owner remote memory on logout / account switch.
@@ -47,7 +38,8 @@ final sessionLifecycleProvider = Provider<void>((ref) {
   ref.listen<AuthState>(authControllerProvider, (prev, next) {
     final wasIn = prev?.isSignedIn == true;
     final nowOut = !next.isSignedIn;
-    final switched = prev?.profile?.id != null &&
+    final switched =
+        prev?.profile?.id != null &&
         next.profile?.id != null &&
         prev!.profile!.id != next.profile!.id;
     if ((wasIn && nowOut) || switched) {

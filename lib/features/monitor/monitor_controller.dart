@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
 import 'package:xmu_rollcall/features/location/location_validation_store.dart';
 import 'package:xmu_rollcall/features/location/location_providers.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
@@ -13,7 +14,6 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_engine.dart';
 import 'package:xmu_rollcall/features/monitor/automatic_rollcall_answer.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
-import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/platform/android_monitor_shell.dart';

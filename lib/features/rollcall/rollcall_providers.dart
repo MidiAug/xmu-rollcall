@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'package:xmu_rollcall/features/schedule/schedule_detection.dart';
 import 'dart:convert';

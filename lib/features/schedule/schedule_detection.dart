@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_store.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/cache/course_schedule_store.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window.dart';
@@ -58,7 +59,7 @@ Future<DetectionWindow> readScheduleDetectionWindow(
   DateTime? at,
   DetectionWindow? setting,
 }) async {
-  final daily = setting ?? await DetectionWindow.read(reload: reload, uid: uid);
+  final daily = setting ?? await DetectionWindowStore.read(reload: reload, uid: uid);
   if (!daily.enabled) return daily;
   if (uid == null) return daily;
   final academic = await AcademicScheduleStore.read(uid, reload: reload);

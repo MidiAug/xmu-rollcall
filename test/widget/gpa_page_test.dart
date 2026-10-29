@@ -32,7 +32,7 @@ class Grades extends GradeNotifier {
     at: DateTime(2026, 10, 28, 10),
     term: '20261',
     records: [
-      const GradeRecord({
+      GradeRecord({
         'WID': 'a',
         'KCM': '程序设计基础',
         'XNXQDM': '2026-2027-1',
@@ -40,7 +40,7 @@ class Grades extends GradeNotifier {
         'JDF': 4,
         'ZCJ': 95,
       }),
-      const GradeRecord({
+      GradeRecord({
         'WID': 'b',
         'KCLBDM_DISPLAY': '通识教育课程',
         'KCM': '课程名称很长的另一门测试课程用于检查边界',

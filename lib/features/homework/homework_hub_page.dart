@@ -33,7 +33,10 @@ Future<void> _refreshHomework(
     ref.read(homeworkManualRefreshAtProvider(uid).notifier).state =
         DateTime.now();
   }
-  await ref.read(homeworkOverviewProvider.notifier).ensureFresh(force: force);
+  final refreshed = await ref
+      .read(homeworkOverviewProvider.notifier)
+      .ensureFresh(force: force);
+  if (!force && !refreshed) return;
   if (!ref.context.mounted) return;
   final lifecycle = WidgetsBinding.instance.lifecycleState;
   if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
@@ -76,9 +79,6 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
   Timer? _timer;
   bool _foreground = true;
   bool _visible = false;
-  DateTime? _lastCheckAt;
-  (int?, int?)? _lastCheckIdentity;
-  bool _checking = false;
   _TaskFilter _filter = _TaskFilter.all;
 
   @override
@@ -107,34 +107,9 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
         !(ModalRoute.of(context)?.isCurrent ?? true)) {
       return;
     }
-    if (ref.read(authControllerProvider).isSignedIn) {
-      final identity = (
-        ref.read(authControllerProvider).profile?.id,
-        ref.read(selectedRollcallAccountProvider),
-      );
-      if (identity != _lastCheckIdentity) {
-        _lastCheckIdentity = identity;
-        _lastCheckAt = null;
-      }
-      if (_checking ||
-          (_lastCheckAt != null &&
-              ref.read(homeworkClockProvider)().difference(_lastCheckAt!) <
-                  HomeworkOverviewNotifier.checkTtl)) {
-        return;
-      }
-      _checking = true;
-      _lastCheckAt = ref.read(homeworkClockProvider)();
-      try {
-        await _refreshHomework(
-          ref,
-          force: false,
-          refreshStatuses: refreshStatuses,
-        );
-        if (mounted) setState(() {});
-      } finally {
-        _checking = false;
-      }
-    }
+    if (!ref.read(authControllerProvider).isSignedIn) return;
+    await _refreshHomework(ref, force: false, refreshStatuses: refreshStatuses);
+    if (mounted) setState(() {});
   }
 
   @override

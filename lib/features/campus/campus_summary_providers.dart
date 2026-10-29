@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/core/cache/cache_revisions.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
-import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
+import 'package:xmu_rollcall/features/homework/homework_cache.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
@@ -55,47 +55,14 @@ final campusCachedDataProvider = FutureProvider.autoDispose<CampusCachedData>((
   if (!auth.isSignedIn || uid == null) return const CampusCachedData();
   final schedule = await AcademicScheduleStore.read(uid);
   final catalog = await CourseCatalogStore.read(uid);
-  final studentIds = catalog?.courses
-      .where((c) => !c.isTeaching)
-      .map((c) => c.id)
-      .toSet();
-  final teachingIds =
-      catalog?.courses.where((c) => c.isTeaching).map((c) => c.id).toSet() ??
-      <String>{};
-  final todos = await JsonDiskCache.readList('homework_todos_$uid');
-  final items = <String, HomeworkItem>{};
-  void collect(List<Map<String, dynamic>> rows) {
-    for (final row in rows) {
-      var item = HomeworkItem.fromJson(row);
-      if (item.courseName.trim().isEmpty) {
-        final title = catalog?.courses
-            .where((c) => c.id == '${item.courseId}')
-            .firstOrNull
-            ?.title;
-        if (title != null) item = item.copyWith(courseName: title);
-      }
-      if (!item.isHomework ||
-          item.closed == true ||
-          teachingIds.contains('${item.courseId}')) {
-        continue;
-      }
-      if (studentIds != null &&
-          item.courseId != null &&
-          !studentIds.contains('${item.courseId}')) {
-        continue;
-      }
-      final submission = item.status.toLowerCase();
-      if (const {'submitted', 'graded', '已提交', '已批改'}.contains(submission)) {
-        continue;
-      }
-      items['${item.courseId}/${item.id}'] = item;
-    }
-  }
-
-  if (todos != null) collect(todos.items);
+  final homework = await readCachedHomework(uid, catalog);
   return CampusCachedData(
     schedule: schedule,
-    homework: items.values.toList(),
-    hasHomeworkCache: todos != null,
+    homework: homework.items
+        .where(
+          (item) => item.isHomework && item.closed != true && !item.isSubmitted,
+        )
+        .toList(),
+    hasHomeworkCache: homework.hasCache,
   );
 });

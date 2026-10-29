@@ -15,6 +15,22 @@ GradeRecord record(
 });
 
 void main() {
+  test('grade boundary parses a stable typed snapshot once', () {
+    final source = <String, dynamic>{
+      'WID': 'one',
+      'XF': '3',
+      'XFJD': '3.7',
+      'ZCJ': '87',
+    };
+    final grade = GradeRecord(source);
+    source['XF'] = 1;
+    source['XFJD'] = 0;
+    expect(grade.credits, 3);
+    expect(grade.points, 3.7);
+    expect(grade.numericScore, 87);
+    expect(grade.data['XF'], '3');
+    expect(calculateGpa([grade]).gpa, closeTo(3.7, 1e-10));
+  });
   test(
     'XMU XFJD is a course point; N/A and two-level grades never enter GPA',
     () {

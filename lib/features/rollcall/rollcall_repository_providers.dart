@@ -1,7 +1,7 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/schedule/schedule_detection.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/session/session_key.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';

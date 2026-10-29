@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_store.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -185,7 +187,7 @@ void main() {
       await container.read(provider.notifier).refresh();
       expect(repo.calls, 3);
       expect(container.read(provider).requireValue.single.rollcallId, 1);
-      final restored = await DetectionWindow.read(reload: true);
+      final restored = await DetectionWindowStore.read(reload: true);
       expect(restored.enabled, isTrue);
       expect(restored.label, '课前30分钟至课后30分钟');
     },
@@ -215,7 +217,7 @@ void main() {
     expect(find.text('07:30'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('detection-window-switch')));
     await tester.pumpAndSettle();
-    expect((await DetectionWindow.read(reload: true)).enabled, false);
+    expect((await DetectionWindowStore.read(reload: true)).enabled, false);
     await tester.pumpWidget(const SizedBox());
   });
 

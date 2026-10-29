@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_store.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -83,7 +85,7 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('detection-window-switch')));
         await tester.pumpAndSettle();
         expect(find.text('全天可自动检测'), findsOneWidget);
-        expect((await DetectionWindow.read(reload: true)).enabled, false);
+        expect((await DetectionWindowStore.read(reload: true)).enabled, false);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
       },

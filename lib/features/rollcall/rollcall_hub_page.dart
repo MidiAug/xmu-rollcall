@@ -362,7 +362,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
               ownerName: auth.profile?.name ?? '我',
               onChanged: _selectIdentity,
             ),
-          const MonitorQuickControl(toolbar: true),
+          const MonitorQuickControl(style: MonitorControlStyle.toolbar),
           AppRefreshButton(
             key: ValueKey((auth.profile?.id, scope)),
             iconSize: 20,
@@ -493,6 +493,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
           controller: _scroll,
           scope: scope,
           updatedLabel: updatedLabel,
+          outsideDetectionWindow: outsideWindow,
           switching: _switching,
           switchError: _switchError,
           onRetryIdentity: () => _selectIdentity(scope ?? 0),

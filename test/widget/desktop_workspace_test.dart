@@ -185,7 +185,7 @@ class _Overview extends HomeworkOverviewNotifier {
   @override
   Future<HomeworkOverview> build() async => HomeworkOverview(homework);
   @override
-  Future<void> ensureFresh({bool force = false}) async {}
+  Future<bool> ensureFresh({bool force = false}) async => true;
 }
 
 class _Catalog extends CourseCatalogNotifier {

@@ -10,19 +10,22 @@ import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
 
+enum MonitorControlStyle {
+  standard,
+  prominent,
+  quiet,
+  toolbar,
+  masthead,
+  mastheadQuiet,
+}
+
 /// Idle: 「开始检测」pill. Running: capsule with countdown (tap = pollNow) + stop.
 class MonitorQuickControl extends ConsumerStatefulWidget {
   const MonitorQuickControl({
     super.key,
-    this.toolbar = false,
-    this.prominent = false,
-    this.quiet = false,
-    this.masthead = false,
+    this.style = MonitorControlStyle.standard,
   });
-  final bool toolbar;
-  final bool prominent;
-  final bool quiet;
-  final bool masthead;
+  final MonitorControlStyle style;
 
   @override
   ConsumerState<MonitorQuickControl> createState() =>
@@ -59,8 +62,18 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final style = widget.style;
+    final toolbar = style == MonitorControlStyle.toolbar;
+    final quiet =
+        style == MonitorControlStyle.quiet ||
+        style == MonitorControlStyle.mastheadQuiet;
+    final prominent =
+        style == MonitorControlStyle.prominent ||
+        style == MonitorControlStyle.masthead;
     final masthead =
-        widget.masthead && Theme.of(context).platform == TargetPlatform.android;
+        (style == MonitorControlStyle.masthead ||
+            style == MonitorControlStyle.mastheadQuiet) &&
+        Theme.of(context).platform == TargetPlatform.android;
     final monitor = ref.watch(monitorControllerProvider);
     final ctrl = ref.read(monitorControllerProvider.notifier);
     final signedIn = ref.watch(authControllerProvider).isSignedIn;
@@ -92,10 +105,10 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                   )
                 : '',
             child: AppQuietPill(
-              border: masthead ? widget.quiet : !widget.quiet,
+              border: masthead ? quiet : !quiet,
               radius: masthead
                   ? 12
-                  : widget.toolbar
+                  : toolbar
                   ? 7
                   : 18,
               onTap: enabled
@@ -126,16 +139,16 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                     }
                   : null,
               background: masthead
-                  ? widget.quiet
+                  ? quiet
                         ? p.selected
                         : enabled
                         ? p.primary
                         : p.controlSurface
-                  : widget.quiet
+                  : quiet
                   ? Colors.transparent
-                  : widget.prominent && enabled
+                  : prominent && enabled
                   ? p.primary
-                  : widget.toolbar
+                  : toolbar
                   ? p.surface
                   : enabled
                   ? p.selected
@@ -146,7 +159,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                   Icon(
                     AppIcons.detect,
                     size: 16,
-                    color: widget.prominent && enabled
+                    color: prominent && enabled
                         ? (p.isDark ? p.canvas : Colors.white)
                         : enabled
                         ? p.primary
@@ -159,7 +172,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       letterSpacing: -0.1,
-                      color: widget.prominent && enabled
+                      color: prominent && enabled
                           ? (p.isDark ? p.canvas : Colors.white)
                           : enabled
                           ? p.primary

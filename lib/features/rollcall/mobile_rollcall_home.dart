@@ -25,6 +25,7 @@ class MobileRollcallHome extends ConsumerWidget {
     required this.accountMenu,
     required this.scope,
     required this.updatedLabel,
+    this.outsideDetectionWindow = false,
     required this.onHistory,
     required this.onSettings,
     required this.onTimetable,
@@ -38,6 +39,7 @@ class MobileRollcallHome extends ConsumerWidget {
   final Widget accountMenu;
   final int? scope;
   final String updatedLabel;
+  final bool outsideDetectionWindow;
   final VoidCallback onHistory,
       onSettings,
       onTimetable,
@@ -66,16 +68,12 @@ class MobileRollcallHome extends ConsumerWidget {
     final items = active?.valueOrNull ?? const [];
     final running = ref.watch(monitorControllerProvider).running;
     final checking = switching || (active?.isLoading == true && items.isEmpty);
-    final windowStatus =
-        updatedLabel.contains('今日无课') ||
-        updatedLabel.contains('时段') ||
-        updatedLabel.contains('课程');
     final headerStatus = !signedIn
         ? '登录后查看课堂签到'
         : checking
         ? '正在确认最新状态…'
         : switchError ??
-              (windowStatus
+              (outsideDetectionWindow
                   ? updatedLabel
                   : items.isEmpty
                   ? '尚未开始检测'
@@ -86,7 +84,7 @@ class MobileRollcallHome extends ConsumerWidget {
             child: const Text('登录'),
           )
         : running
-        ? const MonitorQuickControl(quiet: true, masthead: true)
+        ? const MonitorQuickControl(style: MonitorControlStyle.mastheadQuiet)
         : checking
         ? const SizedBox(
             width: 48,
@@ -102,9 +100,9 @@ class MobileRollcallHome extends ConsumerWidget {
         : switchError != null
         ? TextButton(onPressed: onRetryIdentity, child: const Text('重试'))
         : MonitorQuickControl(
-            prominent: items.isEmpty,
-            quiet: items.isNotEmpty,
-            masthead: true,
+            style: items.isEmpty
+                ? MonitorControlStyle.masthead
+                : MonitorControlStyle.mastheadQuiet,
           );
     final history = signedIn && !android
         ? ref.watch(currentCourseHistoryProvider)
@@ -215,7 +213,9 @@ class MobileRollcallHome extends ConsumerWidget {
                             child: accountMenu,
                           ),
                           if (items.isNotEmpty)
-                            const MonitorQuickControl(quiet: true),
+                            const MonitorQuickControl(
+                              style: MonitorControlStyle.quiet,
+                            ),
                         ],
                       ),
                     if (android && !running) ...[
@@ -294,7 +294,9 @@ class MobileRollcallHome extends ConsumerWidget {
                               : running
                               ? null
                               : '暂无进行中的签到',
-                          action: const MonitorQuickControl(prominent: true),
+                          action: const MonitorQuickControl(
+                            style: MonitorControlStyle.prominent,
+                          ),
                         ),
                       if (android && items.isNotEmpty)
                         const SizedBox(height: 20),

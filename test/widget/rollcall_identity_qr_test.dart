@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
 import 'dart:ui' show PointerDeviceKind;
 import 'package:dio/dio.dart';
@@ -186,8 +187,9 @@ class _AccountHomework extends HomeworkOverviewNotifier {
   }
 
   @override
-  Future<void> ensureFresh({bool force = false}) async {
+  Future<bool> ensureFresh({bool force = false}) async {
     if (force) _homeworkManualChecks++;
+    return true;
   }
 }
 
