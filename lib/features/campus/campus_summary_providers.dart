@@ -53,7 +53,7 @@ final campusCachedDataProvider = FutureProvider.autoDispose<CampusCachedData>((
   final scope = ref.watch(selectedRollcallAccountProvider);
   final uid = scope ?? auth.profile?.id;
   if (!auth.isSignedIn || uid == null) return const CampusCachedData();
-  final schedule = await AcademicScheduleStore.read(uid);
+  final schedule = await ref.watch(academicCachedScheduleProvider(uid).future);
   final catalog = await CourseCatalogStore.read(uid);
   final homework = await readCachedHomework(uid, catalog);
   return CampusCachedData(

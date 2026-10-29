@@ -50,6 +50,13 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
     final timetable = auth.isSignedIn && uid != null
         ? ref.watch(academicTimetableProvider(uid))
         : null;
+    final cached = auth.isSignedIn && uid != null
+        ? ref.watch(academicCachedScheduleProvider(uid)).valueOrNull
+        : null;
+    // A slow sync must not hide an already saved timetable.
+    final visibleTimetable = timetable?.isLoading == true && cached != null
+        ? AsyncData(AcademicTimetableState(schedule: cached))
+        : timetable;
     final info = uid == null
         ? null
         : ref.watch(semesterInfoProvider(uid)).valueOrNull;
@@ -144,7 +151,7 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
             )
           : timetable == null
           ? const SizedBox.shrink()
-          : timetable.when(
+          : visibleTimetable!.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (_, _) => failure('请稍后重试'),
               data: (value) {
@@ -248,7 +255,9 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
                         key: ValueKey(_viewEpoch),
                         snap: CourseCatalogSnapshot(
                           fetchedAt: schedule.fetchedAt,
-                          courses: schedule.displayOnlyCourses(const []),
+                          courses: ref.watch(
+                            academicDisplayCoursesProvider(schedule),
+                          ),
                         ),
                         assistUserId: widget.assistUserId,
                         semester: _semester,

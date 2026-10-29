@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/features/academic/academic_access.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'package:xmu_rollcall/features/schedule/academic_calendar.dart';
@@ -84,4 +85,17 @@ final academicTimetableProvider = FutureProvider.autoDispose
         message: sync.errorFor(uid),
         needsLogin: sync.needsLogin(uid),
       );
+    });
+
+/// Local snapshot shared by screens; subscribing never starts academic sync.
+final academicCachedScheduleProvider = FutureProvider.autoDispose
+    .family<AcademicSchedule?, int>((ref, uid) {
+      ref.watch(academicRevisionProvider);
+      return AcademicScheduleStore.read(uid);
+    });
+
+/// Keep normalized display courses while the same schedule is being presented.
+final academicDisplayCoursesProvider = Provider.autoDispose
+    .family<List<CatalogCourse>, AcademicSchedule>((ref, schedule) {
+      return schedule.displayOnlyCourses(const []);
     });

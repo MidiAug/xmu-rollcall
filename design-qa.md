@@ -1,3 +1,9 @@
+## 2026-10-29 课表缓存先显与展示转换复用
+
+进入课表时，只要当前目标账号有有效本地课表，先显示缓存，不等待academicTimetableProvider原有教务同步完成；同步结果仍走原Provider发布，错误/登录提示、身份守卫、限流和刷新规则不变。无缓存继续显示加载。academicCachedScheduleProvider按uid和academicRevision共享本地读取，供课程页、校园摘要及个人资料使用，不触发同步；academicDisplayCoursesProvider在同一课表对象被订阅期间复用课程展示转换，本周/学期切换不重复转换整学期课次。
+
+验证：`profile-density-tests.log`中70项通过，`flutter analyze --no-pub lib test`无问题。新增回归使用真实AcademicSync和内存存储，仅在AcademicTimetableReader边界阻塞响应；请求未完成时TimetableGridView已呈现缓存，切换学期不重复请求且转换列表保持同一对象；放行后真实存储和Provider更新为新课程。额外campus_cache、学院及地图/设置检查中，仅旧手机地点行高上限断言与本轮新68px设计冲突，更新断言后地图14项通过。未给出未经设备测量的毫秒性能提升，也未宣称完全消除所有解析。
+
 ## 2026-10-29 导航胶囊与个人页层级修订
 
 Android导航高亮为随Tab槽宽铺开的椭圆胶囊，不使用正圆；高亮相对导航外框上下/端点内缩5px，54px高度取27px圆角，与64px外框的32px圆角构成一致内缩轮廓。保留连续滑动、快速改向与减少动画行为。个人页顶部移除重复“我的”标题，以56px头像、22px姓名和账号状态作为唯一身份区；整行继续进入账号管理或登录，导航文字仍为“我的”。

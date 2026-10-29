@@ -1,3 +1,11 @@
+import 'dart:async';
+import 'package:cookie_jar/cookie_jar.dart';
+import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/core/storage/secure_store.dart';
+import 'package:xmu_rollcall/features/academic/academic_identity.dart';
+import 'package:xmu_rollcall/features/academic/academic_session.dart';
+import 'package:xmu_rollcall/features/schedule/academic_sync.dart';
+import 'package:xmu_rollcall/features/schedule/academic_timetable_reader.dart';
 import '../fixtures/preview_fonts.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
@@ -42,6 +50,24 @@ class _Catalog extends CourseCatalogNotifier {
   }
 }
 
+class _PendingReader extends AcademicTimetableReader {
+  _PendingReader(SecureStore store, this.result)
+    : super(AcademicSession(store: store));
+  final Completer<AcademicSchedule> result;
+  int calls = 0;
+  @override
+  Future<AcademicSchedule> fetch(
+    int uid, {
+    CookieJar? sso,
+    String? username,
+    String? password,
+    DateTime? at,
+  }) {
+    calls++;
+    return result.future;
+  }
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   setUpAll(() async {
@@ -60,6 +86,105 @@ void main() {
           .load();
     }
   });
+  testWidgets(
+    'saved timetable is visible while real sync waits, then updates',
+    (tester) async {
+      final now = DateTime.now();
+      AcademicSchedule snapshot(String title, DateTime fetched) =>
+          AcademicSchedule(
+            term: '20261',
+            monday: DateTime(2026, 9, 14),
+            fetchedAt: fetched,
+            rows: [
+              AcademicCourseRow.fromJson({
+                'KCDM': 'cache',
+                'KCMC': title,
+                'BJDM': 'A',
+                'XQ': 1,
+                'KSJCDM': 3,
+                'JSJCDM': 4,
+                'startMinute': 610,
+                'endMinute': 710,
+                'JASMC': '学武楼A404',
+                'ZCBH': '11111111111111111111111111111111',
+              }),
+            ],
+          );
+      await AcademicScheduleStore.write(
+        1,
+        snapshot('已缓存课程', now.subtract(const Duration(days: 10))),
+      );
+      final store = SecureStore.memory({SecureStore.keyUserId: '1'});
+      final pending = Completer<AcademicSchedule>();
+      final reader = _PendingReader(store, pending);
+      final container = ProviderContainer(
+        overrides: [
+          secureStoreProvider.overrideWithValue(store),
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          academicSyncProvider.overrideWith((ref) {
+            final sync = AcademicSync(
+              store,
+              createReader: (_) => reader,
+              resolveIdentity: (_) async => AcademicIdentity(
+                username: '2099000000001',
+                password: 'fixture-only',
+                isCurrent: () async => true,
+              ),
+              onUpdated: (_) =>
+                  ref.read(academicRevisionProvider.notifier).state++,
+            );
+            ref.onDispose(sync.dispose);
+            return sync;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
+            home: const CoursesPage(),
+          ),
+        ),
+      );
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 30));
+      }
+      expect(reader.calls, 1);
+      expect(pending.isCompleted, false);
+      expect(find.byType(TimetableGridView), findsOneWidget);
+      expect(container.read(academicTimetableProvider(1)).isLoading, true);
+      final cached = await container.read(
+        academicCachedScheduleProvider(1).future,
+      );
+      final courseList = container.read(
+        academicDisplayCoursesProvider(cached!),
+      );
+      await tester.tap(find.text('学期'));
+      await tester.pumpAndSettle();
+      expect(
+        container.read(academicDisplayCoursesProvider(cached)),
+        same(courseList),
+      );
+      expect(reader.calls, 1);
+      pending.complete(snapshot('更新后的课程', now));
+      await tester.pumpAndSettle();
+      expect(
+        container
+            .read(academicTimetableProvider(1))
+            .valueOrNull
+            ?.schedule
+            ?.rows
+            .single
+            .courseName,
+        '更新后的课程',
+      );
+      expect(reader.calls, 1);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   for (final width in [384.0, 960.0]) {
     testWidgets(
       'week/term toggle is local and excludes off-week meetings at $width',
