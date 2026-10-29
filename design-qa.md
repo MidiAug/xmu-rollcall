@@ -1,3 +1,19 @@
+### 2026-10-29 本轮构建交付
+
+源码`9b839e8`的Android release构建成功，81.2MB（`build/profile-density-android-release.log`），产物`dist/xmu-rollcall-0.3.0-android.apk`。aapt核对正式包名、versionName0.3.0/versionCode6；apksigner验证通过，证书SHA-256与此前覆盖安装证书相同。最终`flutter analyze --no-pub lib test`无问题（`profile-density-final-analyze.log`）。构建期间ADB设备列表变空，构建完成后再次查询仍无设备，已请用户重连；本轮未执行覆盖安装，未声称真机观感或性能已验证。
+
+## 2026-10-29 个人身份卡与移动列表密度
+
+Android我的页将56px头像、姓名、学号/账号信息和学院收进完整身份卡，沿用原插画背景；学院只从登录主账号的本地教务课表读取，无值则隐藏，不因签到选择协助账号而切换，也不新增网络请求。学院最多两行，长名称省略，整个身份卡继续打开账号管理/登录。普通设置行48px最小高度加上下各4px内边距，外观行56px；组左右边距16px、组间16px。地点管理单栏列表采用68px最小高度、36px图标底、15px标题/12px说明，双栏维持原紧凑规格。
+
+呈现检查按进入我的→查看身份区/设置组→进入地点管理列表顺序，使用生产Flutter组件隔离渲染：
+
+1. 我的：`.tools/settings-polish/mobile-account-light.png`、`mobile-account-dark.png`实看姓名/学号/学院归入卡片，设置组收紧；学院按主账号读取，新增切换协助后仍显示主账号学院的回归。
+2. 大字体：`mobile-account-narrow.png`实看320宽、1.3倍字号、长学院两行省略；账号管理点击及退出入口回归通过。
+3. 地点：`build/location-header-review/list.png`实看68px单栏行、36px图标底与更大文字；地图/选点/返回/课程绑定14项通过，双栏仍保留原规格。原测试手机行高≤60断言按本次用户要求改为68—72，桌面上限仍60。
+
+核心70项回归通过；补充设置、campus_cache及学院用例通过，地图行高旧断言修订后14项通过。`flutter analyze --no-pub lib test`无问题。截图只证明所检查尺寸/主题的呈现，不宣称完整无障碍或设备实测性能；本轮真机安装另记。
+
 ## 2026-10-29 课表缓存先显与展示转换复用
 
 进入课表时，只要当前目标账号有有效本地课表，先显示缓存，不等待academicTimetableProvider原有教务同步完成；同步结果仍走原Provider发布，错误/登录提示、身份守卫、限流和刷新规则不变。无缓存继续显示加载。academicCachedScheduleProvider按uid和academicRevision共享本地读取，供课程页、校园摘要及个人资料使用，不触发同步；academicDisplayCoursesProvider在同一课表对象被订阅期间复用课程展示转换，本周/学期切换不重复转换整学期课次。

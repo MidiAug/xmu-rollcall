@@ -268,7 +268,7 @@ void main() {
             tester
                 .getSize(find.byKey(const ValueKey('managed-room-西部片区9号楼')))
                 .height,
-            lessThanOrEqualTo(60),
+            width < 600 ? inInclusiveRange(68, 72) : lessThanOrEqualTo(60),
           );
           await capture(tester, 'map-$width-$dark');
           await tester.tap(find.byKey(const ValueKey('managed-room-西部片区9号楼')));

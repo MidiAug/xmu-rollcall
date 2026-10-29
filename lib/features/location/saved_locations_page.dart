@@ -521,18 +521,18 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                             key: ValueKey(
                                               'managed-room-${e.name}',
                                             ),
-                                            dense: true,
-                                            minTileHeight: 56,
-                                            minVerticalPadding: 6,
-                                            minLeadingWidth: 28,
-                                            horizontalTitleGap: 10,
+                                            dense: wide,
+                                            minTileHeight: wide ? 56 : 68,
+                                            minVerticalPadding: wide ? 6 : 10,
+                                            minLeadingWidth: wide ? 28 : 36,
+                                            horizontalTitleGap: wide ? 10 : 12,
                                             contentPadding:
-                                                const EdgeInsets.symmetric(
-                                                  horizontal: 8,
+                                                EdgeInsets.symmetric(
+                                                  horizontal: wide ? 8 : 12,
                                                 ),
                                             leading: Container(
-                                              width: 28,
-                                              height: 28,
+                                              width: wide ? 28 : 36,
+                                              height: wide ? 28 : 36,
                                               decoration: BoxDecoration(
                                                 color: invalid
                                                     ? p.danger.withValues(
@@ -565,7 +565,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                                   .textTheme
                                                   .bodyMedium
                                                   ?.copyWith(
-                                                    fontSize: 13,
+                                                    fontSize: wide ? 13 : 15,
                                                     color: p.ink,
                                                     fontWeight: FontWeight.w600,
                                                   ),
@@ -606,7 +606,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                                     .textTheme
                                                     .bodySmall
                                                     ?.copyWith(
-                                                      fontSize: 11,
+                                                      fontSize: wide ? 11 : 12,
                                                       color: p.muted,
                                                     ),
                                               ),

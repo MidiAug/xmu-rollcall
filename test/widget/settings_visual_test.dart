@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import '../fixtures/preview_fonts.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'dart:io';
@@ -40,7 +42,11 @@ class _Auth extends AuthController {
     state = signedIn
         ? const AuthState(
             status: AuthStatus.signedIn,
-            profile: UserProfile(id: 1, name: '测试同学'),
+            profile: UserProfile(
+              id: 1,
+              name: '测试同学',
+              raw: {'user_no': '2099000000001'},
+            ),
           )
         : const AuthState(status: AuthStatus.signedOut);
   }
@@ -96,10 +102,29 @@ Widget _app({
   required TargetPlatform platform,
   double textScale = 1,
   bool needsSchedule = false,
+  String college = '信息学院',
 }) {
   return ProviderScope(
     overrides: [
       secureStoreProvider.overrideWithValue(SecureStore.memory()),
+      academicCachedScheduleProvider(1).overrideWith(
+        (ref) async => AcademicSchedule(
+          term: '20261',
+          monday: DateTime(2026, 9, 14),
+          fetchedAt: DateTime(2026, 10, 29),
+          rows: [],
+          studentCollege: college,
+        ),
+      ),
+      academicCachedScheduleProvider(2).overrideWith(
+        (ref) async => AcademicSchedule(
+          term: '20261',
+          monday: DateTime(2026, 9, 14),
+          fetchedAt: DateTime(2026, 10, 29),
+          rows: [],
+          studentCollege: '其他账号学院',
+        ),
+      ),
       academicTimetableProvider(1).overrideWith(
         (ref) async => const AcademicTimetableState(
           message: '请重新登录账号以连接教务课表',
@@ -451,6 +476,14 @@ void main() {
         findsOneWidget,
         reason: 'Only the bottom navigation keeps the page label',
       );
+      expect(find.text('信息学院'), findsOneWidget);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SettingsPage)),
+      );
+      container.read(selectedRollcallAccountProvider.notifier).state = 2;
+      await tester.pumpAndSettle();
+      expect(find.text('信息学院'), findsOneWidget);
+      expect(find.text('其他账号学院'), findsNothing);
       await capture(tester, key, 'mobile-account-${dark ? 'dark' : 'light'}');
       await tester.tap(find.byKey(const ValueKey('android-profile-summary')));
       await tester.pumpAndSettle();
@@ -463,6 +496,35 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
+
+  testWidgets('narrow profile keeps long college and account action usable', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      RepaintBoundary(
+        key: key,
+        child: _app(
+          platform: TargetPlatform.android,
+          needsSchedule: true,
+          textScale: 1.3,
+          college: '电子科学与技术学院（国家示范性微电子学院）',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('profile-college')), findsOneWidget);
+    await capture(tester, key, 'mobile-account-narrow');
+    await tester.tap(find.byKey(const ValueKey('android-profile-summary')));
+    await tester.pumpAndSettle();
+    expect(find.text('退出登录'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets(
     'signed out course entry opens login rather than ignoring the tap',
