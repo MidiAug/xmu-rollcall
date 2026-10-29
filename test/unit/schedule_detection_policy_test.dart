@@ -54,7 +54,7 @@ void main() {
                 'startMinute': item.$2,
                 'endMinute': item.$3,
               },
-          ],
+          ].map(AcademicCourseRow.fromJson).toList(),
         ),
       );
       final window = await readScheduleDetectionWindow(2, at: day);

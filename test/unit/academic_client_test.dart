@@ -394,7 +394,7 @@ void main() {
           at: DateTime(2026, 10, 27),
         );
         expect(result.monday, DateTime(2026, 9, 7));
-        expect(result.rows.single.containsKey('XH'), isFalse);
+        expect(result.rows.single.toJson().containsKey('XH'), isFalse);
         expect(result.studentCollege, '信息学院');
         expect(
           requests.where(

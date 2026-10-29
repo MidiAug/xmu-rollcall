@@ -27,7 +27,7 @@ AcademicSchedule semesterFixture() => AcademicSchedule(
       'endMinute': 710,
       'JASMC': 'A101',
     },
-  ],
+  ].map(AcademicCourseRow.fromJson).toList(),
 );
 
 void main() {

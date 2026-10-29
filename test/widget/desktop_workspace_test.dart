@@ -119,7 +119,7 @@ final schedule = AcademicSchedule(
         'startMinute': c.$3,
         'endMinute': c.$4,
       },
-  ],
+  ].map(AcademicCourseRow.fromJson).toList(),
 );
 final homework = [
   HomeworkItem(
@@ -156,8 +156,8 @@ final peerSchedule = AcademicSchedule(
   monday: schedule.monday,
   fetchedAt: now,
   rows: [
-    {...schedule.rows[1], 'KCMC': '账号二课程'},
-  ],
+    {...schedule.rows[1].toJson(), 'KCMC': '账号二课程'},
+  ].map(AcademicCourseRow.fromJson).toList(),
 );
 
 class _Todos extends HomeworkTodosNotifier {

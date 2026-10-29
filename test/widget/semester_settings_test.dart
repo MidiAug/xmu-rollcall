@@ -182,7 +182,7 @@ void main() {
           fetchedAt: DateTime.now(),
           rows: [
             {'KCDM': 'C', 'BJDM': 'A', 'KCMC': '教务课程', 'BJMC': 'A班'},
-          ],
+          ].map(AcademicCourseRow.fromJson).toList(),
         ),
       );
       await tester.pumpWidget(

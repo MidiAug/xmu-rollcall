@@ -43,10 +43,14 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
   CourseCatalogNotifier({this.assistUserId});
   final int? assistUserId;
   int? _boundUserId;
+  int _revision = 0;
   Future<CourseCatalogSnapshot>? _inFlight;
 
   @override
   Future<CourseCatalogSnapshot?> build() async {
+    final revision = ++_revision;
+    ref.onDispose(() => _revision++);
+    _inFlight = null;
     ref.keepAlive();
     ref.watch(academicRevisionProvider);
     final auth = ref.watch(authControllerProvider);
@@ -61,12 +65,14 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
     if (assistUserId == null) {
       unawaited(
         Future(() async {
+          if (revision != _revision) return;
           await ref.read(academicSyncProvider).sync(userId);
         }).catchError((Object _) {}),
       );
     }
     final disk = await CourseCatalogStore.read(userId);
     final academic = await AcademicScheduleStore.read(userId);
+    if (revision != _revision) return null;
     if (disk != null &&
         disk.rolesResolved &&
         disk.startDatesResolved &&
@@ -75,18 +81,19 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
     }
     if (disk != null) {
       try {
-        return await _fetchAndPersist(userId);
+        return await _fetchAndPersist(userId, revision);
       } catch (_) {
         return _withSchedules(userId, disk);
       }
     }
-    return _fetchAndPersist(userId);
+    return _fetchAndPersist(userId, revision);
   }
 
   /// Appear does **not** hit the network when disk exists (R-35 Sticky).
   Future<void> ensureFresh({
     EnsureFreshReason reason = EnsureFreshReason.appear,
   }) async {
+    final revision = _revision;
     final uid =
         _boundUserId ??
         assistUserId ??
@@ -96,7 +103,9 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
       final disk = await CourseCatalogStore.read(uid);
       if (disk != null) {
         final effective = await _withSchedules(uid, disk);
-        if (_boundUserId == uid) state = AsyncData(effective);
+        if (_boundUserId == uid && revision == _revision) {
+          state = AsyncData(effective);
+        }
         return;
       }
     }
@@ -110,15 +119,18 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
         ref.read(authControllerProvider).profile?.id;
     if (uid == null || uid == 0) return;
     final previous = state.valueOrNull;
+    var revision = _revision;
     try {
       if (assistUserId == null) {
         await ref.read(academicSyncProvider).sync(uid, force: true);
       }
-      final next = await _fetchAndPersist(uid);
       if (_boundUserId != uid) return;
+      revision = _revision;
+      final next = await _fetchAndPersist(uid, revision);
+      if (_boundUserId != uid || revision != _revision) return;
       state = AsyncData(next);
     } catch (e, st) {
-      if (_boundUserId != uid) return;
+      if (_boundUserId != uid || revision != _revision) return;
       if (previous != null) {
         state = AsyncData(previous);
       } else {
@@ -127,7 +139,7 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
     }
   }
 
-  Future<CourseCatalogSnapshot> _fetchAndPersist(int userId) {
+  Future<CourseCatalogSnapshot> _fetchAndPersist(int userId, int revision) {
     final existing = _inFlight;
     if (existing != null) return existing;
     final future = () async {
@@ -139,6 +151,7 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
         final service = await ref.read(assistServiceProvider.future);
         await service.ensureSession(identity);
       }
+      if (revision != _revision) throw StateError('课程目录已失效');
       final fetched = await ref
           .read(
             assistUserId == null
@@ -156,9 +169,11 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
         startDatesResolved: fetched.startDatesResolved,
         academicTerm: academic?.term,
       );
-      if (_boundUserId != userId) return snap;
+      if (revision != _revision) return snap;
       final previous = await CourseCatalogStore.read(userId);
+      if (revision != _revision) return snap;
       await CourseCatalogStore.write(userId, snap);
+      if (revision != _revision) return snap;
       final term = academic?.term;
       if (fetched.courses.any((c) => c.startDate != null) &&
           (previous == null ||

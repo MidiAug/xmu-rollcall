@@ -660,6 +660,39 @@ void main() {
     },
   );
 
+  for (final fail in [false, true]) {
+    test(
+      'invalidating history discards a pending response for the same account fail=$fail',
+      () async {
+        await container.read(courseHistoryProvider.future);
+        final entered = Completer<void>(), release = Completer<void>();
+        repo.duringFetch = () async {
+          entered.complete();
+          await release.future;
+        };
+        final pending = container
+            .read(courseHistoryProvider.notifier)
+            .refreshCourse('a');
+        await entered.future;
+        await JsonDiskCache.remove(CourseRollcallsStore.suffix(1, 'a'));
+        container.invalidate(courseHistoryProvider);
+        await container.read(courseHistoryProvider.future);
+        repo.records['a'] = [externalRow('已签到')];
+        repo.fail = fail;
+        release.complete();
+        await pending;
+        expect(await CourseRollcallsStore.read(1, 'a'), isNull);
+        expect(
+          container
+              .read(courseHistoryProvider)
+              .requireValue
+              .any((r) => r.rollcallId == 'external'),
+          isFalse,
+        );
+      },
+    );
+  }
+
   test('only pending course fetched; success consumes signal', () async {
     await container.read(courseHistoryProvider.future);
     container.read(seenInProgressCourseIdsProvider.notifier).state = {'a'};

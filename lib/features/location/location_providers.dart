@@ -33,6 +33,45 @@ final savedLocationsProvider =
       );
     });
 
+final _savedLocationsByUserProvider =
+    StateNotifierProvider.family<
+      SavedLocationsController,
+      List<SavedLocation>,
+      int
+    >((ref, userId) {
+      // Edits use the selected controller while this account is current.
+      ref.watch(selectedRollcallAccountProvider);
+      return SavedLocationsController(
+        ownerId: ref.watch(authControllerProvider).profile?.id,
+        userId: userId,
+      );
+    });
+
+final savedLocationsForUserProvider =
+    Provider.family<
+      StateNotifierProvider<SavedLocationsController, List<SavedLocation>>,
+      int?
+    >((ref, userId) {
+      final auth = ref.watch(authControllerProvider);
+      if (!auth.isSignedIn) return savedLocationsProvider;
+      final current =
+          ref.watch(selectedRollcallAccountProvider) ?? auth.profile?.id;
+      return userId == null || userId == current
+          ? savedLocationsProvider
+          : _savedLocationsByUserProvider(userId);
+    });
+
+final _locationIssuesByUserProvider = FutureProvider.autoDispose
+    .family<List<LocationValidationIssue>, int>((ref, userId) {
+      final owner = ref.watch(authControllerProvider).profile?.id;
+      return owner == null ? [] : readLocationIssues(owner, userId);
+    });
+
+AutoDisposeFutureProvider<List<LocationValidationIssue>>
+locationIssuesForUserProvider(int? userId) => userId == null
+    ? locationIssuesProvider
+    : _locationIssuesByUserProvider(userId);
+
 final courseRadarDefaultsProvider =
     StateNotifierProvider<
       CourseRadarDefaultsController,

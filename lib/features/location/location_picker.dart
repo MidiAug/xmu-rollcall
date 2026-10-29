@@ -46,6 +46,7 @@ class LocationPickerContent extends ConsumerStatefulWidget {
     super.key,
     required this.title,
     this.selectedId,
+    this.userId,
     this.initial,
     this.locations,
     this.onSelected,
@@ -54,6 +55,7 @@ class LocationPickerContent extends ConsumerStatefulWidget {
   });
   final String title;
   final String? selectedId;
+  final int? userId;
   final LatLng? initial;
   final List<SavedLocation>? locations;
   final ValueChanged<SavedLocation>? onSelected;
@@ -111,7 +113,7 @@ class _LocationPickerState extends ConsumerState<LocationPickerContent> {
     });
     try {
       final place = await ref
-          .read(savedLocationsProvider.notifier)
+          .read(ref.read(savedLocationsForUserProvider(widget.userId)).notifier)
           .add(
             note: result.saveNote!,
             latitude: result.latitude,
@@ -129,7 +131,11 @@ class _LocationPickerState extends ConsumerState<LocationPickerContent> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final text = Theme.of(context).textTheme;
-    final saved = ref.watch(knownLocationsProvider);
+    final saved = ref.watch(
+      widget.userId == null
+          ? knownLocationsProvider
+          : knownLocationsForUserProvider(widget.userId),
+    );
     final locations = (widget.locations ?? saved)
         .where((p) => !p.id.startsWith('room:'))
         .toList();

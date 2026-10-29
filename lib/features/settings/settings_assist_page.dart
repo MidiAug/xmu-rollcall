@@ -6,6 +6,7 @@ import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/assist/assist_dialogs.dart';
+import 'package:xmu_rollcall/features/assist/assist_identities_page.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/core/session/session_credential.dart';
 

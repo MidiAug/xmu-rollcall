@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
+import 'package:xmu_rollcall/features/homework/homework_course_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_models.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/homework/homework_overview.dart';
@@ -23,6 +26,58 @@ class _Auth extends AuthController {
 }
 
 void main() {
+  testWidgets('detail to course to another detail preserves course context', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    const seed = HomeworkItem(
+      id: 7,
+      title: 'Essay',
+      courseId: 3,
+      courseName: 'English',
+    );
+    const next = HomeworkItem(id: 8, title: 'Next essay');
+    await JsonDiskCache.writeList('course_homework_1_3', [next.toJson()]);
+    await JsonDiskCache.writeList('homework_todos_1', []);
+    final opened = <HomeworkDetailKey>[];
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          currentTeachingCoursesProvider.overrideWith((ref) async => const []),
+          homeworkSubmissionProvider.overrideWith(
+            (ref, key) async => const HomeworkSubmissionState(
+              submission: HomeworkSubmission.unknown,
+            ),
+          ),
+          homeworkDetailProvider.overrideWith((ref, key) async {
+            opened.add(key);
+            return key.seed!;
+          }),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: const HomeworkDetailPage(seed: seed),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('查看该课全部'));
+    await tester.pumpAndSettle();
+    expect(find.byType(HomeworkCoursePage), findsOneWidget);
+    await tester.tap(find.text('Next essay'));
+    await tester.pumpAndSettle();
+    expect(opened.last.activityId, 8);
+    expect(opened.last.seed!.courseId, 3);
+    expect(opened.last.seed!.courseName, 'English');
+    expect(find.text('Next essay'), findsOneWidget);
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    expect(find.byType(HomeworkCoursePage), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   for (final width in [320.0, 960.0]) {
     testWidgets('submission chips follow all detail fields at $width', (
       tester,

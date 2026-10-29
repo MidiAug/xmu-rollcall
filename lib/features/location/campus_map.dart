@@ -6,13 +6,7 @@ import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'campus_places.dart';
 import 'location_models.dart';
-import 'map_pick_panel.dart'
-    show
-        kAmapTileUrlTemplate,
-        kAmapTileSubdomains,
-        kAmapMaxNativeZoom,
-        kAmapMaxZoom,
-        kMapOverlayInset;
+import 'campus_map_config.dart';
 
 /// Map tiles receive viewport coordinates only; no campus account or course data.
 class CampusMap extends StatefulWidget {

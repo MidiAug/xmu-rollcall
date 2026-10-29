@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
-import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
@@ -28,6 +26,9 @@ class AuthController extends StateNotifier<AuthState> {
   final Future<void> Function(UserProfile)? afterRestore;
   final Future<void> Function(UserProfile, String, String)? afterSignIn;
   int _generation = 0;
+
+  bool isSignedInAs(int userId) =>
+      mounted && state.isSignedIn && state.profile?.id == userId;
 
   Future<void> bootstrap() async {
     final generation = ++_generation;
@@ -153,28 +154,6 @@ class AuthController extends StateNotifier<AuthState> {
   }
 }
 
-final StateNotifierProvider<AuthController, AuthState> authControllerProvider =
-    StateNotifierProvider<AuthController, AuthState>((ref) {
-      return AuthController(
-        ref.watch(authRepositoryProvider),
-        afterRestore: (profile) =>
-            ref.read(academicSyncProvider).sync(profile.id),
-        afterSignIn: (profile, username, password) async {
-          await ref
-              .read(academicSyncProvider)
-              .sync(
-                profile.id,
-                sso: ref.read(tronHttpClientProvider).cookieJar,
-                username: username,
-                password: password,
-                force: true,
-              );
-          if (ref.read(authControllerProvider).profile?.id == profile.id) {
-            ref.read(academicRevisionProvider.notifier).state++;
-          }
-        },
-        beforeSignOut: () => ref
-            .read(monitorControllerProvider.notifier)
-            .stopAsync(reason: 'sign_out'),
-      );
-    });
+final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
+  (ref) => AuthController(ref.watch(authRepositoryProvider)),
+);

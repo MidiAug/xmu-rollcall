@@ -20,7 +20,11 @@ class HomeworkDetailPage extends ConsumerWidget {
   void _openCourse(BuildContext context, int courseId, String courseName) {
     AppPageRoutes.push(
       context,
-      HomeworkCoursePage(courseId: courseId, courseName: courseName),
+      HomeworkCoursePage(
+        courseId: courseId,
+        courseName: courseName,
+        detailBuilder: (item) => HomeworkDetailPage(seed: item),
+      ),
     );
   }
 

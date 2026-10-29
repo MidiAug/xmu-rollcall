@@ -30,6 +30,12 @@ import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid_view.dart';
 import '../fixtures/preview_fonts.dart';
+import 'package:xmu_rollcall/features/settings/courses_page.dart';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
+import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/core/storage/secure_store.dart';
 
 Future<void> capture(WidgetTester tester, String name) async {
   expect(tester.takeException(), isNull);
@@ -83,6 +89,99 @@ void main() {
           .load();
     }
   });
+  test(
+    'explicit places reload edits made while that account was selected',
+    () async {
+      final scope = ProviderContainer(
+        overrides: [
+          secureStoreProvider.overrideWithValue(SecureStore.memory()),
+          authControllerProvider.overrideWith((ref) => _IssueAuth()),
+        ],
+      );
+      addTearDown(scope.dispose);
+      var source = scope.read(savedLocationsForUserProvider(2));
+      await scope.read(source.notifier).ready;
+      scope.read(selectedRollcallAccountProvider.notifier).state = 2;
+      await scope
+          .read(savedLocationsProvider.notifier)
+          .add(note: 'Assist place', latitude: 24.605, longitude: 118.313);
+      scope.read(selectedRollcallAccountProvider.notifier).state = null;
+      source = scope.read(savedLocationsForUserProvider(2));
+      await scope.read(source.notifier).ready;
+      expect(scope.read(source).single.note, 'Assist place');
+      await scope.read(savedLocationsProvider.notifier).ready;
+      expect(scope.read(savedLocationsProvider), isEmpty);
+    },
+  );
+
+  testWidgets(
+    'explicit assist timetable binds its own places without changing selection',
+    (tester) async {
+      final schedule = AcademicSchedule(
+        term: '20261',
+        monday: DateTime(2026, 9, 7),
+        fetchedAt: DateTime.now(),
+        rows: const [
+          AcademicCourseRow(
+            courseId: 'test',
+            courseName: 'Assist course',
+            room: '测试教学楼101',
+            weekday: 1,
+            firstPeriod: 1,
+            lastPeriod: 2,
+            startMinute: 480,
+            endMinute: 540,
+            weeks: {8},
+          ),
+        ],
+      );
+      await AcademicScheduleStore.write(2, schedule);
+      final scope = ProviderContainer(
+        overrides: [
+          secureStoreProvider.overrideWithValue(SecureStore.memory()),
+          authControllerProvider.overrideWith((ref) => _IssueAuth()),
+          academicTimetableProvider.overrideWith(
+            (ref, uid) async => AcademicTimetableState(schedule: schedule),
+          ),
+        ],
+      );
+      addTearDown(scope.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: scope,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const CoursesPage(assistUserId: 2),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(scope.read(selectedRollcallAccountProvider), isNull);
+      expect(scope.read(unmatchedRoomsProvider), isEmpty);
+      await tester.tap(find.text('1 个上课地点未定位'));
+      await tester.pumpAndSettle();
+      final group = scope.read(coursePlaceGroupsForUserProvider(2)).single;
+      expect(group.courses, ['Assist course']);
+      await tester.tap(find.text(group.name).first);
+      await tester.pumpAndSettle();
+      tester.widget<CampusMap>(find.byType(CampusMap)).onTap!(
+        const LatLng(24.605, 118.313),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('保存坐标'));
+      await tester.pumpAndSettle();
+      final assistPlaces = scope.read(
+        scope.read(savedLocationsForUserProvider(2)),
+      );
+      expect(assistPlaces.single.note, group.name);
+      expect(scope.read(savedLocationsProvider), isEmpty);
+      expect(scope.read(selectedRollcallAccountProvider), isNull);
+      expect(scope.read(unmatchedRoomsForUserProvider(2)), isEmpty);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   for (final width in [384.0, 960.0]) {
     for (final dark in [false, true]) {
       testWidgets(

@@ -129,7 +129,7 @@ void main() {
                     rows: [
                       _course('1', '专业英语', '学武楼（1号楼）A404', 610, 710),
                       _course('2', '软件测试', '西部片区2号楼108', 870, 970),
-                    ],
+                    ].map(AcademicCourseRow.fromJson).toList(),
                   ),
                   hasHomeworkCache: true,
                   homework: [

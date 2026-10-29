@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'campus_search_index.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -105,12 +106,9 @@ class _CampusSearchPageState extends ConsumerState<CampusSearchPage> {
     final courses = q.isEmpty
         ? <String>[]
         : {
-            for (final row in data?.schedule?.rows ?? <Map<String, dynamic>>[])
-              if (campusSearchMatches(
-                q,
-                '${row['KCMC'] ?? ''} ${row['JASMC'] ?? ''}',
-              ))
-                '${row['KCMC'] ?? ''}',
+            for (final row in data?.schedule?.rows ?? <AcademicCourseRow>[])
+              if (campusSearchMatches(q, '${row.courseName} ${row.room}'))
+                row.courseName,
           }.where((s) => s.trim().isNotEmpty).toList();
     Widget section(String label, List<Widget> rows) => rows.isEmpty
         ? const SizedBox.shrink()

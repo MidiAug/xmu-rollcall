@@ -46,6 +46,9 @@ class RollcallAnswerPage extends ConsumerStatefulWidget {
 }
 
 class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
+  int? get _locationUserId =>
+      widget.assistUserId ?? ref.read(authControllerProvider).profile?.id;
+
   final _codeCtrl = TextEditingController();
   bool _submitting = false;
   bool _locating = false;
@@ -94,7 +97,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     }
     final next = selectionFromCoursePref(
       pref,
-      ref.read(knownLocationsProvider),
+      ref.read(knownLocationsForUserProvider(_locationUserId)),
     );
     final cur = _selection;
     if (cur != null &&
@@ -340,7 +343,9 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     final note = result.saveNote?.trim() ?? '';
     if (note.isNotEmpty) {
       final place = await ref
-          .read(savedLocationsProvider.notifier)
+          .read(
+            ref.read(savedLocationsForUserProvider(_locationUserId)).notifier,
+          )
           .add(
             note: note,
             latitude: result.latitude,
@@ -372,7 +377,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
   }
 
   Future<void> _usePreset() async {
-    final list = ref.read(knownLocationsProvider);
+    final list = ref.read(knownLocationsForUserProvider(_locationUserId));
     final picked = await pickSavedLocation(context, list);
     if (picked == null || !mounted) return;
     _pin(picked);
@@ -581,7 +586,10 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
   Widget build(BuildContext context) {
     final item = widget.item;
     final p = AppPalette.of(context);
-    ref.listen(savedLocationsProvider, (_, _) => _syncCoursePref());
+    ref.listen(
+      ref.watch(savedLocationsForUserProvider(_locationUserId)),
+      (_, _) => _syncCoursePref(),
+    );
     ref.listen(
       courseRadarDefaultsForProvider(widget.assistUserId),
       (_, _) => _syncCoursePref(),

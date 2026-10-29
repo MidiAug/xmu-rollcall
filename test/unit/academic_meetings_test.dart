@@ -84,7 +84,7 @@ void main() {
     () {
       final data = complexSchedule();
       final mining = data.groups.values.singleWhere(
-        (g) => g.first['KCMC'] == '数据挖掘示例',
+        (g) => g.first.courseName == '数据挖掘示例',
       );
       final meetings = data.tables(mining)[3]!;
       expect(meetings, hasLength(2));
@@ -92,7 +92,7 @@ void main() {
       expect(evening.classroom, contains('A404、A405'));
       expect(evening.weekLabel, '1-16双周');
       final os = data.groups.values.singleWhere(
-        (g) => g.first['KCMC'] == '操作系统示例',
+        (g) => g.first.courseName == '操作系统示例',
       );
       final variants = data.tables(os)[2]!;
       expect(variants, hasLength(2));

@@ -6,7 +6,6 @@ import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'package:xmu_rollcall/app/refresh_feedback.dart';
 import 'package:xmu_rollcall/core/network/request_failure.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
-import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_models.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/homework/homework_status_badges.dart';
@@ -32,11 +31,13 @@ class HomeworkCoursePage extends ConsumerStatefulWidget {
   const HomeworkCoursePage({
     super.key,
     required this.courseId,
+    required this.detailBuilder,
     this.courseName = '',
     this.initialFilter = HomeworkCourseFilter.all,
   });
 
   final int courseId;
+  final Widget Function(HomeworkItem) detailBuilder;
   final String courseName;
   final HomeworkCourseFilter initialFilter;
 
@@ -67,7 +68,7 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
         : (item.courseName.isEmpty && courseName.isNotEmpty
               ? item.copyWith(courseName: courseName)
               : item);
-    AppPageRoutes.push(context, HomeworkDetailPage(seed: seeded));
+    AppPageRoutes.push(context, widget.detailBuilder(seeded));
   }
 
   @override

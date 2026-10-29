@@ -202,7 +202,7 @@ void main() {
               'startMinute': (minute - 10).clamp(0, 1438),
               'endMinute': (minute + 10).clamp(1, 1439),
             },
-          ],
+          ].map(AcademicCourseRow.fromJson).toList(),
         ),
       );
       await SemesterPreferences.save(

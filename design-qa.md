@@ -388,3 +388,59 @@ final-tests.log全套815项通过/2项既有跳过（最后补充的清理页回
 显式清理远端缓存改为invalidateRemoteCourseMemoryFromWidget，覆盖各账号的活动列表、目录、历史与先验；登出仍沿用原主号失效范围，不删磁盘。移除仅用于转发invalidate/clearSeen的一次性包装，两个入口直接表达各自清理范围。新增SettingsDataPage实际点击/确认回归，验证教务磁盘删除及协助活动Provider重新读取；首次测试遗漏Toast计时器清理，已按现有AppToast.dismiss收尾，未修改产品代码规避测试。
 clear-flow-verified.log 11项通过；冻结源码后delivery-tests.log完整816项通过/2项既有跳过，delivery-analyze.log无问题，delivery-ci-tests.log交付21项通过，CHANGELOG结构检查通过。所有四个维护阶段完成。全量教务行DTO迁移、其余页面间循环依赖与本地规范公开化不在本轮迁移范围，后续在对应功能触及时处理；未新增框架/依赖或生成代码修改。
 - 最终Android Release构建成功81.1MB（android-release.log），仍0.3.0+6，证书SHA256与既有包一致。ADB当前无设备，因此没有安装或清理真机数据；未push/发布。安装包保留dist/xmu-rollcall-0.3.0-android.apk供后续覆盖安装。
+
+## 2026-10-29 课表类型化阶段1
+AcademicCourseRow作为教务课次的内部类型，academic_parsing保留网络/缓存入口的外部转换；AcademicSchedule、关联、今日课程、地点与搜索使用明确字段。原JSON字段名保持兼容，周次写回规范化掩码（保留实际周次），原空BJDM关联键course/null保持。新增旧缓存读取、输入快照、隐私字段排除、读写往返、错误周次在缓存入口处理的回归；测试夹具直接使用生产解析器，没有复制业务算法。
+stage1-verified-tests.log 71项通过，stage1-analyze.log对lib/test检查无问题；包括真实课表样本、单双周、多教室、账号缓存与桌面/Android组件。当前未声称真机或线上接口验收，最终阶段再做完整回归与图像对照。
+
+
+## 2026-10-29 依赖维护阶段2
+认证默认Provider只创建AuthController，跨模块生命周期动作由main的ProviderScope使用app/auth_session.dart接线；协助分享移除目录Provider反向读取，保留先落盘后发布的同一目录。生产接线回归发现原回调读取自身Provider触发Riverpod断言且错误被吞掉，改为检查当前控制器登录身份，保留异步身份边界。stage2-verified-tests.log相关39项通过，stage2-analyze.log对lib/test无问题；新增失效会话完成同步回归后stage2-wiring-final.log 3项通过。无布局或协议改动。
+
+
+## 2026-10-29 依赖维护阶段3：页面组合与地图配置
+
+协助名单页独立于导入/导出弹窗；课程作业页接收详情构建回调，详情页负责组合导航；地图常量单独存放，签到位置预览直接读取配置。保持全部布局参数。拆分初次检查暴露签到预览依赖选点页重导出的常量，已改显式导入；新导航测试使用应用自己的返回控件，补齐提交状态边界替身后最终回归通过。
+
+- stage3-final-tests.log相关35项通过，含详情→课程列表→另一条详情→返回与课程上下文补齐、协助名单/导入和各尺寸地图交互。
+- final-tests.log完整821项通过、2项既有跳过；delivery-analyze.log全库无问题，ci-tests.log交付21项通过，CHANGELOG结构有效。
+- import-graph.txt对221个Dart文件及条件导入/导出执行Tarjan扫描，循环分量为0。未增加依赖或通用路由框架。
+- final-captures.log生产组件11项通过；实看浅色首页和窄屏深色长内容。idle-light/idle-dark与改动前PNG逐字节相同，SHA256分别为9bdbdec408cd12e7d6bbda4d15e2d55447d2ded9bc983b07776303e59d743425、ffac8814d8a20968f4c81ce9e26529059888c7efad34582cd236950675c5211f。桌面由既有工作区/课表/设置多尺寸组件测试验证，未声称全页面真机验收。
+- Android Release编译成功（android-release.log，81.1MB，仍0.3.0+6），APK固定证书SHA256与既有值7c64edfa4cf30722aaa0ec57f05d0ab026f50678243d4821d09de3e26cbe62e5一致。保留既有Kotlin插件迁移提示，本轮未改依赖；未安装真机、执行真实签到、push或发布。
+
+
+## 2026-10-29 二轮全项目审查阶段1
+
+项目盘点覆盖221个Dart文件、Android原生入口、Windows runner及交付脚本；按数据/生命周期热点定向检查，不把文件长度或可再抽象列为缺陷。目录在途复用已由catalog-repro.log复现：切到账号2仍得到owner-one。目录增加与Provider有效期一致的请求修订号、重建释放旧在途引用，旧请求不可发布/落盘；延迟教务同步同样检查有效期。
+
+stage1-tests.log相关49项通过，stage1-lifetime-tests.log两项生产Provider回归通过（实际会话切换和同账号invalidate），stage1-analyze.log对lib/test无问题。未变更样式或协议。下一阶段处理显式协助课表读取全局地点数据的范围错误。
+
+
+## 2026-10-29 二轮全项目审查阶段2
+
+显式账号的地点数据贯穿课表提示、详情地图、管理/选点与保存；不修改全局选择或停止该账号之外的检测。新增按用户读取的Provider，当前身份复用原地点控制器，保留现有默认入口与测试覆盖；全局切号后显式控制器重载，避免再次看到旧地点。现有列表分组、间距、地图参数全部保留。
+
+stage2-verified-tests.log相关68项通过，stage2-explicit.log真实课表→地点管理→地图选点→保存通过，stage2-scope-final.log额外验证全局切换期间编辑和返回重读；stage2-final-analyze.log对lib/test无问题。初次测试使用带A区的楼宇名称查找独立行，实际界面按楼宇聚合，改用无分区的测试楼完成同一范围回归；未更改UI适配测试。
+
+
+## 2026-10-29 二轮全项目审查阶段3及范围结论
+
+P1历史缓存失效由history-before.log真实回归复现：同账号删去课程历史并invalidate后，挂起的请求写回CourseRollcallsSnapshot。加载/迁移/刷新/逐条发布现统一使用Provider有效期，替代只比较用户ID的判断；旧成功和失败响应均停止落盘及发布，保留现有候选/限流/逐课发布。stage3-tests.log相关48项通过；最终完整套件另含成功与失败两条失效回归。
+
+本轮覆盖的模块及处理：
+
+| 范围 | 重点与结论 |
+| --- | --- |
+| 认证/会话/协助 | 检查安全存储、Cookie替换/请求撤销、主号与导入身份路由；修复课程目录切号复用，未修改协议和稳定deviceId |
+| 课程/历史/作业/成绩 | 检查缓存键、失效、在途合并、增量与失败保留；修复目录及历史有效期，作业/成绩已有修订号和身份边界继续保留 |
+| 地点/地图/课表呈现 | 修复显式账号误用全局地点；同一账号当前/显式入口复用控制器，手动安排与手动雷达也传递正在操作的身份 |
+| 检测/自动应答/Android后台 | 检查任务当前性、提交前重读位置、终止与有限重试、独立会话及SharedPreferences重新加载；未发现本轮可复现的新缺陷，不改默认确认/频率 |
+| 网络/日志/更新 | 检查安全方法退避、取消/限流、日志脱敏、下载大小/SHA256、分片清理、Android签名及构建号检查；未发现需扩展策略的具体证据 |
+| 平台/交付 | 盘点5个Kotlin入口、12个Windows runner文件、14个交付/辅助脚本；定向检查平台通道/更新/通知入口与CI产物校验，协议适配和原生改造未扩张 |
+
+不因49k行源码或单文件体积继续拆层；保留现有布局/导航、依赖、CI流程及前次已消除的导入环。真实校园接口、安卓后台长驻/通知/安装和Windows通知激活仍须设备/环境验收，本轮测试不替代这些验收。没有声称已证明所有代码无缺陷。
+
+
+最终证据：final-tests.log完整827项通过/2项既有跳过，final-analyze.log全库无问题；ci-tests.log 21项通过，CHANGELOG校验通过。import-graph.txt对221个Dart文件（含条件import/export）扫描循环0。captures.log生产控件11项通过；实看浅色首页与深色窄屏长内容，pixel-comparison.txt确认idle-light/idle-dark与改动前逐字节一致。桌面工作区、课表、地图、设置和返回行为由原有多尺寸组件回归验证，本轮未改布局参数。
+
+android-release.log编译成功81.2MB（本地验证仍0.3.0+6），apk-signature.log核对固定证书SHA256与既有7c64edfa4cf30722aaa0ec57f05d0ab026f50678243d4821d09de3e26cbe62e5一致。未安装真机或执行真实签到、未push/发布。全部已复现问题均已处理；未通过猜测继续扩张技术债清理。

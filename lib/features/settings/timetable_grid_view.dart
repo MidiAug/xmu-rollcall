@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/location/course_location_setting.dart';
 import 'package:xmu_rollcall/features/location/course_meeting.dart';
 import 'package:xmu_rollcall/features/location/campus_map.dart';
@@ -459,7 +461,14 @@ class _CourseDetailFlowState extends ConsumerState<_CourseDetailFlow> {
   @override
   Widget build(BuildContext context) {
     final room = widget.block.course.location ?? '';
-    final match = matchCoursePlace(room, ref.watch(savedLocationsProvider));
+    final userId =
+        widget.assistUserId == ref.watch(selectedRollcallAccountProvider)
+        ? null
+        : widget.assistUserId ?? ref.watch(authControllerProvider).profile?.id;
+    final match = matchCoursePlace(
+      room,
+      ref.watch(ref.watch(savedLocationsForUserProvider(userId))),
+    );
     final point = match == null
         ? null
         : LatLng(match.latitude, match.longitude);
@@ -533,6 +542,7 @@ class _CourseDetailFlowState extends ConsumerState<_CourseDetailFlow> {
             if (_pending != null)
               LocationPickerContent(
                 title: '选择上课地点',
+                userId: userId,
                 selectedId: _selectedId,
                 initial: _initial,
                 onSelected: _finish,

@@ -53,6 +53,45 @@ AcademicSchedule schedule({
 );
 
 void main() {
+  test(
+    'legacy cache rows decode once into typed fields and preserve binding keys',
+    () async {
+      final old = {
+        ...meeting(),
+        'BJDM': null,
+        'startMinute': 600,
+        'endMinute': 710,
+        'XH': 'not-course-metadata',
+      };
+      final wire = <String, dynamic>{
+        'term': '20261',
+        'monday': '2026-09-07T00:00:00.000',
+        'fetchedAt': '2026-09-07T00:00:00.000',
+        'rows': [old],
+      };
+      final parsed = AcademicSchedule.fromJson(wire);
+      old['KCMC'] = 'changed input';
+      final row = parsed.rows.single;
+      expect(row.courseName, '计算机网络');
+      expect(row.weekday, 1);
+      expect(row.firstPeriod, 3);
+      expect(row.weeks, {1, 3});
+      expect(row.groupKey, 'CS1/null');
+      expect(row.toJson().containsKey('XH'), isFalse);
+      final roundTrip = AcademicSchedule.fromJson(parsed.toJson());
+      expect(roundTrip.toJson(), parsed.toJson());
+      expect(roundTrip.allTables[1]!.first.classroom, '教学楼101');
+      final corrupt = {
+        ...wire,
+        'rows': [
+          {...old, 'ZCBH': 'not-a-mask'},
+        ],
+      };
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(AcademicScheduleStore.key(3), jsonEncode(corrupt));
+      expect(await AcademicScheduleStore.read(3), isNull);
+    },
+  );
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
   test(
@@ -107,7 +146,10 @@ void main() {
       expect(course.timetablesOn(DateTime(2027, 9, 7)), isEmpty);
       await AcademicScheduleStore.write(1, academic);
       expect(await AcademicScheduleStore.read(2), isNull);
-      expect((await AcademicScheduleStore.read(1))!.rows, academic.rows);
+      expect(
+        (await AcademicScheduleStore.read(1))!.toJson(),
+        academic.toJson(),
+      );
       final restored = CatalogCourse.fromJson(course.toJson());
       expect(restored.courseCode, 'CS1');
       expect(restored.timetablesOn(DateTime(2026, 9, 14)), isEmpty);
@@ -357,7 +399,7 @@ void main() {
         hasLength((fixture['payload'] as Map)['pkjgList'].length),
       );
       expect(parsed.allTables, isNotEmpty);
-      expect(parsed.rows.any((r) => r['JASMC'] == '调课后教室'), isFalse);
+      expect(parsed.rows.any((r) => r.room == '调课后教室'), isFalse);
     },
   );
   test(

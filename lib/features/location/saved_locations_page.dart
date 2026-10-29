@@ -1,7 +1,7 @@
 import 'location_validation_store.dart';
 import 'course_radar_store.dart';
 import 'place_buildings.dart';
-import 'map_pick_panel.dart' show kMapOverlayInset;
+import 'campus_map_config.dart' show kMapOverlayInset;
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:flutter/material.dart';
@@ -21,7 +21,8 @@ const _locationSplitWidth = 700.0;
 const _locationFrameBreakpoint = _locationSplitWidth + 48;
 
 class SavedLocationsPage extends ConsumerStatefulWidget {
-  const SavedLocationsPage({super.key});
+  const SavedLocationsPage({super.key, this.userId});
+  final int? userId;
   @override
   ConsumerState<SavedLocationsPage> createState() => _SavedLocationsPageState();
 }
@@ -35,7 +36,7 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
   Widget build(BuildContext context) {
     final identity = (
       ref.watch(authControllerProvider).profile?.id,
-      ref.watch(selectedRollcallAccountProvider),
+      widget.userId ?? ref.watch(selectedRollcallAccountProvider),
     );
     if (identity != _identity) {
       _identity = identity;
@@ -43,7 +44,13 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
       _campus = null;
       _mapView = false;
     }
-    final Campus campus = _campus ?? ref.watch<Campus>(preferredCampusProvider);
+    final Campus campus =
+        _campus ??
+        ref.watch<Campus>(
+          widget.userId == null
+              ? preferredCampusProvider
+              : preferredCampusForUserProvider(widget.userId),
+        );
     return LayoutBuilder(
       builder: (context, frame) {
         final singlePane = frame.maxWidth < _locationFrameBreakpoint;
@@ -70,6 +77,7 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
               ),
           ],
           body: LocationManagerContent(
+            userId: widget.userId,
             key: _manager,
             campus: campus,
             showMobileListButton: false,
@@ -87,6 +95,7 @@ class LocationManagerContent extends ConsumerStatefulWidget {
   const LocationManagerContent({
     super.key,
     this.initialRoom,
+    this.userId,
     this.place,
     this.readOnly = false,
     this.campus,
@@ -94,6 +103,7 @@ class LocationManagerContent extends ConsumerStatefulWidget {
     this.onMapViewChanged,
   });
   final String? initialRoom;
+  final int? userId;
   final SavedLocation? place;
   final bool readOnly;
   final Campus? campus;
@@ -141,10 +151,12 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
   Future<void> _save() async {
     if (_point == null || _name.text.trim().isEmpty || _busy) return;
     final owner = ref.read(authControllerProvider).profile?.id;
-    final scope = ref.read(selectedRollcallAccountProvider);
+    final user =
+        widget.userId ?? ref.read(selectedRollcallAccountProvider) ?? owner;
+    final scope = user == owner ? null : user;
     final issues =
         ref
-            .read(locationIssuesProvider)
+            .read(locationIssuesForUserProvider(widget.userId))
             .valueOrNull
             ?.where(
               (e) =>
@@ -152,7 +164,11 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                   e.concerns(
                     _name.text,
                     ref
-                        .read(coursePlaceGroupsProvider)
+                        .read(
+                          widget.userId == null
+                              ? coursePlaceGroupsProvider
+                              : coursePlaceGroupsForUserProvider(widget.userId),
+                        )
                         .where(
                           (g) =>
                               coursePlaceIdentity(g.name) ==
@@ -177,7 +193,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
       _error = null;
     });
     try {
-      final controller = ref.read(savedLocationsProvider.notifier);
+      final controller = ref.read(
+        ref.read(savedLocationsForUserProvider(widget.userId)).notifier,
+      );
       SavedLocation place;
       if (_editingId != null) {
         await controller.updateCoords(
@@ -186,7 +204,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
           longitude: _point!.longitude,
         );
         place = ref
-            .read(savedLocationsProvider)
+            .read(ref.read(savedLocationsForUserProvider(widget.userId)))
             .firstWhere((p) => p.id == _editingId);
       } else {
         place = await controller.add(
@@ -201,7 +219,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
         if (!mounted) return;
         ref.invalidate(courseRadarDefaultsForProvider(scope));
       }
-      ref.invalidate(locationIssuesProvider);
+      ref.invalidate(locationIssuesForUserProvider(widget.userId));
       setState(() {
         _selected = place;
         _focusedRoom = _name.text;
@@ -265,13 +283,28 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final custom = ref.watch(savedLocationsProvider);
-    final places = ref.watch(knownLocationsProvider);
+    final custom = ref.watch(
+      ref.watch(savedLocationsForUserProvider(widget.userId)),
+    );
+    final places = ref.watch(
+      widget.userId == null
+          ? knownLocationsProvider
+          : knownLocationsForUserProvider(widget.userId),
+    );
     final Campus campus =
-        widget.campus ?? ref.watch<Campus>(preferredCampusProvider);
-    final groups = ref.watch(coursePlaceGroupsProvider);
+        widget.campus ??
+        ref.watch<Campus>(
+          widget.userId == null
+              ? preferredCampusProvider
+              : preferredCampusForUserProvider(widget.userId),
+        );
+    final groups = ref.watch(
+      widget.userId == null
+          ? coursePlaceGroupsProvider
+          : coursePlaceGroupsForUserProvider(widget.userId),
+    );
     final issues =
-        ref.watch(locationIssuesProvider).valueOrNull ??
+        ref.watch(locationIssuesForUserProvider(widget.userId)).valueOrNull ??
         <LocationValidationIssue>[];
     final orphans = issues
         .where((issue) => !groups.any((g) => issue.concerns(g.name, g.courses)))
@@ -296,7 +329,12 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
         (place == null ? campusInName(name) : campusForPoint(place)) ==
             campus ||
         ((place == null ? campusInName(name) : campusForPoint(place)) == null &&
-            campus == ref.read(preferredCampusProvider));
+            campus ==
+                ref.read(
+                  widget.userId == null
+                      ? preferredCampusProvider
+                      : preferredCampusForUserProvider(widget.userId),
+                ));
     final rawEntries = <ManagedPlaceEntry>[
       ...orphans,
       for (final g in groups)
@@ -799,7 +837,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
     final matched = regions.where((e) => e.courses.isNotEmpty).toList();
     final grouped = regionOnly == null && building.grouped;
     final issues =
-        ref.watch(locationIssuesProvider).valueOrNull ??
+        ref.watch(locationIssuesForUserProvider(widget.userId)).valueOrNull ??
         <LocationValidationIssue>[];
     final corrections = regions
         .where((e) => issues.any((issue) => issue.concerns(e.name, e.courses)))

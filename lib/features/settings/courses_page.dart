@@ -11,6 +11,7 @@ import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid_view.dart';
 import 'package:xmu_rollcall/features/assist/assist_dialogs.dart';
@@ -52,6 +53,15 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
     final info = uid == null
         ? null
         : ref.watch(semesterInfoProvider(uid)).valueOrNull;
+    final placeUserId =
+        widget.assistUserId == ref.watch(selectedRollcallAccountProvider)
+        ? null
+        : uid;
+    final missingPlaces = ref.watch(
+      placeUserId == null
+          ? unmatchedRoomsProvider
+          : unmatchedRoomsForUserProvider(placeUserId),
+    );
     final p = AppPalette.of(context);
     Widget failure(String message, {bool login = false}) => EmptyHint(
       icon: AppIcons.week,
@@ -148,7 +158,7 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (ref.watch(unmatchedRoomsProvider).isNotEmpty)
+                    if (missingPlaces.isNotEmpty)
                       Padding(
                         padding: EdgeInsets.symmetric(
                           horizontal: AppSpace.pageXOf(context),
@@ -164,7 +174,7 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
                             ),
                             onPressed: () => AppPageRoutes.push(
                               context,
-                              const SavedLocationsPage(),
+                              SavedLocationsPage(userId: placeUserId),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
@@ -185,7 +195,7 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
                                 const SizedBox(width: 8),
                                 Flexible(
                                   child: Text(
-                                    '${ref.watch(unmatchedRoomsProvider).length} 个上课地点未定位',
+                                    '${missingPlaces.length} 个上课地点未定位',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: Theme.of(context).textTheme.bodySmall

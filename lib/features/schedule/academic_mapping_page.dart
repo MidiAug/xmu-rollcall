@@ -138,7 +138,7 @@ class _AcademicMappingPageState extends ConsumerState<AcademicMappingPage> {
                             wrapMenuLabels: true,
                             labelOf: (key) => key.isEmpty
                                 ? '自动关联'
-                                : '${groups[key]!.first['KCMC']} · ${groups[key]!.first['BJMC'] ?? ''} · ${groups[key]!.first['JSXM'] ?? ''}',
+                                : '${groups[key]!.first.courseName} · ${groups[key]!.first.teachingClassName} · ${groups[key]!.first.instructor}',
                             onChanged: (value) => setState(() {
                               _dirty = true;
                               if (value.isEmpty) {

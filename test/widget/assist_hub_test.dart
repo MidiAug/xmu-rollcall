@@ -13,7 +13,7 @@ import 'package:xmu_rollcall/core/session/session_credential.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
-import 'package:xmu_rollcall/features/assist/assist_dialogs.dart';
+import 'package:xmu_rollcall/features/assist/assist_identities_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
 import 'package:xmu_rollcall/features/rollcall/qr_answer_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';

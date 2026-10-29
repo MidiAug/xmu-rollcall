@@ -2,30 +2,30 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/features/campus/campus_summary.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 
-AcademicSchedule schedule({List<Map<String, dynamic>>? rows}) =>
-    AcademicSchedule(
-      term: '20261',
-      monday: DateTime(2026, 10, 26),
-      fetchedAt: DateTime(2026, 10, 28),
-      rows:
-          rows ??
-          [
-            row('old', 480, 570),
-            row('current', 600, 710),
-            row('next', 870, 970),
-            row('later', 1000, 1100),
-          ],
-    );
-Map<String, dynamic> row(
+AcademicSchedule schedule({List<AcademicCourseRow>? rows}) => AcademicSchedule(
+  term: '20261',
+  monday: DateTime(2026, 10, 26),
+  fetchedAt: DateTime(2026, 10, 28),
+  rows:
+      rows ??
+      [
+        row('old', 480, 570),
+        row('current', 600, 710),
+        row('next', 870, 970),
+        row('later', 1000, 1100),
+      ],
+);
+AcademicCourseRow row(
   String id,
   int start,
   int end, {
   String mask = '1',
   int day = 3,
-}) => {
+  String? title,
+}) => AcademicCourseRow.fromJson({
   'KCDM': id,
   'BJDM': 'A',
-  'KCMC': id,
+  'KCMC': title ?? id,
   'XQ': day,
   'KSJCDM': 1,
   'JSJCDM': 2,
@@ -33,7 +33,7 @@ Map<String, dynamic> row(
   'JASMC': 'A101',
   'startMinute': start,
   'endMinute': end,
-};
+});
 void main() {
   test(
     'task caption uses only one matching academic course on the actual day',
@@ -65,8 +65,8 @@ void main() {
       );
       final ambiguous = schedule(
         rows: [
-          row('x', 600, 710)..['KCMC'] = '同名课',
-          row('y', 600, 710)..['KCMC'] = '同名课',
+          row('x', 600, 710, title: '同名课'),
+          row('y', 600, 710, title: '同名课'),
         ],
       );
       expect(

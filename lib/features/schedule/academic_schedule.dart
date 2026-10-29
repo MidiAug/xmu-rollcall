@@ -1,3 +1,7 @@
+import 'academic_course_row.dart';
+import 'academic_parsing.dart';
+export 'academic_course_row.dart';
+export 'academic_parsing.dart';
 import 'package:xmu_rollcall/features/schedule/academic_meetings.dart';
 import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'package:xmu_rollcall/features/schedule/academic_calendar.dart';
@@ -6,59 +10,6 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
-
-int academicInt(Object? value) => int.tryParse('$value') ?? 0;
-String academicText(Object? value) => value?.toString().trim() ?? '';
-
-/// Read only the student's named college, never a course's teaching department.
-String academicStudentCollege(Object? person) {
-  if (person is! Map) return '';
-  for (final key in const [
-    'XYMC',
-    'YXMC',
-    'YXBMC',
-    'XYDM_DISPLAY',
-    'YXDM_DISPLAY',
-    'DWDM_DISPLAY',
-    'DWMC',
-    'college_name',
-    'department_name',
-  ]) {
-    final value = person[key];
-    if (value is String && value.contains(RegExp('学院|研究院|学部'))) {
-      return value.trim();
-    }
-  }
-  return '';
-}
-
-/// EMAP sends numeric HHmm; some deployments return HH:mm strings.
-int academicMinute(Object? value) {
-  final raw = academicText(value);
-  final parts = raw.contains(':')
-      ? raw.split(':')
-      : RegExp(r'^\d{3,4}$').hasMatch(raw)
-      ? [raw.substring(0, raw.length - 2), raw.substring(raw.length - 2)]
-      : <String>[];
-  if (parts.length < 2) throw const FormatException('教务节次时间异常');
-  final h = int.tryParse(parts[0]);
-  final m = int.tryParse(parts[1]);
-  if (h == null || m == null || h < 0 || h > 23 || m < 0 || m > 59) {
-    throw const FormatException('教务节次时间异常');
-  }
-  return h * 60 + m;
-}
-
-Set<int> academicWeeks(Object? value) {
-  final mask = academicText(value);
-  if (!RegExp(r'^[01]{1,60}$').hasMatch(mask)) {
-    throw const FormatException('教务周次格式异常');
-  }
-  return {
-    for (var i = 0; i < mask.length; i++)
-      if (mask[i] == '1') i + 1,
-  };
-}
 
 class AcademicSchedule {
   const AcademicSchedule({
@@ -76,7 +27,7 @@ class AcademicSchedule {
   final String studentCollege;
 
   /// Only course metadata; identity and credentials are never cached here.
-  final List<Map<String, dynamic>> rows;
+  final List<AcademicCourseRow> rows;
 
   static const fields = {
     'KCDM',
@@ -105,27 +56,28 @@ class AcademicSchedule {
     if (payload['success'] != true || payload['pkjgList'] is! List) {
       throw const FormatException('教务未返回完整课表');
     }
-    final rows = <Map<String, dynamic>>[
-      for (final raw in payload['pkjgList'] as List)
-        {for (final key in fields) key: (raw as Map)[key]},
-    ];
-    // pkjgList is the current authoritative timetable. Historical ttbList
-    // entries may already be reflected there; never apply them a second time.
-    for (final r in rows) {
-      final start = clock[academicInt(r['KSJCDM'])];
-      final end = clock[academicInt(r['JSJCDM'])];
-      // Clock is authoritative and is indexed by DM, not list position (lunch exists).
-      if (start == null ||
-          end == null ||
-          start.start >= end.end ||
-          academicInt(r['XQ']) < 1 ||
-          academicInt(r['XQ']) > 7 ||
-          academicText(r['KCDM']).isEmpty) {
+    final rows = <AcademicCourseRow>[];
+    // The current published timetable already includes historical changes.
+    for (final raw in payload['pkjgList'] as List) {
+      final source = raw as Map;
+      final start = clock[academicInt(source['KSJCDM'])];
+      final end = clock[academicInt(source['JSJCDM'])];
+      if (start == null || end == null) {
         throw const FormatException('教务课次时间不完整');
       }
-      r['startMinute'] = start.start;
-      r['endMinute'] = end.end;
-      academicWeeks(r['ZCBH']);
+      final row = AcademicCourseRow.fromJson({
+        for (final key in fields) key: source[key],
+        'startMinute': start.start,
+        'endMinute': end.end,
+      });
+      if (row.startMinute >= row.endMinute ||
+          row.weekday < 1 ||
+          row.weekday > 7 ||
+          row.courseId.isEmpty ||
+          academicText(source['ZCBH']).isEmpty) {
+        throw const FormatException('教务课次时间不完整');
+      }
+      rows.add(row);
     }
     return AcademicSchedule(
       term: term,
@@ -137,32 +89,32 @@ class AcademicSchedule {
     );
   }
 
-  Map<String, List<Map<String, dynamic>>> get groups {
-    final result = <String, List<Map<String, dynamic>>>{};
+  Map<String, List<AcademicCourseRow>> get groups {
+    final result = <String, List<AcademicCourseRow>>{};
     for (final r in rows) {
-      result.putIfAbsent('${r['KCDM']}/${r['BJDM']}', () => []).add(r);
+      result.putIfAbsent(r.groupKey, () => []).add(r);
     }
     return result;
   }
 
-  Map<int, List<TimetableSlot>> tables(List<Map<String, dynamic>> entries) {
+  Map<int, List<TimetableSlot>> tables(List<AcademicCourseRow> entries) {
     final groups = <String, List<TimetableSlot>>{};
     final weekdays = <String, int>{};
     for (final r in entries) {
-      final weeks = academicWeeks(r['ZCBH']);
+      final weeks = r.weeks;
       if (weeks.isEmpty) continue;
-      final day = academicInt(r['XQ']);
-      final key = '${r['KCDM']}/${r['BJDM']}/$day';
+      final day = r.weekday;
+      final key = '${r.groupKey}/$day';
       weekdays[key] = day;
       groups
           .putIfAbsent(key, () => [])
           .add(
             TimetableSlot(
-              sequence: academicInt(r['KSJCDM']),
-              endSequence: academicInt(r['JSJCDM']),
-              start: DateTime(2000, 1, 3, 0, academicInt(r['startMinute'])),
-              end: DateTime(2000, 1, 3, 0, academicInt(r['endMinute'])),
-              classroom: academicText(r['JASMC']),
+              sequence: r.firstPeriod,
+              endSequence: r.lastPeriod,
+              start: DateTime(2000, 1, 3, 0, r.startMinute),
+              end: DateTime(2000, 1, 3, 0, r.endMinute),
+              classroom: r.room,
               dates: {
                 for (final w in weeks)
                   TimetableSlot.dateKey(
@@ -188,7 +140,8 @@ class AcademicSchedule {
     List<CatalogCourse> courses, {
     Map<String, String> bindings = const {},
   }) {
-    String name(Object? v) => academicText(v)
+    String name(String v) => v
+        .trim()
         .toLowerCase()
         .replaceAll(RegExp(r'[（(][^）)]*[）)]'), '')
         .replaceAll(RegExp(r'[\s·•]'), '');
@@ -202,14 +155,14 @@ class AcademicSchedule {
       var candidates = grouped.entries
           .where(
             (e) =>
-                academicText(course.courseCode).isNotEmpty &&
-                academicText(e.value.first['KCDM']) == course.courseCode,
+                course.courseCode?.isNotEmpty == true &&
+                e.value.first.courseId == course.courseCode,
           )
           .map((e) => e.key)
           .toList();
       if (candidates.isEmpty) {
         candidates = grouped.entries
-            .where((e) => name(e.value.first['KCMC']) == name(course.title))
+            .where((e) => name(e.value.first.courseName) == name(course.title))
             .map((e) => e.key)
             .toList();
       }
@@ -217,10 +170,9 @@ class AcademicSchedule {
         candidates = candidates.where((key) {
           final row = grouped[key]!.first;
           return (course.teachingClassName?.isNotEmpty == true &&
-                  name(row['BJMC']) == name(course.teachingClassName)) ||
-              course.instructorNames.any(
-                (t) => academicText(row['JSXM']).contains(t),
-              );
+                  name(row.teachingClassName) ==
+                      name(course.teachingClassName!)) ||
+              course.instructorNames.any((t) => row.instructor.contains(t));
         }).toList();
       }
       final manual = bindings[course.id];
@@ -259,12 +211,12 @@ class AcademicSchedule {
         if (!bound.contains(e.key))
           CatalogCourse(
             id: 'academic:${e.key}',
-            title: academicText(e.value.first['KCMC']),
-            courseCode: academicText(e.value.first['KCDM']),
+            title: e.value.first.courseName,
+            courseCode: e.value.first.courseId,
             academicMatched: true,
             academicGroup: e.key,
-            teachingClassName: academicText(e.value.first['BJMC']),
-            instructorNames: [academicText(e.value.first['JSXM'])],
+            teachingClassName: e.value.first.teachingClassName,
+            instructorNames: [e.value.first.instructor],
             timetables: tables(e.value),
           ),
     ];
@@ -276,7 +228,7 @@ class AcademicSchedule {
     'anchorFromUser': anchorFromUser,
     'monday': monday.toIso8601String(),
     'fetchedAt': fetchedAt.toIso8601String(),
-    'rows': rows,
+    'rows': rows.map((row) => row.toJson()).toList(),
   };
   factory AcademicSchedule.fromJson(Map<String, dynamic> j) => AcademicSchedule(
     term: j['term'] as String,
@@ -285,7 +237,10 @@ class AcademicSchedule {
     monday: DateTime.parse(j['monday'] as String),
     fetchedAt: DateTime.parse(j['fetchedAt'] as String),
     rows: (j['rows'] as List)
-        .map((r) => Map<String, dynamic>.from(r as Map))
+        .map(
+          (r) =>
+              AcademicCourseRow.fromJson(Map<String, dynamic>.from(r as Map)),
+        )
         .toList(),
   );
 }

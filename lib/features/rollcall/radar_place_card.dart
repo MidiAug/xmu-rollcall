@@ -3,7 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
-import 'package:xmu_rollcall/features/location/map_pick_page.dart';
+import 'package:xmu_rollcall/features/location/campus_map_config.dart';
 
 enum RadarLocationAction { device, map, preset }
 

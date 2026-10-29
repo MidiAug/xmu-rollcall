@@ -6,7 +6,6 @@ import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/core/session/assist_service.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
-import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
 
 final assistServiceProvider = FutureProvider<AssistService>((ref) async {
@@ -16,17 +15,10 @@ final assistServiceProvider = FutureProvider<AssistService>((ref) async {
     store: ref.watch(secureStoreProvider),
     registry: registry,
     courseCatalog: (client) async {
-      // Owner side: reuse sticky CourseCatalog (R-35 S2) before probing.
+      // The catalog is persisted before publishing state; reuse it before probing.
       if (identical(client, registry.owner())) {
         final uid = ref.read(authControllerProvider).profile?.id;
         if (uid != null && uid != 0) {
-          final mem = ref.read(courseCatalogProvider).valueOrNull;
-          if (mem != null && mem.courses.isNotEmpty) {
-            return [
-              for (final c in mem.courses)
-                AssistSharedCourse(id: c.id, title: c.title),
-            ];
-          }
           final disk = await CourseCatalogStore.read(uid);
           if (disk != null && disk.courses.isNotEmpty) {
             return [

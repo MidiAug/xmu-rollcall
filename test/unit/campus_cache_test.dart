@@ -104,7 +104,7 @@ void main() {
             fetchedAt: at,
             rows: [
               {'KCDM': 'course-$uid', 'KCMC': '账号$uid课表'},
-            ],
+            ].map(AcademicCourseRow.fromJson).toList(),
           ),
         );
         await CourseCatalogStore.write(
@@ -148,12 +148,12 @@ void main() {
       addTearDown(sub.close);
       final owner = await container.read(campusCachedDataProvider.future);
       expect(owner.homework.map((i) => i.title), ['账号1待办']);
-      expect(owner.schedule?.rows.single['KCMC'], '账号1课表');
+      expect(owner.schedule?.rows.single.courseName, '账号1课表');
       expect(owner.homework.single.courseName, '账号1课程');
       container.read(selectedRollcallAccountProvider.notifier).state = 2;
       final peer = await container.read(campusCachedDataProvider.future);
       expect(peer.homework.map((i) => i.title), ['账号2待办']);
-      expect(peer.schedule?.rows.single['KCMC'], '账号2课表');
+      expect(peer.schedule?.rows.single.courseName, '账号2课表');
       expect(peer.homework.single.courseName, '账号2课程');
       await JsonDiskCache.writeList('homework_todos_2', [
         {'id': 20, 'title': '更新后的待办', 'course_id': 10},

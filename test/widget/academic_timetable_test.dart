@@ -154,7 +154,7 @@ void main() {
                             'JASMC': '教学楼 A101',
                             'ZCBH': i == 0 ? '10' : '01',
                           },
-                      ],
+                      ].map(AcademicCourseRow.fromJson).toList(),
                     ),
                   ),
                 ),

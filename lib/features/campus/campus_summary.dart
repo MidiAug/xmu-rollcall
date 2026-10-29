@@ -31,10 +31,7 @@ CampusMeeting? selectCampusMeetingForTitle(
   String normalized(String value) =>
       value.toLowerCase().replaceAll(RegExp(r'\s+'), '');
   final matches = schedule.groups.values
-      .where(
-        (rows) =>
-            normalized(academicText(rows.first['KCMC'])) == normalized(title),
-      )
+      .where((rows) => normalized(rows.first.courseName) == normalized(title))
       .toList();
   if (matches.length != 1) return null;
   final scoped = AcademicSchedule(
@@ -80,7 +77,7 @@ CampusCourseSummary selectCampusCourses(
       meetings.add(
         CampusMeeting(
           id: id,
-          title: academicText(group.value.first['KCMC']),
+          title: group.value.first.courseName,
           room: slot.classroom ?? '',
           start: start,
           end: end,

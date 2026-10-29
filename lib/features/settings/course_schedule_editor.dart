@@ -265,6 +265,9 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
     });
   }
 
+  int? get _locationUserId =>
+      widget.assistUserId ?? ref.read(authControllerProvider).profile?.id;
+
   CourseRadarPref? _preference(_MeetingDraft d) => ref
       .read(courseRadarDefaultsForProvider(widget.assistUserId).notifier)
       .forCourse(
@@ -275,7 +278,9 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
     if (d.selected != null) return d.selected;
     final pref = _preference(d);
     final id = pref?.placeId;
-    for (final place in ref.read(knownLocationsProvider)) {
+    for (final place in ref.read(
+      knownLocationsForUserProvider(_locationUserId),
+    )) {
       if (place.id == id) return place;
     }
     if (pref == null) {
@@ -535,7 +540,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
   @override
   Widget build(BuildContext context) {
     ref.watch(courseRadarDefaultsForProvider(widget.assistUserId));
-    ref.watch(knownLocationsProvider);
+    ref.watch(knownLocationsForUserProvider(_locationUserId));
     final p = AppPalette.of(context);
     final picking = _picking;
     return ShellTabExitGuard(
@@ -560,6 +565,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
             child: picking != null
                 ? LocationPickerContent(
                     title: '选择上课地点',
+                    userId: _locationUserId,
                     selectedId: _savedPlace(picking)?.id,
                     onSelected: (place) => setState(() {
                       picking.selected = place;
