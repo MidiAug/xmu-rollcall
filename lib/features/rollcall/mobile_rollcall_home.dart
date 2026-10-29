@@ -1,3 +1,6 @@
+import 'package:xmu_rollcall/features/location/course_meeting.dart';
+import 'package:xmu_rollcall/app/shell_tab_scope.dart';
+import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/mobile_campus_header.dart';
@@ -18,7 +21,7 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_list_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 
 /// Mobile presentation of the existing scoped providers, not a second data flow.
-class MobileRollcallHome extends ConsumerWidget {
+class MobileRollcallHome extends ConsumerStatefulWidget {
   const MobileRollcallHome({
     super.key,
     required this.controller,
@@ -50,7 +53,48 @@ class MobileRollcallHome extends ConsumerWidget {
   final String? switchError;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MobileRollcallHome> createState() => _MobileRollcallHomeState();
+}
+
+class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
+    with ShellTabAware<MobileRollcallHome> {
+  bool _checked = false;
+  (int?, int?)? _identity;
+  @override
+  AppDestination get shellTab => AppDestination.rollcall;
+  @override
+  void onShellTabHidden() {
+    super.onShellTabHidden();
+    _checked = false;
+  }
+
+  @override
+  void onShellTabRetap() {
+    super.onShellTabRetap();
+    setState(() => _checked = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final accountMenu = widget.accountMenu;
+    final scope = widget.scope;
+    final updatedLabel = widget.updatedLabel;
+    final outsideDetectionWindow = widget.outsideDetectionWindow;
+    final onHistory = widget.onHistory;
+    final onSettings = widget.onSettings;
+    final onTimetable = widget.onTimetable;
+    final onHomework = widget.onHomework;
+    final onOpenHomework = widget.onOpenHomework;
+    final switching = widget.switching;
+    final switchError = widget.switchError;
+    final onRetryIdentity = widget.onRetryIdentity;
+    final identity = (ref.watch(authControllerProvider).profile?.id, scope);
+    if (_identity != identity) {
+      _identity = identity;
+      _checked = false;
+    }
+
     final p = AppPalette.of(context);
     final android = Theme.of(context).platform == TargetPlatform.android;
     final signedIn = ref.watch(authControllerProvider).isSignedIn;
@@ -73,7 +117,11 @@ class MobileRollcallHome extends ConsumerWidget {
         : checking
         ? '正在确认最新状态…'
         : switchError ??
-              (outsideDetectionWindow
+              (active?.hasError == true
+                  ? '暂时无法确认签到状态'
+                  : _checked && items.isEmpty
+                  ? '暂无正在签到的课程'
+                  : outsideDetectionWindow
                   ? updatedLabel
                   : items.isEmpty
                   ? '尚未开始检测'
@@ -128,7 +176,13 @@ class MobileRollcallHome extends ConsumerWidget {
         color: p.primary,
         onRefresh: () async {
           if (signedIn && !switching && switchError == null) {
+            setState(() => _checked = false);
             await ref.read(activeRollcallsProvider(scope).notifier).refresh();
+            if (mounted &&
+                _identity == identity &&
+                !ref.read(activeRollcallsProvider(scope)).hasError) {
+              setState(() => _checked = true);
+            }
           }
         },
         child: CustomScrollView(
@@ -232,7 +286,42 @@ class MobileRollcallHome extends ConsumerWidget {
                     if (android)
                       _AndroidAccountActions(
                         account: accountMenu,
-                        action: headerAction,
+                        action: Transform.translate(
+                          offset: Offset(0, running ? 0 : 4),
+                          child: headerAction,
+                        ),
+                        status: running
+                            ? null
+                            : Row(
+                                children: [
+                                  Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: switchError != null
+                                          ? p.danger
+                                          : p.muted.withValues(alpha: .6),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 7),
+                                  Expanded(
+                                    child: AppTruncatedText(
+                                      headerStatus,
+                                      key: const ValueKey(
+                                        'android-detection-status',
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        height: 1.5,
+                                        color: switchError != null
+                                            ? p.danger
+                                            : p.muted,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                       )
                     else
                       Wrap(
@@ -250,35 +339,6 @@ class MobileRollcallHome extends ConsumerWidget {
                             ),
                         ],
                       ),
-                    if (android && !running) ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Container(
-                            width: 7,
-                            height: 7,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: switchError != null
-                                  ? p.danger
-                                  : p.muted.withValues(alpha: .6),
-                            ),
-                          ),
-                          const SizedBox(width: 7),
-                          Expanded(
-                            child: AppTruncatedText(
-                              headerStatus,
-                              key: const ValueKey('android-detection-status'),
-                              style: TextStyle(
-                                fontSize: 12,
-                                height: 1.5,
-                                color: switchError != null ? p.danger : p.muted,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -308,7 +368,7 @@ class MobileRollcallHome extends ConsumerWidget {
                       )
                     else if (!android && switchError != null)
                       _HomeStatus(
-                        title: switchError!,
+                        title: switchError,
                         action: TextButton(
                           onPressed: onRetryIdentity,
                           child: const Text('重试'),
@@ -343,7 +403,7 @@ class MobileRollcallHome extends ConsumerWidget {
                                 ? null
                                 : selectCampusMeetingForTitle(
                                     data.schedule!,
-                                    now,
+                                    radarActivityReferenceTime(item, now),
                                     item.courseTitle,
                                   ),
                             mobileSummary: updatedLabel,
@@ -539,7 +599,12 @@ class _HomeStatus extends StatelessWidget {
 }
 
 class _AndroidAccountActions extends StatelessWidget {
-  const _AndroidAccountActions({required this.account, required this.action});
+  const _AndroidAccountActions({
+    required this.account,
+    required this.action,
+    this.status,
+  });
+  final Widget? status;
   final Widget account, action;
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -552,14 +617,22 @@ class _AndroidAccountActions extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             account,
+            ?status,
             const SizedBox(height: 4),
             Align(alignment: Alignment.centerRight, child: action),
           ],
         );
       }
       return Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Expanded(child: account),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [account, ?status],
+            ),
+          ),
           const SizedBox(width: 12),
           action,
         ],

@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -293,6 +294,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               .valueOrNull
               ?.studentCollege
         : null;
+    final termInfo = android && auth.isSignedIn
+        ? ref.watch(semesterInfoProvider(auth.profile!.id)).valueOrNull
+        : null;
+    final semester = termInfo == null
+        ? null
+        : '${semesterLabel(termInfo.term)} · ${termInfo.weekLabel(DateTime.now())}';
     Widget row(
       IconData icon,
       String title,
@@ -404,6 +411,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 child: Theme.of(context).platform == TargetPlatform.android
                     ? _AndroidProfileHeader(
                         college: college,
+                        semester: semester,
+                        onSignOut: () =>
+                            ref.read(authControllerProvider.notifier).signOut(),
                         name: auth.isSignedIn ? auth.profile!.name : '未登录',
                         subtitle: subtitle,
                         signedIn: auth.isSignedIn,
@@ -634,101 +644,87 @@ class _AndroidProfileHeader extends StatelessWidget {
   const _AndroidProfileHeader({
     required this.name,
     this.college,
+    this.semester,
     required this.subtitle,
     required this.signedIn,
     required this.onTap,
+    required this.onSignOut,
   });
   final String name, subtitle;
-  final String? college;
+  final String? college, semester;
   final bool signedIn;
-  final VoidCallback onTap;
+  final VoidCallback onTap, onSignOut;
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return Semantics(
-      button: true,
-      label: signedIn ? '账号管理' : '登录账号',
-      child: Material(
-        color: p.surface.withValues(alpha: .94),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: p.mobileOutline),
-        ),
-        child: InkWell(
-          key: const ValueKey('android-profile-summary'),
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 72),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 28,
-                    backgroundColor: p.accentSurface,
-                    child: signedIn
-                        ? Text(
-                            name.characters.firstOrNull ?? '我',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              color: p.primary,
-                            ),
-                          )
-                        : Icon(AppIcons.person, size: 26, color: p.primary),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Flexible(
+              child: InkWell(
+                key: const ValueKey('android-profile-summary'),
+                onTap: onTap,
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 28,
+                    height: 1.3,
+                    fontWeight: FontWeight.w700,
+                    color: p.ink,
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 22,
-                            height: 1.3,
-                            fontWeight: FontWeight.w700,
-                            color: p.ink,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        AppTruncatedText(
-                          subtitle,
-                          style: TextStyle(
-                            fontSize: 13,
-                            height: 1.5,
-                            color: p.muted,
-                          ),
-                        ),
-                        if (college?.trim().isNotEmpty == true) ...[
-                          const SizedBox(height: 6),
-                          Text(
-                            college!.trim(),
-                            key: const ValueKey('profile-college'),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              height: 1.4,
-                              color: p.primary,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Icon(AppIcons.right, size: 18, color: p.muted),
-                ],
+                ),
               ),
             ),
+            if (signedIn) ...[
+              const SizedBox(width: 10),
+              TextButton(
+                onPressed: onSignOut,
+                style: TextButton.styleFrom(
+                  foregroundColor: p.muted,
+                  minimumSize: const Size(44, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+                child: const Text('退出', style: TextStyle(fontSize: 12)),
+              ),
+            ],
+          ],
+        ),
+        AppTruncatedText(
+          subtitle,
+          style: TextStyle(fontSize: 13, height: 1.5, color: p.muted),
+        ),
+        const SizedBox(height: 12),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 260),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (college?.trim().isNotEmpty == true)
+                Text(
+                  college!.trim(),
+                  key: const ValueKey('profile-college'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, height: 1.5, color: p.muted),
+                ),
+              if (semester != null)
+                Text(
+                  semester!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, height: 1.5, color: p.muted),
+                ),
+            ],
           ),
         ),
-      ),
+      ],
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/app/shell_tab_scope.dart';
+import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -36,16 +38,24 @@ class _Auth extends AuthController {
 
 var _items = <RollcallItem>[];
 bool _running = false;
+bool _failRefresh = false;
 
 class _Lists extends ActiveRollcallsNotifier {
   void emptyRefresh() => state = const AsyncLoading();
   @override
   Future<List<RollcallItem>> build(int? id) async => _items;
   @override
-  Future<void> refresh({bool manual = true}) async {}
+  Future<void> refresh({bool manual = true}) async {
+    state = _failRefresh
+        ? AsyncError(StateError('offline'), StackTrace.current)
+        : AsyncData(_items);
+  }
 }
 
 class _Monitor extends MonitorController {
+  void debugSeconds(int seconds) => state = state.copyWith(
+    nextPollAt: DateTime.now().add(Duration(seconds: seconds)),
+  );
   _Monitor(super.ref) {
     state = state.copyWith(
       loadingSettings: false,
@@ -94,6 +104,7 @@ void main() {
         addTearDown(scroll.dispose);
         var opened = 0;
         _running = state == 'running';
+        _failRefresh = false;
         _items = state == 'idle'
             ? []
             : [
@@ -109,6 +120,8 @@ void main() {
                 ),
               ];
         final capture = GlobalKey();
+        final destination = ValueNotifier(AppDestination.rollcall);
+        addTearDown(destination.dispose);
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
@@ -163,12 +176,21 @@ void main() {
                 theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
                   platform: TargetPlatform.android,
                 ),
-                builder: (context, child) => MediaQuery(
-                  data: MediaQuery.of(
-                    context,
-                  ).copyWith(textScaler: TextScaler.linear(narrow ? 1.3 : 1)),
-                  child: child!,
-                ),
+                builder: (context, child) =>
+                    ValueListenableBuilder<AppDestination>(
+                      valueListenable: destination,
+                      builder: (context, current, _) => ShellTabScope(
+                        current: current,
+                        retapEpoch: 0,
+                        retapDestination: null,
+                        child: MediaQuery(
+                          data: MediaQuery.of(context).copyWith(
+                            textScaler: TextScaler.linear(narrow ? 1.3 : 1),
+                          ),
+                          child: child!,
+                        ),
+                      ),
+                    ),
                 home: Scaffold(
                   body: MobileRollcallHome(
                     controller: scroll,
@@ -263,7 +285,45 @@ void main() {
             image.dispose();
           });
         }
+        if (state == 'idle') {
+          await tester
+              .widget<AppPullToRefresh>(find.byType(AppPullToRefresh))
+              .onRefresh();
+          await tester.pumpAndSettle();
+          expect(find.text('暂无正在签到的课程'), findsOneWidget);
+          _failRefresh = true;
+          await tester
+              .widget<AppPullToRefresh>(find.byType(AppPullToRefresh))
+              .onRefresh();
+          await tester.pumpAndSettle();
+          expect(find.text('暂时无法确认签到状态'), findsOneWidget);
+          expect(find.text('暂无正在签到的课程'), findsNothing);
+          _failRefresh = false;
+          await tester
+              .widget<AppPullToRefresh>(find.byType(AppPullToRefresh))
+              .onRefresh();
+          await tester.pumpAndSettle();
+
+          destination.value = AppDestination.settings;
+          await tester.pump();
+          destination.value = AppDestination.rollcall;
+          await tester.pump();
+          expect(find.text('尚未开始检测'), findsOneWidget);
+        }
         if (state == 'running') {
+          final control = find.byKey(const ValueKey('monitor-countdown-width'));
+          final width = tester.getSize(control).width;
+          final monitor =
+              ProviderScope.containerOf(
+                    tester.element(find.byType(MobileRollcallHome)),
+                  ).read(monitorControllerProvider.notifier)
+                  as _Monitor;
+          monitor.debugSeconds(100);
+          await tester.pump();
+          expect(tester.getSize(control).width, width);
+          monitor.debugSeconds(9);
+          await tester.pump();
+          expect(tester.getSize(control).width, width);
           final container = ProviderScope.containerOf(
             tester.element(find.byType(MobileRollcallHome)),
           );
@@ -271,7 +331,7 @@ void main() {
               .emptyRefresh();
           await tester.pump();
           expect(
-            find.byTooltip('停止检测'),
+            find.text('停止'),
             findsOneWidget,
             reason:
                 'Refresh must not replace the running stop control with a spinner',

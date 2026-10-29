@@ -770,12 +770,18 @@ void main() {
               ),
             );
         await tester.pumpAndSettle();
+        final android =
+            Theme.of(tester.element(find.text('开始检测'))).platform ==
+                TargetPlatform.android &&
+            width < 600;
         final button = find.ancestor(
           of: find.text('开始检测'),
-          matching: find.byType(AppQuietPill),
+          matching: find.byType(android ? OutlinedButton : AppQuietPill),
         );
         expect(
-          tester.widget<AppQuietPill>(button).onTap,
+          android
+              ? tester.widget<OutlinedButton>(button).onPressed
+              : tester.widget<AppQuietPill>(button).onTap,
           scenario.allowed ? isNotNull : isNull,
         );
         if (!scenario.allowed) {

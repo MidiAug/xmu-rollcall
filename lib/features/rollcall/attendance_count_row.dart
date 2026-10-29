@@ -46,12 +46,14 @@ class AttendanceCountRow extends ConsumerStatefulWidget {
     required this.expired,
     this.assistUserId,
     this.compact = false,
+    this.completed = false,
   });
 
   final int rollcallId;
   final int? assistUserId;
   final bool expired;
   final bool compact;
+  final bool completed;
 
   @override
   ConsumerState<AttendanceCountRow> createState() => _AttendanceCountRowState();
@@ -66,6 +68,7 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
   AttendanceCount? _count;
   bool _failed = false;
   bool _busy = false;
+  bool _finalCountRead = false;
   bool _visible = false;
   bool _foreground = true;
   ({int ownerId, int? accountId}) get _pauseScope => (
@@ -81,6 +84,7 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
       _visible &&
       _foreground &&
       !widget.expired &&
+      (!widget.completed || !_finalCountRead) &&
       !_manuallyPaused &&
       ref.read(authControllerProvider).isSignedIn;
   DateTime get _now => ref.read(attendanceCountClockProvider)();
@@ -124,12 +128,17 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
         oldWidget.assistUserId != widget.assistUserId) {
       _revision++;
       _busy = false;
+      _finalCountRead = false;
       _count = ref.read(
         _pausedCountActivitiesProvider(_pauseScope),
       )[widget.rollcallId];
       _nextAt = null;
       _updatedAt = null;
       _failed = false;
+      _restart();
+    } else if (oldWidget.completed != widget.completed) {
+      _finalCountRead = false;
+      _nextAt = null;
       _restart();
     } else if (oldWidget.expired != widget.expired) {
       _restart();
@@ -205,7 +214,10 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
       setState(() => _failed = true);
     } finally {
       if (mounted && revision == _revision) {
-        setState(() => _busy = false);
+        setState(() {
+          _busy = false;
+          if (widget.completed) _finalCountRead = true;
+        });
         _schedule();
       }
     }
@@ -246,6 +258,7 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
         _updatedAt = null;
         _nextAt = null;
         _busy = false;
+        _finalCountRead = false;
         _failed = false;
       });
       _restart();
@@ -297,7 +310,7 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
                 ),
               ),
             ),
-            if (!widget.expired && !automaticCountWait)
+            if (!widget.expired && !widget.completed && !automaticCountWait)
               IconButton(
                 tooltip: _manuallyPaused ? '继续刷新人数' : '暂停刷新人数',
                 style: IconButton.styleFrom(
@@ -306,11 +319,7 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
                   padding: EdgeInsets.zero,
                 ),
                 onPressed: _togglePause,
-                icon: Icon(
-                  _manuallyPaused
-                      ? AppIcons.play
-                      : AppIcons.pause,
-                ),
+                icon: Icon(_manuallyPaused ? AppIcons.play : AppIcons.pause),
                 iconSize: 13,
                 color: p.muted,
                 padding: EdgeInsets.zero,
@@ -389,15 +398,11 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
                   style: TextStyle(fontSize: 11, color: p.muted),
                 ),
               ),
-            if (!widget.expired && !automaticCountWait)
+            if (!widget.expired && !widget.completed && !automaticCountWait)
               IconButton(
                 tooltip: _manuallyPaused ? '继续刷新人数' : '暂停刷新人数',
                 onPressed: _togglePause,
-                icon: Icon(
-                  _manuallyPaused
-                      ? AppIcons.play
-                      : AppIcons.pause,
-                ),
+                icon: Icon(_manuallyPaused ? AppIcons.play : AppIcons.pause),
                 iconSize: 16,
                 color: p.muted,
                 padding: EdgeInsets.zero,

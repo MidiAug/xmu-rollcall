@@ -21,6 +21,17 @@ class Repo extends Fake implements AuthRepository {}
 
 class AttendanceRepo extends Fake implements RollcallRepository {
   int calls = 0;
+  int submissions = 0;
+  @override
+  Future<AnswerResult> answerNumber({
+    required int rollcallId,
+    required String numberCode,
+    String? opId,
+  }) async {
+    submissions++;
+    return const AnswerResult(ok: true);
+  }
+
   @override
   Future<AttendanceCount> fetchAttendanceCount(int id, {String? opId}) async {
     calls++;
@@ -41,6 +52,8 @@ class Seed extends ActiveRollcallsNotifier {
   @override
   Future<List<RollcallItem>> build(int? id) async => rows;
   static List<RollcallItem> rows = [];
+  @override
+  Future<void> refresh({bool manual = true}) async {}
 }
 
 RollcallItem item({
@@ -113,16 +126,8 @@ void main() {
           if (width < 600 && type == RollcallType.number) {
             await tester.tap(find.widgetWithText(FilledButton, entryLabel));
             await tester.pumpAndSettle();
-            expect(
-              tester
-                  .widget<TextField>(find.byType(TextField).first)
-                  .controller!
-                  .text,
-              '1234',
-            );
-            expect(repo.calls, 0);
-            Navigator.of(tester.element(find.byType(TextField).first)).pop();
-            await tester.pumpAndSettle();
+            expect(find.byType(TextField), findsNothing);
+            expect(repo.submissions, 1);
           }
           final notifier = container.read(
             activeRollcallsProvider(null).notifier,
@@ -138,7 +143,10 @@ void main() {
           await tester.tap(completed);
           await tester.pump(const Duration(seconds: 30));
           expect(repo.calls, calls);
-          expect(find.byType(AttendanceCountRow), findsNothing);
+          expect(
+            find.byType(AttendanceCountRow),
+            width < 600 ? findsOneWidget : findsNothing,
+          );
           notifier.debugSeed([
             item(type: type, answered: true, expired: true, code: '1234'),
           ]);

@@ -90,6 +90,74 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
           !monitor.loadingSettings &&
           window != null &&
           !_outsideWindow;
+      final onStart = enabled
+          ? () async {
+              final plan = ref.read(selectedDetectionWindowProvider);
+              final currentWindow = plan.isLoading ? null : plan.valueOrNull;
+              if (currentWindow == null ||
+                  !currentWindow.allows(
+                    ref.read(activeRollcallClockProvider)(),
+                  )) {
+                return;
+              }
+              final r = await ctrl.startAsync();
+              if (!context.mounted) return;
+              switch (r) {
+                case StartMonitorResult.started:
+                  await showBackgroundReminderSetup(context);
+                case StartMonitorResult.notificationDenied:
+                  AppToast.show(context, '需要通知权限才能在后台检测', error: true);
+                  await showBackgroundReminderSetup(context);
+                case StartMonitorResult.fgsFailed:
+                  AppToast.show(context, '无法启动后台检测通知', error: true);
+                default:
+                  break;
+              }
+            }
+          : null;
+      final content = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            AppIcons.detect,
+            size: 16,
+            color: prominent && !masthead && enabled
+                ? (p.isDark ? p.canvas : Colors.white)
+                : enabled
+                ? p.primary
+                : p.muted,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            monitor.starting ? '启动中…' : '开始检测',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.1,
+              color: prominent && !masthead && enabled
+                  ? (p.isDark ? p.canvas : Colors.white)
+                  : enabled
+                  ? p.primary
+                  : p.muted,
+            ),
+          ),
+        ],
+      );
+      if (masthead) {
+        return OutlinedButton(
+          onPressed: onStart,
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size(0, 32),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            side: BorderSide(color: p.border),
+            backgroundColor: p.surface.withValues(alpha: .8),
+          ),
+          child: content,
+        );
+      }
       return Align(
         widthFactor: 1,
         heightFactor: 1,
@@ -111,33 +179,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                   : toolbar
                   ? 7
                   : 18,
-              onTap: enabled
-                  ? () async {
-                      final plan = ref.read(selectedDetectionWindowProvider);
-                      final currentWindow = plan.isLoading
-                          ? null
-                          : plan.valueOrNull;
-                      if (currentWindow == null ||
-                          !currentWindow.allows(
-                            ref.read(activeRollcallClockProvider)(),
-                          )) {
-                        return;
-                      }
-                      final r = await ctrl.startAsync();
-                      if (!context.mounted) return;
-                      switch (r) {
-                        case StartMonitorResult.started:
-                          await showBackgroundReminderSetup(context);
-                        case StartMonitorResult.notificationDenied:
-                          AppToast.show(context, '需要通知权限才能在后台检测', error: true);
-                          await showBackgroundReminderSetup(context);
-                        case StartMonitorResult.fgsFailed:
-                          AppToast.show(context, '无法启动后台检测通知', error: true);
-                        default:
-                          break;
-                      }
-                    }
-                  : null,
+              onTap: onStart,
               background: masthead
                   ? p.surface.withValues(alpha: .8)
                   : quiet
@@ -149,34 +191,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                   : enabled
                   ? p.selected
                   : p.surfaceHigh,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    AppIcons.detect,
-                    size: 16,
-                    color: prominent && !masthead && enabled
-                        ? (p.isDark ? p.canvas : Colors.white)
-                        : enabled
-                        ? p.primary
-                        : p.muted,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    monitor.starting ? '启动中…' : '开始检测',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.1,
-                      color: prominent && !masthead && enabled
-                          ? (p.isDark ? p.canvas : Colors.white)
-                          : enabled
-                          ? p.primary
-                          : p.muted,
-                    ),
-                  ),
-                ],
-              ),
+              child: content,
             ),
           ),
         ),
@@ -197,6 +212,49 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
         ? '重试中  ${secs}s'
         : '检测中  ${secs}s';
 
+    if (masthead) {
+      final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.5);
+      final style = TextButton.styleFrom(
+        minimumSize: const Size(0, 32),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        backgroundColor: p.controlSurface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      );
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextButton(
+            onPressed: paused || !monitor.discovering ? null : ctrl.pollNow,
+            style: style,
+            child: SizedBox(
+              key: const ValueKey('monitor-countdown-width'),
+              width: 108 * scale,
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: failed && !paused ? p.danger : p.primary,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          TextButton.icon(
+            onPressed: ctrl.stop,
+            style: style.copyWith(
+              foregroundColor: WidgetStatePropertyAll(p.muted),
+            ),
+            icon: const Icon(AppIcons.stop, size: 13),
+            label: const Text('停止', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      );
+    }
     final control = Row(
       mainAxisSize: MainAxisSize.min,
       children: [

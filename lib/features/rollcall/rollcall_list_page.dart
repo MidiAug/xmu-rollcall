@@ -1,3 +1,11 @@
+import 'package:xmu_rollcall/features/location/course_meeting.dart';
+import 'package:xmu_rollcall/features/location/course_radar_store.dart';
+import 'package:xmu_rollcall/features/location/location_models.dart';
+import 'package:xmu_rollcall/features/location/location_providers.dart';
+import 'package:xmu_rollcall/features/location/place_providers.dart';
+import 'package:xmu_rollcall/features/location/place_matching.dart';
+import 'package:xmu_rollcall/features/location/location_validation_store.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/app/campus_artwork.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:flutter/material.dart';
@@ -176,7 +184,10 @@ class RollcallListPage extends ConsumerWidget {
                         ? null
                         : selectCampusMeetingForTitle(
                             academicSchedule!,
-                            at ?? DateTime.now(),
+                            radarActivityReferenceTime(
+                              items[i],
+                              at ?? DateTime.now(),
+                            ),
                             items[i].courseTitle,
                           ),
                   ),
@@ -234,19 +245,34 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
   bool get _desktop => PlatformHooks.isDesktop && !AppDensity.isTouch(context);
   bool _hover = false;
   bool _submitting = false;
+  (int?, int?, int)? _submittedFor;
+  bool get _answered =>
+      widget.item.isAnswered ||
+      _submittedFor ==
+          (
+            ref.read(authControllerProvider).profile?.id,
+            widget.assistUserId,
+            widget.item.rollcallId,
+          );
 
   Future<void> _oneClickNumber() async {
     final item = widget.item;
-    if (_submitting || item.isExpired || item.isAnswered) return;
+    if (_submitting || item.isExpired || _answered) return;
     final code = item.numberCode;
     if (code == null || code.isEmpty) {
       AppToast.show(context, item.numberCodeError ?? '尚无签到码，请下拉刷新或手填');
       return;
     }
-    if (item.isAnswered) {
+    if (_answered) {
       AppToast.show(context, '已签到');
       return;
     }
+    final owner = ref.read(authControllerProvider).profile?.id;
+    final selection = ref.read(selectedRollcallAccountProvider);
+    bool current() =>
+        mounted &&
+        ref.read(authControllerProvider).profile?.id == owner &&
+        ref.read(selectedRollcallAccountProvider) == selection;
     setState(() => _submitting = true);
     final opId = RollcallLog.newOpId();
     final started = DateTime.now();
@@ -269,6 +295,12 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
         opId: opId,
       );
       ok = result.ok;
+      if (!current()) return;
+      if (result.ok) {
+        setState(
+          () => _submittedFor = (owner, widget.assistUserId, item.rollcallId),
+        );
+      }
       await ref
           .read(ref.read(localHistoryForProvider(widget.assistUserId)).notifier)
           .add(
@@ -281,7 +313,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
               detail: result.message,
             ),
           );
-      if (!mounted) return;
+      if (!mounted || !current()) return;
       AppToast.show(
         context,
         result.message ?? (result.ok ? '成功' : '失败'),
@@ -299,8 +331,8 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
         error: e,
         stackTrace: st,
       );
-      if (!mounted) return;
-      AppToast.show(context, '提交异常：$e', error: true);
+      if (!mounted || !current()) return;
+      AppToast.show(context, '签到未完成，请重试', error: true);
     } finally {
       RollcallLog.end(
         opId: opId,
@@ -309,6 +341,233 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
         ok: ok,
       );
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _oneClickRadar() async {
+    final item = widget.item;
+    if (_submitting || _answered || item.isExpired) return;
+    final owner = ref.read(authControllerProvider).profile?.id;
+    final selection = ref.read(selectedRollcallAccountProvider);
+    if (owner == null) return;
+    bool current() =>
+        mounted &&
+        ref.read(authControllerProvider).profile?.id == owner &&
+        ref.read(selectedRollcallAccountProvider) == selection;
+    void requireCurrent() {
+      if (!current()) throw StateError('账号已切换');
+    }
+
+    setState(() => _submitting = true);
+    final started = DateTime.now();
+    final opId = RollcallLog.newOpId();
+    bool? ok;
+    try {
+      final at = radarActivityReferenceTime(item, started);
+      final meeting = await resolveRadarMeeting(
+        ownerId: owner,
+        assistUserId: widget.assistUserId,
+        courseId: item.courseId,
+        at: at,
+      );
+      var point = await readAutomaticRadarLocation(
+        ownerId: owner,
+        assistUserId: widget.assistUserId,
+        courseId: item.courseId,
+        meetingKey: meeting,
+        at: at,
+      );
+      requireCurrent();
+      final fromPreference = point != null;
+      final classroomMeeting = widget.meeting;
+      final hasCurrentRoom =
+          classroomMeeting != null &&
+          !at.isBefore(
+            classroomMeeting.start.subtract(const Duration(minutes: 30)),
+          ) &&
+          !at.isAfter(classroomMeeting.end.add(const Duration(minutes: 30)));
+      if (point == null &&
+          hasCurrentRoom &&
+          widget.meeting?.room.trim().isNotEmpty == true &&
+          item.courseId?.isNotEmpty == true) {
+        final user = widget.assistUserId ?? owner;
+        await ref
+            .read(ref.read(savedLocationsForUserProvider(user)).notifier)
+            .ready;
+        requireCurrent();
+        final place = matchCoursePlace(
+          widget.meeting!.room,
+          ref.read(knownLocationsForUserProvider(user)),
+        );
+        if (place != null) {
+          point = CourseRadarPref(
+            courseTitle: item.courseTitle,
+            courseId: item.courseId!,
+            latitude: place.latitude,
+            longitude: place.longitude,
+            accuracy: place.accuracy,
+            placeId: place.id,
+            labelSnapshot: place.note,
+            obtainedVia: RadarObtainedVia.place.storageKey,
+            meetingKey: meeting ?? '',
+          );
+        }
+      }
+      if (point == null ||
+          await isRejectedLocation(
+            owner,
+            widget.assistUserId ?? owner,
+            point,
+          )) {
+        if (mounted && current()) _openSecondary();
+        return;
+      }
+      requireCurrent();
+      final submitted = point;
+      Future<bool> pointUnchanged() async {
+        if (fromPreference) {
+          final latest = await readAutomaticRadarLocation(
+            ownerId: owner,
+            assistUserId: widget.assistUserId,
+            courseId: item.courseId,
+            meetingKey: meeting,
+            at: at,
+          );
+          return latest != null &&
+              latest.latitude == submitted.latitude &&
+              latest.longitude == submitted.longitude &&
+              latest.accuracy == submitted.accuracy;
+        }
+        final latest = matchCoursePlace(
+          widget.meeting!.room,
+          ref.read(knownLocationsForUserProvider(widget.assistUserId ?? owner)),
+        );
+        return latest != null &&
+            latest.id == submitted.placeId &&
+            latest.latitude == submitted.latitude &&
+            latest.longitude == submitted.longitude &&
+            latest.accuracy == submitted.accuracy;
+      }
+
+      RollcallLog.start(
+        opId: opId,
+        type: 'radar',
+        rollcallId: item.rollcallId,
+        courseTitle: item.courseTitle,
+        session: widget.assistUserId == null ? 'owner' : 'assist',
+        assistUserId: widget.assistUserId,
+      );
+      final result = await ref
+          .read(rollcallRepositoryForProvider(widget.assistUserId))
+          .answerRadar(
+            rollcallId: item.rollcallId,
+            latitude: submitted.latitude,
+            longitude: submitted.longitude,
+            accuracy: submitted.accuracy,
+            opId: opId,
+            beforeSend: () async {
+              requireCurrent();
+              if (widget.item.isExpired || _answered) {
+                throw StateError('签到状态已改变');
+              }
+              if (!await pointUnchanged()) {
+                throw StateError('签到位置已改变');
+              }
+              requireCurrent();
+            },
+          );
+      ok = result.ok;
+      if (!current()) return;
+      if (result.ok) {
+        setState(
+          () => _submittedFor = (owner, widget.assistUserId, item.rollcallId),
+        );
+      }
+      await ref
+          .read(ref.read(localHistoryForProvider(widget.assistUserId)).notifier)
+          .add(
+            RollcallHistoryEntry(
+              rollcallId: item.rollcallId,
+              courseTitle: item.courseTitle,
+              typeLabel: '雷达',
+              ok: result.ok,
+              at: DateTime.now(),
+              detail: result.message,
+            ),
+          );
+      if (!current()) return;
+      if (result.ok) {
+        await ref
+            .read(courseRadarDefaultsForProvider(widget.assistUserId).notifier)
+            .rememberSuccess(
+              courseTitle: item.courseTitle,
+              courseId: item.courseId,
+              latitude: submitted.latitude,
+              longitude: submitted.longitude,
+              accuracy: submitted.accuracy,
+              placeId: submitted.placeId,
+              obtainedVia: RadarObtainedVia.values.firstWhere(
+                (value) => value.storageKey == submitted.obtainedVia,
+                orElse: () => RadarObtainedVia.map,
+              ),
+              labelSnapshot: submitted.labelSnapshot,
+              meetingKey: submitted.meetingKey,
+              submittedAtMicros: started.microsecondsSinceEpoch,
+            );
+        if (!current()) return;
+        await ref
+            .read(activeRollcallsProvider(widget.assistUserId).notifier)
+            .refresh();
+      } else if (result.isLocationRejected && await pointUnchanged()) {
+        if (!current()) return;
+        await recordLocationIssue(
+          owner,
+          widget.assistUserId ?? owner,
+          submitted,
+        );
+        if (!current()) return;
+        ref.invalidate(locationIssuesProvider);
+      }
+      if (mounted && current()) {
+        AppToast.show(
+          context,
+          result.message ?? (result.ok ? '签到成功' : '签到失败，可更换位置后重试'),
+          error: !result.ok,
+        );
+      }
+    } catch (error, stack) {
+      RollcallLog.exception(
+        opId: opId,
+        rollcallId: item.rollcallId,
+        error: error,
+        stackTrace: stack,
+      );
+      if (mounted && current()) {
+        AppToast.show(context, '签到未完成，请重试或检查位置', error: true);
+      }
+    } finally {
+      RollcallLog.end(
+        opId: opId,
+        rollcallId: item.rollcallId,
+        durationMs: DateTime.now().difference(started).inMilliseconds,
+        ok: ok,
+      );
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  void _mobileSubmit() {
+    if (_submitting) return;
+    if (Theme.of(context).platform != TargetPlatform.android) {
+      _openSecondary(prefillNumber: true);
+      return;
+    }
+    if (widget.item.isNumber && widget.item.numberCode?.isNotEmpty == true) {
+      _oneClickNumber();
+    } else if (widget.item.isRadar) {
+      _oneClickRadar();
+    } else {
+      _openSecondary(prefillNumber: true);
     }
   }
 
@@ -351,7 +610,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
   }
 
   Widget _mobileCard(AppPalette p, RollcallItem item, String title) {
-    final done = item.isAnswered;
+    final done = _answered;
     final unavailable = item.isExpired || item.type == RollcallType.unknown;
     final tone = done
         ? p.success
@@ -438,6 +697,10 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
               ],
             ),
           ],
+          if (Theme.of(context).platform == TargetPlatform.android) ...[
+            const SizedBox(height: 12),
+            _attendance(item, compact: true),
+          ],
           const SizedBox(height: 16),
           Wrap(
             alignment: WrapAlignment.spaceBetween,
@@ -462,11 +725,11 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                 )
               else if (!unavailable)
                 FilledButton.icon(
-                  onPressed: () => _openSecondary(prefillNumber: true),
+                  onPressed: _submitting ? null : _mobileSubmit,
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(112, 48),
                   ),
-                  label: const Text('去签到'),
+                  label: Text(_submitting ? '提交中…' : '去签到'),
                   icon: const Icon(AppIcons.right, size: 16),
                   iconAlignment: IconAlignment.end,
                 )
@@ -492,6 +755,10 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
         rollcallId: item.rollcallId,
         assistUserId: widget.assistUserId,
         expired: item.isExpired,
+        completed:
+            Theme.of(context).platform == TargetPlatform.android &&
+            !_desktop &&
+            _answered,
         compact: compact,
       );
 
@@ -564,7 +831,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                       ),
                     ),
                   ),
-                  if (!item.isAnswered)
+                  if (!_answered)
                     Positioned(
                       right: 0,
                       top: 0,
@@ -600,8 +867,8 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                               ),
                             ),
                             const SizedBox(width: 14),
-                            if ((item.isExpired && !item.isAnswered) ||
-                                (item.isAnswered &&
+                            if ((item.isExpired && !_answered) ||
+                                (_answered &&
                                     item.type == RollcallType.unknown))
                               _statusChip(p, item)
                             else
@@ -610,7 +877,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                                 style: TextStyle(fontSize: 12, color: p.muted),
                               ),
                             const Spacer(),
-                            if (!item.isAnswered &&
+                            if (!_answered &&
                                 (item.isNumber ||
                                     item.courseId?.isNotEmpty == true))
                               _courseMenu(p, item),
@@ -663,7 +930,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                     ? _numberTaskStrip(p, item, wide: true)
                     : Row(
                         children: [
-                          if (!item.isAnswered)
+                          if (!_answered)
                             Expanded(child: _attendance(item, compact: true))
                           else
                             const Spacer(),
@@ -727,15 +994,15 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
 
   Widget? _secondaryCta(RollcallItem item) {
     if (item.isNumber) {
-      if (item.isAnswered || _desktop) return null;
+      if (_answered || _desktop) return null;
       return TextButton(
-        onPressed: (_submitting || item.isAnswered || item.isExpired)
+        onPressed: (_submitting || _answered || item.isExpired)
             ? null
             : _openSecondary,
         child: const Text('手动输入'),
       );
     }
-    if (item.isAnswered && (item.isRadar || item.type == RollcallType.qrcode)) {
+    if (_answered && (item.isRadar || item.type == RollcallType.qrcode)) {
       final p = AppPalette.of(context);
       return FilledButton(
         style: FilledButton.styleFrom(
@@ -748,13 +1015,13 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     }
     if (item.isRadar) {
       return FilledButton(
-        onPressed: (item.isAnswered || item.isExpired) ? null : _openSecondary,
+        onPressed: (_answered || item.isExpired) ? null : _openSecondary,
         child: const Text('选择位置'),
       );
     }
     if (item.type == RollcallType.qrcode) {
       return FilledButton(
-        onPressed: (item.isAnswered || item.isExpired) ? null : _openSecondary,
+        onPressed: (_answered || item.isExpired) ? null : _openSecondary,
         child: const Text('扫码签到'),
       );
     }
@@ -764,10 +1031,10 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
   Widget _statusChip(AppPalette palette, RollcallItem item) => AppStatusBadge(
     item.isExpired
         ? '已结束'
-        : item.isAnswered
+        : _answered
         ? '已签到'
         : '待签到',
-    tone: item.isAnswered ? AppStatusTone.success : AppStatusTone.neutral,
+    tone: _answered ? AppStatusTone.success : AppStatusTone.neutral,
   );
 
   TextStyle _titleStyle(AppPalette palette) {
@@ -784,14 +1051,14 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     style: _desktop
         ? FilledButton.styleFrom(
             minimumSize: const Size(160, 44),
-            disabledBackgroundColor: item.isAnswered ? p.successSurface : null,
-            disabledForegroundColor: item.isAnswered ? p.success : null,
+            disabledBackgroundColor: _answered ? p.successSurface : null,
+            disabledForegroundColor: _answered ? p.success : null,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
           )
         : null,
-    onPressed: (_submitting || item.isAnswered || item.isExpired)
+    onPressed: (_submitting || _answered || item.isExpired)
         ? null
         : (item.numberCode?.isNotEmpty == true
               ? _oneClickNumber
@@ -799,7 +1066,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     child: Text(
       _submitting
           ? '提交中…'
-          : item.isAnswered
+          : _answered
           ? '已签到'
           : item.isExpired
           ? '已结束'
@@ -840,7 +1107,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
             margin: const EdgeInsets.symmetric(horizontal: 16),
           ),
           Expanded(
-            child: item.isAnswered
+            child: _answered
                 ? const SizedBox.shrink()
                 : _attendance(item, compact: true),
           ),
@@ -879,7 +1146,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     final err = item.numberCodeError;
     if (code == null || code.isEmpty) {
       return Text(
-        item.isAnswered || item.isExpired
+        _answered || item.isExpired
             ? '暂无可用签到码'
             : err == null
             ? '正在获取签到码…'

@@ -477,6 +477,10 @@ void main() {
         reason: 'Only the bottom navigation keeps the page label',
       );
       expect(find.text('信息学院'), findsOneWidget);
+      expect(find.byType(CircleAvatar), findsNothing);
+      expect(tester.widget<Text>(find.text('测试同学')).style?.fontSize, 28);
+      expect(find.widgetWithText(TextButton, '退出'), findsOneWidget);
+
       final container = ProviderScope.containerOf(
         tester.element(find.byType(SettingsPage)),
       );
