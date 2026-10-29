@@ -18,6 +18,7 @@ import 'package:xmu_rollcall/features/homework/homework_overview.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/rollcall/radar_preview.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_preview_page.dart';
 import 'package:xmu_rollcall/features/rollcall/session_prior_preview.dart';
 import 'package:xmu_rollcall/features/settings/recent_logs_page.dart';
 import 'package:xmu_rollcall/features/settings/timetable_preview.dart';
@@ -153,6 +154,16 @@ class SettingsDataPage extends ConsumerWidget {
               SettingsSection(
                 header: '开发预览',
                 children: [
+                  SettingsRow(
+                    leading: const Icon(AppIcons.radar),
+                    title: '签到首页',
+                    subtitle: '完整首页、多方式与状态组合，模拟提交',
+                    trailing: const Icon(AppIcons.right, size: 18),
+                    onTap: () => AppPageRoutes.push(
+                      context,
+                      const RollcallPreviewPage(),
+                    ),
+                  ),
                   SettingsRow(
                     leading: const Icon(AppIcons.download),
                     title: '更新流程',

@@ -580,3 +580,25 @@ stage2-final-tests.log相关46项通过；新增成绩快照→新会话恢复�
 - captures.log生产控件11项通过，实看浅色首页与窄屏深色长内容；pixel-comparison.txt确认idle-light/idle-dark与改动前PNG逐字节相同。桌面现有工作区/课表/设置/地图多尺寸回归包含在完整套件中；未修改任何布局源文件。
 - android-release.log编译成功81.2MB（本地验证仍0.3.0+6），apk-signature.log固定签名SHA256为7c64edfa4cf30722aaa0ec57f05d0ab026f50678243d4821d09de3e26cbe62e5，与既有包一致。既有Kotlin插件迁移提示未扩展为依赖升级。
 - 本轮未读取真实账号凭据/查询校园接口，未重新安装手机、未push或发布。教学/成绩缓存、SecureStore键、默认提交确认与畅课会话机制未改；今后新教务数据的接入约定已写入本地docs/ARCHITECTURE.md“教务数据扩展入口”。
+## 2026-10-30 三类签到开发预览
+
+### 完整首页与12种方式/状态组合
+
+- 原入口改名「签到首页」。直接挂载正式MobileRollcallHome、PageScaffold/AppContentColumn、RollcallAccountMenu和AppMobileNav，保留页头水彩、日期/账号、检测控件、今日课程、任务排列、下拉反馈和底部导航。场景控制在首页外的工具栏，撤掉独立卡片列表及卡间模拟按钮；二级签到仍在隔离Navigator中。
+- 12种预设：三类待签且信息齐全、三类缺码缺点、数字已签/定位和扫码待签、全部已签、待签/已签/结束混合、单数字/单定位/单二维码、空列表、刷新中、检测中、刷新失败。选择或重放清空预览列表并回顶，再通过真实首页AppPullToRefresh加载；默认活动时间与示例课表一致，缺点场景的课表地点同样未知，不伪装成可自动匹配地点。
+- MonitorController新增默认开启的bootstrap参数；预览子类显式关闭原生监听、持久偏好加载和后台恢复，仅模拟检测起停及手动刷新。正式调用保持默认行为，预览不迁移monitor_legacy_owner或接管手机现有检测。凭据、名单、课表和历史仍在独立ProviderContainer，所有签到HTTP使用无网络回退的本地adapter。
+- 30项聚焦回归通过（build/rollcall-home-preview-final-tests.log）：12种组合、完整首页挂载、检测起停、真实数字/定位直接提交、缺输入补充、二维码本地提交，以及原手机首页/快速签到/检测设置/人数暂停。首次测试发现结束卡本来有两处「已结束」文案，修正测试为验证存在后重跑通过。查看build/rollcall-home-preview中的390×844隔离截图，含信息齐全、部分完成、全部完成、空态、缺输入及刷新失败；这是隔离渲染，不冒充真机逐页验收。全lib/test静态检查仅报7处新测试的单行if格式提示，补齐花括号后定向flutter analyze复核无问题（build/rollcall-home-preview-analyze-test-final.log）；生产源码无剩余诊断。
+- Android Debug构建成功（build/rollcall-home-preview-android.log），比对原签名一致，对427b338f执行adb install -r成功；0.3.0+6，保留账号数据。没有代用户打开真实签到或提交，没有推送或发布。
+
+### 数字码、定位与直接提交修正
+
+- 上版复用了真实任务卡，但Android卡片漏显数字码和可靠定位，雷达样例也没有课程ID及可靠点。现正式Android任务卡展示数字码、可用点名称和坐标；从原点击流程抽出位置解析供展示/提交共用，点击仍重新读取，队列发送前继续验证身份、活动和点位。位置偏好、个人点、拒绝记录及补充页返回后重新读取显示；不改非Android外观。
+- 预览默认配好1234与学武楼A区内置坐标；数字/雷达真实按钮直接走本地HTTP模拟提交。开关关闭时缺码/缺点再进入原补充页，撤掉上版额外的手填页入口。模拟点归预览账号，位置为明确课程配置，不给真实账号增加授权。
+- 67项相关回归通过（build/rollcall-preview-inputs-final-tests.log），包括点位展示、可靠输入直接提交、缺输入补充、拒绝点/活动时间/身份与点位变化守卫、人数暂停以及二维码身份流程。最终字体修正后单项预览回放再次通过（build/rollcall-preview-inputs-render.log），实际查看390宽长截图build/rollcall-preview/three-types.png，数字码与定位可见。最终flutter analyze --no-pub lib test无问题（build/rollcall-preview-inputs-final-analyze.log）。
+- 最终Android Debug构建成功（build/rollcall-preview-inputs-android-final.log），证书与原包一致，设备427b338f执行adb install -r成功；版本0.3.0+6，保留数据。未操作真实签到，也未代用户打开页面；隔离截图不能代称真机逐页验收，没有推送或发布。
+
+- 在原「我的 → 数据与诊断 → 开发预览」增加「三类签到」，不新增应用。初始为空，刷新出现数字/雷达/二维码真实任务卡，可进入既有补充页、模拟完成、恢复待签和重置；二维码提供复制模拟内容按钮。
+- 页面内独立 ProviderContainer 和 Navigator 保持二级页的模拟作用域。凭据只在内存；SessionClientRegistry 的所有客户端使用本地 Dio adapter，名单、历史及雷达偏好与真实账号分离，不迁移用户旧偏好。模拟适配器没有网络回退。
+- 最终相关回归20项通过（build/rollcall-preview-tests-final.log），包括真实数字提交、雷达补充页、二维码粘贴提交/临提交复核、完成状态、重置，以及原快速签到/完成反馈回归。检查旧雷达偏好哨兵未被迁移或删除。flutter analyze --no-pub lib test最终无问题（build/rollcall-preview-analyze-focused.log）。早期测试的滚动定位、真实时钟限流和Toast计时收尾问题已修正后重跑；额外直接运行dart analyze时遇到分析服务关闭时删除本机perf文件失败，标准Flutter静态检查正常结束。
+- 实际查看390宽隔离渲染build/rollcall-preview/three-types.png；卡片与当前Android组件一致，可滚动查看全部类型。这是隔离视觉证据，不代表真机逐页验收。
+- Android Debug构建成功（build/rollcall-preview-android-debug-final.log）；保留0.3.0+6，apksigner比较与手机原包证书一致，对427b338f执行adb install -r成功，保留账号数据。Debug构建用于显示既有开发预览入口；没有代用户打开页面或执行真实课堂提交，没有推送或发布。

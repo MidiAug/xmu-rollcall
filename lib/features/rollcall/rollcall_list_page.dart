@@ -241,7 +241,146 @@ class RollcallTaskCard extends ConsumerStatefulWidget {
   ConsumerState<RollcallTaskCard> createState() => _RollcallTileState();
 }
 
+typedef _RadarTaskLocation = ({
+  CourseRadarPref? point,
+  bool fromPreference,
+  String? meeting,
+});
+
 class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
+  Object? _locationDisplayKey;
+  Future<_RadarTaskLocation>? _locationDisplay;
+
+  Future<_RadarTaskLocation> _resolveRadarLocation(
+    int owner,
+    DateTime at,
+    VoidCallback requireCurrent,
+  ) async {
+    final item = widget.item;
+    final meeting = await resolveRadarMeeting(
+      ownerId: owner,
+      assistUserId: widget.assistUserId,
+      courseId: item.courseId,
+      at: at,
+    );
+    var point = await readAutomaticRadarLocation(
+      ownerId: owner,
+      assistUserId: widget.assistUserId,
+      courseId: item.courseId,
+      meetingKey: meeting,
+      at: at,
+    );
+    requireCurrent();
+    final fromPreference = point != null;
+    final classroom = widget.meeting;
+    if (point == null &&
+        classroom != null &&
+        !at.isBefore(classroom.start.subtract(const Duration(minutes: 30))) &&
+        !at.isAfter(classroom.end.add(const Duration(minutes: 30))) &&
+        classroom.room.trim().isNotEmpty &&
+        item.courseId?.isNotEmpty == true) {
+      final user = widget.assistUserId ?? owner;
+      await ref
+          .read(ref.read(savedLocationsForUserProvider(user)).notifier)
+          .ready;
+      requireCurrent();
+      final place = matchCoursePlace(
+        classroom.room,
+        ref.read(knownLocationsForUserProvider(user)),
+      );
+      if (place != null) {
+        point = CourseRadarPref(
+          courseTitle: item.courseTitle,
+          courseId: item.courseId!,
+          latitude: place.latitude,
+          longitude: place.longitude,
+          accuracy: place.accuracy,
+          placeId: place.id,
+          labelSnapshot: place.note,
+          obtainedVia: RadarObtainedVia.place.storageKey,
+          meetingKey: meeting ?? '',
+        );
+      }
+    }
+    if (point != null &&
+        await isRejectedLocation(owner, widget.assistUserId ?? owner, point)) {
+      point = null;
+    }
+    requireCurrent();
+    return (point: point, fromPreference: fromPreference, meeting: meeting);
+  }
+
+  Widget _radarLocationSummary(AppPalette p) {
+    final owner = ref.watch(authControllerProvider).profile?.id;
+    final user = widget.assistUserId ?? owner;
+    final preferences = ref.watch(
+      courseRadarDefaultsForProvider(widget.assistUserId),
+    );
+    final places = ref.watch(ref.watch(savedLocationsForUserProvider(user)));
+    final issues = ref.watch(locationIssuesForUserProvider(user));
+    final key = (
+      owner,
+      widget.assistUserId,
+      widget.item,
+      widget.meeting,
+      preferences,
+      places,
+      issues,
+    );
+    if (key != _locationDisplayKey) {
+      _locationDisplayKey = key;
+      _locationDisplay = owner == null
+          ? null
+          : _resolveRadarLocation(
+              owner,
+              radarActivityReferenceTime(widget.item, DateTime.now()),
+              () {
+                if (!mounted) throw StateError('页面已关闭');
+              },
+            );
+    }
+    return FutureBuilder<_RadarTaskLocation>(
+      future: _locationDisplay,
+      builder: (context, snapshot) {
+        final loading = snapshot.connectionState == ConnectionState.waiting;
+        final point = loading ? null : snapshot.data?.point;
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(AppIcons.location, size: 16, color: p.muted),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    loading
+                        ? '正在确认签到位置…'
+                        : point == null
+                        ? '需补充签到位置'
+                        : point.labelSnapshot.isNotEmpty
+                        ? point.labelSnapshot
+                        : '已保存的签到位置',
+                    style: TextStyle(color: p.ink, fontSize: 14, height: 1.5),
+                  ),
+                  if (point != null)
+                    Text(
+                      '${point.latitude.toStringAsFixed(5)}, ${point.longitude.toStringAsFixed(5)}',
+                      style: TextStyle(
+                        color: p.muted,
+                        fontSize: 12,
+                        height: 1.5,
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   bool get _desktop => PlatformHooks.isDesktop && !AppDensity.isTouch(context);
   bool _hover = false;
   bool _submitting = false;
@@ -364,61 +503,11 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     bool? ok;
     try {
       final at = radarActivityReferenceTime(item, started);
-      final meeting = await resolveRadarMeeting(
-        ownerId: owner,
-        assistUserId: widget.assistUserId,
-        courseId: item.courseId,
-        at: at,
-      );
-      var point = await readAutomaticRadarLocation(
-        ownerId: owner,
-        assistUserId: widget.assistUserId,
-        courseId: item.courseId,
-        meetingKey: meeting,
-        at: at,
-      );
-      requireCurrent();
-      final fromPreference = point != null;
-      final classroomMeeting = widget.meeting;
-      final hasCurrentRoom =
-          classroomMeeting != null &&
-          !at.isBefore(
-            classroomMeeting.start.subtract(const Duration(minutes: 30)),
-          ) &&
-          !at.isAfter(classroomMeeting.end.add(const Duration(minutes: 30)));
-      if (point == null &&
-          hasCurrentRoom &&
-          widget.meeting?.room.trim().isNotEmpty == true &&
-          item.courseId?.isNotEmpty == true) {
-        final user = widget.assistUserId ?? owner;
-        await ref
-            .read(ref.read(savedLocationsForUserProvider(user)).notifier)
-            .ready;
-        requireCurrent();
-        final place = matchCoursePlace(
-          widget.meeting!.room,
-          ref.read(knownLocationsForUserProvider(user)),
-        );
-        if (place != null) {
-          point = CourseRadarPref(
-            courseTitle: item.courseTitle,
-            courseId: item.courseId!,
-            latitude: place.latitude,
-            longitude: place.longitude,
-            accuracy: place.accuracy,
-            placeId: place.id,
-            labelSnapshot: place.note,
-            obtainedVia: RadarObtainedVia.place.storageKey,
-            meetingKey: meeting ?? '',
-          );
-        }
-      }
-      if (point == null ||
-          await isRejectedLocation(
-            owner,
-            widget.assistUserId ?? owner,
-            point,
-          )) {
+      final resolved = await _resolveRadarLocation(owner, at, requireCurrent);
+      final point = resolved.point;
+      final meeting = resolved.meeting;
+      final fromPreference = resolved.fromPreference;
+      if (point == null) {
         if (mounted && current()) _openSecondary();
         return;
       }
@@ -591,7 +680,9 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
         assistUserId: widget.assistUserId,
         initialNumberCode: prefillNumber ? item.numberCode : null,
       ),
-    );
+    ).then((_) {
+      if (mounted) setState(() => _locationDisplayKey = null);
+    });
   }
 
   Future<void> _copyCode(String code) async {
@@ -698,6 +789,20 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
             ),
           ],
           if (Theme.of(context).platform == TargetPlatform.android) ...[
+            if (item.isNumber) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Text('签到码', style: TextStyle(color: p.muted, fontSize: 13)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _codeAnchor(p, item, wide: false)),
+                ],
+              ),
+            ],
+            if (item.isRadar && !done && !unavailable) ...[
+              const SizedBox(height: 12),
+              _radarLocationSummary(p),
+            ],
             const SizedBox(height: 12),
             _attendance(item, compact: true),
           ],

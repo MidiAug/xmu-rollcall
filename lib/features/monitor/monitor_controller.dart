@@ -87,10 +87,14 @@ final monitorControllerProvider =
     );
 
 class MonitorController extends StateNotifier<MonitorState> {
-  MonitorController(this._ref)
+  MonitorController(this._ref, {bool bootstrap = true})
     : super(
         const MonitorState(config: MonitorConfig(), loadingSettings: true),
       ) {
+    if (!bootstrap) {
+      _loaded = Future.value();
+      return;
+    }
     if (PlatformHooks.isAndroid) {
       AndroidMonitorShell.instance.addListener(_onSnapshot);
     }

@@ -217,6 +217,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(network.submissions, 0);
+      if (mode == 'number') expect(find.text('1234'), findsOneWidget);
+      if (mode == 'configured' || mode == 'success') {
+        expect(find.text('24.50000, 118.20000'), findsOneWidget);
+      }
+      if (mode == 'missing' || mode == 'rejected' || mode == 'outside') {
+        expect(find.text('需补充签到位置'), findsOneWidget);
+      }
       await tester.tap(find.text('去签到'));
       for (var i = 0; i < 20; i++) {
         await tester.pump(const Duration(milliseconds: 20));
