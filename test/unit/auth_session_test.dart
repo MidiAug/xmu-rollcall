@@ -98,7 +98,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(sync.calls.last, (
         uid: 1,
-        force: true,
+        force: false,
         username: 'test-user',
         password: 'test-password',
       ));

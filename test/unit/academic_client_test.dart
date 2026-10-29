@@ -44,6 +44,127 @@ class _PendingClient extends AcademicTimetableReader {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test('automatic refresh only covers weeks 1–2 and the next term', () {
+    AcademicSchedule saved(DateTime fetched, {String term = '20261'}) =>
+        AcademicSchedule(
+          term: term,
+          monday: academicMondays[term]!,
+          fetchedAt: fetched,
+          rows: [],
+        );
+    final weekTwo = DateTime(2026, 9, 14, 12);
+    expect(
+      academicScheduleCacheIsFresh(
+        saved(weekTwo.subtract(const Duration(days: 6, hours: 23))),
+        weekTwo,
+      ),
+      true,
+    );
+    expect(
+      academicScheduleCacheIsFresh(
+        saved(weekTwo.subtract(const Duration(days: 7))),
+        weekTwo,
+      ),
+      false,
+    );
+    // Week 3 onward keeps the same term's cache even if it is many weeks old.
+    expect(
+      academicScheduleCacheIsFresh(
+        saved(DateTime(2026, 9, 7)),
+        DateTime(2026, 9, 21),
+      ),
+      true,
+    );
+    expect(
+      academicScheduleCacheIsFresh(
+        saved(DateTime(2026, 9, 8)),
+        DateTime(2026, 11, 15),
+      ),
+      true,
+    );
+    // A prepublished term is not polled before classes begin, but refreshes once at term start.
+    expect(
+      academicScheduleCacheIsFresh(
+        saved(DateTime(2026, 8, 1)),
+        DateTime(2026, 9, 1),
+      ),
+      true,
+    );
+    expect(
+      academicScheduleCacheIsFresh(
+        saved(DateTime(2026, 8, 1)),
+        DateTime(2026, 9, 7),
+      ),
+      false,
+    );
+    final nextStart = DateTime(2027, 2, 15);
+    expect(
+      academicScheduleCacheIsFresh(saved(DateTime(2027, 2, 14)), nextStart),
+      false,
+    );
+    // An initial new-term fetch can still return the old term: do not repeat it on every entry.
+    expect(
+      academicScheduleCacheIsFresh(
+        saved(nextStart),
+        nextStart.add(const Duration(days: 1)),
+      ),
+      true,
+    );
+    expect(
+      academicScheduleCacheIsFresh(
+        saved(nextStart),
+        nextStart.add(const Duration(days: 7)),
+      ),
+      false,
+    );
+    expect(
+      academicScheduleCacheIsFresh(
+        saved(nextStart),
+        nextStart.add(const Duration(days: 14)),
+      ),
+      true,
+    );
+  });
+  test(
+    'fresh cache and manual cooldown skip identity and session resolution',
+    () async {
+      final now = DateTime.now();
+      final saved = AcademicSchedule(
+        term: '20261',
+        monday: DateTime(2026, 9, 7),
+        fetchedAt: now,
+        rows: [],
+      );
+      await AcademicScheduleStore.write(1, saved);
+      final store = SecureStore.memory({SecureStore.keyUserId: '1'});
+      var identities = 0;
+      final reader = _PendingClient(store, () async => saved);
+      final sync = AcademicSync(
+        store,
+        createReader: (_) => reader,
+        resolveIdentity: (_) async {
+          identities++;
+          return AcademicIdentity(
+            username: 'fixture-student',
+            password: 'fixture-only',
+            isCurrent: () async => true,
+          );
+        },
+      );
+      addTearDown(sync.dispose);
+      for (var i = 0; i < 3; i++) {
+        await sync.sync(1);
+      }
+      expect(identities, 0);
+      expect(reader.calls, 0);
+      await sync.sync(1, force: true);
+      expect(identities, 1);
+      expect(reader.calls, 1);
+      await sync.sync(1, force: true);
+      expect(identities, 1);
+      expect(reader.calls, 1);
+    },
+  );
   test(
     'assist timetable uses its own credentials and IDS jar, and writes only its cache',
     () async {

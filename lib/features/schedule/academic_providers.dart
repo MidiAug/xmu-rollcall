@@ -1,3 +1,4 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/features/academic/academic_access.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
@@ -79,6 +80,19 @@ final academicTimetableProvider = FutureProvider.autoDispose
     .family<AcademicTimetableState, int>((ref, uid) async {
       ref.watch(academicRevisionProvider);
       final sync = ref.read(academicSyncProvider);
+      final cached = await ref.watch(
+        academicCachedScheduleProvider(uid).future,
+      );
+      final prefs = await SharedPreferences.getInstance();
+      if (cached != null &&
+          academicScheduleCacheIsFresh(cached, DateTime.now()) &&
+          prefs.getString('academic_calendar_missing_$uid') == null) {
+        return AcademicTimetableState(
+          schedule: cached,
+          message: sync.errorFor(uid),
+          needsLogin: sync.needsLogin(uid),
+        );
+      }
       await sync.sync(uid);
       return AcademicTimetableState(
         schedule: await AcademicScheduleStore.read(uid),

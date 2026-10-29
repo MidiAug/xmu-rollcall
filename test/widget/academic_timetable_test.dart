@@ -68,6 +68,28 @@ class _PendingReader extends AcademicTimetableReader {
   }
 }
 
+class _CountingSync extends AcademicSync {
+  _CountingSync(super.store, {super.resolveIdentity});
+  int calls = 0;
+  @override
+  Future<void> sync(
+    int uid, {
+    CookieJar? sso,
+    String? username,
+    String? password,
+    bool force = false,
+  }) {
+    calls++;
+    return super.sync(
+      uid,
+      sso: sso,
+      username: username,
+      password: password,
+      force: force,
+    );
+  }
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   setUpAll(() async {
@@ -86,33 +108,157 @@ void main() {
           .load();
     }
   });
+  test(
+    'reopening a fresh timetable never enters sync or resolves credentials',
+    () async {
+      final saved = AcademicSchedule(
+        term: '20261',
+        monday: DateTime(2026, 9, 7),
+        fetchedAt: DateTime.now(),
+        rows: [],
+      );
+      await AcademicScheduleStore.write(1, saved);
+      final store = SecureStore.memory({SecureStore.keyUserId: '1'});
+      var identities = 0;
+      late _CountingSync sync;
+      final container = ProviderContainer(
+        overrides: [
+          academicSyncProvider.overrideWith((ref) {
+            sync = _CountingSync(
+              store,
+              resolveIdentity: (_) async {
+                identities++;
+                throw StateError('fresh cache must bypass identity');
+              },
+            );
+            ref.onDispose(sync.dispose);
+            return sync;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      final listener = container.listen(
+        academicTimetableProvider(1),
+        (_, _) {},
+      );
+      addTearDown(listener.close);
+      for (var i = 0; i < 3; i++) {
+        if (i > 0) container.invalidate(academicTimetableProvider(1));
+        final result = await container.read(
+          academicTimetableProvider(1).future,
+        );
+        expect(result.schedule?.term, '20261');
+        expect(result.needsLogin, false);
+        expect(result.message, isNull);
+      }
+      expect(identities, 0);
+      expect(sync.calls, 0);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getInt('academic_attempt_1'), isNull);
+    },
+  );
+  for (final platform in [TargetPlatform.android, TargetPlatform.windows]) {
+    testWidgets('manual timetable refresh shares throttling on $platform', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(
+        platform == TargetPlatform.android ? 384 : 960,
+        844,
+      );
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final saved = AcademicSchedule(
+        term: '20261',
+        monday: DateTime(2026, 9, 7),
+        fetchedAt: DateTime.now(),
+        rows: [],
+      );
+      await AcademicScheduleStore.write(1, saved);
+      final pending = Completer<AcademicSchedule>();
+      final store = SecureStore.memory({SecureStore.keyUserId: '1'});
+      final reader = _PendingReader(store, pending);
+      final container = ProviderContainer(
+        overrides: [
+          secureStoreProvider.overrideWithValue(store),
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          academicSyncProvider.overrideWith((ref) {
+            final sync = AcademicSync(
+              store,
+              createReader: (_) => reader,
+              resolveIdentity: (_) async => AcademicIdentity(
+                username: 'fixture-student',
+                password: 'fixture-only',
+                isCurrent: () async => true,
+              ),
+              onUpdated: (_) =>
+                  ref.read(academicRevisionProvider.notifier).state++,
+            );
+            ref.onDispose(sync.dispose);
+            return sync;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: platform),
+            home: const CoursesPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(reader.calls, 0);
+      await tester.tap(find.byTooltip('刷新课表'));
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      expect(reader.calls, 1);
+      pending.complete(saved);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('刷新课表'));
+      await tester.pumpAndSettle();
+      expect(
+        reader.calls,
+        1,
+        reason: 'Manual refresh still obeys the shared 15 second cooldown',
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
   testWidgets(
-    'saved timetable is visible while real sync waits, then updates',
+    'previous-term timetable remains visible while new-term sync waits',
     (tester) async {
       final now = DateTime.now();
-      AcademicSchedule snapshot(String title, DateTime fetched) =>
-          AcademicSchedule(
-            term: '20261',
-            monday: DateTime(2026, 9, 14),
-            fetchedAt: fetched,
-            rows: [
-              AcademicCourseRow.fromJson({
-                'KCDM': 'cache',
-                'KCMC': title,
-                'BJDM': 'A',
-                'XQ': 1,
-                'KSJCDM': 3,
-                'JSJCDM': 4,
-                'startMinute': 610,
-                'endMinute': 710,
-                'JASMC': '学武楼A404',
-                'ZCBH': '11111111111111111111111111111111',
-              }),
-            ],
-          );
+      AcademicSchedule snapshot(
+        String title,
+        DateTime fetched, {
+        String term = '20261',
+      }) => AcademicSchedule(
+        term: term,
+        monday: term == '20261' ? DateTime(2026, 9, 7) : DateTime(2026, 6, 29),
+        fetchedAt: fetched,
+        rows: [
+          AcademicCourseRow.fromJson({
+            'KCDM': 'cache',
+            'KCMC': title,
+            'BJDM': 'A',
+            'XQ': 1,
+            'KSJCDM': 3,
+            'JSJCDM': 4,
+            'startMinute': 610,
+            'endMinute': 710,
+            'JASMC': '学武楼A404',
+            'ZCBH': '11111111111111111111111111111111',
+          }),
+        ],
+      );
       await AcademicScheduleStore.write(
         1,
-        snapshot('已缓存课程', now.subtract(const Duration(days: 10))),
+        snapshot('已缓存课程', DateTime(2026, 8, 1), term: '20253'),
       );
       final store = SecureStore.memory({SecureStore.keyUserId: '1'});
       final pending = Completer<AcademicSchedule>();

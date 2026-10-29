@@ -427,6 +427,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
             child: LayoutBuilder(
               builder: (context, bounds) {
                 final wide = useSplit;
+                final androidList =
+                    !wide &&
+                    Theme.of(context).platform == TargetPlatform.android;
                 final list = Container(
                   decoration: BoxDecoration(
                     color: wide ? p.surface : Colors.transparent,
@@ -521,18 +524,28 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                             key: ValueKey(
                                               'managed-room-${e.name}',
                                             ),
-                                            dense: wide,
-                                            minTileHeight: wide ? 56 : 68,
-                                            minVerticalPadding: wide ? 6 : 10,
-                                            minLeadingWidth: wide ? 28 : 36,
-                                            horizontalTitleGap: wide ? 10 : 12,
+                                            dense: !androidList,
+                                            minTileHeight: androidList
+                                                ? 68
+                                                : 56,
+                                            minVerticalPadding: androidList
+                                                ? 10
+                                                : 6,
+                                            minLeadingWidth: androidList
+                                                ? 36
+                                                : 28,
+                                            horizontalTitleGap: androidList
+                                                ? 12
+                                                : 10,
                                             contentPadding:
                                                 EdgeInsets.symmetric(
-                                                  horizontal: wide ? 8 : 12,
+                                                  horizontal: androidList
+                                                      ? 12
+                                                      : 8,
                                                 ),
                                             leading: Container(
-                                              width: wide ? 28 : 36,
-                                              height: wide ? 28 : 36,
+                                              width: androidList ? 36 : 28,
+                                              height: androidList ? 36 : 28,
                                               decoration: BoxDecoration(
                                                 color: invalid
                                                     ? p.danger.withValues(
@@ -565,7 +578,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                                   .textTheme
                                                   .bodyMedium
                                                   ?.copyWith(
-                                                    fontSize: wide ? 13 : 15,
+                                                    fontSize: androidList
+                                                        ? 15
+                                                        : 13,
                                                     color: p.ink,
                                                     fontWeight: FontWeight.w600,
                                                   ),
@@ -606,7 +621,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                                     .textTheme
                                                     .bodySmall
                                                     ?.copyWith(
-                                                      fontSize: wide ? 11 : 12,
+                                                      fontSize: androidList
+                                                          ? 12
+                                                          : 11,
                                                       color: p.muted,
                                                     ),
                                               ),

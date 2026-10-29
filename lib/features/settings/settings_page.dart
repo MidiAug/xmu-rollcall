@@ -286,7 +286,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     String subtitle,
   ) {
     final p = AppPalette.of(context);
-    final college = auth.isSignedIn
+    final android = Theme.of(context).platform == TargetPlatform.android;
+    final college = android && auth.isSignedIn
         ? ref
               .watch(academicCachedScheduleProvider(auth.profile!.id))
               .valueOrNull
@@ -303,13 +304,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
         child: Icon(icon, color: p.primary, size: 23),
       ),
       title: title,
-      minHeight: 48,
-      contentPadding: const EdgeInsets.symmetric(vertical: 4),
+      minHeight: android ? 48 : 52,
+      contentPadding: EdgeInsets.symmetric(vertical: android ? 4 : 6),
       trailing: trailing ?? Icon(AppIcons.right, color: p.muted, size: 17),
       onTap: onTap,
     );
     Widget group(String title, List<Widget> rows) => Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: EdgeInsets.fromLTRB(
+        android ? 16 : 20,
+        android ? 16 : 20,
+        android ? 16 : 20,
+        0,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -360,7 +366,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
         onPressed: toggle,
         style: TextButton.styleFrom(
           padding: EdgeInsets.zero,
-          minimumSize: const Size(48, 56),
+          minimumSize: Size(48, android ? 56 : 64),
           foregroundColor: p.ink,
         ),
         child: Row(

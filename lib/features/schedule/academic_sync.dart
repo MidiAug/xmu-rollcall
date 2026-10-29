@@ -11,6 +11,24 @@ import 'academic_schedule.dart';
 import 'academic_calendar.dart';
 import 'semester_preferences.dart';
 
+/// Only weeks 1–2 refresh weekly; later weeks reuse this term's saved schedule.
+bool academicScheduleCacheIsFresh(AcademicSchedule schedule, DateTime now) {
+  final term = currentSemester(now);
+  final newerTerm = term.compareTo(schedule.term) > 0;
+  // Fetch once after a new term begins, including a schedule published before it.
+  // The fetch timestamp also prevents rechecking every visit if JW still returns the old term.
+  if (term.compareTo(schedule.term) >= 0 &&
+      currentSemester(schedule.fetchedAt).compareTo(term) < 0) {
+    return false;
+  }
+  final start = newerTerm
+      ? academicMondays[term] ?? schedule.monday
+      : schedule.monday;
+  final day = semesterDate(now).difference(semesterDate(start)).inDays;
+  if (day < 0 || day >= 14) return true;
+  return now.difference(schedule.fetchedAt) < const Duration(days: 7);
+}
+
 class AcademicSync {
   AcademicSync(
     this.store, {
@@ -113,36 +131,6 @@ class AcademicSync {
     final owner = await store.read(SecureStore.keyUserId);
     if (_disposed || owner == null) return;
     final freshLogin = password != null || sso != null;
-    AcademicIdentity? access;
-    try {
-      access = resolveIdentity == null ? null : await resolveIdentity!(uid);
-    } catch (_) {
-      _setError(uid, '该账号的认证信息不可用，请重新导入', login: true);
-      return;
-    }
-    if (access == null && '$uid' == owner) {
-      access = await resolveOwnerAcademicIdentity(
-        store,
-        uid,
-        sso: currentSso?.call(),
-      );
-    }
-    if (access == null) {
-      _setError(uid, '请补充该协助账号的认证信息以连接教务课表', login: true);
-      return;
-    }
-    final identity = access;
-    Future<bool> current() async => !_disposed && await identity.isCurrent();
-    if (!await current()) return;
-    username ??= identity.username;
-    password ??= identity.password;
-    sso ??= identity.sso;
-    if ((username == null || username.isEmpty) &&
-        sso == null &&
-        await store.read(AcademicSession.credentialKey(uid)) == null) {
-      _setError(uid, '请重新登录账号以连接教务课表', login: true);
-      return;
-    }
     if (periodic) startPeriodic();
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now();
@@ -173,8 +161,7 @@ class AcademicSync {
       );
       return;
     }
-    // Stable term weekly, semester boundaries daily, failures 30 minutes.
-    final nearStart = {2, 3, 8, 9}.contains(now.month);
+    // Check local cooldowns before opening credentials or restoring sessions.
     if (!freshLogin &&
         !legacyFailure &&
         last != null &&
@@ -186,7 +173,37 @@ class AcademicSync {
     if (!force &&
         !calendarCorrected &&
         cached != null &&
-        now.difference(cached.fetchedAt) < Duration(days: nearStart ? 1 : 7)) {
+        academicScheduleCacheIsFresh(cached, now)) {
+      return;
+    }
+    AcademicIdentity? access;
+    try {
+      access = resolveIdentity == null ? null : await resolveIdentity!(uid);
+    } catch (_) {
+      _setError(uid, '该账号的认证信息不可用，请重新导入', login: true);
+      return;
+    }
+    if (access == null && '$uid' == owner) {
+      access = await resolveOwnerAcademicIdentity(
+        store,
+        uid,
+        sso: currentSso?.call(),
+      );
+    }
+    if (access == null) {
+      _setError(uid, '请补充该协助账号的认证信息以连接教务课表', login: true);
+      return;
+    }
+    final identity = access;
+    Future<bool> current() async => !_disposed && await identity.isCurrent();
+    if (!await current()) return;
+    username ??= identity.username;
+    password ??= identity.password;
+    sso ??= identity.sso;
+    if ((username == null || username.isEmpty) &&
+        sso == null &&
+        await store.read(AcademicSession.credentialKey(uid)) == null) {
+      _setError(uid, '请重新登录账号以连接教务课表', login: true);
       return;
     }
     await prefs.setInt('academic_attempt_$uid', now.millisecondsSinceEpoch);

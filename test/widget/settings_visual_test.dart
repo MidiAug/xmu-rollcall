@@ -497,6 +497,32 @@ void main() {
     });
   }
 
+  for (final platform in [TargetPlatform.android, TargetPlatform.windows]) {
+    testWidgets('settings density changes only on Android at $platform', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(_app(platform: platform, needsSchedule: true));
+      await tester.pumpAndSettle();
+      final row = find.ancestor(
+        of: find.text('地点管理'),
+        matching: find.byType(SettingsRow),
+      );
+      expect(
+        tester.getSize(row).height,
+        platform == TargetPlatform.android ? 56 : 64,
+      );
+      expect(
+        find.byKey(const ValueKey('profile-college')),
+        platform == TargetPlatform.android ? findsOneWidget : findsNothing,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   testWidgets('narrow profile keeps long college and account action usable', (
     tester,
   ) async {

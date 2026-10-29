@@ -138,6 +138,22 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
             value: _semester,
             onChanged: (value) => setState(() => _semester = value),
           ),
+        if (auth.isSignedIn && uid != null)
+          AppRefreshButton(
+            key: const ValueKey('academic-timetable-refresh'),
+            tooltip: '刷新课表',
+            extent: 44,
+            onRefresh: () async {
+              final owner = auth.profile?.id;
+              await ref.read(academicSyncProvider).sync(uid, force: true);
+              if (!mounted ||
+                  ref.read(authControllerProvider).profile?.id != owner ||
+                  (widget.assistUserId ?? owner) != uid) {
+                return;
+              }
+              ref.invalidate(academicTimetableProvider(uid));
+            },
+          ),
       ],
       body: !auth.isSignedIn
           ? EmptyHint(

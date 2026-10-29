@@ -17,7 +17,6 @@ AuthController createAppAuthController(Ref ref) {
             sso: ref.read(tronHttpClientProvider).cookieJar,
             username: username,
             password: password,
-            force: true,
           );
       if (controller.isSignedInAs(profile.id)) {
         ref.read(academicRevisionProvider.notifier).state++;
