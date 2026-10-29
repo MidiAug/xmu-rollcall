@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/settings/settings_data_page.dart';
 import 'dart:async';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:xmu_rollcall/app/providers.dart';
@@ -158,76 +159,126 @@ void main() {
     },
   );
   for (final platform in [TargetPlatform.android, TargetPlatform.windows]) {
-    testWidgets('manual timetable refresh shares throttling on $platform', (
-      tester,
-    ) async {
-      tester.view.physicalSize = Size(
-        platform == TargetPlatform.android ? 384 : 960,
-        844,
-      );
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final saved = AcademicSchedule(
-        term: '20261',
-        monday: DateTime(2026, 9, 7),
-        fetchedAt: DateTime.now(),
-        rows: [],
-      );
-      await AcademicScheduleStore.write(1, saved);
-      final pending = Completer<AcademicSchedule>();
-      final store = SecureStore.memory({SecureStore.keyUserId: '1'});
-      final reader = _PendingReader(store, pending);
-      final container = ProviderContainer(
-        overrides: [
-          secureStoreProvider.overrideWithValue(store),
-          authControllerProvider.overrideWith((ref) => _Auth()),
-          academicSyncProvider.overrideWith((ref) {
-            final sync = AcademicSync(
-              store,
-              createReader: (_) => reader,
-              resolveIdentity: (_) async => AcademicIdentity(
-                username: 'fixture-student',
-                password: 'fixture-only',
-                isCurrent: () async => true,
-              ),
-              onUpdated: (_) =>
-                  ref.read(academicRevisionProvider.notifier).state++,
-            );
-            ref.onDispose(sync.dispose);
-            return sync;
-          }),
-        ],
-      );
-      addTearDown(container.dispose);
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            theme: AppTheme.light().copyWith(platform: platform),
-            home: const CoursesPage(),
+    testWidgets(
+      'low frequency timetable update lives in data settings on $platform',
+      (tester) async {
+        tester.view.physicalSize = Size(
+          platform == TargetPlatform.android ? 384 : 960,
+          844,
+        );
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final saved = AcademicSchedule(
+          term: '20261',
+          monday: DateTime(2026, 9, 7),
+          fetchedAt: DateTime.now(),
+          rows: [],
+        );
+        await AcademicScheduleStore.write(1, saved);
+        final pending = Completer<AcademicSchedule>();
+        final store = SecureStore.memory({SecureStore.keyUserId: '1'});
+        final reader = _PendingReader(store, pending);
+        final container = ProviderContainer(
+          overrides: [
+            secureStoreProvider.overrideWithValue(store),
+            authControllerProvider.overrideWith((ref) => _Auth()),
+            academicSyncProvider.overrideWith((ref) {
+              final sync = AcademicSync(
+                store,
+                createReader: (_) => reader,
+                resolveIdentity: (_) async => AcademicIdentity(
+                  username: 'fixture-student',
+                  password: 'fixture-only',
+                  isCurrent: () async => true,
+                ),
+                onUpdated: (_) =>
+                    ref.read(academicRevisionProvider.notifier).state++,
+              );
+              ref.onDispose(sync.dispose);
+              return sync;
+            }),
+          ],
+        );
+        addTearDown(container.dispose);
+        final capture = GlobalKey();
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              builder: (_, child) =>
+                  RepaintBoundary(key: capture, child: child!),
+              theme: AppTheme.light().copyWith(platform: platform),
+              home: const CoursesPage(),
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(reader.calls, 0);
-      await tester.tap(find.byTooltip('刷新课表'));
-      for (var i = 0; i < 5; i++) {
-        await tester.pump(const Duration(milliseconds: 20));
-      }
-      expect(reader.calls, 1);
-      pending.complete(saved);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('刷新课表'));
-      await tester.pumpAndSettle();
-      expect(
-        reader.calls,
-        1,
-        reason: 'Manual refresh still obeys the shared 15 second cooldown',
-      );
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox.shrink());
-    });
+        );
+        await tester.pumpAndSettle();
+        expect(reader.calls, 0);
+        expect(
+          find.byKey(const ValueKey('academic-timetable-refresh')),
+          findsNothing,
+        );
+        Navigator.of(tester.element(find.byType(CoursesPage))).push(
+          MaterialPageRoute<void>(builder: (_) => const SettingsDataPage()),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          reader.calls,
+          0,
+          reason: 'Opening data settings only reads cached metadata',
+        );
+        expect(find.text('教务课表'), findsOneWidget);
+        if (Platform.environment['CAPTURE_ACADEMIC_UI'] == '1') {
+          await tester.runAsync(() async {
+            final boundary =
+                capture.currentContext!.findRenderObject()!
+                    as RenderRepaintBoundary;
+            final image = await boundary.toImage();
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            await Directory(
+              'build/timetable-data-settings',
+            ).create(recursive: true);
+            await File(
+              'build/timetable-data-settings/${platform.name}.png',
+            ).writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+
+        await tester.tap(
+          find.byKey(const ValueKey('academic-timetable-update')),
+        );
+        for (var i = 0; i < 5; i++) {
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+        expect(reader.calls, 1);
+        pending.complete(
+          AcademicSchedule(
+            term: saved.term,
+            monday: saved.monday,
+            fetchedAt: DateTime.now(),
+            rows: saved.rows,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('课表已更新'), findsOneWidget);
+        await tester.tap(
+          find.byKey(const ValueKey('academic-timetable-update')),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          reader.calls,
+          1,
+          reason: 'Manual refresh still obeys the shared 15 second cooldown',
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
   }
   testWidgets(
     'previous-term timetable remains visible while new-term sync waits',

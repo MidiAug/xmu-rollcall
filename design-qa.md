@@ -1,3 +1,15 @@
+### 2026-10-29 数据设置更新入口APK
+
+`15a71ea`源码Android release构建成功，81.3MB，沿用0.3.0+6（`build/timetable-data-settings-release.log`）；`dist/xmu-rollcall-0.3.0-android.apk`已替换为低频更新入口迁移后的产物，apksigner验证通过，证书与此前一致。ADB设备列表为空，本轮未安装，待接机后再覆盖安装。回归和隔离截图结果见下，不将构建成功当作真机验收。
+
+## 2026-10-29 按操作频率安排刷新入口
+
+常用刷新留在任务发生处：签到、作业继续保留原快捷刷新/下拉交互。低频课表手动更新归“设置/我的 → 数据与诊断 → 数据更新 → 教务课表”，正常课表页只保留本周/学期切换；加载失败仍保留就地重试/重新登录，不让用户为了恢复失败加载绕路到设置。
+
+数据更新行显示当前查看账号和上次成功更新时间；打开页面只读取该账号缓存，不挂载自动同步。点击“更新”走共享force路径，按钮显示更新中并暂时禁用，结果在原行反馈，保留15秒门槛和30分钟网络失败退避。身份行按owner/target uid重建，旧请求结束后不改写其他账号界面状态。此为功能入口迁移，各端沿用现有控件样式；前端美化仍只针对Android。
+
+验证：`timetable-data-settings-tests.log` 43项通过；补充结果反馈/截图后的课程回归`timetable-data-settings-final-tests.log` 6项通过，静态分析无问题。生产组件分别在Android/Windows打开课表，确认无常规刷新按钮；导航到真实SettingsDataPage时请求数仍0；点击更新真实AcademicSync调用Reader一次、更新时间变化后原行显示“课表已更新”，15秒内再次点击不重复请求。实看`build/timetable-data-settings/android.png`，384宽身份、日期与按钮并排可读；测试模式下的开发预览区不代表release会显示。共享节流及开学后两周规则未改变。
+
 ### 2026-10-29 最终策略APK
 
 `3c1a352`源码构建Android release成功，81.3MB（`build/timetable-term-final-release.log`），更新`dist/xmu-rollcall-0.3.0-android.apk`；正式包名及0.3.0+6不变，证书SHA-256与此前安装证书一致。手动刷新入口的384/960生产页面捕获2项通过，并实看`.tools/academic-ui/term-384.png`确认手机顶栏按钮与本周/学期不重叠。构建完成前ADB列表仍为空，本轮没有安装或真机测试；待用户接机后再覆盖安装，不将上次生成的旧策略APK当作本次产物。

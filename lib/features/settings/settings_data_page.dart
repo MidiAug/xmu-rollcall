@@ -39,6 +39,18 @@ class SettingsDataPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final deviceFuture = ref.watch(deviceIdentityProvider).getId();
     final p = AppPalette.of(context);
+    final auth = ref.watch(authControllerProvider);
+    final scope = ref.watch(selectedRollcallAccountProvider);
+    final uid = scope ?? auth.profile?.id;
+    final accountName = scope == null
+        ? auth.profile?.name ?? '当前账号'
+        : ref
+                  .watch(assistControllerProvider)
+                  .identities
+                  .where((identity) => identity.userId == scope)
+                  .firstOrNull
+                  ?.displayName ??
+              '当前协助账号';
 
     return SubpageScaffold(
       title: '数据与诊断',
@@ -51,8 +63,20 @@ class SettingsDataPage extends ConsumerWidget {
             AppSpace.xl,
           ),
           children: [
+            if (auth.isSignedIn && uid != null)
+              SettingsSection(
+                padTop: false,
+                header: '数据更新',
+                children: [
+                  _TimetableRefreshRow(
+                    key: ValueKey((auth.profile!.id, uid)),
+                    uid: uid,
+                    accountName: accountName,
+                  ),
+                ],
+              ),
             SettingsSection(
-              padTop: false,
+              padTop: auth.isSignedIn,
               header: '本机数据',
               children: [
                 SettingsRow(
@@ -265,6 +289,107 @@ class SettingsDataPage extends ConsumerWidget {
     ref.invalidate(homeworkSubmissionProvider);
     ref.invalidate(gradeSnapshotProvider);
     AppToast.show(context, '已清除本机课程数据');
+  }
+}
+
+class _TimetableRefreshRow extends ConsumerStatefulWidget {
+  const _TimetableRefreshRow({
+    super.key,
+    required this.uid,
+    required this.accountName,
+  });
+  final int uid;
+  final String accountName;
+  @override
+  ConsumerState<_TimetableRefreshRow> createState() =>
+      _TimetableRefreshRowState();
+}
+
+class _TimetableRefreshRowState extends ConsumerState<_TimetableRefreshRow> {
+  bool _busy = false;
+  String? _status;
+  bool _error = false;
+
+  Future<void> _refresh() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _status = null;
+    });
+    try {
+      final before = await ref.read(
+        academicCachedScheduleProvider(widget.uid).future,
+      );
+      if (!mounted) return;
+      final sync = ref.read(academicSyncProvider);
+      await sync.sync(widget.uid, force: true);
+      if (!mounted) return;
+      ref.invalidate(academicCachedScheduleProvider(widget.uid));
+      ref.invalidate(academicTimetableProvider(widget.uid));
+      final after = await ref.read(
+        academicCachedScheduleProvider(widget.uid).future,
+      );
+      if (!mounted) return;
+      final error = sync.errorFor(widget.uid);
+      setState(() {
+        _error = error != null;
+        _status =
+            error ??
+            (after?.fetchedAt == before?.fetchedAt ? '刚刚检查过，请稍后再试' : '课表已更新');
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _error = true;
+          _status = '更新失败，请稍后重试';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final snapshot = ref.watch(academicCachedScheduleProvider(widget.uid));
+    final at = snapshot.valueOrNull?.fetchedAt.toLocal();
+    final updated = at == null
+        ? snapshot.isLoading
+              ? '正在读取更新时间…'
+              : '尚未缓存课表'
+        : '上次更新 ${at.year}/${at.month}/${at.day} ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+    return SettingsRow(
+      key: const ValueKey('academic-timetable-update-row'),
+      leading: const Icon(AppIcons.calendar),
+      title: '教务课表',
+      subtitleWidget: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${widget.accountName} · $updated',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          if (_status != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              _status!,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.4,
+                color: _error ? p.danger : p.muted,
+              ),
+            ),
+          ],
+        ],
+      ),
+      stackSubtitleOnNarrow: true,
+      trailing: OutlinedButton(
+        key: const ValueKey('academic-timetable-update'),
+        onPressed: _busy ? null : _refresh,
+        child: Text(_busy ? '更新中…' : '更新'),
+      ),
+    );
   }
 }
 
