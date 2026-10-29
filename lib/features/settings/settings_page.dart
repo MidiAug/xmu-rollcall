@@ -629,86 +629,70 @@ class _AndroidProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          '我的',
-          style: TextStyle(
-            fontSize: 28,
-            height: 1.3,
-            fontWeight: FontWeight.w700,
-            color: p.ink,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Semantics(
-          button: true,
-          label: signedIn ? '账号管理' : '登录账号',
-          child: Material(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
-            child: InkWell(
-              key: const ValueKey('android-profile-summary'),
-              borderRadius: BorderRadius.circular(14),
-              onTap: onTap,
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 60),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 24,
-                      backgroundColor: p.accentSurface,
-                      child: signedIn
-                          ? Text(
-                              name.characters.firstOrNull ?? '我',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
-                                color: p.primary,
-                              ),
-                            )
-                          : Icon(AppIcons.person, size: 26, color: p.primary),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 18,
-                              height: 1.3,
-                              fontWeight: FontWeight.w600,
-                              color: p.ink,
-                            ),
+    return Semantics(
+      button: true,
+      label: signedIn ? '账号管理' : '登录账号',
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          key: const ValueKey('android-profile-summary'),
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 72),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: p.accentSurface,
+                  child: signedIn
+                      ? Text(
+                          name.characters.firstOrNull ?? '我',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                            color: p.primary,
                           ),
-                          const SizedBox(height: 4),
-                          AppTruncatedText(
-                            subtitle,
-                            style: TextStyle(
-                              fontSize: 13,
-                              height: 1.5,
-                              color: p.muted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Icon(AppIcons.right, size: 18, color: p.muted),
-                  ],
+                        )
+                      : Icon(AppIcons.person, size: 26, color: p.primary),
                 ),
-              ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 22,
+                          height: 1.3,
+                          fontWeight: FontWeight.w700,
+                          color: p.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      AppTruncatedText(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.5,
+                          color: p.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Icon(AppIcons.right, size: 18, color: p.muted),
+              ],
             ),
           ),
         ),
-      ],
+      ),
     );
   }
 }

@@ -446,6 +446,11 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      expect(
+        find.text('我的'),
+        findsOneWidget,
+        reason: 'Only the bottom navigation keeps the page label',
+      );
       await capture(tester, key, 'mobile-account-${dark ? 'dark' : 'light'}');
       await tester.tap(find.byKey(const ValueKey('android-profile-summary')));
       await tester.pumpAndSettle();

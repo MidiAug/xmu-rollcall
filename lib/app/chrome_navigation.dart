@@ -263,23 +263,61 @@ class AppMobileNav extends StatelessWidget {
               children: [
                 Expanded(
                   child: glass(
-                    Row(
-                      children: [
-                        for (final d in mobileDestinations)
-                          Expanded(
-                            child: _MobileItem(
-                              destination: d,
-                              selected: d == current,
-                              onTap: () => onSelect(d),
-                              hasUpdate:
-                                  hasUpdate && d == AppDestination.settings,
-                              count: d == AppDestination.homework
-                                  ? homeworkCount
-                                  : 0,
-                              floating: true,
+                    LayoutBuilder(
+                      builder: (context, bounds) {
+                        final slot =
+                            bounds.maxWidth / mobileDestinations.length;
+                        const inset = 5.0;
+                        final highlightHeight = bounds.maxHeight - inset * 2;
+                        final index = mobileDestinations.indexOf(current);
+                        return Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if (index >= 0)
+                              AnimatedPositionedDirectional(
+                                duration:
+                                    MediaQuery.disableAnimationsOf(context)
+                                    ? Duration.zero
+                                    : AppMotion.page,
+                                curve: AppMotion.pageCurve,
+                                start: slot * index + inset,
+                                top: inset,
+                                width: slot - inset * 2,
+                                height: highlightHeight,
+                                child: IgnorePointer(
+                                  child: DecoratedBox(
+                                    key: const ValueKey('mobile-nav-highlight'),
+                                    decoration: BoxDecoration(
+                                      color: p.selected,
+                                      borderRadius: BorderRadius.circular(
+                                        highlightHeight / 2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            Row(
+                              children: [
+                                for (final d in mobileDestinations)
+                                  Expanded(
+                                    child: _MobileItem(
+                                      destination: d,
+                                      selected: d == current,
+                                      onTap: () => onSelect(d),
+                                      hasUpdate:
+                                          hasUpdate &&
+                                          d == AppDestination.settings,
+                                      count: d == AppDestination.homework
+                                          ? homeworkCount
+                                          : 0,
+                                      floating: true,
+                                    ),
+                                  ),
+                              ],
                             ),
-                          ),
-                      ],
+                          ],
+                        );
+                      },
                     ),
                     BorderRadius.circular(32),
                   ),
@@ -385,23 +423,17 @@ class _MobileItemState extends State<_MobileItem> {
           duration: AppMotion.instant,
           curve: AppMotion.instantCurve,
           opacity: _pressed ? .7 : 1,
-          child: AnimatedContainer(
-            duration: AppMotion.fast,
-            margin: widget.floating
+          child: Padding(
+            padding: widget.floating
                 ? const EdgeInsets.symmetric(horizontal: 3, vertical: 5)
                 : EdgeInsets.zero,
-            decoration: BoxDecoration(
-              color: widget.floating && selected
-                  ? p.selected
-                  : Colors.transparent,
-              borderRadius: BorderRadius.circular(27),
-            ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (widget.count > 0)
                   Badge(
                     key: const ValueKey('mobile-nav-count'),
+                    offset: const Offset(8, -4),
                     isLabelVisible: widget.count > 0,
                     label: Text(widget.count > 99 ? '99+' : '${widget.count}'),
                     backgroundColor: p.danger,

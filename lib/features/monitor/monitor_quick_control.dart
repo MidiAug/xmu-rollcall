@@ -105,7 +105,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                   )
                 : '',
             child: AppQuietPill(
-              border: masthead ? quiet : !quiet,
+              border: masthead || !quiet,
               radius: masthead
                   ? 12
                   : toolbar
@@ -139,11 +139,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                     }
                   : null,
               background: masthead
-                  ? quiet
-                        ? p.selected
-                        : enabled
-                        ? p.primary
-                        : p.controlSurface
+                  ? p.surface.withValues(alpha: .8)
                   : quiet
                   ? Colors.transparent
                   : prominent && enabled
@@ -159,7 +155,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                   Icon(
                     AppIcons.detect,
                     size: 16,
-                    color: prominent && enabled
+                    color: prominent && !masthead && enabled
                         ? (p.isDark ? p.canvas : Colors.white)
                         : enabled
                         ? p.primary
@@ -172,7 +168,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       letterSpacing: -0.1,
-                      color: prominent && enabled
+                      color: prominent && !masthead && enabled
                           ? (p.isDark ? p.canvas : Colors.white)
                           : enabled
                           ? p.primary

@@ -1,3 +1,30 @@
+## 2026-10-29 导航胶囊与个人页层级修订
+
+Android导航高亮为随Tab槽宽铺开的椭圆胶囊，不使用正圆；高亮相对导航外框上下/端点内缩5px，54px高度取27px圆角，与64px外框的32px圆角构成一致内缩轮廓。保留连续滑动、快速改向与减少动画行为。个人页顶部移除重复“我的”标题，以56px头像、22px姓名和账号状态作为唯一身份区；整行继续进入账号管理或登录，导航文字仍为“我的”。
+
+验证：`flutter analyze --no-pub lib test`无问题；导航运动、设置外观/账号、搜索和移动主页30项通过。已有账号交互回归增加“我的”只在导航出现一次的断言；导航运动断言改为横向胶囊。实看`.tools/settings-polish/mobile-account-light.png`、`mobile-account-dark.png`和`build/nav-motion/in-flight.png`，浅深色身份区及移动中的胶囊正常；Android release构建成功（81.2MB，`build/nav-pill-profile-android-release.log`），比对设备427b338f原APK与新包证书一致后`adb install -r`返回Success，启动成功，版本0.3.0+6，保留原数据；真机观感由用户观察。
+
+## 2026-10-29 Android导航圆形滑动高亮
+
+Android四Tab浮动导航改为同一圆形底层高亮，270ms easeOutCubic连续移动；尺寸按槽宽限制至54px。移除各项独立选中背景，保留图标/文字选中、点击反馈、角标与搜索。current由原切页逻辑确认，系统减少动画时直接定位，IgnorePointer避免滑块截获点击。
+
+`flutter analyze --no-pub lib test`无问题；导航运动、导航提醒、搜索与移动主页共18项通过，运动回归验证1→4途中位置、途中改到作业的连续性、最终中心、圆形尺寸、角标及减少动画。已实看`build/nav-motion/in-flight.png`，高亮位于工具/我的之间且没有额外背景。真实手机交互效果交由用户体验。
+
+Android release重新构建成功（81.2MB，`build/nav-motion-android-release.log`），新包与设备427b338f现有APK证书一致；`adb install -r`返回Success并启动成功。继续0.3.0+6，保留原数据，未执行真实签到。
+
+### 2026-10-29 本轮手机覆盖安装
+
+`7031ed5` 源码构建 Android release 成功（81.2MB，`build/ui-spacing-android-release.log`），沿用0.3.0+6。连接设备427b338f，从设备读取原APK并验证新旧证书SHA-256一致；`adb install -r`返回Success，安装后查询versionName0.3.0/versionCode6。未卸载或清空数据；APK同时更新至`dist/xmu-rollcall-0.3.0-android.apk`。启动Intent已成功交给当前前台实例，页面实际观感交由用户检查，未执行真实签到。
+
+## 2026-10-29 手机签到、搜索与作业角标微调
+
+- 历史/设置图标上对齐并使用muted灰色，保持48px点击区域；Android开始检测改浅底描边，启动/停止条件保持原逻辑。
+- 搜索列表明确只保留底部安全区，组标题上距12px；行内水平14px、图文间距12px、最小64px高度，文字随系统缩放，组内轻分隔。作业导航数量角标offset调整为(8,-4)。
+- `flutter test`：搜索、移动主页、页头几何、页面inset、签到身份/二维码和导航提醒共65项通过；保留搜索底部安全区后单独重跑搜索1项通过。
+- `flutter analyze --no-pub lib test`：No issues found。首次全目录分析长时间未返回，停止后改用源码范围，未声称全目录分析通过。
+- 实看生产组件渲染：`build/android-masthead-polish/search.png`、`build/mobile-campus-design/idle-light.png`、`long-dark.png`。搜索初次渲染暴露显式样式丢字体继承，已改为沿用主题bodyMedium后重新渲染核对；浅色、深色和320宽1.3倍字体无溢出。
+- 本轮未构建安装包、未安装或执行真机验收；未调用真实签到或联网查询。
+
 # 2026-10-28 账号范围、区域地点和 GPA 工具
 
 Final result: implemented scope verified; authenticated grade endpoint and Android physical-device checks remain unverified.

@@ -186,13 +186,33 @@ class MobileRollcallHome extends ConsumerWidget {
                         ),
                         IconButton(
                           tooltip: '签到记录',
+                          alignment: Alignment.topCenter,
+                          padding: const EdgeInsets.only(top: 4),
+                          constraints: const BoxConstraints(
+                            minWidth: 48,
+                            minHeight: 48,
+                          ),
                           onPressed: onHistory,
-                          icon: Icon(AppIcons.history, color: p.ink, size: 23),
+                          icon: Icon(
+                            AppIcons.history,
+                            color: p.muted,
+                            size: 23,
+                          ),
                         ),
                         IconButton(
                           tooltip: '自动检测设置',
+                          alignment: Alignment.topCenter,
+                          padding: const EdgeInsets.only(top: 4),
+                          constraints: const BoxConstraints(
+                            minWidth: 48,
+                            minHeight: 48,
+                          ),
                           onPressed: onSettings,
-                          icon: Icon(AppIcons.settings, color: p.ink, size: 23),
+                          icon: Icon(
+                            AppIcons.settings,
+                            color: p.muted,
+                            size: 23,
+                          ),
                         ),
                       ],
                     ),

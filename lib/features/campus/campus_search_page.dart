@@ -116,7 +116,7 @@ class _CampusSearchPageState extends ConsumerState<CampusSearchPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
+                padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
                 child: Text(
                   label,
                   style: TextStyle(
@@ -130,7 +130,41 @@ class _CampusSearchPageState extends ConsumerState<CampusSearchPage> {
                 color: p.surface,
                 borderRadius: BorderRadius.circular(16),
                 clipBehavior: Clip.antiAlias,
-                child: Column(children: rows),
+                child: ListTileTheme(
+                  data: ListTileThemeData(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 2,
+                    ),
+                    horizontalTitleGap: 12,
+                    minVerticalPadding: 10,
+                    minTileHeight: 64,
+                    titleTextStyle: Theme.of(context).textTheme.bodyMedium!
+                        .copyWith(
+                          fontSize: 14,
+                          height: 1.4,
+                          fontWeight: FontWeight.w500,
+                          color: p.ink,
+                        ),
+                    subtitleTextStyle: Theme.of(context).textTheme.bodyMedium!
+                        .copyWith(fontSize: 12, height: 1.5, color: p.muted),
+                  ),
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < rows.length; i++) ...[
+                        if (i > 0)
+                          Divider(
+                            height: 1,
+                            thickness: 1,
+                            indent: 48,
+                            endIndent: 14,
+                            color: p.border,
+                          ),
+                        rows[i],
+                      ],
+                    ],
+                  ),
+                ),
               ),
             ],
           );
@@ -175,6 +209,11 @@ class _CampusSearchPageState extends ConsumerState<CampusSearchPage> {
             ),
             Expanded(
               child: ListView(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.viewPaddingOf(context).bottom,
+                ),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 children: [
                   section(
                     q.isEmpty
