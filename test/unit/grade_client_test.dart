@@ -1,12 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
-import 'package:xmu_rollcall/features/schedule/academic_client.dart';
+import 'package:xmu_rollcall/features/academic/academic_session.dart';
+import 'package:xmu_rollcall/features/grades/academic_grade_reader.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:xmu_rollcall/core/network/rate_limiter.dart';
 
 class GradeAdapter implements HttpClientAdapter {
+  GradeAdapter({this.issueCookie});
+  final String? issueCookie;
   final requests = <RequestOptions>[];
   @override
   Future<ResponseBody> fetch(
@@ -15,21 +18,40 @@ class GradeAdapter implements HttpClientAdapter {
     Future<void>? cancel,
   ) async {
     requests.add(options);
-    if (options.method == 'GET' && !options.uri.hasQuery) {
+    if (options.uri.path.contains('initXsxx')) {
+      return ResponseBody.fromString(
+        jsonEncode({
+          'success': true,
+          'data': {'XH': 'sample'},
+        }),
+        200,
+      );
+    }
+    if (options.uri.path.contains('setJwCommonAppRole')) {
+      return ResponseBody.fromString('{"success":"1"}', 200);
+    }
+    if (options.uri.path.endsWith('/xscjcx.do')) {
+      return ResponseBody.fromString(
+        '{"datas":{"xscjcx":{"rows":[],"totalSize":0}}}',
+        200,
+      );
+    }
+    if (options.uri.path == '/appShow') {
+      final page = options.uri.queryParameters['appId'] == '4768574631264620'
+          ? '/jwapp/sys/cjcx/*default/index.do?EMAP_LANG=zh&test_context=synthetic'
+          : '/gsapp/sys/wdkbapp/*default/index.do';
       return ResponseBody.fromString(
         '',
         302,
         headers: {
-          'location': [
-            '/jwapp/sys/cjcx/*default/index.do?EMAP_LANG=zh&test_context=synthetic',
-          ],
+          'location': [page],
+          if (issueCookie != null &&
+              options.uri.queryParameters['appId'] == '4768574631264620')
+            'set-cookie': ['TEST_JW=$issueCookie; Path=/; Secure'],
         },
       );
     }
-    return ResponseBody.fromString(
-      options.method == 'POST' ? '{}' : '<html></html>',
-      200,
-    );
+    return ResponseBody.fromString('<html></html>', 200);
   }
 
   @override
@@ -54,21 +76,23 @@ class DeniedGradeAdapter extends GradeAdapter {
   }
 }
 
-class Client extends AcademicClient {
+class Client extends AcademicSession {
   Client() : super(store: SecureStore.memory({SecureStore.keyUserId: '1'}));
   final queries = <Map<String, dynamic>>[];
   final opened = <Uri>[];
   int roleInitializations = 0;
   bool wrongIdentity = false, repeating = false;
   @override
-  Future<void> open(Uri uri, {String? username, String? password}) async {
+  Future<Uri> open(Uri uri, {String? username, String? password}) async {
     opened.add(uri);
+    return uri;
   }
 
   @override
   Future<Map<String, dynamic>> json(
     String path, {
     Map<String, dynamic>? data,
+    Map<String, dynamic>? headers,
   }) async {
     if (path.contains('setJwCommonAppRole')) {
       roleInitializations++;
@@ -123,17 +147,19 @@ class GraduateClient extends Client {
   bool malformed = false;
   int responseCode = 0;
   @override
-  Future<void> open(Uri uri, {String? username, String? password}) async {
+  Future<Uri> open(Uri uri, {String? username, String? password}) async {
     opened.add(uri);
     if (uri.queryParameters['appId'] == '4768574631264620') {
       throw const AcademicApplicationDenied();
     }
+    return uri;
   }
 
   @override
   Future<Map<String, dynamic>> json(
     String path, {
     Map<String, dynamic>? data,
+    Map<String, dynamic>? headers,
   }) async {
     if (!path.contains('xscjcx_by')) return super.json(path, data: data);
     queries.add(data!);
@@ -148,19 +174,85 @@ class GraduateClient extends Client {
   }
 }
 
+extension on AcademicSession {
+  Future<AcademicGradeResult> readGrades(
+    int uid, {
+    String? username,
+    bool recent = false,
+  }) =>
+      AcademicGradeReader(this).fetch(uid, username: username, recent: recent);
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'grade snapshot is reusable by a new session without leaking grade headers',
+    () async {
+      final store = SecureStore.memory({SecureStore.keyUserId: '1'});
+      final grades = AcademicSession(
+        store: store,
+        dio: Dio()..httpClientAdapter = GradeAdapter(issueCookie: 'synthetic'),
+        limiter: RateLimiter(minInterval: Duration.zero),
+      );
+      await AcademicGradeReader(grades).fetch(1, username: 'sample');
+      final snapshot = await store.read(AcademicSession.credentialKey(1));
+      expect(snapshot, contains('synthetic'));
+      expect((jsonDecode(snapshot!) as Map).keys.toSet(), {
+        'jw.xmu.edu.cn',
+        'ids.xmu.edu.cn',
+      });
+      final adapter = GradeAdapter();
+      final timetable = AcademicSession(
+        store: store,
+        dio: Dio()..httpClientAdapter = adapter,
+        limiter: RateLimiter(minInterval: Duration.zero),
+      );
+      await timetable.connect(1, applicationId: '4979568947762216');
+      expect(
+        '${adapter.requests.first.headers['cookie']}',
+        contains('TEST_JW=synthetic'),
+      );
+      await timetable.json('/gsapp/sys/wdkbapp/wdkcb/initXsxx.do');
+      expect(
+        adapter.requests.last.headers.containsKey('X-Requested-With'),
+        isFalse,
+      );
+      expect(adapter.requests.last.headers.containsKey('Referer'), isFalse);
+      timetable.close();
+      expect(await store.read(AcademicSession.credentialKey(2)), isNull);
+    },
+  );
+
+  test(
+    'failed grade validation preserves the previous secure session snapshot',
+    () async {
+      final client = Client()..wrongIdentity = true;
+      final snapshot = jsonEncode({
+        'jw.xmu.edu.cn': '[]',
+        'ids.xmu.edu.cn': '[]',
+      });
+      await client.store.write(AcademicSession.credentialKey(1), snapshot);
+      await expectLater(
+        client.readGrades(1, username: 'sample'),
+        throwsFormatException,
+      );
+      expect(
+        await client.store.read(AcademicSession.credentialKey(1)),
+        snapshot,
+      );
+    },
+  );
   test(
     'application denial is classified before following its HTTP error page',
     () async {
       final adapter = DeniedGradeAdapter();
-      final client = AcademicClient(
+      final client = AcademicSession(
         store: SecureStore.memory(),
         dio: Dio()..httpClientAdapter = adapter,
         limiter: RateLimiter(minInterval: Duration.zero),
       );
       await expectLater(
-        client.open(AcademicClient.jw.resolve('/appShow')),
+        client.open(AcademicSession.jw.resolve('/appShow')),
         throwsA(isA<AcademicApplicationDenied>()),
       );
       expect(adapter.requests.length, 1);
@@ -172,22 +264,20 @@ void main() {
     'graduate application returns a valid empty result for unpublished grades',
     () async {
       final client = GraduateClient();
-      final result = await client.fetchGrades(
-        1,
-        username: 'sample',
-        recent: true,
-      );
+      final result = await AcademicGradeReader(
+        client,
+      ).fetch(1, username: 'sample', recent: true);
       expect(client.opened.last.queryParameters['appId'], '5094115980385668');
       expect(result.education, 'graduate');
       expect(result.complete, isTrue);
       expect(result.rows, isEmpty);
       expect(client.queries.single, {'pageSize': 100, 'pageNumber': 1});
       await expectLater(
-        (GraduateClient()..malformed = true).fetchGrades(1, username: 'sample'),
+        (GraduateClient()..malformed = true).readGrades(1, username: 'sample'),
         throwsFormatException,
       );
       await expectLater(
-        (GraduateClient()..responseCode = 1).fetchGrades(1, username: 'sample'),
+        (GraduateClient()..responseCode = 1).readGrades(1, username: 'sample'),
         throwsFormatException,
       );
     },
@@ -210,7 +300,9 @@ void main() {
               'SFYX': '1',
             },
         ];
-      final result = await client.fetchGrades(1, username: 'sample');
+      final result = await AcademicGradeReader(
+        client,
+      ).fetch(1, username: 'sample');
       expect(result.rows.length, 2);
       expect(result.rows.map((r) => r['WID']).toSet().length, 2);
       expect(result.rows.first['JDF'], 3.5);
@@ -222,7 +314,7 @@ void main() {
               ..rows = [
                 {'XH': 'another'},
               ])
-            .fetchGrades(1, username: 'sample'),
+            .readGrades(1, username: 'sample'),
         throwsFormatException,
       );
     },
@@ -231,15 +323,12 @@ void main() {
     'grade AJAX retains its application context and same-origin headers',
     () async {
       final adapter = GradeAdapter();
-      final client = AcademicClient(
-        store: SecureStore.memory(),
+      final client = AcademicSession(
+        store: SecureStore.memory({SecureStore.keyUserId: '1'}),
         dio: Dio()..httpClientAdapter = adapter,
         limiter: RateLimiter(minInterval: Duration.zero),
       );
-      await client.open(
-        AcademicClient.jw.resolve('/jwapp/sys/cjcx/*default/index.do'),
-      );
-      await client.json('/jwapp/sys/cjcx/modules/cjcx/xscjcx.do', data: {});
+      await AcademicGradeReader(client).fetch(1, username: 'sample');
       final request = adapter.requests.last;
       expect(request.headers['X-Requested-With'], 'XMLHttpRequest');
       expect(request.headers['Origin'], 'https://jw.xmu.edu.cn');
@@ -255,7 +344,7 @@ void main() {
     'full and recent use captured endpoints and minimize persisted columns',
     () async {
       final all = Client();
-      final result = await all.fetchGrades(1, username: 'sample');
+      final result = await all.readGrades(1, username: 'sample');
       expect(all.queries.length, 1);
       expect(all.roleInitializations, 1);
       expect(all.opened.last.path, '/appShow');
@@ -265,7 +354,7 @@ void main() {
       expect(result.rows.single['DJCJLXDM'], '100');
       expect(result.rows.single['KCLBDM_DISPLAY'], '通识教育课程');
       final recent = Client();
-      final delta = await recent.fetchGrades(
+      final delta = await recent.readGrades(
         1,
         username: 'sample',
         recent: true,
@@ -278,11 +367,11 @@ void main() {
     'wrong account and ignored pagination never become a complete cache',
     () async {
       await expectLater(
-        (Client()..wrongIdentity = true).fetchGrades(1, username: 'sample'),
+        (Client()..wrongIdentity = true).readGrades(1, username: 'sample'),
         throwsFormatException,
       );
       await expectLater(
-        (Client()..repeating = true).fetchGrades(1, username: 'sample'),
+        (Client()..repeating = true).readGrades(1, username: 'sample'),
         throwsFormatException,
       );
     },

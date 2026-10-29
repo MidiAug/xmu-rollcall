@@ -12,7 +12,7 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
-import 'package:xmu_rollcall/features/schedule/academic_client.dart';
+import 'package:xmu_rollcall/features/schedule/academic_sync.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 
 class _Repository extends Fake implements AuthRepository {

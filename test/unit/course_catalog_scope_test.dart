@@ -10,7 +10,7 @@ import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository_providers.dart';
-import 'package:xmu_rollcall/features/schedule/academic_client.dart';
+import 'package:xmu_rollcall/features/schedule/academic_sync.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:cookie_jar/cookie_jar.dart';

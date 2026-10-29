@@ -1,4 +1,4 @@
-import 'academic_parsing.dart';
+import 'package:xmu_rollcall/features/academic/academic_parsing.dart';
 
 class AcademicCourseRow {
   const AcademicCourseRow({

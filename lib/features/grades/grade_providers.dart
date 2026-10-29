@@ -1,21 +1,20 @@
+import 'package:xmu_rollcall/features/academic/academic_access.dart';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:xmu_rollcall/app/providers.dart';
-import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
-import 'package:xmu_rollcall/features/schedule/academic_client.dart';
-import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
+import 'package:xmu_rollcall/features/academic/academic_session.dart';
+import 'academic_grade_reader.dart';
 import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'grade_models.dart';
 
 String gradeCacheKey(int owner, int uid) => 'grades_v1_${owner}_$uid';
 final gradeClockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
-final gradeClientProvider = Provider<AcademicClient Function()>(
-  (ref) =>
-      () => AcademicClient(store: ref.read(secureStoreProvider)),
-);
+final gradeReaderProvider = Provider<AcademicGradeReader Function()>((ref) {
+  final createSession = ref.watch(academicSessionFactoryProvider);
+  return () => AcademicGradeReader(createSession());
+});
 final gradeSnapshotProvider =
     AsyncNotifierProvider.autoDispose<GradeNotifier, GradeSnapshot>(
       GradeNotifier.new,
@@ -73,25 +72,18 @@ class GradeNotifier extends AutoDisposeAsyncNotifier<GradeSnapshot> {
   Future<GradeSnapshot> _fetch(int revision) async {
     final owner = _owner, uid = _uid, cache = _cache;
     final selected = ref.read(selectedRollcallAccountProvider);
-    final ownerClient = uid == owner ? ref.read(tronHttpClientProvider) : null;
-    final ownerRevision = ownerClient?.sessionRevision;
-    final store = ref.read(secureStoreProvider);
-    final access = await ref
-        .read(academicSyncProvider)
-        .resolveIdentity
-        ?.call(uid);
-    if (uid != owner && access == null) {
-      throw const AcademicLoginRequired('请重新导入该协助账号以连接教务');
+    final access = await ref.read(academicIdentityResolverProvider)(uid);
+    if (access == null) {
+      throw AcademicLoginRequired(
+        uid == owner ? '请重新登录账号以连接教务' : '请重新导入该协助账号以连接教务',
+      );
     }
     Future<bool> current() async =>
         revision == _revision &&
         ref.read(authControllerProvider).profile?.id == owner &&
-        await store.read(SecureStore.keyUserId) == '$owner' &&
-        (ownerClient == null || ownerClient.sessionRevision == ownerRevision) &&
         ref.read(selectedRollcallAccountProvider) == selected &&
-        (access == null || await access.isCurrent());
+        await access.isCurrent();
     if (!await current()) throw StateError('账号已切换');
-    final client = ref.read(gradeClientProvider)()..identityGuard = current;
     final now = ref.read(gradeClockProvider)();
     final recent =
         cache != null && cache.version >= 2 && useRecentGrades(cache, now);
@@ -105,19 +97,13 @@ class GradeNotifier extends AutoDisposeAsyncNotifier<GradeSnapshot> {
     }
     if (!await current()) throw StateError('账号已切换');
     await attempts.setInt(attemptKey, now.millisecondsSinceEpoch);
-    final result = await client.fetchGrades(
+    final reader = ref.read(gradeReaderProvider)();
+    reader.session.identityGuard = current;
+    final result = await reader.fetch(
       uid,
-      username:
-          access?.username ??
-          (uid == owner ? await store.read(SecureStore.keyLastUsername) : null),
-      password:
-          access?.password ??
-          (uid == owner
-              ? await store.read(SecureStore.keyOwnerPassword)
-              : null),
-      sso:
-          access?.sso ??
-          (uid == owner ? ref.read(tronHttpClientProvider).cookieJar : null),
+      username: access.username,
+      password: access.password,
+      sso: access.sso,
       recent: recent,
     );
     if (!await current()) throw StateError('账号已切换');

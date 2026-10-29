@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/academic/academic_identity.dart';
+import 'package:xmu_rollcall/features/academic/academic_access.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'dart:async';
@@ -15,7 +17,9 @@ import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/grades/grade_models.dart';
 import 'package:xmu_rollcall/features/grades/grade_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
-import 'package:xmu_rollcall/features/schedule/academic_client.dart';
+import 'package:xmu_rollcall/features/academic/academic_session.dart';
+import 'package:xmu_rollcall/features/schedule/academic_sync.dart';
+import 'package:xmu_rollcall/features/grades/academic_grade_reader.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 
 class _AuthRepo extends Fake implements AuthRepository {}
@@ -29,14 +33,14 @@ class _Auth extends AuthController {
   }
 }
 
-class _Client extends AcademicClient {
-  _Client(SecureStore store) : super(store: store);
+class _Client extends AcademicGradeReader {
+  _Client(SecureStore store) : super(AcademicSession(store: store));
   final entered = Completer<void>();
   final result = Completer<AcademicGradeResult>();
   String? receivedPassword;
   bool? receivedRecent;
   @override
-  Future<AcademicGradeResult> fetchGrades(
+  Future<AcademicGradeResult> fetch(
     int uid, {
     CookieJar? sso,
     String? username,
@@ -76,7 +80,7 @@ void main() {
           secureStoreProvider.overrideWithValue(store),
           gradeClockProvider.overrideWithValue(() => at),
           academicSyncProvider.overrideWith((ref) => AcademicSync(store)),
-          gradeClientProvider.overrideWithValue(() => client),
+          gradeReaderProvider.overrideWithValue(() => client),
         ],
       );
       addTearDown(c.dispose);
@@ -124,7 +128,7 @@ void main() {
           secureStoreProvider.overrideWithValue(store),
           gradeClockProvider.overrideWithValue(() => now),
           academicSyncProvider.overrideWith((ref) => AcademicSync(store)),
-          gradeClientProvider.overrideWithValue(() => client),
+          gradeReaderProvider.overrideWithValue(() => client),
         ],
       );
       addTearDown(c.dispose);
@@ -189,7 +193,7 @@ void main() {
             ),
           ),
           gradeClockProvider.overrideWithValue(() => at),
-          gradeClientProvider.overrideWithValue(
+          gradeReaderProvider.overrideWithValue(
             () => throw StateError('no network'),
           ),
         ],
@@ -239,19 +243,16 @@ void main() {
           ),
           secureStoreProvider.overrideWithValue(store),
           gradeClockProvider.overrideWithValue(() => at),
-          academicSyncProvider.overrideWith(
-            (ref) => AcademicSync(
-              store,
-              resolveIdentity: (uid) async => uid == 2
-                  ? AcademicIdentity(
-                      username: 'sample2',
-                      password: 'assist-secret',
-                      isCurrent: () async => true,
-                    )
-                  : null,
-            ),
+          academicIdentityResolverProvider.overrideWithValue(
+            (uid) async => uid == 2
+                ? AcademicIdentity(
+                    username: 'sample2',
+                    password: 'assist-secret',
+                    isCurrent: () async => true,
+                  )
+                : null,
           ),
-          gradeClientProvider.overrideWithValue(() => client),
+          gradeReaderProvider.overrideWithValue(() => client),
         ],
       );
       addTearDown(c.dispose);

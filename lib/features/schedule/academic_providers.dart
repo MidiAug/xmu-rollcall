@@ -1,14 +1,11 @@
+import 'package:xmu_rollcall/features/academic/academic_access.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'package:xmu_rollcall/features/schedule/academic_calendar.dart';
 import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/providers.dart';
-import 'package:xmu_rollcall/features/schedule/academic_client.dart';
-import 'dart:convert';
-import 'package:xmu_rollcall/core/session/assist_identity_store.dart';
-import 'package:xmu_rollcall/core/session/assist_service.dart';
-import 'package:xmu_rollcall/core/session/session_key.dart';
-import 'package:xmu_rollcall/core/storage/secure_store.dart';
+import 'academic_sync.dart';
+import 'academic_timetable_reader.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 
 final academicRevisionProvider = StateProvider<int>((ref) => 0);
@@ -16,36 +13,10 @@ final academicSyncProvider = Provider<AcademicSync>((ref) {
   final sync = AcademicSync(
     ref.watch(secureStoreProvider),
     periodic: true,
-    currentSso: () => ref.read(tronHttpClientProvider).cookieJar,
+    createReader: (_) =>
+        AcademicTimetableReader(ref.read(academicSessionFactoryProvider)()),
     currentUserId: () => ref.read(selectedRollcallAccountProvider),
-    resolveIdentity: (uid) async {
-      final store = ref.read(secureStoreProvider);
-      final owner = await store.read(SecureStore.keyUserId);
-      if (owner == '$uid') return null;
-      final roster = AssistIdentityStore(store);
-      final identity = (await roster.list())
-          .where((i) => i.userId == uid)
-          .firstOrNull;
-      if (identity == null) return null;
-      final raw = await store.read(AssistService.accountCredKey(uid));
-      final credentials = raw == null
-          ? const <String, dynamic>{}
-          : jsonDecode(raw) as Map;
-      final client = ref
-          .read(sessionClientRegistryProvider)
-          .forKey(SessionKey.assist(uid));
-      await client.init();
-      final revision = client.sessionRevision;
-      return AcademicIdentity(
-        username: credentials['username'] as String? ?? identity.studentNo,
-        password: credentials['password'] as String?,
-        sso: client.cookieJar,
-        isCurrent: () async =>
-            await store.read(SecureStore.keyUserId) == owner &&
-            client.sessionRevision == revision &&
-            (await roster.list()).any((i) => i.userId == uid),
-      );
-    },
+    resolveIdentity: ref.watch(academicIdentityResolverProvider),
     onUpdated: (_) {
       ref.read(academicRevisionProvider.notifier).state++;
     },

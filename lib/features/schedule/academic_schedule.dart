@@ -1,7 +1,7 @@
 import 'academic_course_row.dart';
-import 'academic_parsing.dart';
+import 'package:xmu_rollcall/features/academic/academic_parsing.dart';
 export 'academic_course_row.dart';
-export 'academic_parsing.dart';
+export 'package:xmu_rollcall/features/academic/academic_parsing.dart';
 import 'package:xmu_rollcall/features/schedule/academic_meetings.dart';
 import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'package:xmu_rollcall/features/schedule/academic_calendar.dart';

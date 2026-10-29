@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/academic/academic_identity.dart';
 import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'package:xmu_rollcall/features/schedule/academic_calendar.dart';
 import 'dart:async';
@@ -10,14 +11,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/core/network/rate_limiter.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/features/auth/ids_auth.dart';
-import 'package:xmu_rollcall/features/schedule/academic_client.dart';
+import 'package:xmu_rollcall/features/academic/academic_session.dart';
+import 'package:xmu_rollcall/features/schedule/academic_timetable_reader.dart';
+import 'package:xmu_rollcall/features/schedule/academic_sync.dart';
 
 const form =
     '<input id="pwdEncryptSalt" value="1234567890123456">'
     '<input name="execution" value="test-execution"><script>var needCaptcha = "";</script>';
 
-class _PendingClient extends AcademicClient {
-  _PendingClient(SecureStore store, this.result) : super(store: store);
+class _PendingClient extends AcademicTimetableReader {
+  _PendingClient(SecureStore store, this.result)
+    : super(AcademicSession(store: store));
   final Future<AcademicSchedule> Function() result;
   int calls = 0;
   String? receivedPassword;
@@ -60,7 +64,7 @@ void main() {
       );
       final sync = AcademicSync(
         store,
-        createClient: (_) => client,
+        createReader: (_) => client,
         currentSso: () =>
             throw StateError('must not read owner SSO for assist'),
         resolveIdentity: (uid) async => AcademicIdentity(
@@ -91,7 +95,7 @@ void main() {
       });
       final sync = AcademicSync(
         store,
-        createClient: (_) => client,
+        createReader: (_) => client,
         resolveIdentity: (_) async => AcademicIdentity(
           username: '2099000000002',
           password: 'assist-password',
@@ -117,12 +121,12 @@ void main() {
   test(
     'queued academic requests validate the target identity before sending',
     () async {
-      final client = AcademicClient(
+      final client = AcademicSession(
         store: SecureStore.memory({SecureStore.keyUserId: '1'}),
         limiter: RateLimiter(minInterval: Duration.zero, maxPerMinute: 100),
       )..identityGuard = () async => false;
       await expectLater(
-        client.fetch(2, username: '2099000000002'),
+        AcademicTimetableReader(client).fetch(2, username: '2099000000002'),
         throwsStateError,
       );
     },
@@ -156,7 +160,7 @@ void main() {
       );
       final sync = AcademicSync(
         store,
-        createClient: (_) => client,
+        createReader: (_) => client,
         currentSso: () => jar,
       );
       await sync.sync(1);
@@ -166,7 +170,7 @@ void main() {
       expect(sync.errorFor(1), isNull);
       expect((await AcademicScheduleStore.read(1))!.term, '20261');
       expect(prefs.getInt('academic_failure_1'), isNull);
-      client.dio.close();
+      client.session.close();
       sync.dispose();
     },
   );
@@ -191,7 +195,7 @@ void main() {
       var created = 0;
       final sync = AcademicSync(
         store,
-        createClient: (_) => created++ == 0 ? first : second,
+        createReader: (_) => created++ == 0 ? first : second,
       );
       final restore = sync.sync(1);
       for (var i = 0; i < 20 && first.calls == 0; i++) {
@@ -208,8 +212,8 @@ void main() {
       expect(second.receivedPassword, 'fresh-fake');
       expect(sync.needsLogin(1), isFalse);
       expect(await AcademicScheduleStore.read(1), isNotNull);
-      first.dio.close();
-      second.dio.close();
+      first.session.close();
+      second.session.close();
       sync.dispose();
     },
   );
@@ -222,7 +226,7 @@ void main() {
       });
       final sync = AcademicSync(
         store,
-        createClient: (_) => throw const AcademicLoginRequired(),
+        createReader: (_) => throw const AcademicLoginRequired(),
       );
       await sync.sync(1);
       final prefs = await SharedPreferences.getInstance();
@@ -382,12 +386,12 @@ void main() {
             },
           ),
         );
-        final client = AcademicClient(
+        final client = AcademicSession(
           store: store,
           dio: dio,
           limiter: RateLimiter(minInterval: Duration.zero, maxPerMinute: 100),
         );
-        final result = await client.fetch(
+        final result = await AcademicTimetableReader(client).fetch(
           7,
           username: 'fake-student',
           password: 'fake-password',
@@ -403,7 +407,7 @@ void main() {
           hasLength(1),
         );
         expect(requests.every((r) => r.uri.host != 'lnt.xmu.edu.cn'), isTrue);
-        expect(await store.read(AcademicClient.credentialKey(7)), isNotNull);
+        expect(await store.read(AcademicSession.credentialKey(7)), isNotNull);
         expect(await store.read(SecureStore.keySessionCookies), isNull);
       },
     );
@@ -411,7 +415,7 @@ void main() {
   test(
     'non-campus redirects are rejected before sending any credential',
     () async {
-      final client = AcademicClient(store: SecureStore.memory());
+      final client = AcademicSession(store: SecureStore.memory());
       await expectLater(
         client.open(
           Uri.parse('https://example.org/login'),
@@ -420,7 +424,7 @@ void main() {
         ),
         throwsFormatException,
       );
-      client.dio.close();
+      client.close();
     },
   );
   test(
@@ -436,7 +440,7 @@ void main() {
         DateTime.now().millisecondsSinceEpoch,
       );
       await AcademicSync(store).sync(1);
-      expect(await store.read(AcademicClient.credentialKey(1)), isNull);
+      expect(await store.read(AcademicSession.credentialKey(1)), isNull);
       await AcademicSync(store).sync(2, force: true);
       expect(prefs.getInt('academic_attempt_2'), isNull);
     },
@@ -453,7 +457,7 @@ void main() {
       var publications = 0;
       final sync = AcademicSync(
         store,
-        createClient: (_) => client,
+        createReader: (_) => client,
         onUpdated: (_) => publications++,
       );
       final first = sync.sync(1);
@@ -497,7 +501,7 @@ void main() {
       await late;
       expect((await AcademicScheduleStore.read(1))!.term, '20261');
       expect(await AcademicScheduleStore.read(2), isNull);
-      client.dio.close();
+      client.session.close();
     },
   );
   test(
@@ -517,7 +521,7 @@ void main() {
       var attempts = 0;
       final sync = AcademicSync(
         store,
-        createClient: (_) {
+        createReader: (_) {
           attempts++;
           throw StateError('offline');
         },
@@ -600,16 +604,14 @@ void main() {
           },
         ),
       );
-      final client = AcademicClient(
+      final client = AcademicSession(
         store: store,
         dio: dio,
         limiter: RateLimiter(minInterval: Duration.zero, maxPerMinute: 100),
       );
-      final result = await client.fetch(
-        7,
-        username: 'fake',
-        at: DateTime(2027, 9, 8),
-      );
+      final result = await AcademicTimetableReader(
+        client,
+      ).fetch(7, username: 'fake', at: DateTime(2027, 9, 8));
       expect(result.monday, DateTime(2027, 9, 6));
       expect(result.anchorFromUser, isTrue);
       expect(result.allTables[1]!.single.dates, {'2027-09-06'});
@@ -630,7 +632,7 @@ void main() {
       var attempts = 0;
       final sync = AcademicSync(
         store,
-        createClient: (_) {
+        createReader: (_) {
           attempts++;
           if (attempts == 1) throw const AcademicCalendarUnavailable('20271');
           return _PendingClient(

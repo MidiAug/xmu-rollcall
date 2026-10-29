@@ -7,7 +7,7 @@ import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/cache/course_rollcalls_store.dart';
 import 'package:xmu_rollcall/core/cache/history_candidates.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window.dart';
-import 'package:xmu_rollcall/features/schedule/academic_client.dart';
+import 'package:xmu_rollcall/features/schedule/academic_timetable_reader.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'package:xmu_rollcall/features/schedule/schedule_detection.dart';
 

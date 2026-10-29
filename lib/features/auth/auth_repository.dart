@@ -1,5 +1,5 @@
 import 'package:xmu_rollcall/core/identity/device_identity.dart';
-import 'package:xmu_rollcall/features/schedule/academic_client.dart';
+import 'package:xmu_rollcall/features/academic/academic_session.dart';
 import 'package:dio/dio.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
@@ -179,7 +179,7 @@ class AuthRepository {
   Future<void> signOut() async {
     final uid = int.tryParse(await store.read(SecureStore.keyUserId) ?? '');
     await http.clearSession();
-    if (uid != null) await store.delete(AcademicClient.credentialKey(uid));
+    if (uid != null) await store.delete(AcademicSession.credentialKey(uid));
     await store.delete(SecureStore.keyOwnerPassword);
   }
 }

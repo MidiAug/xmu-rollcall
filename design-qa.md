@@ -444,3 +444,24 @@ P1历史缓存失效由history-before.log真实回归复现：同账号删去课
 最终证据：final-tests.log完整827项通过/2项既有跳过，final-analyze.log全库无问题；ci-tests.log 21项通过，CHANGELOG校验通过。import-graph.txt对221个Dart文件（含条件import/export）扫描循环0。captures.log生产控件11项通过；实看浅色首页与深色窄屏长内容，pixel-comparison.txt确认idle-light/idle-dark与改动前逐字节一致。桌面工作区、课表、地图、设置和返回行为由原有多尺寸组件回归验证，本轮未改布局参数。
 
 android-release.log编译成功81.2MB（本地验证仍0.3.0+6），apk-signature.log核对固定证书SHA256与既有7c64edfa4cf30722aaa0ec57f05d0ab026f50678243d4821d09de3e26cbe62e5一致。未安装真机或执行真实签到、未push/发布。全部已复现问题均已处理；未通过猜测继续扩张技术债清理。
+
+
+## 2026-10-29 教务访问阶段1
+
+客户端创建和主号/协助身份解析移到academic_access；课表和成绩从同一工厂得到独立客户端，并共用一个RateLimiter。AcademicIdentity独立定义，直接构造的同步器复用同一主号凭据解析函数；业务有效期由各自Provider/同步器保留。stage1-verified-tests.log相关30项通过，包括真实HTTP适配器/队列的跨业务阻塞与释放、身份凭据分离/撤销及已有课表/成绩协议回归。未新增依赖或改UI/数据格式；最终分析结果在stage1-final-analyze.log。
+
+
+## 2026-10-29 教务访问阶段2
+
+旧academic_client拆为公共AcademicSession、AcademicTimetableReader、AcademicGradeReader和AcademicSync；共享外部解析函数移到academic/。成绩专用Referer/Origin/XHR头留在GradeReader，Session按业务传入的应用ID建立会话，构造时仅装一次CookieManager；成功读取统一保存原键同格式安全快照，finally关闭本次HTTP。移除旧混合文件和转发兼容层，生产和协议测试均改显式依赖。
+
+stage2-final-tests.log相关46项通过；新增成绩快照→新会话恢复及请求头不泄漏、错误成绩不覆盖旧快照。原成绩上下文断言现通过完整生产GradeReader/HTTP适配器执行，未为测试保留专用生产方法；测试辅助readGrades只调用真实Reader。stage2-final-analyze.log对lib/test无问题。初次拆分的测试构造/清理和导入迁移编译错误已修正，最终结果无失败。UI、账号数据/缓存格式和计算规则未改。
+
+
+## 2026-10-29 教务访问阶段3：完整交付验证
+
+- final-tests.log完整831项通过、2项既有跳过；final-analyze.log全库无问题，ci-tests.log交付21项通过，CHANGELOG结构有效。
+- import-graph.txt扫描226个Dart文件（含条件导入/导出）循环0；AcademicSession的传递依赖不再包含课表/成绩业务文件。
+- captures.log生产控件11项通过，实看浅色首页与窄屏深色长内容；pixel-comparison.txt确认idle-light/idle-dark与改动前PNG逐字节相同。桌面现有工作区/课表/设置/地图多尺寸回归包含在完整套件中；未修改任何布局源文件。
+- android-release.log编译成功81.2MB（本地验证仍0.3.0+6），apk-signature.log固定签名SHA256为7c64edfa4cf30722aaa0ec57f05d0ab026f50678243d4821d09de3e26cbe62e5，与既有包一致。既有Kotlin插件迁移提示未扩展为依赖升级。
+- 本轮未读取真实账号凭据/查询校园接口，未重新安装手机、未push或发布。教学/成绩缓存、SecureStore键、默认提交确认与畅课会话机制未改；今后新教务数据的接入约定已写入本地docs/ARCHITECTURE.md“教务数据扩展入口”。
