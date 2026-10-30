@@ -15,6 +15,7 @@ import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/settings/close_prefs_controller.dart';
 import 'package:xmu_rollcall/platform/close_prefs.dart';
+import 'package:xmu_rollcall/platform/desktop_tray_status.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:xmu_rollcall/platform/desktop_notifications.dart';
 import 'package:xmu_rollcall/platform/windows_desktop_notifications.dart';
@@ -55,7 +56,9 @@ class DesktopShell with WindowListener, TrayListener {
   bool _quitting = false;
 
   GlobalKey<NavigatorState>? navigatorKey;
-  bool Function()? isMonitorRunning;
+  MonitorState Function()? readMonitorState;
+  String? _trayIcon;
+  String? _trayTooltip;
   VoidCallback? stopMonitor;
   ClosePrefs Function()? readPrefs;
   Future<void> Function({required bool toTray, required bool remember})?
@@ -100,11 +103,7 @@ class DesktopShell with WindowListener, TrayListener {
   }
 
   Future<void> _setupTray() async {
-    final icon = Platform.isWindows
-        ? 'assets/tray/tray_icon.ico'
-        : 'assets/tray/tray_icon.png';
-    await trayManager.setIcon(icon);
-    await trayManager.setToolTip(kAppDisplayName);
+    await updateTrayStatus(force: true);
     await updateTrayMenu();
   }
 
@@ -141,14 +140,38 @@ class DesktopShell with WindowListener, TrayListener {
       ? showMainWindow()
       : showRollcallFromNotification();
 
+  Future<void> updateTrayStatus({bool force = false}) async {
+    final status = desktopTrayStatus(readMonitorState?.call());
+    final suffix = status.active ? '_active' : '';
+    final extension = Platform.isWindows ? 'ico' : 'png';
+    final icon = 'assets/tray/tray_icon$suffix.$extension';
+    final iconChanged = force || icon != _trayIcon;
+    if (iconChanged) {
+      await trayManager.setIcon(icon);
+      _trayIcon = icon;
+    }
+    // Setting a native icon can reset its tooltip.
+    if (iconChanged || status.tooltip != _trayTooltip) {
+      await trayManager.setToolTip(status.tooltip);
+      _trayTooltip = status.tooltip;
+    }
+  }
+
   Future<void> updateTrayMenu() async {
-    final running = isMonitorRunning?.call() ?? false;
+    final state = readMonitorState?.call();
+    final running = state?.running ?? false;
     await trayManager.setContextMenu(
       Menu(
         items: [
           MenuItem(key: 'show', label: '显示窗口'),
           MenuItem(key: 'rollcalls', label: '查看签到'),
-          MenuItem(key: 'stop', label: '停止检测', disabled: !running),
+          MenuItem(
+            key: 'stop',
+            label: running && state?.config.courseWatch == true
+                ? '暂停值守'
+                : '停止检测',
+            disabled: !running,
+          ),
           MenuItem.separator(),
           MenuItem(key: 'quit', label: '退出'),
         ],
@@ -273,7 +296,7 @@ class DesktopShell with WindowListener, TrayListener {
     if (!await windowManager.isPreventClose()) return;
 
     final prefs = readPrefs?.call() ?? const ClosePrefs();
-    final busy = isMonitorRunning?.call() ?? false;
+    final busy = readMonitorState?.call().running ?? false;
     AppLog.event(
       'shell.close_requested',
       fields: {'busy': busy, 'mode': prefs.mode.name},
@@ -331,6 +354,9 @@ class DesktopShell with WindowListener, TrayListener {
     return showCloseAskDialog(
       ctx,
       busy: busy,
+      taskLabel: readMonitorState?.call().config.courseWatch == true
+          ? '值守'
+          : '检测',
       rememberDefaultChecked: prefs.rememberCheckboxDefault,
     );
   }
@@ -393,10 +419,22 @@ class _DesktopShellBinderState extends ConsumerState<DesktopShellBinder> {
     _wire();
   }
 
+  @override
+  void reassemble() {
+    super.reassemble();
+    _wire();
+    if (DesktopShell.instance.trayAvailable.value) {
+      DesktopShell.instance._run(
+        DesktopShell.instance.updateTrayStatus(force: true),
+      );
+      DesktopShell.instance._run(DesktopShell.instance.updateTrayMenu());
+    }
+  }
+
   void _wire() {
     final shell = DesktopShell.instance;
     shell.navigatorKey = widget.navigatorKey;
-    shell.isMonitorRunning = () => ref.read(monitorControllerProvider).running;
+    shell.readMonitorState = () => ref.read(monitorControllerProvider);
     shell.stopMonitor = () =>
         ref.read(monitorControllerProvider.notifier).stop();
     shell.readPrefs = () => ref.read(closePrefsProvider);
@@ -411,10 +449,24 @@ class _DesktopShellBinderState extends ConsumerState<DesktopShellBinder> {
   Widget build(BuildContext context) {
     // Keep prefs / monitor identity warm so close handler sees latest.
     ref.watch(closePrefsProvider);
-    ref.watch(monitorControllerProvider.select((s) => s.running));
-    ref.listen(monitorControllerProvider.select((s) => s.running), (_, _) {
+    ref.watch(
+      monitorControllerProvider.select(
+        (s) => (s.running, s.config.courseWatch),
+      ),
+    );
+    ref.listen(
+      monitorControllerProvider.select(
+        (s) => (s.running, s.config.courseWatch),
+      ),
+      (_, _) {
+        if (DesktopShell.instance.trayAvailable.value) {
+          DesktopShell.instance._run(DesktopShell.instance.updateTrayMenu());
+        }
+      },
+    );
+    ref.listen(monitorControllerProvider.select(desktopTrayStatus), (_, _) {
       if (DesktopShell.instance.trayAvailable.value) {
-        DesktopShell.instance._run(DesktopShell.instance.updateTrayMenu());
+        DesktopShell.instance._run(DesktopShell.instance.updateTrayStatus());
       }
     });
     _wire();
@@ -426,7 +478,7 @@ class _DesktopShellBinderState extends ConsumerState<DesktopShellBinder> {
     final shell = DesktopShell.instance;
     if (shell.navigatorKey == widget.navigatorKey) {
       shell.navigatorKey = null;
-      shell.isMonitorRunning = null;
+      shell.readMonitorState = null;
       shell.stopMonitor = null;
       shell.readPrefs = null;
       shell.applyAskChoice = null;

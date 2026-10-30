@@ -15,6 +15,7 @@ Future<CloseAskResult?> showCloseAskDialog(
   BuildContext context, {
   required bool busy,
   required bool rememberDefaultChecked,
+  String taskLabel = '检测',
 }) {
   return showDialog<CloseAskResult>(
     context: context,
@@ -22,6 +23,7 @@ Future<CloseAskResult?> showCloseAskDialog(
     barrierColor: Colors.black.withValues(alpha: 0.48),
     builder: (ctx) => _CloseAskDialog(
       busy: busy,
+      taskLabel: taskLabel,
       rememberDefaultChecked: rememberDefaultChecked,
     ),
   );
@@ -30,10 +32,12 @@ Future<CloseAskResult?> showCloseAskDialog(
 class _CloseAskDialog extends StatefulWidget {
   const _CloseAskDialog({
     required this.busy,
+    this.taskLabel,
     required this.rememberDefaultChecked,
   });
 
   final bool busy;
+  final String? taskLabel;
   final bool rememberDefaultChecked;
 
   @override
@@ -47,11 +51,12 @@ class _CloseAskDialogState extends State<_CloseAskDialog> {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final title = widget.busy ? '检测进行中' : '关闭窗口';
+    final taskLabel = widget.taskLabel ?? '检测';
+    final title = widget.busy ? '$taskLabel进行中' : '关闭窗口';
     final lead = widget.busy
-        ? '当前正在轮询进行中签到。最小化到托盘可继续等待；退出将停止检测并结束进程。'
-        : '课堂检测开启时建议最小化到托盘，避免误关进程。';
-    final quitLabel = widget.busy ? '退出并停止检测' : '退出应用';
+        ? '当前$taskLabel正在运行。最小化到托盘可继续$taskLabel；退出将停止$taskLabel并结束进程。'
+        : '签到任务运行时可最小化到托盘继续；退出应用会停止任务。';
+    final quitLabel = widget.busy ? '退出并停止$taskLabel' : '退出应用';
 
     return PopScope(
       canPop: !_busyFlag,

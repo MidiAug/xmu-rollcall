@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
+import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/platform/desktop_shell.dart';
@@ -32,6 +34,41 @@ void main() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, null);
   });
+
+  test(
+    'tray action follows the actual running task and stays disabled when idle',
+    () async {
+      const trayChannel = MethodChannel('tray_manager');
+      Map? sent;
+      final shell = DesktopShell.instance;
+      final previousState = shell.readMonitorState;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(trayChannel, (call) async {
+            if (call.method == 'setContextMenu') sent = call.arguments as Map;
+            return null;
+          });
+      addTearDown(() {
+        shell.readMonitorState = previousState;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(trayChannel, null);
+      });
+      for (final running in [true, false]) {
+        for (final watch in [true, false]) {
+          shell.readMonitorState = () => MonitorState(
+            running: running,
+            config: MonitorConfig(courseWatch: watch),
+          );
+          await shell.updateTrayMenu();
+          final items = (sent!['menu'] as Map)['items'] as List;
+          final action = items.cast<Map>().singleWhere(
+            (m) => m['key'] == 'stop',
+          );
+          expect(action['label'], running && watch ? '暂停值守' : '停止检测');
+          expect(action['disabled'], !running);
+        }
+      }
+    },
+  );
 
   test(
     'opening a minimized window restores it before showing and focusing',

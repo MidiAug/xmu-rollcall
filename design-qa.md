@@ -768,3 +768,23 @@ stage2-final-tests.log相关46项通过；新增成绩快照→新会话恢复�
 - flutter devices快照无连接Android设备。本轮完成Android组件及共享数据逻辑回归，未安装Android包、未作真机帧率或真实签到验收。
 
 - 已热重载当前Windows开发实例：Reloaded 10 of 3287 libraries；运行时源码确认值守类型数量、历史可见刷新和移动首页精确订阅已载入，保留当前账号与本地数据。
+
+
+## 2026-10-30 值守关闭确认与托盘文案
+
+- 原弹窗只接收busy，统一写检测，值守等待课表时也误称正在轮询。现由DesktopShellBinder提供同一当前任务的courseWatch标记，关闭弹窗传入对应显示名称；普通关闭保持中性，托盘只在运行值守时标为暂停值守。
+- 运行时确认仍不记忆选择，未运行仍可记忆；最小化和退出返回动作、原防重复处理与退出停止任务流程均未改。
+- build/close-mode-final-tests.log：14项通过，含两种模式及运行/未运行的弹窗显示、两种动作及remember值，原生托盘菜单的4种组合，以及原关闭偏好/窗口/通知回归。
+- build/close-mode-analyze.log全库flutter analyze无问题；build/close-mode-final-analyze.log对4个变更源/测试无问题。已实看build/close-dialog/watch.png，值守标题、正文与按钮匹配且无溢出。没有实际执行退出或暂停用户任务。
+
+- 已热重载当前开发实例（Reloaded 22 of 3287 libraries），运行时源码确认新关闭文案已载入；未重启或停止值守。已打开弹窗若保留旧参数，关闭再打开使用当前任务类型。
+
+
+## 2026-10-30 托盘绿点与悬停状态
+
+- 托盘复用当前MonitorState，值守与普通检测running显示右上角绿点，等待课表、处理签到及失败重试保持；启动准备和停止后使用普通图标。悬停用换行和中文冒号说明课表值守/自动检测及当前阶段，无中点分隔。
+- 原图标保持，Dart脚本按16至256像素生成九档ICO及PNG静态徽标；已实际查看active PNG，右上角绿色圆形与白色边界清晰。没有增加动画、定时器或请求；仅订阅可见状态，缓存原生图标/提示，重复状态不调用通道。
+- build/tray-status-tests-final.log：16项通过，包含真实MonitorState的两种任务/等待/处理/失败/启动/停止状态，原生通道图标和提示的切换与重复更新抑制，以及关闭弹窗、偏好和托盘菜单回归。
+- 当前Windows开发实例热重载成功，Reloaded 22 of 3288 libraries；通过VM运行时源码确认desktop_shell与desktop_tray_status新实现已载入。新资源已同步当前实例的flutter_assets，无重启、清缓存或暂停用户值守。未实际操作暂停/退出，原生悬停效果待用户查看；Android无桌面托盘，本轮不改其前台服务。
+
+- build/tray-status-analyze-focused.log：flutter analyze对5个变更Dart源/测试无问题。全库检查耗时较长已中断，采用本次变更的聚焦检查；非全量回归。ICO目录验证包含16/20/24/32/40/48/64/128/256九种尺寸。

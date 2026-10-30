@@ -75,3 +75,5 @@ flutter:
     - assets/illustrations/campus_sidebar.png
     - assets/tray/tray_icon.ico
     - assets/tray/tray_icon.png
+    - assets/tray/tray_icon_active.ico
+    - assets/tray/tray_icon_active.png
