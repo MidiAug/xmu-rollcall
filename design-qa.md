@@ -788,3 +788,12 @@ stage2-final-tests.log相关46项通过；新增成绩快照→新会话恢复�
 - 当前Windows开发实例热重载成功，Reloaded 22 of 3288 libraries；通过VM运行时源码确认desktop_shell与desktop_tray_status新实现已载入。新资源已同步当前实例的flutter_assets，无重启、清缓存或暂停用户值守。未实际操作暂停/退出，原生悬停效果待用户查看；Android无桌面托盘，本轮不改其前台服务。
 
 - build/tray-status-analyze-focused.log：flutter analyze对5个变更Dart源/测试无问题。全库检查耗时较长已中断，采用本次变更的聚焦检查；非全量回归。ICO目录验证包含16/20/24/32/40/48/64/128/256九种尺寸。
+
+
+## 2026-10-30 电脑端签到状态预览与通知核对
+
+- 删除运行与启动的托盘/休眠说明，保留原起停与启动偏好。桌面诊断入口明确命名“电脑端签到与状态”，新增desktop展示分支，复用真实RollcallListPage及桌面卡片，Android继续原MobileRollcallHome。场景与封闭模拟传输共用原实现，打开/切换/重放电脑场景直接加载；12种场景含三类签到待签、缺资料、已签、过期、加载及失败。
+- 已实看build/rollcall-home-preview/desktop-ready.png与desktop-completed.png：1104宽的三类桌面卡片完整展示，已签到按钮清晰，无移动底栏和溢出。组件测试真实数字卡片确认提交经过预览HTTP适配器，返回成功并显示已签到；保留已有移动端提交/隔离回归，无真实学校提交。
+- build/preview-notify-tests-final.log：23项通过，覆盖预览、启动设置、前后台通知路由、静音结果、原生Windows通知内容及失败传播。build/preview-notify-analyze.log：4项变更Dart文件flutter analyze无问题。非全量回归，无Android真机验收。
+- 当前开发实例Reloaded 8 of 3288 libraries；未重启、停止任务或清除缓存。
+- 通知代码核对：MonitorEngine先发现通知，成功交付才按活动ID记入本次任务去重；AutomaticRollcallAnswer提交结果回调进入本地历史及DesktopNotifications，前台浮层、后台静音系统结果，发现/结果点击进入签到列表。当前机制保留，不增加轮询或重复提醒。发现与结果属于两个事件，因此快速自动签成功仍可能出现先发现、后成功两条通知；实际系统送达需用户在通知设置中确认。

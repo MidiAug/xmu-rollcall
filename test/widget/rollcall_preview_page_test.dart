@@ -27,6 +27,7 @@ import '../fixtures/preview_fonts.dart';
 Future<GlobalKey> _mount(
   WidgetTester tester, {
   bool dark = false,
+  bool desktop = false,
   double width = 390,
   double scale = 1,
 }) async {
@@ -42,7 +43,7 @@ Future<GlobalKey> _mount(
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
           theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
-            platform: TargetPlatform.android,
+            platform: desktop ? TargetPlatform.windows : TargetPlatform.android,
           ),
           builder: (context, child) => MediaQuery(
             data: MediaQuery.of(
@@ -50,7 +51,7 @@ Future<GlobalKey> _mount(
             ).copyWith(textScaler: TextScaler.linear(scale)),
             child: child!,
           ),
-          home: const RollcallPreviewPage(),
+          home: RollcallPreviewPage(desktop: desktop),
         ),
       ),
     ),
@@ -133,6 +134,31 @@ void main() {
       'saved_radar_locations': '[]',
     }),
   );
+
+  testWidgets('desktop preview uses real task cards and completed scenarios', (
+    tester,
+  ) async {
+    final capture = await _mount(tester, desktop: true, width: 1104);
+    expect(find.byType(MobileRollcallHome), findsNothing);
+    expect(find.byType(AppMobileNav), findsNothing);
+    expect(find.byType(RollcallTaskCard), findsNWidgets(3));
+    await _capture(tester, capture, 'desktop-ready');
+    await tester.tap(find.text('确认签到'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpAndSettle();
+    expect(find.text('已签到'), findsWidgets);
+    tester
+        .widget<AppShellSelect<RollcallPreviewScenario>>(
+          find.byKey(const ValueKey('rollcall-preview-scenario')),
+        )
+        .onChanged!(RollcallPreviewScenario.completed);
+    await tester.pumpAndSettle();
+    expect(find.byType(RollcallTaskCard), findsNWidgets(3));
+    expect(find.text('已签到'), findsWidgets);
+    await _capture(tester, capture, 'desktop-completed');
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'full real home renders every method and state combination after refresh',

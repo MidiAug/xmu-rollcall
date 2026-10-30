@@ -23,6 +23,7 @@ import 'package:xmu_rollcall/features/location/location_providers.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
 import 'package:xmu_rollcall/features/location/campus_places.dart';
 import 'package:xmu_rollcall/features/rollcall/mobile_rollcall_home.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_list_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account_menu.dart';
 import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
@@ -35,7 +36,9 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 /// Scoped preview with its own navigation so secondary pages retain the local
 /// transport, including the repositories constructed inside the QR page.
 class RollcallPreviewPage extends StatefulWidget {
-  const RollcallPreviewPage({super.key});
+  const RollcallPreviewPage({super.key, this.desktop = false});
+
+  final bool desktop;
 
   @override
   State<RollcallPreviewPage> createState() => _RollcallPreviewPageState();
@@ -163,6 +166,7 @@ class _RollcallPreviewPageState extends State<RollcallPreviewPage> {
         key: _navigatorKey,
         onGenerateRoute: (_) => MaterialPageRoute<void>(
           builder: (_) => _RollcallPreviewContent(
+            desktop: widget.desktop,
             onBack: () => Navigator.of(context).pop(),
           ),
         ),
@@ -385,7 +389,8 @@ class _PreviewRollcalls extends ActiveRollcallsNotifier {
 }
 
 class _RollcallPreviewContent extends ConsumerStatefulWidget {
-  const _RollcallPreviewContent({required this.onBack});
+  const _RollcallPreviewContent({required this.onBack, required this.desktop});
+  final bool desktop;
   final VoidCallback onBack;
 
   @override
@@ -397,6 +402,16 @@ class _RollcallPreviewContentState
     extends ConsumerState<_RollcallPreviewContent> {
   final _scroll = ScrollController();
   int _retapEpoch = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.desktop) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.read(activeRollcallsProvider(null).notifier).refresh();
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -433,12 +448,15 @@ class _RollcallPreviewContentState
                   Expanded(
                     child: AppShellSelect<RollcallPreviewScenario>(
                       key: const ValueKey('rollcall-preview-scenario'),
-                      subtitle: '开发预览  下拉刷新  模拟提交',
+                      subtitle: widget.desktop
+                          ? '电脑端预览  模拟提交'
+                          : '开发预览  下拉刷新  模拟提交',
                       value: scenario,
                       items: RollcallPreviewScenario.values,
                       labelOf: (value) => value.label,
                       onChanged: (value) {
                         controller.selectScenario(value);
+                        if (widget.desktop) controller.refresh();
                         if (_scroll.hasClients) _scroll.jumpTo(0);
                       },
                     ),
@@ -447,6 +465,7 @@ class _RollcallPreviewContentState
                     tooltip: '重放场景',
                     onPressed: () {
                       controller.selectScenario(scenario);
+                      if (widget.desktop) controller.refresh();
                       if (_scroll.hasClients) _scroll.jumpTo(0);
                     },
                     icon: const Icon(AppIcons.refresh),
@@ -475,25 +494,36 @@ class _RollcallPreviewContentState
                   title: '签到',
                   showHeader: false,
                   child: AppContentColumn(
-                    child: MobileRollcallHome(
-                      key: ValueKey(scenario),
-                      controller: _scroll,
-                      scope: null,
-                      updatedLabel: updatedLabel,
-                      accountMenu: RollcallAccountMenu(
-                        masthead: true,
-                        value: 0,
-                        identities: const [],
-                        ownerName: '预览同学',
-                        onChanged: (_) {},
-                      ),
-                      onHistory: _otherPage,
-                      onSettings: _otherPage,
-                      onTimetable: _otherPage,
-                      onHomework: _otherPage,
-                      onOpenHomework: (_) => _otherPage(),
-                      onRetryIdentity: () {},
-                    ),
+                    child: widget.desktop
+                        ? RollcallListPage(
+                            key: ValueKey(scenario),
+                            embedded: true,
+                            showUpdatedAt: false,
+                            academicSchedule: ref
+                                .watch(campusCachedDataProvider)
+                                .valueOrNull
+                                ?.schedule,
+                            at: _previewNow,
+                          )
+                        : MobileRollcallHome(
+                            key: ValueKey(scenario),
+                            controller: _scroll,
+                            scope: null,
+                            updatedLabel: updatedLabel,
+                            accountMenu: RollcallAccountMenu(
+                              masthead: true,
+                              value: 0,
+                              identities: const [],
+                              ownerName: '预览同学',
+                              onChanged: (_) {},
+                            ),
+                            onHistory: _otherPage,
+                            onSettings: _otherPage,
+                            onTimetable: _otherPage,
+                            onHomework: _otherPage,
+                            onOpenHomework: (_) => _otherPage(),
+                            onRetryIdentity: () {},
+                          ),
                   ),
                 ),
               ),
@@ -501,17 +531,19 @@ class _RollcallPreviewContentState
           ],
         ),
       ),
-      bottomNavigationBar: AppMobileNav(
-        current: AppDestination.rollcall,
-        onSelect: (value) {
-          if (value == AppDestination.rollcall) {
-            setState(() => _retapEpoch++);
-          } else {
-            _otherPage();
-          }
-        },
-        onSearch: _otherPage,
-      ),
+      bottomNavigationBar: widget.desktop
+          ? null
+          : AppMobileNav(
+              current: AppDestination.rollcall,
+              onSelect: (value) {
+                if (value == AppDestination.rollcall) {
+                  setState(() => _retapEpoch++);
+                } else {
+                  _otherPage();
+                }
+              },
+              onSearch: _otherPage,
+            ),
     );
   }
 }

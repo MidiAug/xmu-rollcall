@@ -156,12 +156,12 @@ class SettingsDataPage extends ConsumerWidget {
                 children: [
                   SettingsRow(
                     leading: const Icon(AppIcons.radar),
-                    title: '签到首页',
+                    title: PlatformHooks.isDesktop ? '电脑端签到与状态' : '签到首页',
                     subtitle: '完整首页、多方式与状态组合，模拟提交',
                     trailing: const Icon(AppIcons.right, size: 18),
                     onTap: () => AppPageRoutes.push(
                       context,
-                      const RollcallPreviewPage(),
+                      RollcallPreviewPage(desktop: PlatformHooks.isDesktop),
                     ),
                   ),
                   SettingsRow(

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_switch.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
-import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
@@ -96,17 +95,6 @@ class _StartupSettingsState extends ConsumerState<StartupSettings> {
                     config.courseWatch
                 ? ref.read(monitorControllerProvider.notifier).setResumeWatch
                 : null,
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: Text(
-            '关闭窗口时保留在托盘即可继续值守；完全退出或电脑休眠后会暂停。',
-            style: TextStyle(
-              color: AppPalette.of(context).muted,
-              fontSize: 12,
-              height: 1.6,
-            ),
           ),
         ),
       ],
