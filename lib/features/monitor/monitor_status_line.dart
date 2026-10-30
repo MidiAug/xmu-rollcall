@@ -109,15 +109,25 @@ class MonitorStatusLine extends ConsumerStatefulWidget {
 
 class _MonitorStatusLineState extends ConsumerState<MonitorStatusLine> {
   Timer? _tick;
+  String? _displayedMessage;
   @override
   void initState() {
     super.initState();
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted &&
-          TickerMode.valuesOf(context).enabled &&
-          ref.read(monitorControllerProvider).running) {
-        setState(() {});
-      }
+      if (!mounted || !TickerMode.valuesOf(context).enabled) return;
+      final monitor = ref.read(monitorControllerProvider);
+      if (!monitor.running || widget.overrideMessage != null) return;
+      final message = monitorStatusText(
+        monitor: monitor,
+        now: ref.read(activeRollcallClockProvider)(),
+        fallback: widget.fallback,
+        window: monitor.config.courseWatch
+            ? null
+            : ref.read(selectedDetectionWindowProvider).valueOrNull,
+        pendingCount: widget.pendingCount,
+        completedCount: widget.completedCount,
+      );
+      if (message != _displayedMessage) setState(() {});
     });
   }
 
@@ -129,8 +139,38 @@ class _MonitorStatusLineState extends ConsumerState<MonitorStatusLine> {
 
   @override
   Widget build(BuildContext context) {
-    final monitor = ref.watch(monitorControllerProvider);
-    final auth = ref.watch(authControllerProvider);
+    // Log append operations do not change this status projection.
+    ref.watch(
+      monitorControllerProvider.select(
+        (s) => (
+          s.running,
+          s.discovering,
+          s.waitingForWindow,
+          s.config.courseWatch,
+          s.nextPollAt,
+          s.consecutiveFailures,
+          s.discoveryWindow,
+          s.activityMessage,
+        ),
+      ),
+    );
+    final monitor = ref.read(monitorControllerProvider);
+    final signedIn = ref.watch(
+      authControllerProvider.select((s) => s.isSignedIn),
+    );
+    _displayedMessage =
+        widget.overrideMessage ??
+        (!signedIn ? '登录后可检测签到' : null) ??
+        monitorStatusText(
+          monitor: monitor,
+          now: ref.read(activeRollcallClockProvider)(),
+          fallback: widget.fallback,
+          window: monitor.config.courseWatch
+              ? null
+              : ref.watch(selectedDetectionWindowProvider).valueOrNull,
+          pendingCount: widget.pendingCount,
+          completedCount: widget.completedCount,
+        );
     final p = AppPalette.of(context);
     final color =
         widget.warning ||
@@ -154,18 +194,7 @@ class _MonitorStatusLineState extends ConsumerState<MonitorStatusLine> {
         const SizedBox(width: 10),
         Expanded(
           child: Text(
-            widget.overrideMessage ??
-                (!auth.isSignedIn ? '登录后可检测签到' : null) ??
-                monitorStatusText(
-                  monitor: monitor,
-                  now: ref.read(activeRollcallClockProvider)(),
-                  fallback: widget.fallback,
-                  window: monitor.config.courseWatch
-                      ? null
-                      : ref.watch(selectedDetectionWindowProvider).valueOrNull,
-                  pendingCount: widget.pendingCount,
-                  completedCount: widget.completedCount,
-                ),
+            _displayedMessage!,
             key: const ValueKey('monitor-status-line'),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,

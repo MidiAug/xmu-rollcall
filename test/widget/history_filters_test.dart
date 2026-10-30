@@ -13,6 +13,7 @@ import 'package:xmu_rollcall/features/history/history_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import '../fixtures/desktop_ui_capture.dart';
+import '../fixtures/preview_fonts.dart';
 
 class _Repo extends Fake implements AuthRepository {}
 
@@ -118,7 +119,10 @@ class _PeriodHistory extends _History {
 }
 
 void main() {
-  setUpAll(loadDesktopUiCaptureFonts);
+  setUpAll(() async {
+    await loadDesktopPreviewFonts();
+    await loadDesktopUiCaptureFonts();
+  });
   setUp(() => SharedPreferences.setMockInitialValues({}));
   testWidgets('pulling filtered history requests only the selected course', (
     tester,

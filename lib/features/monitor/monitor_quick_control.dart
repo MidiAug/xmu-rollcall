@@ -41,15 +41,22 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
   void initState() {
     super.initState();
     _tick = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
+      if (!mounted || !TickerMode.valuesOf(context).enabled) return;
+      final monitor = ref.read(monitorControllerProvider);
+      if (monitor.running) {
+        if (widget.style == MonitorControlStyle.mastheadStatus &&
+            Theme.of(context).platform == TargetPlatform.android) {
+          setState(() {});
+        }
+        return;
+      }
+      if (monitor.config.courseWatch) return;
       final planned = ref.read(selectedDetectionWindowProvider);
       final window = planned.isLoading ? null : planned.valueOrNull;
       final outsideWindow =
           window != null &&
           !window.allows(ref.read(activeRollcallClockProvider)());
-      if ((widget.style == MonitorControlStyle.mastheadStatus &&
-              ref.read(monitorControllerProvider).running) ||
-          outsideWindow != _outsideWindow) {
+      if (outsideWindow != _outsideWindow) {
         setState(() => _outsideWindow = outsideWindow);
       }
     });
@@ -85,9 +92,24 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
       side: BorderSide(color: p.border),
       backgroundColor: p.surface.withValues(alpha: .8),
     );
-    final monitor = ref.watch(monitorControllerProvider);
+    final monitor = ref.watch(
+      monitorControllerProvider.select(
+        (s) => (
+          running: s.running,
+          starting: s.starting,
+          loadingSettings: s.loadingSettings,
+          courseWatch: s.config.courseWatch,
+          nextPollAt: statusOnly ? s.nextPollAt : null,
+          consecutiveFailures: statusOnly ? s.consecutiveFailures : 0,
+          waitingForWindow: statusOnly && s.waitingForWindow,
+          discovering: !statusOnly || s.discovering,
+        ),
+      ),
+    );
     final ctrl = ref.read(monitorControllerProvider.notifier);
-    final signedIn = ref.watch(authControllerProvider).isSignedIn;
+    final signedIn = ref.watch(
+      authControllerProvider.select((s) => s.isSignedIn),
+    );
     final planned = ref.watch(selectedDetectionWindowProvider);
     final window = planned.isLoading ? null : planned.valueOrNull;
     _outsideWindow =
@@ -100,12 +122,12 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
           signedIn &&
           !monitor.starting &&
           !monitor.loadingSettings &&
-          (monitor.config.courseWatch || (window != null && !_outsideWindow));
+          (monitor.courseWatch || (window != null && !_outsideWindow));
       final onStart = enabled
           ? () async {
               final plan = ref.read(selectedDetectionWindowProvider);
               final currentWindow = plan.isLoading ? null : plan.valueOrNull;
-              if (!monitor.config.courseWatch &&
+              if (!monitor.courseWatch &&
                   (currentWindow == null ||
                       !currentWindow.allows(
                         ref.read(activeRollcallClockProvider)(),
@@ -131,7 +153,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            monitor.config.courseWatch ? AppIcons.guard : AppIcons.detect,
+            monitor.courseWatch ? AppIcons.guard : AppIcons.detect,
             size: 16,
             color: prominent && !masthead && enabled
                 ? (p.isDark ? p.canvas : Colors.white)
@@ -141,7 +163,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
           ),
           const SizedBox(width: 6),
           Text(
-            monitor.config.courseWatch ? '开始值守' : '开始检测',
+            monitor.courseWatch ? '开始值守' : '开始检测',
             style: TextStyle(
               fontSize: 13,
               height: 1.4,
@@ -171,7 +193,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
           child: Tooltip(
             message: !signedIn
                 ? '请先登录'
-                : _outsideWindow && !monitor.config.courseWatch
+                : _outsideWindow && !monitor.courseWatch
                 ? todayDetectionRanges(
                     window!,
                     ref.read(activeRollcallClockProvider)(),
@@ -256,15 +278,13 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              monitor.config.courseWatch
-                  ? AppIcons.guardPaused
-                  : AppIcons.stopSolid,
+              monitor.courseWatch ? AppIcons.guardPaused : AppIcons.stopSolid,
               size: 16,
               color: p.primary,
             ),
             const SizedBox(width: 6),
             Text(
-              monitor.config.courseWatch ? '暂停值守' : '停止检测',
+              monitor.courseWatch ? '暂停值守' : '停止检测',
               style: TextStyle(
                 fontSize: 13,
                 height: 1.4,
@@ -286,15 +306,13 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            monitor.config.courseWatch
-                ? AppIcons.guardPaused
-                : AppIcons.stopSolid,
+            monitor.courseWatch ? AppIcons.guardPaused : AppIcons.stopSolid,
             size: 16,
             color: p.primary,
           ),
           const SizedBox(width: 6),
           Text(
-            monitor.config.courseWatch ? '暂停值守' : '停止检测',
+            monitor.courseWatch ? '暂停值守' : '停止检测',
             style: TextStyle(
               fontSize: 13,
               height: 1.4,

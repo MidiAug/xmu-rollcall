@@ -10,6 +10,16 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/history/history_summary.dart';
 
+// Counts for filters retain their original scoped deduplication; only the
+// full-history view needs ordering, and it changes with the source snapshot.
+final _orderedHistoryProvider =
+    Provider.autoDispose<List<CourseRollcallRecord>>((ref) {
+      final records = ref.watch(
+        currentCourseHistoryProvider.select((s) => s.valueOrNull),
+      );
+      return HistorySummary(records ?? const []).records;
+    });
+
 enum HistorySignedFilter { all, unsigned, signed, other }
 
 enum _HistoryPeriod { all, days7, days30 }
@@ -134,9 +144,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             _historyMatchesType(r, _type) &&
             historyInDateRange(r, _range?.start, _range?.end),
       ),
+      sort: false,
     );
     final datedRecords = HistorySummary(
       records.where((r) => historyInDateRange(r, _range?.start, _range?.end)),
+      sort: false,
     ).records;
     int typeCount(HistoryTypeFilter type) => datedRecords
         .where(
@@ -146,28 +158,39 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
               _historyMatchesType(r, type),
         )
         .length;
-    int courseCount(String id) => datedRecords
-        .where(
-          (r) =>
-              (id.isEmpty || r.courseId == id) &&
-              _historyMatchesStatus(r, _signed) &&
-              _historyMatchesType(r, _type),
-        )
-        .length;
+    final courseCounts = <String, int>{};
+    var allCoursesCount = 0;
+    for (final record in datedRecords) {
+      if (!_historyMatchesStatus(record, _signed) ||
+          !_historyMatchesType(record, _type)) {
+        continue;
+      }
+      allCoursesCount++;
+      courseCounts.update(
+        record.courseId,
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    }
+    int courseCount(String id) =>
+        id.isEmpty ? allCoursesCount : courseCounts[id] ?? 0;
     int statusCount(HistorySignedFilter status) => switch (status) {
       HistorySignedFilter.all => summary.total,
       HistorySignedFilter.signed => summary.count(HistoryAttendance.signed),
       HistorySignedFilter.unsigned => summary.count(HistoryAttendance.unsigned),
       HistorySignedFilter.other => summary.count(HistoryAttendance.other),
     };
-    final periodRecords = HistorySummary(records).records
-        .where(
-          (r) =>
-              (courseId.isEmpty || r.courseId == courseId) &&
-              _historyMatchesStatus(r, _signed) &&
-              _historyMatchesType(r, _type),
-        )
-        .toList();
+    final periodRecords =
+        (auth.isSignedIn
+                ? ref.watch(_orderedHistoryProvider)
+                : const <CourseRollcallRecord>[])
+            .where(
+              (r) =>
+                  (courseId.isEmpty || r.courseId == courseId) &&
+                  _historyMatchesStatus(r, _signed) &&
+                  _historyMatchesType(r, _type),
+            )
+            .toList();
     final now = DateTime.now();
     int periodCount(_HistoryPeriod period) {
       final range = _rangeForPeriod(period, now);

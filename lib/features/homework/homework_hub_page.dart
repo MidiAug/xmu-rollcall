@@ -109,13 +109,12 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
     }
     if (!ref.read(authControllerProvider).isSignedIn) return;
     await _refreshHomework(ref, force: false, refreshStatuses: refreshStatuses);
-    if (mounted) setState(() {});
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!mounted) return;
-    setState(() => _foreground = state == AppLifecycleState.resumed);
+    _foreground = state == AppLifecycleState.resumed;
     _syncTimer();
     if (_foreground) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _checkFresh());

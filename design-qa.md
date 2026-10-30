@@ -706,3 +706,42 @@ stage2-final-tests.log相关46项通过；新增成绩快照→新会话恢复�
 - 已实看build/course-watch-columns下960-light、960-dark、384-light、384-dark共4张隔离渲染截图。两列不强制等高，窄屏可读，实心横线及柔和悬停保留。未执行Android真机或真实签到验收。
 
 - 已热重载当前Windows开发实例：Reloaded 3 of 3287 libraries；通过运行时Script源确认双列布局与未运行普通反馈已载入。保留登录、本地数据及当前页面，无热重启；未宣称用户交互验收完成。
+
+
+## 2026-10-30 页面渲染与重复计算审查
+
+本轮覆盖签到/检测、历史、作业、保留Tab、课表、校园摘要、GPA、地图与移动导航的源码热路径；只对已复现的重复工作做聚焦修改，未引入通用缓存框架、附加网络定时器或批量RepaintBoundary。
+
+| 隔离场景 | 修改前 | 修改后 | 证据 |
+| --- | --- | --- | --- |
+| 追加20条日志 | 检测按钮20次、状态行20次重建，普通区间检查20次 | 三项均0次 | render-work-before.log / render-work-after.log |
+| 等待下一课5秒 | 状态行重建5次、无关普通区间检查5次 | 两项均0次 | 同上 |
+| 隐藏按钮5秒 | 普通区间检查5次 | 0次 | 同上 |
+| 200条历史切换状态筛选 | 时间字段访问10,691次 | 17次 | history-work-before.log / history-work-after.log |
+| 作业无数据变化的失焦/恢复 | 整页重建3次 | 0次 | homework-render-before.log / homework-render-after.log |
+| 5个保留Tab、60次窗口resize | IndexedStack对照300次布局 | 当前可见60次、隐藏0次 | homework-render-after.log |
+
+日志路径均在build/，未入库；新增render_work_test.dart通过Flutter的debugOnRebuildDirtyWidget记录实际生产组件重建，在模型getter/普通范围边界记录计算次数，不复制业务算法。历史计数维持先按原筛选范围去重的规则，仅跳过无需展示排序的日期比较；完整汇总随源列表改变更新，在页面释放时自动释放。作业数据仍由原Provider发布，前后台和Tab刷新门槛保持。
+
+### 已落实
+
+- MonitorQuickControl只订阅起停所需字段，Android状态样式额外订阅倒计时所需字段；隐藏或已运行的桌面按钮不重复扫描普通检测范围。
+- MonitorStatusLine不订阅日志等无关变更，仅在文字实际改变时处理本地秒钟重建，保留真实倒计时、窗口边界、手动五秒反馈及身份状态。
+- 历史的两处计数汇总关闭排序，完整排序由当前数据快照的自动释放Provider复用；课程筛选计数从逐课程扫描改为一次聚合。原课程/日期/状态/类型组合规则与占位行展示保持。
+- 作业页删除检查结束的无条件setState和仅更改生命周期控制标记的setState。既有Provider与可见性控制继续负责发布数据/启动检查。
+
+### 后续候选及证据边界
+
+- 地图CampusMap的相机Builder内仍进行mapBuildingGroups和TextPainter测量。应测量拖动/缩放时CPU与raster帧耗时，再决定如何按地点集合、字号/字体及缩放档位复用，不凭此代码形态认定严重卡顿。
+- 可见课表的timetableColumns内部与网格LayoutBuilder中分别调用timetableStacks；本周课程也会在重建时重新筛选。后续可先对同一源快照的分组次数做计数，区分数据分组与窗口几何计算。隐藏Tab已有冻结机制，不重写保留壳。
+- Android导航有两块局部BackdropFilter；深色校园画有ColorFiltered/ShaderMask。它们属于GPU测量候选，未做Android真机profile，未删除视觉效果。
+- 校园摘要每分钟按日期重新形成教务分组，GPA只在数据/交互/重建时计算；本轮没有证据说明它们属于首要瓶颈，不增加跨页面全局缓存。
+- 各项计数均为隔离回归的工作量，不能换算成FPS、CPU百分比或包体/内存降幅。当前Debug实例不作为发布性能基准；没有声称动效已达到指定帧率。
+
+### 验证
+
+- build/render-audit-full-tests.log：全量918通过、2项既有跳过；build/render-audit-final-analyze.log：flutter analyze无问题。
+- build/render-audit-captures.log：13项截图/交互检查通过；历史截图补载与实际桌面一致的预览字体后，build/render-audit-history-capture.log的11项通过。已实看浅色检测倒计时和深色历史筛选截图，未更改样式参数。
+- 未运行真实签到或Android真机profile，未量测正式版原生帧耗时、峰值内存及包体变化。
+
+- 本轮已热重载当前Windows开发实例，Reloaded 5 of 3287 libraries；运行时Script源验证历史快照复用和状态文字比较已载入。未重启应用、未清缓存。

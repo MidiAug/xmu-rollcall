@@ -85,6 +85,23 @@ void main() {
       final initial = _Overview.checks;
       expect(initial, greaterThan(0));
       final initialPosition = tester.getTopLeft(find.text('缓存作业'));
+      var pageBuilds = 0;
+      final previousBuildHook = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previousBuildHook?.call(element, builtOnce);
+        if (element.widget is HomeworkHubPage) pageBuilds++;
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previousBuildHook);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pumpAndSettle();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      debugOnRebuildDirtyWidget = previousBuildHook;
+      debugPrint(
+        'homework unchanged focus round-trip: $pageBuilds page builds',
+      );
+      expect(pageBuilds, 0);
+
       for (var i = 0; i < 5; i++) {
         tab.value = AppDestination.rollcall;
         await tester.pumpAndSettle();

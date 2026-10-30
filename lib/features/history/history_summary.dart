@@ -10,19 +10,22 @@ HistoryAttendance historyAttendance(CourseRollcallRecord record) {
 
 /// A platform rollcall is one observation. Placeholders are never attendance.
 class HistorySummary {
-  HistorySummary(Iterable<CourseRollcallRecord> source) {
+  /// Count-only filter summaries keep source order and skip date comparisons.
+  HistorySummary(Iterable<CourseRollcallRecord> source, {bool sort = true}) {
     final unique = <String, CourseRollcallRecord>{};
     for (final record in source) {
       if (!record.isPlaceholder) {
         unique['${record.courseId}/${record.rollcallId}'] = record;
       }
     }
-    records = unique.values.toList()
-      ..sort(
+    records = unique.values.toList();
+    if (sort) {
+      records.sort(
         (a, b) => (b.rollcallTime ?? DateTime(0)).compareTo(
           a.rollcallTime ?? DateTime(0),
         ),
       );
+    }
   }
 
   late final List<CourseRollcallRecord> records;
