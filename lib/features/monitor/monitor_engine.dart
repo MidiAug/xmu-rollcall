@@ -18,6 +18,7 @@ class MonitorEngine {
     this.terminalAutomaticIds,
     this.automaticNumberCodes,
     this.loadDetectionWindow,
+    this.loadAutomaticWindow,
     Set<int> notifiedIds = const {},
     DateTime Function()? now,
   }) : _notifiedIds = {...notifiedIds},
@@ -28,6 +29,7 @@ class MonitorEngine {
   final Future<List<RollcallItem>> Function() fetch;
   final Future<List<RollcallItem>> Function()? manualFetch;
   final Future<DetectionWindow> Function()? loadDetectionWindow;
+  final Future<DetectionWindow> Function()? loadAutomaticWindow;
   final Future<bool> Function(List<RollcallItem> items) notify;
   final void Function(MonitorEngineUpdate update) onUpdate;
   final Future<String?> Function(
@@ -129,6 +131,20 @@ class MonitorEngine {
   void _scheduleAutomatic() {
     _automaticTimer?.cancel();
     if (_running && !_discovering && !_hasAutomaticWork) {
+      if (_config.courseWatch) {
+        _discovering = true;
+        _latestItems = null;
+        _lastAutomaticAt = null;
+        onUpdate(
+          MonitorEngineUpdate(
+            failures: _failures,
+            running: true,
+            discovering: true,
+          ),
+        );
+        _schedule(_nextDelay());
+        return;
+      }
       stop();
       onUpdate(
         MonitorEngineUpdate(
@@ -184,11 +200,25 @@ class MonitorEngine {
     final generation = _generation;
     bool current() => _running && generation == _generation;
     try {
-      if (loadDetectionWindow != null) {
-        final window = await loadDetectionWindow!();
+      final automaticWindow = loadAutomaticWindow ?? loadDetectionWindow;
+      if (automaticWindow != null) {
+        final window = await automaticWindow();
         if (!current()) return;
         if (!window.allows(_now())) {
           if (!_discovering) {
+            if (_config.courseWatch) {
+              _latestItems = null;
+              _discovering = true;
+              onUpdate(
+                MonitorEngineUpdate(
+                  failures: _failures,
+                  running: true,
+                  discovering: true,
+                ),
+              );
+              _schedule(Duration.zero);
+              return;
+            }
             stop();
             onUpdate(
               MonitorEngineUpdate(
@@ -287,15 +317,24 @@ class MonitorEngine {
               failures: _failures,
               ok: true,
               message: '时段外暂停检测（${window.label}）',
+              waitingForWindow: true,
             ),
           );
           return;
         }
       }
+      onUpdate(
+        MonitorEngineUpdate(failures: _failures, waitingForWindow: false),
+      );
       final items = await (manual ? (manualFetch ?? fetch) : fetch)();
       if (!current()) return;
       _latestItems = items;
-      if (items.any((i) => !i.isExpired && !i.isAnswered)) {
+      if (items.any(
+        (i) =>
+            !i.isExpired &&
+            !i.isAnswered &&
+            (!_config.courseWatch || !terminalIds.contains(i.rollcallId)),
+      )) {
         _discovering = false;
         _nextAt = null;
         onUpdate(
@@ -304,7 +343,9 @@ class MonitorEngine {
             running: true,
             discovering: false,
             items: items,
-            message: '已发现待签到活动，停止继续检测',
+            message: _config.courseWatch
+                ? '已发现待签到活动，处理后继续值守'
+                : '已发现待签到活动，停止继续检测',
           ),
         );
       }
@@ -349,6 +390,8 @@ class MonitorEngine {
                   ? '检测成功，暂无进行中签到'
                   : _discovering
                   ? '当前活动均已完成，继续寻找待签到活动'
+                  : _config.courseWatch
+                  ? '已发现待签到活动，处理后继续值守'
                   : '已发现待签到活动，停止继续检测'),
         ),
       );
@@ -362,6 +405,7 @@ class MonitorEngine {
             failures: _failures,
             ok: true,
             message: error.toString(),
+            waitingForWindow: true,
           ),
         );
         return;
@@ -409,6 +453,7 @@ class MonitorEngineUpdate {
     this.sessionExpired = false,
     this.running,
     this.discovering,
+    this.waitingForWindow,
   });
 
   final DateTime? lastPollAt;
@@ -421,4 +466,5 @@ class MonitorEngineUpdate {
   final bool sessionExpired;
   final bool? running;
   final bool? discovering;
+  final bool? waitingForWindow;
 }

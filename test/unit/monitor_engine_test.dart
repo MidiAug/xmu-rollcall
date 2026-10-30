@@ -4,7 +4,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_engine.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
+import 'package:xmu_rollcall/features/rollcall/session_block.dart';
+import 'package:xmu_rollcall/features/monitor/course_watch.dart';
 
 RollcallItem item(int id) => RollcallItem(
   rollcallId: id,
@@ -19,6 +22,160 @@ RollcallItem item(int id) => RollcallItem(
 
 void main() {
   late MonitorEngine engine;
+  test(
+    'long-break polling waits at the next real boundary and skips lectures',
+    () async {
+      DateTime at(int h, int m) => DateTime(2026, 10, 30, h, m);
+      final slots = [
+        TimetableSlot(sequence: 1, start: at(9, 0), end: at(9, 45)),
+        TimetableSlot(sequence: 2, start: at(10, 15), end: at(11, 0)),
+      ];
+      final lesson = WatchedLesson(
+        'c',
+        at(0, 0),
+        courseMeetingBlocks(slots).single,
+        slots,
+      );
+      var clock = at(9, 44);
+      var requests = 0;
+      final updates = <MonitorEngineUpdate>[];
+      engine = MonitorEngine(
+        config: const MonitorConfig(courseWatch: true, jitterRatio: 0),
+        now: () => clock,
+        loadDetectionWindow: () async => DetectionWindow(
+          enabled: true,
+          scheduleBased: true,
+          intervals: lesson.ranges,
+        ),
+        fetch: () async {
+          requests++;
+          return [];
+        },
+        notify: (_) async => true,
+        onUpdate: updates.add,
+      );
+      engine.start();
+      await engine.pollNow();
+      expect(requests, 0);
+      expect(updates.last.nextPollAt, at(9, 45));
+      for (final time in [at(9, 45), at(9, 59), at(10, 14)]) {
+        clock = time;
+        await engine.pollNow();
+      }
+      expect(requests, 3);
+      clock = at(10, 15);
+      await engine.pollNow();
+      expect(requests, 3);
+      expect(updates.last.nextPollAt, at(11, 0));
+      engine.stop();
+    },
+  );
+  testWidgets('notification-only watch continues without duplicate alerts', (
+    tester,
+  ) async {
+    var fetches = 0, alerts = 0;
+    final updates = <MonitorEngineUpdate>[];
+    engine = MonitorEngine(
+      config: const MonitorConfig(
+        courseWatch: true,
+        autoAnswer: false,
+        jitterRatio: 0,
+      ),
+      fetch: () async {
+        fetches++;
+        return [item(1)];
+      },
+      notify: (_) async {
+        alerts++;
+        return true;
+      },
+      now: tester.binding.clock.now,
+      onUpdate: updates.add,
+    );
+    engine.start();
+    await engine.pollNow();
+    expect(updates.where((u) => u.running == false), isEmpty);
+    expect(updates.any((u) => u.message == '已发现待签到活动，处理后继续值守'), isTrue);
+    await tester.pump(const Duration(seconds: 20));
+    expect(fetches, 2);
+    expect(alerts, 1);
+    engine.stop();
+  });
+  testWidgets(
+    'a discovered batch finishes waiting after the discovery window closes',
+    (tester) async {
+      final start = tester.binding.clock.now();
+      var fetches = 0, attempts = 0;
+      final completed = <int>{};
+      engine = MonitorEngine(
+        config: const MonitorConfig(
+          courseWatch: true,
+          autoAnswer: true,
+          answerWaitMode: AnswerWaitMode.count,
+          jitterRatio: 0,
+          attendanceIntervalSeconds: 15,
+        ),
+        loadDetectionWindow: () async => DetectionWindow(
+          enabled: true,
+          scheduleBased: true,
+          intervals: [
+            (start: start, end: start.add(const Duration(seconds: 1))),
+          ],
+        ),
+        loadAutomaticWindow: () async => const DetectionWindow(),
+        fetch: () async {
+          fetches++;
+          return [item(1)];
+        },
+        notify: (_) async => true,
+        processAutomatic: (items, config, current) async {
+          if (++attempts == 2) completed.add(1);
+          return null;
+        },
+        completedAutomaticIds: () => completed,
+        onUpdate: (_) {},
+        now: tester.binding.clock.now,
+      );
+      engine.start();
+      await engine.pollNow();
+      await tester.pump(const Duration(seconds: 15));
+      expect(completed, {1});
+      expect(fetches, 1);
+      engine.stop();
+    },
+  );
+  testWidgets('course watch keeps discovering after completing a batch', (
+    tester,
+  ) async {
+    var fetches = 0;
+    final completed = <int>{};
+    engine = MonitorEngine(
+      config: const MonitorConfig(
+        courseWatch: true,
+        autoAnswer: true,
+        answerWaitMode: AnswerWaitMode.none,
+        jitterRatio: 0,
+      ),
+      fetch: () async {
+        fetches++;
+        return [item(fetches)];
+      },
+      notify: (_) async => true,
+      processAutomatic: (items, config, current) async {
+        completed.addAll(items.map((i) => i.rollcallId));
+        return '成功';
+      },
+      completedAutomaticIds: () => completed,
+      onUpdate: (_) {},
+      now: tester.binding.clock.now,
+    );
+    engine.start();
+    await engine.pollNow();
+    await tester.pump(const Duration(seconds: 20));
+    expect(fetches, 2);
+    expect(completed, {1, 2});
+    engine.stop();
+  });
   testWidgets(
     'a completed first event never suppresses a second in the same course',
     (tester) async {

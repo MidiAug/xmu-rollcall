@@ -99,16 +99,16 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
           signedIn &&
           !monitor.starting &&
           !monitor.loadingSettings &&
-          window != null &&
-          !_outsideWindow;
+          (monitor.config.courseWatch || (window != null && !_outsideWindow));
       final onStart = enabled
           ? () async {
               final plan = ref.read(selectedDetectionWindowProvider);
               final currentWindow = plan.isLoading ? null : plan.valueOrNull;
-              if (currentWindow == null ||
-                  !currentWindow.allows(
-                    ref.read(activeRollcallClockProvider)(),
-                  )) {
+              if (!monitor.config.courseWatch &&
+                  (currentWindow == null ||
+                      !currentWindow.allows(
+                        ref.read(activeRollcallClockProvider)(),
+                      ))) {
                 return;
               }
               final r = await ctrl.startAsync();
@@ -140,7 +140,11 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
           ),
           const SizedBox(width: 6),
           Text(
-            monitor.starting ? '启动中…' : '开始检测',
+            monitor.starting
+                ? '启动中…'
+                : monitor.config.courseWatch
+                ? '开始值守'
+                : '开始检测',
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -169,7 +173,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
           child: Tooltip(
             message: !signedIn
                 ? '请先登录'
-                : _outsideWindow
+                : _outsideWindow && !monitor.config.courseWatch
                 ? todayDetectionRanges(
                     window!,
                     ref.read(activeRollcallClockProvider)(),
@@ -206,7 +210,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
         ? 0
         : next.difference(DateTime.now()).inSeconds.clamp(0, 9999);
     final failed = monitor.consecutiveFailures > 0;
-    final paused = _outsideWindow;
+    final paused = monitor.waitingForWindow || _outsideWindow;
     final label = !monitor.discovering
         ? '自动签到处理中'
         : paused

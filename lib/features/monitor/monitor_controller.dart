@@ -14,6 +14,7 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_engine.dart';
 import 'package:xmu_rollcall/features/monitor/automatic_rollcall_answer.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/features/monitor/course_watch.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/platform/android_monitor_shell.dart';
@@ -37,6 +38,7 @@ class MonitorState {
     required this.config,
     this.running = false,
     this.discovering = true,
+    this.waitingForWindow = false,
     this.starting = false,
     this.lastPollAt,
     this.lastSuccessfulPollAt,
@@ -48,6 +50,7 @@ class MonitorState {
   final MonitorConfig config;
   final bool running;
   final bool discovering;
+  final bool waitingForWindow;
   final bool starting;
   final bool loadingSettings;
   final DateTime? lastPollAt;
@@ -59,6 +62,7 @@ class MonitorState {
     MonitorConfig? config,
     bool? running,
     bool? discovering,
+    bool? waitingForWindow,
     bool? starting,
     bool? loadingSettings,
     DateTime? lastPollAt,
@@ -71,6 +75,7 @@ class MonitorState {
     config: config ?? this.config,
     running: running ?? this.running,
     discovering: discovering ?? this.discovering,
+    waitingForWindow: waitingForWindow ?? this.waitingForWindow,
     starting: starting ?? this.starting,
     loadingSettings: loadingSettings ?? this.loadingSettings,
     lastPollAt: lastPollAt ?? this.lastPollAt,
@@ -216,6 +221,11 @@ class MonitorController extends StateNotifier<MonitorState> {
             prefs.getBool('${key}_auto_answer') ??
             (useLegacy ? prefs.getBool('monitor_auto_answer') : null) ??
             false,
+        courseWatch:
+            PlatformHooks.isDesktop &&
+            (prefs.getBool('${key}_course_watch') ?? false),
+        completeProbe: prefs.getBool('${key}_complete_probe') ?? false,
+        resumeWatch: prefs.getBool('${key}_resume_watch') ?? false,
         answerWaitMode: AnswerWaitMode
             .values[(integer('answer_wait_mode') ?? 2).clamp(0, 2)],
         answerWaitCount: (integer('answer_wait_count') ?? 10).clamp(1, 200),
@@ -227,6 +237,27 @@ class MonitorController extends StateNotifier<MonitorState> {
       ),
     );
     if (PlatformHooks.isAndroid) await _restore();
+    if (PlatformHooks.isDesktop &&
+        scope == null &&
+        ownerId != 0 &&
+        state.config.courseWatch &&
+        state.config.resumeWatch) {
+      // Defer until _load has returned: startAsync waits for _loaded itself.
+      final resumeGeneration = _generation;
+      unawaited(
+        Future<void>(() async {
+          await _loaded;
+          if (mounted &&
+              resumeGeneration == _generation &&
+              key == _configKey &&
+              !state.running &&
+              state.config.courseWatch &&
+              state.config.resumeWatch) {
+            await startAsync();
+          }
+        }),
+      );
+    }
   }
 
   Future<void> _restore() async {
@@ -309,10 +340,13 @@ class MonitorController extends StateNotifier<MonitorState> {
     state = state.copyWith(
       running: running,
       discovering: data['discovering'] as bool? ?? true,
+      waitingForWindow: data['waitingForWindow'] == true,
       starting: false,
       config: state.config.copyWith(
         enabled: running,
         autoAnswer: data['autoAnswer'] as bool?,
+        courseWatch: false,
+        completeProbe: data['completeProbe'] as bool?,
         answerWaitMode: data['answerWaitMode'] is int
             ? AnswerWaitMode.values[(data['answerWaitMode'] as int).clamp(0, 2)]
             : null,
@@ -377,6 +411,9 @@ class MonitorController extends StateNotifier<MonitorState> {
       await prefs.setInt('${key}_interval', config.effectiveIntervalSeconds);
       await prefs.setDouble('${key}_jitter', config.jitterRatio);
       await prefs.setBool('${key}_auto_answer', config.autoAnswer);
+      await prefs.setBool('${key}_course_watch', config.courseWatch);
+      await prefs.setBool('${key}_complete_probe', config.completeProbe);
+      await prefs.setBool('${key}_resume_watch', config.resumeWatch);
       await prefs.setInt(
         '${key}_attendance_interval',
         config.effectiveAttendanceIntervalSeconds,
@@ -476,6 +513,33 @@ class MonitorController extends StateNotifier<MonitorState> {
     if (state.loadingSettings) return;
     state = state.copyWith(config: state.config.copyWith(autoAnswer: value));
     _engine?.updateConfig(state.config);
+    commitPersist();
+  }
+
+  void setCourseWatch(bool value) {
+    if (!PlatformHooks.isDesktop ||
+        state.loadingSettings ||
+        state.running ||
+        state.starting) {
+      return;
+    }
+    state = state.copyWith(config: state.config.copyWith(courseWatch: value));
+    commitPersist();
+  }
+
+  void setResumeWatch(bool value) {
+    if (!PlatformHooks.isDesktop ||
+        state.loadingSettings ||
+        _ref.read(selectedRollcallAccountProvider) != null) {
+      return;
+    }
+    state = state.copyWith(config: state.config.copyWith(resumeWatch: value));
+    commitPersist();
+  }
+
+  void setCompleteProbe(bool value) {
+    if (state.loadingSettings) return;
+    state = state.copyWith(config: state.config.copyWith(completeProbe: value));
     commitPersist();
   }
 
@@ -596,6 +660,7 @@ class MonitorController extends StateNotifier<MonitorState> {
             ? rollcallRepositoryProvider
             : rollcallRepositoryForProvider(scope),
       );
+      final watch = CourseWatch(userId, scope ?? userId);
       final automatic = AutomaticRollcallAnswer(
         repository: repo,
         runId: desktopRunId,
@@ -621,6 +686,9 @@ class MonitorController extends StateNotifier<MonitorState> {
           }
         },
         onAnswered: (item, result) async {
+          if (current() && result.ok && state.config.courseWatch) {
+            await watch.succeeded(item);
+          }
           await _ref
               .read(_ref.read(localHistoryForProvider(scope)).notifier)
               .add(
@@ -640,14 +708,24 @@ class MonitorController extends StateNotifier<MonitorState> {
       );
       _engine = MonitorEngine(
         config: state.config,
-        manualFetch: () => repo.fetchActive(manual: true),
+        loadAutomaticWindow: () => readScheduleDetectionWindow(scope ?? userId),
+        manualFetch: () async {
+          if (state.config.courseWatch) {
+            await watch.window(completeProbe: state.config.completeProbe);
+          }
+          final items = await repo.fetchActive(manual: true);
+          return state.config.courseWatch ? watch.select(items) : items;
+        },
         loadDetectionWindow: () async {
+          if (state.config.courseWatch) {
+            return watch.window(completeProbe: state.config.completeProbe);
+          }
           await _ref.read(detectionWindowProvider.notifier).ready;
           return readScheduleDetectionWindow(
             scope ?? _ref.read(authControllerProvider).profile?.id,
           );
         },
-        fetch: () {
+        fetch: () async {
           AppLog.event(
             'monitor.discovery.start',
             fields: {
@@ -657,7 +735,8 @@ class MonitorController extends StateNotifier<MonitorState> {
               'session': scope == null ? 'owner' : 'assist',
             },
           );
-          return repo.fetchActive();
+          final items = await repo.fetchActive();
+          return state.config.courseWatch ? watch.select(items) : items;
         },
         processAutomatic: automatic.process,
         completedAutomaticIds: () => automatic.completedIds,
@@ -703,6 +782,7 @@ class MonitorController extends StateNotifier<MonitorState> {
           state = state.copyWith(
             running: update.running,
             discovering: update.discovering,
+            waitingForWindow: update.waitingForWindow,
             clearNext: update.discovering == false || update.running == false,
             config: update.running == null
                 ? null
@@ -736,6 +816,7 @@ class MonitorController extends StateNotifier<MonitorState> {
       state = state.copyWith(
         running: true,
         discovering: true,
+        waitingForWindow: false,
         config: state.config.copyWith(enabled: true),
         consecutiveFailures: 0,
       );

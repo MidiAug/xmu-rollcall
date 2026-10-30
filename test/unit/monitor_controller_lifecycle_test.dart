@@ -68,6 +68,30 @@ void main() {
     PlatformHooks.onRollcallsDiscovered = null;
     container.dispose();
   });
+  test(
+    'explicit main-account launch preference resumes desktop watch without discovery outside windows',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'monitor_account_1_1_course_watch': true,
+        'monitor_account_1_1_resume_watch': true,
+      });
+      final resumed = Completer<void>();
+      final subscription = container.listen(monitorControllerProvider, (
+        _,
+        state,
+      ) {
+        if (state.running && !resumed.isCompleted) resumed.complete();
+      });
+      addTearDown(subscription.close);
+      await resumed.future.timeout(const Duration(seconds: 2));
+      expect(
+        container.read(monitorControllerProvider).config.resumeWatch,
+        isTrue,
+      );
+      expect(container.read(monitorControllerProvider).running, isTrue);
+      expect(repo.calls, 0);
+    },
+  );
 
   test(
     'legacy five-second interval loads on the new ten-second grid',

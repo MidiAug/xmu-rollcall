@@ -65,6 +65,30 @@ void main() {
         ))
         .load();
   });
+  testWidgets('Android settings do not expose desktop watch or startup', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'monitor_account_1_1_course_watch': true,
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authControllerProvider.overrideWith((ref) => _Auth())],
+        child: MaterialApp(
+          theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
+          home: const MonitorSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('monitor-course-watch')), findsNothing);
+    expect(find.byKey(const ValueKey('monitor-startup')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('detection-window-switch')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
   for (final scenario in [
     (width: 384.0, dark: false, scale: 1.0),
     (width: 960.0, dark: false, scale: 1.0),
@@ -86,7 +110,8 @@ void main() {
         );
         addTearDown(container.dispose);
         final boundary = GlobalKey();
-        var theme = scenario.dark ? AppTheme.dark() : AppTheme.light();
+        var theme = (scenario.dark ? AppTheme.dark() : AppTheme.light())
+            .copyWith(platform: TargetPlatform.windows);
         if (Platform.environment['MONITOR_UI_FONT'] != null) {
           theme = theme.copyWith(
             textTheme: theme.textTheme.apply(fontFamily: 'MonitorSettingsUi'),
@@ -146,17 +171,86 @@ void main() {
         await tester.pumpAndSettle();
         final ctrl = container.read(monitorControllerProvider.notifier);
         const off = '发现签到时提醒我';
-        const idle = '已开启，开始检测后生效';
+        const idle = '已开启，开始检测后生效；缺码或位置时提醒补充';
         const active = '按下方设置自动签到';
+        await _reveal(tester, find.text(off));
         expect(find.text(off), findsOneWidget);
         expect(find.textContaining('雷达使用本课'), findsNothing);
         expect(find.text('最近运行'), findsNothing);
         expect(find.byKey(const ValueKey('monitor-jitter')), findsOneWidget);
         expect(find.byKey(const ValueKey('monitor-interval')), findsOneWidget);
         expect(find.text('更多设置'), findsNothing);
-        expect(find.text('签到方式'), findsOneWidget);
-        expect(find.text('自动检测'), findsOneWidget);
+        expect(find.text('发现签到后'), findsOneWidget);
+        expect(find.text('检测频率与范围'), findsOneWidget);
+        await _reveal(
+          tester,
+          find.byKey(const ValueKey('monitor-course-watch')),
+        );
         await capture('off');
+        expect(find.text('按课表时间'), findsOneWidget);
+        expect(find.text('最多 10 分钟'), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('monitor-course-watch')));
+        await tester.pumpAndSettle();
+        expect(
+          container.read(monitorControllerProvider).config.courseWatch,
+          isTrue,
+        );
+        expect(
+          container.read(monitorControllerProvider).config.completeProbe,
+          isFalse,
+        );
+        expect(find.text('完整探查'), findsOneWidget);
+        tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position
+            .jumpTo(0);
+        await tester.pumpAndSettle();
+        await capture('course-watch');
+        await _reveal(
+          tester,
+          find.byKey(const ValueKey('monitor-complete-probe')),
+        );
+        await tester.tap(find.byKey(const ValueKey('monitor-complete-probe')));
+        await tester.pumpAndSettle();
+        expect(
+          container.read(monitorControllerProvider).config.completeProbe,
+          isTrue,
+        );
+        final restoredWatch = ProviderContainer(
+          overrides: [authControllerProvider.overrideWith((ref) => _Auth())],
+        );
+        addTearDown(restoredWatch.dispose);
+        restoredWatch.read(monitorControllerProvider);
+        await tester.pumpAndSettle();
+        expect(
+          restoredWatch.read(monitorControllerProvider).config.courseWatch,
+          isTrue,
+        );
+        expect(
+          restoredWatch.read(monitorControllerProvider).config.completeProbe,
+          isTrue,
+        );
+        await _reveal(
+          tester,
+          find.byKey(const ValueKey('monitor-resume-watch')),
+        );
+        await tester.tap(find.byKey(const ValueKey('monitor-resume-watch')));
+        await tester.pumpAndSettle();
+        expect(
+          container.read(monitorControllerProvider).config.resumeWatch,
+          isTrue,
+        );
+        expect(container.read(monitorControllerProvider).running, isFalse);
+        expect(
+          (await SharedPreferences.getInstance()).getBool(
+            'monitor_account_1_1_resume_watch',
+          ),
+          isTrue,
+        );
+        await tester.tap(find.byKey(const ValueKey('monitor-resume-watch')));
+        await tester.pumpAndSettle();
+        ctrl.setCourseWatch(false);
+        await tester.pumpAndSettle();
         await _reveal(
           tester,
           find.byKey(const ValueKey('monitor-auto-answer')),
@@ -394,6 +488,10 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await _reveal(
+          tester,
+          find.byKey(const ValueKey('monitor-auto-answer')),
+        );
         expect(
           tester
               .widget<AppSwitch>(
@@ -402,12 +500,14 @@ void main() {
               .onChanged,
           isNull,
         );
+        await _reveal(tester, find.byKey(const ValueKey('monitor-interval')));
         expect(
           tester
               .widget<Slider>(find.byKey(const ValueKey('monitor-interval')))
               .onChanged,
           isNull,
         );
+        await _reveal(tester, find.byType(AppShellSelect<AnswerWaitMode>));
         expect(
           tester
               .widget<AppShellSelect<AnswerWaitMode>>(
@@ -426,6 +526,7 @@ void main() {
                 )) {
           expect(button.onPressed, isNull);
         }
+        await _reveal(tester, find.byKey(const ValueKey('monitor-jitter')));
         expect(
           tester
               .widget<Slider>(find.byKey(const ValueKey('monitor-jitter')))

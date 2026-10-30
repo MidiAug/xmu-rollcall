@@ -84,7 +84,7 @@ void main() {
         await captureDesktopUi(tester, 'schedule-detection-${width.toInt()}');
         await tester.tap(find.byKey(const ValueKey('detection-window-switch')));
         await tester.pumpAndSettle();
-        expect(find.text('全天可自动检测'), findsOneWidget);
+        expect(find.text('全天检测'), findsOneWidget);
         expect((await DetectionWindowStore.read(reload: true)).enabled, false);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());

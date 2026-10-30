@@ -178,6 +178,8 @@ class AndroidMonitorTaskHandler extends TaskHandler {
         );
         _engine = MonitorEngine(
           config: run.config,
+          loadAutomaticWindow: () =>
+              readScheduleDetectionWindow(run.userId, reload: true),
           manualFetch: () async {
             await _requireCurrentAccount();
             final items = await repo.fetchActive(manual: true);
@@ -267,6 +269,9 @@ class AndroidMonitorTaskHandler extends TaskHandler {
     if (update.running != null) _snapshot['running'] = update.running;
     if (update.discovering != null) {
       _snapshot['discovering'] = update.discovering;
+    }
+    if (update.waitingForWindow != null) {
+      _snapshot['waitingForWindow'] = update.waitingForWindow;
     }
     if (update.discovering == false || update.running == false) {
       _snapshot['nextPollAtMs'] = null;

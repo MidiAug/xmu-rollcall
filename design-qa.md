@@ -634,3 +634,13 @@ stage2-final-tests.log相关46项通过；新增成绩快照→新会话恢复�
 - 最终相关回归20项通过（build/rollcall-preview-tests-final.log），包括真实数字提交、雷达补充页、二维码粘贴提交/临提交复核、完成状态、重置，以及原快速签到/完成反馈回归。检查旧雷达偏好哨兵未被迁移或删除。flutter analyze --no-pub lib test最终无问题（build/rollcall-preview-analyze-focused.log）。早期测试的滚动定位、真实时钟限流和Toast计时收尾问题已修正后重跑；额外直接运行dart analyze时遇到分析服务关闭时删除本机perf文件失败，标准Flutter静态检查正常结束。
 - 实际查看390宽隔离渲染build/rollcall-preview/three-types.png；卡片与当前Android组件一致，可滚动查看全部类型。这是隔离视觉证据，不代表真机逐页验收。
 - Android Debug构建成功（build/rollcall-preview-android-debug-final.log）；保留0.3.0+6，apksigner比较与手机原包证书一致，对427b338f执行adb install -r成功，保留账号数据。Debug构建用于显示既有开发预览入口；没有代用户打开页面或执行真实课堂提交，没有推送或发布。
+
+
+## 2026-10-30 完整课间与签到流程复查
+
+- 课间移除10分钟上限，按实际小节结束至下一小节开始生成完整窗口；课前、课后仍各10分钟。合并教务课次沿用课表节次及共享校级作息恢复内部边界，不新增用户设置。
+- 修复同一运行中旧活动在后续课次再次进入处理的问题：活动ID固定首次观察课次，后续日期过滤旧ID，成功只记原课次。
+- 检查课表缓存/保守关联/真实日期、范围排除、成功记录、完整探查、启动恢复、仅提醒、自动提交的调用路径。提交沿用身份和活动复核、排队前点位检查、按活动去重、请求限流与退避；没有扩大自动提交授权。
+- 新增5项回归，聚焦43项通过（build/watch-focused-tests.log）。全量879项通过、2项既有跳过（build/watch-review-full-tests.log）；最后将教务夹具改为真实20261学期及第8/10周，相关10项再次通过（build/watch-review-calendar-tests.log）。flutter analyze --no-pub无问题（build/watch-review-analyze.log）。
+- 设置截图回归8项通过（build/watch-review-captures.log），实际查看.tools/monitor-typography/monitor-settings-960-light-off.png、monitor-settings-960-dark-course-watch.png及monitor-settings-320-dark-off.png：课间显示“按课表时间”，说明换行正常、无控件溢出。
+- 仅修改源码和文档；未重新构建/安装桌面开发版，未操控用户日常窗口，未执行真实课堂签到、开机重登或休眠唤醒验收，未更改本机启动项，未push/发布。docs沿用本地忽略规则。

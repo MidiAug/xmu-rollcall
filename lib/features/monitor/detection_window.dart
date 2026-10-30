@@ -7,10 +7,12 @@ class DetectionWindow {
     this.intervals,
     this.scheduleBased = false,
     this.hasSchedule = false,
+    this.description,
   });
   final bool enabled;
   final bool scheduleBased;
   final bool hasSchedule;
+  final String? description;
   static const schedulePreferenceKey = 'schedule_detection_only_v2';
   final int startMinute;
   final int endMinute;
@@ -21,11 +23,13 @@ class DetectionWindow {
 
   static String formatMinute(int minute) =>
       '${(minute ~/ 60).toString().padLeft(2, '0')}:${(minute % 60).toString().padLeft(2, '0')}';
-  String get label => scheduleBased
-      ? '课前30分钟至课后30分钟'
-      : intervals == null
-      ? '${formatMinute(startMinute)}–${formatMinute(endMinute)}'
-      : '按课表：课前30分钟至课后30分钟';
+  String get label =>
+      description ??
+      (scheduleBased
+          ? '课前30分钟至课后30分钟'
+          : intervals == null
+          ? '${formatMinute(startMinute)}–${formatMinute(endMinute)}'
+          : '按课表：课前30分钟至课后30分钟');
 
   bool allows(DateTime at) {
     if (scheduleBased) {

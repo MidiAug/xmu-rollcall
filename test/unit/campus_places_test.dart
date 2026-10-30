@@ -141,7 +141,7 @@ void main() {
         ),
         now,
       ),
-      contains('尚未获取'),
+      contains('暂无课表'),
     );
   });
   test('teacher files round-trip without submission files or unsafe links', () {

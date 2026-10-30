@@ -8,6 +8,8 @@ import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/features/monitor/course_watch_settings.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
 import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
 import 'package:xmu_rollcall/features/settings/desktop_notification_settings_page.dart';
@@ -43,6 +45,13 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
         : '约 $shortest–$longest 秒检查一次';
     final rowPadding = EdgeInsets.symmetric(horizontal: 16, vertical: 16);
     final theme = Theme.of(context);
+    final desktop = {
+      TargetPlatform.windows,
+      TargetPlatform.macOS,
+      TargetPlatform.linux,
+    }.contains(theme.platform);
+    final ownerId = ref.watch(authControllerProvider).profile?.id ?? 0;
+    final scope = ref.watch(selectedRollcallAccountProvider);
 
     return Theme(
       data: theme.copyWith(
@@ -76,16 +85,25 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                   AppSpace.xl,
                 ),
                 children: [
+                  if (desktop) ...[
+                    CourseWatchSettings(
+                      key: ValueKey((ownerId, scope)),
+                      ownerId: ownerId,
+                      targetId: scope ?? ownerId,
+                      isOwner: scope == null,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   SettingsSection(
-                    padTop: false,
-                    header: '自动检测',
+                    header: '检测频率与范围',
                     hasLeading: false,
                     rowPadding: rowPadding,
                     children: [
-                      DetectionWindowSetting(
-                        enabled: ready,
-                        padding: rowPadding,
-                      ),
+                      if (!desktop || !c.courseWatch)
+                        DetectionWindowSetting(
+                          enabled: ready,
+                          padding: rowPadding,
+                        ),
                       _SliderSetting(
                         padding: rowPadding,
                         title: '检测间隔',
@@ -122,7 +140,7 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                     ],
                   ),
                   SettingsSection(
-                    header: '签到方式',
+                    header: '发现签到后',
                     hasLeading: false,
                     rowPadding: rowPadding,
                     children: [
@@ -136,7 +154,7 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                             ? '发现签到时提醒我'
                             : state.running
                             ? '按下方设置自动签到'
-                            : '已开启，开始检测后生效',
+                            : '已开启，开始检测后生效；缺码或位置时提醒补充',
                         trailing: SizedBox(
                           width: 148,
                           child: Align(
