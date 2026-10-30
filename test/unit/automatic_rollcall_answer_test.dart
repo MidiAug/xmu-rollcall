@@ -36,6 +36,7 @@ RollcallItem item({
 class Repo extends Fake implements RollcallRepository {
   final calls = <String>[];
   final readOpIds = <String?>[];
+  final discoveryManualFlags = <bool>[];
   AttendanceCount count = const AttendanceCount(0, 11);
   List<RollcallItem> latest = [item()];
   Object? countError;
@@ -66,6 +67,7 @@ class Repo extends Fake implements RollcallRepository {
     bool manual = false,
   }) async {
     calls.add('active');
+    discoveryManualFlags.add(manual);
     readOpIds.add(opId);
     return latest;
   }
@@ -662,6 +664,29 @@ void main() {
     await run();
     expect(repo.calls.where((v) => v == 'put'), hasLength(1));
   });
+  test('unmet percentage never submits after prolonged waiting', () async {
+    repo.count = const AttendanceCount(3, 11);
+    for (final minutes in [0, 5, 60]) {
+      now = now.add(Duration(minutes: minutes));
+      expect(await run(), contains('3/4'));
+    }
+    expect(
+      repo.calls.where((call) => call == 'put' || call == 'code'),
+      isEmpty,
+    );
+    expect(repo.calls.where((call) => call == 'count'), hasLength(3));
+    repo.count = const AttendanceCount(4, 11);
+    await run();
+    expect(repo.calls.where((call) => call == 'put'), hasLength(1));
+  });
+  test(
+    'watch revalidation is independent from ordinary detection bounds',
+    () async {
+      await run(noWait.copyWith(courseWatch: true));
+      expect(repo.discoveryManualFlags, [true]);
+      expect(repo.calls.where((call) => call == 'put'), hasLength(1));
+    },
+  );
   test('absolute threshold is not reduced to class size', () async {
     repo.count = const AttendanceCount(2, 2);
     expect(
@@ -750,7 +775,7 @@ void main() {
     'timeout after a slow code response returns to monitoring without put',
     () async {
       repo.onCode = () => now = now.add(const Duration(minutes: 5));
-      expect(await run(noWait), contains('超时'));
+      expect(await run(noWait), contains('已过时'));
       expect(repo.calls, isNot(contains('put')));
       repo.onCode = null;
       await run(noWait);

@@ -518,7 +518,7 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
                       Text(
                         _recognized
                             ? '识别完成，签到结果请查看主窗口'
-                            : '拖动对准 · 拖入图片 · 拖动边缘缩放',
+                            : '拖动对准  拖入图片  拖动边缘缩放',
                         style: TextStyle(fontSize: 11, color: p.muted),
                       ),
                       const Spacer(),

@@ -301,7 +301,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
         : null;
     final semester = termInfo == null
         ? null
-        : '${semesterLabel(termInfo.term)} · ${termInfo.weekLabel(DateTime.now())}';
+        : '${semesterLabel(termInfo.term)}  ${termInfo.weekLabel(DateTime.now())}';
     Widget row(
       IconData icon,
       String title,

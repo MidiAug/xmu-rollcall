@@ -20,7 +20,7 @@ enum MonitorControlStyle {
   mastheadStatus,
 }
 
-/// Idle: 「开始检测」pill. Running: capsule with countdown (tap = pollNow) + stop.
+/// Start/stop actions stay separate from the page status line.
 class MonitorQuickControl extends ConsumerStatefulWidget {
   const MonitorQuickControl({
     super.key,
@@ -47,7 +47,8 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
       final outsideWindow =
           window != null &&
           !window.allows(ref.read(activeRollcallClockProvider)());
-      if (ref.read(monitorControllerProvider).running ||
+      if ((widget.style == MonitorControlStyle.mastheadStatus &&
+              ref.read(monitorControllerProvider).running) ||
           outsideWindow != _outsideWindow) {
         setState(() => _outsideWindow = outsideWindow);
       }
@@ -130,7 +131,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            AppIcons.detect,
+            monitor.config.courseWatch ? AppIcons.guard : AppIcons.detect,
             size: 16,
             color: prominent && !masthead && enabled
                 ? (p.isDark ? p.canvas : Colors.white)
@@ -140,15 +141,12 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
           ),
           const SizedBox(width: 6),
           Text(
-            monitor.starting
-                ? '启动中…'
-                : monitor.config.courseWatch
-                ? '开始值守'
-                : '开始检测',
+            monitor.config.courseWatch ? '开始值守' : '开始检测',
             style: TextStyle(
               fontSize: 13,
+              height: 1.4,
               fontWeight: FontWeight.w600,
-              letterSpacing: -0.1,
+              letterSpacing: 0,
               color: prominent && !masthead && enabled
                   ? (p.isDark ? p.canvas : Colors.white)
                   : enabled
@@ -257,14 +255,21 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(AppIcons.stopSolid, size: 16, color: p.primary),
+            Icon(
+              monitor.config.courseWatch
+                  ? AppIcons.guardPaused
+                  : AppIcons.stopSolid,
+              size: 16,
+              color: p.primary,
+            ),
             const SizedBox(width: 6),
             Text(
-              '停止检测',
+              monitor.config.courseWatch ? '暂停值守' : '停止检测',
               style: TextStyle(
                 fontSize: 13,
+                height: 1.4,
                 fontWeight: FontWeight.w600,
-                letterSpacing: -.1,
+                letterSpacing: 0,
                 color: p.primary,
               ),
             ),
@@ -272,77 +277,34 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
         ),
       );
     }
-    final control = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AppTooltipAnchor(
-          child: Tooltip(
-            message: !monitor.discovering
-                ? '已停止发现新活动，继续处理本轮自动签到'
-                : paused
-                ? '时段外暂停检测，到时自动恢复'
-                : failed
-                ? '上次检测失败，点击立即重试'
-                : '立即检测一次',
-            child: AppQuietPill(
-              border: !masthead,
-              radius: masthead ? 12 : 18,
-              onTap: paused || !monitor.discovering ? null : ctrl.pollNow,
-              background: masthead
-                  ? Colors.transparent
-                  : failed && !paused
-                  ? p.danger.withValues(alpha: 0.12)
-                  : p.selected,
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.1,
-                  color: failed && !paused ? p.danger : p.primary,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
+    return AppQuietPill(
+      border: true,
+      radius: toolbar ? 7 : 18,
+      background: p.surface,
+      onTap: ctrl.stop,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            monitor.config.courseWatch
+                ? AppIcons.guardPaused
+                : AppIcons.stopSolid,
+            size: 16,
+            color: p.primary,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            monitor.config.courseWatch ? '暂停值守' : '停止检测',
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.4,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0,
+              color: p.primary,
             ),
           ),
-        ),
-        const SizedBox(width: 6),
-        AppTooltipAnchor(
-          child: IconButton(
-            tooltip: monitor.discovering ? '停止检测' : '停止自动签到',
-            visualDensity: masthead
-                ? VisualDensity.standard
-                : VisualDensity.compact,
-            style: masthead
-                ? IconButton.styleFrom(
-                    minimumSize: const Size(48, 48),
-                    padding: const EdgeInsets.all(12),
-                    foregroundColor: p.primary,
-                  )
-                : null,
-            onPressed: ctrl.stop,
-            icon: Icon(
-              AppIcons.stop,
-              color: masthead ? p.primary : p.muted,
-              size: 22,
-            ),
-          ),
-        ),
-      ],
-    );
-    return Align(
-      widthFactor: 1,
-      heightFactor: 1,
-      alignment: Alignment.centerLeft,
-      child: masthead
-          ? DecoratedBox(
-              decoration: BoxDecoration(
-                color: p.controlSurface,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: control,
-            )
-          : control,
+        ],
+      ),
     );
   }
 }

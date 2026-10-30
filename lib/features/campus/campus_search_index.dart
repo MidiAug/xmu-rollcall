@@ -104,21 +104,21 @@ List<CampusSearchEntry> campusSearchFeatures(int? scope) => [
 const campusSearchGuides = [
   CampusSearchEntry(
     '校园网与密码',
-    '厦大信息与网络中心 · 官方指南',
+    '厦大信息与网络中心  官方指南',
     '校园网 WiFi XMUNET VPN 密码 统一认证',
     AppIcons.info,
     url: 'https://inc.xmu.edu.cn/info/1431/9562.htm',
   ),
   CampusSearchEntry(
     '校园卡服务',
-    '厦大信息与网络中心 · 官方入口',
+    '厦大信息与网络中心  官方入口',
     '校园卡 充值 补卡 数字校园卡',
     AppIcons.info,
     url: 'https://inc.xmu.edu.cn/fwzn2/xyk.htm',
   ),
   CampusSearchEntry(
     '信息学院新生手册',
-    '本科 / 研究生分册 · 适用范围见原文',
+    '本科 / 研究生分册  适用范围见原文',
     '新生 学校 办事 研究生 本科 生活 交通',
     AppIcons.document,
     url: 'https://informatics.xmu.edu.cn/welcome/index.html',

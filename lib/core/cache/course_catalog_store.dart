@@ -13,6 +13,7 @@ class CatalogCourse {
     this.courseCode,
     this.startDate,
     this.academicMatched = false,
+    this.academicScheduleOnly = false,
     this.academicGroup,
     Map<int, List<TimetableSlot>> timetables = const {},
     this.localMeetings = const [],
@@ -29,6 +30,10 @@ class CatalogCourse {
   final String? courseCode;
   final DateTime? startDate;
   final bool academicMatched;
+
+  /// Effective academic views keep legacy editor metadata without using it
+  /// as fallback timing. Raw platform cache serialization is unchanged.
+  final bool academicScheduleOnly;
   final String? academicGroup;
 
   /// Weekday (1–7) → slots.
@@ -37,7 +42,7 @@ class CatalogCourse {
   bool get needsSchedule => _timetables.isEmpty && localMeetings.isEmpty;
   bool get hasPlatformSchedule => _timetables.isNotEmpty;
   Map<int, List<TimetableSlot>> get timetables =>
-      _timetables.isNotEmpty || localMeetings.isEmpty
+      academicScheduleOnly || _timetables.isNotEmpty || localMeetings.isEmpty
       ? _timetables
       : {
           for (final day in localMeetings.map((m) => m.weekday).toSet())
@@ -57,6 +62,7 @@ class CatalogCourse {
     courseCode: courseCode,
     startDate: startDate,
     academicMatched: academic ?? academicMatched,
+    academicScheduleOnly: academic != null || academicScheduleOnly,
     academicGroup: group ?? academicGroup,
     timetables: value,
     localMeetings: localMeetings,
@@ -78,6 +84,7 @@ class CatalogCourse {
     courseCode: courseCode,
     startDate: startDate,
     academicMatched: academicMatched,
+    academicScheduleOnly: academicScheduleOnly,
     academicGroup: academicGroup,
     timetables: _timetables,
     localMeetings: meetings,
@@ -113,6 +120,7 @@ class CatalogCourse {
     courseCode: courseCode,
     startDate: startDate,
     academicMatched: academicMatched,
+    academicScheduleOnly: academicScheduleOnly,
     academicGroup: academicGroup,
     timetables: _timetables,
     localMeetings: localMeetings,
@@ -247,7 +255,7 @@ class CourseCatalogSnapshot {
   };
 
   List<CatalogCourse> get teachingCourses =>
-      timetableCourses.where((c) => c.isTeaching).toList(growable: false);
+      courses.where((c) => c.isTeaching).toList(growable: false);
 
   Map<String, String> get titlesById => {
     for (final c in courses)

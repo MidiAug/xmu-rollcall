@@ -17,6 +17,7 @@ class AutomaticRollcallAnswer {
     this.onRadarSuccess,
     this.onRadarRejected,
     this.runId,
+    this.onAlreadyAnswered,
     Set<int> terminalIds = const {},
   }) : _now = now ?? DateTime.now {
     _unavailable.addAll(terminalIds);
@@ -29,10 +30,10 @@ class AutomaticRollcallAnswer {
   final Future<void> Function(CourseRadarPref)? onRadarRejected;
   final DateTime Function() _now;
   final String? runId;
+  final Future<void> Function(RollcallItem)? onAlreadyAnswered;
   final _numberCodes = <int, String>{};
   Map<int, String> get numberCodes => Map.unmodifiable(_numberCodes);
   final _completed = <int>{};
-  final _roundStarted = <int, DateTime>{};
   final _retryAt = <int, DateTime>{};
   final _radarAttempted = <int>{};
   final _unavailable = <int>{};
@@ -64,7 +65,6 @@ class AutomaticRollcallAnswer {
   ) async {
     if (!config.autoAnswer || !current()) return null;
     final activeIds = items.map((i) => i.rollcallId).toSet();
-    _roundStarted.removeWhere((id, _) => !activeIds.contains(id));
     _retryAt.removeWhere((id, _) => !activeIds.contains(id));
     String? message;
     for (final item in items) {
@@ -116,13 +116,6 @@ class AutomaticRollcallAnswer {
           continue;
         }
         if (!current()) break;
-        final start = _roundStarted.putIfAbsent(id, _now);
-        if (_now().difference(start) >= const Duration(minutes: 5)) {
-          _roundStarted[id] = _now();
-          trace('monitor.auto.wait_timeout');
-          message = '等待人数超时，下一轮重新检查签到';
-          continue;
-        }
         if (config.answerWaitMode != AnswerWaitMode.none) {
           stage = 'attendance';
           final count = await repository.fetchAttendanceCount(id, opId: opId);
@@ -139,7 +132,10 @@ class AutomaticRollcallAnswer {
           if (count.signed < target) {
             // Discovery has handed off this fixed batch. Check only whether
             // its activity still needs us; never adopt newly discovered ids.
-            final latest = await repository.fetchActive(opId: opId);
+            final latest = await repository.fetchActive(
+              opId: opId,
+              manual: config.courseWatch,
+            );
             if (!current()) break;
             final matches = latest.where((i) => i.rollcallId == id);
             if (matches.isEmpty ||
@@ -147,6 +143,7 @@ class AutomaticRollcallAnswer {
                 matches.first.isAnswered) {
               if (matches.isNotEmpty && matches.first.isAnswered) {
                 _completed.add(id);
+                await onAlreadyAnswered?.call(matches.first);
                 message = '签到已完成';
               } else {
                 _unavailable.add(id);
@@ -162,7 +159,10 @@ class AutomaticRollcallAnswer {
         }
         // Refresh the event and code after waiting, immediately before submission.
         stage = 'revalidate';
-        final latest = await repository.fetchActive(opId: opId);
+        final latest = await repository.fetchActive(
+          opId: opId,
+          manual: config.courseWatch,
+        );
         if (!current()) break;
         final matches = latest.where((i) => i.rollcallId == id);
         if (matches.isEmpty ||
@@ -175,12 +175,14 @@ class AutomaticRollcallAnswer {
           });
           if (matches.isNotEmpty && matches.first.isAnswered) {
             _completed.add(id);
+            await onAlreadyAnswered?.call(matches.first);
           } else {
             _unavailable.add(id);
           }
           continue;
         }
         stage = 'number_code';
+        final codeRequestedAt = _now();
         final code = item.isNumber
             ? await repository.fetchNumberCode(id, opId: opId)
             : null;
@@ -192,10 +194,9 @@ class AutomaticRollcallAnswer {
         // Read the point last, so a user change during any earlier await wins.
         final location = item.isRadar ? await _location(item) : null;
         if (!current()) break;
-        if (_now().difference(start) >= const Duration(minutes: 5)) {
-          _roundStarted[id] = _now();
-          trace('monitor.auto.wait_timeout');
-          message = '等待人数超时，下一轮重新检查签到';
+        if (_now().difference(codeRequestedAt) >= const Duration(minutes: 5)) {
+          trace('monitor.auto.stale_response');
+          message = '签到信息已过时，稍后重新确认';
           continue;
         }
         if (item.isNumber && (code == null || code.isEmpty)) {

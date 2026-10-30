@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'package:xmu_rollcall/app/shell_navigation.dart';
 import 'package:xmu_rollcall/features/settings/settings_page.dart';
 import 'package:xmu_rollcall/features/history/history_page.dart';
@@ -154,6 +155,7 @@ var _appearanceChecks = 0;
 var _manualChecks = 0;
 
 class _AppearanceLists extends _Lists {
+  bool failRefresh = false;
   @override
   Future<void> ensureFreshOnAppear() async {
     _appearanceChecks++;
@@ -162,6 +164,9 @@ class _AppearanceLists extends _Lists {
   @override
   Future<void> refresh({bool manual = true}) async {
     _manualChecks++;
+    if (failRefresh) {
+      state = AsyncError(StateError('offline'), StackTrace.current);
+    }
   }
 }
 
@@ -199,6 +204,8 @@ class _RunningMonitor extends MonitorController {
   }
   void finish() =>
       state = state.copyWith(running: false, loadingSettings: false);
+  void selectWatch(bool value) =>
+      state = state.copyWith(config: state.config.copyWith(courseWatch: value));
   void handoff() => state = state.copyWith(
     running: true,
     discovering: false,
@@ -722,14 +729,14 @@ void main() {
           container.read(monitorControllerProvider.notifier) as _RunningMonitor;
       monitor.handoff();
       await tester.pumpAndSettle();
-      expect(find.text('自动签到处理中'), findsOneWidget);
-      expect(find.byTooltip('停止自动签到'), findsOneWidget);
+      expect(find.text('正在处理自动签到'), findsOneWidget);
+      expect(find.text('停止检测'), findsOneWidget);
       expect(find.textContaining('检测中  '), findsNothing);
       await captureDesktopUi(tester, 'automatic-handoff');
       monitor.finish();
       await tester.pumpAndSettle();
       expect(find.text('开始检测'), findsOneWidget);
-      expect(find.text('自动签到处理中'), findsNothing);
+      expect(find.text('正在处理自动签到'), findsNothing);
       await tester.pumpWidget(const SizedBox());
     },
   );
@@ -865,33 +872,83 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets(
-    'running detection owns automatic refresh, manual refresh remains available',
-    (tester) async {
-      _appearanceChecks = 0;
-      _manualChecks = 0;
-      await show(tester, const RollcallHubPage(), visibleTab: true);
-      final context = tester.element(find.byType(RollcallHubPage));
-      final container = ProviderScope.containerOf(context);
-      for (var i = 0; i < 3; i++) {
+  for (final watch in [false, true]) {
+    testWidgets(
+      'running task owns refresh and idle uses ordinary policy, watch=$watch',
+      (tester) async {
+        _appearanceChecks = 0;
+        _manualChecks = 0;
+        await show(tester, const RollcallHubPage(), visibleTab: true);
+        final context = tester.element(find.byType(RollcallHubPage));
+        final container = ProviderScope.containerOf(context);
+        (container.read(monitorControllerProvider.notifier) as _RunningMonitor)
+            .selectWatch(watch);
+        for (var i = 0; i < 3; i++) {
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.inactive,
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+          await tester.pump(const Duration(seconds: 25));
+        }
+        expect(_appearanceChecks, 0);
+        await tester.tap(find.byType(AppRefreshButton));
+        await tester.pumpAndSettle();
+        expect(_manualChecks, 1);
+        (container.read(monitorControllerProvider.notifier) as _RunningMonitor)
+            .finish();
         tester.binding.handleAppLifecycleStateChanged(
           AppLifecycleState.inactive,
         );
         tester.binding.handleAppLifecycleStateChanged(
           AppLifecycleState.resumed,
         );
-        await tester.pump(const Duration(seconds: 25));
-      }
-      expect(_appearanceChecks, 0);
+        await tester.pumpAndSettle();
+        expect(_appearanceChecks, 1);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+  testWidgets(
+    'manual results remain for five seconds across monitor updates and pull refresh',
+    (tester) async {
+      _manualChecks = 0;
+      await show(tester, const RollcallHubPage(), visibleTab: true);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(RollcallHubPage)),
+      );
+      final monitor =
+          container.read(monitorControllerProvider.notifier) as _RunningMonitor;
       await tester.tap(find.byType(AppRefreshButton));
       await tester.pumpAndSettle();
-      expect(_manualChecks, 1);
-      (container.read(monitorControllerProvider.notifier) as _RunningMonitor)
-          .finish();
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      expect(find.text('已刷新，有 1 项待签到'), findsOneWidget);
+      monitor.handoff();
+      await tester.pump(const Duration(seconds: 4));
+      expect(find.text('已刷新，有 1 项待签到'), findsOneWidget);
+      expect(find.text('正在处理自动签到'), findsNothing);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('已刷新，有 1 项待签到'), findsNothing);
+      expect(find.text('正在处理自动签到'), findsOneWidget);
+      await tester
+          .widget<AppPullToRefresh>(find.byType(AppPullToRefresh).first)
+          .onRefresh();
       await tester.pumpAndSettle();
-      expect(_appearanceChecks, 1);
+      expect(_manualChecks, 2);
+      expect(find.text('已刷新，有 1 项待签到'), findsOneWidget);
+      (container.read(activeRollcallsProvider(null).notifier)
+                  as _AppearanceLists)
+              .failRefresh =
+          true;
+      await tester.tap(find.byType(AppRefreshButton));
+      await tester.pumpAndSettle();
+      expect(find.text('刷新失败，请重试'), findsOneWidget);
+      monitor.finish();
+      await tester.pump(const Duration(seconds: 4));
+      expect(find.text('刷新失败，请重试'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('刷新失败，请重试'), findsNothing);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
     },
@@ -900,6 +957,7 @@ void main() {
   testWidgets(
     'switch to an account with no classes disables automatic detection and updates explanation',
     (tester) async {
+      _data[SessionKey.assist(2).storageId] = [];
       await show(
         tester,
         const RollcallHubPage(),
@@ -938,6 +996,10 @@ void main() {
           const [],
           fetchedAt: DateTime(2026, 10, 26, 16, 21, 37).toUtc(),
         );
+    await tester.pumpAndSettle();
+    expect(find.text('更新于 16:21:37'), findsNothing);
+    (container.read(monitorControllerProvider.notifier) as _RunningMonitor)
+        .finish();
     await tester.pumpAndSettle();
     expect(find.text('更新于 16:21:37'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());

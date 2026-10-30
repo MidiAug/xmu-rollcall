@@ -62,7 +62,7 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
         : state.starting
         ? '正在启动'
         : !state.running
-        ? '已暂停'
+        ? '未运行'
         : state.waitingForWindow
         ? '等待下个检测时段'
         : !state.discovering
@@ -141,7 +141,7 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
                       color: p.accentSurface,
                       borderRadius: BorderRadius.circular(13),
                     ),
-                    child: Icon(AppIcons.detect, color: p.primary, size: 23),
+                    child: Icon(AppIcons.guard, color: p.primary, size: 23),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -204,11 +204,6 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
                   );
                 },
               ),
-              const SizedBox(height: 12),
-              Text(
-                '从上一小节下课检测到下一小节上课，长课间也完整覆盖，无需额外设置。',
-                style: TextStyle(color: p.muted, fontSize: 12, height: 1.5),
-              ),
               if (c.courseWatch) ...[
                 const SizedBox(height: 18),
                 Row(
@@ -249,7 +244,7 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
                               }
                             },
                       icon: Icon(
-                        state.running ? AppIcons.stop : AppIcons.detect,
+                        state.running ? AppIcons.guardPaused : AppIcons.guard,
                         size: 16,
                       ),
                       label: Text(state.running ? '暂停值守' : '开始值守'),

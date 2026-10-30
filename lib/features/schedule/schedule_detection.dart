@@ -1,6 +1,4 @@
 import 'package:xmu_rollcall/features/monitor/detection_window_store.dart';
-import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
-import 'package:xmu_rollcall/core/cache/course_schedule_store.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
@@ -59,23 +57,12 @@ Future<DetectionWindow> readScheduleDetectionWindow(
   DateTime? at,
   DetectionWindow? setting,
 }) async {
-  final daily = setting ?? await DetectionWindowStore.read(reload: reload, uid: uid);
+  final daily =
+      setting ?? await DetectionWindowStore.read(reload: reload, uid: uid);
   if (!daily.enabled) return daily;
   if (uid == null) return daily;
   final academic = await AcademicScheduleStore.read(uid, reload: reload);
-  final catalog = await CourseCatalogStore.read(uid);
-  final courses = <CatalogCourse>[];
-  for (final c in catalog?.courses ?? <CatalogCourse>[]) {
-    if (!c.isTeaching) {
-      courses.add(c.withMeetings(await CourseScheduleStore.read(uid, c.id)));
-    }
-  }
-  final effective = academic == null ? courses : academic.apply(courses);
-  final tables = [
-    if (academic != null) academic.allTables,
-    for (final c in effective)
-      if (!c.academicMatched && c.timetables.isNotEmpty) c.timetables,
-  ];
+  final tables = [if (academic != null) academic.allTables];
   if (tables.isEmpty) {
     return DetectionWindow(
       scheduleBased: true,

@@ -5,8 +5,8 @@ export 'package:xmu_rollcall/features/academic/academic_parsing.dart';
 import 'package:xmu_rollcall/features/schedule/academic_meetings.dart';
 import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'package:xmu_rollcall/features/schedule/academic_calendar.dart';
-import 'package:xmu_rollcall/core/cache/course_schedule_store.dart';
 import 'dart:convert';
+import 'package:xmu_rollcall/core/cache/course_schedule_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
@@ -318,23 +318,64 @@ abstract final class AcademicBindings {
   }
 }
 
-Future<CourseCatalogSnapshot?> readAcademicCatalog(int uid) async {
-  final raw = await CourseCatalogStore.read(uid);
-  if (raw == null) return null;
-  final academic = await AcademicScheduleStore.read(uid);
-  final courses = <CatalogCourse>[];
-  for (final c in raw.courses) {
-    courses.add(c.withMeetings(await CourseScheduleStore.read(uid, c.id)));
+/// Project cached platform identities onto the academic term and timetable.
+/// Old catalogs may contain every enrolled year even when requested as ongoing.
+CourseCatalogSnapshot projectAcademicCatalog(
+  CourseCatalogSnapshot raw,
+  AcademicSchedule? academic, {
+  DateTime? at,
+}) {
+  final term = academic?.term ?? currentSemester(at ?? DateTime.now());
+  bool belongsToTerm(CatalogCourse c) {
+    final code = c.courseCode ?? '';
+    final short = RegExp(r'^(\d{4}[123])-').firstMatch(code);
+    final long = RegExp(r'^(\d{4})(\d{4})([123])').firstMatch(code);
+    final codedTerm =
+        short?.group(1) ??
+        (long != null && int.parse(long[2]!) == int.parse(long[1]!) + 1
+            ? '${long[1]}${long[3]}'
+            : null);
+    if (codedTerm != null) return codedTerm == term;
+    final start = c.startDate;
+    return start == null || teachingMondayFromCourses([c], term) != null;
   }
-  final effective = academic == null ? courses : academic.apply(courses);
+
+  // No platform/local fallback: missing academic data means unknown class time.
+  final courses = [
+    for (final c in raw.courses.where(belongsToTerm))
+      c.withTimetables(const {}, academic: false),
+  ];
+  final effective = academic?.apply(courses) ?? courses;
   return CourseCatalogSnapshot(
     fetchedAt: raw.fetchedAt,
-    academicTerm: raw.academicTerm,
+    academicTerm: term,
     courses: effective,
     semesterId: raw.semesterId,
     academicYearId: raw.academicYearId,
     rolesResolved: raw.rolesResolved,
     startDatesResolved: raw.startDatesResolved,
     academicOnlyCourses: academic?.displayOnlyCourses(effective) ?? const [],
+  );
+}
+
+Future<CourseCatalogSnapshot?> readAcademicCatalog(int uid) async {
+  final raw = await CourseCatalogStore.read(uid);
+  if (raw == null) return null;
+  final academic = await AcademicScheduleStore.read(uid);
+  final courses = [
+    for (final c in raw.courses)
+      c.withMeetings(await CourseScheduleStore.read(uid, c.id)),
+  ];
+  return projectAcademicCatalog(
+    CourseCatalogSnapshot(
+      fetchedAt: raw.fetchedAt,
+      courses: courses,
+      academicTerm: raw.academicTerm,
+      rolesResolved: raw.rolesResolved,
+      startDatesResolved: raw.startDatesResolved,
+      semesterId: raw.semesterId,
+      academicYearId: raw.academicYearId,
+    ),
+    academic,
   );
 }

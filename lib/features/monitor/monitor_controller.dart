@@ -1,4 +1,5 @@
 import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/features/location/location_validation_store.dart';
 import 'package:xmu_rollcall/features/location/location_providers.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
@@ -46,6 +47,8 @@ class MonitorState {
     this.logs = const [],
     this.consecutiveFailures = 0,
     this.loadingSettings = false,
+    this.discoveryWindow,
+    this.activityMessage,
   });
   final MonitorConfig config;
   final bool running;
@@ -58,6 +61,9 @@ class MonitorState {
   final DateTime? nextPollAt;
   final List<PollLogEntry> logs;
   final int consecutiveFailures;
+  // Append fields: inserting before existing const fields rejects hot reload.
+  final DetectionWindow? discoveryWindow;
+  final String? activityMessage;
   MonitorState copyWith({
     MonitorConfig? config,
     bool? running,
@@ -71,6 +77,10 @@ class MonitorState {
     List<PollLogEntry>? logs,
     int? consecutiveFailures,
     bool clearNext = false,
+    DetectionWindow? discoveryWindow,
+    bool clearWindow = false,
+    String? activityMessage,
+    bool clearActivityMessage = false,
   }) => MonitorState(
     config: config ?? this.config,
     running: running ?? this.running,
@@ -81,7 +91,13 @@ class MonitorState {
     lastPollAt: lastPollAt ?? this.lastPollAt,
     lastSuccessfulPollAt: lastSuccessfulPollAt ?? this.lastSuccessfulPollAt,
     nextPollAt: clearNext ? null : nextPollAt ?? this.nextPollAt,
+    discoveryWindow: clearWindow
+        ? null
+        : discoveryWindow ?? this.discoveryWindow,
     logs: logs ?? this.logs,
+    activityMessage: clearActivityMessage
+        ? null
+        : activityMessage ?? this.activityMessage,
     consecutiveFailures: consecutiveFailures ?? this.consecutiveFailures,
   );
 }
@@ -105,7 +121,12 @@ class MonitorController extends StateNotifier<MonitorState> {
     }
     _loaded = _load();
     _ref.listen(detectionWindowProvider, (previous, next) {
-      if (previous == null || next == null || !state.running) return;
+      if (previous == null ||
+          next == null ||
+          !state.running ||
+          state.config.courseWatch) {
+        return;
+      }
       if (PlatformHooks.isAndroid) {
         unawaited(AndroidMonitorShell.instance.pollNow(manual: false));
       } else {
@@ -664,6 +685,7 @@ class MonitorController extends StateNotifier<MonitorState> {
       final automatic = AutomaticRollcallAnswer(
         repository: repo,
         runId: desktopRunId,
+        onAlreadyAnswered: (item) => _recordWatchSuccess(watch, item, current),
         onRadarRejected: (point) async {
           if (!current()) return;
           await recordLocationIssue(userId, scope ?? userId, point);
@@ -686,9 +708,7 @@ class MonitorController extends StateNotifier<MonitorState> {
           }
         },
         onAnswered: (item, result) async {
-          if (current() && result.ok && state.config.courseWatch) {
-            await watch.succeeded(item);
-          }
+          if (result.ok) await _recordWatchSuccess(watch, item, current);
           await _ref
               .read(_ref.read(localHistoryForProvider(scope)).notifier)
               .add(
@@ -708,13 +728,29 @@ class MonitorController extends StateNotifier<MonitorState> {
       );
       _engine = MonitorEngine(
         config: state.config,
-        loadAutomaticWindow: () => readScheduleDetectionWindow(scope ?? userId),
+        loadAutomaticWindow: () => readScheduleDetectionWindow(
+          scope ?? userId,
+          setting: state.config.courseWatch
+              ? const DetectionWindow(enabled: true, scheduleBased: true)
+              : null,
+        ),
         manualFetch: () async {
           if (state.config.courseWatch) {
             await watch.window(completeProbe: state.config.completeProbe);
           }
           final items = await repo.fetchActive(manual: true);
-          return state.config.courseWatch ? watch.select(items) : items;
+          if (current() && state.config.courseWatch) {
+            final selected = watch.select(items);
+            await watch.recordAnswered(selected);
+            if (selected.any((item) => item.isAnswered)) {
+              final plan = await watch.window(
+                completeProbe: state.config.completeProbe,
+              );
+              if (current()) state = state.copyWith(discoveryWindow: plan);
+            }
+            return selected;
+          }
+          return items;
         },
         loadDetectionWindow: () async {
           if (state.config.courseWatch) {
@@ -735,8 +771,22 @@ class MonitorController extends StateNotifier<MonitorState> {
               'session': scope == null ? 'owner' : 'assist',
             },
           );
-          final items = await repo.fetchActive();
-          return state.config.courseWatch ? watch.select(items) : items;
+          // The watch planner already guards discovery; ordinary preferences are independent.
+          final items = await repo.fetchActive(
+            manual: state.config.courseWatch,
+          );
+          if (current() && state.config.courseWatch) {
+            final selected = watch.select(items);
+            await watch.recordAnswered(selected);
+            if (selected.any((item) => item.isAnswered)) {
+              final plan = await watch.window(
+                completeProbe: state.config.completeProbe,
+              );
+              if (current()) state = state.copyWith(discoveryWindow: plan);
+            }
+            return selected;
+          }
+          return items;
         },
         processAutomatic: automatic.process,
         completedAutomaticIds: () => automatic.completedIds,
@@ -783,6 +833,9 @@ class MonitorController extends StateNotifier<MonitorState> {
             running: update.running,
             discovering: update.discovering,
             waitingForWindow: update.waitingForWindow,
+            discoveryWindow: update.discoveryWindow,
+            activityMessage: update.activityMessage,
+            clearActivityMessage: update.discovering != null,
             clearNext: update.discovering == false || update.running == false,
             config: update.running == null
                 ? null
@@ -817,6 +870,7 @@ class MonitorController extends StateNotifier<MonitorState> {
         running: true,
         discovering: true,
         waitingForWindow: false,
+        clearWindow: true,
         config: state.config.copyWith(enabled: true),
         consecutiveFailures: 0,
       );
@@ -840,6 +894,18 @@ class MonitorController extends StateNotifier<MonitorState> {
     } finally {
       if (current()) state = state.copyWith(starting: false);
     }
+  }
+
+  Future<void> _recordWatchSuccess(
+    CourseWatch watch,
+    RollcallItem item,
+    bool Function() current,
+  ) async {
+    if (!current() || !state.config.courseWatch) return;
+    await watch.succeeded(item);
+    if (!current()) return;
+    final plan = await watch.window(completeProbe: state.config.completeProbe);
+    if (current()) state = state.copyWith(discoveryWindow: plan);
   }
 
   void stop({String reason = 'user_stop'}) {

@@ -378,7 +378,7 @@ class _TimetableRefreshRowState extends ConsumerState<_TimetableRefreshRow> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${widget.accountName} · $updated',
+            '${widget.accountName}  $updated',
             style: Theme.of(context).textTheme.bodySmall,
           ),
           if (_status != null) ...[

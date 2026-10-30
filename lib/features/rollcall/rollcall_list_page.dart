@@ -41,6 +41,7 @@ class RollcallListPage extends ConsumerWidget {
     this.footer,
     this.academicSchedule,
     this.at,
+    this.onRefresh,
   });
 
   /// When true, omit outer [PageScaffold] (used inside hub pages).
@@ -57,6 +58,7 @@ class RollcallListPage extends ConsumerWidget {
   final Widget? footer;
   final AcademicSchedule? academicSchedule;
   final DateTime? at;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -87,11 +89,13 @@ class RollcallListPage extends ConsumerWidget {
     }
 
     final scope = assistUserId;
+    final refresh =
+        onRefresh ??
+        () => ref.read(activeRollcallsProvider(scope).notifier).refresh();
     final async = ref.watch(activeRollcallsProvider(scope));
     final list = AppPullToRefresh(
       color: palette.primary,
-      onRefresh: () =>
-          ref.read(activeRollcallsProvider(scope).notifier).refresh(),
+      onRefresh: refresh,
       child: async.when(
         skipError: true,
         skipLoadingOnReload: true,
@@ -118,12 +122,7 @@ class RollcallListPage extends ConsumerWidget {
                     style: TextStyle(color: palette.muted),
                   ),
                   const SizedBox(height: 12),
-                  FilledButton(
-                    onPressed: () => ref
-                        .read(activeRollcallsProvider(scope).notifier)
-                        .refresh(),
-                    child: const Text('重试'),
-                  ),
+                  FilledButton(onPressed: refresh, child: const Text('重试')),
                 ],
               ),
             ),
@@ -146,7 +145,7 @@ class RollcallListPage extends ConsumerWidget {
                         child: EmptyHint(
                           icon: Icons.inbox_outlined,
                           title: '暂无进行中的签到',
-                          detail: '下拉刷新，或开启自动检测',
+                          detail: '可手动刷新，发现的签到会显示在这里',
                         ),
                       ),
                       if (footer != null)
@@ -202,8 +201,7 @@ class RollcallListPage extends ConsumerWidget {
       updatedAt: showUpdatedAt
           ? ref.read(activeRollcallsProvider(scope).notifier).lastUpdatedAt
           : null,
-      onRetry: () =>
-          ref.read(activeRollcallsProvider(scope).notifier).refresh(),
+      onRetry: refresh,
       child: list,
     );
     if (embedded) return content;
@@ -214,8 +212,7 @@ class RollcallListPage extends ConsumerWidget {
       trailing: AppRefreshButton(
         visualDensity: VisualDensity.compact,
         color: palette.muted,
-        onRefresh: () =>
-            ref.read(activeRollcallsProvider(scope).notifier).refresh(),
+        onRefresh: refresh,
       ),
       child: content,
     );
@@ -1225,7 +1222,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                                     ? (item.createdByName.isEmpty
                                           ? '课堂签到'
                                           : item.createdByName)
-                                    : '${meeting.room.isEmpty ? '教室未提供' : meeting.room}  ·  ${hm(meeting.start)}–${hm(meeting.end)}',
+                                    : '${meeting.room.isEmpty ? '教室未提供' : meeting.room}    ${hm(meeting.start)}–${hm(meeting.end)}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(fontSize: 13, color: p.ink),

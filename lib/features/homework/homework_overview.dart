@@ -127,7 +127,7 @@ class HomeworkOverviewNotifier
       catalog = await ref.read(catalogProvider.future);
       _check(revision);
       for (final course
-          in catalog?.timetableCourses.where((c) => !c.isTeaching) ??
+          in catalog?.courses.where((c) => !c.isTeaching) ??
               <CatalogCourse>[]) {
         final cid = int.tryParse(course.id);
         if (cid == null) continue;

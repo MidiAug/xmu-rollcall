@@ -182,21 +182,6 @@ class CampusContextView extends StatelessWidget {
                 overdue: pending.first.dueAt?.isBefore(now) == true,
                 onTap: () => onOpenHomework(pending.first),
               ),
-            if (pending.length > 1)
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton(
-                  onPressed: onHomework,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('更多 ${pending.length - 1} 项'),
-                      const SizedBox(width: 6),
-                      const Icon(AppIcons.right, size: 16),
-                    ],
-                  ),
-                ),
-              ),
           ],
         ),
       ),

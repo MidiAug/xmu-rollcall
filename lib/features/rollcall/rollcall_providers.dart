@@ -1,5 +1,6 @@
 import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/features/schedule/schedule_detection.dart';
 import 'dart:convert';
 import 'dart:async';
@@ -757,6 +758,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
     final revision = ++_revision;
     ref.onDispose(() => _revision++);
     ref.keepAlive();
+    ref.watch(academicRevisionProvider);
     final auth = ref.watch(authControllerProvider);
     _lastCourseAttempts.clear();
     _inFlightEnsure = null;

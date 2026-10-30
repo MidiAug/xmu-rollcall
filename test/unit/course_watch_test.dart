@@ -26,7 +26,33 @@ RollcallItem activity(int id, [String course = 'watch-course']) =>
     });
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    for (final uid in [9501, 9801, 9201, 9101, 9601, 9701]) {
+      await AcademicScheduleStore.write(
+        uid,
+        AcademicSchedule(
+          term: '20261',
+          monday: DateTime(2026, 9, 7),
+          fetchedAt: at(0, 0),
+          rows: [
+            for (final name in ['测试课', '早课', '下午课'])
+              for (final day in uid == 9201 ? [1, 5] : [5])
+                AcademicCourseRow(
+                  courseId: name,
+                  courseName: name,
+                  weekday: day,
+                  firstPeriod: name == '下午课' ? 5 : 1,
+                  lastPeriod: name == '下午课' ? 6 : 2,
+                  startMinute: name == '下午课' ? 870 : 480,
+                  endMinute: name == '下午课' ? 970 : 580,
+                  weeks: {for (var w = 1; w <= 18; w++) w},
+                ),
+          ],
+        ),
+      );
+    }
+  });
   test(
     'weekly scope choices merge alternating dates without artificial single periods',
     () {
@@ -196,6 +222,88 @@ void main() {
       isTrue,
     );
   });
+  test(
+    'one success skips only its lesson and retains the next course today',
+    () async {
+      await CourseCatalogStore.write(
+        9801,
+        CourseCatalogSnapshot(
+          fetchedAt: at(0, 0),
+          courses: [
+            CatalogCourse(
+              id: 'watch-course',
+              title: '早课',
+              timetables: {5: slots},
+            ),
+            CatalogCourse(
+              id: 'afternoon',
+              title: '下午课',
+              timetables: {
+                5: [slot(5, 14, 30), slot(6, 15, 25)],
+              },
+            ),
+          ],
+        ),
+      );
+      final watch = CourseWatch(9801, 9801);
+      await watch.window(completeProbe: false, at: at(7, 55));
+      watch.select([activity(801)], at: at(7, 55));
+      await watch.succeeded(activity(801));
+      final remaining =
+          await watch.window(completeProbe: false, at: at(8, 45))
+              as CourseWatchWindow;
+      expect(remaining.hasLessonsToday, isTrue);
+      expect(remaining.completedToday, isFalse);
+      expect(remaining.allows(at(8, 45)), isFalse);
+      expect(remaining.nextStart(at(8, 45)), at(14, 20));
+      watch.select([activity(802, 'afternoon')], at: at(14, 20));
+      await watch.succeeded(activity(802, 'afternoon'));
+      final completed =
+          await watch.window(completeProbe: false, at: at(14, 20))
+              as CourseWatchWindow;
+      expect(completed.completedToday, isTrue);
+      expect(completed.nextStart(at(14, 20)), DateTime(2026, 11, 6, 7, 50));
+      final full =
+          await watch.window(completeProbe: true, at: at(15, 15))
+              as CourseWatchWindow;
+      expect(full.completedToday, isFalse);
+      expect(full.allows(at(15, 15)), isTrue);
+    },
+  );
+  test(
+    'server-confirmed manual success completes only its dated lesson',
+    () async {
+      await CourseCatalogStore.write(
+        9701,
+        CourseCatalogSnapshot(
+          fetchedAt: at(0, 0),
+          courses: [
+            CatalogCourse(
+              id: 'watch-course',
+              title: '测试课',
+              timetables: {5: slots},
+            ),
+          ],
+        ),
+      );
+      final watch = CourseWatch(9701, 9701);
+      await watch.window(completeProbe: false, at: at(7, 55));
+      final answered = activity(701).copyWith(status: 'on_call_fine');
+      final selected = watch.select([answered], at: at(7, 55));
+      await watch.recordAnswered(selected);
+      final plan = await watch.window(completeProbe: false, at: at(8, 45));
+      expect(plan.allows(at(8, 45)), isFalse);
+      expect((plan as CourseWatchWindow).completedToday, isTrue);
+      final nextWeek = DateTime(2026, 11, 6, 7, 55);
+      expect(
+        (await watch.window(
+          completeProbe: false,
+          at: nextWeek,
+        )).allows(nextWeek),
+        isTrue,
+      );
+    },
+  );
   test(
     'whole-course and weekly meeting exclusions affect real windows and stay scoped',
     () async {

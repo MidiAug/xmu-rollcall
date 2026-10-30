@@ -59,7 +59,7 @@ class CourseSchedulesPage extends ConsumerWidget {
                                     (m) =>
                                         '${weekdayLabel(m.weekday)} 第${m.first}–${m.last}节',
                                   )
-                                  .join(' · '),
+                                  .join('  '),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -504,7 +504,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '${periodTimeLabel(m.startMinutes)}–${periodTimeLabel(m.endMinutes)}  ·  第 ${m.first}–${m.last} 节',
+                  '${periodTimeLabel(m.startMinutes)}–${periodTimeLabel(m.endMinutes)}    第 ${m.first}–${m.last} 节',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),

@@ -41,7 +41,7 @@ void main() {
         item(3, '专业英语', RollcallType.qrcode),
       ]);
       expect(content.title, '发现 3 条签到');
-      expect(content.body, '工程伦理 · 雷达签到\n机器学习 · 数字签到\n另有 1 条，点击查看');
+      expect(content.body, '工程伦理  雷达签到\n机器学习  数字签到\n另有 1 条，点击查看');
     },
   );
   test('missing metadata is explicit and never invents course or type', () {
@@ -53,12 +53,12 @@ void main() {
   });
   test('test copy is clearly an example and result keeps course and type', () {
     expect(DesktopNotificationContent.test.title, '示例课程（通知测试）');
-    expect(DesktopNotificationContent.test.body, '雷达签到 · 点击返回应用');
+    expect(DesktopNotificationContent.test.body, '雷达签到  点击返回应用');
     final course = item(1, '机器学习', RollcallType.number);
     expect(DesktopNotificationContent.result(course, true).title, '机器学习');
     expect(
       DesktopNotificationContent.result(course, true).body,
-      contains('数字签到 · 自动签到成功'),
+      contains('数字签到  自动签到成功'),
     );
     expect(
       DesktopNotificationContent.result(course, false).body,

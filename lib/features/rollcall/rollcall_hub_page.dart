@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/monitor/monitor_status_line.dart';
 import 'package:xmu_rollcall/features/rollcall/mobile_rollcall_home.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
 import 'package:xmu_rollcall/features/history/history_summary.dart';
@@ -50,6 +51,54 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
   bool _visible = false;
   (int?, int?)? _campusIdentity;
   CampusCachedData? _campusSnapshot;
+  ({String text, bool error})? _manualFeedback;
+  Timer? _feedbackTimer;
+
+  void _clearManualFeedback() {
+    _feedbackTimer?.cancel();
+    _manualFeedback = null;
+  }
+
+  Future<void> _refreshManually() async {
+    if (_switching) return;
+    if (_switchError != null) {
+      await _selectIdentity(_assistUserId ?? 0);
+      return;
+    }
+    final revision = _switchRevision;
+    final scope = _assistUserId;
+    var failed = false;
+    try {
+      await ref.read(activeRollcallsProvider(scope).notifier).refresh();
+    } catch (_) {
+      failed = true;
+    }
+    if (!mounted || revision != _switchRevision) return;
+    final snapshot = ref.read(activeRollcallsProvider(scope));
+    failed = failed || snapshot.hasError;
+    final items = snapshot.valueOrNull ?? const <RollcallItem>[];
+    final pending = items
+        .where((item) => !item.isAnswered && !item.isExpired)
+        .length;
+    _feedbackTimer?.cancel();
+    setState(
+      () => _manualFeedback = (
+        text: failed
+            ? '刷新失败，请重试'
+            : pending > 0
+            ? '已刷新，有 $pending 项待签到'
+            : items.any((item) => item.isAnswered)
+            ? '已刷新，当前签到已完成'
+            : '已刷新，暂无进行中的签到',
+        error: failed,
+      ),
+    );
+    _feedbackTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted && revision == _switchRevision) {
+        setState(() => _manualFeedback = null);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -92,6 +141,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
   @override
   void onShellTabHidden() {
     _visible = false;
+    _clearManualFeedback();
     super.onShellTabHidden();
   }
 
@@ -112,6 +162,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
   Future<void> _loadIdentity(int? id) async {
     final revision = ++_switchRevision;
     setState(() {
+      _clearManualFeedback();
       _switching = id != null;
       _switchError = null;
     });
@@ -160,6 +211,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _scroll.dispose();
+    _feedbackTimer?.cancel();
     super.dispose();
   }
 
@@ -179,7 +231,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
     final selected = ref.watch(selectedRollcallAccountProvider);
     final scope = roster.any((e) => e.userId == selected) ? selected : null;
     final planned = ref.watch(selectedDetectionWindowProvider);
-    final window = planned.isLoading ? null : planned.valueOrNull;
+    final window = planned.valueOrNull;
     final outsideWindow =
         window != null &&
         !window.allows(ref.read(activeRollcallClockProvider)());
@@ -215,6 +267,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
       if (previous == next) return;
       _switchRevision++;
       setState(() {
+        _clearManualFeedback();
         _switching = false;
         _switchError = null;
       });
@@ -385,16 +438,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
           AppRefreshButton(
             key: ValueKey((auth.profile?.id, scope)),
             iconSize: 20,
-            onRefresh: () async {
-              if (_switching) return;
-              if (_switchError != null) {
-                await _selectIdentity(scope ?? 0);
-              } else {
-                await ref
-                    .read(activeRollcallsProvider(scope).notifier)
-                    .refresh();
-              }
-            },
+            onRefresh: _refreshManually,
           ),
           IconButton(
             tooltip: '签到记录',
@@ -452,26 +496,23 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.circle,
-                      size: 10,
-                      color: pendingCount > 0 ? p.successAccent : p.muted,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        pendingCount > 0 && !outsideWindow
-                            ? '已发现 $pendingCount 项待签到'
-                            : updatedLabel,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: pendingCount > 0 ? p.ink : p.muted,
-                        ),
-                      ),
-                    ),
-                  ],
+                child: MonitorStatusLine(
+                  fallback: updatedLabel,
+                  overrideMessage:
+                      _switchError ??
+                      _manualFeedback?.text ??
+                      (_switching ? '正在切换账号' : null),
+                  warning:
+                      _switchError != null || _manualFeedback?.error == true,
+                  pendingCount: pendingCount,
+                  completedCount: auth.isSignedIn
+                      ? (ref
+                                    .watch(activeRollcallsProvider(scope))
+                                    .valueOrNull ??
+                                const <RollcallItem>[])
+                            .where((item) => item.isAnswered)
+                            .length
+                      : 0,
                 ),
               ),
               Expanded(
@@ -490,6 +531,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                         key: ValueKey(scope),
                         embedded: true,
                         showUpdatedAt: false,
+                        onRefresh: _refreshManually,
                         assistUserId: scope,
                         academicSchedule: cached?.schedule,
                         at: now,

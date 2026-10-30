@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -60,6 +61,36 @@ void main() {
   late ProviderContainer container;
   late DateTime now;
 
+  Future<void> academicCourses({
+    List<String> names = const ['A', 'B'],
+    List<int> days = const [1],
+    int start = 480,
+    int end = 540,
+  }) async {
+    await AcademicScheduleStore.write(
+      1,
+      AcademicSchedule(
+        term: '20261',
+        monday: DateTime(2026, 9, 7),
+        fetchedAt: now,
+        rows: [
+          for (final name in names)
+            for (final day in days)
+              AcademicCourseRow(
+                courseId: name,
+                courseName: name,
+                weekday: day,
+                firstPeriod: 1,
+                lastPeriod: 1,
+                startMinute: start,
+                endMinute: end,
+                weeks: {for (var w = 1; w <= 18; w++) w},
+              ),
+        ],
+      ),
+    );
+  }
+
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     repo = _Repository();
@@ -111,6 +142,7 @@ void main() {
         at: now,
       );
     }
+    await academicCourses();
     container = ProviderContainer(
       overrides: [
         authControllerProvider.overrideWith((ref) => _Auth()),
@@ -137,6 +169,11 @@ void main() {
     int startHour = 8,
     int endHour = 9,
   }) async {
+    await academicCourses(
+      names: ['A'],
+      start: startHour * 60,
+      end: endHour * 60,
+    );
     await CourseCatalogStore.write(
       1,
       CourseCatalogSnapshot(
@@ -347,7 +384,7 @@ void main() {
   );
 
   test(
-    'user supplied meeting receives the same external-attendance refresh window',
+    'academic meeting takes precedence over a saved supplemental meeting',
     () async {
       now = DateTime(2026, 10, 26, 8, 30);
       await CourseCatalogStore.write(
@@ -393,6 +430,7 @@ void main() {
   test(
     'only a new activity triggers history outside inferred weekdays',
     () async {
+      await academicCourses(names: []);
       now = DateTime(2026, 10, 27, 12);
       await CourseCatalogStore.write(
         1,
@@ -431,6 +469,7 @@ void main() {
   test(
     'Monday final skips Tuesday and Wednesday; next Monday recovers missed Wednesday',
     () async {
+      await academicCourses(names: []);
       CourseRollcallRecord record(String id, DateTime time) =>
           CourseRollcallRecord(
             courseId: 'a',
@@ -575,6 +614,7 @@ void main() {
   test(
     'Monday Wednesday course skips Tuesday after Monday was checked',
     () async {
+      await academicCourses(names: ['A'], days: [1, 3]);
       now = DateTime(2026, 10, 27, 10);
       await CourseCatalogStore.write(
         1,
@@ -874,6 +914,7 @@ void main() {
   test(
     'appearance during the same class discovers a later event without live observation',
     () async {
+      await academicCourses(names: ['测试课程'], days: [5], start: 990, end: 1090);
       await CourseCatalogStore.write(
         1,
         CourseCatalogSnapshot(

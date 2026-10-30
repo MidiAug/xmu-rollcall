@@ -10,12 +10,19 @@ import 'package:xmu_rollcall/features/monitor/course_watch.dart';
 import 'package:xmu_rollcall/features/monitor/course_watch_courses_page.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 import '../fixtures/preview_fonts.dart';
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 
 void main() {
   setUpAll(loadDesktopPreviewFonts);
-  for (final dark in [false, true]) {
+  for (final scenario in [
+    (false, 960.0),
+    (true, 960.0),
+    (false, 384.0),
+    (true, 384.0),
+  ]) {
+    final (dark, width) = scenario;
     testWidgets(
-      'course and recurring arrangement exclusions persist, dark=$dark',
+      'course and recurring arrangement exclusions persist, dark=$dark width=$width',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         final slots = [
@@ -41,10 +48,45 @@ void main() {
                 title: '软件工程实践',
                 timetables: {3: slots},
               ),
+              const CatalogCourse(id: 'third', title: '示例公共课'),
+              const CatalogCourse(id: 'fourth', title: '示例研讨课'),
             ],
           ),
         );
-        tester.view.physicalSize = const Size(960, 900);
+        await AcademicScheduleStore.write(
+          9301,
+          AcademicSchedule(
+            term: '20261',
+            monday: DateTime(2026, 9, 7),
+            fetchedAt: DateTime(2026, 10, 30),
+            rows: [
+              for (final day in [1, 5])
+                AcademicCourseRow(
+                  courseId: 'ethics',
+                  courseName: '工程伦理',
+                  weekday: day,
+                  firstPeriod: 1,
+                  lastPeriod: 2,
+                  startMinute: 480,
+                  endMinute: 580,
+                  weeks: {1, 2},
+                ),
+              const AcademicCourseRow(
+                courseId: 'software',
+                courseName: '软件工程实践',
+                weekday: 3,
+                firstPeriod: 1,
+                lastPeriod: 2,
+                startMinute: 480,
+                endMinute: 580,
+                weeks: {1, 2},
+              ),
+              const AcademicCourseRow(courseId: 'third', courseName: '示例公共课'),
+              const AcademicCourseRow(courseId: 'fourth', courseName: '示例研讨课'),
+            ],
+          ),
+        );
+        tester.view.physicalSize = Size(width, 900);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
@@ -64,6 +106,18 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        Rect card(String id) =>
+            tester.getRect(find.byKey(ValueKey('watch-course-card-$id')));
+        if (width >= 728) {
+          expect(card('course').top, card('other').top);
+          expect(card('other').left, greaterThan(card('course').right));
+          expect(card('third').top, card('course').bottom + 12);
+          expect(card('fourth').top, card('other').bottom + 12);
+          expect(card('fourth').top, lessThan(card('third').top));
+        } else {
+          expect(card('course').left, card('other').left);
+          expect(card('other').top, card('course').bottom + 12);
+        }
         final monday = find.byKey(const ValueKey('watch-meeting-course/1/1-2'));
         await tester.tap(monday);
         await tester.pumpAndSettle();
@@ -72,6 +126,7 @@ void main() {
         expect(scope.allows('course', 1, '1-2'), isFalse);
         expect(scope.allows('course', 5, '1-2'), isTrue);
         final course = find.byKey(const ValueKey('watch-course-course'));
+        expect(tester.widget<CheckboxListTile>(course).value, isNull);
         await tester.tap(course);
         await tester.pumpAndSettle();
         scope = CourseWatchScope.fromPrefs(prefs, 9301, 9301);
@@ -92,6 +147,26 @@ void main() {
               .value,
           isTrue,
         );
+        final friday = find.byKey(const ValueKey('watch-meeting-course/5/1-2'));
+        await tester.tap(friday);
+        await tester.pumpAndSettle();
+        expect(tester.widget<CheckboxListTile>(course).value, isFalse);
+        await tester.tap(course);
+        await tester.pumpAndSettle();
+        expect(tester.widget<CheckboxListTile>(course).value, isTrue);
+        expect(tester.widget<CheckboxListTile>(monday).value, isTrue);
+        expect(tester.widget<CheckboxListTile>(friday).value, isTrue);
+        await tester.tap(monday);
+        await tester.pumpAndSettle();
+        expect(tester.widget<CheckboxListTile>(course).value, isNull);
+        final mouse = await tester.createGesture(
+          kind: ui.PointerDeviceKind.mouse,
+        );
+        await mouse.addPointer(
+          location: tester.getCenter(find.byType(Checkbox).first),
+        );
+        await tester.pump(const Duration(milliseconds: 250));
+        addTearDown(mouse.removePointer);
         expect(tester.takeException(), isNull);
         if (Platform.environment['CAPTURE_MONITOR_SETTINGS_UI'] == '1') {
           await tester.runAsync(() async {
@@ -100,9 +175,11 @@ void main() {
                     as RenderRepaintBoundary;
             final image = await boundary.toImage();
             final data = await image.toByteData(format: ui.ImageByteFormat.png);
-            await Directory('build/course-watch-scope').create(recursive: true);
+            await Directory(
+              'build/course-watch-columns',
+            ).create(recursive: true);
             await File(
-              'build/course-watch-scope/${dark ? 'dark' : 'light'}.png',
+              'build/course-watch-columns/${width.toInt()}-${dark ? 'dark' : 'light'}.png',
             ).writeAsBytes(data!.buffer.asUint8List());
             image.dispose();
           });

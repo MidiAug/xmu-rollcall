@@ -13,8 +13,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('更新流程预览'), findsOneWidget);
-      expect(find.text('有更新 · v0.1.4'), findsOneWidget);
-      await tester.tap(find.text('有更新 · v0.1.4'));
+      expect(find.text('有更新  v0.1.4'), findsOneWidget);
+      await tester.tap(find.text('有更新  v0.1.4'));
       await tester.pumpAndSettle();
       expect(find.text('更新说明'), findsOneWidget);
       expect(find.byType(MarkdownBody), findsOneWidget);

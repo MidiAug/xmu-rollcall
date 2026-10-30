@@ -195,23 +195,22 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
     int uid,
     CourseCatalogSnapshot snap,
   ) async {
-    final courses = <CatalogCourse>[];
-    for (final course in snap.courses) {
-      courses.add(
-        course.withMeetings(await CourseScheduleStore.read(uid, course.id)),
-      );
-    }
     final academic = await AcademicScheduleStore.read(uid);
-    final effective = academic == null ? courses : academic.apply(courses);
-    return CourseCatalogSnapshot(
-      fetchedAt: snap.fetchedAt,
-      academicTerm: snap.academicTerm,
-      courses: effective,
-      academicOnlyCourses: academic?.displayOnlyCourses(effective) ?? const [],
-      semesterId: snap.semesterId,
-      academicYearId: snap.academicYearId,
-      rolesResolved: snap.rolesResolved,
-      startDatesResolved: snap.startDatesResolved,
+    final courses = [
+      for (final c in snap.courses)
+        c.withMeetings(await CourseScheduleStore.read(uid, c.id)),
+    ];
+    return projectAcademicCatalog(
+      CourseCatalogSnapshot(
+        fetchedAt: snap.fetchedAt,
+        courses: courses,
+        academicTerm: snap.academicTerm,
+        rolesResolved: snap.rolesResolved,
+        startDatesResolved: snap.startDatesResolved,
+        semesterId: snap.semesterId,
+        academicYearId: snap.academicYearId,
+      ),
+      academic,
     );
   }
 

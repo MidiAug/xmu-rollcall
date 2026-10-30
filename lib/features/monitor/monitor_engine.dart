@@ -243,6 +243,7 @@ class MonitorEngine {
             ok: true,
             message: message,
             items: _latestItems,
+            activityMessage: message,
           ),
         );
       }
@@ -304,10 +305,12 @@ class MonitorEngine {
     final generation = _generation;
     bool current() => _running && generation == _generation;
     Duration? pausedDelay;
+    DetectionWindow? discoveryWindow;
     try {
       if (!manual && loadDetectionWindow != null) {
         final window = await loadDetectionWindow!();
         if (!current()) return;
+        discoveryWindow = window;
         if (!window.allows(_now())) {
           pausedDelay = window.nextStart(_now()).difference(_now());
           _latestItems = null;
@@ -318,13 +321,18 @@ class MonitorEngine {
               ok: true,
               message: '时段外暂停检测（${window.label}）',
               waitingForWindow: true,
+              discoveryWindow: window,
             ),
           );
           return;
         }
       }
       onUpdate(
-        MonitorEngineUpdate(failures: _failures, waitingForWindow: false),
+        MonitorEngineUpdate(
+          failures: _failures,
+          waitingForWindow: false,
+          discoveryWindow: discoveryWindow,
+        ),
       );
       final items = await (manual ? (manualFetch ?? fetch) : fetch)();
       if (!current()) return;
@@ -379,6 +387,7 @@ class MonitorEngine {
         MonitorEngineUpdate(
           items: _latestItems,
           lastPollAt: _now(),
+          activityMessage: automaticMessage,
           failures: 0,
           count: items.length,
           ok: true,
@@ -406,6 +415,7 @@ class MonitorEngine {
             ok: true,
             message: error.toString(),
             waitingForWindow: true,
+            discoveryWindow: error.window,
           ),
         );
         return;
@@ -454,6 +464,8 @@ class MonitorEngineUpdate {
     this.running,
     this.discovering,
     this.waitingForWindow,
+    this.discoveryWindow,
+    this.activityMessage,
   });
 
   final DateTime? lastPollAt;
@@ -467,4 +479,6 @@ class MonitorEngineUpdate {
   final bool? running;
   final bool? discovering;
   final bool? waitingForWindow;
+  final DetectionWindow? discoveryWindow;
+  final String? activityMessage;
 }

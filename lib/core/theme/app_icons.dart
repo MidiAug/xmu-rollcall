@@ -48,6 +48,8 @@ abstract final class AppIcons {
   static const document = FluentIcons.document_text_20_regular;
   static const play = FluentIcons.play_20_filled;
   static const pause = FluentIcons.pause_20_filled;
+  static const guard = FluentIcons.shield_20_regular;
+  static const guardPaused = FluentIcons.shield_dismiss_20_regular;
   static const detect = FluentIcons.pulse_20_regular;
   static const stop = FluentIcons.stop_20_regular;
   static const stopSolid = FluentIcons.stop_20_filled;

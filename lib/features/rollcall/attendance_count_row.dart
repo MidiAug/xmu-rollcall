@@ -290,9 +290,9 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
       return Tooltip(
         message:
             '已签到人数${_manuallyPaused
-                ? ' · 已暂停'
+                ? '  已暂停'
                 : remaining != null
-                ? ' · ${remaining}s 后刷新'
+                ? '  ${remaining}s 后刷新'
                 : ''}',
         child: Row(
           mainAxisSize: MainAxisSize.min,

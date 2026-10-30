@@ -137,7 +137,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         await capture('01-available');
-        await tester.tap(find.text('有更新 · v0.2.0'));
+        await tester.tap(find.text('有更新  v0.2.0'));
         await tester.pumpAndSettle();
         final dialogRoute = find.descendant(
           of: find.byType(Dialog),

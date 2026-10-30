@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'dart:async';
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -101,7 +102,32 @@ void main() {
                 ],
               },
             ),
-          const CatalogCourse(id: '4', title: 'Historical course'),
+          const CatalogCourse(
+            id: '4',
+            title: 'Historical course',
+            courseCode: '20251-old',
+          ),
+        ],
+      ),
+    );
+    await AcademicScheduleStore.write(
+      1,
+      AcademicSchedule(
+        term: '20261',
+        monday: DateTime(2026, 9, 7),
+        fetchedAt: DateTime.now(),
+        rows: [
+          for (final id in [1, 2])
+            AcademicCourseRow(
+              courseId: '$id',
+              courseName: 'Course $id',
+              weekday: 1,
+              firstPeriod: 1,
+              lastPeriod: 1,
+              startMinute: 480,
+              endMinute: 540,
+              weeks: {for (var w = 1; w <= 18; w++) w},
+            ),
         ],
       ),
     );

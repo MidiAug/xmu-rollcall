@@ -110,7 +110,7 @@ void main() {
               scenario == 'current'
                   ? '已是最新版本'
                   : scenario == 'available'
-                  ? '有更新 · v0.2.0'
+                  ? '有更新  v0.2.0'
                   : '暂时无法检查',
             ),
             findsOneWidget,

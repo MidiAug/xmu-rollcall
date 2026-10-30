@@ -661,3 +661,48 @@ stage2-final-tests.log相关46项通过；新增成绩快照→新会话恢复�
 - 按用户纠正，运行与启动先列开机启动，再列启动后继续值守；加入真实组件纵坐标断言防止顺序回退。相关21项回归通过（build/startup-order-tests.log），flutter analyze --no-pub无问题（build/startup-order-analyze.log）。
 - 用户明确要求更新正在运行的开发实例。核对xmu_rollcall.exe来自当前工作区Debug目录，通过其已运行Flutter Tools注册的reloadSources服务完成增量编译/热重载，返回Success（build/startup-order-hot-reload.log）；没有重启应用或启动第二个实例。
 - 读取运行中VM的startup_settings.dart脚本确认开机启动位于恢复值守前；当前Widget摘要树无ErrorWidget。没有代用户切换页面、签到或改动开机启动设置。此次热重载包含前轮已提交的公共开关动效和启动设置入口迁移。
+
+
+## 2026-10-30 桌面检测状态行与正交组合
+
+- 开始/停止控件只负责启动/暂停；下方原更新时间行统一显示运行、下一秒数/真实课表窗口、无安排、今日完成、重试及自动处理提示。停止忽略旧等待/失败标记，有待签活动优先于无课/完成。普通范围与检测频率在值守开启后仍显示，范围文案明确普通检测与值守窗口的区别；切换范围不显示短暂读取提示。
+- CourseWatchWindow由实际参与课次生成今日有安排/今日全部成功；引擎发布同一规划及处理消息，UI不另算课表、不新增网络定时器。状态显示真实区间起点，不把无课时次日00:00的本地再规划时间误作网络检测。完整状态、触发与设置矩阵维护于本地docs/spec/MONITOR_STATUS_MATRIX.md。
+- 修复默认成功一次策略可被同批多个活动绕过；每活动处理前复核该课次是否完成。服务端确认手动/其他端已完成，也只记原课次并更新后续规划；完整探查保留后续活动。回归断言完整/非完整×直接提交/服务端已完成四种真实repository调用次数，以及当日下一门课/下周课程不被误屏蔽。
+- 全量907项通过、2项既有跳过（build/monitor-status-full-tests.log）；flutter analyze --no-pub无问题（build/monitor-status-analyze-verified.log）。实际缓存与协议/Provider回归、Android原单批任务、入页缓存/任务拥有刷新约束均保留。
+- 浅深色9种呈现、逐秒倒计时、暂停回开始及范围开关无闪烁的渲染回归通过；实际查看build/desktop-ui-review/monitor-status-countdown-light.png、monitor-status-no-class-today-light.png、monitor-status-complete-dark.png。最终去掉隔离MaterialApp调试角标后重新生成截图；最后23项状态/生命周期回归通过（build/monitor-status-final-checks.log）。
+- 首次热重载被VM拒绝，具体报告为MonitorState的const字段布局发生变化；将新增字段移至原字段末尾，保持现有实例布局。未改业务逻辑或分析配置规避错误，兼容顺序后定向分析通过（build/monitor-status-live-compat-analyze.log）。切换身份的中性提示与错误颜色分别呈现，相关两文件最终分析无问题（build/monitor-status-color-analyze.log）。
+- 最终通过当前实例Flutter Tools热重载成功（build/monitor-status-live-reload-final.log），运行中Widget树有1个MonitorStatusLine、0个ErrorWidget；没有重启应用。只读核对时该任务已暂停，保留暂停状态，没有代用户开启检测/值守或实际提交。未修改本机启动项、未push/发布；真实课堂和原生长时间验收仍未进行。
+- 临时热重载脚本改放系统临时目录，删除本任务此前放在build的自有调试脚本；未修改分析排除规则，避免临时工具被当作生产Dart扫描。
+
+
+## 2026-10-30 值守独立、手动确认与比例等待修订
+
+- 按用户确认同课同时间仅一个活动，撤销canProcess及其控制器接线/同批双活动组合测试。保留活动去重、课次成功记忆与onAlreadyAnswered，不因缩减防御而删除实际身份/提交边界。
+- 值守发现及活动复核不再读取普通范围偏好；普通范围变化不唤醒值守。引擎原值守规划、可靠课堂处理窗口及全局限流继续有效，没有添加每秒网络请求。未运行任务时的入页策略未改：全天模式30秒门槛、按课表模式有效缓存恢复，无固定后台定时刷新。
+- 桌面顶部刷新、列表下拉和重试共用原手动请求，结果成功/失败显示5秒，随后恢复运行状态；期间普通值守更新不覆盖反馈，手动成功也不沿用后台失败色。离开Tab/切换身份清除反馈，旧身份响应不写新界面。新增组件回归推进4秒/1秒并切换自动处理/停止，验证反馈期限、下拉入口及失败结果。
+- 移除待办“更多X项”、阶段卡片下方长课间说明；状态文字不使用中间点分隔。比例/人数说明改为未达设定条件不提交，移除等待人数5分钟切轮逻辑；65分钟未达门槛回归没有取码/提交，达到后才提交。保留请求响应过慢时重新复核的原约束，不把此前等待人数时间计入该响应时限。
+- 全量906项通过、2项既有跳过（build/watch-refinements-full-tests.log）；104项聚焦通过（build/watch-refinements-focused.log）。最后统一列表刷新/重试入口及文案后52项UI回归通过（build/watch-refinements-final-ui-tests.log）；flutter analyze --no-pub无问题（build/watch-refinements-verified-analyze.log）。早轮两处if格式提示已修正，没有修改分析配置。
+- 实际查看.tools/desktop-workspace/rollcall-1120-light-1.0-dpr1.0.png及.tools/monitor-typography/monitor-settings-960-light-course-watch.png，确认右栏只留右上查看全部，值守卡片无多余说明，普通范围/间隔仍可见。
+- 当前开发实例热重载Success，Widget树0个ErrorWidget、1个MonitorStatusLine（build/watch-refinements-live-reload.log）。没有重启应用、没有替用户开启任务或执行真实签到，没有修改本机启动项、push或发布；docs继续按本地忽略约定维护。
+
+
+## 2026-10-30 当前学期课程与教务课表来源
+
+- 只读检查开发版日志与本地缓存：协助目录34门（跨2023—2026年），同账号教务课表3门/7行；旧日志的history.ensureFresh确有旧课程候选。根因是平台ongoing结果包含旧课程、目录长期复用且教务关联/规划保留了平台及补充时间。
+- 当前目录先按明确学期过滤再关联；值守/检测/历史与作业课后时机使用教务时间，保留未排课课程的业务身份与旧编辑器元数据。未删除目录、签到历史、地点、值守成功记录或账号凭据。
+- 本机临时只读回归直接解析当前协助目录与教务缓存，断言34→3、3门均关联、无额外教务虚拟课程；无缓存写入。该探针已移除，用户缓存未作为测试夹具入库。
+- build/course-source-final-tests.log：全量909通过/2既有跳过。新增历史隔离回归随后在build/course-source-history-scope.log通过（3项），确认旧记录磁盘保留且不展示，不发送目录请求。
+- build/course-source-final-analyze.log：flutter analyze通过。聚焦回归涵盖值守排程、教务窗口、身份隔离、历史候选、作业和旧编辑器。
+- 已实看build/course-watch-scope/light.png与dark.png：部分选中为实心横线、圆角复选框，时间两侧留白。起停值守文字矩形相等断言通过。无中点分隔，普通检测/值守区分脉冲/盾牌图标。
+- 本轮为源码及Flutter隔离渲染验证；未重启/替换当前Windows开发实例，未执行Android真机、真实签到或多端线上验收。
+
+
+## 2026-10-30 值守课程双列与未运行状态
+
+- 值守课程正文上限1040px，宽度至少728px时双列独立纵排，16px列间距和12px卡片间距；窄屏单列。未引入布局依赖或固定卡片高度。四门不同安排长度的生产卡片回归验证两列顶部对齐、后卡分别紧跟本列前卡，筛选排除/部分选中及全不选恢复仍可持久化。
+- 仅选择值守模式不代表任务运行；设置中显示“未运行”。停止/未开始时状态行采用普通范围说明或更新时间，不用旧lastPollAt/discoveryWindow覆盖为“值守已暂停”。实际运行才按引擎计划显示等待与下一窗口；未变更网络入口、任务计时器或限流。
+- build/watch-columns-final-tests.log：64项通过，覆盖两列/单列浅深色、实际缓存恢复与手动刷新、两种模式下运行任务拥有刷新及停止后恢复原普通入页策略、五秒手动反馈、状态及身份/二维码回归。
+- build/watch-columns-settings-tests.log：8项设置回归通过；build/watch-columns-analyze.log：flutter analyze无问题。此次为界面及状态投影改动，未重复全库回归。
+- 已实看build/course-watch-columns下960-light、960-dark、384-light、384-dark共4张隔离渲染截图。两列不强制等高，窄屏可读，实心横线及柔和悬停保留。未执行Android真机或真实签到验收。
+
+- 已热重载当前Windows开发实例：Reloaded 3 of 3287 libraries；通过运行时Script源确认双列布局与未运行普通反馈已载入。保留登录、本地数据及当前页面，无热重启；未宣称用户交互验收完成。

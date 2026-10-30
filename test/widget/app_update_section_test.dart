@@ -68,14 +68,14 @@ void main() {
         service.result = update(UpdateTarget.windows);
         await mount(tester);
         expect(service.checks, 1);
-        expect(find.text('有更新 · v0.2.0'), findsOneWidget);
-        await tester.tap(find.text('有更新 · v0.2.0'));
+        expect(find.text('有更新  v0.2.0'), findsOneWidget);
+        await tester.tap(find.text('有更新  v0.2.0'));
         await tester.pumpAndSettle();
         expect(find.textContaining('A synthetic change'), findsOneWidget);
         await tester.tap(find.byTooltip('关闭更新说明'));
         await tester.pumpAndSettle();
         expect(service.downloads, 0);
-        await tester.tap(find.text('有更新 · v0.2.0'));
+        await tester.tap(find.text('有更新  v0.2.0'));
         await tester.pumpAndSettle();
         await tester.tap(find.widgetWithText(FilledButton, '下载'));
         await tester.pumpAndSettle();
@@ -134,7 +134,7 @@ void main() {
         expect(find.text('下载线路'), findsOneWidget);
         service.pendingCheck!.complete(update(UpdateTarget.windows));
         await tester.pumpAndSettle();
-        expect(find.text('有更新 · v0.2.0'), findsOneWidget);
+        expect(find.text('有更新  v0.2.0'), findsOneWidget);
         expect(find.byIcon(Icons.refresh_rounded), findsNothing);
         expect(find.byTooltip('下载更新'), findsOneWidget);
         expect(statusRow, findsOneWidget);
@@ -222,7 +222,7 @@ void main() {
       sha256: '0' * 64,
     );
     await mount(tester);
-    await tester.tap(find.text('有更新 · v0.2.0'));
+    await tester.tap(find.text('有更新  v0.2.0'));
     await tester.pumpAndSettle();
     expect(find.byType(MarkdownBody), findsOneWidget);
     expect(find.text('## 修复内容'), findsNothing);

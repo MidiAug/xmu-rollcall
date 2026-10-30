@@ -117,7 +117,7 @@ void main() {
     await tester.tap(find.text('无排课课程'));
     await tester.pumpAndSettle();
     expect(find.byType(CourseScheduleEditor), findsOneWidget);
-    expect(find.text('08:00–09:40  ·  第 1–2 节'), findsOneWidget);
+    expect(find.text('08:00–09:40    第 1–2 节'), findsOneWidget);
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
     expect(find.byType(Dialog), findsNothing);
@@ -212,7 +212,7 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.text('上 2 节').last);
         await tester.pumpAndSettle();
-        expect(find.text('14:30–16:10  ·  第 5–6 节'), findsOneWidget);
+        expect(find.text('14:30–16:10    第 5–6 节'), findsOneWidget);
         await tester.tap(find.byKey(const ValueKey('meeting-location-0')));
         await tester.pumpAndSettle();
         expect(find.byType(LocationPickerContent), findsOneWidget);
@@ -336,7 +336,7 @@ void main() {
       await tester.tap(find.text('第 11 节').last);
       await tester.pumpAndSettle();
       expect(find.text('上 1 节'), findsOneWidget);
-      expect(find.text('21:00–21:45  ·  第 11–11 节'), findsOneWidget);
+      expect(find.text('21:00–21:45    第 11–11 节'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('meeting-location-0')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('添加地点'));

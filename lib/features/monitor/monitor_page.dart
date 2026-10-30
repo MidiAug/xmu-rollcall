@@ -98,11 +98,11 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                     hasLeading: false,
                     rowPadding: rowPadding,
                     children: [
-                      if (!desktop || !c.courseWatch)
-                        DetectionWindowSetting(
-                          enabled: ready,
-                          padding: rowPadding,
-                        ),
+                      DetectionWindowSetting(
+                        enabled: ready,
+                        padding: rowPadding,
+                        watchMode: desktop && c.courseWatch,
+                      ),
                       _SliderSetting(
                         padding: rowPadding,
                         title: '检测间隔',
@@ -193,7 +193,9 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                                 ? '已签到人数'
                                 : '已签到比例',
                             stackSubtitleOnNarrow: true,
-                            subtitle: '达到后提交，最多等待 5 分钟',
+                            subtitle: c.answerWaitMode == AnswerWaitMode.percent
+                                ? '未达到设定比例不提交'
+                                : '未达到设定人数不提交',
                             trailing: _NumberControl(
                               key: const ValueKey('monitor-answer-control'),
                               label: c.answerWaitMode == AnswerWaitMode.count

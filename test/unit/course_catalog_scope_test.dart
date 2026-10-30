@@ -1,3 +1,7 @@
+import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
+import 'package:xmu_rollcall/core/cache/course_rollcalls_store.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,7 +13,6 @@ import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
-import 'package:xmu_rollcall/features/rollcall/rollcall_repository_providers.dart';
 import 'package:xmu_rollcall/features/schedule/academic_sync.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
@@ -58,6 +61,93 @@ CourseCatalogSnapshot _catalog(String id) => CourseCatalogSnapshot(
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'history excludes old cached courses without deleting their records',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final at = DateTime(2026, 10, 30);
+      await AcademicScheduleStore.write(
+        1,
+        AcademicSchedule(
+          term: '20261',
+          monday: DateTime(2026, 9, 7),
+          fetchedAt: at,
+          rows: const [
+            AcademicCourseRow(
+              courseId: 'cloud',
+              courseName: '示例计算课程',
+              weekday: 5,
+              firstPeriod: 5,
+              lastPeriod: 6,
+              startMinute: 870,
+              endMinute: 970,
+              weeks: {8},
+            ),
+          ],
+        ),
+      );
+      await CourseCatalogStore.write(
+        1,
+        CourseCatalogSnapshot(
+          fetchedAt: at,
+          rolesResolved: true,
+          academicTerm: '20261',
+          courses: const [
+            CatalogCourse(
+              id: 'current',
+              title: '示例计算课程',
+              courseCode: '202620271U1000000000101',
+            ),
+            CatalogCourse(
+              id: 'old',
+              title: '示例计算课程',
+              courseCode: '202520262U1000000000101',
+            ),
+          ],
+        ),
+      );
+      for (final id in ['current', 'old']) {
+        await CourseRollcallsStore.writeSuccess(
+          userId: 1,
+          courseId: id,
+          courseTitle: '示例计算课程',
+          at: at,
+          records: [
+            CourseRollcallRecord(
+              courseId: id,
+              courseTitle: '示例计算课程',
+              rollcallId: id,
+              rollcallTime: at,
+              typeLabel: '数字',
+              signedStatus: '已签到',
+              platformStatus: 'on_call_fine',
+            ),
+          ],
+        );
+      }
+      final repo = _Repository();
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          academicSyncProvider.overrideWithValue(_Sync()),
+          rollcallRepositoryProvider.overrideWithValue(repo),
+        ],
+      );
+      addTearDown(container.dispose);
+      expect(
+        (await container.read(
+          courseHistoryProvider.future,
+        )).map((r) => r.courseId),
+        ['current'],
+      );
+      expect(
+        (await CourseRollcallsStore.read(1, 'old'))!.records,
+        hasLength(1),
+      );
+      expect(repo.entered.isCompleted, isFalse);
+    },
+  );
+
   test('account change cannot reuse an earlier catalog request', () async {
     SharedPreferences.setMockInitialValues({});
     final auth = _Auth();

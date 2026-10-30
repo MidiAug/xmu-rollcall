@@ -73,9 +73,11 @@ class DetectionWindowSetting extends ConsumerStatefulWidget {
     super.key,
     required this.enabled,
     required this.padding,
+    this.watchMode = false,
   });
   final bool enabled;
   final EdgeInsets padding;
+  final bool watchMode;
   @override
   ConsumerState<DetectionWindowSetting> createState() =>
       _DetectionWindowSettingState();
@@ -113,8 +115,12 @@ class _DetectionWindowSettingState
         SettingsRow(
           contentPadding: widget.padding,
           subtitleSpacing: 6,
-          title: '按课表检测',
-          subtitle: _error ?? '上课期间及前后30分钟自动检测',
+          title: widget.watchMode ? '按课表限制普通检测' : '按课表检测',
+          subtitle:
+              _error ??
+              (widget.watchMode
+                  ? '普通检测的范围；值守仍按上方课前、课间与课后时段运行'
+                  : '上课期间及前后30分钟自动检测'),
           stackSubtitleOnNarrow: true,
           trailing: AppSwitch(
             key: const ValueKey('detection-window-switch'),
@@ -140,11 +146,13 @@ class _DetectionWindowSettingState
               ),
               const SizedBox(height: 6),
               Text(
-                planned.when(
-                  data: (window) => todayDetectionRanges(window, now),
-                  loading: () => '正在读取课表…',
-                  error: (_, _) => '课表暂不可用',
-                ),
+                setting?.enabled == false
+                    ? '全天检测'
+                    : planned.valueOrNull != null
+                    ? todayDetectionRanges(planned.valueOrNull!, now)
+                    : planned.hasError
+                    ? '课表暂不可用'
+                    : '—',
                 style: AppTypography.caption.copyWith(color: p.muted),
               ),
             ],

@@ -174,17 +174,17 @@ class _RollcallPreviewPageState extends State<RollcallPreviewPage> {
 final _previewNow = DateTime(2026, 10, 30, 10, 20);
 
 enum RollcallPreviewScenario {
-  ready('三类待签 · 信息齐全'),
-  missing('三类待签 · 缺码缺位置'),
-  mixed('数字已签 · 定位与扫码待签'),
+  ready('三类待签  信息齐全'),
+  missing('三类待签  缺码缺位置'),
+  mixed('数字已签  定位与扫码待签'),
   completed('三类全部已签'),
-  ended('数字待签 · 定位已签 · 扫码结束'),
+  ended('数字待签  定位已签  扫码结束'),
   number('只有数字签到'),
   radar('只有定位签到'),
   qr('只有二维码签到'),
   empty('刷新后无签到'),
   loading('正在刷新'),
-  detecting('检测中 · 三类待签'),
+  detecting('检测中  三类待签'),
   failure('刷新失败');
 
   const RollcallPreviewScenario(this.label);
@@ -433,7 +433,7 @@ class _RollcallPreviewContentState
                   Expanded(
                     child: AppShellSelect<RollcallPreviewScenario>(
                       key: const ValueKey('rollcall-preview-scenario'),
-                      subtitle: '开发预览 · 下拉刷新 · 模拟提交',
+                      subtitle: '开发预览  下拉刷新  模拟提交',
                       value: scenario,
                       items: RollcallPreviewScenario.values,
                       labelOf: (value) => value.label,

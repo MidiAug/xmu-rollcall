@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:xmu_rollcall/features/monitor/detection_window_store.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,52 @@ import '../fixtures/desktop_ui_capture.dart';
 import '../fixtures/preview_fonts.dart';
 
 void main() {
+  testWidgets(
+    'switching range retains the final text without a loading flash',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      var hold = false;
+      final gate = Completer<void>();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            selectedDetectionWindowProvider.overrideWith((ref) async {
+              final setting = ref.watch(detectionWindowProvider);
+              if (hold) await gate.future;
+              return DetectionWindow(
+                enabled: setting?.enabled ?? true,
+                scheduleBased: true,
+                hasSchedule: true,
+                intervals: [],
+              );
+            }),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const Scaffold(
+              body: DetectionWindowSetting(
+                enabled: true,
+                padding: EdgeInsets.all(16),
+                watchMode: true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('今日无课'), findsOneWidget);
+      expect(find.text('按课表限制普通检测'), findsOneWidget);
+      hold = true;
+      await tester.tap(find.byKey(const ValueKey('detection-window-switch')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text('全天检测'), findsOneWidget);
+      expect(find.text('正在读取课表…'), findsNothing);
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(find.text('全天检测'), findsOneWidget);
+    },
+  );
   setUpAll(() async {
     await loadDesktopPreviewFonts();
     await loadDesktopUiCaptureFonts();

@@ -1,6 +1,5 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
-import 'package:xmu_rollcall/core/cache/course_schedule_store.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'package:xmu_rollcall/features/settings/course_period_clock.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
@@ -8,6 +7,19 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'detection_window.dart';
 
 typedef WatchRange = ({DateTime start, DateTime end});
+
+/// Status metadata comes from the same dated lessons used for discovery.
+class CourseWatchWindow extends DetectionWindow {
+  const CourseWatchWindow({
+    required super.intervals,
+    required super.hasSchedule,
+    required this.hasLessonsToday,
+    required this.completedToday,
+  }) : super(enabled: true, scheduleBased: true, description: '课前、课间及课后检测');
+
+  final bool hasLessonsToday;
+  final bool completedToday;
+}
 
 /// Weekly choices are collected per actual date, so alternating rooms/weeks do
 /// not create duplicate checkboxes or artificial single-period arrangements.
@@ -42,6 +54,18 @@ class CourseWatchScope {
   bool allows(String courseId, int weekday, String block) =>
       !excludedCourses.contains(courseId) &&
       !excludedMeetings.contains(meetingKey(courseId, weekday, block));
+
+  bool? selectionFor(CatalogCourse course) {
+    if (excludedCourses.contains(course.id)) return false;
+    final choices = [
+      for (final day in course.timetables.entries)
+        for (final block in courseWatchWeeklyBlocks(day.value))
+          allows(course.id, day.key, block.id),
+    ];
+    if (choices.isEmpty || choices.every((v) => v)) return true;
+    return choices.any((v) => v) ? null : false;
+  }
+
   static String _key(int owner, int target) =>
       'course_watch_scope_v1_${owner}_$target';
   static CourseWatchScope fromPrefs(
@@ -76,17 +100,10 @@ class CourseWatchScope {
 Future<List<CatalogCourse>> readCourseWatchCourses(int targetId) async {
   final academic = await AcademicScheduleStore.read(targetId, reload: true);
   final catalog = await CourseCatalogStore.read(targetId);
-  final courses = <CatalogCourse>[];
-  for (final course in catalog?.courses ?? <CatalogCourse>[]) {
-    if (!course.isTeaching) {
-      courses.add(
-        course.withMeetings(
-          await CourseScheduleStore.read(targetId, course.id),
-        ),
-      );
-    }
-  }
-  return academic?.apply(courses) ?? courses;
+  if (catalog == null || academic == null) return const [];
+  return projectAcademicCatalog(catalog, academic).courses
+      .where((c) => !c.isTeaching && c.academicMatched)
+      .toList(growable: false);
 }
 
 /// One dated meeting with each full timetable break, not a fixed duration.
@@ -179,12 +196,17 @@ class CourseWatch {
       for (final lesson in _lessons)
         if (completeProbe || !_completed.contains(lesson.key)) ...lesson.ranges,
     ]..sort((a, b) => a.start.compareTo(b.start));
-    return DetectionWindow(
-      enabled: true,
-      scheduleBased: true,
+    final today = _lessons.where(
+      (l) => l.day == DateTime(now.year, now.month, now.day),
+    );
+    return CourseWatchWindow(
       hasSchedule: _lessons.isNotEmpty,
       intervals: ranges,
-      description: '课前、课间及课后检测',
+      hasLessonsToday: today.isNotEmpty,
+      completedToday:
+          !completeProbe &&
+          today.isNotEmpty &&
+          today.every((l) => _completed.contains(l.key)),
     );
   }
 
@@ -208,6 +230,13 @@ class CourseWatch {
       result.add(item);
     }
     return result;
+  }
+
+  /// An authoritative answered snapshot also covers manual/external sign-in.
+  Future<void> recordAnswered(List<RollcallItem> items) async {
+    for (final item in items) {
+      if (item.isAnswered) await succeeded(item);
+    }
   }
 
   Future<void> succeeded(RollcallItem item) async {
