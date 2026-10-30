@@ -17,6 +17,7 @@ enum MonitorControlStyle {
   toolbar,
   masthead,
   mastheadQuiet,
+  mastheadStatus,
 }
 
 /// Idle: 「开始检测」pill. Running: capsule with countdown (tap = pollNow) + stop.
@@ -72,8 +73,17 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
         style == MonitorControlStyle.masthead;
     final masthead =
         (style == MonitorControlStyle.masthead ||
-            style == MonitorControlStyle.mastheadQuiet) &&
+            style == MonitorControlStyle.mastheadQuiet ||
+            style == MonitorControlStyle.mastheadStatus) &&
         Theme.of(context).platform == TargetPlatform.android;
+    final statusOnly = masthead && style == MonitorControlStyle.mastheadStatus;
+    final mastheadStyle = OutlinedButton.styleFrom(
+      minimumSize: const Size(0, 32),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      side: BorderSide(color: p.border),
+      backgroundColor: p.surface.withValues(alpha: .8),
+    );
     final monitor = ref.watch(monitorControllerProvider);
     final ctrl = ref.read(monitorControllerProvider.notifier);
     final signedIn = ref.watch(authControllerProvider).isSignedIn;
@@ -84,6 +94,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
         !window.allows(ref.read(activeRollcallClockProvider)());
 
     if (!monitor.running) {
+      if (statusOnly) return const SizedBox.shrink();
       final enabled =
           signedIn &&
           !monitor.starting &&
@@ -146,15 +157,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
       if (masthead) {
         return OutlinedButton(
           onPressed: onStart,
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size(0, 32),
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            side: BorderSide(color: p.border),
-            backgroundColor: p.surface.withValues(alpha: .8),
-          ),
+          style: mastheadStyle,
           child: content,
         );
       }
@@ -209,50 +212,60 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
         : paused
         ? '等待课表时段'
         : failed
-        ? '重试中  ${secs}s'
-        : '检测中  ${secs}s';
+        ? (masthead ? '重试中 $secs s' : '重试中  ${secs}s')
+        : (masthead ? '检测中 $secs s' : '检测中  ${secs}s');
 
     if (masthead) {
-      final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.5);
-      final style = TextButton.styleFrom(
-        minimumSize: const Size(0, 32),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        backgroundColor: p.controlSurface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      );
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TextButton(
-            onPressed: paused || !monitor.discovering ? null : ctrl.pollNow,
-            style: style,
-            child: SizedBox(
-              key: const ValueKey('monitor-countdown-width'),
-              width: 108 * scale,
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: failed && !paused ? p.danger : p.primary,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+      if (statusOnly) {
+        final color = failed && !paused ? p.danger : p.primary;
+        return Row(
+          children: [
+            Container(
+              width: 7,
+              height: 7,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: SizedBox(
+                key: const ValueKey('monitor-countdown-width'),
+                width: double.infinity,
+                child: Text(
+                  label,
+                  key: const ValueKey('android-detection-status'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.5,
+                    color: color,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 4),
-          TextButton.icon(
-            onPressed: ctrl.stop,
-            style: style.copyWith(
-              foregroundColor: WidgetStatePropertyAll(p.muted),
+          ],
+        );
+      }
+      return OutlinedButton(
+        onPressed: ctrl.stop,
+        style: mastheadStyle,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(AppIcons.stopSolid, size: 16, color: p.primary),
+            const SizedBox(width: 6),
+            Text(
+              '停止检测',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -.1,
+                color: p.primary,
+              ),
             ),
-            icon: const Icon(AppIcons.stop, size: 13),
-            label: const Text('停止', style: TextStyle(fontSize: 12)),
-          ),
-        ],
+          ],
+        ),
       );
     }
     final control = Row(

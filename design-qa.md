@@ -582,6 +582,38 @@ stage2-final-tests.log相关46项通过；新增成绩快照→新会话恢复�
 - 本轮未读取真实账号凭据/查询校园接口，未重新安装手机、未push或发布。教学/成绩缓存、SecureStore键、默认提交确认与畅课会话机制未改；今后新教务数据的接入约定已写入本地docs/ARCHITECTURE.md“教务数据扩展入口”。
 ## 2026-10-30 三类签到开发预览
 
+### 等宽按钮、直接补充签到与用户文案
+
+- Android任务卡操作统一96宽、紧凑高度及原触控区，覆盖两字/四字和完成/结束状态；停止检测改为Fluent实心方块。历史/设置入口采用44宽触控盒、向右对齐，图标右缘与检测按钮右缘一致；移除按中文文案判断检测范围的旧展示分支，直接使用范围状态。
+- 缺码不再打开二级输码页，复用应用输入对话框，展示课程、输入框和取消/签到；点击签到即本次明确提交，复用原数字提交函数与限流/去重，取消不发请求，跨弹窗账号/活动变化不提交。成功将手填码和完成状态同步已有列表。
+- 缺点直接进入地图选点页，复用MapPickPanel，保留当前位置和已保存地点入口；未显式选点禁用签到，不把默认地图中心当用户选择；选点后底部签到直接复用原雷达提交/坐标校验/账号守卫/成功记忆。保留地图选点视角，只有切换系统定位或已保存地点才重建到明确的新点。正常用户页面不再经过原确认卡和额外确认弹窗，非Android维持原提交流程。
+- 已保存地点选择器沿当前Navigator及明确userId运行，避免预览弹窗脱离隔离ProviderContainer或写入另一账号；回归断言弹窗与首页使用同一预览容器。成功仅更新已存在的活动Provider，避免为更新完成状态重新创建列表并额外抓取。
+- 首页只保留今日无课/暂无课表/课外暂停，具体时间留在「今日检测时间」；签到设置和扫码页使用自动检测、签到方式、何时签到、为谁签到等用户文案，不展示异常对象。任务卡更新时间使用实际抓取时间并转换本地时间，不能被首页检测提示替代。
+- 94项聚焦回归通过（build/rollcall-dialog-picker-final-tests.log），覆盖弹窗确认/取消/账号变化、选点前后按钮状态及实际本地模拟提交、人数、二维码、定位生命周期、检测策略与桌面旧流程。最终选点弹窗作用域8项复核通过（build/rollcall-dialog-picker-scope-final-tests.log）；补充时间与文案隔离回归后11项反馈回归通过（build/rollcall-dialog-picker-timestamp-final-tests.log）。完整lib/test静态检查和最后相关文件检查均无问题（build/rollcall-dialog-picker-package-analyze.log、build/rollcall-dialog-picker-timestamp-analyze.log）。
+- 查看390×844的ready.png、number-dialog.png和radar-picker.png：按钮同宽、图标右对齐、输入弹窗与地图底部动作正确。测试拦截地图网络瓦片，仅验证地图控件和选点/提交，不能作为在线底图或真机逐页验收。最终Android Debug构建成功（build/rollcall-dialog-picker-phone-final.log），签名一致，对427b338f覆盖安装成功，保留0.3.0+6和账号数据；无真实签到、推送或发布。
+
+### 输入字号、补充动作与检测状态原位切换
+
+- 数字左侧改为Fluent「#」图标，与22号数字同尺寸；地点和「二维码」文字改18号，图标同18号并随文字缩放。去掉「扫描课堂」前缀。缺码只显示「无法获取签到码」，按钮「手动输入」；缺位置按钮「选择位置」，可靠点仍按此前授权直接签到。按钮与定位展示共享同一解析Future，解析中暂不可提交，点击时仍重新读取并复核。
+- Android运行中的倒计时移入原左侧状态行（含等宽数字「检测中 xx s」及真实的等待/重试/处理中状态），原右侧OutlinedButton以相同尺寸/样式从「开始检测」变为「停止检测」。状态行不再移除，动作区的垂直偏移不随running变化，避免开始后上跳；原停止控制器、后台检测及刷新策略不变，未增加网络轮询。
+- 39项相关回归通过（build/rollcall-status-inputs-tests.log），含启动前后按钮top/left和状态行top一致、倒计时100→9宽度一致、刷新期间停止按钮保留、缺输入动作及直接提交。最终图标后预览3项重跑通过（build/rollcall-status-inputs-preview-final.log），新增图标字号与文字字号一致断言。全lib/test静态检查无问题；最终图标相关3文件复核无问题（build/rollcall-status-inputs-focused-analyze.log）。
+- 实际查看build/rollcall-home-preview/started.png及missing.png：左侧倒计时、原位停止、放大输入、缺码/缺点按钮正确。隔离截图不是手机逐页视觉验收。最终Android Debug构建成功（build/rollcall-status-inputs-android-final.log），签名一致，对427b338f执行adb install -r成功，保留0.3.0+6与账号数据；没有真实签到、推送或发布。
+
+### 卡片输入图标化与紧凑按钮
+
+- 去掉Android卡片「签到码」标题和坐标行，数字/地点/二维码提示左侧统一18px Fluent图标；数字仍通过原_copyCode点击复制，移除Android数字右侧重复复制小图标。定位解析和提交验证仍保留完整坐标，仅精简显示，非Android外观不变。
+- 按钮可见最小尺寸从88×44降至72×36，内边距14/8并保持padded触控区域；输入和按钮改为垂直居中。二维码待签文案「扫码」，数字/定位仍为「签到」，完成仍灰色禁用「已签到」。
+- 32项布局/复制/提交/完成反馈/手机首页回归通过（build/rollcall-card-compact-tests.log），新增实际Clipboard.setData捕获1234验证；覆盖坐标/标题不显示、二维码入口、12种场景、320宽大字与浅深色。flutter analyze --no-pub lib test无问题（build/rollcall-card-compact-analyze.log）。实际查看build/rollcall-home-preview/ready.png和completed.png隔离截图，不代称真机逐页验收。
+- Android Debug构建成功（build/rollcall-card-compact-android.log），证书一致，对427b338f执行adb install -r成功；保留0.3.0+6及账号数据。未执行真实签到，没有推送或发布。
+
+### Android签到卡四角布局
+
+- 按用户指定重排正式Android任务卡：左上课程与老师、右上人数与更新时间、左下数字码/定位/扫码提示、右下签到按钮。去除顶行待签/完成标签、类型标签及更多菜单；未签按钮文案「签到」，完成后保留输入信息并显示默认灰色禁用「已签到」，结束为禁用「已结束」。中性细边框、16圆角/内边距、19号课程名与44高主按钮，减少重复信息。
+- 单独Android呈现方法复用原_mobileSubmit、定位解析和AttendanceCountRow；可靠输入直接提交、缺输入补充、完成去重、人数暂停和最终一次人数读取均不变。非Android触控及桌面保留原卡片及按钮文案。
+- 布局/首页12场景/快速提交32项通过（build/rollcall-card-layout-tests.log），含四角位置断言、无状态/类型/更多菜单，以及320宽/1.3倍文字/长课程和教师名/浅深色无溢出。补充人数与二维码流程40项通过；一个Windows窄屏测试曾误跟随Android按钮改名，恢复其原有「去签到」断言后定向重跑通过（build/rollcall-card-layout-windows-regression.log），对应产品外观未变。最终flutter analyze --no-pub lib test无问题（build/rollcall-card-layout-analyze.log）。
+- 实际查看build/rollcall-home-preview/ready.png、completed.png及card-narrow-light.png/card-narrow-dark.png。窄屏补充回放通过（build/rollcall-card-layout-narrow-render.log），截图先滚到卡片顶部确保长标题可见。均为隔离Flutter渲染，不代称真机逐页视觉验收。
+- Android Debug构建成功（build/rollcall-card-layout-android.log），签名核对一致，对427b338f执行adb install -r成功，0.3.0+6并保留账号数据。没有代用户提交真实签到，没有推送或发布。
+
 ### 完整首页与12种方式/状态组合
 
 - 原入口改名「签到首页」。直接挂载正式MobileRollcallHome、PageScaffold/AppContentColumn、RollcallAccountMenu和AppMobileNav，保留页头水彩、日期/账号、检测控件、今日课程、任务排列、下拉反馈和底部导航。场景控制在首页外的工具栏，撤掉独立卡片列表及卡间模拟按钮；二级签到仍在隔离Navigator中。

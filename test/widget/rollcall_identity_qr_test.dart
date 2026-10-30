@@ -919,7 +919,7 @@ void main() {
       c.read(selectedRollcallAccountProvider.notifier).state = 2;
       await tester.pumpAndSettle();
       expect(button().onTap, isNull);
-      expect(find.text('今日无课，自动检测休息；仍可手动检测'), findsWidgets);
+      expect(find.text('今日无课'), findsWidgets);
       await tester.pumpWidget(const SizedBox());
     },
   );
@@ -1146,7 +1146,7 @@ void main() {
       expect(find.text('自动检测 · 当前账号'), findsNothing);
       expect(find.byKey(const ValueKey('monitor-auto-answer')), findsOneWidget);
       expect(find.text('更多设置'), findsNothing);
-      expect(find.text('随机扰动'), findsOneWidget);
+      expect(find.text('时间浮动'), findsOneWidget);
       expect(find.text('±20%'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('monitor-auto-answer')));
       await tester.pumpAndSettle();

@@ -239,7 +239,7 @@ void main() {
           state == 'idle' ? findsOneWidget : findsNothing,
         );
         expect(
-          find.text('去签到'),
+          find.widgetWithText(FilledButton, '选择位置'),
           state == 'idle' || state == 'done' ? findsNothing : findsOneWidget,
         );
         if (state == 'done') expect(find.text('已签到'), findsOneWidget);
@@ -331,7 +331,7 @@ void main() {
               .emptyRefresh();
           await tester.pump();
           expect(
-            find.text('停止'),
+            find.text('停止检测'),
             findsOneWidget,
             reason:
                 'Refresh must not replace the running stop control with a spinner',

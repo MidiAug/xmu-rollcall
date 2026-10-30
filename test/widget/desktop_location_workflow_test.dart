@@ -403,7 +403,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
-            theme: AppTheme.light(),
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
             home: const RollcallAnswerPage(
               assistUserId: 2,
               item: RollcallItem(

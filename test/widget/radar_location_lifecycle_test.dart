@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,6 +28,15 @@ class _Location extends GeolocatorPlatform {
 }
 
 void main() {
+  setUpAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (_) async => (await Directory(
+            'build/radar-lifecycle-map-cache',
+          ).create(recursive: true)).absolute.path,
+        );
+  });
   late GeolocatorPlatform original;
   late _Location location;
   setUp(() {
@@ -56,16 +67,15 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('选择位置'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('使用当前定位'));
-    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('当前位置'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
   }
 
   testWidgets('permission API exception is contained', (tester) async {
     location.permission = () async => throw StateError('permission API failed');
     await open(tester);
-    expect(find.text('定位失败，可改用地图选点或已保存地点'), findsOneWidget);
+    expect(find.text('定位失败，请重试或在地图上选点'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   testWidgets('leaving during service check ignores late result', (
@@ -86,7 +96,7 @@ void main() {
     expect(location.settings?.timeLimit, const Duration(seconds: 20));
     await tester.pump(const Duration(seconds: 21));
     await tester.pump();
-    expect(find.text('定位超时，可重试或改用地图选点 / 已保存地点'), findsOneWidget);
+    expect(find.text('定位超时，请重试或在地图上选点'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

@@ -32,7 +32,7 @@ final selectedDetectionWindowProvider =
     });
 
 String todayDetectionRanges(DetectionWindow window, DateTime now) {
-  if (!window.enabled) return '全天可自动检测';
+  if (!window.enabled) return '全天检测';
   final day = DateTime(now.year, now.month, now.day);
   final end = DateTime(now.year, now.month, now.day + 1);
   String hm(DateTime time) =>
@@ -44,7 +44,7 @@ String todayDetectionRanges(DetectionWindow window, DateTime now) {
         '${range.start.isBefore(day) ? '00:00' : hm(range.start)}—${!range.end.isBefore(end) ? '24:00' : hm(range.end)}',
   ];
   return ranges.isEmpty
-      ? (window.hasSchedule ? '今日无课，自动检测休息；仍可手动检测' : '尚未获取可用课表，可手动检测')
+      ? (window.hasSchedule ? '今日无课' : '暂无课表')
       : ranges.join('、');
 }
 
@@ -65,7 +65,7 @@ String detectionStatusLabel(DetectionWindow window, DateTime now) {
       !hasToday) {
     return ranges;
   }
-  return '非检测时段，今日 $ranges';
+  return '课外暂停';
 }
 
 class DetectionWindowSetting extends ConsumerStatefulWidget {
@@ -114,7 +114,7 @@ class _DetectionWindowSettingState
           contentPadding: widget.padding,
           subtitleSpacing: 6,
           title: '按课表检测',
-          subtitle: _error ?? '仅在课前30分钟至课后30分钟自动检测，手动检测不受限',
+          subtitle: _error ?? '上课期间及前后30分钟自动检测',
           stackSubtitleOnNarrow: true,
           trailing: AppSwitch(
             key: const ValueKey('detection-window-switch'),
@@ -135,7 +135,7 @@ class _DetectionWindowSettingState
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '今日检测范围',
+                '今日检测时间',
                 style: AppTypography.control.copyWith(color: p.ink),
               ),
               const SizedBox(height: 6),
@@ -143,7 +143,7 @@ class _DetectionWindowSettingState
                 planned.when(
                   data: (window) => todayDetectionRanges(window, now),
                   loading: () => '正在读取课表…',
-                  error: (_, _) => '暂时无法读取课表，可手动检测',
+                  error: (_, _) => '课表暂不可用',
                 ),
                 style: AppTypography.caption.copyWith(color: p.muted),
               ),

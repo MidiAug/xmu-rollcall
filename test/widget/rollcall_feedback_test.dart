@@ -77,6 +77,43 @@ RollcallItem item({
 
 void main() {
   tearDown(AppToast.dismiss);
+  testWidgets('card update time stays distinct from the detection status', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final row = item(code: '1234');
+    Seed.rows = [row];
+    final repo = AttendanceRepo();
+    final container = ProviderContainer(
+      overrides: [
+        authControllerProvider.overrideWith((ref) => Auth()),
+        activeRollcallsProvider.overrideWith(Seed.new),
+        rollcallRepositoryForProvider(null).overrideWithValue(repo),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(activeRollcallsProvider(null).future);
+    container.read(activeRollcallsProvider(null).notifier).lastUpdatedAt =
+        DateTime(2026, 10, 30, 10, 31).toUtc();
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.android),
+          home: Scaffold(
+            body: RollcallTaskCard(item: row, mobileSummary: '今日无课'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('更新于 10:31'), findsOneWidget);
+    expect(find.text('今日无课'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
   for (final width in [320.0, 960.0]) {
     for (final type in [
       RollcallType.number,
@@ -106,7 +143,11 @@ void main() {
           );
           await tester.pumpAndSettle();
           final entryLabel = width < 600
-              ? '去签到'
+              ? (type == RollcallType.qrcode
+                    ? '扫码'
+                    : type == RollcallType.radar
+                    ? '选择位置'
+                    : '签到')
               : type == RollcallType.qrcode
               ? '扫码签到'
               : type == RollcallType.radar

@@ -264,7 +264,7 @@ Future<RadarLocationAction?> showRadarLocationSheet(BuildContext context) {
               _SheetAction(
                 icon: Icons.bookmark_outline,
                 title: '已保存的地点',
-                subtitle: '使用带备注名的预设位置',
+                subtitle: '使用已保存的地点',
                 onTap: () => Navigator.pop(ctx, RadarLocationAction.preset),
               ),
             ],

@@ -74,6 +74,25 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
     setState(() => _checked = false);
   }
 
+  Widget _headerIcon(String label, IconData icon, VoidCallback action) {
+    final android = Theme.of(context).platform == TargetPlatform.android;
+    final p = AppPalette.of(context);
+    return SizedBox(
+      width: android ? 44 : null,
+      height: android ? 48 : null,
+      child: IconButton(
+        tooltip: label,
+        alignment: android ? Alignment.topRight : Alignment.center,
+        padding: android ? const EdgeInsets.only(top: 4) : null,
+        constraints: android
+            ? const BoxConstraints.tightFor(width: 44, height: 48)
+            : null,
+        onPressed: action,
+        icon: Icon(icon, color: android ? p.muted : p.ink, size: 23),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller;
@@ -238,48 +257,8 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
                             ],
                           ),
                         ),
-                        IconButton(
-                          tooltip: '签到记录',
-                          alignment: android
-                              ? Alignment.topCenter
-                              : Alignment.center,
-                          padding: android
-                              ? const EdgeInsets.only(top: 4)
-                              : null,
-                          constraints: android
-                              ? const BoxConstraints(
-                                  minWidth: 48,
-                                  minHeight: 48,
-                                )
-                              : null,
-                          onPressed: onHistory,
-                          icon: Icon(
-                            AppIcons.history,
-                            color: android ? p.muted : p.ink,
-                            size: 23,
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: '自动检测设置',
-                          alignment: android
-                              ? Alignment.topCenter
-                              : Alignment.center,
-                          padding: android
-                              ? const EdgeInsets.only(top: 4)
-                              : null,
-                          constraints: android
-                              ? const BoxConstraints(
-                                  minWidth: 48,
-                                  minHeight: 48,
-                                )
-                              : null,
-                          onPressed: onSettings,
-                          icon: Icon(
-                            AppIcons.settings,
-                            color: android ? p.muted : p.ink,
-                            size: 23,
-                          ),
-                        ),
+                        _headerIcon('签到记录', AppIcons.history, onHistory),
+                        _headerIcon('自动检测设置', AppIcons.settings, onSettings),
                       ],
                     ),
                     SizedBox(height: android ? 8 : 12),
@@ -287,11 +266,13 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
                       _AndroidAccountActions(
                         account: accountMenu,
                         action: Transform.translate(
-                          offset: Offset(0, running ? 0 : 4),
+                          offset: const Offset(0, 4),
                           child: headerAction,
                         ),
                         status: running
-                            ? null
+                            ? const MonitorQuickControl(
+                                style: MonitorControlStyle.mastheadStatus,
+                              )
                             : Row(
                                 children: [
                                   Container(
@@ -378,10 +359,7 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
                       if (!android && items.isEmpty)
                         _HomeStatus(
                           title: running ? '正在检测签到' : '尚未开始检测',
-                          detail:
-                              updatedLabel.contains('今日无课') ||
-                                  updatedLabel.contains('时段') ||
-                                  updatedLabel.contains('课程')
+                          detail: outsideDetectionWindow
                               ? updatedLabel
                               : running
                               ? null

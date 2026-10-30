@@ -145,17 +145,17 @@ void main() {
         );
         await tester.pumpAndSettle();
         final ctrl = container.read(monitorControllerProvider.notifier);
-        const off = '仅提醒，不会自动提交';
+        const off = '发现签到时提醒我';
         const idle = '已开启，开始检测后生效';
-        const active = '发现签到后，按规则自动提交';
+        const active = '按下方设置自动签到';
         expect(find.text(off), findsOneWidget);
         expect(find.textContaining('雷达使用本课'), findsNothing);
         expect(find.text('最近运行'), findsNothing);
         expect(find.byKey(const ValueKey('monitor-jitter')), findsOneWidget);
         expect(find.byKey(const ValueKey('monitor-interval')), findsOneWidget);
         expect(find.text('更多设置'), findsNothing);
-        expect(find.text('自动提交'), findsOneWidget);
-        expect(find.text('发现签到'), findsOneWidget);
+        expect(find.text('签到方式'), findsOneWidget);
+        expect(find.text('自动检测'), findsOneWidget);
         await capture('off');
         await _reveal(
           tester,
@@ -200,7 +200,7 @@ void main() {
           find.byKey(const ValueKey('detection-window-switch')),
         );
         await tester.pumpAndSettle();
-        expect(find.text('今日检测范围'), findsOneWidget);
+        expect(find.text('今日检测时间'), findsOneWidget);
         expect(find.text('07:30'), findsNothing);
         expect(find.text('22:00'), findsNothing);
         await capture('detection-window');
@@ -300,7 +300,7 @@ void main() {
         300,
       );
       await expectSavedInterval(300);
-      expect(find.text('约 240–360 秒检查一次；连接失败时会延后重试。'), findsOneWidget);
+      expect(find.text('约 240–360 秒检查一次，连接失败后稍后重试'), findsOneWidget);
       await tester.tapAt(Offset(track.left + 8, track.center.dy));
       await tester.pumpAndSettle();
       expect(
@@ -308,7 +308,7 @@ void main() {
         10,
       );
       await expectSavedInterval(10);
-      expect(find.text('约 10–12 秒检查一次；连接失败时会延后重试。'), findsOneWidget);
+      expect(find.text('约 10–12 秒检查一次，连接失败后稍后重试'), findsOneWidget);
       await focusWithTab(intervalFinder);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();

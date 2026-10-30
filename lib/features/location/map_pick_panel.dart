@@ -30,17 +30,25 @@ class MapPickPanel extends StatefulWidget {
     this.confirmLabel,
     this.initialNote = '',
     this.busy = false,
+    this.requireSelection = false,
+    this.showCoordinates = true,
+    this.selectedLabel,
     this.contentPadding = const EdgeInsets.all(16),
+    this.campusSelectorPadding = const EdgeInsets.all(8),
     this.onDraftChanged,
     required this.onConfirm,
   });
 
   final LatLng? initial;
+  final bool requireSelection;
+  final bool showCoordinates;
+  final String? selectedLabel;
   final bool requireNote;
   final String? confirmLabel;
   final String initialNote;
   final bool busy;
   final EdgeInsets contentPadding;
+  final EdgeInsets campusSelectorPadding;
   final ValueChanged<MapPickResult>? onDraftChanged;
   final ValueChanged<MapPickResult> onConfirm;
 
@@ -57,6 +65,7 @@ class MapPickPanelState extends State<MapPickPanel>
   final _noteField = GlobalKey();
   String? _noteError;
   Campus _campus = Campus.xiangan;
+  bool _hasSelection = false;
 
   LatLng get point => _point;
 
@@ -64,6 +73,7 @@ class MapPickPanelState extends State<MapPickPanel>
   void initState() {
     super.initState();
     _point = widget.initial ?? kDefaultMapCenter;
+    _hasSelection = widget.initial != null;
     _note = TextEditingController(text: widget.initialNote);
     _campus =
         campusForPoint(
@@ -96,7 +106,7 @@ class MapPickPanelState extends State<MapPickPanel>
   }
 
   Future<void> confirm() async {
-    if (widget.busy) return;
+    if (widget.busy || (widget.requireSelection && !_hasSelection)) return;
     final saveNote = widget.requireNote ? _note.text.trim() : null;
     if (widget.requireNote && saveNote!.isEmpty) {
       setState(() => _noteError = '请填写地点备注');
@@ -159,7 +169,7 @@ class MapPickPanelState extends State<MapPickPanel>
         final panel = Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(8),
+              padding: widget.campusSelectorPadding,
               child: CampusSelector(
                 value: _campus,
                 onChanged: (campus) {
@@ -167,6 +177,7 @@ class MapPickPanelState extends State<MapPickPanel>
                   setState(() {
                     _campus = campus;
                     _point = campus.center;
+                    _hasSelection = false;
                   });
                   _mapController.move(campus.center, 16);
                   _draftChanged();
@@ -188,7 +199,10 @@ class MapPickPanelState extends State<MapPickPanel>
                         maxZoom: kAmapMaxZoom,
                         onTap: (_, latLng) {
                           FocusScope.of(context).unfocus();
-                          setState(() => _point = latLng);
+                          setState(() {
+                            _point = latLng;
+                            _hasSelection = true;
+                          });
                           _draftChanged();
                         },
                       ),
@@ -202,17 +216,18 @@ class MapPickPanelState extends State<MapPickPanel>
                         ),
                         MarkerLayer(
                           markers: [
-                            Marker(
-                              point: _point,
-                              width: 40,
-                              height: 40,
-                              alignment: Alignment.topCenter,
-                              child: Icon(
-                                Icons.location_on,
-                                color: p.primary,
-                                size: 40,
+                            if (!widget.requireSelection || _hasSelection)
+                              Marker(
+                                point: _point,
+                                width: 40,
+                                height: 40,
+                                alignment: Alignment.topCenter,
+                                child: Icon(
+                                  Icons.location_on,
+                                  color: p.primary,
+                                  size: 40,
+                                ),
                               ),
-                            ),
                           ],
                         ),
                       ],
@@ -267,7 +282,13 @@ class MapPickPanelState extends State<MapPickPanel>
                         children: [
                           Expanded(
                             child: Text(
-                              coord,
+                              widget.showCoordinates
+                                  ? coord
+                                  : _hasSelection
+                                  ? (widget.selectedLabel?.isNotEmpty == true
+                                        ? widget.selectedLabel!
+                                        : '已选择位置')
+                                  : '点击地图选择位置',
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: p.muted,
@@ -279,7 +300,11 @@ class MapPickPanelState extends State<MapPickPanel>
                           ),
                           const SizedBox(width: 12),
                           FilledButton(
-                            onPressed: widget.busy ? null : confirm,
+                            onPressed:
+                                widget.busy ||
+                                    (widget.requireSelection && !_hasSelection)
+                                ? null
+                                : confirm,
                             child: Text(
                               label,
                               style: TextStyle(

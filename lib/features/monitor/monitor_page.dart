@@ -78,7 +78,7 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                 children: [
                   SettingsSection(
                     padTop: false,
-                    header: '发现签到',
+                    header: '自动检测',
                     hasLeading: false,
                     rowPadding: rowPadding,
                     children: [
@@ -106,7 +106,7 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                       ),
                       _SliderSetting(
                         padding: rowPadding,
-                        title: '随机扰动',
+                        title: '时间浮动',
                         sliderKey: const ValueKey('monitor-jitter'),
                         value: c.jitterRatio,
                         valueLabel: '±${(c.jitterRatio * 100).round()}%',
@@ -117,12 +117,12 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                             '上下浮动百分之${(value * 100).round()}',
                         onChanged: ready ? ctrl.setJitterRatio : null,
                         onChangeEnd: ready ? (_) => ctrl.commitPersist() : null,
-                        description: '$intervalDescription；连接失败时会延后重试。',
+                        description: '$intervalDescription，连接失败后稍后重试',
                       ),
                     ],
                   ),
                   SettingsSection(
-                    header: '自动提交',
+                    header: '签到方式',
                     hasLeading: false,
                     rowPadding: rowPadding,
                     children: [
@@ -133,9 +133,9 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                         title: '自动签到',
                         stackSubtitleOnNarrow: true,
                         subtitle: !c.autoAnswer
-                            ? '仅提醒，不会自动提交'
+                            ? '发现签到时提醒我'
                             : state.running
-                            ? '发现签到后，按规则自动提交'
+                            ? '按下方设置自动签到'
                             : '已开启，开始检测后生效',
                         trailing: SizedBox(
                           width: 148,
@@ -153,13 +153,13 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                         SettingsRow(
                           contentPadding: rowPadding,
                           minHeight: 40,
-                          title: '提交时机',
+                          title: '何时签到',
                           trailing: AppShellSelect<AnswerWaitMode>(
-                            semanticLabel: '提交时机',
+                            semanticLabel: '何时签到',
                             value: c.answerWaitMode,
                             items: AnswerWaitMode.values,
                             labelOf: (mode) => switch (mode) {
-                              AnswerWaitMode.none => '直接提交',
+                              AnswerWaitMode.none => '立即签到',
                               AnswerWaitMode.count => '等待人数',
                               AnswerWaitMode.percent => '等待比例',
                             },

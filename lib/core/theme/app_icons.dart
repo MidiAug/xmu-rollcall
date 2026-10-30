@@ -5,6 +5,7 @@ abstract final class AppIcons {
   static const upload = FluentIcons.arrow_upload_20_regular;
   static const copy = FluentIcons.copy_20_regular;
   static const code = FluentIcons.code_20_regular;
+  static const number = FluentIcons.number_symbol_20_regular;
   static const clean = FluentIcons.broom_20_regular;
   static const devices = FluentIcons.phone_desktop_20_regular;
   static const share = FluentIcons.share_20_regular;
@@ -49,6 +50,7 @@ abstract final class AppIcons {
   static const pause = FluentIcons.pause_20_filled;
   static const detect = FluentIcons.pulse_20_regular;
   static const stop = FluentIcons.stop_20_regular;
+  static const stopSolid = FluentIcons.stop_20_filled;
   static const close = FluentIcons.dismiss_20_regular;
   static const closeStrong = FluentIcons.dismiss_24_filled;
   static const back = FluentIcons.arrow_left_20_regular;

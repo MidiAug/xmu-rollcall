@@ -213,7 +213,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('今日检测范围'), findsOneWidget);
+    expect(find.text('今日检测时间'), findsOneWidget);
     expect(find.text('07:30'), findsNothing);
     await tester.tap(find.byKey(const ValueKey('detection-window-switch')));
     await tester.pumpAndSettle();

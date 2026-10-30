@@ -16,7 +16,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           child: MaterialApp(
-            theme: AppTheme.light(),
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
             home: const RollcallAnswerPage(
               item: RollcallItem(
                 rollcallId: 1,

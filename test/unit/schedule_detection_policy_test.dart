@@ -59,10 +59,7 @@ void main() {
       );
       final window = await readScheduleDetectionWindow(2, at: day);
       expect(todayDetectionRanges(window, day), '08:30—11:40、14:00—16:40');
-      expect(
-        detectionStatusLabel(window, DateTime(2026, 10, 28, 12)),
-        '非检测时段，今日 08:30—11:40、14:00—16:40',
-      );
+      expect(detectionStatusLabel(window, DateTime(2026, 10, 28, 12)), '课外暂停');
       expect(window.allows(DateTime(2026, 10, 28, 8, 29)), false);
       expect(window.allows(DateTime(2026, 10, 28, 8, 30)), true);
       expect(window.allows(DateTime(2026, 10, 28, 11, 40)), false);
@@ -73,7 +70,7 @@ void main() {
       );
       final unknown = await readScheduleDetectionWindow(3, at: day);
       expect(unknown.allows(day), false);
-      expect(todayDetectionRanges(unknown, day), '尚未获取可用课表，可手动检测');
+      expect(todayDetectionRanges(unknown, day), '暂无课表');
     },
   );
   test(

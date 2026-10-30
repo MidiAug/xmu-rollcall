@@ -7,17 +7,30 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/core/theme/app_icons.dart';
 import 'package:xmu_rollcall/features/rollcall/mobile_rollcall_home.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_list_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_answer_page.dart';
 import 'package:xmu_rollcall/features/rollcall/qr_answer_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_preview_page.dart';
+import 'package:xmu_rollcall/features/rollcall/attendance_count_row.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
+import 'package:xmu_rollcall/features/location/map_pick_panel.dart';
+import 'package:xmu_rollcall/features/location/location_picker.dart';
+import 'package:flutter_map/flutter_map.dart';
 import '../fixtures/preview_fonts.dart';
 
-Future<GlobalKey> _mount(WidgetTester tester) async {
-  tester.view.physicalSize = const Size(390, 844);
+Future<GlobalKey> _mount(
+  WidgetTester tester, {
+  bool dark = false,
+  double width = 390,
+  double scale = 1,
+}) async {
+  tester.view.physicalSize = Size(width, 844);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
@@ -28,7 +41,15 @@ Future<GlobalKey> _mount(WidgetTester tester) async {
         key: capture,
         child: MaterialApp(
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
+          theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
+            platform: TargetPlatform.android,
+          ),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(scale)),
+            child: child!,
+          ),
           home: const RollcallPreviewPage(),
         ),
       ),
@@ -66,7 +87,9 @@ Future<void> _tapTask(WidgetTester tester, int id) async {
   final card = find.byKey(ValueKey('mobile-rollcall-$id'));
   await tester.ensureVisible(card);
   await tester.pumpAndSettle();
-  await tester.tap(find.descendant(of: card, matching: find.text('去签到')));
+  await tester.tap(
+    find.descendant(of: card, matching: find.byType(FilledButton)),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -86,7 +109,24 @@ Future<void> _capture(WidgetTester tester, GlobalKey key, String name) async {
 }
 
 void main() {
-  setUpAll(loadDesktopPreviewFonts);
+  setUpAll(() async {
+    await loadDesktopPreviewFonts();
+    final icons = File(
+      'D:/Dev/Flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+    );
+    if (await icons.exists()) {
+      await (FontLoader(
+        'MaterialIcons',
+      )..addFont(icons.readAsBytes().then(ByteData.sublistView))).load();
+    }
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (_) async => (await Directory(
+            'build/rollcall-home-preview-map-cache',
+          ).create(recursive: true)).absolute.path,
+        );
+  });
   setUp(
     () => SharedPreferences.setMockInitialValues({
       'course_radar_defaults': '{"sentinel":{}}',
@@ -105,7 +145,67 @@ void main() {
       await _refresh(tester);
       expect(find.text('1234'), findsOneWidget);
       expect(find.text('学武楼 A区'), findsOneWidget);
-      expect(find.text('24.60497, 118.31378'), findsOneWidget);
+      expect(find.text('24.60497, 118.31378'), findsNothing);
+      expect(find.text('签到码'), findsNothing);
+      final numeric = find.byKey(const ValueKey('mobile-rollcall-9001'));
+      Finder inside(Finder finder) =>
+          find.descendant(of: numeric, matching: finder);
+      expect(
+        tester.widget<Icon>(inside(find.byIcon(AppIcons.number))).size,
+        tester.widget<Text>(inside(find.text('1234'))).style!.fontSize,
+      );
+      for (final input in [
+        (9002, AppIcons.location, '学武楼 A区'),
+        (9003, AppIcons.qr, '二维码'),
+      ]) {
+        final card = find.byKey(ValueKey('mobile-rollcall-${input.$1}'));
+        final icon = tester.widget<Icon>(
+          find.descendant(of: card, matching: find.byIcon(input.$2)),
+        );
+        final text = tester.widget<Text>(
+          find.descendant(of: card, matching: find.text(input.$3)),
+        );
+        expect(icon.size, text.style!.fontSize);
+      }
+      final titleRect = tester.getRect(inside(find.text('专业英语')));
+      final teacherRect = tester.getRect(inside(find.text('预览老师')));
+      final countRect = tester.getRect(inside(find.byType(AttendanceCountRow)));
+      final timeRect = tester.getRect(inside(find.textContaining('更新于')));
+      final codeRect = tester.getRect(inside(find.text('1234')));
+      final buttonRect = tester.getRect(
+        inside(find.widgetWithText(FilledButton, '签到')),
+      );
+      final buttonSize = tester.getSize(inside(find.byType(FilledButton)));
+      expect(titleRect.left, lessThan(countRect.left));
+      expect(teacherRect.top, greaterThan(titleRect.bottom));
+      expect(timeRect.top, greaterThanOrEqualTo(countRect.bottom));
+      expect(codeRect.left, lessThan(buttonRect.left));
+      expect(codeRect.top, greaterThan(teacherRect.bottom));
+      expect(buttonRect.top, greaterThan(timeRect.bottom));
+      expect(find.text('待签到'), findsNothing);
+      expect(find.text('数字签到'), findsNothing);
+      expect(find.byTooltip('课程操作'), findsNothing);
+      String? copiedCode;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.setData') {
+            copiedCode = (call.arguments as Map)['text'] as String;
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      await tester.tap(inside(find.text('1234')));
+      await tester.pumpAndSettle();
+      expect(copiedCode, '1234');
+      AppToast.dismiss();
+      await tester.pumpAndSettle();
       await tester.runAsync(
         () => precacheImage(
           const AssetImage('assets/illustrations/campus_header.png'),
@@ -114,10 +214,39 @@ void main() {
       );
       await tester.pumpAndSettle();
       await _capture(tester, capture, 'ready');
+      final startRect = tester.getRect(
+        find.widgetWithText(OutlinedButton, '开始检测'),
+      );
+      expect(
+        tester.getRect(find.byIcon(AppIcons.settings)).right,
+        closeTo(startRect.right, .1),
+      );
+      final idleStatusRect = tester.getRect(
+        find.byKey(const ValueKey('android-detection-status')),
+      );
       await tester.tap(find.text('开始检测'));
       await tester.pumpAndSettle();
-      expect(find.text('停止'), findsOneWidget);
-      await tester.tap(find.text('停止'));
+      expect(find.text('停止检测'), findsOneWidget);
+      expect(find.byIcon(AppIcons.stopSolid), findsOneWidget);
+      final stopRect = tester.getRect(
+        find.widgetWithText(OutlinedButton, '停止检测'),
+      );
+      final runningStatusRect = tester.getRect(
+        find.byKey(const ValueKey('android-detection-status')),
+      );
+      expect(stopRect.top, closeTo(startRect.top, .1));
+      expect(stopRect.left, closeTo(startRect.left, .1));
+      expect(runningStatusRect.top, closeTo(idleStatusRect.top, .1));
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey('android-detection-status')),
+            )
+            .data,
+        matches(RegExp(r'^检测中 \d+ s$')),
+      );
+      await _capture(tester, capture, 'started');
+      await tester.tap(find.text('停止检测'));
       await tester.pumpAndSettle();
       expect(find.text('开始检测'), findsOneWidget);
 
@@ -138,17 +267,29 @@ void main() {
           findsNWidgets(count),
           reason: scenario.label,
         );
+        for (final card in tester.widgetList<RollcallTaskCard>(
+          find.byType(RollcallTaskCard),
+        )) {
+          final action = find.descendant(
+            of: find.byWidget(card),
+            matching: find.byType(FilledButton),
+          );
+          expect(tester.getSize(action), buttonSize, reason: scenario.label);
+        }
         if (scenario == RollcallPreviewScenario.completed) {
-          expect(find.text('签到完成'), findsNWidgets(3));
+          expect(find.widgetWithText(FilledButton, '已签到'), findsNWidgets(3));
         }
         if (scenario == RollcallPreviewScenario.mixed) {
-          expect(find.text('签到完成'), findsOneWidget);
+          expect(find.widgetWithText(FilledButton, '已签到'), findsOneWidget);
         }
         if (scenario == RollcallPreviewScenario.ended) {
           expect(find.text('已结束'), findsWidgets);
         }
         if (scenario == RollcallPreviewScenario.missing) {
           expect(find.text('1234'), findsNothing);
+          expect(find.text('无法获取签到码'), findsOneWidget);
+          expect(find.widgetWithText(FilledButton, '手动输入'), findsOneWidget);
+          expect(find.widgetWithText(FilledButton, '选择位置'), findsOneWidget);
           expect(find.text('需补充签到位置'), findsOneWidget);
         }
         if (scenario == RollcallPreviewScenario.empty) {
@@ -171,24 +312,56 @@ void main() {
   testWidgets(
     'full home uses real direct submission and missing-input navigation',
     (tester) async {
-      await _mount(tester);
+      final capture = await _mount(tester);
       await _refresh(tester);
+      final previewContainer = ProviderScope.containerOf(
+        tester.element(find.byType(MobileRollcallHome)),
+      );
       await _tapTask(tester, 9001);
       expect(find.byType(RollcallAnswerPage), findsNothing);
-      expect(find.text('签到完成'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '已签到'), findsOneWidget);
+      AppToast.dismiss();
       await _tapTask(tester, 9002);
       expect(find.byType(RollcallAnswerPage), findsNothing);
-      expect(find.text('签到完成'), findsNWidgets(2));
+      expect(find.widgetWithText(FilledButton, '已签到'), findsNWidgets(2));
 
       await _choose(tester, RollcallPreviewScenario.missing);
+      AppToast.dismiss();
       await _tapTask(tester, 9001);
-      expect(find.byType(RollcallAnswerPage), findsOneWidget);
-      Navigator.of(tester.element(find.byType(RollcallAnswerPage))).pop();
+      expect(find.byType(RollcallAnswerPage), findsNothing);
+      expect(find.text('输入签到码'), findsOneWidget);
+      await tester.enterText(find.byType(TextField), '5678');
       await tester.pumpAndSettle();
+      await _capture(tester, capture, 'number-dialog');
+      await tester.tap(find.widgetWithText(FilledButton, '签到').last);
+      await tester.pumpAndSettle();
+      expect(find.text('5678'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '已签到'), findsOneWidget);
+      AppToast.dismiss();
       await _tapTask(tester, 9002);
       expect(find.byType(RollcallAnswerPage), findsOneWidget);
-      Navigator.of(tester.element(find.byType(RollcallAnswerPage))).pop();
+      expect(find.byType(MapPickPanel), findsOneWidget);
+      final mapAction = find.widgetWithText(FilledButton, '签到');
+      expect(tester.widget<FilledButton>(mapAction).onPressed, isNull);
+      await tester.tap(find.byTooltip('已保存地点'));
       await tester.pumpAndSettle();
+      expect(
+        ProviderScope.containerOf(
+          tester.element(find.byType(LocationPickerContent)),
+        ),
+        same(previewContainer),
+      );
+      await tester.tap(find.byTooltip('关闭地点选择'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(FlutterMap).first);
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(mapAction).onPressed, isNotNull);
+      await _capture(tester, capture, 'radar-picker');
+      await tester.tap(mapAction);
+      await tester.pumpAndSettle();
+      expect(find.byType(RollcallAnswerPage), findsNothing);
+      expect(find.widgetWithText(FilledButton, '已签到'), findsNWidgets(2));
 
       await _choose(tester, RollcallPreviewScenario.qr);
       await _tapTask(tester, 9003);
@@ -208,7 +381,7 @@ void main() {
       await tester.pumpAndSettle();
       Navigator.of(tester.element(find.byType(QrAnswerPage))).pop();
       await tester.pumpAndSettle();
-      expect(find.text('签到完成'), findsOneWidget);
+      expect(find.widgetWithText(FilledButton, '已签到'), findsOneWidget);
       expect(tester.takeException(), isNull);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('course_radar_defaults'), '{"sentinel":{}}');
@@ -216,6 +389,70 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
       await tester.pumpAndSettle();
       await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'four-corner cards keep long titles and large text usable in both themes',
+    (tester) async {
+      for (final dark in [false, true]) {
+        final capture = await _mount(
+          tester,
+          dark: dark,
+          width: 320,
+          scale: 1.3,
+        );
+        await _refresh(tester);
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(MobileRollcallHome)),
+        );
+        final original = container
+            .read(activeRollcallsProvider(null))
+            .requireValue
+            .first;
+        container
+            .read(activeRollcallsProvider(null).notifier)
+            .patchItem(
+              RollcallItem(
+                rollcallId: original.rollcallId,
+                courseTitle: '非常长的专业英语课程名称以及研究生实践与应用课程',
+                createdByName: '很长的任课教师姓名与课程助教',
+                type: original.type,
+                status: original.status,
+                rollcallStatus: original.rollcallStatus,
+                isExpired: false,
+                scored: false,
+                numberCode: original.numberCode,
+              ),
+            );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        final action = find.descendant(
+          of: find.byKey(const ValueKey('mobile-rollcall-9001')),
+          matching: find.widgetWithText(FilledButton, '签到'),
+        );
+        await tester.ensureVisible(action);
+        await tester.pumpAndSettle();
+        expect(tester.getSize(action).height, greaterThanOrEqualTo(44));
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('mobile-rollcall-9001')),
+        );
+        await tester.pumpAndSettle();
+        await _capture(
+          tester,
+          capture,
+          dark ? 'card-narrow-dark' : 'card-narrow-light',
+        );
+        await _choose(tester, RollcallPreviewScenario.missing);
+        await _tapTask(tester, 9002);
+        expect(find.byType(MapPickPanel), findsOneWidget);
+        await _capture(
+          tester,
+          capture,
+          dark ? 'radar-picker-narrow-dark' : 'radar-picker-narrow-light',
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
     },
   );
 }

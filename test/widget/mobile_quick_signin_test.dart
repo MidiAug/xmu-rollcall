@@ -219,12 +219,20 @@ void main() {
       expect(network.submissions, 0);
       if (mode == 'number') expect(find.text('1234'), findsOneWidget);
       if (mode == 'configured' || mode == 'success') {
-        expect(find.text('24.50000, 118.20000'), findsOneWidget);
+        expect(find.text('已保存的签到位置'), findsOneWidget);
+        expect(find.text('24.50000, 118.20000'), findsNothing);
       }
       if (mode == 'missing' || mode == 'rejected' || mode == 'outside') {
         expect(find.text('需补充签到位置'), findsOneWidget);
       }
-      await tester.tap(find.text('去签到'));
+      await tester.tap(
+        find.widgetWithText(
+          FilledButton,
+          mode == 'missing' || mode == 'rejected' || mode == 'outside'
+              ? '选择位置'
+              : '签到',
+        ),
+      );
       for (var i = 0; i < 20; i++) {
         await tester.pump(const Duration(milliseconds: 20));
       }
@@ -269,7 +277,7 @@ void main() {
           reason:
               'Server acknowledgement wins over a stale active-list snapshot',
         );
-        expect(find.text('去签到'), findsNothing);
+        expect(find.widgetWithText(FilledButton, '签到'), findsNothing);
         expect(network.countReads, greaterThanOrEqualTo(2));
         final reads = network.countReads;
         AppToast.dismiss();
@@ -289,4 +297,63 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
+
+  testWidgets(
+    'manual code dialog cancels safely and rejects an account switch',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final network = _Network();
+      final container = ProviderContainer(
+        overrides: [
+          secureStoreProvider.overrideWithValue(SecureStore.memory()),
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          activeRollcallsProvider.overrideWith(_Lists.new),
+          rollcallRepositoryForProvider(null).overrideWithValue(network),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.android),
+            home: const Scaffold(
+              body: RollcallTaskCard(
+                item: RollcallItem(
+                  rollcallId: 17,
+                  courseTitle: '测试课',
+                  createdByName: '教师',
+                  type: RollcallType.number,
+                  status: '',
+                  rollcallStatus: '',
+                  isExpired: false,
+                  scored: false,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('手动输入'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(network.submissions, 0);
+      await tester.tap(find.text('手动输入'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), '1234');
+      (container.read(authControllerProvider.notifier) as _Auth).switchOwner();
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '签到'));
+      await tester.pumpAndSettle();
+      expect(network.submissions, 0);
+      expect(find.text('账号或签到已变化，请重新打开'), findsOneWidget);
+      AppToast.dismiss();
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 }

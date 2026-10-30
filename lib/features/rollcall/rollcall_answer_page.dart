@@ -16,6 +16,7 @@ import 'package:xmu_rollcall/features/location/location_models.dart';
 import 'package:xmu_rollcall/features/location/location_providers.dart';
 import 'package:xmu_rollcall/features/location/course_meeting.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/location/map_pick_page.dart';
 import 'package:xmu_rollcall/features/rollcall/radar_place_card.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
@@ -52,6 +53,10 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
   final _codeCtrl = TextEditingController();
   bool _submitting = false;
   bool _locating = false;
+  int _mapRevision = 0;
+  LatLng? _mapInitial;
+  int? _ownerAtOpen;
+  int? _selectedAtOpen;
   int _locationRequest = 0;
   RadarGeoSelection? _selection;
   String? _status;
@@ -65,6 +70,8 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
   @override
   void initState() {
     super.initState();
+    _ownerAtOpen = ref.read(authControllerProvider).profile?.id;
+    _selectedAtOpen = ref.read(selectedRollcallAccountProvider);
     if (widget.item.isNumber) _codeCtrl.text = widget.initialNumberCode ?? '';
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && widget.item.isRadar) _scopeReady ??= _prepareCoursePref();
@@ -91,7 +98,11 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     if (pref == null) {
       if (_selection?.filledFrom == RadarFilledFrom.pref ||
           _selection?.filledFrom == RadarFilledFrom.configured) {
-        setState(() => _selection = null);
+        setState(() {
+          _selection = null;
+          _mapInitial = null;
+          _mapRevision++;
+        });
       }
       return;
     }
@@ -111,7 +122,11 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
         cur.label == next.label) {
       return;
     }
-    setState(() => _selection = next);
+    setState(() {
+      _selection = next;
+      _mapInitial = LatLng(next.latitude, next.longitude);
+      _mapRevision++;
+    });
   }
 
   Future<void> _prepareCoursePref() async {
@@ -128,7 +143,9 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
             courseId: widget.item.courseId,
             at: radarActivityReferenceTime(widget.item, _openedAt),
           );
-    if (!mounted || ref.read(authControllerProvider).profile?.id != owner) {
+    if (!mounted ||
+        owner != _ownerAtOpen ||
+        ref.read(authControllerProvider).profile?.id != owner) {
       return;
     }
     _meetingKey = meeting;
@@ -142,6 +159,10 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     setState(() {
       _pinnedByUser = true;
       _selection = selection.copyWith(filledFrom: RadarFilledFrom.user);
+      if (selection.obtainedVia != RadarObtainedVia.map) {
+        _mapInitial = LatLng(selection.latitude, selection.longitude);
+        _mapRevision++;
+      }
       _status = null;
     });
   }
@@ -236,7 +257,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
         stackTrace: st,
       );
       if (!mounted) return;
-      AppToast.show(context, '提交异常：$e', error: true);
+      AppToast.show(context, '签到未完成，请重试', error: true);
     } finally {
       RollcallLog.end(
         opId: opId,
@@ -266,7 +287,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
       );
       if (!current()) return;
       if (!service) {
-        fail('service_off', '请打开系统定位，或改用地图选点 / 已保存地点');
+        fail('service_off', '请打开定位，或在地图上选择位置');
         return;
       }
       var permission = await Geolocator.checkPermission().timeout(
@@ -283,7 +304,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
           permission == LocationPermission.deniedForever
               ? 'permission_denied_forever'
               : 'permission_denied',
-          '定位权限不可用，可改用地图选点或已保存地点',
+          '无法获取定位，可在地图上选择位置',
         );
         return;
       }
@@ -323,8 +344,8 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
       if (current()) {
         setState(
           () => _status = error is TimeoutException
-              ? '定位超时，可重试或改用地图选点 / 已保存地点'
-              : '定位失败，可改用地图选点或已保存地点',
+              ? '定位超时，请重试或在地图上选点'
+              : '定位失败，请重试或在地图上选点',
         );
       }
     } finally {
@@ -378,7 +399,11 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
 
   Future<void> _usePreset() async {
     final list = ref.read(knownLocationsForUserProvider(_locationUserId));
-    final picked = await pickSavedLocation(context, list);
+    final picked = await pickSavedLocation(
+      context,
+      list,
+      userId: _locationUserId,
+    );
     if (picked == null || !mounted) return;
     _pin(picked);
   }
@@ -405,12 +430,15 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     }
     final opId = RollcallLog.newOpId();
     final session = widget.assistUserId == null ? 'owner' : 'assist';
-    final confirmed = await _confirm(
-      '课程：${widget.item.courseTitle}\n'
-      '${sel.confirmLine}\n'
-      '${sel.latitude.toStringAsFixed(5)}, ${sel.longitude.toStringAsFixed(5)}'
-      '${widget.previewMode ? "\n\n（预览模式，不会提交到服务器）" : ""}',
-    );
+    // The Android picker's bottom action is the explicit submission step.
+    final confirmed = Theme.of(context).platform == TargetPlatform.android
+        ? true
+        : await _confirm(
+            '课程：${widget.item.courseTitle}\n'
+            '${sel.confirmLine}\n'
+            '${sel.latitude.toStringAsFixed(5)}, ${sel.longitude.toStringAsFixed(5)}'
+            '${widget.previewMode ? "\n\n（预览模式，不会提交到服务器）" : ""}',
+          );
     if (!confirmed) {
       RollcallLog.cancel(
         opId: opId,
@@ -453,8 +481,10 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
         final auth = ref.read(authControllerProvider);
         if (!mounted ||
             owner == null ||
+            owner != _ownerAtOpen ||
             !auth.isSignedIn ||
-            auth.profile?.id != owner) {
+            auth.profile?.id != owner ||
+            ref.read(selectedRollcallAccountProvider) != _selectedAtOpen) {
           throw StateError('账号已切换，请重新打开签到页');
         }
       }
@@ -478,8 +508,17 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
             beforeSend: () async => requireOwner(),
           );
       ok = result.ok;
-      if (!mounted || ref.read(authControllerProvider).profile?.id != owner) {
+      if (!mounted ||
+          ref.read(authControllerProvider).profile?.id != owner ||
+          ref.read(selectedRollcallAccountProvider) != _selectedAtOpen) {
         return;
+      }
+      // Updating a visible list must not create a provider and fetch it again.
+      if (result.ok &&
+          ref.exists(activeRollcallsProvider(widget.assistUserId))) {
+        ref
+            .read(activeRollcallsProvider(widget.assistUserId).notifier)
+            .patchItem(widget.item.copyWith(status: 'on_call_fine'));
       }
       await ref
           .read(ref.read(localHistoryForProvider(widget.assistUserId)).notifier)
@@ -493,7 +532,10 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
               detail: result.message,
             ),
           );
-      if (!mounted) return;
+      if (!mounted ||
+          ref.read(selectedRollcallAccountProvider) != _selectedAtOpen) {
+        return;
+      }
       AppToast.show(
         context,
         result.message ?? (result.ok ? '成功' : '失败'),
@@ -514,7 +556,11 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
               meetingKey: _meetingKey ?? '',
               submittedAtMicros: started.microsecondsSinceEpoch,
             );
-        if (mounted) Navigator.of(context).pop();
+        if (mounted &&
+            ref.read(authControllerProvider).profile?.id == owner &&
+            ref.read(selectedRollcallAccountProvider) == _selectedAtOpen) {
+          Navigator.of(context).pop();
+        }
       } else {
         setState(() {
           _status = '${result.message ?? "提交失败"}。可更换位置后重试。';
@@ -528,7 +574,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
         stackTrace: st,
       );
       if (!mounted) return;
-      AppToast.show(context, '提交异常：$e', error: true);
+      AppToast.show(context, '签到未完成，请重试', error: true);
     } finally {
       RollcallLog.end(
         opId: opId,
@@ -594,6 +640,10 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
       courseRadarDefaultsForProvider(widget.assistUserId),
       (_, _) => _syncCoursePref(),
     );
+
+    if (Theme.of(context).platform == TargetPlatform.android && item.isRadar) {
+      return _androidRadarPicker(context, p);
+    }
 
     return SubpageScaffold(
       hasUnsavedChanges: () =>
@@ -690,6 +740,129 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
               ),
             ] else
               const Text('暂不支持此签到类型'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _androidRadarPicker(BuildContext context, AppPalette p) {
+    return SubpageScaffold(
+      title: '选择位置',
+      isBusy: () => _submitting,
+      body: ColoredBox(
+        color: p.surface,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.item.courseTitle,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: p.ink,
+                              ),
+                            ),
+                            if (widget.item.createdByName.isNotEmpty)
+                              Text(
+                                widget.item.createdByName,
+                                style: TextStyle(fontSize: 13, color: p.muted),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        tooltip: _locating ? '定位中…' : '当前位置',
+                        color: p.muted,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 44,
+                          height: 44,
+                        ),
+                        onPressed: _submitting || _locating
+                            ? null
+                            : _useSystemLocation,
+                        icon: _locating
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(AppIcons.location, size: 20),
+                      ),
+                      IconButton(
+                        tooltip: '已保存地点',
+                        color: p.muted,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 44,
+                          height: 44,
+                        ),
+                        onPressed: _submitting ? null : _usePreset,
+                        icon: const Icon(AppIcons.bookmark, size: 20),
+                      ),
+                    ],
+                  ),
+                  if (_status != null)
+                    Text(
+                      _status!,
+                      style: TextStyle(fontSize: 13, color: p.muted),
+                    ),
+                  if (widget.previewMode) const Text('预览，不会提交签到'),
+                ],
+              ),
+            ),
+            Expanded(
+              child: MapPickPanel(
+                key: ValueKey(_mapRevision),
+                initial: _mapInitial,
+                requireSelection: true,
+                showCoordinates: false,
+                campusSelectorPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                ),
+                selectedLabel: _selection?.label,
+                busy: _submitting,
+                confirmLabel: _submitting ? '签到中…' : '签到',
+                onDraftChanged: (draft) => _pin(
+                  RadarGeoSelection(
+                    latitude: draft.latitude,
+                    longitude: draft.longitude,
+                    accuracy: 35,
+                    obtainedVia: RadarObtainedVia.map,
+                    filledFrom: RadarFilledFrom.user,
+                  ),
+                ),
+                onConfirm: (result) {
+                  if (_selection == null ||
+                      _selection!.latitude != result.latitude ||
+                      _selection!.longitude != result.longitude) {
+                    _pin(
+                      RadarGeoSelection(
+                        latitude: result.latitude,
+                        longitude: result.longitude,
+                        accuracy: 35,
+                        obtainedVia: RadarObtainedVia.map,
+                        filledFrom: RadarFilledFrom.user,
+                      ),
+                    );
+                  }
+                  _submitRadar();
+                },
+              ),
+            ),
           ],
         ),
       ),

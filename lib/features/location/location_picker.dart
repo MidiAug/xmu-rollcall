@@ -15,8 +15,11 @@ Future<SavedLocation?> showLocationPicker(
   String? selectedId,
   LatLng? initial,
   List<SavedLocation>? locations,
+  int? userId,
+  bool useRootNavigator = true,
 }) => showDialog<SavedLocation>(
   context: context,
+  useRootNavigator: useRootNavigator,
   barrierColor: Colors.black.withValues(alpha: .40),
   builder: (context) => Dialog(
     backgroundColor: AppPalette.of(context).surface,
@@ -36,6 +39,7 @@ Future<SavedLocation?> showLocationPicker(
         selectedId: selectedId,
         initial: initial,
         locations: locations,
+        userId: userId,
       ),
     ),
   ),
