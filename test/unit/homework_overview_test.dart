@@ -387,6 +387,97 @@ void main() {
   );
 
   test(
+    'unsubmitted state refreshes at five minutes while submitted pending stays cached',
+    () async {
+      const cached = HomeworkSubmissionState(
+        submission: HomeworkSubmission.unsubmitted,
+        grading: HomeworkGrading.unknown,
+      );
+      await JsonDiskCache.writeList(
+        'homework_submission_1_10',
+        [cached.toJson()],
+        fetchedAt: DateTime.now().subtract(const Duration(minutes: 6)),
+      );
+      final provider = homeworkSubmissionProvider(
+        const HomeworkStatusKey(1, 10),
+      );
+      final updated = Completer<void>();
+      final subscription = container.listen(provider, (_, next) {
+        if (next.valueOrNull?.submission == HomeworkSubmission.submitted &&
+            !updated.isCompleted) {
+          updated.complete();
+        }
+      });
+      addTearDown(subscription.close);
+      expect(
+        (await container.read(provider.future)).submission,
+        HomeworkSubmission.unsubmitted,
+      );
+      await updated.future.timeout(const Duration(seconds: 2));
+      expect(repo.statusCalls, 1);
+      await JsonDiskCache.writeList(
+        'homework_submission_1_11',
+        [
+          const HomeworkSubmissionState(
+            submission: HomeworkSubmission.submitted,
+            grading: HomeworkGrading.pending,
+          ).toJson(),
+        ],
+        fetchedAt: DateTime.now().subtract(const Duration(minutes: 6)),
+      );
+      final stable = homeworkSubmissionProvider(const HomeworkStatusKey(1, 11));
+      final stableSubscription = container.listen(stable, (_, _) {});
+      addTearDown(stableSubscription.close);
+      expect(
+        (await container.read(stable.future)).submission,
+        HomeworkSubmission.submitted,
+      );
+      expect(repo.statusCalls, 1);
+    },
+  );
+
+  test(
+    'failed row refresh is backed off across remounts; a new manual refresh bypasses it',
+    () async {
+      await JsonDiskCache.writeList(
+        'homework_submission_1_10',
+        [
+          const HomeworkSubmissionState(
+            submission: HomeworkSubmission.unsubmitted,
+            grading: HomeworkGrading.unknown,
+          ).toJson(),
+        ],
+        fetchedAt: DateTime.now().subtract(const Duration(minutes: 6)),
+      );
+      repo.fail = true;
+      final provider = homeworkSubmissionProvider(
+        const HomeworkStatusKey(1, 10),
+      );
+      final subscription = container.listen(provider, (_, _) {});
+      addTearDown(subscription.close);
+      await container.read(provider.future);
+      await Future<void>.delayed(Duration.zero);
+      await container.pump();
+      expect(repo.statusCalls, 1);
+      container.invalidate(provider);
+      await container.read(provider.future);
+      await Future<void>.delayed(Duration.zero);
+      expect(repo.statusCalls, 1);
+      repo.fail = false;
+      container.read(homeworkManualRefreshAtProvider(1).notifier).state =
+          DateTime.now();
+      await container.read(provider.future);
+      await Future<void>.delayed(Duration.zero);
+      await container.pump();
+      expect(repo.statusCalls, 2);
+      expect(
+        container.read(provider).requireValue.submission,
+        HomeworkSubmission.submitted,
+      );
+    },
+  );
+
+  test(
     'personal status cache honors manual refresh, failures and published-grade TTL',
     () async {
       const key = HomeworkStatusKey(1, 10);

@@ -108,7 +108,10 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
     final switching = widget.switching;
     final switchError = widget.switchError;
     final onRetryIdentity = widget.onRetryIdentity;
-    final identity = (ref.watch(authControllerProvider).profile?.id, scope);
+    final identity = (
+      ref.watch(authControllerProvider.select((s) => s.profile?.id)),
+      scope,
+    );
     if (_identity != identity) {
       _identity = identity;
       _checked = false;
@@ -116,7 +119,9 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
 
     final p = AppPalette.of(context);
     final android = Theme.of(context).platform == TargetPlatform.android;
-    final signedIn = ref.watch(authControllerProvider).isSignedIn;
+    final signedIn = ref.watch(
+      authControllerProvider.select((s) => s.isSignedIn),
+    );
     final now =
         ref.watch(campusClockProvider).valueOrNull ??
         ref.read(campusNowProvider)();
@@ -129,7 +134,9 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
         ? ref.watch(activeRollcallsProvider(scope))
         : null;
     final items = active?.valueOrNull ?? const [];
-    final running = ref.watch(monitorControllerProvider).running;
+    final running = ref.watch(
+      monitorControllerProvider.select((s) => s.running),
+    );
     final checking = switching || (active?.isLoading == true && items.isEmpty);
     final headerStatus = !signedIn
         ? '登录后查看课堂签到'

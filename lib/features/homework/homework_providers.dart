@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'package:xmu_rollcall/core/cache/cache_revisions.dart';
 import 'package:xmu_rollcall/features/homework/homework_candidates.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,7 +53,7 @@ final homeworkTodosProvider =
     );
 
 class HomeworkTodosNotifier extends AsyncNotifier<List<HomeworkItem>> {
-  static const ttl = Duration(minutes: 30);
+  static const ttl = CachePolicy.homeworkActiveFreshFor;
 
   int? _boundUserId;
   int? _boundScope;
@@ -275,7 +276,7 @@ class CourseHomeworkNotifier
     final force = reason == EnsureFreshReason.pullToRefresh;
     if (!force) {
       final disk = await JsonDiskCache.readList('course_homework_${uid}_$arg');
-      final catalog = await CourseCatalogStore.read(uid);
+      final catalog = await readAcademicCatalog(uid);
       if (_revision != revision) return;
       CatalogCourse? course;
       for (final candidate in catalog?.courses ?? <CatalogCourse>[]) {

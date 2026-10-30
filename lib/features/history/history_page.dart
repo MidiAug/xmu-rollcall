@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:xmu_rollcall/core/cache/cache_policy.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
@@ -66,14 +68,15 @@ class HistoryPage extends ConsumerStatefulWidget {
   ConsumerState<HistoryPage> createState() => _HistoryPageState();
 }
 
-class _HistoryPageState extends ConsumerState<HistoryPage> {
+class _HistoryPageState extends ConsumerState<HistoryPage>
+    with WidgetsBindingObserver {
   HistorySignedFilter _signed = HistorySignedFilter.all;
   HistoryTypeFilter _type = HistoryTypeFilter.all;
   String _courseId = '';
   _HistoryPeriod _period = _HistoryPeriod.all;
   DateTimeRange? _range;
   final _scroll = ScrollController();
-  var _appeared = false;
+  Timer? _refreshTimer;
 
   void _selectPeriod(_HistoryPeriod period) {
     setState(() {
@@ -93,17 +96,62 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _appeared) return;
-      _appeared = true;
-      if (ref.read(authControllerProvider).isSignedIn) {
-        ref.read(currentHistoryControllerProvider).ensureFresh();
-      }
-    });
+    WidgetsBinding.instance.addObserver(this);
+    _syncRefreshTimer();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshVisible());
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    WidgetsBinding.instance.removeObserver(this);
+    WidgetsBinding.instance.addObserver(this);
+    _syncRefreshTimer();
+  }
+
+  void _refreshVisible() {
+    if (!mounted ||
+        !TickerMode.valuesOf(context).enabled ||
+        !(ModalRoute.of(context)?.isCurrent ?? true) ||
+        (WidgetsBinding.instance.lifecycleState != null &&
+            WidgetsBinding.instance.lifecycleState !=
+                AppLifecycleState.resumed) ||
+        !ref.read(authControllerProvider).isSignedIn) {
+      return;
+    }
+    // The provider retains load errors for the existing retry UI.
+    unawaited(
+      ref
+          .read(currentHistoryControllerProvider)
+          .ensureFresh()
+          .catchError((Object _) {}),
+    );
+  }
+
+  void _syncRefreshTimer([AppLifecycleState? state]) {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+    final lifecycle = state ?? WidgetsBinding.instance.lifecycleState;
+    if (lifecycle == null || lifecycle == AppLifecycleState.resumed) {
+      _refreshTimer = Timer.periodic(
+        CachePolicy.activeClassHistoryFreshFor,
+        (_) => _refreshVisible(),
+      );
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _syncRefreshTimer(state);
+    if (state == AppLifecycleState.resumed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _refreshVisible());
+    }
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _scroll.dispose();
     super.dispose();
   }

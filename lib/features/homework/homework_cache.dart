@@ -37,7 +37,7 @@ Future<({List<HomeworkItem> items, bool hasCache})> readCachedHomework(
       HomeworkItem.fromJson(row),
   ];
   for (final course
-      in catalog?.timetableCourses.where((c) => !c.isTeaching) ??
+      in catalog?.courses.where((c) => !c.isTeaching) ??
           <CatalogCourse>[]) {
     final cid = int.tryParse(course.id);
     if (cid == null) continue;

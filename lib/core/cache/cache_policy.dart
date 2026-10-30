@@ -1,5 +1,8 @@
 /// TTLs and refresh reasons for R-35 cache redesign.
 abstract final class CachePolicy {
+  /// Visible-page checks and the urgent task feed share the same freshness floor.
+  static const homeworkActiveFreshFor = Duration(minutes: 5);
+  static const homeworkStatusFailureBackoff = Duration(minutes: 5);
   /// Enter-SWR floor for todos / course homework / per-course rollcalls.
   static const enterSwrFreshFor = Duration(hours: 2);
 

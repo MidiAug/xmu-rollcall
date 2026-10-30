@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/core/cache/course_rollcalls_store.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -86,6 +88,57 @@ void main() {
             ],
           ),
         );
+        CourseRollcallRecord history(String id, String type) =>
+            CourseRollcallRecord(
+              courseId: 'course',
+              courseTitle: '工程伦理',
+              rollcallId: id,
+              rollcallTime: DateTime(2026, 10, 30),
+              typeLabel: type,
+              signedStatus: '已签到',
+              platformStatus: 'on_call_fine',
+            );
+        await CourseRollcallsStore.writeSuccess(
+          userId: 9301,
+          courseId: 'course',
+          courseTitle: '工程伦理',
+          truncated: true,
+          records: [
+            history('n', '数字'),
+            history('n', '数字'),
+            history('r', '雷达'),
+            history('q1', '二维码'),
+            history('q2', '二维码'),
+          ],
+        );
+        await CourseRollcallsStore.writeSuccess(
+          userId: 9302,
+          courseId: 'course',
+          courseTitle: '其他账号',
+          records: [for (var i = 0; i < 9; i++) history('other-$i', '数字')],
+        );
+        await CourseRollcallsStore.writeSuccess(
+          userId: 9301,
+          courseId: 'other',
+          courseTitle: '软件工程实践',
+          records: const [],
+        );
+        await CourseRollcallsStore.writeSuccess(
+          userId: 9301,
+          courseId: 'fourth',
+          courseTitle: '示例研讨课',
+          records: [
+            CourseRollcallRecord(
+              courseId: 'fourth',
+              courseTitle: '示例研讨课',
+              rollcallId: 'qr-only',
+              rollcallTime: DateTime(2026, 10, 30),
+              typeLabel: '二维码',
+              signedStatus: '已签到',
+              platformStatus: 'on_call_fine',
+            ),
+          ],
+        );
         tester.view.physicalSize = Size(width, 900);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
@@ -118,6 +171,31 @@ void main() {
           expect(card('course').left, card('other').left);
           expect(card('other').top, card('course').bottom + 12);
         }
+        final header = find.byKey(const ValueKey('watch-course-course'));
+        expect(
+          find.descendant(of: header, matching: find.text('数字 1')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: header, matching: find.text('雷达 1')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: header, matching: find.text('二维码 2')),
+          findsOneWidget,
+        );
+        expect(find.text('数字 9'), findsNothing);
+        expect(find.text('尚无历史缓存'), findsOneWidget);
+        expect(
+          tester
+              .widget<CheckboxListTile>(
+                find.byKey(const ValueKey('watch-course-fourth')),
+              )
+              .value,
+          isTrue,
+        );
+        expect(find.text('缓存历史（部分）'), findsOneWidget);
+        expect(find.text('缓存历史：暂无签到记录'), findsOneWidget);
         final monday = find.byKey(const ValueKey('watch-meeting-course/1/1-2'));
         await tester.tap(monday);
         await tester.pumpAndSettle();

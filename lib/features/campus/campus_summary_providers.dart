@@ -54,7 +54,10 @@ final campusCachedDataProvider = FutureProvider.autoDispose<CampusCachedData>((
   final uid = scope ?? auth.profile?.id;
   if (!auth.isSignedIn || uid == null) return const CampusCachedData();
   final schedule = await ref.watch(academicCachedScheduleProvider(uid).future);
-  final catalog = await CourseCatalogStore.read(uid);
+  final rawCatalog = await CourseCatalogStore.read(uid);
+  final catalog = rawCatalog == null
+      ? null
+      : projectAcademicCatalog(rawCatalog, schedule);
   final homework = await readCachedHomework(uid, catalog);
   return CampusCachedData(
     schedule: schedule,

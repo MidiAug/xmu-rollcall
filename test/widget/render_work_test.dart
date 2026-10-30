@@ -106,93 +106,107 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  for (final scenario in ['logs', 'waiting', 'hidden']) {
-    testWidgets('render work stays local for $scenario', (tester) async {
-      SharedPreferences.setMockInitialValues({});
-      var now = DateTime(2026, 10, 30, 10);
-      final window = _Window();
-      final container = ProviderContainer(
-        overrides: [
-          authControllerProvider.overrideWith((ref) => _Auth()),
-          monitorControllerProvider.overrideWith(_Monitor.new),
-          selectedDetectionWindowProvider.overrideWith((ref) async => window),
-          activeRollcallClockProvider.overrideWithValue(() => now),
-        ],
-      );
-      addTearDown(container.dispose);
-      final monitor =
-          container.read(monitorControllerProvider.notifier) as _Monitor;
-      final plan = CourseWatchWindow(
-        hasLessonsToday: true,
-        completedToday: false,
-        hasSchedule: true,
-        intervals: [
-          (
-            start: DateTime(2026, 10, 30, 14, 20),
-            end: DateTime(2026, 10, 30, 14, 30),
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    for (final scenario in ['logs', 'waiting', 'hidden']) {
+      testWidgets('render work stays local for $scenario on $platform', (
+        tester,
+      ) async {
+        SharedPreferences.setMockInitialValues({});
+        var now = DateTime(2026, 10, 30, 10);
+        final window = _Window();
+        final container = ProviderContainer(
+          overrides: [
+            authControllerProvider.overrideWith((ref) => _Auth()),
+            monitorControllerProvider.overrideWith(_Monitor.new),
+            selectedDetectionWindowProvider.overrideWith((ref) async => window),
+            activeRollcallClockProvider.overrideWithValue(() => now),
+          ],
+        );
+        addTearDown(container.dispose);
+        final monitor =
+            container.read(monitorControllerProvider.notifier) as _Monitor;
+        final plan = CourseWatchWindow(
+          hasLessonsToday: true,
+          completedToday: false,
+          hasSchedule: true,
+          intervals: [
+            (
+              start: DateTime(2026, 10, 30, 14, 20),
+              end: DateTime(2026, 10, 30, 14, 30),
+            ),
+          ],
+        );
+        monitor.publish(
+          MonitorState(
+            config: MonitorConfig(
+              courseWatch: platform == TargetPlatform.windows,
+            ),
+            running: true,
+            waitingForWindow: true,
+            discoveryWindow: plan,
           ),
-        ],
-      );
-      monitor.publish(
-        MonitorState(
-          config: const MonitorConfig(courseWatch: true),
-          running: true,
-          waitingForWindow: true,
-          discoveryWindow: plan,
-        ),
-      );
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
-            home: Scaffold(
-              body: TickerMode(
-                enabled: scenario != 'hidden',
-                child: const Column(
-                  children: [
-                    MonitorQuickControl(style: MonitorControlStyle.toolbar),
-                    MonitorStatusLine(fallback: '课外暂停'),
-                  ],
+        );
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: AppTheme.light().copyWith(platform: platform),
+              home: Scaffold(
+                body: TickerMode(
+                  enabled: scenario != 'hidden',
+                  child: Column(
+                    children: [
+                      MonitorQuickControl(
+                        style: platform == TargetPlatform.android
+                            ? MonitorControlStyle.mastheadStatus
+                            : MonitorControlStyle.toolbar,
+                      ),
+                      MonitorStatusLine(fallback: '课外暂停'),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      var controls = 0, statuses = 0;
-      final previous = debugOnRebuildDirtyWidget;
-      debugOnRebuildDirtyWidget = (element, builtOnce) {
-        previous?.call(element, builtOnce);
-        if (element.widget is MonitorQuickControl) controls++;
-        if (element.widget is MonitorStatusLine) statuses++;
-      };
-      addTearDown(() => debugOnRebuildDirtyWidget = previous);
-      window.checks = 0;
-      if (scenario == 'logs') {
-        for (var i = 0; i < 20; i++) {
-          monitor.publish(
-            monitor.state.copyWith(
-              logs: [PollLogEntry(at: now, ok: true, message: 'log $i')],
-            ),
-          );
-          await tester.pump();
+        );
+        await tester.pumpAndSettle();
+        var controls = 0, statuses = 0;
+        final previous = debugOnRebuildDirtyWidget;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          previous?.call(element, builtOnce);
+          if (element.widget is MonitorQuickControl) controls++;
+          if (element.widget is MonitorStatusLine) statuses++;
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previous);
+        window.checks = 0;
+        if (scenario == 'logs') {
+          for (var i = 0; i < 20; i++) {
+            monitor.publish(
+              monitor.state.copyWith(
+                logs: [PollLogEntry(at: now, ok: true, message: 'log $i')],
+              ),
+            );
+            await tester.pump();
+          }
+        } else {
+          for (var i = 0; i < 5; i++) {
+            now = now.add(const Duration(seconds: 1));
+            await tester.pump(const Duration(seconds: 1));
+          }
         }
-      } else {
-        for (var i = 0; i < 5; i++) {
-          now = now.add(const Duration(seconds: 1));
-          await tester.pump(const Duration(seconds: 1));
+        debugPrint(
+          '$scenario: controls=$controls status=$statuses windowChecks=${window.checks}',
+        );
+        expect(controls, 0);
+        expect(statuses, 0);
+        expect(window.checks, 0);
+        if (platform == TargetPlatform.windows) {
+          expect(find.text('值守中，今日 14:20 开始检测'), findsOneWidget);
+        } else {
+          expect(find.text('等待课表时段'), findsOneWidget);
         }
-      }
-      debugPrint(
-        '$scenario: controls=$controls status=$statuses windowChecks=${window.checks}',
-      );
-      expect(controls, 0);
-      expect(statuses, 0);
-      expect(window.checks, 0);
-      expect(find.text('值守中，今日 14:20 开始检测'), findsOneWidget);
-      await tester.pumpWidget(const SizedBox());
-    });
+        await tester.pumpWidget(const SizedBox());
+      });
+    }
   }
 }

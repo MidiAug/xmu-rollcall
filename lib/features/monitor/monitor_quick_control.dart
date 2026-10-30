@@ -45,7 +45,9 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
       final monitor = ref.read(monitorControllerProvider);
       if (monitor.running) {
         if (widget.style == MonitorControlStyle.mastheadStatus &&
-            Theme.of(context).platform == TargetPlatform.android) {
+            Theme.of(context).platform == TargetPlatform.android &&
+            monitor.discovering &&
+            !monitor.waitingForWindow) {
           setState(() {});
         }
         return;

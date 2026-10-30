@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
+import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,6 +26,45 @@ class _Auth extends AuthController {
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test(
+    'campus cache includes unscheduled current-course tasks without fetching',
+    () async {
+      await CourseCatalogStore.write(
+        1,
+        CourseCatalogSnapshot(
+          fetchedAt: DateTime.now(),
+          courses: [
+            CatalogCourse(
+              id: '7',
+              title: '本学期课程',
+              courseCode: '${currentSemester(DateTime.now())}-sample',
+            ),
+            const CatalogCourse(id: '8', title: '旧课程', courseCode: '20252-old'),
+          ],
+        ),
+      );
+      await JsonDiskCache.writeList('course_homework_1_7', [
+        const HomeworkItem(id: 70, courseId: 7, title: '本学期任务').toJson(),
+      ]);
+      await JsonDiskCache.writeList('course_homework_1_8', [
+        const HomeworkItem(id: 80, courseId: 8, title: '旧任务').toJson(),
+      ]);
+      final container = ProviderContainer(
+        overrides: [authControllerProvider.overrideWith((ref) => _Auth())],
+      );
+      addTearDown(container.dispose);
+      final snapshot = await container.read(campusCachedDataProvider.future);
+      expect(snapshot.hasHomeworkCache, isTrue);
+      expect(snapshot.homework.map((i) => i.id), [70]);
+      expect(container.exists(homeworkTodosProvider), isFalse);
+      container.read(selectedRollcallAccountProvider.notifier).state = 2;
+      expect(
+        (await container.read(campusCachedDataProvider.future)).homework,
+        isEmpty,
+      );
+    },
+  );
+
   test('active badge excludes closed, expired, completed and non homework', () {
     final now = DateTime(2026, 10, 29);
     const item = HomeworkItem(id: 1, title: '作业');

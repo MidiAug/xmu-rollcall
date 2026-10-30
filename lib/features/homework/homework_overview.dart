@@ -41,7 +41,7 @@ final homeworkOverviewProvider =
 /// mirrors, but are read serially without mounting persistent family providers.
 class HomeworkOverviewNotifier
     extends AutoDisposeAsyncNotifier<HomeworkOverview> {
-  static const checkTtl = Duration(minutes: 5);
+  static const checkTtl = CachePolicy.homeworkActiveFreshFor;
   int _revision = 0;
   int? _scope;
   int? _owner;
@@ -262,6 +262,12 @@ final homeworkManualRefreshAtProvider = StateProvider.family<DateTime?, int>(
   (ref, uid) => null,
 );
 
+// Failed row checks must survive the row's autoDispose across tab switches.
+final _submissionFailureAtProvider =
+    StateProvider.family<DateTime?, ({int? owner, HomeworkStatusKey task})>(
+      (ref, key) => null,
+    );
+
 /// Mounted lazily by visible student rows. No submission attachments or comments
 /// are cached; only the normalized personal submission / grading state survives.
 final homeworkSubmissionProvider = FutureProvider.autoDispose
@@ -281,6 +287,10 @@ final homeworkSubmissionProvider = FutureProvider.autoDispose
       final requestedAt = ref.watch(
         homeworkManualRefreshAtProvider(key.userId),
       );
+      final failureProvider = _submissionFailureAtProvider((
+        owner: owner,
+        task: key,
+      ));
       final suffix = 'homework_submission_${key.userId}_${key.activityId}';
       final disk = await JsonDiskCache.readList(suffix);
       final cached = disk == null || disk.items.isEmpty
@@ -290,7 +300,9 @@ final homeworkSubmissionProvider = FutureProvider.autoDispose
           ? const Duration(hours: 24)
           : key.closed
           ? const Duration(hours: 2)
-          : const Duration(minutes: 30);
+          : cached?.submission == HomeworkSubmission.submitted
+          ? const Duration(minutes: 30)
+          : CachePolicy.homeworkActiveFreshFor;
       final deadlinePassed =
           disk != null &&
           key.dueAt != null &&
@@ -301,6 +313,14 @@ final homeworkSubmissionProvider = FutureProvider.autoDispose
           disk!.isFresh(ttl) &&
           (requestedAt == null || !disk.fetchedAt.isBefore(requestedAt))) {
         return cached;
+      }
+      final failedAt = ref.read(failureProvider);
+      if (failedAt != null &&
+          DateTime.now().difference(failedAt) <
+              CachePolicy.homeworkStatusFailureBackoff &&
+          (requestedAt == null || !requestedAt.isAfter(failedAt))) {
+        if (cached != null) return cached;
+        throw StateError('作业状态暂不可用，请稍后重试');
       }
       bool isCurrent() =>
           alive &&
@@ -329,12 +349,16 @@ final homeworkSubmissionProvider = FutureProvider.autoDispose
             ),
           );
           if (!isCurrent()) throw StateError('作业身份已切换');
+          ref.read(failureProvider.notifier).state = null;
           await JsonDiskCache.writeList(suffix, [result.toJson()]);
           if (isCurrent()) {
             ref.read(homeworkSubmissionRevisionProvider.notifier).state++;
           }
           return result;
         } catch (_) {
+          if (isCurrent()) {
+            ref.read(failureProvider.notifier).state = DateTime.now();
+          }
           if (cached != null) return cached;
           rethrow;
         } finally {

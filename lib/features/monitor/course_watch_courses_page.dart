@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/core/cache/course_rollcalls_store.dart';
+import 'package:xmu_rollcall/features/history/history_summary.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
@@ -19,12 +21,19 @@ class CourseWatchCoursesPage extends StatefulWidget {
 
 class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
   List<CatalogCourse>? _courses;
+  Map<String, ({CourseRollcallTypeCounts counts, bool partial})?>? _types;
   var _scope = const CourseWatchScope();
   bool _saving = false;
   String? _error;
   @override
   void initState() {
     super.initState();
+    _load();
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
     _load();
   }
 
@@ -37,10 +46,27 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
         widget.targetId,
       );
       final courses = await readCourseWatchCourses(widget.targetId);
+      final types =
+          <String, ({CourseRollcallTypeCounts counts, bool partial})?>{};
+      for (final course in courses) {
+        final history = await CourseRollcallsStore.read(
+          widget.targetId,
+          course.id,
+        );
+        types[course.id] =
+            history?.lastSuccessfulFetch == null &&
+                (history?.records.isEmpty ?? true)
+            ? null
+            : (
+                counts: CourseRollcallTypeCounts.fromRecords(history!.records),
+                partial: history.truncated,
+              );
+      }
       if (mounted) {
         setState(() {
           _scope = scope;
           _courses = courses;
+          _types = types;
           _error = null;
         });
       }
@@ -101,7 +127,7 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  '默认包含全部课程。关闭整门课程，或只取消每周某一次上课安排；修改自动保存。',
+                  '默认包含全部课程。关闭整门课程，或只取消每周某一次上课安排；修改自动保存。顶部数量来自已缓存的历史签到。',
                   style: TextStyle(color: p.muted, height: 1.6),
                 ),
                 const SizedBox(height: 20),
@@ -179,13 +205,20 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
               color: p.ink,
             ),
           ),
-          subtitle: Text(
-            course.needsSchedule
-                ? '暂无可用的上课安排'
-                : _scope.excludedCourses.contains(course.id)
-                ? '本课程不参与值守'
-                : '勾选的上课安排参与值守',
-            style: AppTypography.caption.copyWith(color: p.muted),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                course.needsSchedule
+                    ? '暂无可用的上课安排'
+                    : _scope.excludedCourses.contains(course.id)
+                    ? '本课程不参与值守'
+                    : '勾选的上课安排参与值守',
+                style: AppTypography.caption.copyWith(color: p.muted),
+              ),
+              const SizedBox(height: 6),
+              _historyTypes(course.id, p),
+            ],
           ),
           onChanged: _saving
               ? null
@@ -262,4 +295,26 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
       ],
     ),
   );
+
+  Widget _historyTypes(String courseId, AppPalette p) {
+    final history = _types?[courseId];
+    final counts = history?.counts;
+    final style = AppTypography.caption.copyWith(color: p.muted);
+    if (counts == null) return Text('尚无历史缓存', style: style);
+    if (counts.total == 0) return Text('缓存历史：暂无签到记录', style: style);
+    return Wrap(
+      spacing: 12,
+      runSpacing: 4,
+      children: [
+        Text(history!.partial ? '缓存历史（部分）' : '缓存历史', style: style),
+        for (final entry in [
+          ('数字', counts.number),
+          ('雷达', counts.radar),
+          ('二维码', counts.qr),
+          if (counts.other > 0) ('其他', counts.other),
+        ])
+          Text('${entry.$1} ${entry.$2}', style: style),
+      ],
+    );
+  }
 }
