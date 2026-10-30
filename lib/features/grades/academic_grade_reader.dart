@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/exams/academic_exam_reader.dart';
 import 'grade_release_policy.dart';
 import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
@@ -70,52 +71,11 @@ class AcademicGradeReader {
     const base = '/jwapp/sys/studentWdksapApp/';
     final at = DateTime.now();
     final term = currentSemester(at);
-    final year = int.parse(term.substring(0, 4));
-    final fullTerm = '$year-${year + 1}-${term[4]}';
-    final page = AcademicSession.jw.resolve('$base*default/index.do');
-    await session.open(page);
-    final payload = await session.json(
-      '${base}modules/wdksap/cxxsksap.do',
-      data: {'XNXQDM': fullTerm, 'pageSize': 500, 'pageNumber': 1},
-      headers: {
-        'Referer': page.toString(),
-        'Origin': AcademicSession.jw.origin,
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-    );
-    final node = (payload['datas'] as Map?)?['cxxsksap'];
-    if (node is! Map || node['rows'] is! List) {
-      throw const FormatException('考试安排格式异常');
-    }
-    final rows = node['rows'] as List;
-    if (node['totalSize'] is num && (node['totalSize'] as num) > rows.length) {
-      throw const FormatException('考试安排不完整');
-    }
-    final dates = <DateTime>{};
-    for (final row in rows) {
-      if (row is! Map ||
-          (row['XH'] != null && academicText(row['XH']) != username) ||
-          (row['XNXQDM'] != null && academicText(row['XNXQDM']) != fullTerm)) {
-        throw const FormatException('考试安排身份或学期不一致');
-      }
-      final raw = academicText(row['KSRQ']);
-      final match = RegExp(
-        r'^(\d{4})-(\d{2})-(\d{2})(?:$|[ T])',
-      ).firstMatch(raw);
-      if (match == null) throw const FormatException('考试日期格式异常');
-      final date = DateTime(
-        int.parse(match[1]!),
-        int.parse(match[2]!),
-        int.parse(match[3]!),
-      );
-      if (date.year != int.parse(match[1]!) ||
-          date.month != int.parse(match[2]!) ||
-          date.day != int.parse(match[3]!)) {
-        throw const FormatException('考试日期无效');
-      }
-      dates.add(date);
-    }
-    return AcademicExamDates(term: term, at: at, dates: dates.toList()..sort());
+    await session.open(AcademicSession.jw.resolve('$base*default/index.do'));
+    final exams = await readAcademicExams(session, username, term);
+    final dates =
+        exams.map((e) => e.date).whereType<DateTime>().toSet().toList()..sort();
+    return AcademicExamDates(term: term, at: at, dates: dates);
   }
 
   Future<void> _openApplication(String applicationId) async {

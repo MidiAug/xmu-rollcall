@@ -49,6 +49,7 @@ class AppRefreshButton extends StatefulWidget {
     this.tooltip = '刷新',
     this.visualDensity,
     this.extent,
+    this.busy = false,
   });
 
   final Future<void> Function() onRefresh;
@@ -57,6 +58,9 @@ class AppRefreshButton extends StatefulWidget {
   final String tooltip;
   final VisualDensity? visualDensity;
   final double? extent;
+
+  /// Shared request state, including requests started by another control.
+  final bool busy;
 
   @override
   State<AppRefreshButton> createState() => _AppRefreshButtonState();
@@ -74,6 +78,20 @@ class _AppRefreshButtonState extends State<AppRefreshButton>
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
+    if (widget.busy) _spin.repeat();
+  }
+
+  @override
+  void didUpdateWidget(AppRefreshButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.busy == widget.busy) return;
+    if (_busy || widget.busy) {
+      _spin.repeat();
+    } else {
+      _spin
+        ..stop()
+        ..value = 0;
+    }
   }
 
   @override
@@ -83,17 +101,19 @@ class _AppRefreshButtonState extends State<AppRefreshButton>
   }
 
   Future<void> _handle() async {
-    if (_busy) return;
+    if (_busy || widget.busy) return;
     setState(() => _busy = true);
     _spin.repeat();
     try {
       await widget.onRefresh();
     } finally {
       if (mounted) {
-        _spin
-          ..stop()
-          ..value = 0;
         setState(() => _busy = false);
+        if (!widget.busy) {
+          _spin
+            ..stop()
+            ..value = 0;
+        }
       }
     }
   }
@@ -126,7 +146,7 @@ class _AppRefreshButtonState extends State<AppRefreshButton>
               )
             : null,
         visualDensity: widget.visualDensity,
-        onPressed: _busy ? null : _handle,
+        onPressed: _busy || widget.busy ? null : _handle,
         icon: RotationTransition(
           turns: _spin,
           child: Icon(

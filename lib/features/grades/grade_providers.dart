@@ -1,4 +1,5 @@
 import 'grade_release_policy.dart';
+import 'package:xmu_rollcall/features/exams/exam_providers.dart';
 export 'grade_release_policy.dart' show gradeReleaseWindow;
 import 'dart:async';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
@@ -56,6 +57,25 @@ class GradeNotifier extends AutoDisposeAsyncNotifier<GradeSnapshot> {
     } catch (_) {}
     final now = ref.read(gradeClockProvider)();
     final currentCache = _cache;
+    final examCache = currentCache?.education == 'graduate'
+        ? null
+        : readExamCache(prefs, _owner, _uid, currentSemester(now));
+    final examDates =
+        examCache != null &&
+            (currentCache?.exams == null ||
+                examCache.at.isAfter(currentCache!.exams!.at))
+        ? AcademicExamDates(
+            term: examCache.term,
+            at: examCache.at,
+            dates: examCache.exams
+                .map((e) => e.date)
+                .whereType<DateTime>()
+                .toSet()
+                .toList(),
+          )
+        : currentCache?.education == 'graduate'
+        ? null
+        : currentCache?.exams;
     final fresh =
         currentCache != null &&
         currentCache.version >= 2 &&
@@ -82,7 +102,7 @@ class GradeNotifier extends AutoDisposeAsyncNotifier<GradeSnapshot> {
       unawaited(
         Future<void>(() async {
           if (revision != _revision) return;
-          if (!gradeReleaseWindow(now, exams: currentCache.exams)) {
+          if (!gradeReleaseWindow(now, exams: examDates)) {
             AppLog.event(
               'grades.refresh.skipped',
               fields: {

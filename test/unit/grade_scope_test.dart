@@ -21,6 +21,9 @@ import 'package:xmu_rollcall/features/academic/academic_session.dart';
 import 'package:xmu_rollcall/features/schedule/academic_sync.dart';
 import 'package:xmu_rollcall/features/grades/academic_grade_reader.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
+import 'package:xmu_rollcall/features/exams/exam_models.dart';
+import 'package:xmu_rollcall/features/exams/exam_providers.dart';
+import 'package:xmu_rollcall/features/grades/grade_release_policy.dart';
 
 class _AuthRepo extends Fake implements AuthRepository {}
 
@@ -57,6 +60,87 @@ class _Client extends AcademicGradeReader {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  for (final scope in ['own', 'other', 'removed', 'graduate']) {
+    test(
+      'grade window uses local exam facts for $scope account only',
+      () async {
+        final now = DateTime(2026, 10, 31);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          gradeCacheKey(1, 1),
+          jsonEncode(
+            GradeSnapshot(
+              at: now.subtract(const Duration(days: 2)),
+              term: '20261',
+              records: [],
+              education: scope == 'graduate' ? 'graduate' : 'undergraduate',
+              exams: scope == 'removed' || scope == 'graduate'
+                  ? AcademicExamDates(
+                      term: '20261',
+                      at: now.subtract(const Duration(days: 3)),
+                      dates: [DateTime(2026, 10, 30)],
+                    )
+                  : null,
+            ).toJson(),
+          ),
+        );
+        await prefs.setString(
+          examCacheKey(1, scope == 'other' ? 2 : 1, '20261'),
+          jsonEncode(
+            ExamSnapshot(
+              term: '20261',
+              at: now.subtract(const Duration(hours: 1)),
+              exams: scope == 'removed'
+                  ? []
+                  : [
+                      AcademicExam(
+                        id: 'e',
+                        course: '测试课程',
+                        date: DateTime(2026, 10, 30),
+                      ),
+                    ],
+            ).toJson(),
+          ),
+        );
+        final store = SecureStore.memory({SecureStore.keyUserId: '1'});
+        final client = _Client(store);
+        final c = ProviderContainer(
+          overrides: [
+            authControllerProvider.overrideWith((ref) => _Auth()),
+            assistControllerProvider.overrideWith(
+              (ref) => AssistController(
+                ref,
+                bootstrap: false,
+                initial: const AssistUiState(ready: true),
+              ),
+            ),
+            academicIdentityResolverProvider.overrideWithValue(
+              (_) async => AcademicIdentity(isCurrent: () async => true),
+            ),
+            gradeClockProvider.overrideWithValue(() => now),
+            gradeReaderProvider.overrideWithValue(() => client),
+          ],
+        );
+        addTearDown(c.dispose);
+        final sub = c.listen(gradeSnapshotProvider, (_, _) {});
+        addTearDown(sub.close);
+        await c.read(gradeSnapshotProvider.future);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        expect(client.entered.isCompleted, scope == 'own');
+        if (scope == 'own') {
+          final joined = c.read(gradeSnapshotProvider.notifier).refresh();
+          client.result.complete(
+            const AcademicGradeResult(
+              rows: [],
+              replacedTerms: {},
+              complete: true,
+            ),
+          );
+          await joined;
+        }
+      },
+    );
+  }
   for (final uid in [1, 2]) {
     test(
       'mid-semester account $uid reuses old cache without academic access; manual refresh remains available',

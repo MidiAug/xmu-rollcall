@@ -5,6 +5,7 @@ import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/grades/gpa_page.dart';
+import 'package:xmu_rollcall/features/exams/exam_page.dart';
 
 /// Built-in tool descriptors are the extension seam. No phantom future services.
 class CampusTool {
@@ -20,7 +21,15 @@ class CampusTool {
   final WidgetBuilder page;
 }
 
-final campusTools = <CampusTool>[
+// A getter lets hot reload pick up newly added built-in tools as well.
+List<CampusTool> get campusTools => <CampusTool>[
+  CampusTool(
+    id: 'exams',
+    title: '考试安排',
+    description: '本学期未安排、未考试与已考试',
+    icon: AppIcons.calendar,
+    page: (_) => const ExamPage(),
+  ),
   CampusTool(
     id: 'gpa',
     title: 'GPA 计算器',
@@ -55,7 +64,7 @@ class _CampusToolsPageState extends State<CampusToolsPage>
     final touch = AppDensity.isTouch(context);
     return PageScaffold(
       title: '工具',
-      subtitle: '成绩查询与绩点计算',
+      subtitle: '考试安排、成绩查询与绩点计算',
       child: AppContentColumn(
         maxWidth: 900,
         child: SingleChildScrollView(
@@ -73,7 +82,9 @@ class _CampusToolsPageState extends State<CampusToolsPage>
               children: [
                 for (final tool in campusTools)
                   SizedBox(
-                    width: touch ? constraints.maxWidth : 280,
+                    width: touch || constraints.maxWidth < 640
+                        ? constraints.maxWidth
+                        : (constraints.maxWidth - 20) / 2,
                     child: Material(
                       key: ValueKey('tool-${tool.id}'),
                       color: p.surface,
@@ -85,54 +96,54 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                       ),
                       clipBehavior: Clip.antiAlias,
                       child: InkWell(
+                        hoverColor: p.cardHover,
                         onTap: () =>
                             AppPageRoutes.push(context, tool.page(context)),
                         child: Padding(
                           padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Row(
                             children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      color: p.accentSurface,
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    child: Icon(
-                                      tool.icon,
-                                      color: p.primary,
-                                      size: 26,
-                                    ),
-                                  ),
-                                  const Spacer(),
-                                  Icon(
-                                    AppIcons.right,
-                                    color: p.primary,
-                                    size: 20,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-                              Text(
-                                tool.title,
-                                style: TextStyle(
-                                  fontSize: 19,
-                                  fontWeight: FontWeight.w600,
-                                  color: p.ink,
+                              Container(
+                                width: 52,
+                                height: 52,
+                                decoration: BoxDecoration(
+                                  color: p.accentSurface,
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                                child: Icon(
+                                  tool.icon,
+                                  color: p.primary,
+                                  size: 26,
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                tool.description,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: p.muted,
-                                  height: 1.5,
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      tool.title,
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                        color: p.ink,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 7),
+                                    Text(
+                                      tool.description,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: p.muted,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
+                              const SizedBox(width: 12),
+                              Icon(AppIcons.right, color: p.muted, size: 18),
                             ],
                           ),
                         ),

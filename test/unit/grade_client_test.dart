@@ -31,6 +31,8 @@ class GradeAdapter implements HttpClientAdapter {
             'cxxsksap': {
               'rows': [
                 {
+                  'KSRWID': 'exam-synthetic',
+                  'KCM': '测试课程',
                   'KSRQ': '2026-11-10',
                   'XH': wrongExamIdentity ? 'other' : 'sample',
                   'XNXQDM': (options.data as Map)['XNXQDM'],

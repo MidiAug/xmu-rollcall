@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/core/theme/app_icons.dart';
 import 'package:xmu_rollcall/features/grades/gpa_page.dart';
+import 'package:xmu_rollcall/features/exams/exam_page.dart';
 import 'package:xmu_rollcall/features/history/history_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
 import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
@@ -35,6 +36,14 @@ bool campusSearchMatches(String query, String content) {
 }
 
 List<CampusSearchEntry> campusSearchFeatures(int? scope) => [
+  CampusSearchEntry(
+    '考试安排',
+    '本学期未安排、未考试和已考试',
+    '期末 考试 考场 考试安排 座位',
+    AppIcons.calendar,
+    page: (_) => const ExamPage(),
+    help: '查看当前账号的本学期本科考试，先显示本地数据并按日期判断是否核对教务。可手动更新；已考试只表示安排时间已过。',
+  ),
   CampusSearchEntry(
     'GPA 计算器',
     '成绩、学年与学期绩点',

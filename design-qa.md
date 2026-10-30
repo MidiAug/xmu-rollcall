@@ -881,3 +881,57 @@ final result: passed
 - 更正上轮来源解释：anchorFromUser=false只能排除手动兜底，不能证明旧缓存一定来自内置校历。旧缓存没有更细来源标记。
 - 说明及日期示例写入docs/research/57-tronclass-semester-start.md，56号调研记录添加互链和更正。当前c9d7a49运行优先级本轮未改，教学周锚点不等于考试/出分日期。
 - 纯Markdown更新，核对函数、旧调用、日期例子与diff；未运行Flutter检查或修改真实缓存。
+## 2026-10-31 本学期考试安排与教务数据更新契约
+
+- 校园工具及校园搜索新增“考试安排”，仅当前学期本科已排/未安排两列表；显示三种状态、时间、地点、座位及上次核对时间。已考试依据结束时间，空日期保留为未安排，不猜线上或实际参加状态。
+- ExamNotifier按owner/target/term缓存先显，平时7天、校历最后两周24小时、临考48小时内6小时；仅打开/可见恢复触发，分钟时钟只更新本地分组。手动15秒、自动失败30分钟退避；两个列表全部成功才替换，完整空列表有效。首次/跨学期与手动请求共用在途任务，切号/会话失效不发布旧响应。
+- 原成绩日期查询复用同一个已排解析入口，修复空日期导致整份考试日期事实不可用；GPA在本地读同身份较新的考试快照判断出分窗口，较新空集合撤销旧日期，不给研究生套本科事实。
+- 读取用户指定考试记录只提取协议字段，未使用其中Cookie请求学校，未复制真实学号、课程或会话进仓库。参考只读D:/Projects/References/xmu_assistant，固定bbcedf701f8b66200a5897767e0d14c7c6cef5fe；不沿用历史学期探测或空教室推断线上。
+- build/exams-final-tests.log：76项相关回归通过（协议、存储/Provider、成绩规则、考试/GPA/工具/搜索布局）。最终同源请求头复核build/exams-headers-tests.log为27项通过；新增跨学期缓存缺失与手动请求合并后，build/exams-flight-tests.log为8项通过。build/exams-headers-analyze.log全库无问题；最终Provider/测试由build/exams-flight-analyze.log复核无问题。
+- build/exam-ui-tests.log生成四种截图，实际查看build/exam-ui-review下phone/desktop-light/dark.png：390×844与1100×850、中文真实字体，课程换行、考场/座位、分组和滚动无溢出；未将截图当作真机验收。未热重载用户开发实例、安装、推送或发布；真实本科本学期尚未发布的考试及Android真机仍待验收。
+- 共用原则写入本地AGENTS.md，详细频率/边界写入docs/features/academic-data-refresh.md，同步规格、验收、路线、架构与功能台账；按既有.gitignore仅保存在本地，不强制加入公开提交。知识检索命中Engineering的“应用性能、缓存与低磁盘读写”，采用缓存归属/在途合并/失败不作空成功的约束，具体业务参数由项目维护；未回写共享知识库。
+
+## 2026-10-31 禁用点号分隔与考试页面视觉整理
+
+- 用户明确要求前端不以点号分隔信息，写入本地AGENTS.md：用独立字段、间距、换行和徽标表达层级；正常句末标点、小数及用户/教务原始名称中的字符不在此限制内。该本地规则沿用仓库忽略约定。
+- 考试页拆分学年、学期、三组数量和核对时间；日期使用日历块，课程、时段、考场独立布局，座位/考试方式/进行中状态复用AppStatusBadge。正在考试边框强调、已考试弱化，分组数量单独徽标，不把点号替成另一串分隔符。工具首页改横向紧凑入口，手机单列、宽屏两列并保留原点击/悬停路径。
+- build/exams-polish-final-tests.log：考试页与工具页四种端/主题组合、校园搜索导航共5项通过，原缓存可读/时间/地点/座位断言保留，增加无点号拼接检查。刷新、会话、存储和网络代码未修改。
+- 实际查看build/exam-ui-review下考试页和tools前缀的全部8张截图：390×844手机与1100×850桌面浅深色，中文字体、长课程名、考场和座位均正常，内容可滚动。截图只代表Flutter布局检查，未做Android真机/原生窗口验收，未安装、热重载或发布。
+- build/exams-polish-final-analyze.log：flutter analyze全库无问题。源码检索确认本轮考试及工具页面不再含中点/圆点分隔。同步本地规格、功能状态与数据更新契约；公共效果进入根CHANGELOG.md。
+
+## 2026-10-31 考试卡片信息顺序与左右对齐
+
+- 按用户附图反馈移除“正在考试”徽标与对应强调边框；右侧从上到下显示课程名、地点、时间，座位/开闭卷标签紧随底部时间，不足宽度自然换行。左侧日期块与右侧内容垂直居中，三行内容的高度更接近；未安排与已考试呈现保留。三状态时间判定和刷新流程不变。
+- build/exam-card-order-tests.log：手机/桌面浅深色4项界面回归通过，断言不再显示正在考试，时间/地点/座位及原缓存信息仍可读。
+- 实际查看build/exam-ui-review下phone-light/dark和desktop-light/dark四张最新截图，确认课程、地点、底部时间与标签顺序，左右高度协调，长课程名和窄屏标签可换行，无溢出。未安装、热重载或做真机验收。
+- build/exam-card-order-analyze.log：flutter analyze全库无问题。同步本地规格、功能台账与考试状态说明，根CHANGELOG.md更新为最终卡片布局。
+
+## 2026-10-31 课程名单行省略与考试时间图标
+
+- 用户要求课程名保持单行、超宽末尾省略，说明其常用名为ellipsis/尾部省略，写入本地AGENTS.md作为列表/卡片课程名的默认规则，详情可完整展示，正常省略号不属于分隔符。
+- 考试卡片复用AppTruncatedText，只有实际截断时显示全文Tooltip，桌面悬停和触控长按沿用项目现有交互。时间前加AppIcons.clock，15px规格及6px间距与地点图标一致；时间和图标作为一组，后随座位及开闭卷标签，窄屏自然换行。
+- build/exam-ellipsis-tests.log：四种考试/工具布局与既有截断提示回归共5项通过；长课程名在手机截断有提示、桌面足够宽时无提示，短名称不重复提示，时间/地点/座位和无点号分隔断言保持。
+- 检查build/exam-ui-review下最新phone/desktop-light/dark四张截图，确认中文尾部省略、时钟与定位图标及底部标签布局。未热重载、安装或进行真机验收。
+- build/exam-ellipsis-analyze.log：flutter analyze全库无问题。同步本地规格、功能台账、AGENTS.md与根CHANGELOG.md，业务刷新/状态/协议均未变更。
+
+## 2026-10-31 新考试工具入口在热重载后缺失
+
+- 用户反馈工具页没有考试安排。对当前项目Debug实例通过VM evaluate只读检查campusTools的ID，实际仅gpa；源码却含exams和gpa，确认顶层final已初始化值在热重载中保留，之前只核对reload Success不足以证明新入口已经出现。
+- 将同一列表改为getter保留调用接口，重新通过现有FlutterTools reloadSources服务热重载成功；再次读取运行时ID为exams,gpa。未热重启、关闭进程、重置账号或缓存。
+- build/tool-registry-tests.log相关界面/导航5项通过，build/tool-registry-analyze.log聚焦Flutter静态检查无问题。真实运行时入口复核与自动布局回归分别记录。
+
+## 2026-10-31 考试安排首次读取失败分析
+
+- 只读当前Windows前台日志：2026-10-31 02:26:40及02:26:56（UTC+8）studentWdksapApp入口最终HTTP200，随后gsapp/sys/wdkbapp/wdkcb/initXsxx.do返回302，两次都没有执行cxxsksap/cxyxkwapkwdkc。页面之后显示的是30分钟自动失败退避，不能以此当首次失败原因。
+- 依据用户考试抓包确认同应用POST cxxsjbxx.do的datas.cxxsjbxx.rows结构及XH字段；修正为考试应用自身身份接口，验证成功码、唯一学生/totalSize和所选身份。未使用抓包Cookie或复制真实身份数据。
+- HTTP适配器加入旧GS接口返回302、考试身份接口正确返回的组合，回归确保不再跨GS上下文且错误学生仍被拒绝；build/exam-identity-tests.log协议/分页/缓存/账号/手动退避等19项通过。
+- build/exam-identity-analyze.log全库Flutter静态检查无问题。当前Windows Debug通过FlutterTools热重载Success；未主动重发真实考试查询，修复后的真实返回需手动更新复核，旧失败退避没有清除。
+
+## 2026-10-31 考试重试与刷新共享进度
+
+- 根因：ExamNotifier.refresh在无缓存的错误态重试时只更新updating字段、不发布加载状态；AppRefreshButton又只观察自身点击，导致重试请求开始后旧错误页无变化且右上角不联动。
+- 无缓存重试发布AsyncLoading，页面显示读取进度和明确文字；有缓存继续发布数据及正在核对状态。AppRefreshButton新增可选外部busy输入，考试页从同一Provider状态驱动旋转/禁用，任一入口发起的请求都能联动，结束后恢复；失败/15秒节流即时返回错误页。既有调用默认值保留自身点击语义。
+- build/exam-retry-final-tests.log：考试错误页/头部入口、失败→节流→成功、正常四种布局、Provider账号/在途/失败退避及下拉控件共17项通过；build/exam-retry-progress-tests.log另对两入口进度复核。使用真实Provider与现有HTTP适配器阻塞/返回503，未复制业务逻辑。
+- 实际查看build/exam-retry-review/loading.png和throttled.png，读取中正文提示/旋转头部与明确错误、可重试入口均正常；自动截图不代表真机验收。
+- 扩大共享控件检查时desktop_workspace_test的4个签到切Tab计时断言失败，loads预期1实际2。用HEAD原AppRefreshButton及无外部busy调用作对照，首个同样失败（build/retry-baseline-desktop.log）；已恢复本次实现，未改签到计时或放宽断言，不把这些测试记为通过。
+- 全库静态扫描仅发现截图辅助函数的单行if格式提示，已修正；build/exam-retry-verified-analyze.log对4个变更文件复核无问题。尝试热重载时旧开发服务拒绝连接，进程清单确认当前没有本项目Flutter run/Windows Debug进程，因此本轮未能热重载，也未另行启动应用。已有未跟踪tools/location_picker不属本任务，保留。
