@@ -6,7 +6,6 @@ import 'package:xmu_rollcall/app/app_switch.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
-import 'package:xmu_rollcall/platform/windows_startup.dart';
 import 'course_watch.dart';
 import 'course_watch_courses_page.dart';
 import 'monitor_controller.dart';
@@ -16,10 +15,8 @@ class CourseWatchSettings extends ConsumerStatefulWidget {
     super.key,
     required this.ownerId,
     required this.targetId,
-    required this.isOwner,
   });
   final int ownerId, targetId;
-  final bool isOwner;
   @override
   ConsumerState<CourseWatchSettings> createState() =>
       _CourseWatchSettingsState();
@@ -27,8 +24,6 @@ class CourseWatchSettings extends ConsumerStatefulWidget {
 
 class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
   CourseWatchScope _scope = const CourseWatchScope();
-  bool? _startup;
-  bool _savingStartup = false;
   String? _error;
   @override
   void initState() {
@@ -44,30 +39,14 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
         widget.ownerId,
         widget.targetId,
       );
-      final startup = await ref.read(windowsStartupProvider).isEnabled();
       if (mounted) {
         setState(() {
           _scope = scope;
-          _startup = startup;
+          _error = null;
         });
       }
     } catch (_) {
-      if (mounted) setState(() => _error = '启动设置读取失败，请重新打开此页');
-    }
-  }
-
-  Future<void> _setStartup(bool value) async {
-    setState(() {
-      _savingStartup = true;
-      _error = null;
-    });
-    try {
-      await ref.read(windowsStartupProvider).setEnabled(value);
-      if (mounted) setState(() => _startup = value);
-    } catch (_) {
-      if (mounted) setState(() => _error = '开机启动设置未能保存，请重试');
-    } finally {
-      if (mounted) setState(() => _savingStartup = false);
+      if (mounted) setState(() => _error = '课程范围读取失败，请重新打开此页');
     }
   }
 
@@ -90,10 +69,10 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
         ? '正在处理签到'
         : '正在检测';
     final scopeText =
-        _scope.excludedCourses.isEmpty && _scope.excludedMeetings.isEmpty
-        ? '全部课程与上课安排'
-        : '已排除 ${_scope.excludedCourses.length} 门课程、${_scope.excludedMeetings.length} 个安排';
-    final startup = ref.watch(windowsStartupProvider);
+        _error ??
+        (_scope.excludedCourses.isEmpty && _scope.excludedMeetings.isEmpty
+            ? '全部课程与上课安排'
+            : '已排除 ${_scope.excludedCourses.length} 门课程、${_scope.excludedMeetings.length} 个安排');
     final next = state.nextPollAt?.toLocal();
     Widget phase(String title, String time, {bool compact = false}) =>
         Container(
@@ -320,52 +299,6 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
             ],
           ),
         ],
-        SettingsSection(
-          header: '运行与启动',
-          hasLeading: false,
-          children: [
-            SettingsRow(
-              title: '启动后继续值守',
-              subtitle: !c.courseWatch
-                  ? '开启课表值守后可设置'
-                  : widget.isOwner
-                  ? '恢复主账号登录后，自动按课表等待'
-                  : '此项由主账号设置，协助账号需手动开始',
-              stackSubtitleOnNarrow: true,
-              trailing: AppSwitch(
-                key: const ValueKey('monitor-resume-watch'),
-                value: c.resumeWatch,
-                onChanged: ready && widget.isOwner && c.courseWatch
-                    ? ctrl.setResumeWatch
-                    : null,
-              ),
-            ),
-            SettingsRow(
-              title: '开机启动',
-              subtitle:
-                  _error ??
-                  (startup.supported
-                      ? '登录 Windows 后自动打开应用'
-                      : 'Windows 正式版中可设置'),
-              stackSubtitleOnNarrow: true,
-              trailing: AppSwitch(
-                key: const ValueKey('monitor-startup'),
-                value: _startup ?? false,
-                onChanged:
-                    startup.supported && _startup != null && !_savingStartup
-                    ? _setStartup
-                    : null,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Text(
-                '关闭窗口时保留在托盘即可继续值守；完全退出或电脑休眠后会暂停。',
-                style: TextStyle(color: p.muted, fontSize: 12, height: 1.6),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }

@@ -230,25 +230,12 @@ void main() {
           restoredWatch.read(monitorControllerProvider).config.completeProbe,
           isTrue,
         );
-        await _reveal(
-          tester,
+        expect(find.text('运行与启动'), findsNothing);
+        expect(
           find.byKey(const ValueKey('monitor-resume-watch')),
+          findsNothing,
         );
-        await tester.tap(find.byKey(const ValueKey('monitor-resume-watch')));
-        await tester.pumpAndSettle();
-        expect(
-          container.read(monitorControllerProvider).config.resumeWatch,
-          isTrue,
-        );
-        expect(container.read(monitorControllerProvider).running, isFalse);
-        expect(
-          (await SharedPreferences.getInstance()).getBool(
-            'monitor_account_1_1_resume_watch',
-          ),
-          isTrue,
-        );
-        await tester.tap(find.byKey(const ValueKey('monitor-resume-watch')));
-        await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('monitor-startup')), findsNothing);
         ctrl.setCourseWatch(false);
         await tester.pumpAndSettle();
         await _reveal(

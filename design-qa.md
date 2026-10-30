@@ -644,3 +644,20 @@ stage2-final-tests.log相关46项通过；新增成绩快照→新会话恢复�
 - 新增5项回归，聚焦43项通过（build/watch-focused-tests.log）。全量879项通过、2项既有跳过（build/watch-review-full-tests.log）；最后将教务夹具改为真实20261学期及第8/10周，相关10项再次通过（build/watch-review-calendar-tests.log）。flutter analyze --no-pub无问题（build/watch-review-analyze.log）。
 - 设置截图回归8项通过（build/watch-review-captures.log），实际查看.tools/monitor-typography/monitor-settings-960-light-off.png、monitor-settings-960-dark-course-watch.png及monitor-settings-320-dark-off.png：课间显示“按课表时间”，说明换行正常、无控件溢出。
 - 仅修改源码和文档；未重新构建/安装桌面开发版，未操控用户日常窗口，未执行真实课堂签到、开机重登或休眠唤醒验收，未更改本机启动项，未push/发布。docs沿用本地忽略规则。
+
+
+## 2026-10-30 设置入口与胶囊开关修订
+
+- 将启动后继续值守、开机启动及托盘说明从签到设置移到桌面设置“运行与启动”，桌面窄布局同样提供；移动端不新增启动项。复用原主账号/课表值守条件、偏好键和WindowsStartup，仅显式点击系统开关才写入；测试使用假系统边界，没有修改本机启动项。
+- 公共AppSwitch改为固定18px圆点、44×28胶囊及44px点击高度，240ms缓入缓出平移并渐变轨道色，取消指针悬停/按压光圈。保留Tab/空格/回车、拖动、RTL、禁用语义和系统减少动画；键盘焦点仍可见。父组件重建不会重启动画。
+- 聚焦34项通过（build/startup-switch-focused-final.log），包括开关实际中间帧、悬停像素一致性、输入/无障碍、启动偏好分别保存及页面入口迁移。初轮两处旧页面测试因新增分组后通知组在懒加载范围外而失败，改为按实际滚动访问后通过，没有修改生产列表来迎合测试。
+- 全量885项通过、2项既有跳过（build/startup-switch-full-tests.log）；flutter analyze --no-pub无问题（build/startup-switch-final-analyze.log），git diff --check通过。
+- 已实际查看build/switch-ui/off.png、120ms.png、on.png，确认中间位置存在且圆点不膨胀；已查看.tools/settings-polish/960-light-startup.png和960-dark-startup.png，启动项位于设置的外观与窗口后、通知与维护前。相关原窄屏/大字体设置回归亦通过。
+- 本轮仅源码及隔离渲染验证，未重建/安装桌面开发版、未操作用户日常窗口，未做原生运行帧率/开机登录或真实签到验收；未push/发布。docs按项目既有忽略约定本地维护。
+
+
+## 2026-10-30 启动项顺序与当前开发实例热重载
+
+- 按用户纠正，运行与启动先列开机启动，再列启动后继续值守；加入真实组件纵坐标断言防止顺序回退。相关21项回归通过（build/startup-order-tests.log），flutter analyze --no-pub无问题（build/startup-order-analyze.log）。
+- 用户明确要求更新正在运行的开发实例。核对xmu_rollcall.exe来自当前工作区Debug目录，通过其已运行Flutter Tools注册的reloadSources服务完成增量编译/热重载，返回Success（build/startup-order-hot-reload.log）；没有重启应用或启动第二个实例。
+- 读取运行中VM的startup_settings.dart脚本确认开机启动位于恢复值守前；当前Widget摘要树无ErrorWidget。没有代用户切换页面、签到或改动开机启动设置。此次热重载包含前轮已提交的公共开关动效和启动设置入口迁移。

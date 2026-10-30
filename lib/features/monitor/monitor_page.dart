@@ -90,7 +90,6 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                       key: ValueKey((ownerId, scope)),
                       ownerId: ownerId,
                       targetId: scope ?? ownerId,
-                      isOwner: scope == null,
                     ),
                     const SizedBox(height: 20),
                   ],

@@ -21,6 +21,7 @@ import 'package:xmu_rollcall/features/settings/desktop_notification_settings_pag
 import 'package:xmu_rollcall/features/settings/settings_assist_page.dart';
 import 'package:xmu_rollcall/features/settings/settings_data_page.dart';
 import 'package:xmu_rollcall/features/settings/about_settings_row.dart';
+import 'package:xmu_rollcall/features/settings/startup_settings.dart';
 import 'package:xmu_rollcall/platform/close_prefs.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
@@ -247,6 +248,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   ),
               ],
             ),
+            if (desktop) const StartupSettings(),
             SettingsSection(
               header: desktop ? '通知与维护' : '通知与数据',
               children: [
@@ -497,6 +499,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   () => AppPageRoutes.push(context, const SettingsAssistPage()),
                 ),
               ]),
+              if ({
+                TargetPlatform.windows,
+                TargetPlatform.macOS,
+                TargetPlatform.linux,
+              }.contains(Theme.of(context).platform))
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  child: StartupSettings(),
+                ),
               group('应用', [
                 appearance,
                 if (Theme.of(context).platform == TargetPlatform.android)

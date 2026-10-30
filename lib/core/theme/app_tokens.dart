@@ -227,7 +227,7 @@ abstract final class AppDensity {
 ///
 /// Prefer the named tokens. [duration] / [curve] alias [page] for older call sites.
 abstract final class AppMotion {
-  /// Selected state, segment thumb, switch thumb.
+  /// Selected state and segment thumb.
   static const instant = Duration(milliseconds: 110);
   static const instantCurve = Curves.easeOut;
 

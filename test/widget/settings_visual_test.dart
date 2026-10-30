@@ -351,12 +351,10 @@ void main() {
 
         expect(find.text('常用'), findsOneWidget);
         expect(find.text(desktop ? '外观与窗口' : '应用'), findsOneWidget);
-        expect(find.text('通知与维护'), desktop ? findsOneWidget : findsNothing);
         expect(find.text('本学期课表'), desktop ? findsNothing : findsOneWidget);
         for (final removed in ['账号', '检测', '更多', '窗口']) {
           expect(find.text(removed), findsNothing);
         }
-        expect(find.text(desktop ? '桌面提醒' : '后台提醒'), findsOneWidget);
         expect(find.text('关闭窗口时'), desktop ? findsOneWidget : findsNothing);
         expect(find.byType(AppSegmentedControl<ThemePreference>), findsNothing);
         final appearance = find.byType(AppShellSelect<ThemePreference>);
@@ -383,6 +381,26 @@ void main() {
           key,
           '${width.toInt()}-${dark ? 'dark' : 'light'}',
         );
+
+        if (desktop) {
+          await tester.scrollUntilVisible(find.text('启动后继续值守'), 180);
+          await tester.pumpAndSettle();
+          expect(find.text('运行与启动'), findsOneWidget);
+          expect(find.text('开机启动'), findsOneWidget);
+          await capture(
+            tester,
+            key,
+            '${width.toInt()}-${dark ? 'dark' : 'light'}-startup',
+          );
+        } else {
+          expect(find.text('运行与启动'), findsNothing);
+          expect(find.text('开机启动'), findsNothing);
+        }
+        await tester.scrollUntilVisible(
+          find.text(desktop ? '桌面提醒' : '后台提醒'),
+          180,
+        );
+        expect(find.text('通知与维护'), desktop ? findsOneWidget : findsNothing);
 
         expect(find.byKey(const ValueKey('update-route-select')), findsNothing);
         await tester.scrollUntilVisible(find.text('关于'), 180);
