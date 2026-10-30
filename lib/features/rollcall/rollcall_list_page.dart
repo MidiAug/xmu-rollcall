@@ -360,7 +360,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                     : point.labelSnapshot.isNotEmpty
                     ? point.labelSnapshot
                     : '已保存的签到位置',
-                style: TextStyle(color: p.ink, fontSize: 18, height: 1.4),
+                style: _taskMethodTextStyle(p),
               ),
             ),
           ],
@@ -670,9 +670,9 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     }
   }
 
-  void _mobileSubmit() {
+  void _submitTask() {
     if (_submitting) return;
-    if (Theme.of(context).platform != TargetPlatform.android) {
+    if (!_desktop && Theme.of(context).platform != TargetPlatform.android) {
       _openSecondary(prefillNumber: true);
       return;
     }
@@ -687,7 +687,8 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
 
   void _openSecondary({bool prefillNumber = false}) {
     final item = widget.item;
-    if (Theme.of(context).platform == TargetPlatform.android && item.isNumber) {
+    if ((_desktop || Theme.of(context).platform == TargetPlatform.android) &&
+        item.isNumber) {
       _manualNumberDialog();
       return;
     }
@@ -816,50 +817,12 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(
-                child: item.isNumber
-                    ? Row(
-                        children: [
-                          Icon(
-                            AppIcons.number,
-                            size: MediaQuery.textScalerOf(context).scale(
-                              item.numberCode?.isNotEmpty == true ? 22 : 18,
-                            ),
-                            color: p.ink,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(child: _codeAnchor(p, item, wide: false)),
-                        ],
-                      )
-                    : item.isRadar
-                    ? _radarLocationSummary(p)
-                    : Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Icon(
-                            item.isQrcode ? AppIcons.qr : AppIcons.info,
-                            size: MediaQuery.textScalerOf(context).scale(18),
-                            color: p.ink,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              item.isQrcode ? '二维码' : '暂不支持此签到类型',
-                              style: TextStyle(
-                                fontSize: 18,
-                                height: 1.4,
-                                color: p.ink,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
+              Expanded(child: _taskMethod(p, item)),
               const SizedBox(width: 16),
               if (item.isRadar)
                 FutureBuilder<_RadarTaskLocation>(
                   future: _locationDisplay,
-                  builder: (context, snapshot) => _androidActionButton(
+                  builder: (context, snapshot) => _taskActionButton(
                     item,
                     done: done,
                     unavailable: unavailable,
@@ -869,11 +832,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                   ),
                 )
               else
-                _androidActionButton(
-                  item,
-                  done: done,
-                  unavailable: unavailable,
-                ),
+                _taskActionButton(item, done: done, unavailable: unavailable),
             ],
           ),
         ],
@@ -881,20 +840,67 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     );
   }
 
-  Widget _androidActionButton(
+  TextStyle _taskMethodTextStyle(AppPalette p) => TextStyle(
+    fontSize: 18,
+    fontWeight: FontWeight.w400,
+    height: 1.4,
+    leadingDistribution: TextLeadingDistribution.even,
+    color: p.ink,
+  );
+
+  Widget _taskMethod(AppPalette p, RollcallItem item) => item.isNumber
+      ? Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              AppIcons.number,
+              size: MediaQuery.textScalerOf(
+                context,
+              ).scale(item.numberCode?.isNotEmpty == true ? 22 : 18),
+              color: p.ink,
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: _codeAnchor(p, item, wide: false)),
+          ],
+        )
+      : item.isRadar
+      ? _radarLocationSummary(p)
+      : Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              item.isQrcode ? AppIcons.qr : AppIcons.info,
+              size: MediaQuery.textScalerOf(context).scale(18),
+              color: p.ink,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                item.isQrcode ? '二维码' : '暂不支持此签到类型',
+                style: _taskMethodTextStyle(p),
+              ),
+            ),
+          ],
+        );
+
+  Widget _taskActionButton(
     RollcallItem item, {
     required bool done,
     required bool unavailable,
     bool resolving = false,
     bool hasLocation = true,
   }) => SizedBox(
-    width: 96,
+    width: _desktop ? 144 : 96,
     child: FilledButton(
       onPressed: done || unavailable || _submitting || resolving
           ? null
-          : _mobileSubmit,
+          : _submitTask,
       style: FilledButton.styleFrom(
-        minimumSize: const Size(72, 36),
+        minimumSize: _desktop ? const Size(144, 48) : const Size(72, 36),
+        disabledBackgroundColor: done
+            ? AppPalette.of(context).successSurface
+            : null,
+        disabledForegroundColor: done ? AppPalette.of(context).success : null,
         tapTargetSize: MaterialTapTargetSize.padded,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1047,7 +1053,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                 )
               else if (!unavailable)
                 FilledButton.icon(
-                  onPressed: _submitting ? null : _mobileSubmit,
+                  onPressed: _submitting ? null : _submitTask,
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(112, 48),
                   ),
@@ -1077,10 +1083,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
         rollcallId: item.rollcallId,
         assistUserId: widget.assistUserId,
         expired: item.isExpired,
-        completed:
-            Theme.of(context).platform == TargetPlatform.android &&
-            !_desktop &&
-            _answered,
+        completed: _answered,
         compact: compact,
       );
 
@@ -1104,9 +1107,6 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
   );
 
   Widget _desktopCard(AppPalette p, RollcallItem item, String title) {
-    final meeting = widget.meeting;
-    String hm(DateTime value) =>
-        '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
@@ -1114,7 +1114,17 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
         duration: AppMotion.fast,
         curve: AppMotion.fastCurve,
         decoration: BoxDecoration(
-          color: p.surface,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              p.surface,
+              Color.alphaBlend(
+                p.primary.withValues(alpha: p.isDark ? .035 : .025),
+                p.surface,
+              ),
+            ],
+          ),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: p.primary.withValues(alpha: _hover ? .25 : .13),
@@ -1122,8 +1132,8 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
           boxShadow: [
             BoxShadow(
               color: p.primary.withValues(alpha: p.isDark ? .02 : .045),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -1141,95 +1151,52 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                           begin: Alignment.bottomLeft,
                           end: Alignment.topRight,
                           colors: [
-                            p.surface,
-                            p.isDark
-                                ? Color.alphaBlend(
-                                    p.primary.withValues(alpha: .08),
-                                    p.surface,
-                                  )
-                                : const Color(0xFFD7FAF4),
+                            Colors.transparent,
+                            p.primary.withValues(alpha: p.isDark ? .06 : .055),
                           ],
                         ),
                       ),
                     ),
                   ),
-                  if (!_answered)
-                    Positioned(
-                      right: 0,
-                      top: 0,
-                      bottom: 0,
-                      width: 300,
-                      child: IgnorePointer(
-                        child: Opacity(
-                          opacity: p.isDark ? .26 : .72,
-                          child: CampusArtworkTreatment(
-                            child: Image.asset(
-                              'assets/illustrations/campus_mist.png',
-                              cacheWidth: 768,
-                              fit: BoxFit.cover,
-                              alignment: Alignment.centerRight,
-                            ),
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    width: 340,
+                    height: 145,
+                    child: IgnorePointer(
+                      child: Opacity(
+                        opacity: p.isDark ? .20 : .45,
+                        child: CampusArtworkTreatment(
+                          child: Image.asset(
+                            'assets/illustrations/campus_mist.png',
+                            cacheWidth: 768,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.bottomRight,
                           ),
                         ),
                       ),
                     ),
+                  ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(22, 20, 18, 20),
+                    padding: const EdgeInsets.fromLTRB(28, 30, 20, 30),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: _titleStyle(p),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-                            if ((item.isExpired && !_answered) ||
-                                (_answered &&
-                                    item.type == RollcallType.unknown))
-                              _statusChip(p, item)
-                            else
-                              Text(
-                                '${item.typeLabel}签到',
-                                style: TextStyle(fontSize: 12, color: p.muted),
-                              ),
-                            const Spacer(),
-                            if (!_answered &&
-                                (item.isNumber ||
-                                    item.courseId?.isNotEmpty == true))
-                              _courseMenu(p, item),
-                          ],
+                        Text(
+                          title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: _titleStyle(p),
                         ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Icon(
-                              meeting == null
-                                  ? AppIcons.person
-                                  : AppIcons.location,
-                              size: 17,
-                              color: p.ink,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                meeting == null
-                                    ? (item.createdByName.isEmpty
-                                          ? '课堂签到'
-                                          : item.createdByName)
-                                    : '${meeting.room.isEmpty ? '教室未提供' : meeting.room}    ${hm(meeting.start)}–${hm(meeting.end)}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 13, color: p.ink),
-                              ),
-                            ),
-                          ],
-                        ),
+                        if (item.createdByName.trim().isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            item.createdByName.trim(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 14, color: p.muted),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1238,32 +1205,71 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
               Divider(
                 color: p.primary.withValues(alpha: .08),
                 height: 1,
-                indent: 22,
-                endIndent: 22,
+                indent: 28,
+                endIndent: 28,
               ),
               Padding(
-                padding: const EdgeInsets.all(22),
-                child: item.type == RollcallType.unknown
-                    ? Text(
-                        '暂不支持此签到类型，可下拉刷新重试',
-                        style: TextStyle(fontSize: 12, color: p.muted),
-                      )
-                    : item.isNumber
-                    ? _numberTaskStrip(p, item, wide: true)
-                    : Row(
-                        children: [
-                          if (!_answered)
-                            Expanded(child: _attendance(item, compact: true))
-                          else
-                            const Spacer(),
-                          if (_secondaryCta(item) != null) _secondaryCta(item)!,
-                        ],
-                      ),
+                padding: const EdgeInsets.all(28),
+                child: _desktopTaskStrip(p, item),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _desktopTaskStrip(AppPalette p, RollcallItem item) {
+    final method = _taskMethod(p, item);
+    final action = item.isRadar
+        ? FutureBuilder<_RadarTaskLocation>(
+            future: _locationDisplay,
+            builder: (context, snapshot) => _taskActionButton(
+              item,
+              done: _answered,
+              unavailable: item.isExpired,
+              resolving: snapshot.connectionState == ConnectionState.waiting,
+              hasLocation: snapshot.data?.point != null,
+            ),
+          )
+        : _taskActionButton(
+            item,
+            done: _answered,
+            unavailable: item.isExpired || item.type == RollcallType.unknown,
+          );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final scale = MediaQuery.textScalerOf(context).scale(1);
+        final information = Row(
+          children: [
+            Expanded(flex: 3, child: method),
+            Container(
+              width: 1,
+              height: 40,
+              color: p.borderStrong,
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+            ),
+            Expanded(flex: 2, child: _attendance(item, compact: true)),
+          ],
+        );
+        if (constraints.maxWidth < 520 * scale) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              information,
+              const SizedBox(height: 20),
+              Align(alignment: Alignment.centerRight, child: action),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: information),
+            const SizedBox(width: 20),
+            action,
+          ],
+        );
+      },
     );
   }
 
@@ -1314,148 +1320,13 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     );
   }
 
-  Widget? _secondaryCta(RollcallItem item) {
-    if (item.isNumber) {
-      if (_answered || _desktop) return null;
-      return TextButton(
-        onPressed: (_submitting || _answered || item.isExpired)
-            ? null
-            : _openSecondary,
-        child: const Text('手动输入'),
-      );
-    }
-    if (_answered && (item.isRadar || item.type == RollcallType.qrcode)) {
-      final p = AppPalette.of(context);
-      return FilledButton(
-        style: FilledButton.styleFrom(
-          disabledBackgroundColor: p.successSurface,
-          disabledForegroundColor: p.success,
-        ),
-        onPressed: null,
-        child: const Text('已签到'),
-      );
-    }
-    if (item.isRadar) {
-      return FilledButton(
-        onPressed: (_answered || item.isExpired) ? null : _openSecondary,
-        child: const Text('选择位置'),
-      );
-    }
-    if (item.type == RollcallType.qrcode) {
-      return FilledButton(
-        onPressed: (_answered || item.isExpired) ? null : _openSecondary,
-        child: const Text('扫码签到'),
-      );
-    }
-    return null;
-  }
-
-  Widget _statusChip(AppPalette palette, RollcallItem item) => AppStatusBadge(
-    item.isExpired
-        ? '已结束'
-        : _answered
-        ? '已签到'
-        : '待签到',
-    tone: _answered ? AppStatusTone.success : AppStatusTone.neutral,
-  );
-
   TextStyle _titleStyle(AppPalette palette) {
     return TextStyle(
-      fontSize: _desktop ? 20 : 15,
+      fontSize: _desktop ? 30 : 15,
       fontWeight: FontWeight.w600,
       letterSpacing: -0.2,
       height: 1.25,
       color: palette.ink,
-    );
-  }
-
-  Widget _numberAction(AppPalette p, RollcallItem item) => FilledButton(
-    style: _desktop
-        ? FilledButton.styleFrom(
-            minimumSize: const Size(160, 44),
-            disabledBackgroundColor: _answered ? p.successSurface : null,
-            disabledForegroundColor: _answered ? p.success : null,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          )
-        : null,
-    onPressed: (_submitting || _answered || item.isExpired)
-        ? null
-        : (item.numberCode?.isNotEmpty == true
-              ? _oneClickNumber
-              : _openSecondary),
-    child: Text(
-      _submitting
-          ? '提交中…'
-          : _answered
-          ? '已签到'
-          : item.isExpired
-          ? '已结束'
-          : item.numberCode?.isNotEmpty == true
-          ? (_desktop ? '确认签到' : '一键签到')
-          : '输入签到码',
-      style: _desktop ? const TextStyle(fontSize: 14) : null,
-    ),
-  );
-
-  /// One row: code, live attendance and confirmed action. The mobile strip keeps
-  /// its existing presentation while sharing the same submission handler.
-  Widget _numberTaskStrip(
-    AppPalette p,
-    RollcallItem item, {
-    required bool wide,
-  }) {
-    if (_desktop) {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 104 * MediaQuery.textScalerOf(context).scale(1),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('签到码', style: TextStyle(fontSize: 11, color: p.muted)),
-                const SizedBox(height: 5),
-                _codeAnchor(p, item, wide: true),
-              ],
-            ),
-          ),
-          Container(
-            height: 44,
-            width: 1,
-            color: p.borderStrong,
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-          ),
-          Expanded(
-            child: _answered
-                ? const SizedBox.shrink()
-                : _attendance(item, compact: true),
-          ),
-          const SizedBox(width: 10),
-          _numberAction(p, item),
-        ],
-      );
-    }
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        AppSpace.sm,
-        wide ? AppSpace.xs : 6,
-        AppSpace.xs,
-        wide ? AppSpace.xs : 6,
-      ),
-      decoration: BoxDecoration(
-        color: p.content,
-        borderRadius: BorderRadius.circular(AppRadii.control),
-      ),
-      child: Row(
-        children: [
-          Expanded(child: _codeAnchor(p, item, wide: wide)),
-          const SizedBox(width: AppSpace.sm),
-          _numberAction(p, item),
-        ],
-      ),
     );
   }
 
@@ -1468,8 +1339,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     final err = item.numberCodeError;
     if (code == null || code.isEmpty) {
       return Text(
-        Theme.of(context).platform == TargetPlatform.android &&
-                !_desktop &&
+        (Theme.of(context).platform == TargetPlatform.android || _desktop) &&
                 !_answered &&
                 !item.isExpired
             ? '无法获取签到码'
@@ -1478,26 +1348,19 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
             : err == null
             ? '正在获取签到码…'
             : '无法获取签到码，请手动输入',
-        style: TextStyle(
-          fontSize:
-              Theme.of(context).platform == TargetPlatform.android && !_desktop
-              ? 18
-              : 13,
-          height: 1.4,
-          color: palette.muted,
-        ),
+        style: _taskMethodTextStyle(palette),
       );
     }
     final text = Text(
       code,
       style: TextStyle(
         fontSize: _desktop
-            ? 36
+            ? 32
             : wide
             ? 28
             : 22,
         fontFamily: _desktop ? 'Segoe UI' : null,
-        fontWeight: FontWeight.w600,
+        fontWeight: _desktop ? FontWeight.w700 : FontWeight.w600,
         letterSpacing: _desktop
             ? -.7
             : wide

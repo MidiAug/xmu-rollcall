@@ -225,7 +225,8 @@ class MonitorController extends StateNotifier<MonitorState> {
     int? integer(String field) =>
         prefs.getInt('${key}_$field') ??
         (useLegacy ? prefs.getInt('monitor_$field') : null);
-    final preset = MonitorPreset.values[(integer('preset') ?? 0).clamp(0, 2)];
+    final preset = MonitorPreset
+        .values[(integer('preset') ?? MonitorPreset.eco.index).clamp(0, 2)];
     state = state.copyWith(
       loadingSettings: false,
       config: MonitorConfig(

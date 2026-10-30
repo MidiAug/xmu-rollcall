@@ -57,6 +57,18 @@ Future<GlobalKey> _mount(
     ),
   );
   await tester.pumpAndSettle();
+  if (desktop) {
+    await tester.runAsync(
+      () => precacheImage(
+        const ResizeImage(
+          AssetImage('assets/illustrations/campus_mist.png'),
+          width: 768,
+        ),
+        tester.element(find.byType(RollcallPreviewPage)),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
   return capture;
 }
 
@@ -142,12 +154,49 @@ void main() {
     expect(find.byType(MobileRollcallHome), findsNothing);
     expect(find.byType(AppMobileNav), findsNothing);
     expect(find.byType(RollcallTaskCard), findsNWidgets(3));
+    expect(find.text('数字签到'), findsNothing);
+    expect(find.text('雷达签到'), findsNothing);
+    expect(find.text('预览老师'), findsNWidgets(3));
+    expect(find.byIcon(AppIcons.number), findsWidgets);
+    expect(find.byIcon(AppIcons.location), findsWidgets);
+    expect(find.byIcon(AppIcons.qr), findsWidgets);
     await _capture(tester, capture, 'desktop-ready');
-    await tester.tap(find.text('确认签到'));
+    final initialCard = tester.getRect(find.byType(RollcallTaskCard).first);
+    await tester.tap(find.widgetWithText(FilledButton, '签到').first);
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
-    expect(find.text('已签到'), findsWidgets);
+    expect(find.widgetWithText(FilledButton, '已签到'), findsOneWidget);
+    expect(find.text('1234'), findsOneWidget);
+    expect(
+      tester.getSize(find.byType(RollcallTaskCard).first),
+      initialCard.size,
+    );
+    final completedCard = find.byType(RollcallTaskCard).first;
+    expect(
+      find.descendant(
+        of: completedCard,
+        matching: find.byType(AttendanceCountRow),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<AttendanceCountRow>(
+            find.descendant(
+              of: completedCard,
+              matching: find.byType(AttendanceCountRow),
+            ),
+          )
+          .completed,
+      isTrue,
+    );
+    await tester.tap(find.widgetWithText(FilledButton, '签到'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RollcallAnswerPage), findsNothing);
+    expect(find.text('已签到'), findsNWidgets(2));
+    AppToast.dismiss();
+    await tester.pump(const Duration(seconds: 3));
     tester
         .widget<AppShellSelect<RollcallPreviewScenario>>(
           find.byKey(const ValueKey('rollcall-preview-scenario')),
@@ -155,10 +204,91 @@ void main() {
         .onChanged!(RollcallPreviewScenario.completed);
     await tester.pumpAndSettle();
     expect(find.byType(RollcallTaskCard), findsNWidgets(3));
-    expect(find.text('已签到'), findsWidgets);
+    expect(find.widgetWithText(FilledButton, '已签到'), findsNWidgets(3));
+    expect(find.text('1234'), findsOneWidget);
+    expect(find.text('二维码'), findsOneWidget);
     await _capture(tester, capture, 'desktop-completed');
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('desktop missing number uses the shared manual entry dialog', (
+    tester,
+  ) async {
+    await _mount(tester, desktop: true, width: 1104);
+    await _choose(tester, RollcallPreviewScenario.missing);
+    await tester.tap(find.widgetWithText(FilledButton, '手动输入'));
+    await tester.pumpAndSettle();
+    expect(find.text('输入签到码'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '5678');
+    await tester.tap(find.widgetWithText(FilledButton, '签到').last);
+    await tester.pumpAndSettle();
+    expect(find.text('已签到'), findsWidgets);
+    AppToast.dismiss();
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('desktop pending cards adapt to narrow width and large text', (
+    tester,
+  ) async {
+    for (final entry in [(640.0, 1.5, false), (1104.0, 1.0, true)]) {
+      final capture = await _mount(
+        tester,
+        desktop: true,
+        width: entry.$1,
+        scale: entry.$2,
+        dark: entry.$3,
+      );
+      await _choose(tester, RollcallPreviewScenario.number);
+      expect(find.widgetWithText(FilledButton, '签到'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await _capture(
+        tester,
+        capture,
+        entry.$3 ? 'desktop-dark' : 'desktop-large-text',
+      );
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets(
+    'method hint typography and icon centers match on Android and desktop',
+    (tester) async {
+      for (final desktop in [false, true]) {
+        final capture = await _mount(
+          tester,
+          desktop: desktop,
+          width: desktop ? 1104 : 390,
+        );
+        await _choose(tester, RollcallPreviewScenario.missing);
+        final styles = <TextStyle>[];
+        for (final label in ['无法获取签到码', '需补充签到位置', '二维码']) {
+          final text = find.text(label);
+          await tester.ensureVisible(text);
+          await tester.pumpAndSettle();
+          styles.add(tester.widget<Text>(text).style!);
+          final row = find.ancestor(of: text, matching: find.byType(Row)).first;
+          final icon = find
+              .descendant(of: row, matching: find.byType(Icon))
+              .first;
+          expect(
+            tester.getCenter(icon).dy,
+            closeTo(tester.getCenter(text).dy, .5),
+          );
+        }
+        expect(styles.toSet(), hasLength(1));
+        expect(styles.first.fontSize, 18);
+        expect(styles.first.fontWeight, FontWeight.w400);
+        await _capture(
+          tester,
+          capture,
+          desktop ? 'desktop-hints' : 'android-hints',
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      }
+    },
+  );
 
   testWidgets(
     'full real home renders every method and state combination after refresh',

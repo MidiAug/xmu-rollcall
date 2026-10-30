@@ -287,47 +287,42 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
           : _manuallyPaused
           ? '未更新'
           : '查询中…';
-      return Tooltip(
-        message:
-            '已签到人数${_manuallyPaused
-                ? '  已暂停'
-                : remaining != null
-                ? '  ${remaining}s 后刷新'
-                : ''}',
+      return Align(
+        alignment: Alignment.centerLeft,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(AppIcons.people, size: 20, color: p.ink),
-            const SizedBox(width: 8),
             Flexible(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  softWrap: false,
-                  style: TextStyle(fontSize: 13, color: p.ink),
+              child: Tooltip(
+                message:
+                    '已签到人数${_manuallyPaused
+                        ? '  已暂停'
+                        : remaining != null
+                        ? '  ${remaining}s 后刷新'
+                        : ''}',
+                textAlign: TextAlign.center,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(AppIcons.people, size: 20, color: p.ink),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: TextStyle(fontSize: 13, color: p.ink),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
             if (!widget.expired && !widget.completed && !automaticCountWait)
-              IconButton(
-                tooltip: _manuallyPaused ? '继续刷新人数' : '暂停刷新人数',
-                style: IconButton.styleFrom(
-                  minimumSize: const Size(20, 28),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  padding: EdgeInsets.zero,
-                ),
-                onPressed: _togglePause,
-                icon: Icon(_manuallyPaused ? AppIcons.play : AppIcons.pause),
-                iconSize: 13,
-                color: p.muted,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints.tightFor(
-                  width: 24,
-                  height: 28,
-                ),
-              ),
+              _pauseButton(p, compact: true),
           ],
         ),
       );
@@ -399,21 +394,50 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
                 ),
               ),
             if (!widget.expired && !widget.completed && !automaticCountWait)
-              IconButton(
-                tooltip: _manuallyPaused ? '继续刷新人数' : '暂停刷新人数',
-                onPressed: _togglePause,
-                icon: Icon(_manuallyPaused ? AppIcons.play : AppIcons.pause),
-                iconSize: 16,
-                color: p.muted,
-                padding: EdgeInsets.zero,
-                constraints: BoxConstraints.tightFor(
-                  width: AppDensity.isTouch(context) ? 44 : 28,
-                  height: AppDensity.isTouch(context) ? 44 : 28,
-                ),
-              ),
+              _pauseButton(p, compact: false),
           ],
         ),
       ],
+    );
+  }
+
+  Widget _pauseButton(AppPalette p, {required bool compact}) {
+    final width = compact
+        ? 24.0
+        : AppDensity.isTouch(context)
+        ? 44.0
+        : 28.0;
+    final height = compact
+        ? 28.0
+        : AppDensity.isTouch(context)
+        ? 44.0
+        : 28.0;
+    return IconButton(
+      tooltip: _manuallyPaused ? '继续刷新人数' : '暂停刷新人数',
+      onPressed: _togglePause,
+      icon: Icon(_manuallyPaused ? AppIcons.play : AppIcons.pause),
+      iconSize: compact ? 13 : 16,
+      style:
+          IconButton.styleFrom(
+            minimumSize: Size(width, height),
+            maximumSize: Size(width, height),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: EdgeInsets.zero,
+            hoverColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            focusColor: p.primary.withValues(alpha: .08),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ).copyWith(
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (states) =>
+                  states.contains(WidgetState.hovered) ||
+                      states.contains(WidgetState.focused)
+                  ? p.primary
+                  : p.muted,
+            ),
+          ),
     );
   }
 }

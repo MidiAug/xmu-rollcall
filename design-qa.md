@@ -797,3 +797,49 @@ stage2-final-tests.log相关46项通过；新增成绩快照→新会话恢复�
 - build/preview-notify-tests-final.log：23项通过，覆盖预览、启动设置、前后台通知路由、静音结果、原生Windows通知内容及失败传播。build/preview-notify-analyze.log：4项变更Dart文件flutter analyze无问题。非全量回归，无Android真机验收。
 - 当前开发实例Reloaded 8 of 3288 libraries；未重启、停止任务或清除缓存。
 - 通知代码核对：MonitorEngine先发现通知，成功交付才按活动ID记入本次任务去重；AutomaticRollcallAnswer提交结果回调进入本地历史及DesktopNotifications，前台浮层、后台静音系统结果，发现/结果点击进入签到列表。当前机制保留，不增加轮询或重复提醒。发现与结果属于两个事件，因此快速自动签成功仍可能出现先发现、后成功两条通知；实际系统送达需用户在通知设置中确认。
+
+
+## 2026-10-30 桌面签到卡参考对齐、60秒默认与安卓位置核对
+
+final result: passed
+
+- 依据用户本轮完整参考及补充的卡片裁图，对齐范围是卡片，保留现有导航/摘要布局。参考为单张数字卡，渲染样本为三类卡片，用不同演示课程与真实可用数据，未伪造教室或老师。明确按上半课程信息+右侧建筑、下半实时信息+提交操作分区。资产沿用既有campus_mist，不新增位图和渲染定时器。
+- 同一图像工具返回中实看用户裁图与build/rollcall-home-preview/desktop-ready.png，并检查数字信息区、建筑位置和课程文字。标题30、数字码56及统一180×52操作按钮；轻边框/阴影、低饱和背景，建筑完全裁剪在上半课程信息区。图像、类型字体、时间空格、按钮字体与未签/已签状态可读；去除大块饱和头部色带和已签的大空卡片。未恢复参考中的中点分隔和“更多X项”。
+- 另实看desktop-dark.png、desktop-large-text.png（640宽/150%）及desktop-completed.png：暗色装饰不抢文字，大字号按钮分行且无溢出，完成态使用简洁状态行。不同参考和渲染课程名有意保留，不要求演示业务数据逐字相同。桌面卡片截图已显式预载ResizeImage资源，避免组件测试在磁盘图片完成解码前截图导致缺建筑；此前截图资产缺失不代表正式运行使用了另一套素材。
+- 安卓radar-picker.png实看为当前正式位置页布局；测试沿真实卡片进入RollcallAnswerPage、MapPickPanel并提交，已保存地点沿LocationPickerContent且同一隔离预览容器。组件测试屏蔽地图网络瓦片，空白底图不能作为真机地图加载结论。本轮无安卓UI替换及真机验收。
+- build/card-refresh-tests-verified.log：37项相关回归通过，含60秒初始/持久化回退及48–72秒抖动、原旧间隔迁移、三类签到/提交、移动位置选择及桌面位置流程。build/card-refresh-analyze-final.log对6项变更Dart文件flutter analyze无问题；不是全库回归。
+
+- 已热重载当前Windows开发实例，Reloaded 39 of 3288 libraries；未重启、清缓存、暂停任务或覆盖已有账号检测间隔。
+
+
+## 2026-10-30 桌面卡片与安卓内容对齐
+
+final result: passed
+
+- 按用户本轮文字修正，上半课程名和下一行老师，不显示类型/教室课时/更多菜单；保留建筑。底部直接提取并复用安卓现有_taskMethod与_taskActionButton，按方式信息、竖线、人数、操作排列；窄屏/大字号按钮换行。完成行也使用课程名/老师。移除无调用的旧桌面数字专用行和重复按钮，净减少代码。
+- 用户点击分发复用安卓已有逻辑：数字有码直接提交、缺码手动输入框，雷达有已保存位置复用_oneClickRadar及其位置/身份复核，缺位置仍进入选择；二维码进入原扫码页。没有增加自动提交触发器、改变后台任务或网络周期。对话框本身仍叫输入签到码，按钮叫手动输入。
+- 实看build/rollcall-home-preview/desktop-ready.png及desktop-large-text.png：三种方式图标/文字、竖线与人数可读，老师统一位置，右上无操作菜单和类型；640宽/150%保留完整数字与操作。预览里的可用位置来自已有隔离样本，不伪造实际账号位置。
+- build/desktop-parity-tests-verified.log：17项通过，包括桌面数字提交、已有位置直接雷达提交、缺码手动输入后成功，原移动完整预览、位置选择和桌面地点流程。build/desktop-parity-analyze-final.log对生产文件与测试静态检查无问题。未全库回归或安卓真机验收。
+- 当前开发实例热重载成功，Reloaded 15 of 3288 libraries，未重启或停止当前任务。
+
+
+## 2026-10-30 人数提示锚点与暂停悬停
+
+- 原紧凑Tooltip包住人数和暂停按钮，并受父级Expanded紧约束影响。现由Align放松子约束，Tooltip只围绕人数图标/文本，按钮置于提示外。人数提示textAlign居中，原提示内容及倒计时保持。
+- 两种人数布局共用暂停按钮：悬停/按压背景透明，图标在悬停/焦点时变为主题色，键盘焦点有轻微圆角背景，原按钮尺寸和暂停语义保持。
+- build/count-hover-tests-verified.log：7项通过，新增真实鼠标悬停检查300像素父容器中Tooltip锚点宽小于150，渲染提示文本中心与锚点相差不超过1像素，鼠标转入暂停按钮并验证点击可切换继续；原刷新、暂停/恢复、后台、账号切换及自动人数门槛回归通过。
+- 已实看build/count-hover/tooltip.png、pause-hover.png，人数提示水平居中，按钮无背景光圈。build/count-hover-analyze-final.log对生产文件与测试静态检查无问题。当前Windows开发实例热重载成功；无Android真机或全量回归。
+
+
+## 2026-10-30 两端方式提示文字与垂直对齐
+
+- 缺码提示原先Android为18/正文灰、桌面为13/正文灰，位置及二维码为18/正文色。现三个摘要使用同一_taskMethodTextStyle：18、w400、1.4、even leading、正文色；数字有值的分支原字号/字体/字重/字距完全保留。
+- build/method-hints-tests.log：7项通过。新增两端真实预览组合检查三种TextStyle相等、18/w400，三种方式的图标中心与文字中心差不超过0.5像素；原数字复制、模拟提交和缺资料跳转回归保留。build/method-hints-analyze.log对生产和测试2项静态检查无问题。
+- 实看build/rollcall-home-preview/android-hints.png与desktop-hints.png，三处文字大小/样式一致，图标垂直居中。为检查第三张卡片已滚动，截图第一张卡片上缘被裁剪属于滚动视口。无Android真机验收。
+
+
+## 签到后保留完整卡片
+
+- 根据本轮用户纠正撤销桌面已签到的紧凑摘要分支，待签/已签复用同一卡片、背景及底部摘要；成功按钮改为主题成功色且禁用，两端使用同一按钮样式。桌面人数completed与Android一致，收尾一次后停止刷新和暂停操作。
+- build/completed-card-tests.log：14项通过。真实数字点击提交后断言卡片尺寸不变、1234仍显示、完整人数组件保留且completed为true；三类全部已签场景断言三个已签到按钮、数字码和二维码文本保留。原安卓模拟提交、三类场景、人数刷新/完成/暂停回归通过。
+- build/completed-card-analyze.log对2项变更文件检查无问题。实际查看build/rollcall-home-preview/desktop-completed.png，三类卡片保留完整课程/老师/背景与底部信息，成功按钮位置一致，不再变为一行摘要；未进行Android真机验收。

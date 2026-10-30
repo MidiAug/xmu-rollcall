@@ -1,4 +1,9 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
+import '../fixtures/preview_fonts.dart';
+import 'package:xmu_rollcall/core/theme/app_theme.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,6 +56,98 @@ class _Catalog extends CourseCatalogNotifier {
 }
 
 void main() {
+  testWidgets(
+    'compact tooltip centers on visible count and pause stays separate',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await tester.runAsync(loadDesktopPreviewFonts);
+      final repo = _Repo();
+      final container = ProviderContainer(
+        overrides: [
+          attendanceCountClockProvider.overrideWithValue(
+            tester.binding.clock.now,
+          ),
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          assistControllerProvider.overrideWith(
+            (ref) => AssistController(ref, bootstrap: false),
+          ),
+          rollcallRepositoryForProvider(null).overrideWithValue(repo),
+        ],
+      );
+      addTearDown(container.dispose);
+      final capture = GlobalKey();
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: capture,
+          child: UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: AppTheme.light().copyWith(
+                platform: TargetPlatform.windows,
+              ),
+              home: const Scaffold(
+                body: Center(
+                  child: SizedBox(
+                    width: 300,
+                    child: AttendanceCountRow(
+                      rollcallId: 1,
+                      expired: false,
+                      compact: true,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final anchor = find.byWidgetPredicate(
+        (widget) => widget is Tooltip && widget.message!.startsWith('已签到人数'),
+      );
+      expect(tester.getSize(anchor).width, lessThan(150));
+      final mouse = await tester.createGesture(
+        kind: ui.PointerDeviceKind.mouse,
+      );
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(tester.getCenter(anchor));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+      final hint = find.textContaining('已签到人数');
+      expect(hint, findsOneWidget);
+      expect(
+        tester.getCenter(hint).dx,
+        closeTo(tester.getCenter(anchor).dx, 1),
+      );
+      Future<void> screenshot(String name) async {
+        if (Platform.environment['CAPTURE_COUNT_HOVER'] != '1') return;
+        await tester.runAsync(() async {
+          final image =
+              await (capture.currentContext!.findRenderObject()!
+                      as RenderRepaintBoundary)
+                  .toImage();
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          await Directory('build/count-hover').create(recursive: true);
+          await File(
+            'build/count-hover/$name.png',
+          ).writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+      }
+
+      await screenshot('tooltip');
+      final pause = find.byTooltip('暂停刷新人数');
+      await mouse.moveTo(tester.getCenter(pause));
+      await tester.pump(const Duration(milliseconds: 250));
+      await screenshot('pause-hover');
+      await tester.tap(pause);
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('继续刷新人数'), findsOneWidget);
+      await mouse.removePointer();
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
   testWidgets(
     'counts refresh after signing, retain failures, and pause in background',
     (tester) async {

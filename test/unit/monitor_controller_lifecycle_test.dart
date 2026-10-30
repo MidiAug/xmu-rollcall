@@ -68,6 +68,16 @@ void main() {
     PlatformHooks.onRollcallsDiscovered = null;
     container.dispose();
   });
+  test('unsaved settings load sixty seconds', () async {
+    SharedPreferences.setMockInitialValues({});
+    container.read(monitorControllerProvider);
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container.read(monitorControllerProvider).config.intervalSeconds,
+      60,
+    );
+  });
+
   test(
     'explicit main-account launch preference resumes desktop watch without discovery outside windows',
     () async {

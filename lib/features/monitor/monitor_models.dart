@@ -23,8 +23,8 @@ extension MonitorPresetX on MonitorPreset {
 class MonitorConfig {
   const MonitorConfig({
     this.enabled = false,
-    this.preset = MonitorPreset.classroom,
-    this.intervalSeconds = 20,
+    this.preset = MonitorPreset.eco,
+    this.intervalSeconds = 60,
     this.jitterRatio = 0.2,
     this.autoAnswer = false,
     this.courseWatch = false,
