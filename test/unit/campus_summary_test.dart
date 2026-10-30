@@ -86,13 +86,29 @@ void main() {
     );
     expect(summary.visible.map((c) => c.title), ['current', 'next']);
   });
-  test('between classes shows only next; after final class shows none', () {
+  test('before classes and between classes show the next two today', () {
+    expect(
+      selectCampusCourses(
+        schedule(),
+        DateTime(2026, 10, 28, 7),
+      ).visible.map((c) => c.title),
+      ['old', 'current'],
+    );
     expect(
       selectCampusCourses(
         schedule(),
         DateTime(2026, 10, 28, 12),
       ).visible.map((c) => c.title),
-      ['next'],
+      ['next', 'later'],
+    );
+  });
+  test('only one remaining class shows one; after final class shows none', () {
+    expect(
+      selectCampusCourses(
+        schedule(),
+        DateTime(2026, 10, 28, 16, 10),
+      ).visible.map((c) => c.title),
+      ['later'],
     );
     expect(
       selectCampusCourses(schedule(), DateTime(2026, 10, 28, 19)).visible,

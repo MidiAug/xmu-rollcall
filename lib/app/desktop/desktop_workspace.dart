@@ -40,16 +40,20 @@ class DesktopWorkspace extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Expanded(child: main),
-            SizedBox(
-              width: (bounds.maxWidth * .32).clamp(238, 340),
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(0, 22, 10, 24),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: bounds.maxHeight - 46),
-                  child: contextPanel ?? const SizedBox.shrink(),
+            // Keep the task subtree in the same slot when context disappears.
+            if (contextPanel != null)
+              SizedBox(
+                width: (bounds.maxWidth * .32).clamp(238, 340),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(0, 22, 10, 24),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: bounds.maxHeight - 46,
+                    ),
+                    child: contextPanel!,
+                  ),
                 ),
               ),
-            ),
           ],
         );
       },

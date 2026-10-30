@@ -6,6 +6,7 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_quick_control.dart';
 import 'package:xmu_rollcall/app/desktop/desktop_workspace.dart';
 import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
+import 'package:xmu_rollcall/features/campus/campus_summary.dart';
 import 'package:xmu_rollcall/app/shell_navigation.dart';
 import 'package:xmu_rollcall/features/campus/campus_context_panel.dart';
 import 'package:xmu_rollcall/features/settings/courses_page.dart';
@@ -47,6 +48,8 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
   String? _switchError;
   int _switchRevision = 0;
   bool _visible = false;
+  (int?, int?)? _campusIdentity;
+  CampusCachedData? _campusSnapshot;
 
   @override
   void initState() {
@@ -239,15 +242,31 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                 .where((item) => !item.isAnswered && !item.isExpired)
                 .length
           : 0;
-      final cached = active && auth.isSignedIn
-          ? ref
-                .watch(campusCachedDataProvider)
-                .whenOrNull(skipLoadingOnReload: false, data: (data) => data)
+      final identity = auth.isSignedIn ? (auth.profile?.id, scope) : null;
+      if (_campusIdentity != identity) {
+        _campusIdentity = identity;
+        _campusSnapshot = null;
+      }
+      final cachedState = active && auth.isSignedIn
+          ? ref.watch(campusCachedDataProvider)
           : null;
+      // Disk rereads must not collapse the sidebar while the same identity loads.
+      if (cachedState is AsyncData<CampusCachedData>) {
+        _campusSnapshot = cachedState.value;
+      }
+      final cached = active && auth.isSignedIn ? _campusSnapshot : null;
       final now = active && auth.isSignedIn
           ? ref.watch(campusClockProvider).valueOrNull ??
                 ref.read(campusNowProvider)()
           : DateTime.now();
+      final hasContext =
+          cached != null &&
+          (cached.homework.isNotEmpty ||
+              (cached.schedule != null &&
+                  selectCampusCourses(
+                    cached.schedule!,
+                    now,
+                  ).visible.isNotEmpty));
       final records = auth.isSignedIn
           ? ref
                     .watch(currentCourseHistoryProvider)
@@ -406,8 +425,10 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
             icon: const Icon(AppIcons.settings, size: 20),
           ),
         ],
-        contextPanel: active && auth.isSignedIn
-            ? CampusContextPanel(
+        contextPanel: hasContext
+            ? CampusContextView(
+                data: cached,
+                now: now,
                 onTimetable: () {
                   if (scope == null) {
                     ShellNavigation.instance.open(AppDestination.timetable);

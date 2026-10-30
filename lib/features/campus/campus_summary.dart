@@ -16,9 +16,10 @@ class CampusMeeting {
 }
 
 class CampusCourseSummary {
-  const CampusCourseSummary({this.current, this.next});
-  final CampusMeeting? current, next;
-  List<CampusMeeting> get visible => [?current, ?next];
+  const CampusCourseSummary({this.current, this.next, this.afterNext});
+  final CampusMeeting? current, next, afterNext;
+  List<CampusMeeting> get visible =>
+      current != null ? [current!, ?next] : [?next, ?afterNext];
 }
 
 /// A course caption is shown only for one unambiguous academic title match.
@@ -89,10 +90,20 @@ CampusCourseSummary selectCampusCourses(
     final byStart = a.start.compareTo(b.start);
     return byStart != 0 ? byStart : a.id.compareTo(b.id);
   });
-  CampusMeeting? current, next;
+  CampusMeeting? current, next, afterNext;
   for (final meeting in meetings) {
     if (current == null && meeting.ongoing(now)) current = meeting;
-    if (next == null && meeting.start.isAfter(now)) next = meeting;
+    if (meeting.start.isAfter(now)) {
+      if (next == null) {
+        next = meeting;
+      } else {
+        afterNext ??= meeting;
+      }
+    }
   }
-  return CampusCourseSummary(current: current, next: next);
+  return CampusCourseSummary(
+    current: current,
+    next: next,
+    afterNext: afterNext,
+  );
 }

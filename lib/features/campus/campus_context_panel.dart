@@ -496,9 +496,11 @@ class _TodoPreview extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: AppTruncatedText(
+                    child: Text(
                       item.courseName.trim().isEmpty ? '课程作业' : item.courseName,
                       key: const ValueKey('todo-course-name'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.5,
@@ -508,39 +510,36 @@ class _TodoPreview extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Tooltip(
-                    message: item.dueAt == null ? '' : '截止：${item.dueLabel}',
-                    child: Container(
-                      key: const ValueKey('todo-deadline'),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: overdue
-                            ? p.danger.withValues(alpha: .08)
-                            : p.surfaceHigh,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            AppIcons.clock,
-                            size: 12,
+                  Container(
+                    key: const ValueKey('todo-deadline'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: overdue
+                          ? p.danger.withValues(alpha: .08)
+                          : p.surfaceHigh,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          AppIcons.clock,
+                          size: 12,
+                          color: overdue ? p.danger : p.muted,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          deadline,
+                          style: TextStyle(
+                            fontSize: 11,
+                            height: 1.5,
                             color: overdue ? p.danger : p.muted,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            deadline,
-                            style: TextStyle(
-                              fontSize: 11,
-                              height: 1.5,
-                              color: overdue ? p.danger : p.muted,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -568,9 +567,11 @@ class _TodoPreview extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: AppTruncatedText(
+                    child: Text(
                       item.title,
                       key: const ValueKey('todo-homework-title'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 14,
                         height: 1.5,
@@ -682,7 +683,7 @@ class _MeetingRow extends StatelessWidget {
                   children: [
                     Text(
                       meeting.title,
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 14,

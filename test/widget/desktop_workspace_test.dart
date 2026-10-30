@@ -2,6 +2,7 @@ import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
 import 'package:xmu_rollcall/core/theme/app_icons.dart';
 import '../fixtures/preview_fonts.dart';
 import 'dart:io';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/adaptive_shell.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/desktop/desktop_page.dart';
+import 'package:xmu_rollcall/app/desktop/desktop_workspace.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/cache/cache_policy.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
@@ -242,6 +244,17 @@ void main() {
         await AcademicScheduleStore.write(1, schedule);
         final boundary = GlobalKey();
         final attendance = _Attendance();
+        final contextData = StateProvider<CampusCachedData>(
+          (ref) => CampusCachedData(
+            schedule: schedule,
+            homework: homework.where((i) => i.id == 3 || i.id == 6).toList(),
+            hasHomeworkCache: true,
+          ),
+        );
+        final pendingContext = StateProvider<Future<CampusCachedData>?>(
+          (ref) => null,
+        );
+        final contextTime = StateProvider<DateTime>((ref) => now);
         final theme = variant.$3 ? AppTheme.dark() : AppTheme.light();
         final update = AppUpdateController(
           service: FakeUpdateService(),
@@ -299,16 +312,13 @@ void main() {
                     ),
                   ]),
                 ),
-                campusCachedDataProvider.overrideWith(
-                  (ref) async => CampusCachedData(
-                    schedule: schedule,
-                    homework: homework
-                        .where((i) => i.id == 3 || i.id == 6)
-                        .toList(),
-                    hasHomeworkCache: true,
-                  ),
+                campusCachedDataProvider.overrideWith((ref) async {
+                  final data = ref.watch(contextData);
+                  return ref.watch(pendingContext) ?? data;
+                }),
+                campusClockProvider.overrideWith(
+                  (ref) => Stream.value(ref.watch(contextTime)),
                 ),
-                campusClockProvider.overrideWith((ref) => Stream.value(now)),
                 academicTimetableProvider(1).overrideWith(
                   (ref) async => AcademicTimetableState(schedule: schedule),
                 ),
@@ -508,6 +518,92 @@ void main() {
         }
 
         await capture('rollcall');
+        final workspace = find.byType(DesktopWorkspace);
+        final header = find.descendant(
+          of: workspace,
+          matching: find.byType(DesktopPageHeader),
+        );
+        final container = ProviderScope.containerOf(tester.element(workspace));
+        final originalContext = container.read(contextData);
+        container.read(contextTime.notifier).state = DateTime(2026, 10, 28, 12);
+        await tester.pumpAndSettle();
+        for (final title in ['机器学习', '软件测试']) {
+          expect(
+            find.descendant(of: panel, matching: find.text(title)),
+            findsOneWidget,
+          );
+        }
+        expect(
+          find.descendant(of: panel, matching: find.text('更晚课程')),
+          findsNothing,
+        );
+        await capture('rollcall-between-classes');
+        container.read(contextTime.notifier).state = now;
+        await tester.pumpAndSettle();
+        for (var reread = 0; reread < 2; reread++) {
+          final pending = Completer<CampusCachedData>();
+          container.read(pendingContext.notifier).state = pending.future;
+          await tester.pump();
+          expect(find.byType(CampusContextView), findsOneWidget);
+          expect(
+            tester
+                .widget<CampusContextView>(find.byType(CampusContextView))
+                .data,
+            same(originalContext),
+          );
+          expect(
+            tester.getSize(header).width,
+            lessThan(tester.getSize(workspace).width),
+          );
+          pending.complete(originalContext);
+          await tester.pumpAndSettle();
+        }
+        final switching = Completer<CampusCachedData>();
+        container.read(pendingContext.notifier).state = switching.future;
+        await tester.pump();
+        container.read(selectedRollcallAccountProvider.notifier).state = 2;
+        await tester.pump();
+        expect(find.byType(CampusContextView), findsNothing);
+        container.read(selectedRollcallAccountProvider.notifier).state = null;
+        switching.complete(originalContext);
+        await tester.pumpAndSettle();
+        container.read(pendingContext.notifier).state = null;
+        await tester.pumpAndSettle();
+        expect(
+          tester.getSize(header).width,
+          lessThan(tester.getSize(workspace).width),
+        );
+        for (final empty in [
+          const CampusCachedData(),
+          CampusCachedData(
+            schedule: AcademicSchedule(
+              term: schedule.term,
+              monday: schedule.monday,
+              fetchedAt: now,
+              rows: [schedule.rows.first],
+            ),
+            hasHomeworkCache: true,
+          ),
+        ]) {
+          container.read(contextData.notifier).state = empty;
+          await tester.pumpAndSettle();
+          expect(find.byType(CampusContextView), findsNothing);
+          expect(tester.getSize(header).width, tester.getSize(workspace).width);
+        }
+        await capture('rollcall-no-context');
+        for (final populated in [
+          CampusCachedData(schedule: schedule),
+          CampusCachedData(homework: originalContext.homework),
+          originalContext,
+        ]) {
+          container.read(contextData.notifier).state = populated;
+          await tester.pumpAndSettle();
+          expect(find.byType(CampusContextView), findsOneWidget);
+          expect(
+            tester.getSize(header).width,
+            lessThan(tester.getSize(workspace).width),
+          );
+        }
         for (final label in ['作业', '课表', '工具', '设置']) {
           await tester.tap(
             find.descendant(of: sidebar, matching: find.text(label)),
@@ -575,8 +671,28 @@ void main() {
     );
   }
   testWidgets(
+    'desktop workspace without context gives the task the full width',
+    (tester) async {
+      tester.view.physicalSize = const Size(1104, 770);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
+          home: const Scaffold(
+            body: DesktopWorkspace(title: '签到', child: Text('尚未登录')),
+          ),
+        ),
+      );
+      expect(tester.getSize(find.byType(DesktopPageHeader)).width, 1104);
+      expect(tester.getCenter(find.text('尚未登录')).dx, 552);
+    },
+  );
+  testWidgets(
     'single course timeline reaches below card and metadata icons align',
     (tester) async {
+      const longCourseTitle = '非常长的课程名称：软件工程实践与面向对象程序设计专题';
       tester.view.physicalSize = const Size(360, 540);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
@@ -594,7 +710,12 @@ void main() {
                     term: schedule.term,
                     monday: schedule.monday,
                     fetchedAt: now,
-                    rows: [schedule.rows[1]],
+                    rows: [
+                      AcademicCourseRow.fromJson({
+                        ...schedule.rows[1].toJson(),
+                        'KCMC': longCourseTitle,
+                      }),
+                    ],
                   ),
                 ),
                 now: now,
@@ -607,6 +728,13 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      final courseTitle = find.text(longCourseTitle);
+      expect(tester.widget<Text>(courseTitle).maxLines, 1);
+      expect(tester.widget<Text>(courseTitle).overflow, TextOverflow.ellipsis);
+      expect(
+        tester.renderObject<RenderParagraph>(courseTitle).didExceedMaxLines,
+        isTrue,
+      );
       expect(find.byIcon(AppIcons.clock), findsOneWidget);
       expect(
         tester.getTopLeft(find.byIcon(AppIcons.clock)).dx,

@@ -19,7 +19,7 @@ void main() {
   for (final dark in [false, true]) {
     for (final scale in [1.0, 1.3]) {
       testWidgets(
-        'todo has two visual rows with full-text hints dark=$dark scale=$scale',
+        'todo truncates both rows without hover hints dark=$dark scale=$scale',
         (tester) async {
           tester.view.physicalSize = const Size(300, 500);
           tester.view.devicePixelRatio = 1;
@@ -78,20 +78,14 @@ void main() {
             tester.getCenter(mark).dy,
             closeTo(tester.getCenter(title).dy, 1),
           );
-          final titleText = find.descendant(
-            of: title,
-            matching: find.byType(Text),
-          );
+          final titleText = title;
           expect(tester.widget<Text>(titleText).maxLines, 1);
           expect(
             tester.widget<Text>(titleText).overflow,
             TextOverflow.ellipsis,
           );
-          expect(find.byTooltip('软件工程导论与工程实践（研究生）'), findsOneWidget);
-          expect(
-            find.byTooltip('实验报告：面向对象程序设计与实现，需要完整说明的很长标题'),
-            findsOneWidget,
-          );
+          expect(find.byTooltip('软件工程导论与工程实践（研究生）'), findsNothing);
+          expect(find.byTooltip('实验报告：面向对象程序设计与实现，需要完整说明的很长标题'), findsNothing);
           expect(find.text('明天 23:59'), findsOneWidget);
           expect(
             tester.widget<Icon>(find.byIcon(AppIcons.todoDocument)).size,
@@ -113,17 +107,21 @@ void main() {
               image.dispose();
             });
           }
-          final fullTitle = find.text(
-            '实验报告：面向对象程序设计与实现，需要完整说明的很长标题',
-            findRichText: true,
+          final mouse = await tester.createGesture(
+            kind: ui.PointerDeviceKind.mouse,
           );
-          final before = fullTitle.evaluate().length;
-          await tester.longPress(title);
-          await tester.pumpAndSettle();
-          expect(fullTitle.evaluate().length, greaterThan(before));
+          await mouse.addPointer(location: Offset.zero);
+          await mouse.moveTo(tester.getCenter(title));
+          await tester.pump(const Duration(seconds: 1));
+          expect(
+            find.descendant(
+              of: find.byType(CampusContextView),
+              matching: find.byType(Tooltip),
+            ),
+            findsNothing,
+          );
           expect(opens, 0);
-          Tooltip.dismissAllToolTips();
-          await tester.pumpAndSettle();
+          await mouse.removePointer();
           await tester.tap(title);
           await tester.pumpAndSettle();
           expect(opens, 1);
