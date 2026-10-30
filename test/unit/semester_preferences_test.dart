@@ -34,6 +34,30 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
   test(
+    'platform catalog dates cannot displace the published first Monday',
+    () async {
+      await AcademicScheduleStore.write(1, semesterFixture());
+      await CourseCatalogStore.write(
+        1,
+        CourseCatalogSnapshot(
+          fetchedAt: DateTime(2026, 10, 31),
+          courses: [
+            CatalogCourse(
+              id: 'other',
+              title: '晚开课',
+              startDate: DateTime(2026, 9, 20),
+            ),
+          ],
+        ),
+      );
+      expect(
+        (await AcademicScheduleStore.read(1))!.monday,
+        DateTime(2026, 9, 7),
+      );
+    },
+  );
+
+  test(
     'Monday validation, account and term isolation, clear-cache preservation and reset',
     () async {
       await expectLater(

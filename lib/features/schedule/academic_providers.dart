@@ -42,7 +42,7 @@ class SemesterInfo {
     if (start == null) return '设置第一周日期';
     if (semesterDate(now).isBefore(start!)) return '尚未开课';
     final week = semesterDate(now).difference(start!).inDays ~/ 7 + 1;
-    return week > 30 ? '学期已结束' : '第$week周';
+    return week > semesterWeeks(term) ? '学期已结束' : '第$week周';
   }
 }
 
@@ -56,7 +56,6 @@ final semesterInfoProvider = FutureProvider.autoDispose
         term: term,
         start:
             manual ??
-            await platformSemesterMonday(uid, term) ??
             academicMondays[term] ??
             (raw?.anchorFromUser != true ? raw?.monday : null),
         manual: manual != null,

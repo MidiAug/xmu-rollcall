@@ -55,16 +55,14 @@ class AcademicTimetableReader {
       late final DateTime monday;
       var anchorFromUser = false;
       try {
-        monday =
-            await platformSemesterMonday(uid, term) ??
-            academicMonday(
-              term,
-              currentWeek,
-              now,
-              cached: cached?.term == term && cached?.anchorFromUser != true
-                  ? cached!.monday
-                  : null,
-            );
+        monday = academicMonday(
+          term,
+          currentWeek,
+          now,
+          cached: cached?.term == term && cached?.anchorFromUser != true
+              ? cached!.monday
+              : null,
+        );
       } on AcademicCalendarUnavailable {
         final manual = await SemesterPreferences.read(uid, term);
         if (manual == null) rethrow;

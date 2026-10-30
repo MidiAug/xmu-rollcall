@@ -1,3 +1,4 @@
+import 'grade_release_policy.dart';
 import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 
 double? gradeNumber(Object? value) {
@@ -165,13 +166,16 @@ class GradeSnapshot {
     required this.records,
     this.version = 2,
     this.education = 'undergraduate',
+    this.exams,
   });
   final String education;
   final int version;
   final DateTime at;
   final String term;
   final List<GradeRecord> records;
+  final AcademicExamDates? exams;
   Map<String, dynamic> toJson() => {
+    if (exams != null) 'exams': exams!.toJson(),
     'version': version,
     'education': education,
     'at': at.toIso8601String(),
@@ -179,6 +183,7 @@ class GradeSnapshot {
     'records': records.map((r) => r.data).toList(),
   };
   factory GradeSnapshot.fromJson(Map<String, dynamic> j) => GradeSnapshot(
+    exams: AcademicExamDates.parse(j['exams']),
     version: j['version'] as int? ?? 1,
     education: j['education'] as String? ?? 'undergraduate',
     at: DateTime.parse(j['at'] as String),

@@ -139,7 +139,7 @@ class AcademicSync {
     final calendarCorrected =
         missingTerm != null &&
         (await SemesterPreferences.read(uid, missingTerm) != null ||
-            await platformSemesterMonday(uid, missingTerm) != null);
+            academicMondays.containsKey(missingTerm));
     final last = calendarCorrected
         ? null
         : prefs.getInt('academic_attempt_$uid');

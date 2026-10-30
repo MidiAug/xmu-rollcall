@@ -1,3 +1,7 @@
+import 'grade_release_policy.dart';
+export 'grade_release_policy.dart' show gradeReleaseWindow;
+import 'dart:async';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/features/academic/academic_access.dart';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,7 +17,7 @@ String gradeCacheKey(int owner, int uid) => 'grades_v1_${owner}_$uid';
 final gradeClockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 final gradeReaderProvider = Provider<AcademicGradeReader Function()>((ref) {
   final createSession = ref.watch(academicSessionFactoryProvider);
-  return () => AcademicGradeReader(createSession());
+  return () => AcademicGradeReader(createSession(), queryExams: true);
 });
 final gradeSnapshotProvider =
     AsyncNotifierProvider.autoDispose<GradeNotifier, GradeSnapshot>(
@@ -51,22 +55,55 @@ class GradeNotifier extends AutoDisposeAsyncNotifier<GradeSnapshot> {
       }
     } catch (_) {}
     final now = ref.read(gradeClockProvider)();
-    if (_cache != null &&
-        _cache!.version >= 2 &&
-        now.difference(_cache!.at) < const Duration(days: 1) &&
-        !now.isBefore(_cache!.at)) {
-      return _cache!;
+    final currentCache = _cache;
+    final fresh =
+        currentCache != null &&
+        currentCache.version >= 2 &&
+        now.difference(currentCache.at) < const Duration(days: 1) &&
+        !now.isBefore(currentCache.at);
+    AppLog.event(
+      'grades.cache',
+      fields: {
+        'scope': scope == null ? 'owner' : 'assist',
+        'status': currentCache == null
+            ? 'miss'
+            : fresh
+            ? 'fresh'
+            : 'stale',
+        if (currentCache != null) 'version': currentCache.version,
+        if (currentCache != null)
+          'ageSeconds': now.difference(currentCache.at).inSeconds,
+      },
+    );
+    if (fresh) return currentCache;
+    if (currentCache != null) {
+      // Start after build publishes the cached data; navigation must not wait
+      // for the academic login / redirect chain to finish.
+      unawaited(
+        Future<void>(() async {
+          if (revision != _revision) return;
+          if (!gradeReleaseWindow(now, exams: currentCache.exams)) {
+            AppLog.event(
+              'grades.refresh.skipped',
+              fields: {
+                'scope': scope == null ? 'owner' : 'assist',
+                'reason': 'outside_grade_release_window',
+              },
+            );
+            return;
+          }
+          try {
+            await refresh();
+          } catch (_) {
+            if (revision != _revision) return;
+            warning = '暂时无法更新，显示本地缓存';
+            state = AsyncData(currentCache);
+          }
+        }),
+      );
+      return currentCache;
     }
-    try {
-      return await _fetch(revision);
-    } catch (_) {
-      if (revision != _revision) rethrow;
-      if (_cache != null) {
-        warning = '暂时无法更新，显示本地缓存';
-        return _cache!;
-      }
-      rethrow;
-    }
+    return _fetch(revision);
   }
 
   Future<GradeSnapshot> _fetch(int revision) async {
@@ -112,6 +149,7 @@ class GradeNotifier extends AutoDisposeAsyncNotifier<GradeSnapshot> {
       at: now,
       term: currentSemester(now),
       education: result.education,
+      exams: result.exams ?? cache?.exams,
       records: recent && !result.complete
           ? mergeRecentGrades(cache.records, fresh, result.replacedTerms)
           : fresh,

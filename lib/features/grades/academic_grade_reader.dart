@@ -1,3 +1,6 @@
+import 'grade_release_policy.dart';
+import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'dart:convert';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:crypto/crypto.dart';
@@ -10,17 +13,21 @@ class AcademicGradeResult {
     required this.replacedTerms,
     this.education = 'undergraduate',
     this.complete = false,
+    this.exams,
   });
   final List<Map<String, dynamic>> rows;
   final Set<String> replacedTerms;
   final String education;
   final bool complete;
+  final AcademicExamDates? exams;
 }
 
 class AcademicGradeReader {
-  AcademicGradeReader(this.session);
+  AcademicGradeReader(this.session, {this.queryExams = false});
+  final bool queryExams;
   final AcademicSession session;
   Uri? _applicationPage;
+  String? _verifiedStudent;
 
   Future<AcademicGradeResult> fetch(
     int uid, {
@@ -38,11 +45,77 @@ class AcademicGradeReader {
         password: password,
       );
       final result = await _read(username: username, recent: recent);
+      AcademicExamDates? exams;
+      if (queryExams && result.education == 'undergraduate') {
+        try {
+          exams = await _readExamDates(_verifiedStudent!);
+        } catch (_) {
+          AppLog.event('grades.exams.unavailable');
+        }
+      }
       await session.persist(uid);
-      return result;
+      return AcademicGradeResult(
+        rows: result.rows,
+        replacedTerms: result.replacedTerms,
+        education: result.education,
+        complete: result.complete,
+        exams: exams,
+      );
     } finally {
       session.close();
     }
+  }
+
+  Future<AcademicExamDates> _readExamDates(String username) async {
+    const base = '/jwapp/sys/studentWdksapApp/';
+    final at = DateTime.now();
+    final term = currentSemester(at);
+    final year = int.parse(term.substring(0, 4));
+    final fullTerm = '$year-${year + 1}-${term[4]}';
+    final page = AcademicSession.jw.resolve('$base*default/index.do');
+    await session.open(page);
+    final payload = await session.json(
+      '${base}modules/wdksap/cxxsksap.do',
+      data: {'XNXQDM': fullTerm, 'pageSize': 500, 'pageNumber': 1},
+      headers: {
+        'Referer': page.toString(),
+        'Origin': AcademicSession.jw.origin,
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    );
+    final node = (payload['datas'] as Map?)?['cxxsksap'];
+    if (node is! Map || node['rows'] is! List) {
+      throw const FormatException('考试安排格式异常');
+    }
+    final rows = node['rows'] as List;
+    if (node['totalSize'] is num && (node['totalSize'] as num) > rows.length) {
+      throw const FormatException('考试安排不完整');
+    }
+    final dates = <DateTime>{};
+    for (final row in rows) {
+      if (row is! Map ||
+          (row['XH'] != null && academicText(row['XH']) != username) ||
+          (row['XNXQDM'] != null && academicText(row['XNXQDM']) != fullTerm)) {
+        throw const FormatException('考试安排身份或学期不一致');
+      }
+      final raw = academicText(row['KSRQ']);
+      final match = RegExp(
+        r'^(\d{4})-(\d{2})-(\d{2})(?:$|[ T])',
+      ).firstMatch(raw);
+      if (match == null) throw const FormatException('考试日期格式异常');
+      final date = DateTime(
+        int.parse(match[1]!),
+        int.parse(match[2]!),
+        int.parse(match[3]!),
+      );
+      if (date.year != int.parse(match[1]!) ||
+          date.month != int.parse(match[2]!) ||
+          date.day != int.parse(match[3]!)) {
+        throw const FormatException('考试日期无效');
+      }
+      dates.add(date);
+    }
+    return AcademicExamDates(term: term, at: at, dates: dates.toList()..sort());
   }
 
   Future<void> _openApplication(String applicationId) async {
@@ -90,6 +163,7 @@ class AcademicGradeReader {
         (username != null && student != username)) {
       throw const FormatException('教务身份与所选账号不一致');
     }
+    _verifiedStudent = student;
     try {
       await _openApplication('4768574631264620');
     } on AcademicApplicationDenied {

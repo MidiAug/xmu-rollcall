@@ -264,7 +264,6 @@ abstract final class AcademicScheduleStore {
       final manual = await SemesterPreferences.read(uid, parsed.term);
       final start =
           manual ??
-          await platformSemesterMonday(uid, parsed.term) ??
           academicMondays[parsed.term] ??
           (parsed.anchorFromUser ? null : parsed.monday);
       if (start == null) return null;

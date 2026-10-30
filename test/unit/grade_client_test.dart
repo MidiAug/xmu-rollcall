@@ -8,7 +8,12 @@ import 'package:dio/dio.dart';
 import 'package:xmu_rollcall/core/network/rate_limiter.dart';
 
 class GradeAdapter implements HttpClientAdapter {
-  GradeAdapter({this.issueCookie});
+  GradeAdapter({
+    this.issueCookie,
+    this.wrongExamIdentity = false,
+    this.examFailure = false,
+  });
+  final bool wrongExamIdentity, examFailure;
   final String? issueCookie;
   final requests = <RequestOptions>[];
   @override
@@ -18,6 +23,26 @@ class GradeAdapter implements HttpClientAdapter {
     Future<void>? cancel,
   ) async {
     requests.add(options);
+    if (options.uri.path.endsWith('/cxxsksap.do')) {
+      if (examFailure) return ResponseBody.fromString('unavailable', 503);
+      return ResponseBody.fromString(
+        jsonEncode({
+          'datas': {
+            'cxxsksap': {
+              'rows': [
+                {
+                  'KSRQ': '2026-11-10',
+                  'XH': wrongExamIdentity ? 'other' : 'sample',
+                  'XNXQDM': (options.data as Map)['XNXQDM'],
+                },
+              ],
+              'totalSize': 1,
+            },
+          },
+        }),
+        200,
+      );
+    }
     if (options.uri.path.contains('initXsxx')) {
       return ResponseBody.fromString(
         jsonEncode({
@@ -185,6 +210,35 @@ extension on AcademicSession {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  for (final wrong in [false, true]) {
+    test(
+      'optional read-only exam dates use current session and reject wrong identity=$wrong',
+      () async {
+        final adapter = GradeAdapter(wrongExamIdentity: wrong);
+        final session = AcademicSession(
+          store: SecureStore.memory({SecureStore.keyUserId: '1'}),
+          dio: Dio()..httpClientAdapter = adapter,
+          limiter: RateLimiter(minInterval: Duration.zero),
+        );
+        final result = await AcademicGradeReader(
+          session,
+          queryExams: true,
+        ).fetch(1, username: 'sample');
+        if (wrong) {
+          expect(result.exams, isNull);
+        } else {
+          expect(result.exams!.dates, [DateTime(2026, 11, 10)]);
+        }
+        final query = adapter.requests.singleWhere(
+          (r) => r.uri.path.endsWith('/cxxsksap.do'),
+        );
+        expect(query.method, 'POST');
+        expect((query.data as Map).keys, contains('XNXQDM'));
+        expect(query.headers['Referer'], contains('studentWdksapApp'));
+      },
+    );
+  }
+
   test(
     'grade snapshot is reusable by a new session without leaking grade headers',
     () async {

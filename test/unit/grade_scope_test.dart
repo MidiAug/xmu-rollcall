@@ -57,10 +57,191 @@ class _Client extends AcademicGradeReader {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  for (final uid in [1, 2]) {
+    test(
+      'mid-semester account $uid reuses old cache without academic access; manual refresh remains available',
+      () async {
+        final now = DateTime(2026, 10, 31);
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          gradeCacheKey(1, uid),
+          jsonEncode(
+            GradeSnapshot(
+              at: now.subtract(const Duration(days: 40)),
+              term: '20261',
+              records: [
+                GradeRecord({'WID': 'cached', 'KCM': '缓存课程'}),
+              ],
+            ).toJson(),
+          ),
+        );
+        final store = SecureStore.memory({SecureStore.keyUserId: '1'});
+        final client = _Client(store);
+        var identities = 0;
+        final c = ProviderContainer(
+          overrides: [
+            authControllerProvider.overrideWith((ref) => _Auth()),
+            assistControllerProvider.overrideWith(
+              (ref) => AssistController(
+                ref,
+                bootstrap: false,
+                initial: AssistUiState(
+                  ready: true,
+                  identities: [
+                    AssistIdentity(
+                      userId: 2,
+                      kind: AssistCredentialKind.account,
+                      displayName: 'B',
+                      importedAt: DateTime(2026),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            academicIdentityResolverProvider.overrideWithValue((id) async {
+              identities++;
+              return AcademicIdentity(isCurrent: () async => true);
+            }),
+            secureStoreProvider.overrideWithValue(store),
+            gradeClockProvider.overrideWithValue(() => now),
+            gradeReaderProvider.overrideWithValue(() => client),
+          ],
+        );
+        addTearDown(c.dispose);
+        if (uid == 2) {
+          c.read(selectedRollcallAccountProvider.notifier).state = 2;
+        }
+        final sub = c.listen(gradeSnapshotProvider, (_, _) {});
+        addTearDown(sub.close);
+        expect(
+          (await c.read(gradeSnapshotProvider.future)).records.single.id,
+          'cached',
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        expect(identities, 0);
+        expect(client.entered.isCompleted, isFalse);
+        final manual = c.read(gradeSnapshotProvider.notifier).refresh();
+        await client.entered.future;
+        client.result.complete(
+          const AcademicGradeResult(
+            rows: [],
+            replacedTerms: {},
+            complete: true,
+          ),
+        );
+        await manual;
+        expect(identities, 1);
+      },
+    );
+  }
+
+  for (final uid in [1, 2]) {
+    for (final fails in [false, true]) {
+      test(
+        'stale cached grades show before a slow refresh, account=$uid failure=$fails',
+        () async {
+          final now = DateTime(2027, 1, 11);
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(
+            gradeCacheKey(1, uid),
+            jsonEncode(
+              GradeSnapshot(
+                at: now.subtract(const Duration(days: 2)),
+                term: '20261',
+                records: [
+                  GradeRecord({'WID': 'cached', 'KCM': '缓存课程'}),
+                ],
+              ).toJson(),
+            ),
+          );
+          final store = SecureStore.memory({SecureStore.keyUserId: '1'});
+          final client = _Client(store);
+          final c = ProviderContainer(
+            overrides: [
+              authControllerProvider.overrideWith((ref) => _Auth()),
+              assistControllerProvider.overrideWith(
+                (ref) => AssistController(
+                  ref,
+                  bootstrap: false,
+                  initial: AssistUiState(
+                    ready: true,
+                    identities: [
+                      AssistIdentity(
+                        userId: 2,
+                        kind: AssistCredentialKind.account,
+                        displayName: 'B',
+                        importedAt: DateTime(2026),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              academicIdentityResolverProvider.overrideWithValue(
+                (id) async => AcademicIdentity(isCurrent: () async => true),
+              ),
+              secureStoreProvider.overrideWithValue(store),
+              gradeClockProvider.overrideWithValue(() => now),
+              academicSyncProvider.overrideWith((ref) => AcademicSync(store)),
+              gradeReaderProvider.overrideWithValue(() => client),
+            ],
+          );
+          addTearDown(c.dispose);
+          if (uid == 2) {
+            c.read(selectedRollcallAccountProvider.notifier).state = 2;
+          }
+          final sub = c.listen(gradeSnapshotProvider, (_, _) {});
+          addTearDown(sub.close);
+          final cached = await c.read(gradeSnapshotProvider.future);
+          expect(cached.records.single.id, 'cached');
+          await client.entered.future;
+          expect(
+            c.read(gradeSnapshotProvider).requireValue.records.single.id,
+            'cached',
+          );
+          expect(c.read(gradeSnapshotProvider).isLoading, isFalse);
+          final refresh = c.read(gradeSnapshotProvider.notifier).refresh();
+          if (fails) {
+            client.result.completeError(StateError('offline'));
+            await expectLater(refresh, throwsStateError);
+            await Future<void>.delayed(Duration.zero);
+            expect(
+              c.read(gradeSnapshotProvider).requireValue.records.single.id,
+              'cached',
+            );
+            expect(
+              c.read(gradeSnapshotProvider.notifier).warning,
+              contains('本地缓存'),
+            );
+          } else {
+            client.result.complete(
+              const AcademicGradeResult(
+                rows: [
+                  {'WID': 'new', 'KCM': '新成绩'},
+                ],
+                replacedTerms: {},
+                complete: true,
+              ),
+            );
+            await refresh;
+            expect(
+              c.read(gradeSnapshotProvider).requireValue.records.single.id,
+              'new',
+            );
+            expect(
+              jsonDecode(
+                prefs.getString(gradeCacheKey(1, uid))!,
+              )['records'][0]['WID'],
+              'new',
+            );
+          }
+        },
+      );
+    }
+  }
   test(
-    'legacy grade cache reloads complete classification data even within one day',
+    'legacy classification upgrades in release season while cached grades remain readable',
     () async {
-      final at = DateTime(2026, 10, 28);
+      final at = DateTime(2027, 1, 11);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
         gradeCacheKey(1, 1),
@@ -87,6 +268,7 @@ void main() {
       final sub = c.listen(gradeSnapshotProvider, (_, _) {});
       addTearDown(sub.close);
       await client.entered.future;
+      final refresh = c.read(gradeSnapshotProvider.notifier).refresh();
       expect(client.receivedRecent, isFalse);
       client.result.complete(
         AcademicGradeResult(
@@ -96,7 +278,8 @@ void main() {
           replacedTerms: <String>{},
         ),
       );
-      final snapshot = await c.read(gradeSnapshotProvider.future);
+      await refresh;
+      final snapshot = c.read(gradeSnapshotProvider).requireValue;
       expect(snapshot.version, 2);
       expect(snapshot.records.single.id, 'new');
       expect(jsonDecode(prefs.getString(gradeCacheKey(1, 1))!)['version'], 2);
@@ -105,7 +288,7 @@ void main() {
   test(
     'graduate full refresh replaces stale rows rather than treating empty grades as failure',
     () async {
-      final now = DateTime(2026, 10, 28);
+      final now = DateTime(2027, 1, 11);
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
         gradeCacheKey(1, 1),
@@ -135,6 +318,7 @@ void main() {
       final sub = c.listen(gradeSnapshotProvider, (_, _) {});
       addTearDown(sub.close);
       await client.entered.future;
+      final refresh = c.read(gradeSnapshotProvider.notifier).refresh();
       expect(client.receivedRecent, isTrue);
       client.result.complete(
         const AcademicGradeResult(
@@ -144,7 +328,8 @@ void main() {
           complete: true,
         ),
       );
-      final result = await c.read(gradeSnapshotProvider.future);
+      await refresh;
+      final result = c.read(gradeSnapshotProvider).requireValue;
       expect(result.records, isEmpty);
       expect(result.education, 'graduate');
       expect(

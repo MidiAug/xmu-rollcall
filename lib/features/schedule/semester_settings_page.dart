@@ -196,13 +196,18 @@ class _SemesterSettingsPageState extends ConsumerState<SemesterSettingsPage> {
                           : '教务周次',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
+                    if (_term != null)
+                      Text(
+                        '本学期${semesterWeeks(_term!)}周${academicTerms.containsKey(_term) ? '' : '（估算）'}',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                     if (week != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           now.isBefore(value!)
                               ? '尚未开课'
-                              : week > 30
+                              : week > semesterWeeks(_term!)
                               ? '学期已结束'
                               : '当前第$week周',
                         ),

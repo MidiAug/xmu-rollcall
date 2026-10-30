@@ -843,3 +843,41 @@ final result: passed
 - 根据本轮用户纠正撤销桌面已签到的紧凑摘要分支，待签/已签复用同一卡片、背景及底部摘要；成功按钮改为主题成功色且禁用，两端使用同一按钮样式。桌面人数completed与Android一致，收尾一次后停止刷新和暂停操作。
 - build/completed-card-tests.log：14项通过。真实数字点击提交后断言卡片尺寸不变、1234仍显示、完整人数组件保留且completed为true；三类全部已签场景断言三个已签到按钮、数字码和二维码文本保留。原安卓模拟提交、三类场景、人数刷新/完成/暂停回归通过。
 - build/completed-card-analyze.log对2项变更文件检查无问题。实际查看build/rollcall-home-preview/desktop-completed.png，三类卡片保留完整课程/老师/背景与底部信息，成功按钮位置一致，不再变为一行摘要；未进行Android真机验收。
+
+
+## 2026-10-31 辅助账号GPA长时间加载排查
+
+- 只读当前应用日志及SharedPreferences中的成绩缓存元数据，没有输出完整存储/凭据/课程成绩明细，没有清除用户缓存。辅助账号本轮00:11:18.931开始读取，00:12:18.067近两学期成绩查询结束，约59.1秒；其中研究生课表应用跳转00:11:20.683至00:12:08.990的academic.http.result记录elapsedMs=48306。此计时覆盖限流排队与HTTP，不据此断言纯服务器耗时。
+- 这次访问了近两学期查询端点，代码条件表明已有v2缓存用于增量；最终该账号磁盘缓存69条，v2。旧缓存的准确at已被本次结果覆盖，旧日志无cache事件，不能还原原缓存过期时长。未发现缓存串号或丢失证据。
+- 代码证据：原GradeNotifier在v2缓存超过一天时先await _fetch，只有网络失败才返回缓存，造成已有成绩仍整页loading。现在新鲜缓存仍直接返回；旧v2缓存先发布，下一事件循环后台刷新，保持账号生命周期校验、旧v1迁移和在途合并；失败保留缓存且更新warning。新增安全缓存命中日志以区分以后miss/fresh/stale。
+- build/gpa-cache-tests-final.log：27项通过，包含主/协助账号过期缓存先返回、网络仍挂起时可读、成功更新落盘、失败保留与warning、fresh缓存隔离、账号切换阻止旧请求写入、旧v1迁移、空研究生成绩替换、真实教务协议适配器及GPA布局。build/gpa-cache-analyze-verified.log检查变更生产/测试2项无问题。非全量回归，无Android真机验收。
+
+- 当前Windows开发实例热重载成功，Reloaded 11 of 3288 libraries；未清除/改写用户成绩缓存或重启应用。
+
+
+## 2026-10-31 GPA按期末和假期更新
+
+- 用户进一步明确“中段已有数据不应自动访问”。缓存优先保留，并给后台更新增加本地出分窗口判断：秋春第16周起、夏季学期/暑期允许自动更新；前15周及未知锚点仅缓存，手动更新/首次无缓存查询保留。24小时是出分窗口内的检查频率，不再作为全年自动更新理由。
+- 只读当前账号SemesterPreferences及AcademicScheduleStore(useUserStart:false)，缺同学期课表时沿用academicMondays。未触发课表同步或教务请求，不引入第二套校历/凭据。旧版可读成绩同样先显示，分类升级推迟至窗口或手动更新。
+- build/grade-season-tests-final.log：30项通过。两种账号40天旧缓存于10月31日打开后身份解析0次、成绩读取0次，手动刷新能读取；第15/16周边界、寒假、暑期及未知锚点判断；期末旧缓存先显示及后台成功/失败、旧分类迁移、原账号隔离/切换、增量协议及GPA组件回归均通过。
+- build/grade-season-analyze-final.log：变更生产/测试2项静态检查无问题。没有清理用户缓存或修改已有成绩；非全量回归，未作Android真机验收。
+
+- 当前Windows开发实例已热重载：Reloaded 11 of 3288 libraries。
+
+
+## 2026-10-31 实际校历、考试日期与首周来源
+
+- 移除gradeReleaseWindow的固定16周/夏季直接放行。使用同一成绩缓存内的账号考试日期（次日起14天）或academicTerms确认的学期结束/假期末；未知学年默认18/17/3仅显示，不授权联网。可读旧缓存优先、手动刷新和限流保持。
+- 检查2022–2027校方历年网页并复核2026–2027 PDF，精确周数覆盖18/19、17/18、3/4/5周；维护入口仅academic_calendar.dart，自动派生周一表/周数。年度更新通常一次，临时调整例外。首周不再优先使用畅课课程startDate，用户设置仍最高优先，未知年度仅可信教务周次可回推，week=1不猜测。
+- 本科只读考试安排附于既有grade fetch中，同一学期/会话查询；GradeSnapshot按owner+uid保存最小日期，错误账号/学期/日期或不完整返回不采纳，查询失败继续保留成绩和原元数据。研究生没有已验证考试端点，不冒充支持；无考试事实仍有确认的校历/手动路径。没有主动拉取真实账号考试数据或新增课表探测。
+- build/calendar-exams-tests-verified.log：91项回归通过，覆盖校历周数和边界、手动/缓存/账号生命周期、考试查询HTTP适配器与身份拒绝、旧数据兼容、首周来源、课表投影及GPA/学期界面。最终将考试观察期限定为次日后，build/calendar-exams-last-tests.log再对日期/账号/协议23项复核通过。build/calendar-exams-analyze-final.log全库无问题，最终getter与身份关联改动由build/calendar-exams-analyze-verified.log聚焦复核无问题。
+- build/calendar-settings-visual-final.log四项通过；实际查看.tools/semester-ui/settings-384.png，中文字体加载后首周设置/手动来源/本学期18周/当前周次清晰无溢出。初次未加载字体的截图未作为通过证据。无Android真机验收。
+- 当前Windows开发实例已成功热重载（Reloaded 79 of 3289 libraries），包含新数据模型、策略与周数显示；最终次日边界随后再次热重载。没有停止任务、清缓存或改写用户成绩数据。
+
+
+## 2026-10-31 畅课开学锚点来源补记
+
+- 用户记忆与源码相符：rollcall_repository请求start_date并解析到CatalogCourse.startDate，teachingMondayFromCourses按目标学期过滤、将当天/之后第一个周一投票聚合，最高票并列或无日期返回未知。旧cdc49d3版AcademicTimetableReader优先调用该推导。
+- 更正上轮来源解释：anchorFromUser=false只能排除手动兜底，不能证明旧缓存一定来自内置校历。旧缓存没有更细来源标记。
+- 说明及日期示例写入docs/research/57-tronclass-semester-start.md，56号调研记录添加互链和更正。当前c9d7a49运行优先级本轮未改，教学周锚点不等于考试/出分日期。
+- 纯Markdown更新，核对函数、旧调用、日期例子与diff；未运行Flutter检查或修改真实缓存。
