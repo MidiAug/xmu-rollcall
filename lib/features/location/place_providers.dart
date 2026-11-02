@@ -74,6 +74,15 @@ final coursePlaceGroupsForUserProvider =
           ),
       ];
     });
+
+/// Manual radar entry starts at the student's college, independently of the
+/// course being corrected. The selector still allows cross-campus classes.
+final radarCampusForUserProvider = Provider.family<Campus, int?>(
+  (ref, userId) =>
+      campusForCollege(_schedule(ref, userId)?.studentCollege ?? '') ??
+      ref.watch(preferredCampusForUserProvider(userId)),
+);
+
 final preferredCampusForUserProvider = Provider.family<Campus, int?>(
   (ref, userId) => preferredCampus(
     ref

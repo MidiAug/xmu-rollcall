@@ -779,9 +779,18 @@ class RollcallRepository {
           status < 400 ||
           status >= 500 ||
           status == 401 ||
-          status == 403 ||
           status == 429 ||
           response.data is! Map) {
+        rethrow;
+      }
+      // Some deployments use 403 for an explicit radar scope rejection.
+      // A generic 403 still follows the existing session-expired path.
+      if (status == 403 &&
+          !AnswerResult(
+            ok: false,
+            status: status,
+            raw: Map<String, dynamic>.from(response.data as Map),
+          ).isLocationRejected) {
         rethrow;
       }
       return _mapAnswer(response, opId: opId, rollcallId: rollcallId);

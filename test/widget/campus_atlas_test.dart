@@ -184,8 +184,9 @@ void main() {
           }
           await tester.pumpAndSettle();
           final selected = tester.widget<CampusMap>(find.byType(CampusMap));
-          expect(selected.point!.latitude, 24.6050038);
-          expect(selected.point!.longitude, 118.3137578);
+          expect(selected.point, isNull);
+          expect(selected.selectedPlaceId, isNotNull);
+          expect(find.byIcon(Icons.location_on), findsNothing);
           expect(find.text('分区独立位置'), findsOneWidget);
           expect(find.text('保存定位'), findsNothing);
           expect(find.text('新增楼宇'), findsNothing);

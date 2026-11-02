@@ -372,6 +372,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
   bool get _desktop => PlatformHooks.isDesktop && !AppDensity.isTouch(context);
   bool _hover = false;
   bool _submitting = false;
+  bool _openingRadar = false;
   (int?, int?, int)? _submittedFor;
   bool get _answered =>
       widget.item.isAnswered ||
@@ -642,6 +643,16 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
         if (!current()) return;
         ref.invalidate(locationIssuesProvider);
       }
+      if (!result.ok && result.isLocationRejected && mounted && current()) {
+        final retry = await showAppConfirmDialog(
+          context,
+          title: '签到位置不匹配',
+          message: '预设位置不符合本次签到范围，请在地图上重新选择上课位置。',
+          confirmLabel: '重新选择',
+        );
+        if (retry && current()) await _openRadarPicker();
+        return;
+      }
       if (mounted && current()) {
         AppToast.show(
           context,
@@ -672,14 +683,16 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
 
   void _submitTask() {
     if (_submitting) return;
+    if (widget.item.isRadar) {
+      _oneClickRadar();
+      return;
+    }
     if (!_desktop && Theme.of(context).platform != TargetPlatform.android) {
       _openSecondary(prefillNumber: true);
       return;
     }
     if (widget.item.isNumber && widget.item.numberCode?.isNotEmpty == true) {
       _oneClickNumber();
-    } else if (widget.item.isRadar) {
-      _oneClickRadar();
     } else {
       _openSecondary(prefillNumber: true);
     }
@@ -687,6 +700,10 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
 
   void _openSecondary({bool prefillNumber = false}) {
     final item = widget.item;
+    if (item.isRadar) {
+      _openRadarPicker();
+      return;
+    }
     if ((_desktop || Theme.of(context).platform == TargetPlatform.android) &&
         item.isNumber) {
       _manualNumberDialog();
@@ -713,6 +730,35 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     ).then((_) {
       if (mounted) setState(() => _locationDisplayKey = null);
     });
+  }
+
+  Future<void> _openRadarPicker() async {
+    if (_openingRadar || _answered || widget.item.isExpired) return;
+    final owner = ref.read(authControllerProvider).profile?.id;
+    final selected = ref.read(selectedRollcallAccountProvider);
+    final activity = widget.item.rollcallId;
+    _openingRadar = true;
+    try {
+      final success = await showRadarAnswerDialog(
+        context,
+        item: widget.item,
+        assistUserId: widget.assistUserId,
+      );
+      if (!mounted) return;
+      if (ref.read(authControllerProvider).profile?.id != owner ||
+          ref.read(selectedRollcallAccountProvider) != selected ||
+          widget.item.rollcallId != activity) {
+        return;
+      }
+      setState(() {
+        _locationDisplayKey = null;
+        if (success == true) {
+          _submittedFor = (owner, widget.assistUserId, activity);
+        }
+      });
+    } finally {
+      _openingRadar = false;
+    }
   }
 
   Future<void> _copyCode(String code) async {
@@ -761,10 +807,8 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    AppTruncatedText(
                       title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 19,
                         height: 1.35,
@@ -977,10 +1021,8 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
             ],
           ),
           const SizedBox(height: 12),
-          Text(
+          AppTruncatedText(
             title,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 20,
               height: 1.4,
@@ -1182,12 +1224,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Text(
-                          title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: _titleStyle(p),
-                        ),
+                        AppTruncatedText(title, style: _titleStyle(p)),
                         if (item.createdByName.trim().isNotEmpty) ...[
                           const SizedBox(height: 10),
                           Text(

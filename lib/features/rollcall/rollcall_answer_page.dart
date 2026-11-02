@@ -18,9 +18,24 @@ import 'package:xmu_rollcall/features/location/course_meeting.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/location/map_pick_page.dart';
+import 'package:xmu_rollcall/core/network/request_failure.dart';
 import 'package:xmu_rollcall/features/rollcall/radar_place_card.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+
+Future<bool?> showRadarAnswerDialog(
+  BuildContext context, {
+  required RollcallItem item,
+  int? assistUserId,
+}) => showDialog<bool>(
+  context: context,
+  barrierDismissible: false,
+  builder: (_) => RollcallAnswerPage(
+    item: item,
+    assistUserId: assistUserId,
+    mapDialog: true,
+  ),
+);
 
 class RollcallAnswerPage extends ConsumerStatefulWidget {
   const RollcallAnswerPage({
@@ -29,6 +44,7 @@ class RollcallAnswerPage extends ConsumerStatefulWidget {
     this.assistUserId,
     this.previewMode = false,
     this.initialNumberCode,
+    this.mapDialog = false,
   });
 
   final RollcallItem item;
@@ -41,6 +57,7 @@ class RollcallAnswerPage extends ConsumerStatefulWidget {
 
   /// Already discovered code offered for review; never submitted on entry.
   final String? initialNumberCode;
+  final bool mapDialog;
 
   @override
   ConsumerState<RollcallAnswerPage> createState() => _RollcallAnswerPageState();
@@ -60,6 +77,8 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
   int _locationRequest = 0;
   RadarGeoSelection? _selection;
   String? _status;
+  String? _radarFailure;
+  bool _locationRejected = false;
   bool _pinnedByUser = false;
   String? _meetingKey;
   int? _scopeOwnerId;
@@ -151,7 +170,9 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     _meetingKey = meeting;
     _scopeOwnerId = owner;
     _scopePrepared = true;
-    _syncCoursePref();
+    // A correction dialog starts with a fresh selection, never with a preset
+    // that the user has just been asked to correct.
+    if (!widget.mapDialog) _syncCoursePref();
   }
 
   void _pin(RadarGeoSelection selection) {
@@ -430,8 +451,9 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
     }
     final opId = RollcallLog.newOpId();
     final session = widget.assistUserId == null ? 'owner' : 'assist';
-    // The Android picker's bottom action is the explicit submission step.
-    final confirmed = Theme.of(context).platform == TargetPlatform.android
+    // The map picker's bottom action is the explicit submission step.
+    final confirmed =
+        widget.mapDialog || Theme.of(context).platform == TargetPlatform.android
         ? true
         : await _confirm(
             '课程：${widget.item.courseTitle}\n'
@@ -536,11 +558,13 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
           ref.read(selectedRollcallAccountProvider) != _selectedAtOpen) {
         return;
       }
-      AppToast.show(
-        context,
-        result.message ?? (result.ok ? '成功' : '失败'),
-        error: !result.ok,
-      );
+      if (!widget.mapDialog || result.ok) {
+        AppToast.show(
+          context,
+          result.message ?? (result.ok ? '签到成功' : '签到失败'),
+          error: !result.ok,
+        );
+      }
       if (result.ok) {
         await ref
             .read(courseRadarDefaultsForProvider(widget.assistUserId).notifier)
@@ -559,11 +583,16 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
         if (mounted &&
             ref.read(authControllerProvider).profile?.id == owner &&
             ref.read(selectedRollcallAccountProvider) == _selectedAtOpen) {
-          Navigator.of(context).pop();
+          Navigator.of(context).pop(true);
         }
       } else {
         setState(() {
           _status = '${result.message ?? "提交失败"}。可更换位置后重试。';
+          _radarFailure = result.isLocationRejected
+              ? '所选位置不符合本次签到范围，请重新选择上课位置。'
+              : result.message ?? '服务未确认签到成功，请稍后重试。';
+          _locationRejected = result.isLocationRejected;
+          _mapInitial = LatLng(sel.latitude, sel.longitude);
         });
       }
     } catch (e, st) {
@@ -574,7 +603,26 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
         stackTrace: st,
       );
       if (!mounted) return;
-      AppToast.show(context, '签到未完成，请重试', error: true);
+      if (ref.read(authControllerProvider).profile?.id != _ownerAtOpen ||
+          ref.read(selectedRollcallAccountProvider) != _selectedAtOpen) {
+        return;
+      }
+      // A local history/preference write must not turn an accepted submission
+      // into a retry, which could send the same attendance twice.
+      if (ok == true) {
+        AppToast.show(context, '签到成功，本机记录未能完整保存');
+        Navigator.of(context).pop(true);
+        return;
+      }
+      if (widget.mapDialog) {
+        setState(() {
+          _radarFailure = requestFailureMessage(e);
+          _locationRejected = false;
+          _mapInitial = LatLng(sel.latitude, sel.longitude);
+        });
+      } else {
+        AppToast.show(context, '签到未完成，请重试', error: true);
+      }
     } finally {
       RollcallLog.end(
         opId: opId,
@@ -632,6 +680,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
   Widget build(BuildContext context) {
     final item = widget.item;
     final p = AppPalette.of(context);
+    if (widget.mapDialog) return _radarDialog(context, p);
     ref.listen(
       ref.watch(savedLocationsForUserProvider(_locationUserId)),
       (_, _) => _syncCoursePref(),
@@ -741,6 +790,159 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
             ] else
               const Text('暂不支持此签到类型'),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _radarDialog(BuildContext context, AppPalette p) {
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 240);
+    final height = (MediaQuery.sizeOf(context).height - 48).clamp(180.0, 620.0);
+    return PopScope(
+      canPop: !_submitting,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _submitting) AppToast.show(context, '正在提交签到，请稍候');
+      },
+      child: Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        backgroundColor: p.surface,
+        elevation: 0,
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.dialog),
+          side: BorderSide(color: p.border),
+        ),
+        child: AnimatedContainer(
+          duration: duration,
+          curve: Curves.easeInOutCubic,
+          width: _radarFailure == null ? 760 : 420,
+          child: AnimatedSize(
+            duration: duration,
+            curve: Curves.easeInOutCubic,
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              height: _radarFailure == null
+                  ? height
+                  : height.clamp(180.0, 220.0),
+              child: AnimatedSwitcher(
+                duration: duration,
+                child: _radarFailure == null
+                    ? Column(
+                        key: const ValueKey('radar-map-step'),
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 12, 8, 0),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '选择签到位置',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.titleMedium,
+                                      ),
+                                      AppTruncatedText(
+                                        widget.item.courseTitle,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: '取消',
+                                  onPressed: _submitting
+                                      ? null
+                                      : () => Navigator.pop(context),
+                                  icon: const Icon(AppIcons.close, size: 20),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: MapPickPanel(
+                              key: ValueKey(_mapRevision),
+                              initial: _mapInitial,
+                              initialCampus: ref.watch(
+                                radarCampusForUserProvider(_locationUserId),
+                              ),
+                              requireSelection: true,
+                              busy: _submitting,
+                              confirmLabel: _submitting ? '签到中…' : '签到',
+                              onDraftChanged: (draft) => _pin(
+                                RadarGeoSelection(
+                                  latitude: draft.latitude,
+                                  longitude: draft.longitude,
+                                  accuracy: 35,
+                                  obtainedVia: RadarObtainedVia.map,
+                                ),
+                              ),
+                              onConfirm: (point) {
+                                _pin(
+                                  RadarGeoSelection(
+                                    latitude: point.latitude,
+                                    longitude: point.longitude,
+                                    accuracy: 35,
+                                    obtainedVia: RadarObtainedVia.map,
+                                  ),
+                                );
+                                _submitRadar();
+                              },
+                            ),
+                          ),
+                        ],
+                      )
+                    : Padding(
+                        key: const ValueKey('radar-failure-step'),
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              _locationRejected ? '签到位置不匹配' : '签到未完成',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 12),
+                            Expanded(
+                              child: SingleChildScrollView(
+                                child: Text(_radarFailure!),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('取消'),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: FilledButton(
+                                    onPressed: () => setState(() {
+                                      _radarFailure = null;
+                                      _mapRevision++;
+                                    }),
+                                    child: const Text('重新选择'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+              ),
+            ),
+          ),
         ),
       ),
     );

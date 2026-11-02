@@ -135,6 +135,22 @@ void main() {
     expect(adapter.requests, 1);
   });
   test(
+    'explicit radar scope error is recognized without a distance, including 403',
+    () async {
+      for (final status in [400, 403, 422]) {
+        adapter.status = status;
+        adapter.body = {'error_code': 'radar_out_of_rollcall_scope'};
+        final result = await repo.answerRadar(
+          rollcallId: 7,
+          latitude: 24.4,
+          longitude: 118.1,
+        );
+        expect(result.isLocationRejected, isTrue);
+        expect(result.raw.containsKey('distance'), isFalse);
+      }
+    },
+  );
+  test(
     'current rejection without distance preserves message without fabricating meters',
     () async {
       adapter.status = 400;

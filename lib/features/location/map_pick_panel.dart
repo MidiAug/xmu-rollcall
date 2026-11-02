@@ -26,6 +26,7 @@ class MapPickPanel extends StatefulWidget {
   const MapPickPanel({
     super.key,
     this.initial,
+    this.initialCampus = Campus.xiangan,
     this.requireNote = false,
     this.confirmLabel,
     this.initialNote = '',
@@ -40,6 +41,7 @@ class MapPickPanel extends StatefulWidget {
   });
 
   final LatLng? initial;
+  final Campus initialCampus;
   final bool requireSelection;
   final bool showCoordinates;
   final String? selectedLabel;
@@ -66,13 +68,14 @@ class MapPickPanelState extends State<MapPickPanel>
   String? _noteError;
   Campus _campus = Campus.xiangan;
   bool _hasSelection = false;
+  bool _campusChosen = false;
 
   LatLng get point => _point;
 
   @override
   void initState() {
     super.initState();
-    _point = widget.initial ?? kDefaultMapCenter;
+    _point = widget.initial ?? widget.initialCampus.center;
     _hasSelection = widget.initial != null;
     _note = TextEditingController(text: widget.initialNote);
     _campus =
@@ -88,6 +91,20 @@ class MapPickPanelState extends State<MapPickPanel>
         Campus.xiangan;
     WidgetsBinding.instance.addObserver(this);
     _noteFocus.addListener(_revealNote);
+  }
+
+  @override
+  void didUpdateWidget(MapPickPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The cached student profile may resolve after the dialog's first frame.
+    if (widget.initialCampus != oldWidget.initialCampus &&
+        widget.initial == null &&
+        !_hasSelection &&
+        !_campusChosen) {
+      _campus = widget.initialCampus;
+      _point = _campus.center;
+      _mapController.move(_point, 16);
+    }
   }
 
   @override
@@ -145,7 +162,7 @@ class MapPickPanelState extends State<MapPickPanel>
   Widget build(BuildContext context) {
     return ShellTabExitGuard(
       hasUnsavedChanges: () {
-        final initial = widget.initial ?? kDefaultMapCenter;
+        final initial = widget.initial ?? widget.initialCampus.center;
         return _point.latitude != initial.latitude ||
             _point.longitude != initial.longitude ||
             _note.text.trim() != widget.initialNote.trim();
@@ -176,6 +193,7 @@ class MapPickPanelState extends State<MapPickPanel>
                   if (widget.busy) return;
                   setState(() {
                     _campus = campus;
+                    _campusChosen = true;
                     _point = campus.center;
                     _hasSelection = false;
                   });
@@ -195,8 +213,11 @@ class MapPickPanelState extends State<MapPickPanel>
                         backgroundColor: p.surfaceHigh,
                         initialCenter: _point,
                         initialZoom: 16,
-                        minZoom: 3,
+                        minZoom: kXmuMapMinZoom,
                         maxZoom: kAmapMaxZoom,
+                        cameraConstraint: CameraConstraint.containCenter(
+                          bounds: kXmuMapBounds,
+                        ),
                         onTap: (_, latLng) {
                           FocusScope.of(context).unfocus();
                           setState(() {
@@ -282,7 +303,9 @@ class MapPickPanelState extends State<MapPickPanel>
                         children: [
                           Expanded(
                             child: Text(
-                              widget.showCoordinates
+                              widget.requireSelection && !_hasSelection
+                                  ? '点击地图选择位置'
+                                  : widget.showCoordinates
                                   ? coord
                                   : _hasSelection
                                   ? (widget.selectedLabel?.isNotEmpty == true

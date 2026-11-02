@@ -18,6 +18,9 @@ import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
+import 'package:xmu_rollcall/features/monitor/course_watch_settings.dart';
+import 'package:xmu_rollcall/features/monitor/course_watch_courses_page.dart';
 
 class _AuthRepository extends Fake implements AuthRepository {}
 
@@ -51,6 +54,77 @@ Future<void> _reveal(WidgetTester tester, Finder finder) async {
 }
 
 void main() {
+  testWidgets(
+    'watch course and mode taps explain running and starting restrictions',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          monitorControllerProvider.overrideWith((ref) => _Monitor(ref)),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(AppToast.dismiss);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
+            home: const Scaffold(
+              body: SingleChildScrollView(
+                child: CourseWatchSettings(ownerId: 1, targetId: 1),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final ctrl =
+          container.read(monitorControllerProvider.notifier) as _Monitor;
+      for (final starting in [false, true]) {
+        ctrl.seed(
+          MonitorState(
+            config: const MonitorConfig(courseWatch: true),
+            running: !starting,
+            starting: starting,
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('值守课程'));
+        await tester.tap(find.text('值守课程'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text(starting ? '值守正在启动，请稍候再调整' : '请先暂停值守，再调整值守课程'),
+          findsOneWidget,
+        );
+        expect(find.byType(CourseWatchCoursesPage), findsNothing);
+        AppToast.dismiss();
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('monitor-course-watch')),
+        );
+        await tester.tap(find.byKey(const ValueKey('monitor-course-watch')));
+        await tester.pumpAndSettle();
+        expect(
+          container.read(monitorControllerProvider).config.courseWatch,
+          isTrue,
+        );
+        expect(
+          find.text(starting ? '值守正在启动，请稍候再调整' : '请先暂停值守，再调整课表值守设置'),
+          findsOneWidget,
+        );
+        AppToast.dismiss();
+      }
+      ctrl.seed(const MonitorState(config: MonitorConfig(courseWatch: true)));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('值守课程'));
+      await tester.tap(find.text('值守课程'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CourseWatchCoursesPage), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
   setUpAll(() async {
     await loadDesktopPreviewFonts();
     final font = Platform.environment['MONITOR_UI_FONT'];

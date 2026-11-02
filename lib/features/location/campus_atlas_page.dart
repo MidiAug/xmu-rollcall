@@ -303,9 +303,6 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
                           onMapReady: _fitCampus,
                           areas: polygons,
                           selectedPlaceId: selected?.id,
-                          point: selected?.usable == true
-                              ? LatLng(selected!.latitude, selected.longitude)
-                              : null,
                           borderRadius: mobile
                               ? BorderRadius.zero
                               : BorderRadius.circular(14),

@@ -170,9 +170,20 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
                   AppSwitch(
                     key: const ValueKey('monitor-course-watch'),
                     value: c.courseWatch,
-                    onChanged: ready && !state.running && !state.starting
-                        ? ctrl.setCourseWatch
-                        : null,
+                    onChanged: !ready
+                        ? null
+                        : (value) {
+                            if (state.running || state.starting) {
+                              AppToast.show(
+                                context,
+                                state.starting
+                                    ? '值守正在启动，请稍候再调整'
+                                    : '请先暂停值守，再调整课表值守设置',
+                              );
+                              return;
+                            }
+                            ctrl.setCourseWatch(value);
+                          },
                   ),
                 ],
               ),
@@ -265,8 +276,15 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
               SettingsRow(
                 title: '值守课程',
                 subtitle: state.running ? '暂停值守后可调整课程范围' : scopeText,
-                onTap: ready && !state.running && !state.starting
+                onTap: ready
                     ? () async {
+                        if (state.running || state.starting) {
+                          AppToast.show(
+                            context,
+                            state.starting ? '值守正在启动，请稍候再调整' : '请先暂停值守，再调整值守课程',
+                          );
+                          return;
+                        }
                         await AppPageRoutes.push(
                           context,
                           CourseWatchCoursesPage(

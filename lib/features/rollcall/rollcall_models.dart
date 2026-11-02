@@ -188,6 +188,7 @@ class AnswerResult {
     ).hasMatch(reason)) {
       return false;
     }
+    if (reason.contains('radar_out_of_rollcall_scope')) return true;
     final distance = raw['distance'];
     if (distance is num &&
         distance.isFinite &&
