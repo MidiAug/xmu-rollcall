@@ -5,10 +5,46 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/features/location/course_radar_store.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
 import 'package:xmu_rollcall/features/location/location_providers.dart';
+import 'package:xmu_rollcall/features/location/place_matching.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test(
+    'explicit matched group binding resolves the current maintained area point',
+    () async {
+      final point = matchCoursePlace('法学院', [], campus: Campus.siming)!;
+      final ctrl = CourseRadarDefaultsController(userId: 1);
+      addTearDown(ctrl.dispose);
+      await ctrl.configureForCourse(
+        courseId: 'area',
+        courseTitle: 'fixture',
+        selection: RadarGeoSelection(
+          latitude: point.latitude,
+          longitude: point.longitude,
+          accuracy: point.accuracy,
+          obtainedVia: RadarObtainedVia.place,
+          placeId: point.id,
+          label: point.note,
+        ),
+      );
+      final read = await readAutomaticRadarLocation(
+        ownerId: 1,
+        assistUserId: null,
+        courseId: 'area',
+      );
+      expect(read?.placeId, point.id);
+      expect(read?.latitude, point.latitude);
+      expect(
+        await readAutomaticRadarLocation(
+          ownerId: 1,
+          assistUserId: 2,
+          courseId: 'area',
+        ),
+        isNull,
+      );
+    },
+  );
   test(
     'explicit teaching region reads its exact point, never a building centroid',
     () async {
@@ -35,8 +71,8 @@ void main() {
         courseId: 'region',
       );
       expect(read!.placeId, region.id);
-      expect(read.latitude, 24.605494);
-      expect(read.longitude, 118.313825);
+      expect(read.latitude, 24.6055024);
+      expect(read.longitude, 118.3138315);
       expect(
         await readAutomaticRadarLocation(
           ownerId: 1,

@@ -3,6 +3,7 @@ import 'package:latlong2/latlong.dart';
 import 'campus_places.dart';
 import 'location_models.dart';
 import 'place_matching.dart';
+import 'teaching_catalog.dart';
 
 String? placeWing(String name) => RegExp(
   r'([ABC])区?$',
@@ -11,27 +12,20 @@ String? placeWing(String name) => RegExp(
 
 /// Presentation only. Matching and submission keep the original wing identity.
 String placeBuildingName(String name) {
-  String parent(String value) {
-    var root = coursePlaceGroup(
-      value,
-    ).replaceFirst(RegExp(r'\s*[ABC]区?$', caseSensitive: false), '').trim();
-    for (final c in Campus.values) {
-      root = root.replaceAll(c.label, '');
-    }
-    return root.trim();
+  final result = matchTeachingLocation(name);
+  if (result != null) {
+    final building = teachingBuildings
+        .where((b) => b.id == result.buildingId)
+        .firstOrNull;
+    if (building != null) return building.name.split(RegExp('[（(]')).first;
   }
-
-  final root = parent(name);
-  final normalized = normalizePlaceName(root);
-  for (final preset in teachingPlaces) {
-    if ([
-      preset.name,
-      ...preset.aliases,
-    ].any((a) => normalizePlaceName(parent(a)) == normalized)) {
-      return parent(preset.name);
-    }
+  var root = coursePlaceGroup(
+    name,
+  ).replaceFirst(RegExp(r'\s*[A-Za-z]区?$', caseSensitive: false), '').trim();
+  for (final c in Campus.values) {
+    root = root.replaceAll(c.label, '');
   }
-  return root;
+  return root.trim();
 }
 
 class ManagedPlaceEntry {
@@ -42,7 +36,7 @@ class ManagedPlaceEntry {
 }
 
 class ManagedBuilding {
-  const ManagedBuilding(this.name, this.children);
+  ManagedBuilding(this.name, this.children);
   final String name;
   final List<ManagedPlaceEntry> children;
   bool get grouped =>
@@ -51,35 +45,47 @@ class ManagedBuilding {
   SavedLocation? get place => children.first.place;
   List<String> get courses =>
       children.expand((e) => e.courses).toSet().toList();
-  LatLng? get center {
+  late final LatLng? center = _center();
+  LatLng? _center() {
     final actual = children
         .map((e) => e.place)
         .whereType<SavedLocation>()
         .toList();
     if (actual.isEmpty) return null;
-    // A building's overview center must not move with the user's courses.
-    final presetRegions = teachingPlaces
-        .where(
-          (p) =>
-              p.campus == campusForPoint(actual.first) &&
-              placeBuildingName(p.name) == name,
-        )
-        .toList();
-    final points = presetRegions.length > 1
-        ? presetRegions.map((p) => p.saved).toList()
-        : actual;
-    // Display-only midpoint of the region bounds, independent of old
-    // building reference coordinates or marker label size.
-    return LatLng(
-      (points.map((p) => p.latitude).reduce(math.min) +
-              points.map((p) => p.latitude).reduce(math.max)) /
-          2,
-      (points.map((p) => p.longitude).reduce(math.min) +
-              points.map((p) => p.longitude).reduce(math.max)) /
-          2,
-    );
+    final campus = campusForPoint(actual.first)?.label.replaceFirst('校区', '');
+    return _maintainedCenters[(campus, name)] ??
+        _boundsCenter(
+          actual.map((p) => LatLng(p.latitude, p.longitude)).toList(),
+        );
   }
 }
+
+LatLng _boundsCenter(List<LatLng> points) => LatLng(
+  (points.map((p) => p.latitude).reduce(math.min) +
+          points.map((p) => p.latitude).reduce(math.max)) /
+      2,
+  (points.map((p) => p.longitude).reduce(math.min) +
+          points.map((p) => p.longitude).reduce(math.max)) /
+      2,
+);
+
+final _maintainedCenters = <(String?, String), LatLng>{
+  for (final building in teachingBuildings)
+    if ([
+      building.point,
+      ...building.regions.map((r) => r.point),
+    ].whereType<TeachingPoint>().any((p) => p.usable))
+      (
+        building.campus,
+        building.name.split(RegExp('[（(]')).first,
+      ): _boundsCenter([
+        for (final point in [
+          building.point,
+          ...building.regions.map((r) => r.point),
+        ].whereType<TeachingPoint>())
+          if (point.usable) LatLng(point.latitude, point.longitude),
+      ]),
+};
 
 List<ManagedBuilding> groupPlaceEntries(Iterable<ManagedPlaceEntry> entries) {
   final buildings = <String, List<ManagedPlaceEntry>>{};

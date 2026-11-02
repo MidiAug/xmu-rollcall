@@ -1,4 +1,5 @@
 import 'place_buildings.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -39,11 +40,26 @@ class CampusMap extends StatefulWidget {
 
 class _CampusMapState extends State<CampusMap> {
   final _controller = MapController();
+  late List<ManagedBuilding> _groups;
   bool _tileError = false;
   int _tileRevision = 0;
   @override
+  void initState() {
+    super.initState();
+    _groups = widget.groupBuildings
+        ? mapBuildingGroups(widget.places)
+        : const [];
+  }
+
+  @override
   void didUpdateWidget(CampusMap oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!listEquals(oldWidget.places, widget.places) ||
+        oldWidget.groupBuildings != widget.groupBuildings) {
+      _groups = widget.groupBuildings
+          ? mapBuildingGroups(widget.places)
+          : const [];
+    }
     if (oldWidget.center != widget.center) {
       _controller.move(widget.center, _controller.camera.zoom);
     }
@@ -117,9 +133,61 @@ class _CampusMapState extends State<CampusMap> {
     );
   }
 
+  Widget _buildingLayer(BuildContext context, bool expanded) {
+    return MarkerLayer(
+      markers: [
+        for (final entry in _groups.indexed)
+          if (!expanded && entry.$2.grouped && entry.$2.center != null)
+            Marker(
+              point: entry.$2.center!,
+              width: _labelWidth(context, entry.$2.name),
+              height: 30,
+              alignment: Alignment.center,
+              child: _mapLabel(
+                context,
+                entry.$2.name,
+                building: true,
+                onTap: () {
+                  _controller.move(entry.$2.center!, 18.3);
+                  widget.onBuilding?.call(entry.$2.name);
+                },
+              ),
+            )
+          else
+            for (final item in entry.$2.children)
+              if (item.place case final place?)
+                Marker(
+                  point: LatLng(place.latitude, place.longitude),
+                  width: _labelWidth(
+                    context,
+                    placeWing(item.name) == null
+                        ? entry.$2.name
+                        : '${entry.$2.name} ${placeWing(item.name)}区',
+                  ),
+                  height: 36,
+                  child: _mapLabel(
+                    context,
+                    placeWing(item.name) == null
+                        ? entry.$2.name
+                        : '${entry.$2.name} ${placeWing(item.name)}区',
+                    tooltip: item.name,
+                    onTap: () => widget.onPlace?.call(place),
+                  ),
+                ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    // Marker descriptions and label measurements are independent of panning.
+    final collapsed = widget.groupBuildings
+        ? _buildingLayer(context, false)
+        : null;
+    final expanded = widget.groupBuildings
+        ? _buildingLayer(context, true)
+        : null;
     return ClipRRect(
       borderRadius: widget.borderRadius,
       child: Stack(
@@ -128,9 +196,12 @@ class _CampusMapState extends State<CampusMap> {
             mapController: _controller,
             options: MapOptions(
               initialCenter: widget.center,
-              initialZoom: widget.zoom.clamp(3, kAmapMaxZoom),
-              minZoom: 3,
+              initialZoom: widget.zoom.clamp(kXmuMapMinZoom, kAmapMaxZoom),
+              minZoom: kXmuMapMinZoom,
               maxZoom: kAmapMaxZoom,
+              cameraConstraint: CameraConstraint.containCenter(
+                bounds: kXmuMapBounds,
+              ),
               backgroundColor: p.surfaceHigh,
               onTap: widget.onTap == null
                   ? null
@@ -156,55 +227,9 @@ class _CampusMapState extends State<CampusMap> {
               if (widget.groupBuildings)
                 Builder(
                   builder: (context) {
-                    final expanded = MapCamera.of(context).zoom >= 18;
-                    final groups = mapBuildingGroups(widget.places);
-                    return MarkerLayer(
-                      markers: [
-                        for (final entry in groups.indexed)
-                          if (!expanded &&
-                              entry.$2.grouped &&
-                              entry.$2.center != null)
-                            Marker(
-                              point: entry.$2.center!,
-                              width: _labelWidth(context, entry.$2.name),
-                              height: 30,
-                              alignment: Alignment.center,
-                              child: _mapLabel(
-                                context,
-                                entry.$2.name,
-                                building: true,
-                                onTap: () {
-                                  _controller.move(entry.$2.center!, 18.3);
-                                  widget.onBuilding?.call(entry.$2.name);
-                                },
-                              ),
-                            )
-                          else
-                            for (final item in entry.$2.children)
-                              if (item.place case final place?)
-                                Marker(
-                                  point: LatLng(
-                                    place.latitude,
-                                    place.longitude,
-                                  ),
-                                  width: _labelWidth(
-                                    context,
-                                    placeWing(item.name) == null
-                                        ? entry.$2.name
-                                        : '${entry.$2.name} ${placeWing(item.name)}区',
-                                  ),
-                                  height: 36,
-                                  child: _mapLabel(
-                                    context,
-                                    placeWing(item.name) == null
-                                        ? entry.$2.name
-                                        : '${entry.$2.name} ${placeWing(item.name)}区',
-                                    tooltip: item.name,
-                                    onTap: () => widget.onPlace?.call(place),
-                                  ),
-                                ),
-                      ],
-                    );
+                    return MapCamera.of(context).zoom >= 18
+                        ? expanded!
+                        : collapsed!;
                   },
                 )
               else

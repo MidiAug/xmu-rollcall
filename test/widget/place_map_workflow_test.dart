@@ -328,7 +328,14 @@ void main() {
               (ref) async => const CampusCachedData(),
             ),
             preferredCampusProvider.overrideWithValue(Campus.xiangan),
-            courseRoomsProvider.overrideWithValue(const []),
+            courseRoomsProvider.overrideWithValue(const [
+              '学武楼A404',
+              '学武楼B101',
+              '学武楼C201',
+              '坤銮楼A201',
+              '坤銮楼B201',
+              '坤銮楼C201',
+            ]),
           ],
           child: MaterialApp(
             theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
@@ -340,7 +347,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('managed-room-学武楼')), findsNothing);
+      expect(find.byKey(const ValueKey('managed-room-学武楼')), findsOneWidget);
       expect(find.byKey(const ValueKey('managed-room-学武楼 A区')), findsNothing);
       expect(find.text('A区'), findsNothing);
       final cluster = tester
@@ -382,7 +389,7 @@ void main() {
       final controller = tester
           .widget<FlutterMap>(find.byType(FlutterMap))
           .mapController!;
-      controller.move(const LatLng(24.605494, 118.313825), 18.3);
+      controller.move(const LatLng(24.6055024, 118.3138315), 18.3);
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('map-place-学武楼 B区')), findsOneWidget);
       expect(find.byKey(const ValueKey('map-building-学武楼')), findsNothing);
@@ -394,7 +401,7 @@ void main() {
       expect(controller.camera.zoom, before.zoom);
       expect(
         tester.widget<CampusMap>(find.byType(CampusMap)).point,
-        const LatLng(24.605494, 118.313825),
+        const LatLng(24.6055024, 118.3138315),
       );
       expect(find.text('暂无匹配课程'), findsOneWidget);
       expect(find.text('补充区域位置'), findsNothing);
@@ -437,7 +444,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('managed-room-文宣楼')), findsNothing);
       expect(find.byKey(const ValueKey('managed-room-西部片区4号楼')), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('managed-room-西部片区2号楼')));
+      await tester.tap(find.byKey(const ValueKey('managed-room-学信楼')));
       await tester.pumpAndSettle();
       final cluster = tester
           .widget<MarkerLayer>(find.byType(MarkerLayer).first)
@@ -445,8 +452,8 @@ void main() {
           .singleWhere(
             (m) => m.child.key == const ValueKey('map-building-坤銮楼'),
           );
-      expect(cluster.point.latitude, closeTo(24.6055835, .0000001));
-      expect(cluster.point.longitude, closeTo(118.312744, .0000001));
+      expect(cluster.point.latitude, closeTo(24.60559845, .0000001));
+      expect(cluster.point.longitude, closeTo(118.3127415, .0000001));
       final panel = find.byKey(const ValueKey('map-building-inspector'));
       expect(panel, findsOneWidget);
       expect(
@@ -583,7 +590,12 @@ void main() {
         expect(saved.placeId, scope.read(savedLocationsProvider).single.id);
         expect(saved.userConfigured, isTrue);
         expect(find.text('待校正（1）'), findsNothing);
-        expect(teachingPlaces.first.latitude, 24.604970);
+        expect(
+          teachingPlaces
+              .singleWhere((p) => p.id == 'xmu:teaching:xuewu-a')
+              .latitude,
+          24.6050038,
+        );
         await tester.pumpWidget(const SizedBox.shrink());
       },
     );

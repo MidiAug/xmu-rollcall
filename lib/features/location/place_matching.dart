@@ -1,26 +1,30 @@
 import 'campus_places.dart';
 import 'location_models.dart';
+import 'teaching_catalog.dart';
 
-String normalizePlaceName(String text) {
-  var value = String.fromCharCodes(
-    text.runes.map((r) => r >= 0xff01 && r <= 0xff5e ? r - 0xfee0 : r),
-  ).toLowerCase();
-  const numbers = {
-    '一': '1',
-    '二': '2',
-    '三': '3',
-    '四': '4',
-    '五': '5',
-    '六': '6',
-    '七': '7',
-    '八': '8',
-    '九': '9',
-  };
-  value = value.replaceAllMapped(
-    RegExp(r'[一二三四五六七八九](?=号?楼|\)|$|\s*\d)'),
-    (m) => numbers[m[0]]!,
+String normalizePlaceName(String text) => normalizeTeachingName(text);
+
+SavedLocation? _catalogLocation(
+  String room, {
+  Campus? campus,
+  String department = '',
+  String groupId = '',
+}) {
+  final result = matchTeachingLocation(
+    room,
+    campus: campus?.label.replaceFirst('校区', ''),
+    department: department,
+    groupId: groupId,
   );
-  return value.replaceAll(RegExp(r'[\s　（）()·,，_-]'), '');
+  final point = result?.point;
+  if (point == null || !point.usable) return null;
+  return SavedLocation(
+    id: point.id,
+    note: point.name,
+    latitude: point.latitude,
+    longitude: point.longitude,
+    createdAt: DateTime(2026, 11, 3),
+  );
 }
 
 /// A building/wing is one physical location; room numbers remain timetable text.
@@ -139,35 +143,14 @@ List<String> coursePlaceNames(String room) {
 }
 
 String coursePlaceIdentity(String room) {
-  var key = normalizePlaceName(coursePlaceGroup(room));
-  final hint = campusInName(room);
-  for (final campus in Campus.values) {
-    key = key.replaceAll(campus.label, '');
+  final maintained =
+      matchTeachingLocation(room) ??
+      matchTeachingLocation(coursePlaceGroup(room));
+  if (maintained != null) {
+    return maintained.point?.id ??
+        'xmu:teaching:${maintained.regionId ?? maintained.buildingId}';
   }
-  final teaching = teachingPlaces
-      .where(
-        (p) =>
-            (hint == null || p.campus == hint) &&
-            [
-              p.name,
-              ...p.aliases,
-            ].any((a) => normalizePlaceName(coursePlaceGroup(a)) == key),
-      )
-      .toList();
-  if (teaching.length == 1) return teaching.single.id;
-  final wing = RegExp(r'([a-z])区$').firstMatch(key);
-  final building = wing == null ? key : key.substring(0, wing.start);
-  final matches = campusPlaces
-      .where(
-        (p) =>
-            (hint == null || p.campus == hint) &&
-            [
-              p.name,
-              ...p.aliases,
-            ].any((a) => normalizePlaceName(a) == building),
-      )
-      .toList();
-  return matches.length == 1 ? '${matches.single.id}:${wing?[1] ?? ''}' : key;
+  return normalizePlaceName(coursePlaceGroup(room));
 }
 
 Campus? campusForPoint(SavedLocation place) {
@@ -201,8 +184,9 @@ Campus? campusForPoint(SavedLocation place) {
 }
 
 Campus? campusInName(String room) {
-  for (final c in Campus.values) {
-    if (room.contains(c.label)) return c;
+  final name = teachingNameParts(room).campus;
+  if (name != null) {
+    return Campus.values.where((c) => c.label == '$name校区').firstOrNull;
   }
   if (room.contains('西部片区') || room.contains('西部区')) return Campus.xiangan;
   if (room.contains('海韵')) return Campus.siming;
@@ -215,7 +199,10 @@ SavedLocation? matchCoursePlace(
   String room,
   List<SavedLocation> custom, {
   Campus? campus,
+  String department = '',
+  String groupId = '',
 }) {
+  custom = custom.where((p) => !isReferencePlace(p)).toList();
   if (room.trim().isEmpty) return null;
   final grouped = coursePlaceGroup(room);
   final outsideBrackets = grouped.replaceAll(RegExp(r'（[^）]*）|\([^)]*\)'), '');
@@ -227,7 +214,13 @@ SavedLocation? matchCoursePlace(
       .replaceAll('）', ')')
       .replaceAll(RegExp(r'\([^)]*\)'), '');
   if (RegExp(r'[/、；;,，]').hasMatch(originalOutside)) {
-    return matchCoursePlace(grouped, custom, campus: campus);
+    return matchCoursePlace(
+      grouped,
+      custom,
+      campus: campus,
+      department: department,
+      groupId: groupId,
+    );
   }
   final hint = campusInName(room) ?? campus;
   var key = normalizePlaceName(room);
@@ -291,10 +284,14 @@ SavedLocation? matchCoursePlace(
   for (final p in custom) {
     consider(p, [p.note]);
   }
-  for (final p in [...campusPlaces, ...teachingPlaces]) {
-    consider(p.saved, [p.name, ...p.aliases]);
-  }
-  return matches.length == 1 ? matches.values.single : null;
+  if (matches.length > 1) return null;
+  if (matches.length == 1) return matches.values.single;
+  return _catalogLocation(
+    room,
+    campus: hint,
+    department: department,
+    groupId: groupId,
+  );
 }
 
 Campus preferredCampus(

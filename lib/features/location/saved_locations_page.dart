@@ -286,11 +286,6 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
     final custom = ref.watch(
       ref.watch(savedLocationsForUserProvider(widget.userId)),
     );
-    final places = ref.watch(
-      widget.userId == null
-          ? knownLocationsProvider
-          : knownLocationsForUserProvider(widget.userId),
-    );
     final Campus campus =
         widget.campus ??
         ref.watch<Campus>(
@@ -339,29 +334,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
       ...orphans,
       for (final g in groups)
         ManagedPlaceEntry(g.name, matchCoursePlace(g.name, custom), g.courses),
-      for (final preset in teachingPlaces)
-        if (!groups.any(
-              (g) =>
-                  coursePlaceIdentity(g.name) ==
-                  coursePlaceIdentity(preset.name),
-            ) &&
-            !orphans.any(
-              (e) =>
-                  coursePlaceIdentity(e.name) ==
-                  coursePlaceIdentity(preset.name),
-            ))
-          ManagedPlaceEntry(preset.name, matchCoursePlace(preset.name, custom)),
     ].where((e) => inCampus(e.name, e.place)).toList();
     final allBuildings = groupPlaceEntries(rawEntries);
-    final courseIdentities = {
-      ...groups.map((g) => coursePlaceIdentity(g.name)),
-      ...orphans.map((e) => coursePlaceIdentity(e.name)),
-    };
-    final entries = groupPlaceEntries(
-      rawEntries.where(
-        (e) => courseIdentities.contains(coursePlaceIdentity(e.name)),
-      ),
-    );
+    final entries = [...allBuildings];
 
     bool needsCorrection(ManagedBuilding b) => b.children.any(
       (e) => issues.any((issue) => issue.concerns(e.name, e.courses)),
@@ -397,7 +372,10 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
       widget.onMapViewChanged?.call(true);
     }
 
-    final visible = places.where((e) => campusForPoint(e) == campus).toList();
+    final visible = [
+      for (final building in entries)
+        for (final entry in building.children) ?entry.place,
+    ];
     final point =
         _point ??
         (_selected == null

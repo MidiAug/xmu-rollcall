@@ -17,6 +17,9 @@ Desktop.ini
 # ── Reference clones (local only; never track) ──
 /reference/
 
+# Independent local location-maintenance tool; keep its implementation and maintenance outside App history.
+/tools/location_picker/
+
 # ── Secrets ──
 .env
 .env.*
@@ -108,3 +111,5 @@ app.*.map.json
 **/linux/flutter/ephemeral/
 **/macos/Flutter/ephemeral/
 **/ios/Flutter/ephemeral/
+/scripts/start-location-picker.ps1
+/tools/LOCATION_PICKER.md

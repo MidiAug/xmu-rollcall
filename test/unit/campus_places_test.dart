@@ -85,7 +85,7 @@ void main() {
     expect(matchCoursePlace('成义楼101', []), isNull);
     expect(
       matchCoursePlace('翔安校区成义楼101', [])?.latitude,
-      campusPlaces
+      teachingPlaces
           .firstWhere((p) => p.campus == Campus.xiangan && p.name == '成义楼')
           .latitude,
     );
