@@ -6,6 +6,7 @@ import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/grades/gpa_page.dart';
 import 'package:xmu_rollcall/features/exams/exam_page.dart';
+import 'package:xmu_rollcall/features/location/campus_atlas_page.dart';
 
 /// Built-in tool descriptors are the extension seam. No phantom future services.
 class CampusTool {
@@ -23,6 +24,13 @@ class CampusTool {
 
 // A getter lets hot reload pick up newly added built-in tools as well.
 List<CampusTool> get campusTools => <CampusTool>[
+  CampusTool(
+    id: 'campus-map',
+    title: '校园地图',
+    description: '浏览三个校区的楼群、楼宇与分区',
+    icon: AppIcons.map,
+    page: (_) => const CampusAtlasPage(),
+  ),
   CampusTool(
     id: 'exams',
     title: '考试安排',
@@ -64,7 +72,7 @@ class _CampusToolsPageState extends State<CampusToolsPage>
     final touch = AppDensity.isTouch(context);
     return PageScaffold(
       title: '工具',
-      subtitle: '考试安排、成绩查询与绩点计算',
+      subtitle: '校园地图、考试安排与成绩计算',
       child: AppContentColumn(
         maxWidth: 900,
         child: SingleChildScrollView(

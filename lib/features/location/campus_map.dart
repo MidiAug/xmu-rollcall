@@ -23,6 +23,12 @@ class CampusMap extends StatefulWidget {
     this.onBuilding,
     this.borderRadius = const BorderRadius.all(Radius.circular(12)),
     this.overlayInset = kMapOverlayInset,
+    this.controller,
+    this.showPlaceLabels = false,
+    this.areas = const [],
+    this.selectedPlaceId,
+    this.onZoomChanged,
+    this.onMapReady,
   });
   final LatLng center;
   final List<SavedLocation> places;
@@ -34,18 +40,27 @@ class CampusMap extends StatefulWidget {
   final double overlayInset;
   final bool groupBuildings;
   final ValueChanged<String>? onBuilding;
+  final MapController? controller;
+  final bool showPlaceLabels;
+  final List<Polygon> areas;
+  final String? selectedPlaceId;
+  final ValueChanged<double>? onZoomChanged;
+  final VoidCallback? onMapReady;
   @override
   State<CampusMap> createState() => _CampusMapState();
 }
 
 class _CampusMapState extends State<CampusMap> {
-  final _controller = MapController();
+  late final MapController _controller;
   late List<ManagedBuilding> _groups;
+  late int _reportedZoom;
   bool _tileError = false;
   int _tileRevision = 0;
   @override
   void initState() {
     super.initState();
+    _controller = widget.controller ?? MapController();
+    _reportedZoom = widget.zoom.floor();
     _groups = widget.groupBuildings
         ? mapBuildingGroups(widget.places)
         : const [];
@@ -67,7 +82,7 @@ class _CampusMapState extends State<CampusMap> {
 
   @override
   void dispose() {
-    _controller.dispose();
+    if (widget.controller == null) _controller.dispose();
     super.dispose();
   }
 
@@ -91,6 +106,7 @@ class _CampusMapState extends State<CampusMap> {
     BuildContext context,
     String label, {
     bool building = false,
+    bool selected = false,
     String? tooltip,
     required VoidCallback onTap,
   }) {
@@ -99,7 +115,7 @@ class _CampusMapState extends State<CampusMap> {
       key: ValueKey(building ? 'map-building-$label' : 'map-place-$tooltip'),
       message: tooltip ?? '放大查看$label区域',
       child: Material(
-        color: p.surface,
+        color: selected ? p.primary : p.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
           side: BorderSide(color: p.primary.withValues(alpha: .35)),
@@ -112,7 +128,11 @@ class _CampusMapState extends State<CampusMap> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(AppIcons.location, size: 15, color: p.primary),
+                Icon(
+                  AppIcons.location,
+                  size: 15,
+                  color: selected ? p.surface : p.primary,
+                ),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
@@ -120,7 +140,7 @@ class _CampusMapState extends State<CampusMap> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: p.primary,
+                      color: selected ? p.surface : p.primary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -202,7 +222,18 @@ class _CampusMapState extends State<CampusMap> {
               cameraConstraint: CameraConstraint.containCenter(
                 bounds: kXmuMapBounds,
               ),
+              onPositionChanged: widget.onZoomChanged == null
+                  ? null
+                  : (camera, _) {
+                      final level = camera.zoom.floor();
+                      if (level == _reportedZoom) return;
+                      _reportedZoom = level;
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) widget.onZoomChanged?.call(camera.zoom);
+                      });
+                    },
               backgroundColor: p.surfaceHigh,
+              onMapReady: widget.onMapReady,
               onTap: widget.onTap == null
                   ? null
                   : (_, point) => widget.onTap?.call(point),
@@ -224,6 +255,7 @@ class _CampusMapState extends State<CampusMap> {
                 subdomains: kAmapTileSubdomains,
                 userAgentPackageName: 'com.xmu.rollcall',
               ),
+              if (widget.areas.isNotEmpty) PolygonLayer(polygons: widget.areas),
               if (widget.groupBuildings)
                 Builder(
                   builder: (context) {
@@ -238,28 +270,38 @@ class _CampusMapState extends State<CampusMap> {
                     for (final place in widget.places)
                       Marker(
                         point: LatLng(place.latitude, place.longitude),
-                        width: 36,
+                        width: widget.showPlaceLabels
+                            ? _labelWidth(context, place.note)
+                            : 36,
                         height: 36,
-                        child: Tooltip(
-                          message: place.note,
-                          child: IconButton(
-                            style: IconButton.styleFrom(
-                              backgroundColor: p.surface,
-                              side: BorderSide(
-                                color: p.primary.withValues(alpha: .3),
+                        child: widget.showPlaceLabels
+                            ? _mapLabel(
+                                context,
+                                place.note,
+                                tooltip: place.note,
+                                selected: widget.selectedPlaceId == place.id,
+                                onTap: () => widget.onPlace?.call(place),
+                              )
+                            : Tooltip(
+                                message: place.note,
+                                child: IconButton(
+                                  style: IconButton.styleFrom(
+                                    backgroundColor: p.surface,
+                                    side: BorderSide(
+                                      color: p.primary.withValues(alpha: .3),
+                                    ),
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  onPressed: () => widget.onPlace?.call(place),
+                                  icon: Icon(
+                                    place.id.startsWith('xmu:')
+                                        ? AppIcons.building
+                                        : AppIcons.location,
+                                    size: 18,
+                                    color: p.primary,
+                                  ),
+                                ),
                               ),
-                            ),
-                            padding: EdgeInsets.zero,
-                            onPressed: () => widget.onPlace?.call(place),
-                            icon: Icon(
-                              place.id.startsWith('xmu:')
-                                  ? AppIcons.building
-                                  : AppIcons.location,
-                              size: 18,
-                              color: p.primary,
-                            ),
-                          ),
-                        ),
                       ),
                   ],
                 ),

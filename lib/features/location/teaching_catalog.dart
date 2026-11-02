@@ -44,9 +44,10 @@ class TeachingBuilding {
     this.aliases,
     this.rules,
     this.regions,
-    this.point,
-  );
-  final String id, name, campus;
+    this.point, {
+    this.groupId = '',
+  });
+  final String id, name, campus, groupId;
   final List<String> aliases;
   final List<TeachingAlias> rules;
   final List<TeachingRegion> regions;
@@ -59,11 +60,14 @@ class TeachingGroup {
     this.name,
     this.campus,
     this.aliases,
-    this.point,
-  );
-  final String id, name, campus;
+    this.point, {
+    this.kind = '',
+    this.vertices = const [],
+  });
+  final String id, name, campus, kind;
   final List<String> aliases;
   final TeachingPoint? point;
+  final List<({double latitude, double longitude})> vertices;
 }
 
 String _width(String value) {

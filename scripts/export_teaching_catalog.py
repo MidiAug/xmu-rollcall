@@ -86,11 +86,12 @@ def export(source):
             kind = 'region' if r.get('point') else 'linked_region' if linked else 'building' if b.get('point') else 'group'
             names = [display, *r.get('aliases', [])]
             lines.append(f'TeachingRegion({quote(r["id"])}, {quote(code)}, {array(names)}, {point(r["id"], display, campus, rp, kind)}),')
-        lines.append(f'], {point(b["id"], name, campus, bp, "building" if b.get("point") else "group")}),')
+        lines.append(f'], {point(b["id"], name, campus, bp, "building" if b.get("point") else "group")}, groupId: {quote(b.get("groupId", ""))}),')
     lines.extend(['];', '', 'const teachingGroups = <TeachingGroup>['])
     for g in groups.values():
         gp = centroid(g.get('area', {}).get('vertices', [])) or g.get('point')
-        lines.append(f'TeachingGroup({quote(g["id"])}, {quote(g["name"])}, {quote(g["campus"])}, {array(g.get("aliases", []))}, {point("group:" + g["id"], g["name"], g["campus"], gp, "group")}),')
+        vertices = '[' + ', '.join(f'(latitude: {float(v["latitude"])!r}, longitude: {float(v["longitude"])!r})' for v in g.get('area', {}).get('vertices', [])) + ']'
+        lines.append(f'TeachingGroup({quote(g["id"])}, {quote(g["name"])}, {quote(g["campus"])}, {array(g.get("aliases", []))}, {point("group:" + g["id"], g["name"], g["campus"], gp, "group")}, kind: {quote(g.get("kind", ""))}, vertices: {vertices}),')
     lines.extend(['];', ''])
     output = ROOT / 'lib/features/location/teaching_catalog.g.dart'
     output.write_text('\n'.join(lines), encoding='utf-8')

@@ -40,6 +40,7 @@ abstract final class AppIcons {
   static const person = FluentIcons.person_20_regular;
   static const people = FluentIcons.people_20_regular;
   static const building = FluentIcons.building_20_regular;
+  static const map = FluentIcons.map_20_regular;
   static const location = FluentIcons.location_20_regular;
   static const check = FluentIcons.checkmark_20_regular;
   static const checkCircle = FluentIcons.checkmark_circle_20_regular;
