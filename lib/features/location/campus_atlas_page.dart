@@ -7,9 +7,14 @@ import 'campus_map.dart';
 import 'campus_places.dart';
 import 'location_models.dart';
 import 'teaching_catalog.dart';
+import 'campus_stories.dart';
+import 'campus_story_dialog.dart';
 
 String _regionLabel(TeachingRegion r) =>
     RegExp(r'[区楼栋座]$').hasMatch(r.code) ? r.code : '${r.code}区';
+
+// Maintenance buckets are not geographic groups and must not aggregate pins.
+bool _mapGroup(TeachingGroup group) => !group.id.startsWith('independent-');
 
 /// Public maintained directory. No account providers, edits or location binding.
 class CampusAtlasPage extends StatefulWidget {
@@ -26,8 +31,9 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
 
   List<TeachingBuilding> get _buildings =>
       teachingBuildings.where((b) => '${b.campus}校区' == _campus.label).toList();
-  List<TeachingGroup> get _groups =>
-      teachingGroups.where((g) => '${g.campus}校区' == _campus.label).toList();
+  List<TeachingGroup> get _groups => teachingGroups
+      .where((g) => '${g.campus}校区' == _campus.label && _mapGroup(g))
+      .toList();
   TeachingPoint? _position(TeachingBuilding b) => b.point?.usable == true
       ? b.point
       : b.regions
@@ -90,9 +96,17 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
     });
   }
 
-  void _selectGroup(String? id) {
+  void _selectGroup(String? id, {bool moveCamera = true}) {
     if (id == null) {
       _overview();
+      return;
+    }
+    if (id == '_all' || id == '_other') {
+      setState(() {
+        _groupId = id;
+        _buildingId = null;
+        _regionId = null;
+      });
       return;
     }
     final group = _groups.where((g) => g.id == id).firstOrNull;
@@ -101,26 +115,32 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
       _groupId = id;
       _buildingId = null;
       _regionId = null;
-      _level = 1;
     });
-    _map.move(
-      point == null ? _campus.center : LatLng(point.latitude, point.longitude),
-      17.3,
-    );
+    if (moveCamera) {
+      _map.move(
+        point == null
+            ? _campus.center
+            : LatLng(point.latitude, point.longitude),
+        17.3,
+      );
+    }
   }
 
-  void _selectBuilding(TeachingBuilding b, [TeachingRegion? region]) {
+  void _selectBuilding(
+    TeachingBuilding b, {
+    TeachingRegion? region,
+    bool moveCamera = true,
+  }) {
     final point = region?.point ?? _position(b);
     setState(() {
-      _groupId = b.groupId.isEmpty ? '_independent' : b.groupId;
+      _groupId = _groups.any((g) => g.id == b.groupId) ? b.groupId : '_other';
       _buildingId = b.id;
       _regionId = region?.id;
-      _level = b.regions.isEmpty ? 1 : 2;
     });
-    if (point?.usable == true) {
+    if (moveCamera && point?.usable == true) {
       _map.move(
         LatLng(point!.latitude, point.longitude),
-        b.regions.isEmpty ? 18.3 : 19.2,
+        b.regions.isEmpty ? 17.3 : 18.2,
       );
     }
   }
@@ -137,7 +157,7 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
       _selectBuilding(b);
       if (mobile) Navigator.of(context).pop();
     },
-    onRegion: (b, r) => _selectBuilding(b, r),
+    onRegion: (b, r) => _selectBuilding(b, region: r),
   );
 
   void _openDirectory() {
@@ -198,24 +218,15 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
         .firstOrNull;
     final group = groups.where((g) => g.id == _groupId).firstOrNull;
     final groupIds = groups.map((g) => g.id).toSet();
-    final filtered = buildings
-        .where(
-          (b) =>
-              _groupId == null ||
-              (_groupId == '_independent'
-                  ? !groupIds.contains(b.groupId)
-                  : b.groupId == _groupId),
-        )
-        .toList();
     final points = <SavedLocation>[
-      if (_level == 0 && _groupId == null && building == null) ...[
+      if (_level == 0) ...[
         for (final g in groups)
           if (_groupPosition(g) case final point?)
             _location(point, id: 'atlas-group:${g.id}', name: g.name),
         for (final b in buildings.where((b) => !groupIds.contains(b.groupId)))
           if (_position(b) case final point?) _location(point, name: b.name),
       ] else
-        for (final b in filtered)
+        for (final b in buildings)
           if (_level >= 2 &&
               b.regions.any((r) => r.point?.source == 'region')) ...[
             for (final r in b.regions)
@@ -225,23 +236,30 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
             _location(point, name: b.name),
     ];
     final selected = region?.point ?? building?.point;
+    final story = campusStoryFor(building: building, group: group);
     final polygons = <Polygon>[
       for (final g in groups)
         if (g.vertices.length >= 3)
           Polygon(
+            hitValue: g.id,
             points: [
               for (final v in g.vertices) LatLng(v.latitude, v.longitude),
             ],
-            color: p.primary.withValues(alpha: g.id == _groupId ? .13 : .025),
+            color: p.primary.withValues(alpha: g.id == _groupId ? .19 : .075),
             borderColor: p.primary.withValues(
-              alpha: g.id == _groupId ? .75 : .2,
+              alpha: g.id == _groupId ? .95 : .55,
             ),
-            borderStrokeWidth: g.id == _groupId ? 2 : 1,
+            borderStrokeWidth: g.id == _groupId ? 2.5 : 1.5,
           ),
     ];
     return LayoutBuilder(
       builder: (context, frame) {
-        final mobile = frame.maxWidth < 800;
+        final desktop = {
+          TargetPlatform.windows,
+          TargetPlatform.macOS,
+          TargetPlatform.linux,
+        }.contains(Theme.of(context).platform);
+        final mobile = !desktop && frame.maxWidth < 800;
         return SubpageScaffold(
           title: '校园地图',
           actions: [
@@ -277,7 +295,8 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
               children: [
                 if (!mobile) ...[
                   SizedBox(
-                    width: 360,
+                    key: const ValueKey('atlas-desktop-directory'),
+                    width: (frame.maxWidth * .24).clamp(200.0, 280.0),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: p.surface,
@@ -300,14 +319,19 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
                           zoom: 16,
                           places: points,
                           showPlaceLabels: !mobile || _level > 0,
+                          avoidLabelOverlap: true,
                           onMapReady: _fitCampus,
                           areas: polygons,
-                          selectedPlaceId: selected?.id,
+                          selectedPlaceId: _level == 0 && group != null
+                              ? 'atlas-group:${group.id}'
+                              : _level == 1 && building != null
+                              ? _position(building)?.id
+                              : selected?.id,
                           borderRadius: mobile
                               ? BorderRadius.zero
                               : BorderRadius.circular(14),
                           onZoomChanged: (zoom) {
-                            final next = zoom >= 19
+                            final next = zoom >= 18
                                 ? 2
                                 : zoom >= 17
                                 ? 1
@@ -318,6 +342,7 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
                             if (place.id.startsWith('atlas-group:')) {
                               _selectGroup(
                                 place.id.substring('atlas-group:'.length),
+                                moveCamera: false,
                               );
                               return;
                             }
@@ -326,7 +351,11 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
                                   .where((r) => r.point?.id == place.id)
                                   .firstOrNull;
                               if (r != null || b.point?.id == place.id) {
-                                _selectBuilding(b, r);
+                                _selectBuilding(
+                                  b,
+                                  region: r,
+                                  moveCamera: false,
+                                );
                                 return;
                               }
                             }
@@ -411,53 +440,53 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
                                         ),
                                         label: const Text('目录'),
                                       ),
-                                    IconButton(
-                                      tooltip: '校区全览',
-                                      visualDensity: VisualDensity.compact,
-                                      onPressed: _overview,
-                                      icon: const Icon(
-                                        AppIcons.refresh,
-                                        size: 18,
+                                    if (building != null || group != null)
+                                      AppTextLink(
+                                        key: const ValueKey('atlas-open-story'),
+                                        '详情',
+                                        onPressed: () => showDialog<void>(
+                                          context: context,
+                                          barrierColor: Colors.black.withValues(
+                                            alpha: .48,
+                                          ),
+                                          builder: (_) => CampusStoryDialog(
+                                            building: building,
+                                            group: group,
+                                            region: region,
+                                          ),
+                                        ),
                                       ),
-                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 5),
-                                Text(
-                                  building == null
-                                      ? group == null
-                                            ? '选择楼群或搜索楼宇，查看校园位置'
-                                            : '${group.kind}，${filtered.length} 栋楼宇'
-                                      : selected?.usable != true
-                                      ? '尚未维护定位'
-                                      : selected!.source == 'building' &&
-                                            region != null
-                                      ? '沿用楼宇位置'
-                                      : selected.source == 'linked_region'
-                                      ? '沿用关联分区位置'
-                                      : selected.source == 'group'
-                                      ? '沿用楼群位置'
-                                      : region == null
-                                      ? '楼宇位置'
-                                      : '分区独立位置',
-                                  style: TextStyle(
-                                    color: p.muted,
-                                    fontSize: 12,
+                                if (region != null)
+                                  Text(
+                                    '${building!.name}简介',
+                                    style: TextStyle(
+                                      color: p.muted,
+                                      fontSize: 11,
+                                    ),
                                   ),
-                                ),
-                                if (building != null &&
-                                    region == null &&
-                                    building.aliases.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 6),
-                                    child: AppTruncatedText(
-                                      '别名：${building.aliases.join('、')}',
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    maxHeight: 112,
+                                  ),
+                                  child: SingleChildScrollView(
+                                    child: Text(
+                                      story?.summary ??
+                                          (building == null
+                                              ? group == null
+                                                    ? '选择楼群或搜索楼宇，了解校园建筑'
+                                                    : '这里是${group.name}所在的校园片区。相关介绍正在补充。'
+                                              : '这处建筑的校史与建筑介绍正在补充。'),
                                       style: TextStyle(
                                         color: p.muted,
                                         fontSize: 12,
+                                        height: 1.6,
                                       ),
                                     ),
                                   ),
+                                ),
                                 if (mobile &&
                                     building != null &&
                                     building.regions.isNotEmpty)
@@ -484,7 +513,8 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
                                                 onSelected: (_) =>
                                                     _selectBuilding(
                                                       building,
-                                                      r,
+                                                      region: r,
+                                                      moveCamera: false,
                                                     ),
                                               ),
                                             ),
@@ -556,7 +586,7 @@ class _AtlasDirectoryState extends State<_AtlasDirectory> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final groups = teachingGroups
-        .where((g) => '${g.campus}校区' == widget.campus.label)
+        .where((g) => '${g.campus}校区' == widget.campus.label && _mapGroup(g))
         .toList();
     final buildings = teachingBuildings
         .where((b) => '${b.campus}校区' == widget.campus.label)
@@ -568,7 +598,8 @@ class _AtlasDirectoryState extends State<_AtlasDirectory> {
           (b) =>
               (query.isNotEmpty ||
                   _groupId == null ||
-                  (_groupId == '_independent'
+                  _groupId == '_all' ||
+                  (_groupId == '_other'
                       ? !groupIds.contains(b.groupId)
                       : b.groupId == _groupId)) &&
               (query.isEmpty ||
@@ -579,19 +610,19 @@ class _AtlasDirectoryState extends State<_AtlasDirectory> {
                   ].any((n) => normalizeTeachingName(n).contains(query))),
         )
         .toList();
-    final sections = <({String? id, String name, int count})>[
-      (id: null, name: '全部楼宇', count: buildings.length),
+    final sections = <({String id, String name, int count})>[
+      (id: '_all', name: '全部楼宇', count: buildings.length),
+      (
+        id: '_other',
+        name: '其他楼宇',
+        count: buildings.where((b) => !groupIds.contains(b.groupId)).length,
+      ),
       for (final g in groups)
         (
           id: g.id,
           name: g.name,
           count: buildings.where((b) => b.groupId == g.id).length,
         ),
-      (
-        id: '_independent',
-        name: '独立楼宇',
-        count: buildings.where((b) => !groupIds.contains(b.groupId)).length,
-      ),
     ];
     void selectGroup(String? id) {
       setState(() => _groupId = id);
@@ -744,100 +775,78 @@ class _AtlasDirectoryState extends State<_AtlasDirectory> {
             ),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-          child: Text(
-            '${visible.length} 栋楼宇',
-            style: TextStyle(fontSize: 11, color: p.muted),
-          ),
-        ),
-        if (widget.mobile)
+        if (_groupId != null && query.isEmpty)
           Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  for (final s in sections)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        labelStyle: TextStyle(
-                          fontFamily: AppTypography.family,
-                          fontFamilyFallback: AppTypography.fallback,
-                        ),
-                        label: Text(s.name),
-                        selected: _groupId == s.id,
-                        onSelected: (_) => selectGroup(s.id),
-                      ),
-                    ),
-                ],
-              ),
+            padding: const EdgeInsets.fromLTRB(4, 0, 12, 4),
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: '返回目录',
+                  onPressed: () => selectGroup(null),
+                  icon: const Icon(AppIcons.back, size: 18),
+                ),
+                Expanded(
+                  child: AppTruncatedText(
+                    sections.where((s) => s.id == _groupId).firstOrNull?.name ??
+                        '楼宇',
+                    style: TextStyle(color: p.ink, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
             ),
           ),
         Expanded(
-          child: widget.mobile
-              ? list
-              : Row(
+          child: _groupId == null && query.isEmpty
+              ? ListView(
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
                   children: [
-                    SizedBox(
-                      width: 108,
-                      child: ListView(
-                        padding: const EdgeInsets.fromLTRB(8, 4, 4, 12),
-                        children: [
-                          for (final s in sections)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Material(
-                                color: _groupId == s.id
-                                    ? p.accentSurface
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
-                                child: InkWell(
-                                  key: ValueKey('atlas-group-${s.id ?? 'all'}'),
-                                  onTap: () => selectGroup(s.id),
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 9,
-                                      vertical: 10,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          s.name,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: _groupId == s.id
-                                                ? p.primary
-                                                : p.muted,
-                                            height: 1.4,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          '${s.count}',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: p.muted,
-                                          ),
-                                        ),
-                                      ],
+                    for (final s in sections)
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          key: ValueKey(
+                            'atlas-group-${s.id == '_all' ? 'all' : s.id}',
+                          ),
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () => selectGroup(s.id),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 13,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: AppTruncatedText(
+                                    s.name,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: p.ink,
                                     ),
                                   ),
                                 ),
-                              ),
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  width: 24,
+                                  child: Text(
+                                    '${s.count}',
+                                    textAlign: TextAlign.right,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: p.muted,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(AppIcons.right, size: 15, color: p.muted),
+                              ],
                             ),
-                        ],
+                          ),
+                        ),
                       ),
-                    ),
-                    VerticalDivider(width: 1, color: p.border),
-                    Expanded(child: list),
                   ],
-                ),
+                )
+              : list,
         ),
       ],
     );

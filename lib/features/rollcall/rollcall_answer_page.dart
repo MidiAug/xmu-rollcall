@@ -817,7 +817,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
         child: AnimatedContainer(
           duration: duration,
           curve: Curves.easeInOutCubic,
-          width: _radarFailure == null ? 760 : 420,
+          width: _radarFailure == null ? 760 : 360,
           child: AnimatedSize(
             duration: duration,
             curve: Curves.easeInOutCubic,
@@ -825,7 +825,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
             child: SizedBox(
               height: _radarFailure == null
                   ? height
-                  : height.clamp(180.0, 220.0),
+                  : height.clamp(180.0, 190.0),
               child: AnimatedSwitcher(
                 duration: duration,
                 child: _radarFailure == null
@@ -902,7 +902,7 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
                       )
                     : Padding(
                         key: const ValueKey('radar-failure-step'),
-                        padding: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(20),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [

@@ -29,6 +29,7 @@ class CampusMap extends StatefulWidget {
     this.selectedPlaceId,
     this.onZoomChanged,
     this.onMapReady,
+    this.avoidLabelOverlap = false,
   });
   final LatLng center;
   final List<SavedLocation> places;
@@ -46,6 +47,7 @@ class CampusMap extends StatefulWidget {
   final String? selectedPlaceId;
   final ValueChanged<double>? onZoomChanged;
   final VoidCallback? onMapReady;
+  final bool avoidLabelOverlap;
   @override
   State<CampusMap> createState() => _CampusMapState();
 }
@@ -113,7 +115,7 @@ class _CampusMapState extends State<CampusMap> {
     final p = AppPalette.of(context);
     return Tooltip(
       key: ValueKey(building ? 'map-building-$label' : 'map-place-$tooltip'),
-      message: tooltip ?? '放大查看$label区域',
+      message: tooltip == label ? '' : tooltip ?? '放大查看$label区域',
       child: Material(
         color: selected ? p.primary : p.surface,
         shape: RoundedRectangleBorder(
@@ -135,10 +137,8 @@ class _CampusMapState extends State<CampusMap> {
                 ),
                 const SizedBox(width: 4),
                 Flexible(
-                  child: Text(
+                  child: AppTruncatedText(
                     label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: selected ? p.surface : p.primary,
                       fontWeight: FontWeight.w600,
@@ -208,6 +208,10 @@ class _CampusMapState extends State<CampusMap> {
     final expanded = widget.groupBuildings
         ? _buildingLayer(context, true)
         : null;
+    final places = [
+      ...widget.places.where((p) => p.id == widget.selectedPlaceId),
+      ...widget.places.where((p) => p.id != widget.selectedPlaceId),
+    ];
     return ClipRRect(
       borderRadius: widget.borderRadius,
       child: Stack(
@@ -229,7 +233,9 @@ class _CampusMapState extends State<CampusMap> {
                       if (level == _reportedZoom) return;
                       _reportedZoom = level;
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) widget.onZoomChanged?.call(camera.zoom);
+                        if (mounted) {
+                          widget.onZoomChanged?.call(_controller.camera.zoom);
+                        }
                       });
                     },
               backgroundColor: p.surfaceHigh,
@@ -265,10 +271,12 @@ class _CampusMapState extends State<CampusMap> {
                   },
                 )
               else
-                MarkerLayer(
+                _PlaceMarkerLayer(
+                  avoidOverlap: widget.avoidLabelOverlap,
                   markers: [
-                    for (final place in widget.places)
+                    for (final place in places)
                       Marker(
+                        key: ValueKey('map-marker-${place.id}'),
                         point: LatLng(place.latitude, place.longitude),
                         width: widget.showPlaceLabels
                             ? _labelWidth(context, place.note)
@@ -367,6 +375,36 @@ class _CampusMapState extends State<CampusMap> {
         ],
       ),
     );
+  }
+}
+
+/// Marker descriptions are measured once; only screen-space collision checks
+/// depend on the camera. Input order gives the selected label first priority.
+class _PlaceMarkerLayer extends StatelessWidget {
+  const _PlaceMarkerLayer({required this.markers, required this.avoidOverlap});
+  final List<Marker> markers;
+  final bool avoidOverlap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!avoidOverlap) return MarkerLayer(markers: markers);
+    final camera = MapCamera.of(context);
+    final viewport = Offset.zero & camera.nonRotatedSize;
+    final occupied = <Rect>[];
+    final visible = <Marker>[];
+    for (final marker in markers) {
+      final rect = Rect.fromCenter(
+        center: camera.latLngToScreenOffset(marker.point),
+        width: marker.width,
+        height: marker.height,
+      ).inflate(4);
+      if (!viewport.overlaps(rect) || occupied.any((r) => r.overlaps(rect))) {
+        continue;
+      }
+      occupied.add(rect);
+      visible.add(marker);
+    }
+    return MarkerLayer(markers: visible);
   }
 }
 
