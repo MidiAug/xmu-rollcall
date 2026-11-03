@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
 import 'package:xmu_rollcall/core/theme/app_icons.dart';
 import '../fixtures/preview_fonts.dart';
@@ -563,7 +564,15 @@ void main() {
         await tester.pump();
         container.read(selectedRollcallAccountProvider.notifier).state = 2;
         await tester.pump();
-        expect(find.byType(CampusContextView), findsNothing);
+        expect(find.byType(CampusContextView), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('campus-course-skeleton')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('campus-homework-skeleton')),
+          findsOneWidget,
+        );
         container.read(selectedRollcallAccountProvider.notifier).state = null;
         switching.complete(originalContext);
         await tester.pumpAndSettle();
@@ -668,6 +677,201 @@ void main() {
         await tester.pump();
       },
       variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
+  }
+  for (final dark in [false, true]) {
+    testWidgets(
+      'account switch context skeleton keeps both sections dark=$dark',
+      (tester) async {
+        tester.view.physicalSize = const Size(1100, 770);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final pending = StateProvider<Future<CampusCachedData>?>((ref) => null);
+        final reread = Completer<CampusCachedData>();
+        final peer = Completer<CampusCachedData>();
+        final boundary = GlobalKey();
+        final container = ProviderContainer(
+          overrides: [
+            secureStoreProvider.overrideWithValue(SecureStore.memory()),
+            authControllerProvider.overrideWith((ref) => _Auth()),
+            assistServiceProvider.overrideWith((ref) async => _Assist()),
+            assistControllerProvider.overrideWith(
+              (ref) => AssistController(
+                ref,
+                bootstrap: false,
+                initial: const AssistUiState(
+                  ready: true,
+                  identities: [
+                    AssistIdentity(
+                      userId: 2,
+                      displayName: '账号二',
+                      kind: AssistCredentialKind.session,
+                      deviceId: 'fixture-device-2',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            activeRollcallsProvider.overrideWith(_Rollcalls.new),
+            activeRollcallClockProvider.overrideWithValue(() => now),
+            rollcallRepositoryForProvider(
+              null,
+            ).overrideWithValue(_Attendance()),
+            rollcallRepositoryForProvider(2).overrideWithValue(_Attendance()),
+            currentCourseHistoryProvider.overrideWithValue(const AsyncData([])),
+            campusCachedDataProvider.overrideWith((ref) async {
+              final scope = ref.watch(selectedRollcallAccountProvider);
+              final loading = ref.watch(pending);
+              return scope == 2
+                  ? peer.future
+                  : loading ??
+                        CampusCachedData(
+                          schedule: schedule,
+                          homework: homework,
+                        );
+            }),
+            campusClockProvider.overrideWith((ref) => Stream.value(now)),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: RepaintBoundary(
+              key: boundary,
+              child: MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: dark ? AppTheme.dark() : AppTheme.light(),
+                home: const Scaffold(body: RollcallHubPage()),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final panel = find.byType(CampusContextView);
+        final header = find.byType(DesktopPageHeader);
+        final width = tester.getSize(header).width;
+        expect(
+          find.descendant(of: panel, matching: find.text('机器学习')),
+          findsWidgets,
+        );
+        container.read(pending.notifier).state = reread.future;
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey('campus-course-skeleton')),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: panel, matching: find.text('机器学习')),
+          findsWidgets,
+        );
+        container.read(selectedRollcallAccountProvider.notifier).state = 2;
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey('campus-course-skeleton')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('campus-homework-skeleton')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: panel, matching: find.text('机器学习')),
+          findsNothing,
+        );
+        expect(find.byKey(const ValueKey('todo-homework-title')), findsNothing);
+        expect(find.text('暂无待办事项'), findsNothing);
+        expect(tester.getSize(header).width, width);
+        if (Platform.environment['CAPTURE_CONTEXT_SKELETON'] == '1') {
+          await tester.runAsync(() async {
+            final image =
+                await (boundary.currentContext!.findRenderObject()
+                        as RenderRepaintBoundary)
+                    .toImage();
+            final png = await image.toByteData(format: ui.ImageByteFormat.png);
+            await Directory(
+              'build/context-skeleton-review',
+            ).create(recursive: true);
+            await File(
+              'build/context-skeleton-review/switch-$dark.png',
+            ).writeAsBytes(png!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+        // A late owner reread must not end the target account's loading state.
+        reread.complete(
+          CampusCachedData(schedule: schedule, homework: homework),
+        );
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey('campus-course-skeleton')),
+          findsOneWidget,
+        );
+        peer.complete(
+          CampusCachedData(schedule: peerSchedule, hasHomeworkCache: true),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('campus-course-skeleton')),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: panel, matching: find.text('账号二课程')),
+          findsOneWidget,
+        );
+        expect(find.text('暂无待办事项'), findsOneWidget);
+        expect(
+          find.descendant(of: panel, matching: find.text('机器学习')),
+          findsNothing,
+        );
+        expect(tester.getSize(header).width, width);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+      },
+    );
+  }
+  for (final mobile in [false, true]) {
+    testWidgets(
+      'loading context masks old courses and homework mobile=$mobile',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 700);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark(),
+            home: Scaffold(
+              body: CampusContextView(
+                data: CampusCachedData(schedule: schedule, homework: homework),
+                now: now,
+                loading: true,
+                mobile: mobile,
+                onTimetable: () {},
+                onHomework: () {},
+                onOpenHomework: (_) {},
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(
+          find.byKey(const ValueKey('campus-course-skeleton')),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('campus-homework-skeleton')),
+          findsOneWidget,
+        );
+        expect(find.text('今日课程'), findsOneWidget);
+        expect(find.text('待办事项'), findsOneWidget);
+        expect(find.text('机器学习'), findsNothing);
+        expect(find.byKey(const ValueKey('todo-homework-title')), findsNothing);
+        expect(find.text('暂无待办事项'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
     );
   }
   testWidgets(

@@ -21,6 +21,7 @@ class AppSelectTrigger extends StatefulWidget {
     required this.onTap,
     this.open = false,
     this.leading,
+    this.trailing,
     this.focusNode,
     this.compact = false,
     this.subtitle,
@@ -30,6 +31,7 @@ class AppSelectTrigger extends StatefulWidget {
   final VoidCallback? onTap;
   final bool open;
   final Widget? leading;
+  final Widget? trailing;
   final FocusNode? focusNode;
   final bool compact;
 
@@ -134,6 +136,10 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
                       ],
                     ),
                   ),
+                  if (widget.trailing != null) ...[
+                    const SizedBox(width: 6),
+                    widget.trailing!,
+                  ],
                   SizedBox(width: widget.compact ? 4 : 8),
                   AnimatedRotation(
                     turns: widget.open ? (widget.plain ? -0.25 : 0.25) : 0,

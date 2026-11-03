@@ -10,10 +10,14 @@ class RollcallAccountMenu extends StatelessWidget {
     required this.identities,
     required this.ownerName,
     required this.onChanged,
+    this.watchingAccounts = const {},
     this.width = 180,
     this.sidebar = false,
     this.masthead = false,
   });
+
+  /// Uses the menu ID: zero for the owner, otherwise the assist user ID.
+  final Set<int> watchingAccounts;
   final int value;
   final List<AssistIdentity> identities;
   final String ownerName;
@@ -83,6 +87,24 @@ class RollcallAccountMenu extends StatelessWidget {
       labelOf: (id) => id == 0
           ? ownerName
           : identities.firstWhere((item) => item.userId == id).displayName,
+      menuTrailingOf: (id) => watchingAccounts.contains(id) ? '值守中' : '',
+      iconOf: watchingAccounts.isEmpty
+          ? null
+          : (id) => watchingAccounts.contains(id)
+                ? AppIcons.guard
+                : AppIcons.person,
+      trailing: watchingAccounts.contains(value)
+          ? AppTooltipAnchor(
+              child: Tooltip(
+                message: '值守中',
+                child: Icon(
+                  AppIcons.guard,
+                  size: 16,
+                  color: AppPalette.of(context).primary,
+                ),
+              ),
+            )
+          : null,
       leading: sidebar
           ? CircleAvatar(
               radius: 16,

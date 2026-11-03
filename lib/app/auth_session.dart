@@ -24,7 +24,7 @@ AuthController createAppAuthController(Ref ref) {
     },
     beforeSignOut: () => ref
         .read(monitorControllerProvider.notifier)
-        .stopAsync(reason: 'sign_out'),
+        .stopAllAsync(reason: 'sign_out'),
   );
   return controller;
 }

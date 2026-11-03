@@ -78,6 +78,7 @@ void main() {
     engine = MonitorEngine(
       config: const MonitorConfig(
         courseWatch: true,
+        intervalSeconds: 20,
         autoAnswer: false,
         jitterRatio: 0,
       ),
@@ -152,6 +153,7 @@ void main() {
     engine = MonitorEngine(
       config: const MonitorConfig(
         courseWatch: true,
+        intervalSeconds: 20,
         autoAnswer: true,
         answerWaitMode: AnswerWaitMode.none,
         jitterRatio: 0,

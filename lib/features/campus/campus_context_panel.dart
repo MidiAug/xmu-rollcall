@@ -89,32 +89,33 @@ class CampusContextView extends StatelessWidget {
         children: [
           heading('今日课程', '查看课表', onTimetable),
           const SizedBox(height: 12),
-          if (summary.visible.isEmpty)
+          if (loading)
+            const _CampusSummarySkeleton(course: true)
+          else if (summary.visible.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(
-                loading
-                    ? '正在读取课程…'
-                    : data.schedule == null
-                    ? '尚未获取教务课表'
-                    : '今天没有后续课程',
+                data.schedule == null ? '尚未获取教务课表' : '今天没有后续课程',
                 style: TextStyle(color: p.muted, fontSize: 14),
               ),
             ),
-          for (var i = 0; i < summary.visible.length; i++)
-            _MobileMeetingRow(
-              meeting: summary.visible[i],
-              current: identical(summary.visible[i], summary.current),
-              first: i == 0,
-              last: i == summary.visible.length - 1,
-            ),
+          if (!loading)
+            for (var i = 0; i < summary.visible.length; i++)
+              _MobileMeetingRow(
+                meeting: summary.visible[i],
+                current: identical(summary.visible[i], summary.current),
+                first: i == 0,
+                last: i == summary.visible.length - 1,
+              ),
           if (showHomework) ...[
             const SizedBox(height: 12),
             Divider(height: 1, color: p.border),
             const SizedBox(height: 12),
             heading('待办事项', '查看全部', onHomework),
             const SizedBox(height: 12),
-            if (pending.isEmpty)
+            if (loading)
+              const _CampusSummarySkeleton(course: false)
+            else if (pending.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Text(
@@ -144,16 +145,14 @@ class CampusContextView extends StatelessWidget {
           children: [
             heading('今日课程', '查看课表', onTimetable),
             const SizedBox(height: 12),
-            if (summary.visible.isEmpty)
+            if (loading)
+              const _CampusSummarySkeleton(course: true)
+            else if (summary.visible.isEmpty)
               Text(
-                loading
-                    ? '正在读取课程…'
-                    : data.schedule == null
-                    ? '尚未获取教务课表'
-                    : '今天没有后续课程',
+                data.schedule == null ? '尚未获取教务课表' : '今天没有后续课程',
                 style: TextStyle(color: p.muted, height: 1.7),
               ),
-            if (summary.visible.isNotEmpty)
+            if (!loading && summary.visible.isNotEmpty)
               Column(
                 children: [
                   for (var i = 0; i < summary.visible.length; i++)
@@ -170,7 +169,9 @@ class CampusContextView extends StatelessWidget {
             const SizedBox(height: 24),
             heading('待办事项', '查看全部', onHomework),
             const SizedBox(height: 18),
-            if (pending.isEmpty)
+            if (loading)
+              const _CampusSummarySkeleton(course: false)
+            else if (pending.isEmpty)
               Text(
                 data.hasHomeworkCache ? '暂无待办事项' : '打开作业查看待办',
                 style: TextStyle(color: p.muted, height: 1.7),
@@ -203,6 +204,50 @@ class CampusContextView extends StatelessWidget {
         : '${due.month}/${due.day}';
     if (due.isBefore(now)) return '已截止';
     return '$date ${due.hour.toString().padLeft(2, '0')}:${due.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+/// Static placeholders keep both sections visible without adding a polling ticker.
+class _CampusSummarySkeleton extends StatelessWidget {
+  const _CampusSummarySkeleton({required this.course});
+  final bool course;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    Widget line(double fraction, double height) => FractionallySizedBox(
+      widthFactor: fraction,
+      alignment: Alignment.centerLeft,
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          color: p.muted.withValues(alpha: p.isDark ? .18 : .12),
+          borderRadius: BorderRadius.circular(4),
+        ),
+      ),
+    );
+    return Semantics(
+      label: course ? '正在读取今日课程' : '正在读取待办事项',
+      child: Container(
+        key: ValueKey(
+          course ? 'campus-course-skeleton' : 'campus-homework-skeleton',
+        ),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          border: Border.all(color: p.border),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            line(.78, 14),
+            const SizedBox(height: 12),
+            line(.58, 10),
+            if (course) ...[const SizedBox(height: 8), line(.68, 10)],
+          ],
+        ),
+      ),
+    );
   }
 }
 

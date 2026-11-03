@@ -25,6 +25,8 @@ import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/core/session/session_key.dart';
 import 'package:xmu_rollcall/features/location/course_radar_store.dart';
 
+part 'monitor_accounts.dart';
+
 enum StartMonitorResult {
   started,
   alreadyRunning,
@@ -104,14 +106,20 @@ class MonitorState {
 
 final monitorControllerProvider =
     StateNotifierProvider<MonitorController, MonitorState>(
-      (ref) => MonitorController(ref),
+      (ref) => PlatformHooks.isDesktop
+          ? _SelectedMonitorController(ref)
+          : MonitorController(ref),
     );
 
 class MonitorController extends StateNotifier<MonitorState> {
-  MonitorController(this._ref, {bool bootstrap = true})
-    : super(
-        const MonitorState(config: MonitorConfig(), loadingSettings: true),
-      ) {
+  MonitorController(
+    this._ref, {
+    bool bootstrap = true,
+    this.fixedAccount = false,
+    this.accountScope,
+  }) : super(
+         const MonitorState(config: MonitorConfig(), loadingSettings: true),
+       ) {
     if (!bootstrap) {
       _loaded = Future.value();
       return;
@@ -136,20 +144,26 @@ class MonitorController extends StateNotifier<MonitorState> {
     _ref.listen(academicRevisionProvider, (previous, next) {
       if (previous != next) pollNow(manual: false);
     });
-    _ref.listen(selectedRollcallAccountProvider, (previous, next) {
-      if (previous == next) return;
-      _changeSelectedAccount(
-        preserveBackgroundRun:
-            _restoringAccountSelection ||
-            _ref.read(selectedRollcallAccountProvider.notifier).restoring,
-      );
-    });
+    if (!fixedAccount) {
+      _ref.listen(selectedRollcallAccountProvider, (previous, next) {
+        if (previous == next) return;
+        _changeSelectedAccount(
+          preserveBackgroundRun:
+              _restoringAccountSelection ||
+              _ref.read(selectedRollcallAccountProvider.notifier).restoring,
+        );
+      });
+    }
     _ref.listen(assistControllerProvider, (previous, next) {
-      final scope = _ref.read(selectedRollcallAccountProvider);
+      final scope = _scope;
       if (scope != null &&
           next.ready &&
           !next.identities.any((a) => a.userId == scope)) {
-        _ref.read(selectedRollcallAccountProvider.notifier).state = null;
+        if (fixedAccount) {
+          stop(reason: 'account_removed');
+        } else {
+          _ref.read(selectedRollcallAccountProvider.notifier).state = null;
+        }
       }
     });
     _ref.listen(authControllerProvider, (previous, next) {
@@ -170,6 +184,10 @@ class MonitorController extends StateNotifier<MonitorState> {
     });
   }
   final Ref _ref;
+  final bool fixedAccount;
+  final int? accountScope;
+  int? get _scope =>
+      fixedAccount ? accountScope : _ref.read(selectedRollcallAccountProvider);
   late Future<void> _loaded;
   String? _configKey;
   int _configRevision = 0;
@@ -207,7 +225,7 @@ class MonitorController extends StateNotifier<MonitorState> {
 
   Future<void> _load() async {
     final revision = ++_configRevision;
-    final scope = _ref.read(selectedRollcallAccountProvider);
+    final scope = _scope;
     final ownerId = _ref.read(authControllerProvider).profile?.id ?? 0;
     final key = 'monitor_account_${ownerId}_${scope ?? ownerId}';
     final prefs = await SharedPreferences.getInstance();
@@ -338,7 +356,7 @@ class MonitorController extends StateNotifier<MonitorState> {
   void _onSnapshot(Map<String, dynamic> data) {
     if (!mounted || data['diagnosticOnly'] == true) return;
     final auth = _ref.read(authControllerProvider);
-    final scope = _ref.read(selectedRollcallAccountProvider);
+    final scope = _scope;
     if (!auth.isSignedIn ||
         (data['ownerUserId'] ?? data['userId']) != auth.profile?.id ||
         data['assistUserId'] != scope) {
@@ -607,7 +625,7 @@ class MonitorController extends StateNotifier<MonitorState> {
       if (!auth.isSignedIn || userId == null || userId == 0) {
         return StartMonitorResult.notSignedIn;
       }
-      final scope = _ref.read(selectedRollcallAccountProvider);
+      final scope = _scope;
       if (scope != null) {
         final account = _ref
             .read(assistControllerProvider)
@@ -704,7 +722,12 @@ class MonitorController extends StateNotifier<MonitorState> {
           if (!current() ||
               !auth.isSignedIn ||
               auth.profile?.id != userId ||
-              _ref.read(selectedRollcallAccountProvider) != scope) {
+              (!fixedAccount && _scope != scope) ||
+              (scope != null &&
+                  !_ref
+                      .read(assistControllerProvider)
+                      .identities
+                      .any((a) => a.userId == scope))) {
             throw StateError('Account changed');
           }
         },
@@ -858,11 +881,7 @@ class MonitorController extends StateNotifier<MonitorState> {
           );
           if (update.items != null) {
             _ref
-                .read(
-                  activeRollcallsProvider(
-                    _ref.read(selectedRollcallAccountProvider),
-                  ).notifier,
-                )
+                .read(activeRollcallsProvider(scope).notifier)
                 .applyMonitorItems(update.items!, fetchedAt: update.lastPollAt);
           }
         },
@@ -948,6 +967,9 @@ class MonitorController extends StateNotifier<MonitorState> {
     stop(reason: reason);
     return _stopping;
   }
+
+  Future<void> stopAllAsync({String reason = 'user_stop'}) =>
+      stopAsync(reason: reason);
 
   void debugArmRunning() {
     if (!kDebugMode || PlatformHooks.isAndroid) return;

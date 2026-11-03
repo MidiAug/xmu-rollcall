@@ -434,9 +434,12 @@ class _DesktopShellBinderState extends ConsumerState<DesktopShellBinder> {
   void _wire() {
     final shell = DesktopShell.instance;
     shell.navigatorKey = widget.navigatorKey;
-    shell.readMonitorState = () => ref.read(monitorControllerProvider);
-    shell.stopMonitor = () =>
-        ref.read(monitorControllerProvider.notifier).stop();
+    shell.readMonitorState = () => ref.read(globalMonitorStateProvider);
+    shell.stopMonitor = () => unawaited(
+      ref
+          .read(monitorControllerProvider.notifier)
+          .stopAllAsync(reason: 'desktop_stop'),
+    );
     shell.readPrefs = () => ref.read(closePrefsProvider);
     shell.applyAskChoice = ({required toTray, required remember}) {
       return ref
@@ -450,12 +453,12 @@ class _DesktopShellBinderState extends ConsumerState<DesktopShellBinder> {
     // Keep prefs / monitor identity warm so close handler sees latest.
     ref.watch(closePrefsProvider);
     ref.watch(
-      monitorControllerProvider.select(
+      globalMonitorStateProvider.select(
         (s) => (s.running, s.config.courseWatch),
       ),
     );
     ref.listen(
-      monitorControllerProvider.select(
+      globalMonitorStateProvider.select(
         (s) => (s.running, s.config.courseWatch),
       ),
       (_, _) {
@@ -464,7 +467,7 @@ class _DesktopShellBinderState extends ConsumerState<DesktopShellBinder> {
         }
       },
     );
-    ref.listen(monitorControllerProvider.select(desktopTrayStatus), (_, _) {
+    ref.listen(globalMonitorStateProvider.select(desktopTrayStatus), (_, _) {
       if (DesktopShell.instance.trayAvailable.value) {
         DesktopShell.instance._run(DesktopShell.instance.updateTrayStatus());
       }

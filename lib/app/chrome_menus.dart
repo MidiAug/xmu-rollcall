@@ -18,6 +18,7 @@ class AppShellSelect<T> extends StatefulWidget {
     this.fixedMenuWidth = false,
     this.wrapMenuLabels = false,
     this.leading,
+    this.trailing,
     this.semanticLabel,
     this.compact = false,
     this.subtitle,
@@ -36,6 +37,7 @@ class AppShellSelect<T> extends StatefulWidget {
   final IconData Function(T)? iconOf;
   final ValueChanged<T>? onChanged;
   final Widget? leading;
+  final Widget? trailing;
   final String? semanticLabel;
   final bool compact;
   final String? subtitle;
@@ -437,6 +439,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                                 size: 16,
                                 color: p.muted,
                               )),
+                    trailing: widget.trailing,
                     compact: widget.compact || widget.width < 110,
                     focusNode: _triggerFocus,
                     open: open,

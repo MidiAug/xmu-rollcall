@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
 import 'package:xmu_rollcall/features/location/place_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account_menu.dart';
@@ -195,6 +196,17 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                             accountControl: auth.isSignedIn
                                 ? RollcallAccountMenu(
                                     sidebar: true,
+                                    watchingAccounts: {
+                                      for (final entry
+                                          in ref
+                                              .watch(
+                                                accountMonitorStatesProvider,
+                                              )
+                                              .entries)
+                                        if (entry.value.running &&
+                                            entry.value.config.courseWatch)
+                                          entry.key ?? 0,
+                                    },
                                     width:
                                         AppLayout.sidebarWidthOf(context) - 20,
                                     value:

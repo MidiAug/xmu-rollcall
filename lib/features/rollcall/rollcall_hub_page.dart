@@ -304,7 +304,8 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
           ? ref.watch(campusCachedDataProvider)
           : null;
       // Disk rereads must not collapse the sidebar while the same identity loads.
-      if (cachedState is AsyncData<CampusCachedData>) {
+      if (cachedState is AsyncData<CampusCachedData> &&
+          !cachedState.isLoading) {
         _campusSnapshot = cachedState.value;
       }
       final cached = active && auth.isSignedIn ? _campusSnapshot : null;
@@ -312,6 +313,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
           ? ref.watch(campusClockProvider).valueOrNull ??
                 ref.read(campusNowProvider)()
           : DateTime.now();
+      final contextLoading = cached == null && cachedState?.isLoading == true;
       final hasContext =
           cached != null &&
           (cached.homework.isNotEmpty ||
@@ -469,9 +471,10 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
             icon: const Icon(AppIcons.settings, size: 20),
           ),
         ],
-        contextPanel: hasContext
+        contextPanel: hasContext || contextLoading
             ? CampusContextView(
-                data: cached,
+                data: cached ?? const CampusCachedData(),
+                loading: contextLoading,
                 now: now,
                 onTimetable: () {
                   if (scope == null) {
