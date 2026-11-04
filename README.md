@@ -146,6 +146,8 @@ powershell -ExecutionPolicy Bypass -File scripts/install-phone.ps1 -Mode release
 
 ### 本地检查
 
+界面开发先阅读 [设计规范](DESIGN.md)，统一页面结构、控件状态、操作层级和文案取舍；不要为每个新页面重新定义视觉风格。
+
 项目网站源码位于 [`site/`](site/)，构建、发布与搜索收录步骤见 [`site/README.md`](site/README.md)。网站部署到本仓库的 `gh-pages` 分支，与应用发布独立。
 
 ```powershell
