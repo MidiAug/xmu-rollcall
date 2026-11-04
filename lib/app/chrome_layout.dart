@@ -68,6 +68,7 @@ class PageScaffold extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.trailing,
+    this.onBack,
     required this.child,
     this.showHeader = true,
   });
@@ -75,6 +76,7 @@ class PageScaffold extends StatelessWidget {
   final String title;
   final String? subtitle;
   final Widget? trailing;
+  final VoidCallback? onBack;
   final Widget child;
   final bool showHeader;
 
@@ -86,6 +88,7 @@ class PageScaffold extends StatelessWidget {
       return DesktopPage(
         title: title,
         subtitle: subtitle,
+        onBack: onBack,
         actions: trailing == null ? const [] : [trailing!],
         child: child,
       );
@@ -116,6 +119,14 @@ class PageScaffold extends StatelessWidget {
                       // Top-align so title baseline is identical with/without trailing.
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (onBack != null) ...[
+                          IconButton(
+                            tooltip: '返回',
+                            onPressed: onBack,
+                            icon: const Icon(AppIcons.back),
+                          ),
+                          const SizedBox(width: AppSpace.xs),
+                        ],
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

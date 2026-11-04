@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
+import 'package:xmu_rollcall/app/app_checkbox.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
@@ -27,6 +28,9 @@ class TaGradingPage extends ConsumerWidget {
     final repository = ref.watch(taRepositoryProvider);
     final courses = ref.watch(currentTeachingCoursesProvider);
     return PageScaffold(
+      onBack: Navigator.of(context).canPop()
+          ? () => Navigator.of(context).maybePop()
+          : null,
       title: taIsMobile(context) ? '助教作业' : '修改作业',
       subtitle: taIsMobile(context) ? '课程进度与学生提交' : '作业进度、打包下载与批量评分',
       child: repository.when(
@@ -1057,13 +1061,15 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
       ref.watch(taRepositoryProvider).valueOrNull,
       widget.repository,
     )) {
-      return const PageScaffold(
+      return PageScaffold(
+        onBack: () => Navigator.of(context).maybePop(),
         title: '修改作业',
         child: Center(child: Text('账号已变更，请返回重新选择课程')),
       );
     }
     if (!_repository.active) {
-      return const PageScaffold(
+      return PageScaffold(
+        onBack: () => Navigator.of(context).maybePop(),
         title: '修改作业',
         child: Center(child: Text('处理已停止，请返回重新打开作业')),
       );
@@ -1078,6 +1084,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
         }
       },
       child: PageScaffold(
+        onBack: () => Navigator.of(context).maybePop(),
         title: widget.assignment.title,
         subtitle:
             '应交 ${_summary.expected}    已提交 ${_summary.submitted}    已批改 ${_summary.graded}',
@@ -1115,42 +1122,6 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                   children: [
                     _studentToolbar(blocked),
                     const SizedBox(height: 14),
-                    if (_selected.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 7,
-                        ),
-                        color: p.controlSurface,
-                        child: Wrap(
-                          spacing: 14,
-                          runSpacing: 6,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            Text(
-                              '已选 ${_selected.length} 人',
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                            TextButton(
-                              onPressed: blocked
-                                  ? null
-                                  : () => _changeSelection(
-                                      () => _selected.clear(),
-                                    ),
-                              child: const Text('取消选择'),
-                            ),
-                            TextButton.icon(
-                              onPressed: blocked || _building ? null : _pack,
-                              icon: const Icon(
-                                Icons.archive_outlined,
-                                size: 18,
-                              ),
-                              label: const Text('打包所选'),
-                            ),
-                          ],
-                        ),
-                      ),
                     if (_building || _zipMessage != null)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1270,25 +1241,23 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
       compact: true,
       onChanged: (v) => setState(() => _submissionFilter = v),
     );
-    final select = _selected.isNotEmpty
-        ? const SizedBox.shrink()
-        : TextButton(
-            onPressed: blocked
-                ? null
-                : () => _changeSelection(
-                    () => _selected.addAll(
-                      _students
-                          .where(
-                            (s) =>
-                                s.submitted &&
-                                '${s.number} ${s.name}'.contains(_search) &&
-                                _submissionFilter != 2,
-                          )
-                          .map((s) => s.id),
-                    ),
-                  ),
-            child: const Text('选择已提交学生'),
-          );
+    final select = TextButton(
+      onPressed: blocked
+          ? null
+          : () => _changeSelection(
+              () => _selected.addAll(
+                _students
+                    .where(
+                      (s) =>
+                          s.submitted &&
+                          '${s.number} ${s.name}'.contains(_search) &&
+                          _submissionFilter != 2,
+                    )
+                    .map((s) => s.id),
+              ),
+            ),
+      child: const Text('选择已提交学生'),
+    );
     final actions = <Widget>[
       FilledButton(
         onPressed: _detail?.canGrade != true || _batch.running
@@ -1296,9 +1265,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
             : _openCsvReview,
         child: const Text('导入成绩'),
       ),
-      if (_zip?.download != null &&
-          !_building &&
-          (_selected.isEmpty || _downloadMatchesSelection)) ...[
+      if (_zip?.download != null && !_building) ...[
         OutlinedButton.icon(
           onPressed: () async {
             try {
@@ -1328,7 +1295,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
         ),
       ],
     ];
-    return LayoutBuilder(
+    final normal = LayoutBuilder(
       builder: (context, bounds) {
         if (bounds.maxWidth >=
             840 *
@@ -1356,6 +1323,40 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
           children: [search, filter, select, ...actions],
         );
       },
+    );
+    // Both modes participate in layout so selecting never shifts the table.
+    return IndexedStack(
+      index: _selected.isEmpty ? 0 : 1,
+      alignment: Alignment.centerLeft,
+      children: [
+        normal,
+        Wrap(
+          spacing: AppSpace.md,
+          runSpacing: AppSpace.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              '已选 ${_selected.length} 人',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
+            TextButton(
+              onPressed: blocked
+                  ? null
+                  : () => _changeSelection(() => _selected.clear()),
+              child: const Text('取消选择'),
+            ),
+            FilledButton.icon(
+              onPressed: blocked || _building ? null : _pack,
+              icon: const Icon(Icons.archive_outlined, size: 18),
+              label: const Text('打包所选'),
+            ),
+            actions.first,
+            if (_downloadMatchesSelection) ...actions.skip(1),
+          ],
+        ),
+      ],
     );
   }
 
@@ -1387,9 +1388,11 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
         children: [
           SizedBox(
             width: 42,
-            child: Checkbox(
+            child: AppCheckbox(
               key: ValueKey('ta-select-${student?.id ?? 'all'}'),
-              tristate: heading,
+              label: heading
+                  ? (all ? '取消全选当前列表' : '全选当前列表')
+                  : '选择 ${student!.name}',
               value: heading
                   ? all
                         ? true
