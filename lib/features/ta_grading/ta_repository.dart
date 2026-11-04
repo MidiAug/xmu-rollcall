@@ -4,22 +4,39 @@ import 'package:dio/dio.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'ta_models.dart';
 
+class TaAssignmentSnapshot {
+  const TaAssignmentSnapshot(this.items, this.checkedAt);
+  final List<TaAssignment> items;
+  final DateTime checkedAt;
+}
+
 class TaGradingRepository {
-  TaGradingRepository(this.http) : _sessionRevision = http.sessionRevision;
+  TaGradingRepository(this.http, {DateTime Function()? now})
+    : _sessionRevision = http.sessionRevision,
+      _now = now ?? DateTime.now;
   final TronHttpClient http;
+  final DateTime Function() _now;
+  final _assignmentCache = <int, TaAssignmentSnapshot>{};
+  final _assignmentRequests = <int, Future<List<TaAssignment>>>{};
+  final _assignmentAttempts = <int, DateTime>{};
+  final _staleCourses = <int>{};
   final int _sessionRevision;
   final _cancel = CancelToken();
   bool get active =>
       !_cancel.isCancelled && http.sessionRevision == _sessionRevision;
 
   TaGradingRepository fork() {
-    final child = TaGradingRepository(http);
+    final child = TaGradingRepository(http, now: _now);
     if (!active) child.dispose();
     unawaited(_cancel.whenCancel.then((_) => child.dispose()));
     return child;
   }
 
-  void dispose() => _cancel.cancel('评分页面或账号已变更');
+  void dispose() {
+    _assignmentCache.clear();
+    _cancel.cancel('评分页面或账号已变更');
+  }
+
   void checkActive() {
     if (!active) throw StateError('评分页面或账号已变更');
   }
@@ -40,7 +57,56 @@ class TaGradingRepository {
     return response.data;
   }
 
-  Future<List<TaAssignment>> assignments(int courseId) async {
+  TaAssignmentSnapshot? cachedAssignments(int courseId) =>
+      active ? _assignmentCache[courseId] : null;
+
+  void markAssignmentsStale(int courseId) {
+    _staleCourses.add(courseId);
+    // A completed grading attempt needs one fresh summary even if the prior
+    // list read was recent; this is separate from repeated manual refreshes.
+    _assignmentAttempts.remove(courseId);
+  }
+
+  Future<List<TaAssignment>> assignments(int courseId, {bool refresh = false}) {
+    if (!active) return Future.error(StateError('账号已变更'));
+    final pending = _assignmentRequests[courseId];
+    if (pending != null) return pending;
+    final cached = cachedAssignments(courseId);
+    final now = _now();
+    if (!refresh &&
+        cached != null &&
+        !_staleCourses.contains(courseId) &&
+        now.difference(cached.checkedAt) < const Duration(minutes: 2)) {
+      return Future.value(cached.items);
+    }
+    final attempted = _assignmentAttempts[courseId];
+    if (attempted != null &&
+        now.difference(attempted) < const Duration(seconds: 5)) {
+      return cached != null
+          ? Future.value(cached.items)
+          : Future.error(StateError('请稍候再更新作业'));
+    }
+    _assignmentAttempts[courseId] = now;
+    final request = _loadAssignments(courseId);
+    _assignmentRequests[courseId] = request;
+    return request;
+  }
+
+  Future<List<TaAssignment>> _loadAssignments(int courseId) async {
+    try {
+      final items = List<TaAssignment>.unmodifiable(
+        await _fetchAssignments(courseId),
+      );
+      checkActive();
+      _assignmentCache[courseId] = TaAssignmentSnapshot(items, _now());
+      _staleCourses.remove(courseId);
+      return items;
+    } finally {
+      _assignmentRequests.remove(courseId);
+    }
+  }
+
+  Future<List<TaAssignment>> _fetchAssignments(int courseId) async {
     final result = <TaAssignment>[];
     final ids = <int>{};
     var page = 1;

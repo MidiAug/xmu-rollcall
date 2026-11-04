@@ -76,6 +76,25 @@ void main() {
           await tester.tap(find.text('导入成绩'));
           await tester.pumpAndSettle();
           expect(find.text('复制模板'), findsOneWidget);
+          expect(
+            find.widgetWithText(FilledButton, '选择 CSV 文件'),
+            findsOneWidget,
+          );
+          if (width > 600) {
+            expect(
+              tester
+                  .getSize(find.byKey(const ValueKey('ta-csv-content')))
+                  .width,
+              lessThanOrEqualTo(480),
+            );
+            expect(
+              tester
+                  .getSize(find.byKey(const ValueKey('ta-csv-content')))
+                  .height,
+              lessThan(400),
+            );
+          }
+          await captureDesktopUi(tester, 'ta-csv-import-$width-$dark');
           await tester.tap(find.text('选择 CSV 文件'));
           await tester.pumpAndSettle();
           expect(find.textContaining('共 2 行，错误 0 行'), findsOneWidget);
@@ -93,6 +112,12 @@ void main() {
           await tester.pumpAndSettle();
           expect(f.scores, {1: 86, 2: 0});
           expect(find.textContaining('已保存 2 行'), findsOneWidget);
+          expect(find.textContaining('已批改 2'), findsOneWidget);
+          await tester.tap(find.byTooltip('关闭'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('返回'));
+          await tester.pumpAndSettle();
+          expect(find.text('已批改 2'), findsOneWidget);
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox());
           await tester.pumpAndSettle();

@@ -71,12 +71,10 @@ class _TaCourses extends StatefulWidget {
 class _TaCoursesState extends State<_TaCourses> {
   int? _course;
   Future<List<TaAssignment>>? _assignments;
-  DateTime? _lastRefresh;
-  void _select(int id) {
+  void _select(int id, {bool refresh = false}) {
     setState(() {
       _course = id;
-      _lastRefresh = DateTime.now();
-      _assignments = widget.repository.assignments(id);
+      _assignments = widget.repository.assignments(id, refresh: refresh);
     });
   }
 
@@ -86,7 +84,6 @@ class _TaCoursesState extends State<_TaCourses> {
     if (widget.courses.isNotEmpty) {
       _course = int.tryParse(widget.courses.first.id);
       if (_course != null) {
-        _lastRefresh = DateTime.now();
         _assignments = widget.repository.assignments(_course!);
       }
     }
@@ -147,17 +144,24 @@ class _TaCoursesState extends State<_TaCourses> {
       child: FutureBuilder<List<TaAssignment>>(
         key: ValueKey((_course, _assignments)),
         future: _assignments,
+        initialData: _course == null
+            ? null
+            : widget.repository.cachedAssignments(_course!)?.items,
         builder: (context, snapshot) {
-          if (snapshot.hasError) {
+          final assignments =
+              snapshot.data ??
+              (_course == null
+                  ? null
+                  : widget.repository.cachedAssignments(_course!)?.items);
+          if (snapshot.hasError && assignments == null) {
             return _Failure(
               error: snapshot.error!,
               retry: () => _select(_course!),
             );
           }
-          if (!snapshot.hasData) {
+          if (assignments == null) {
             return const Center(child: CircularProgressIndicator());
           }
-          final assignments = snapshot.requireData;
           return ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
             itemCount: assignments.length + 1,
@@ -190,16 +194,20 @@ class _TaCoursesState extends State<_TaCourses> {
                                     ?.copyWith(color: p.primary),
                               ),
                               const Spacer(),
-                              IconButton(
+                              AppRefreshButton(
                                 tooltip: '更新作业',
-                                icon: const Icon(Icons.refresh, size: 20),
-                                onPressed: () {
-                                  if (_course != null &&
-                                      DateTime.now().difference(
-                                            _lastRefresh ?? DateTime(2000),
-                                          ) >=
-                                          const Duration(seconds: 5)) {
-                                    _select(_course!);
+                                iconSize: 20,
+                                busy:
+                                    snapshot.connectionState ==
+                                    ConnectionState.waiting,
+                                onRefresh: () async {
+                                  if (_course != null) {
+                                    _select(_course!, refresh: true);
+                                    try {
+                                      await _assignments;
+                                    } catch (_) {
+                                      // FutureBuilder keeps cached content and reports the failure.
+                                    }
                                   }
                                 },
                               ),
@@ -274,6 +282,25 @@ class _TaCoursesState extends State<_TaCourses> {
                         ],
                       ),
                     ],
+                    if (snapshot.hasError)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          '更新失败，保留上次作业列表',
+                          style: TextStyle(color: p.warning),
+                        ),
+                      ),
+                    if (widget.repository.cachedAssignments(_course!)
+                        case final cached?)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          '上次核对 ${cached.checkedAt.hour.toString().padLeft(2, '0')}:${cached.checkedAt.minute.toString().padLeft(2, '0')}',
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: p.muted),
+                        ),
+                      ),
                     const SizedBox(height: 26),
                     Text(
                       '课程作业',
@@ -667,6 +694,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
     if (yes != true || !mounted || !_repository.active) {
       return;
     }
+    widget.repository.markAssignmentsStale(widget.courseId);
     await _batch.run(
       repository: _repository,
       activityId: widget.assignment.id,
@@ -700,6 +728,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
       ],
     );
     try {
+      _repository.markAssignmentsStale(widget.courseId);
       final assignments = await _repository.assignments(widget.courseId);
       if (!mounted) {
         return;
@@ -801,21 +830,24 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                 return PopScope(
                   canPop: !_batch.running,
                   child: AppDialogFrame(
+                    maxWidth: _rows.isEmpty ? 480 : 720,
                     insetPadding: const EdgeInsets.all(AppSpace.md),
                     child: SizedBox(
-                      width: 720,
-                      height:
-                          (_rows.isEmpty ? 380.0 : 420.0 + _rows.length * 42)
-                              .clamp(
+                      key: const ValueKey('ta-csv-content'),
+                      width: double.infinity,
+                      height: _rows.isEmpty
+                          ? null
+                          : (420.0 + _rows.length * 42).clamp(
+                              300.0,
+                              (MediaQuery.sizeOf(context).height * .82).clamp(
                                 300.0,
-                                (MediaQuery.sizeOf(context).height * .82).clamp(
-                                  300.0,
-                                  620.0,
-                                ),
+                                620.0,
                               ),
+                            ),
                       child: Padding(
                         padding: const EdgeInsets.all(20),
                         child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             Row(
@@ -844,43 +876,51 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                                 ),
                               ),
                             if (_rows.isEmpty)
-                              Expanded(
-                                child: Center(
+                              Flexible(
+                                fit: FlexFit.loose,
+                                child: SingleChildScrollView(
                                   child: Column(
-                                    mainAxisSize: MainAxisSize.min,
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                        CrossAxisAlignment.stretch,
                                     children: [
                                       Text(
-                                        '表格只需两列：学号、成绩。',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodyLarge,
+                                        '选择 CSV 成绩表，核对后再确认提交。',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(color: palette.muted),
                                       ),
-                                      const SizedBox(height: 16),
-                                      SelectableText(
-                                        'user_no,score\nDEMO0001,86\nDEMO0002,90',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodyMedium,
+                                      const SizedBox(height: AppSpace.md),
+                                      Container(
+                                        padding: const EdgeInsets.all(
+                                          AppSpace.md,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: palette.content,
+                                          border: Border.all(
+                                            color: palette.borderStrong,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            AppRadii.control,
+                                          ),
+                                        ),
+                                        child: SelectableText(
+                                          'user_no,score\nDEMO0001,86\nDEMO0002,90',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium
+                                              ?.copyWith(height: 1.6),
+                                        ),
                                       ),
-                                      const SizedBox(height: 16),
-                                      const Text('学号保留前导零，成绩范围为 0 至 100。'),
-                                      const SizedBox(height: 8),
-                                      TextButton(
-                                        onPressed: () async {
-                                          await Clipboard.setData(
-                                            const ClipboardData(
-                                              text:
-                                                  'user_no,score\nDEMO0001,86\nDEMO0002,90\n',
-                                            ),
-                                          );
-                                          if (context.mounted) {
-                                            update(() => copied = true);
-                                          }
-                                        },
-                                        child: Text(copied ? '已复制模板' : '复制模板'),
+                                      const SizedBox(height: AppSpace.sm),
+                                      Text(
+                                        '两列依次为学号、成绩。学号保留前导零，成绩范围为 0 至 100。',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(color: palette.muted),
                                       ),
+                                      const SizedBox(height: AppSpace.sm),
                                     ],
                                   ),
                                 ),
@@ -987,16 +1027,32 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                                     },
                                     child: const Text('停止后续提交'),
                                   ),
-                                if (!_batch.running)
+                                if (_rows.isEmpty)
                                   TextButton(
+                                    onPressed: () async {
+                                      await Clipboard.setData(
+                                        const ClipboardData(
+                                          text:
+                                              'user_no,score\nDEMO0001,86\nDEMO0002,90\n',
+                                        ),
+                                      );
+                                      if (context.mounted) {
+                                        update(() => copied = true);
+                                      }
+                                    },
+                                    child: Text(copied ? '已复制模板' : '复制模板'),
+                                  ),
+                                if (!_batch.running && _rows.isEmpty)
+                                  FilledButton(
                                     onPressed: _importing ? null : _import,
                                     child: Text(
-                                      _importing
-                                          ? '正在读取…'
-                                          : _rows.isEmpty
-                                          ? '选择 CSV 文件'
-                                          : '更换文件',
+                                      _importing ? '正在读取…' : '选择 CSV 文件',
                                     ),
+                                  ),
+                                if (!_batch.running && _rows.isNotEmpty)
+                                  TextButton(
+                                    onPressed: _importing ? null : _import,
+                                    child: Text(_importing ? '正在读取…' : '更换文件'),
                                   ),
                                 if (_rows.isNotEmpty)
                                   FilledButton(

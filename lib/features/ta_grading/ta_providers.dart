@@ -41,5 +41,8 @@ final taRepositoryProvider = FutureProvider.autoDispose<TaGradingRepository>((
   if (!alive) throw StateError('账号已变更');
   await http.init();
   if (!alive) throw StateError('账号已变更');
+  // Keep the current identity's course summaries across route visits. Watched
+  // identity/session dependencies still dispose this repository on change.
+  ref.keepAlive();
   return repository = TaGradingRepository(http);
 });

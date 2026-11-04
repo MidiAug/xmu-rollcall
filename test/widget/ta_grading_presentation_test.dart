@@ -180,6 +180,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('课程二'), findsNWidgets(2));
       expect(f.requests.last.uri.path, '/api/courses/92/homework-activities');
+      final requests = f.requests.length;
+      await tester.tap(find.text('课程一'));
+      await tester.pumpAndSettle();
+      expect(find.text('课程一'), findsNWidgets(2));
+      expect(f.requests.length, requests);
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
     },
