@@ -113,9 +113,8 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
                       ),
                     ),
                   ),
-                  IconButton(
+                  AppIconButton(
                     tooltip: '关闭',
-                    visualDensity: VisualDensity.compact,
                     onPressed: () => Navigator.of(context).pop(),
                     icon: Icon(AppIcons.close, size: 16, color: p.muted),
                   ),
@@ -156,7 +155,8 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
                 decoration: InputDecoration(
                   labelText: '密码',
                   prefixIcon: const Icon(AppIcons.lock, size: 19),
-                  suffixIcon: IconButton(
+                  suffixIcon: AppIconButton(
+                    tooltip: _obscure ? '显示密码' : '隐藏密码',
                     onPressed: () => setState(() => _obscure = !_obscure),
                     icon: Icon(
                       _obscure ? AppIcons.visible : AppIcons.hidden,

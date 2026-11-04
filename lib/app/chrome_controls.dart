@@ -81,15 +81,11 @@ class AppSheetCloseButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool enabled;
   @override
-  Widget build(BuildContext context) => IconButton(
+  Widget build(BuildContext context) => AppIconButton(
     tooltip: tooltip,
     padding: EdgeInsets.zero,
-    constraints: BoxConstraints(
-      minWidth: AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 44,
-      minHeight: AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 44,
-    ),
+    extent: 44,
     alignment: alignWithTitle ? Alignment.topCenter : Alignment.center,
-    color: AppPalette.of(context).ink,
     onPressed: enabled ? onPressed ?? () => Navigator.of(context).pop() : null,
     icon: Padding(
       padding: EdgeInsets.only(top: alignWithTitle ? 2 : 0),

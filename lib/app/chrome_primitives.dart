@@ -117,24 +117,6 @@ class BrandMark extends StatelessWidget {
   }
 }
 
-/// Isolates a tooltip / icon-button anchor for Windows accessibility.
-///
-/// Adjacent [Tooltip] overlays can drop their traversal-parent id when
-/// semantics configs merge; the Windows embedder then rejects the whole
-/// AXTree update (`Nodes left pending…`, flutter/flutter#182444). Each
-/// tooltip anchor needs its own semantics container on desktop.
-class AppTooltipAnchor extends StatelessWidget {
-  const AppTooltipAnchor({super.key, required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!PlatformHooks.isDesktop) return child;
-    return Semantics(container: true, child: child);
-  }
-}
-
 /// Header refresh control — spins while [onRefresh] runs; list stays put.
 class AppRefreshButton extends StatefulWidget {
   const AppRefreshButton({
@@ -217,39 +199,18 @@ class _AppRefreshButtonState extends State<AppRefreshButton>
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return AppTooltipAnchor(
-      child: IconButton(
-        tooltip: widget.tooltip,
-        style: PlatformHooks.isDesktop && !AppMobileUi.useTouchChrome(context)
-            ? IconButton.styleFrom(
-                minimumSize: Size.square(widget.extent ?? 34),
-                backgroundColor: p.surface,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.standard,
-                padding: const EdgeInsets.all(6),
-                side: BorderSide(color: p.border),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadii.control),
-                ),
-              )
-            : AppMobileUi.useTouchChrome(context)
-            ? IconButton.styleFrom(
-                minimumSize: const Size(AppMobileUi.target, AppMobileUi.target),
-                visualDensity: VisualDensity.standard,
-                backgroundColor: Colors.transparent,
-                side: BorderSide.none,
-                hoverColor: Colors.transparent,
-              )
-            : null,
-        visualDensity: widget.visualDensity,
-        onPressed: _busy || widget.busy ? null : _handle,
-        icon: RotationTransition(
-          turns: _spin,
-          child: Icon(
-            AppIcons.refresh,
-            color: widget.color ?? p.muted,
-            size: widget.iconSize,
-          ),
+    return AppIconButton(
+      tooltip: widget.tooltip,
+      extent: widget.extent ?? (AppMobileUi.useTouchChrome(context) ? 44 : 34),
+      framed: PlatformHooks.isDesktop && !AppMobileUi.useTouchChrome(context),
+      visualDensity: widget.visualDensity,
+      onPressed: _busy || widget.busy ? null : _handle,
+      icon: RotationTransition(
+        turns: _spin,
+        child: Icon(
+          AppIcons.refresh,
+          color: widget.color ?? p.muted,
+          size: widget.iconSize,
         ),
       ),
     );

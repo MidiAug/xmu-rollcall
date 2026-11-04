@@ -73,12 +73,9 @@ class SubpageScaffold extends StatelessWidget {
                     child: Row(
                       children: [
                         if (onBack != null || navigator.canPop())
-                          IconButton(
+                          AppIconButton(
                             tooltip: '返回',
-                            constraints: const BoxConstraints.tightFor(
-                              width: 48,
-                              height: 48,
-                            ),
+                            extent: 48,
                             onPressed: back,
                             icon: const Icon(AppIcons.back),
                           )

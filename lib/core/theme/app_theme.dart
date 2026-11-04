@@ -213,8 +213,14 @@ abstract final class AppTheme {
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
-          highlightColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.control),
+          ),
+          iconSize: 20,
+          foregroundColor: p.ink,
+          highlightColor: p.selected,
           hoverColor: p.hover,
+          focusColor: p.selected,
         ),
       ),
       switchTheme: SwitchThemeData(

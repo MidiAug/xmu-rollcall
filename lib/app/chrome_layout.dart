@@ -120,7 +120,7 @@ class PageScaffold extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         if (onBack != null) ...[
-                          IconButton(
+                          AppIconButton(
                             tooltip: '返回',
                             onPressed: onBack,
                             icon: const Icon(AppIcons.back),

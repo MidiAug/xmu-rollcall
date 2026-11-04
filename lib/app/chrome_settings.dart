@@ -137,7 +137,6 @@ class SettingsRow extends StatefulWidget {
 }
 
 class _SettingsRowState extends State<SettingsRow> {
-  var _hover = false;
   var _pressed = false;
   var _focused = false;
 
@@ -147,7 +146,7 @@ class _SettingsRowState extends State<SettingsRow> {
     final h = widget.minHeight ?? AppDensity.rowHeight(context);
     final gap = AppDensity.rowInnerGap(context);
     final interactive = widget.onTap != null;
-    final wash = interactive && (_pressed || _hover || _focused)
+    final wash = interactive && _pressed
         ? p.hover
         : AppPalette.clearOf(p.hover);
 
@@ -167,6 +166,12 @@ class _SettingsRowState extends State<SettingsRow> {
           : AppMotion.fast,
       curve: AppMotion.fastCurve,
       color: wash,
+      foregroundDecoration: BoxDecoration(
+        border: Border.all(
+          color: _focused ? p.focus : AppPalette.clearOf(p.focus),
+        ),
+        borderRadius: BorderRadius.circular(AppRadii.control),
+      ),
       padding: widget.contentPadding ?? AppDensity.rowPadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -235,8 +240,6 @@ class _SettingsRowState extends State<SettingsRow> {
     if (!interactive) return content;
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
       cursor: SystemMouseCursors.click,
       child: Material(
         type: MaterialType.transparency,
@@ -244,7 +247,12 @@ class _SettingsRowState extends State<SettingsRow> {
         child: InkWell(
           hoverColor: Colors.transparent,
           highlightColor: Colors.transparent,
-          onFocusChange: (focused) => setState(() => _focused = focused),
+          onFocusChange: (focused) => setState(
+            () => _focused =
+                focused &&
+                FocusManager.instance.highlightMode ==
+                    FocusHighlightMode.traditional,
+          ),
           splashFactory: NoSplash.splashFactory,
           focusColor: Colors.transparent,
           onHighlightChanged: (pressed) => setState(() => _pressed = pressed),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_icon_button.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 enum AppButtonKind { primary, secondary, quiet }
@@ -109,7 +110,7 @@ class _AppSearchFieldState extends State<AppSearchField> {
             prefixIcon: const Icon(AppIcons.search, size: 17),
             suffixIcon: value.text.isEmpty
                 ? null
-                : IconButton(
+                : AppIconButton(
                     tooltip: '清空搜索',
                     icon: const Icon(AppIcons.close, size: 13),
                     onPressed: () {

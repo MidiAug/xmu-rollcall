@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/app/app_icon_button.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 /// Content-owned page header. Nothing is registered with the native window bar.
@@ -30,7 +31,7 @@ class DesktopPageHeader extends StatelessWidget {
                 : CrossAxisAlignment.center,
             children: [
               if (onBack != null) ...[
-                IconButton(
+                AppIconButton(
                   tooltip: '返回',
                   onPressed: onBack,
                   icon: const Icon(AppIcons.back),

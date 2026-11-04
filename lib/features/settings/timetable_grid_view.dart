@@ -637,7 +637,7 @@ class _CourseDetail extends StatelessWidget {
               onTap: c.location?.isNotEmpty == true ? onMap : null,
               borderRadius: BorderRadius.circular(AppRadii.control),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
                 child: Row(
                   children: [
                     Icon(

@@ -114,94 +114,106 @@ class _DesktopNavItem extends StatelessWidget {
     this.hasPendingPlace = false,
   });
   final AppDestination destination;
-  final bool selected;
+  final bool selected, hasUpdate, hasPendingPlace;
   final VoidCallback onTap;
-  final bool hasUpdate;
-  final bool hasPendingPlace;
+
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final hint = hasPendingPlace
+        ? '有上课地点未定位，请在地图上标记'
+        : hasUpdate
+        ? '有新版本可更新'
+        : '';
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Semantics(
         selected: selected,
         button: true,
         child: Tooltip(
-          message: hasPendingPlace
-              ? '有上课地点未定位，请在地图上标记'
-              : hasUpdate
-              ? '有新版本可更新'
-              : '',
+          message: hint,
           child: SizedBox(
             height: 40,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: TextButton(
-                    style: TextButton.styleFrom(
-                      alignment: Alignment.centerLeft,
-                      foregroundColor: p.ink,
-                      backgroundColor: selected ? p.surface : null,
-                      side: BorderSide(
-                        color: selected
+            child: TextButton(
+              onPressed: onTap,
+              style:
+                  TextButton.styleFrom(
+                    alignment: Alignment.centerLeft,
+                    foregroundColor: p.ink,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadii.nav),
+                    ),
+                  ).copyWith(
+                    // Persistent selection is the surface itself, not an overlay that
+                    // transient button feedback can obscure.
+                    backgroundColor: WidgetStateProperty.resolveWith((states) {
+                      if (selected) {
+                        return p.isDark ? p.selected : p.surface;
+                      }
+                      if (states.contains(WidgetState.pressed)) {
+                        return p.selected;
+                      }
+                      if (states.contains(WidgetState.hovered)) {
+                        return p.hover;
+                      }
+                      return AppPalette.clearOf(p.sidebar);
+                    }),
+                    overlayColor: const WidgetStatePropertyAll(
+                      Colors.transparent,
+                    ),
+                    side: WidgetStateProperty.resolveWith(
+                      (states) => BorderSide(
+                        color: states.contains(WidgetState.focused)
+                            ? p.focus
+                            : selected
                             ? p.border
                             : AppPalette.clearOf(p.border),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(AppRadii.nav),
-                      ),
-                    ),
-                    onPressed: onTap,
-                    child: Row(
-                      children: [
-                        _NavigationIcon(
-                          icon: selected
-                              ? destination.selectedIcon
-                              : destination.icon,
-                          size: 22,
-                          color: selected ? p.navigationAccent : p.muted,
-                          hasUpdate: false,
-                          hint: hasPendingPlace
-                              ? '有上课地点未定位，请在地图上标记'
-                              : '有新版本可更新',
-                          dotSize: 4,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            destination.desktopLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: selected
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        SizedBox(
-                          width: 7,
-                          height: 7,
-                          child: hasUpdate || hasPendingPlace
-                              ? Container(
-                                  key: ValueKey(
-                                    'desktop-notice-${destination.id}',
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: p.primary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                )
-                              : null,
-                        ),
-                      ],
                     ),
                   ),
-                ),
-              ],
+              child: Row(
+                children: [
+                  _NavigationIcon(
+                    icon: selected
+                        ? destination.selectedIcon
+                        : destination.icon,
+                    size: 22,
+                    color: selected ? p.navigationAccent : p.muted,
+                    hasUpdate: false,
+                    hint: hint,
+                    dotSize: 4,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      destination.desktopLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 7,
+                    height: 7,
+                    child: hasUpdate || hasPendingPlace
+                        ? Container(
+                            key: ValueKey('desktop-notice-${destination.id}'),
+                            decoration: BoxDecoration(
+                              color: p.primary,
+                              shape: BoxShape.circle,
+                            ),
+                          )
+                        : null,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
