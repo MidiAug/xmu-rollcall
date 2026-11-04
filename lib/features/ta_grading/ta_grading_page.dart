@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
@@ -649,26 +650,15 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
     if (_batch.running || !_repository.active) {
       return;
     }
-    final yes = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('确认提交成绩'),
-        content: Text(
+    final yes = await showAppConfirmDialog(
+      context,
+      title: '确认提交成绩',
+      message:
           '作业：${widget.assignment.title}\n将逐条处理 ${_rows.where((r) => r.status == TaRowStatus.ready).length} 行成绩。'
           '\n${_overwrite ? '允许覆盖已有成绩' : '已有成绩将跳过'}'
           '\n${_allowUnsubmitted ? '允许为未提交学生评分' : '未提交学生将跳过'}',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('确认提交'),
-          ),
-        ],
-      ),
+      cancelLabel: '取消',
+      confirmLabel: '确认提交',
     );
     if (yes != true || !mounted || !_repository.active) {
       return;
@@ -776,15 +766,10 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                   widget.repository,
                 ) ||
                 !_repository.active) {
-              return AlertDialog(
-                title: const Text('当前页面已失效'),
-                content: const Text('请返回后重新选择账号与作业。'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('关闭'),
-                  ),
-                ],
+              return AppNoticeDialog(
+                title: '当前页面已失效',
+                message: '请返回后重新选择账号与作业。',
+                onClose: () => Navigator.pop(context),
               );
             }
             return StatefulBuilder(
@@ -811,8 +796,8 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                 final palette = AppPalette.of(context);
                 return PopScope(
                   canPop: !_batch.running,
-                  child: Dialog(
-                    insetPadding: const EdgeInsets.all(16),
+                  child: AppDialogFrame(
+                    insetPadding: const EdgeInsets.all(AppSpace.md),
                     child: SizedBox(
                       width: 720,
                       height:
@@ -839,12 +824,9 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                                     ).textTheme.titleLarge,
                                   ),
                                 ),
-                                IconButton(
-                                  tooltip: '关闭',
-                                  onPressed: _batch.running
-                                      ? null
-                                      : () => Navigator.pop(context),
-                                  icon: const Icon(Icons.close, size: 20),
+                                AppSheetCloseButton(
+                                  enabled: !_batch.running,
+                                  onPressed: () => Navigator.pop(context),
                                 ),
                               ],
                             ),
@@ -1277,26 +1259,16 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
         onChanged: (v) => setState(() => _search = v),
       ),
     );
-    final filter = PopupMenuButton<int>(
-      tooltip: '筛选提交状态',
-      initialValue: _submissionFilter,
-      onSelected: (v) => setState(() => _submissionFilter = v),
-      itemBuilder: (_) => const [
-        PopupMenuItem(value: 0, child: Text('全部学生')),
-        PopupMenuItem(value: 1, child: Text('已提交')),
-        PopupMenuItem(value: 2, child: Text('未提交')),
-      ],
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(['全部学生', '已提交', '未提交'][_submissionFilter]),
-            const SizedBox(width: 4),
-            const Icon(Icons.keyboard_arrow_down, size: 16),
-          ],
-        ),
-      ),
+    final filter = AppShellSelect<int>(
+      key: const ValueKey('ta-submission-filter'),
+      semanticLabel: '筛选提交状态',
+      value: _submissionFilter,
+      items: const [0, 1, 2],
+      labelOf: (v) => ['全部学生', '已提交', '未提交'][v],
+      width: 112,
+      menuWidth: 160,
+      compact: true,
+      onChanged: (v) => setState(() => _submissionFilter = v),
     );
     final select = _selected.isNotEmpty
         ? const SizedBox.shrink()
@@ -1343,17 +1315,16 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
           icon: const Icon(Icons.download_outlined, size: 18),
           label: Text(_downloadMatchesSelection ? '下载打包' : '下载上次打包'),
         ),
-        PopupMenuButton<String>(
+        AppActionMenu<String>(
           tooltip: '下载选项',
+          framed: false,
+          actions: const [AppMenuAction('copy', '复制下载链接', icon: AppIcons.copy)],
           onSelected: (_) async {
             await Clipboard.setData(
               ClipboardData(text: _zip!.download.toString()),
             );
             _message('下载链接已复制');
           },
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: 'copy', child: Text('复制下载链接')),
-          ],
         ),
       ],
     ];

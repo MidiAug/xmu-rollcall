@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_grading_page.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_providers.dart';
@@ -231,9 +232,12 @@ void main() {
         }
         expect(visible, greaterThanOrEqualTo(8));
         await captureDesktopUi(tester, 'ta-task-table-111-$dark');
-        await tester.tap(find.byTooltip('筛选提交状态'));
+        await tester.tap(find.byKey(const ValueKey('ta-submission-filter')));
         await tester.pumpAndSettle();
-        await tester.tap(find.widgetWithText(PopupMenuItem<int>, '已提交'));
+        expect(find.byType(PopupMenuButton<int>), findsNothing);
+        expect(find.byType(AppShellSelect<int>), findsOneWidget);
+        await captureDesktopUi(tester, 'ta-shared-filter-$dark');
+        await tester.tap(find.byKey(const ValueKey('shell-select-option-1')));
         await tester.pumpAndSettle();
         expect(find.text('显示 47 人'), findsOneWidget);
         await tester.tap(find.text('选择已提交学生'));
