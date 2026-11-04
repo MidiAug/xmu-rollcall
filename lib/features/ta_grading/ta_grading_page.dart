@@ -1167,6 +1167,16 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                               Expanded(
                                 child: ListView.builder(
                                   key: const ValueKey('ta-assignment-scroll'),
+                                  // Rows are single-line. Known extents avoid
+                                  // measuring preceding rows during scrolling.
+                                  // Grow with accessibility text, not row data.
+                                  itemExtent:
+                                      48 *
+                                      (MediaQuery.textScalerOf(
+                                                context,
+                                              ).scale(14) /
+                                              14)
+                                          .clamp(1.0, double.infinity),
                                   itemCount: visible.length,
                                   itemBuilder: (_, i) => _studentTableRow(
                                     visible[i],
@@ -1367,9 +1377,14 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
     bool blocked = false,
   }) {
     final p = AppPalette.of(context);
+    // Only the header needs roster-wide selection state. Student rows are
+    // constructed while scrolling and must only read their own selection.
     final all =
-        visible.isNotEmpty && visible.every((s) => _selected.contains(s.id));
-    final some = visible.any((s) => _selected.contains(s.id));
+        heading &&
+        visible.isNotEmpty &&
+        visible.every((s) => _selected.contains(s.id));
+    final some =
+        heading && (all || visible.any((s) => _selected.contains(s.id)));
     final score = student?.score?.toString().replaceFirst(RegExp(r'\.0$'), '');
     final grade =
         score ??
@@ -1461,27 +1476,12 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                       context,
                     ).textTheme.bodySmall?.copyWith(color: p.muted),
                   )
-                : Tooltip(
-                    message: '核对${student!.name}的成绩',
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton(
-                        style: TextButton.styleFrom(
-                          foregroundColor: p.muted,
-                          padding: EdgeInsets.zero,
-                        ),
-                        onPressed:
-                            blocked || _checkingScores.contains(student.id)
-                            ? null
-                            : () => _checkStudent(student),
-                        child: Text(
-                          _checkingScores.contains(student.id) ? '核对中' : grade,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(color: p.muted),
-                        ),
-                      ),
-                    ),
+                : AppTableAction(
+                    tooltip: '核对${student!.name}的成绩',
+                    label: _checkingScores.contains(student.id) ? '核对中' : grade,
+                    onPressed: blocked || _checkingScores.contains(student.id)
+                        ? null
+                        : () => _checkStudent(student),
                   ),
           ),
         ],

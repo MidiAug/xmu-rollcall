@@ -16,6 +16,57 @@ abstract final class AppControlStyle {
   }
 }
 
+/// A compact table-cell action on the table's existing Material surface.
+/// Avoids creating a separate button surface and minimum-width layout per row.
+class AppTableAction extends StatelessWidget {
+  const AppTableAction({
+    super.key,
+    required this.label,
+    required this.tooltip,
+    required this.onPressed,
+  });
+  final String label, tooltip;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return AppTooltipAnchor(
+      child: Tooltip(
+        message: tooltip,
+        child: Semantics(
+          button: true,
+          enabled: onPressed != null,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(AppRadii.control),
+            hoverColor: p.hover,
+            focusColor: p.selected,
+            highlightColor: p.selected,
+            splashFactory: NoSplash.splashFactory,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: onPressed == null
+                        ? p.muted.withValues(alpha: .5)
+                        : p.muted,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Strong, consistently aligned dismissal action with a full touch target.
 class AppSheetCloseButton extends StatelessWidget {
   const AppSheetCloseButton({
