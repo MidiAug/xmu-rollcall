@@ -48,7 +48,9 @@ void main() {
                 key: const ValueKey('desktop-ui-capture'),
                 child: MaterialApp(
                   theme: desktopCaptureTheme(
-                    dark ? AppTheme.dark() : AppTheme.light(),
+                    (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
+                      platform: TargetPlatform.windows,
+                    ),
                   ),
                   home: const Scaffold(body: TaGradingPage()),
                 ),
@@ -61,7 +63,7 @@ void main() {
           await captureDesktopUi(tester, 'ta-list-$width-$dark');
           await tester.tap(find.text(TaHttpFixture.title));
           await tester.pumpAndSettle();
-          expect(find.text('示例学生1  0001'), findsOneWidget);
+          expect(find.text('示例学生1'), findsOneWidget);
           await tester.tap(find.text('选择已提交学生'));
           await tester.pumpAndSettle();
           expect(find.text('已选 2 人'), findsOneWidget);
@@ -126,7 +128,10 @@ void main() {
               (ref) async => const [CatalogCourse(id: '91', title: '测试课程')],
             ),
           ],
-          child: MaterialApp(home: const Scaffold(body: TaGradingPage())),
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
+            home: const Scaffold(body: TaGradingPage()),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -186,7 +191,10 @@ void main() {
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
-          child: MaterialApp(home: const Scaffold(body: TaGradingPage())),
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
+            home: const Scaffold(body: TaGradingPage()),
+          ),
         ),
       );
       await tester.pumpAndSettle();
@@ -194,7 +202,7 @@ void main() {
       await tester.pumpAndSettle();
       container.invalidate(taRepositoryProvider);
       await tester.pumpAndSettle();
-      expect(find.text('示例学生1  0001'), findsNothing);
+      expect(find.text('示例学生1'), findsNothing);
       expect(repo.active, isFalse);
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();

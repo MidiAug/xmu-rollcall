@@ -8,6 +8,7 @@ import 'package:xmu_rollcall/features/grades/gpa_page.dart';
 import 'package:xmu_rollcall/features/exams/exam_page.dart';
 import 'package:xmu_rollcall/features/location/campus_atlas_page.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_grading_page.dart';
+import 'package:xmu_rollcall/features/ta_grading/ta_widgets.dart';
 
 /// Built-in tool descriptors are the extension seam. No phantom future services.
 class CampusTool {
@@ -147,7 +148,10 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      tool.title,
+                                      tool.id == 'ta-grading' &&
+                                              taIsMobile(context)
+                                          ? '助教作业'
+                                          : tool.title,
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.w600,
@@ -156,7 +160,10 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                                     ),
                                     const SizedBox(height: 7),
                                     Text(
-                                      tool.description,
+                                      tool.id == 'ta-grading' &&
+                                              taIsMobile(context)
+                                          ? '查看课程作业、提交情况与批改进度'
+                                          : tool.description,
                                       style: TextStyle(
                                         fontSize: 12,
                                         color: p.muted,
