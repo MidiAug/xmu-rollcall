@@ -1,0 +1,667 @@
+{
+  "analysis_date": "2026-11-04",
+  "source_sha256": "c9fd974a59dbec857dadf692a5f16b3616142ba9ac187af893c6e244486c74b0",
+  "source_bytes": 160366619,
+  "http_request_line_count_including_connect": 113,
+  "verification": "offline capture analysis only; no network replay; no batch implementation",
+  "redaction": "No source values, headers, raw query strings, personal identifiers or resource URLs. Array item types are the union across observed rows; empty arrays provide no element schema.",
+  "endpoints": [
+    {
+      "request_ordinal": 17,
+      "method": "GET",
+      "path": "/api/courses/{courseId}",
+      "query_parameter_names": [
+        "fields"
+      ],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "academic_year": "object",
+        "allow_admin_update_basic_info": "boolean",
+        "allow_edit_knowledge_base": "boolean",
+        "allow_update_basic_info": "boolean",
+        "allowed_to_invite_assistant": "boolean",
+        "allowed_to_invite_student": "boolean",
+        "allowed_to_join_course": "boolean",
+        "archived": "boolean",
+        "audit_status": "string",
+        "auto_archive_course_date": "string",
+        "classroom_schedule": "null",
+        "compulsory": "boolean",
+        "course_attributes": "object",
+        "course_code": "string",
+        "course_type": "integer",
+        "cover": "string",
+        "credit": "string",
+        "credit_state": "object",
+        "department": "object",
+        "display_name": "string",
+        "end_date": "null",
+        "grade": "null",
+        "has_ai_ability": "boolean",
+        "id": "integer",
+        "imported_from": "string",
+        "instructors": "array",
+        "is_blocked": "null",
+        "klass": "null",
+        "knowledge_graph_publish_type": "string",
+        "learning_mode": "string",
+        "name": "string",
+        "org": "object",
+        "problem_graph_publish_type": "string",
+        "public_scope": "string",
+        "score_published": "boolean",
+        "second_name": "null",
+        "semester": "object",
+        "show_archive_course_tips": "boolean",
+        "start_date": "string",
+        "students_count": "integer",
+        "subject_code": "string",
+        "syllabus_enabled": "boolean",
+        "teaching_mode": "string",
+        "url": "string"
+      }
+    },
+    {
+      "request_ordinal": 18,
+      "method": "GET",
+      "path": "/api/courses/{courseId}/modules",
+      "query_parameter_names": [],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "modules": "array"
+      }
+    },
+    {
+      "request_ordinal": 19,
+      "method": "GET",
+      "path": "/api/course/{courseId}/activity-publish-setting",
+      "query_parameter_names": [],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "exam": "string",
+        "forum": "string",
+        "homework": "string",
+        "others": "string"
+      }
+    },
+    {
+      "request_ordinal": 20,
+      "method": "GET",
+      "path": "/api/courses/{courseId}/activities",
+      "query_parameter_names": [
+        "sub_course_id"
+      ],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "activities": "array"
+      }
+    },
+    {
+      "request_ordinal": 23,
+      "method": "GET",
+      "path": "/api/rubrics",
+      "query_parameter_names": [
+        "fields",
+        "no-intercept"
+      ],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "rubrics": "array"
+      }
+    },
+    {
+      "request_ordinal": 24,
+      "method": "GET",
+      "path": "/api/rubrics/template",
+      "query_parameter_names": [
+        "no-intercept"
+      ],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "conditions": "array",
+        "id": "integer",
+        "name": "string"
+      }
+    },
+    {
+      "request_ordinal": 26,
+      "method": "GET",
+      "path": "/api/activities/{activityId}",
+      "query_parameter_names": [
+        "sub_course_id"
+      ],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "assign_group_ids": "array",
+        "assign_student_ids": "array",
+        "average_score": "null",
+        "can_show_score": "boolean",
+        "cc_license_references": "array",
+        "completion_criterion": "string",
+        "completion_criterion_key": "string",
+        "completion_criterion_value": "string",
+        "course_id": "integer",
+        "created_at": "string",
+        "data": "object",
+        "enable_edit": "boolean",
+        "end_time": "string",
+        "group_set_id": "integer",
+        "group_set_name": "string",
+        "has_assign_group": "boolean",
+        "has_assign_student": "boolean",
+        "has_score_count": "integer",
+        "highest_score": "null",
+        "id": "integer",
+        "imported_from": "string",
+        "imported_track_id": "string",
+        "inter_review_named": "boolean",
+        "inter_score_map": "object",
+        "interaction_activity_attributes": "null",
+        "intra_rubric_id": "integer",
+        "intra_rubric_instance": "object",
+        "intra_rubric_instance_id": "integer",
+        "intra_score_map": "object",
+        "is_announce_reference_answer_time_passed": "boolean",
+        "is_announce_score_time_passed": "boolean",
+        "is_assigned_to_all": "boolean",
+        "is_closed": "boolean",
+        "is_in_progress": "boolean",
+        "is_inter_review_by_submitter": "boolean",
+        "is_opened_catalog": "boolean",
+        "is_resubmit_open": "boolean",
+        "is_review_homework": "null",
+        "is_started": "boolean",
+        "knowledge_node_ids": "array",
+        "knowledge_node_reference": "array",
+        "late_submission_count": "integer",
+        "lowest_score": "null",
+        "module_id": "integer",
+        "need_make_up": "boolean",
+        "need_remind": "boolean",
+        "non_submit_times": "boolean",
+        "prerequisites": "array",
+        "published": "boolean",
+        "rubric_id": "integer",
+        "rubric_instance": "object",
+        "rubric_instance_id": "integer",
+        "score_item_group_id": "integer",
+        "score_item_group_name": "string",
+        "score_item_scored": "boolean",
+        "score_percentage": "string",
+        "score_published": "boolean",
+        "score_type": "string",
+        "sort": "integer",
+        "start_time": "string",
+        "sub_meetings": "null",
+        "submit_by_group": "boolean",
+        "submit_times": "null",
+        "syllabus_id": "integer",
+        "teaching_model": "string",
+        "teaching_unit_id": "integer",
+        "tencent_meeting_type": "null",
+        "title": "string",
+        "type": "string",
+        "unique_key": "string",
+        "updated_at": "string",
+        "uploads": "array",
+        "user_submit_count": "integer",
+        "using_phase": "string",
+        "version": "null"
+      }
+    },
+    {
+      "request_ordinal": 37,
+      "method": "GET",
+      "path": "/api/course/{courseId}/homework/duplicate-lib",
+      "query_parameter_names": [
+        "conditions",
+        "page",
+        "page_size"
+      ],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "end": "integer",
+        "page": "integer",
+        "page_size": "integer",
+        "pages": "integer",
+        "start": "integer",
+        "total": "integer",
+        "uploads": "array"
+      }
+    },
+    {
+      "request_ordinal": 41,
+      "method": "GET",
+      "path": "/api/homework/{activityId}/student-submissions",
+      "query_parameter_names": [
+        "need_uploads_size"
+      ],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "submissions": "array"
+      },
+      "submissions_item_field_types": {
+        "attachments_size": [
+          "integer"
+        ],
+        "created_at": [
+          "string"
+        ],
+        "created_by": [
+          "object"
+        ],
+        "id": [
+          "integer"
+        ],
+        "instructor_comment": [
+          "null"
+        ],
+        "instructor_score": [
+          "null"
+        ],
+        "is_redo": [
+          "boolean"
+        ],
+        "is_resubmitted": [
+          "boolean"
+        ],
+        "marked_submitted": [
+          "boolean"
+        ],
+        "recommend": [
+          "integer"
+        ],
+        "score": [
+          "null"
+        ],
+        "submit_by_instructor": [
+          "boolean"
+        ]
+      }
+    },
+    {
+      "request_ordinal": 42,
+      "method": "GET",
+      "path": "/api/course/{courseId}/students",
+      "query_parameter_names": [
+        "ignore_avatar"
+      ],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "students": "array"
+      },
+      "students_item_field_types": {
+        "aliases": [
+          "array"
+        ],
+        "avatar_big_url": [
+          "string"
+        ],
+        "avatar_small_url": [
+          "string"
+        ],
+        "comment": [
+          "null"
+        ],
+        "department": [
+          "object"
+        ],
+        "grade": [
+          "null"
+        ],
+        "group_ids": [
+          "array"
+        ],
+        "id": [
+          "integer"
+        ],
+        "imported_track_id": [
+          "null"
+        ],
+        "klass": [
+          "null"
+        ],
+        "name": [
+          "string"
+        ],
+        "nickname": [
+          "null"
+        ],
+        "roles": [
+          "array"
+        ],
+        "user_no": [
+          "string"
+        ]
+      }
+    },
+    {
+      "request_ordinal": 43,
+      "method": "GET",
+      "path": "/api/activities/{activityId}/homework-scores",
+      "query_parameter_names": [],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "homework_scores": "array"
+      },
+      "homework_scores_item_field_types": {}
+    },
+    {
+      "request_ordinal": 44,
+      "method": "GET",
+      "path": "/api/homework/{activityId}/make-up-records",
+      "query_parameter_names": [],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "make_up_records": "array"
+      },
+      "make_up_records_item_field_types": {
+        "closed_time": [
+          "string"
+        ],
+        "created_at": [
+          "string"
+        ],
+        "student_id": [
+          "integer"
+        ],
+        "submitted": [
+          "boolean"
+        ],
+        "updated_at": [
+          "string"
+        ]
+      }
+    },
+    {
+      "request_ordinal": 45,
+      "method": "GET",
+      "path": "/api/homework/{activityId}/resubmit-records",
+      "query_parameter_names": [],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "resubmit_records": "array"
+      },
+      "resubmit_records_item_field_types": {}
+    },
+    {
+      "request_ordinal": 46,
+      "method": "GET",
+      "path": "/api/homework/{activityId}/redo-map",
+      "query_parameter_names": [],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "redo_map": "object"
+      }
+    },
+    {
+      "request_ordinal": 50,
+      "method": "GET",
+      "path": "/api/course/{courseId}/homework/duplicate-lib",
+      "query_parameter_names": [
+        "conditions",
+        "page",
+        "page_size"
+      ],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "end": "integer",
+        "page": "integer",
+        "page_size": "integer",
+        "pages": "integer",
+        "start": "integer",
+        "total": "integer",
+        "uploads": "array"
+      }
+    },
+    {
+      "request_ordinal": 53,
+      "method": "GET",
+      "path": "/api/homework/{activityId}/duplicate-detect/task",
+      "query_parameter_names": [],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_type": "array"
+    },
+    {
+      "request_ordinal": 54,
+      "method": "GET",
+      "path": "/api/homework/{activityId}/duplicate-detect/rate",
+      "query_parameter_names": [],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "items": "array"
+      }
+    },
+    {
+      "request_ordinal": 60,
+      "method": "PUT",
+      "path": "/api/course/activities/{activityId}/score",
+      "query_parameter_names": [],
+      "status": 201,
+      "response_content_type": "application/json",
+      "request_fields": {
+        "student_id": "integer",
+        "score": "string"
+      },
+      "response_root_fields": {
+        "data": "object",
+        "message": "string",
+        "submission": "object"
+      },
+      "data_field_types": {
+        "activity_id": "integer",
+        "final_score": "string",
+        "instructor_comment": "null",
+        "inter_score": "null",
+        "intra_score": "null",
+        "score": "null",
+        "student_id": "integer"
+      },
+      "submission_fields_of_interest": {
+        "final_score": "null"
+      }
+    },
+    {
+      "request_ordinal": 63,
+      "method": "GET",
+      "path": "/api/homework/{activityId}/duplicate-detect/task",
+      "query_parameter_names": [],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_type": "array"
+    },
+    {
+      "request_ordinal": 66,
+      "method": "PUT",
+      "path": "/api/course/activities/{activityId}/score",
+      "query_parameter_names": [],
+      "status": 201,
+      "response_content_type": "application/json",
+      "request_fields": {
+        "student_id": "integer",
+        "score": "string"
+      },
+      "response_root_fields": {
+        "data": "object",
+        "message": "string",
+        "submission": "object"
+      },
+      "data_field_types": {
+        "activity_id": "integer",
+        "final_score": "string",
+        "instructor_comment": "null",
+        "inter_score": "null",
+        "intra_score": "null",
+        "score": "null",
+        "student_id": "integer"
+      },
+      "submission_fields_of_interest": {
+        "final_score": "null"
+      }
+    },
+    {
+      "request_ordinal": 68,
+      "method": "PUT",
+      "path": "/api/course/activities/{activityId}/score",
+      "query_parameter_names": [],
+      "status": 201,
+      "response_content_type": "application/json",
+      "request_fields": {
+        "student_id": "integer",
+        "score": "string"
+      },
+      "response_root_fields": {
+        "data": "object",
+        "message": "string",
+        "submission": "object"
+      },
+      "data_field_types": {
+        "activity_id": "integer",
+        "final_score": "string",
+        "instructor_comment": "null",
+        "inter_score": "null",
+        "intra_score": "null",
+        "score": "null",
+        "student_id": "integer"
+      },
+      "submission_fields_of_interest": {
+        "final_score": "null"
+      }
+    },
+    {
+      "request_ordinal": 70,
+      "method": "GET",
+      "path": "/api/homework/{activityId}/duplicate-detect/task",
+      "query_parameter_names": [],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_type": "array"
+    },
+    {
+      "request_ordinal": 80,
+      "method": "GET",
+      "path": "/api/homework/{activityId}/duplicate-detect/task",
+      "query_parameter_names": [],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_type": "array"
+    },
+    {
+      "request_ordinal": 83,
+      "method": "GET",
+      "path": "/api/homeworks/{activityId}/export-score",
+      "query_parameter_names": [],
+      "status": 200,
+      "response_content_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    },
+    {
+      "request_ordinal": 88,
+      "method": "GET",
+      "path": "/api/homework/{activityId}/duplicate-detect/task",
+      "query_parameter_names": [],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_type": "array"
+    },
+    {
+      "request_ordinal": 99,
+      "method": "GET",
+      "path": "/api/homework/{activityId}/duplicate-detect/task",
+      "query_parameter_names": [],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_type": "array"
+    },
+    {
+      "request_ordinal": 108,
+      "method": "GET",
+      "path": "/api/homework/{activityId}/duplicate-detect/task",
+      "query_parameter_names": [],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_type": "array"
+    },
+    {
+      "request_ordinal": 109,
+      "method": "GET",
+      "path": "/api/activity/{activityId}/submitter/{studentId}/score-records",
+      "query_parameter_names": [
+        "page",
+        "page_size"
+      ],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_fields": {
+        "end": "integer",
+        "page": "integer",
+        "page_size": "integer",
+        "pages": "integer",
+        "records": "array",
+        "start": "integer",
+        "total": "integer"
+      },
+      "records_item_field_types": {
+        "created_at": [
+          "string"
+        ],
+        "final_score": [
+          "number"
+        ],
+        "id": [
+          "integer"
+        ],
+        "old_final_score": [
+          "null",
+          "number"
+        ],
+        "old_score": [
+          "null"
+        ],
+        "operator_id": [
+          "integer"
+        ],
+        "operator_name": [
+          "string"
+        ],
+        "org_id": [
+          "integer"
+        ],
+        "score": [
+          "null"
+        ],
+        "score_method": [
+          "string"
+        ],
+        "version": [
+          "string"
+        ]
+      }
+    },
+    {
+      "request_ordinal": 110,
+      "method": "GET",
+      "path": "/api/homework/{activityId}/duplicate-detect/task",
+      "query_parameter_names": [],
+      "status": 200,
+      "response_content_type": "application/json",
+      "response_root_type": "array"
+    }
+  ]
+}
