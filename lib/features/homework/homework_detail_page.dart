@@ -132,14 +132,7 @@ class _DetailBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: p.selected,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(AppIcons.homework, color: p.primary, size: 26),
-          ),
+          const AppIconSurface(child: Icon(AppIcons.homework)),
           const SizedBox(height: 16),
           Text(
             item.title.isEmpty ? '未命名作业' : item.title,
@@ -153,8 +146,7 @@ class _DetailBody extends StatelessWidget {
           _kv('课程', item.courseName.isEmpty ? '—' : item.courseName, p),
           _kv('截止', item.dueLabel, p),
           if (item.type.isNotEmpty)
-            _kv('类型', item.isHomework ? '课程作业' : item.type, p),
-          if (item.status.isNotEmpty) _kv('状态', item.status, p),
+            _kv('类型', item.isHomework ? '课程作业' : '课程活动', p),
           const SizedBox(height: 16),
           Divider(color: p.border),
           const SizedBox(height: 12),

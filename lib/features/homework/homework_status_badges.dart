@@ -153,12 +153,15 @@ class _HomeworkMetadataRow extends StatelessWidget {
         textWidth(
           '未提交',
           AppTypography.caption.copyWith(
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
         ) +
         16;
-    return Row(
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         SizedBox(
           key: ValueKey('homework-deadline-${item.id}'),
@@ -168,34 +171,21 @@ class _HomeworkMetadataRow extends StatelessWidget {
             child: Semantics(
               label: '截止时间 ${item.dueLabel}',
               excludeSemantics: true,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(deadline, style: timeStyle),
-              ),
+              child: Text(deadline, style: timeStyle),
             ),
           ),
         ),
-        const SizedBox(width: 6),
         SizedBox(
           key: ValueKey('homework-submission-${item.id}'),
           width: statusWidth,
           child: submission == null
               ? const SizedBox.shrink()
-              : Tooltip(
-                  message: state?.submissionLabel ?? submission,
-                  child: badge(submission, submissionColor),
-                ),
+              : badge(submission, submissionColor),
         ),
-        const SizedBox(width: 6),
         if (grading != null)
-          Flexible(
-            child: FittedBox(
-              key: ValueKey('homework-grading-${item.id}'),
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: badge(grading, p.muted),
-            ),
+          KeyedSubtree(
+            key: ValueKey('homework-grading-${item.id}'),
+            child: badge(grading, p.muted),
           ),
       ],
     );

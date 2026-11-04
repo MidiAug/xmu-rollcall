@@ -1,5 +1,32 @@
 part of 'chrome.dart';
 
+/// Consistent optical frame for symbolic list markers, distinct from the larger
+/// illustrated service destinations. No shadow or backdrop filter per row.
+class AppIconSurface extends StatelessWidget {
+  const AppIconSurface({super.key, required this.child, this.size = 36});
+  final Widget child;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: p.content,
+        borderRadius: BorderRadius.circular(AppRadii.control),
+        border: Border.all(color: p.border),
+      ),
+      child: IconTheme(
+        data: IconThemeData(color: p.primary, size: 19),
+        child: child,
+      ),
+    );
+  }
+}
+
 /// Frosted chrome is clipped to its own bounds. Static content surfaces use
 /// blur=0 so scrolling data never pays for a backdrop filter per row.
 class AppGlassSurface extends StatelessWidget {

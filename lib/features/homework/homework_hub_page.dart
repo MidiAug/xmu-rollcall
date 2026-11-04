@@ -1,3 +1,4 @@
+import 'homework_list_row.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -638,7 +639,7 @@ class _TeachingAssignmentRow extends StatelessWidget {
         : '${due.year == DateTime.now().year ? '' : '${due.year}/'}${due.month}/${due.day} '
               '${due.hour.toString().padLeft(2, '0')}:${due.minute.toString().padLeft(2, '0')} 截止';
     if (PlatformHooks.isDesktop && !AppDensity.isTouch(context)) {
-      return _HomeworkInboxRow(
+      return HomeworkListRow(
         item: item,
         subtitle: '',
         onTap: onTap,
@@ -715,7 +716,7 @@ class _TodoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     if (PlatformHooks.isDesktop && !AppDensity.isTouch(context)) {
-      return _HomeworkInboxRow(
+      return HomeworkListRow(
         item: item,
         subtitle: item.courseName,
         onTap: onTap,
@@ -768,88 +769,6 @@ class _TodoTile extends StatelessWidget {
             Icon(AppIcons.right, size: 18, color: p.muted),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// Shared inbox row for student tasks and instructor/assistant assignments.
-class _HomeworkInboxRow extends StatelessWidget {
-  const _HomeworkInboxRow({
-    required this.item,
-    required this.subtitle,
-    required this.trailing,
-    required this.onTap,
-  });
-  final HomeworkItem item;
-  final String subtitle;
-  final Widget trailing;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return AppHoverSurface(
-      onTap: onTap,
-      outlined: false,
-      borderRadius: BorderRadius.zero,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      child: LayoutBuilder(
-        builder: (context, bounds) {
-          final wide = bounds.maxWidth >= 560;
-          final metadata = trailing;
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: p.isDark ? p.selected : const Color(0xFFEAF4FF),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                child: Icon(
-                  AppIcons.document,
-                  size: 20,
-                  color: p.isDark ? p.primary : const Color(0xFF247DD2),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title.isEmpty ? '未命名作业' : item.title,
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.body.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color: p.ink,
-                      ),
-                    ),
-                    if (subtitle.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.caption.copyWith(color: p.muted),
-                      ),
-                    ],
-                    if (!wide) ...[const SizedBox(height: 8), metadata],
-                  ],
-                ),
-              ),
-              if (wide) ...[
-                const SizedBox(width: 20),
-                SizedBox(width: 240, child: metadata),
-              ],
-              const SizedBox(width: 12),
-              Icon(AppIcons.right, size: 16, color: p.muted),
-            ],
-          );
-        },
       ),
     );
   }

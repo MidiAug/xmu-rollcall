@@ -32,7 +32,7 @@ class AppStatusBadge extends StatelessWidget {
         label,
         maxLines: 1,
         style: AppTypography.caption.copyWith(
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w500,
           height: 1.3,
           color: color,

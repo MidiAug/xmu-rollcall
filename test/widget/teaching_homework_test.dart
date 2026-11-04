@@ -78,13 +78,19 @@ class _Overview extends HomeworkOverviewNotifier {
 }
 
 void main() {
+  initializeDesktopUiCapture();
   setUpAll(() async {
     await loadDesktopPreviewFonts();
     await loadDesktopUiCaptureFonts();
   });
-  for (final width in [320.0, 384.0, 960.0]) {
+  for (final (width, scale) in const [
+    (320.0, 1.0),
+    (384.0, 1.0),
+    (960.0, 1.0),
+    (320.0, 1.5),
+  ]) {
     testWidgets(
-      'compact aligned homework rows fit $width and details still link all four',
+      'compact aligned homework rows fit $width scale=$scale and details still link all four',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = Size(width, 1100);
@@ -137,6 +143,12 @@ void main() {
             child: RepaintBoundary(
               key: const ValueKey('desktop-ui-capture'),
               child: MaterialApp(
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.linear(scale)),
+                  child: child!,
+                ),
                 theme: AppTheme.light().copyWith(
                   platform: width < 600
                       ? TargetPlatform.android
@@ -201,14 +213,26 @@ void main() {
         expect(find.text('01/02 03:04'), findsOneWidget);
         expect(
           tester.getTopLeft(submission9).dx - tester.getTopRight(deadline9).dx,
-          6,
+          8,
         );
         final grading9 = find.byKey(const ValueKey('homework-grading-9'));
         final grading10 = find.byKey(const ValueKey('homework-grading-10'));
         expect(tester.getTopLeft(grading9).dx, tester.getTopLeft(grading10).dx);
+        if (tester.getTopLeft(grading9).dy >
+            tester.getBottomLeft(submission9).dy) {
+          expect(
+            tester.getTopLeft(grading9).dx,
+            tester.getTopLeft(deadline9).dx,
+          );
+        } else {
+          expect(
+            tester.getTopLeft(grading9).dx - tester.getTopRight(submission9).dx,
+            8,
+          );
+        }
         expect(
-          tester.getTopLeft(grading9).dx - tester.getTopRight(submission9).dx,
-          6,
+          find.ancestor(of: grading9, matching: find.byType(FittedBox)),
+          findsNothing,
         );
         final title = tester.widget<Text>(find.textContaining('已批改的历史作业标题'));
         expect(title.maxLines, 1);
@@ -229,7 +253,10 @@ void main() {
           );
         }
 
-        await captureDesktopUi(tester, 'homework-hub-${width.toInt()}');
+        await captureDesktopUi(
+          tester,
+          'homework-hub-${width.toInt()}${scale == 1 ? '' : '-scale$scale'}',
+        );
         await tester.tap(find.text('助教作业4'));
         await tester.pumpAndSettle();
         expect(find.byType(HomeworkDetailPage), findsOneWidget);
@@ -255,7 +282,10 @@ void main() {
           expect(tester.getRect(surface).left, closeTo(left, 1));
           expect(tester.getRect(surface).right, closeTo(right, 1));
         }
-        await captureDesktopUi(tester, 'homework-course-menu-${width.toInt()}');
+        await captureDesktopUi(
+          tester,
+          'homework-course-menu-${width.toInt()}${scale == 1 ? '' : '-scale$scale'}',
+        );
         expect(tester.takeException(), isNull);
       },
     );

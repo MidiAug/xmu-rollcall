@@ -32,10 +32,9 @@ class SettingsSection extends StatelessWidget {
     final p = AppPalette.of(context);
     final touch = AppMobileUi.useTouchChrome(context);
     final rowPad = rowPadding ?? AppDensity.rowPadding(context);
-    const captionInset = 0.0;
+    const captionInset = 12.0;
     final dividerIndent =
-        rowPad.left +
-        (hasLeading ? (touch ? 36 : 20) + AppDensity.rowInnerGap(context) : 0);
+        rowPad.left + (hasLeading ? 36 + AppDensity.rowInnerGap(context) : 0);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -163,7 +162,9 @@ class _SettingsRowState extends State<SettingsRow> {
             style: Theme.of(context).textTheme.bodySmall,
           );
     Widget buildContent(bool below) => AnimatedContainer(
-      duration: AppMotion.fast,
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : AppMotion.fast,
       curve: AppMotion.fastCurve,
       color: wash,
       padding: widget.contentPadding ?? AppDensity.rowPadding(context),
@@ -176,25 +177,12 @@ class _SettingsRowState extends State<SettingsRow> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 if (widget.leading != null) ...[
-                  if (AppMobileUi.useTouchChrome(context) &&
-                      widget.leading is Icon)
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: p.accentSurface,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: IconTheme(
-                        data: IconThemeData(color: p.primary, size: 20),
-                        child: widget.leading!,
-                      ),
-                    )
+                  if (widget.leading is Icon)
+                    AppIconSurface(child: widget.leading!)
                   else
-                    IconTheme(
-                      data: IconThemeData(color: p.muted, size: 20),
-                      child: widget.leading!,
+                    SizedBox.square(
+                      dimension: 36,
+                      child: Center(child: widget.leading!),
                     ),
                   SizedBox(width: gap),
                 ],
