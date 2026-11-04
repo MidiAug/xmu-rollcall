@@ -1,6 +1,6 @@
 part of 'chrome.dart';
 
-/// Frosted chrome is clipped to its own island. Static content surfaces use
+/// Frosted chrome is clipped to its own bounds. Static content surfaces use
 /// blur=0 so scrolling data never pays for a backdrop filter per row.
 class AppGlassSurface extends StatelessWidget {
   const AppGlassSurface({
@@ -28,14 +28,14 @@ class AppGlassSurface extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            p.surface.withValues(alpha: highContrast ? 1 : .97),
+            p.surface.withValues(alpha: highContrast || opacity == 1 ? 1 : .97),
             p.surface.withValues(alpha: highContrast ? 1 : opacity),
           ],
         ),
         border: Border.all(
           color: p.isDark
               ? Colors.white.withValues(alpha: .12)
-              : Colors.white.withValues(alpha: .9),
+              : p.border.withValues(alpha: .8),
         ),
       ),
       child: Padding(padding: padding, child: child),
@@ -45,9 +45,14 @@ class AppGlassSurface extends StatelessWidget {
         borderRadius: radius,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: p.isDark ? .16 : .045),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: p.isDark ? .18 : .035),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: p.isDark ? .08 : .015),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
@@ -197,7 +202,7 @@ class _AppRefreshButtonState extends State<AppRefreshButton>
                 padding: const EdgeInsets.all(6),
                 side: BorderSide(color: p.border),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(7),
+                  borderRadius: BorderRadius.circular(AppRadii.control),
                 ),
               )
             : AppMobileUi.useTouchChrome(context)

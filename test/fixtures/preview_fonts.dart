@@ -45,20 +45,5 @@ Future<void> loadDesktopPreviewFonts() async {
           .load();
       continue;
     }
-    if (package['name'] != 'fluentui_system_icons') continue;
-    final uri = Uri.parse(package['rootUri'] as String);
-    final dir = uri.isAbsolute
-        ? Directory.fromUri(uri).path
-        : Directory('.dart_tool/${package['rootUri']}').absolute.path;
-    for (final face in ['Regular', 'Filled']) {
-      await (FontLoader(
-            'packages/fluentui_system_icons/FluentSystemIcons-$face',
-          )..addFont(
-            File(
-              '$dir/lib/fonts/FluentSystemIcons-$face.ttf',
-            ).readAsBytes().then(ByteData.sublistView),
-          ))
-          .load();
-    }
   }
 }

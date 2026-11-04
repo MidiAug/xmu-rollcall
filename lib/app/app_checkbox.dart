@@ -3,6 +3,54 @@ import 'package:flutter/services.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
+/// A labelled preference shares the same check mark as table selection. The
+/// label is clickable, with only one keyboard target and one merged semantic.
+class AppCheckboxRow extends StatelessWidget {
+  const AppCheckboxRow({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+  final String label;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) => MergeSemantics(
+    child: Row(
+      children: [
+        TooltipVisibility(
+          visible: false,
+          child: AppCheckbox(value: value, label: label, onChanged: onChanged),
+        ),
+        const SizedBox(width: 2),
+        Expanded(
+          child: GestureDetector(
+            excludeFromSemantics: true,
+            behavior: HitTestBehavior.opaque,
+            onTap: onChanged == null ? null : () => onChanged!(!value),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: onChanged == null
+                        ? AppPalette.of(context).muted
+                        : null,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 /// Controlled selection: null means mixed; activation always selects it.
 class AppCheckbox extends StatefulWidget {
   const AppCheckbox({
@@ -28,7 +76,7 @@ class _AppCheckboxState extends State<AppCheckbox> {
     final p = AppPalette.of(context);
     final enabled = widget.onChanged != null;
     final marked = widget.value != false;
-    final radius = BorderRadius.circular(4);
+    final radius = BorderRadius.circular(5);
     return AppTooltipAnchor(
       child: Tooltip(
         message: widget.label,

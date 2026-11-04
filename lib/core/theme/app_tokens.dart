@@ -44,7 +44,7 @@ class AppPalette {
   bool get isDark =>
       ThemeData.estimateBrightnessForColor(canvas) == Brightness.dark;
   Color get sidebar =>
-      isDark ? const Color(0xFF1C1F26) : const Color(0xFFF0F2F5);
+      isDark ? const Color(0xFF1D2027) : const Color(0xFFEBEDF1);
   Color get window =>
       isDark ? const Color(0xFF1C1F26) : const Color(0xFFF0F2F5);
   Color get success =>
@@ -101,16 +101,16 @@ class AppPalette {
   );
 
   static const lightPalette = AppPalette(
-    canvas: Color(0xFFF6F7F9),
+    canvas: Color(0xFFF5F6F8),
     surface: Color(0xFFFFFFFF),
     surfaceHigh: Color(0xFFEAEDF2),
-    content: Color(0xFFF1F3F6),
-    ink: Color(0xFF232833),
-    muted: Color(0xFF606979),
-    primary: Color(0xFF354158),
+    content: Color(0xFFEDF0F4),
+    ink: Color(0xFF222731),
+    muted: Color(0xFF5F6876),
+    primary: Color(0xFF34435C),
     danger: Color(0xFFC04444),
-    border: Color(0xFFE7EAF0),
-    borderStrong: Color(0xFFCDD3DE),
+    border: Color(0xFFE4E7ED),
+    borderStrong: Color(0xFFD1D7E1),
     // Solid, with no dark overlay on the light canvas.
     hover: Color(0xFFEAEDF2),
     cardHover: Color(0xFFFCFDFF),
@@ -164,14 +164,14 @@ abstract final class AppSpace {
 /// Concentric radius ladder (Quiet Utility).
 abstract final class AppRadii {
   static const island = 26.0;
-  static const service = 24.0;
+  static const service = 22.0;
   static const control = 10.0;
   static const input = 12.0;
   static const button = 12.0;
   static const nav = 12.0;
-  static const card = 14.0;
-  static const group = 16.0;
-  static const dialog = 20.0;
+  static const card = 18.0;
+  static const group = 18.0;
+  static const dialog = 24.0;
 }
 
 /// Desktop vs touch density (breakpoint = [AppLayout.shellBreakpoint]).

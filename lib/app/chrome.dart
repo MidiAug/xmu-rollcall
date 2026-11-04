@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'campus_artwork.dart';
 import 'package:flutter/material.dart';
 export 'status_badge.dart';
+export 'app_form_controls.dart';
 import 'package:flutter/foundation.dart';
 import 'package:xmu_rollcall/app/shell_tab_exit_guard.dart';
 import 'package:flutter/services.dart';

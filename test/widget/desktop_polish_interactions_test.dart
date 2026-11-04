@@ -73,16 +73,22 @@ void main() {
     final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
     await mouse.addPointer(location: const Offset(500, 400));
     addTearDown(mouse.removePointer);
+    await mouse.moveTo(const Offset(180, 50));
+    await tester.pumpAndSettle();
+    final hovered = await luminance();
+    final floor = (idle < hovered ? idle : hovered) - .005;
+    await mouse.moveTo(const Offset(500, 400));
+    await tester.pumpAndSettle();
     for (final position in [const Offset(180, 50), const Offset(500, 400)]) {
       await mouse.moveTo(position);
       await tester.pump();
       for (final milliseconds in [35, 50, 85]) {
         await tester.pump(Duration(milliseconds: milliseconds));
-        expect(await luminance(), greaterThanOrEqualTo(idle - .015));
+        expect(await luminance(), greaterThanOrEqualTo(floor));
       }
     }
   });
-  testWidgets('segment selection slides with an opaque mint surface', (
+  testWidgets('segment selection slides with an opaque raised surface', (
     tester,
   ) async {
     var selected = 0;

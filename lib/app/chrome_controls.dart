@@ -223,7 +223,9 @@ class _AppHoverSurfaceState extends State<AppHoverSurface> {
         ? AppPalette.clearOf(p.cardHover)
         : background;
     final body = AnimatedContainer(
-      duration: AppMotion.fast,
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : AppMotion.fast,
       curve: AppMotion.fastCurve,
       padding: widget.padding,
       decoration: BoxDecoration(

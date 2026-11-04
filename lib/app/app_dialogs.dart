@@ -26,13 +26,14 @@ class AppDialogFrame extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadii.dialog),
       ),
       child: AppGlassSurface(
-        opacity: .94,
-        borderRadius: BorderRadius.circular(AppRadii.island),
+        blur: 0,
+        opacity: 1,
+        borderRadius: BorderRadius.circular(AppRadii.dialog),
         child: Material(
           color: Colors.transparent,
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadii.island),
+            borderRadius: BorderRadius.circular(AppRadii.dialog),
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxWidth),
@@ -68,7 +69,7 @@ class AppNoticeDialog extends StatelessWidget {
           const SizedBox(height: AppSpace.lg),
           Align(
             alignment: Alignment.centerRight,
-            child: FilledButton(onPressed: onClose, child: const Text('关闭')),
+            child: AppButton(label: '关闭', onPressed: onClose),
           ),
         ],
       ),
@@ -118,9 +119,10 @@ Future<bool> showAppConfirmDialog(
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
+                    child: AppButton(
+                      kind: AppButtonKind.secondary,
+                      label: cancelLabel,
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: Text(cancelLabel),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -290,9 +292,10 @@ class _AppPromptDialogState extends State<_AppPromptDialog> {
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
+                    child: AppButton(
+                      kind: AppButtonKind.secondary,
+                      label: widget.cancelLabel,
                       onPressed: () => Navigator.pop(context),
-                      child: Text(widget.cancelLabel),
                     ),
                   ),
                   const SizedBox(width: 10),

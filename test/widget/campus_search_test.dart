@@ -110,7 +110,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester
-          .widget<TextField>(find.byKey(const ValueKey('campus-search-field')))
+          .widget<TextField>(
+            find.descendant(
+              of: find.byKey(const ValueKey('campus-search-field')),
+              matching: find.byType(TextField),
+            ),
+          )
           .controller!
           .text,
       isEmpty,

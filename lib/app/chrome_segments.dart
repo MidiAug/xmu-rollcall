@@ -197,8 +197,17 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
                     heightFactor: 1,
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: Color.alphaBlend(p.selected, p.content),
+                        color: p.surface,
                         borderRadius: BorderRadius.circular(AppRadii.control),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(
+                              alpha: p.isDark ? .18 : .07,
+                            ),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
                       ),
                     ),
                   ),

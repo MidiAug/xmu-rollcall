@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'app_service_symbol.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 /// Equal-weight service controls on translucent surfaces, without per-tile blur.
@@ -21,28 +22,25 @@ class AppServiceTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final radius = BorderRadius.circular(AppRadii.service);
-    final symbol = Container(
+    final symbol = AppServiceSymbol(
       key: const ValueKey('service-symbol'),
-      width: 44,
-      height: 44,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: p.surface.withValues(alpha: .72),
-        borderRadius: BorderRadius.circular(AppRadii.group),
-        border: Border.all(color: p.isDark ? p.border : Colors.white),
-      ),
-      child: Icon(icon, size: 28, color: p.ink),
+      icon: icon,
+      size: compact ? 50 : 60,
     );
     final label = Text(
       title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-        fontSize: 16,
+        fontSize: compact ? 15 : 16,
         fontWeight: FontWeight.w600,
         color: p.ink,
       ),
     );
     final detail = Text(
       description,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
         fontSize: 13,
         color: p.muted,
@@ -54,19 +52,19 @@ class AppServiceTile extends StatelessWidget {
       button: true,
       child: AppGlassSurface(
         blur: 0,
-        opacity: .84,
+        opacity: 1,
         borderRadius: radius,
         child: AppHoverSurface(
           outlined: false,
           backgroundColor: Colors.transparent,
           borderRadius: radius,
-          padding: const EdgeInsets.all(18),
+          padding: EdgeInsets.all(compact ? 18 : 24),
           onTap: onPressed,
           child: compact
               ? Row(
                   children: [
                     symbol,
-                    const SizedBox(width: 18),
+                    const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -79,16 +77,20 @@ class AppServiceTile extends StatelessWidget {
                   ],
                 )
               : ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 100),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  constraints: const BoxConstraints(minHeight: 80),
+                  child: Row(
                     children: [
-                      Row(children: [symbol, const Spacer(), arrow]),
-                      const SizedBox(height: 10),
-                      label,
-                      const SizedBox(height: 5),
-                      detail,
+                      symbol,
+                      const SizedBox(width: 22),
+                      Expanded(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [label, const SizedBox(height: 8), detail],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      arrow,
                     ],
                   ),
                 ),

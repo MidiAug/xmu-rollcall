@@ -141,7 +141,12 @@ class _DesktopNavItem extends StatelessWidget {
                     style: TextButton.styleFrom(
                       alignment: Alignment.centerLeft,
                       foregroundColor: p.ink,
-                      backgroundColor: selected ? p.selected : null,
+                      backgroundColor: selected ? p.surface : null,
+                      side: BorderSide(
+                        color: selected
+                            ? p.border
+                            : AppPalette.clearOf(p.border),
+                      ),
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(AppRadii.nav),

@@ -849,7 +849,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                       width: double.infinity,
                       height: _rows.isEmpty
                           ? null
-                          : (420.0 + _rows.length * 42).clamp(
+                          : (324.0 + _rows.length * 42).clamp(
                               300.0,
                               (MediaQuery.sizeOf(context).height * .82).clamp(
                                 300.0,
@@ -988,37 +988,23 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              CheckboxListTile(
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
-                                controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                title: Text(
-                                  '允许覆盖已有成绩',
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
+                              AppCheckboxRow(
+                                label: '允许覆盖已有成绩',
                                 value: _overwrite,
                                 onChanged: _batch.running
                                     ? null
                                     : (v) {
-                                        _overwrite = v!;
+                                        _overwrite = v;
                                         update(() {});
                                       },
                               ),
-                              CheckboxListTile(
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
-                                controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                title: Text(
-                                  '允许为未提交者评分',
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
+                              AppCheckboxRow(
+                                label: '允许为未提交者评分',
                                 value: _allowUnsubmitted,
                                 onChanged: _batch.running
                                     ? null
                                     : (v) {
-                                        _allowUnsubmitted = v!;
+                                        _allowUnsubmitted = v;
                                         update(() {});
                                       },
                               ),
@@ -1055,11 +1041,11 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                                     child: Text(copied ? '已复制模板' : '复制模板'),
                                   ),
                                 if (!_batch.running && _rows.isEmpty)
-                                  FilledButton(
-                                    onPressed: _importing ? null : _import,
-                                    child: Text(
-                                      _importing ? '正在读取…' : '选择 CSV 文件',
-                                    ),
+                                  AppButton(
+                                    label: _importing ? '正在读取…' : '选择 CSV 文件',
+                                    icon: AppIcons.upload,
+                                    busy: _importing,
+                                    onPressed: _import,
                                   ),
                                 if (!_batch.running && _rows.isNotEmpty)
                                   TextButton(
@@ -1067,9 +1053,10 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                                     child: Text(_importing ? '正在读取…' : '更换文件'),
                                   ),
                                 if (_rows.isNotEmpty)
-                                  FilledButton(
+                                  AppButton(
+                                    label: '提交成绩',
+                                    icon: AppIcons.check,
                                     onPressed: canSubmit ? _submit : null,
-                                    child: const Text('提交成绩'),
                                   ),
                               ],
                             ),
@@ -1222,53 +1209,55 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                         ),
                       ),
                     Expanded(
-                      child: LayoutBuilder(
-                        builder: (context, bounds) {
-                          final table = Column(
-                            children: [
-                              _studentTableRow(
-                                null,
-                                visible,
-                                heading: true,
-                                blocked: blocked,
-                              ),
-                              Expanded(
-                                child: ListView.builder(
-                                  key: const ValueKey('ta-assignment-scroll'),
-                                  // Rows are single-line. Known extents avoid
-                                  // measuring preceding rows during scrolling.
-                                  // Grow with accessibility text, not row data.
-                                  itemExtent:
-                                      48 *
-                                      (MediaQuery.textScalerOf(
-                                                context,
-                                              ).scale(14) /
-                                              14)
-                                          .clamp(1.0, double.infinity),
-                                  itemCount: visible.length,
-                                  itemBuilder: (_, i) => _studentTableRow(
-                                    visible[i],
-                                    visible,
-                                    blocked: blocked,
+                      child: Card(
+                        child: LayoutBuilder(
+                          builder: (context, bounds) {
+                            final table = Column(
+                              children: [
+                                _studentTableRow(
+                                  null,
+                                  visible,
+                                  heading: true,
+                                  blocked: blocked,
+                                ),
+                                Expanded(
+                                  child: ListView.builder(
+                                    key: const ValueKey('ta-assignment-scroll'),
+                                    // Rows are single-line. Known extents avoid
+                                    // measuring preceding rows during scrolling.
+                                    // Grow with accessibility text, not row data.
+                                    itemExtent:
+                                        48 *
+                                        (MediaQuery.textScalerOf(
+                                                  context,
+                                                ).scale(14) /
+                                                14)
+                                            .clamp(1.0, double.infinity),
+                                    itemCount: visible.length,
+                                    itemBuilder: (_, i) => _studentTableRow(
+                                      visible[i],
+                                      visible,
+                                      blocked: blocked,
+                                    ),
                                   ),
                                 ),
+                              ],
+                            );
+                            if (bounds.maxWidth >= 640) {
+                              return table;
+                            }
+                            return Scrollbar(
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: SizedBox(
+                                  width: 640,
+                                  height: bounds.maxHeight,
+                                  child: table,
+                                ),
                               ),
-                            ],
-                          );
-                          if (bounds.maxWidth >= 640) {
-                            return table;
-                          }
-                          return Scrollbar(
-                            child: SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: SizedBox(
-                                width: 640,
-                                height: bounds.maxHeight,
-                                child: table,
-                              ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1299,12 +1288,8 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
   Widget _studentToolbar(bool blocked) {
     final search = SizedBox(
       width: 230,
-      child: TextField(
-        decoration: const InputDecoration(
-          isDense: true,
-          hintText: '搜索姓名或学号',
-          prefixIcon: Icon(Icons.search, size: 18),
-        ),
+      child: AppSearchField(
+        hintText: '搜索姓名或学号',
         onChanged: (v) => setState(() => _search = v),
       ),
     );
@@ -1319,7 +1304,9 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
       compact: true,
       onChanged: (v) => setState(() => _submissionFilter = v),
     );
-    final select = TextButton(
+    final select = AppButton(
+      kind: AppButtonKind.quiet,
+      label: '选择已提交学生',
       onPressed: blocked
           ? null
           : () => _changeSelection(
@@ -1334,14 +1321,14 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                     .map((s) => s.id),
               ),
             ),
-      child: const Text('选择已提交学生'),
     );
     final actions = <Widget>[
-      FilledButton(
+      AppButton(
+        label: '导入成绩',
+        icon: AppIcons.upload,
         onPressed: _detail?.canGrade != true || _batch.running
             ? null
             : _openCsvReview,
-        child: const Text('导入成绩'),
       ),
       if (_zip?.download != null && !_building) ...[
         OutlinedButton.icon(
