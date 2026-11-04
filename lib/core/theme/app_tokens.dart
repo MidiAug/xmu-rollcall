@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 export 'app_icons.dart';
 export 'app_typography.dart';
 
-/// Shared sea-salt teal surfaces, navy content and distinct semantic states.
+/// Neutral porcelain and graphite surfaces, with distinct semantic states.
 /// Text/graphic success colors are separate so bright status accents retain
 /// readable labels. Hover surfaces interpolate within opaque theme colors.
 class AppPalette {
@@ -33,39 +33,40 @@ class AppPalette {
   final Color border;
   final Color borderStrong;
 
-  /// Inset-row / chrome hover fill. Light: a solid, pale mint tint.
+  /// Inset-row / chrome hover fill. Light: a solid, neutral gray.
   /// Dark: translucent white lift.
   final Color hover;
 
-  /// Elevated card hover fill. Light: a subtle mint tint with a hairline.
+  /// Elevated card hover fill, independent of the navigation selection.
   /// Dark: slight lift above [surface].
   final Color cardHover;
   final Color selected;
   bool get isDark =>
       ThemeData.estimateBrightnessForColor(canvas) == Brightness.dark;
   Color get sidebar =>
-      isDark ? const Color(0xFF142B2D) : const Color(0xFFEEF9F7);
+      isDark ? const Color(0xFF1C1F26) : const Color(0xFFF0F2F5);
   Color get window =>
-      isDark ? const Color(0xFF13272B) : const Color(0xFFF2FAF9);
+      isDark ? const Color(0xFF1C1F26) : const Color(0xFFF0F2F5);
   Color get success =>
       isDark ? const Color(0xFF69D99D) : const Color(0xFF007A46);
   Color get successAccent =>
       isDark ? const Color(0xFF49DB92) : const Color(0xFF00B66A);
   Color get successSurface =>
       isDark ? const Color(0xFF173D30) : const Color(0xFFE4FAED);
-  Color get navigationAccent => isDark ? primary : const Color(0xFF00A9AF);
+  Color get navigationAccent => ink;
+  Color get focus => isDark ? const Color(0xFFA7B8ED) : const Color(0xFF5069B6);
   Color get warning =>
       isDark ? const Color(0xFFE6BD7C) : const Color(0xFF9B6B26);
 
   /// Touch pages separate the canvas, content cards and actionable controls.
   Color get mobileCanvas =>
-      isDark ? const Color(0xFF101E23) : const Color(0xFFF0F5F5);
+      isDark ? const Color(0xFF17191F) : const Color(0xFFF4F5F7);
   Color get mobileOutline =>
-      isDark ? const Color(0xFF354C52) : const Color(0xFFD7E4E5);
+      isDark ? const Color(0xFF3C414D) : const Color(0xFFDCE0E7);
   Color get controlSurface =>
-      isDark ? const Color(0xFF294249) : const Color(0xFFEBF3F3);
+      isDark ? const Color(0xFF303540) : const Color(0xFFEBEEF3);
   Color get accentSurface =>
-      isDark ? const Color(0xFF244A4A) : const Color(0xFFDCEFEB);
+      isDark ? const Color(0xFF343C4C) : const Color(0xFFE8ECF3);
   Color pageBackground(BuildContext context) {
     final mobile = switch (Theme.of(context).platform) {
       TargetPlatform.android || TargetPlatform.iOS => true,
@@ -84,37 +85,36 @@ class AppPalette {
   }
 
   static const darkPalette = AppPalette(
-    canvas: Color(0xFF101E23),
-    surface: Color(0xFF182B31),
-    surfaceHigh: Color(0xFF223A40),
-    content: Color(0xFF14252B),
-    ink: Color(0xFFE8F2F2),
-    muted: Color(0xFFA0B5B9),
-    primary: Color(0xFF73D3C7),
+    canvas: Color(0xFF17191F),
+    surface: Color(0xFF24272F),
+    surfaceHigh: Color(0xFF30343F),
+    content: Color(0xFF20232B),
+    ink: Color(0xFFECEEF4),
+    muted: Color(0xFFA6ADBC),
+    primary: Color(0xFFB8C5E0),
     danger: Color(0xFFD97777),
     border: Color(0x14FFFFFF),
     borderStrong: Color(0x22FFFFFF),
-    hover: Color(0x14FFFFFF),
-    cardHover: Color(0xFF1D343A),
-    selected: Color(0x2873D3C7),
+    hover: Color(0xFF2B2F39),
+    cardHover: Color(0xFF2B2F39),
+    selected: Color(0xFF343A47),
   );
 
   static const lightPalette = AppPalette(
-    canvas: Color(0xFFFFFFFF),
+    canvas: Color(0xFFF6F7F9),
     surface: Color(0xFFFFFFFF),
-    surfaceHigh: Color(0xFFEAF2F2),
-    content: Color(0xFFF7FCFC),
-    ink: Color(0xFF11203C),
-    muted: Color(0xFF526B82),
-    primary: Color(0xFF007D83),
+    surfaceHigh: Color(0xFFEAEDF2),
+    content: Color(0xFFF1F3F6),
+    ink: Color(0xFF232833),
+    muted: Color(0xFF606979),
+    primary: Color(0xFF354158),
     danger: Color(0xFFC04444),
-    border: Color(0x0F000000),
-    borderStrong: Color(0x18000000),
+    border: Color(0xFFE7EAF0),
+    borderStrong: Color(0xFFCDD3DE),
     // Solid, with no dark overlay on the light canvas.
-    hover: Color(0xFFF3F8F7),
-    // A restrained mint lift, shared by elevated surfaces and list cards.
-    cardHover: Color(0xFFF5FBFA),
-    selected: Color(0x16008F95),
+    hover: Color(0xFFEAEDF2),
+    cardHover: Color(0xFFFCFDFF),
+    selected: Color(0xFFE6EAF1),
   );
 }
 
@@ -163,6 +163,8 @@ abstract final class AppSpace {
 
 /// Concentric radius ladder (Quiet Utility).
 abstract final class AppRadii {
+  static const island = 26.0;
+  static const service = 24.0;
   static const control = 10.0;
   static const input = 12.0;
   static const button = 12.0;

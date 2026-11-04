@@ -183,7 +183,7 @@ class AppIconCluster extends StatelessWidget {
   }
 }
 
-/// List / tile surface: color lift + hairline **on hover only** (Quiet Utility).
+/// Shared tile interaction with a stable focus outline and surface feedback.
 class AppHoverSurface extends StatefulWidget {
   const AppHoverSurface({
     super.key,
@@ -192,6 +192,7 @@ class AppHoverSurface extends StatefulWidget {
     this.borderRadius,
     this.onTap,
     this.outlined = true,
+    this.backgroundColor,
   });
 
   final Widget child;
@@ -199,6 +200,7 @@ class AppHoverSurface extends StatefulWidget {
   final BorderRadius? borderRadius;
   final VoidCallback? onTap;
   final bool outlined;
+  final Color? backgroundColor;
 
   @override
   State<AppHoverSurface> createState() => _AppHoverSurfaceState();
@@ -219,11 +221,18 @@ class _AppHoverSurfaceState extends State<AppHoverSurface> {
       curve: AppMotion.fastCurve,
       padding: widget.padding,
       decoration: BoxDecoration(
-        color: lift ? p.cardHover : p.surface,
+        color: _pressed
+            ? p.content
+            : (lift ? p.cardHover : (widget.backgroundColor ?? p.surface)),
         borderRadius: radius,
-        border: widget.outlined
-            ? Border.all(color: lift ? p.borderStrong : p.border)
-            : null,
+        // Keep one border's space in every state so keyboard focus never jumps.
+        border: Border.all(
+          color: _focused
+              ? p.focus
+              : widget.outlined
+              ? (lift ? p.borderStrong : p.border)
+              : AppPalette.clearOf(p.focus),
+        ),
       ),
       child: widget.child,
     );

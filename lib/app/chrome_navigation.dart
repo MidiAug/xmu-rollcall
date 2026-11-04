@@ -44,7 +44,7 @@ class AppSidebar extends StatelessWidget {
                           alignment: Alignment.bottomCenter,
                           cacheWidth: 512,
                           filterQuality: FilterQuality.low,
-                          opacity: AlwaysStoppedAnimation(p.isDark ? .28 : .36),
+                          opacity: AlwaysStoppedAnimation(p.isDark ? .16 : .18),
                           excludeFromSemantics: true,
                         ),
                       ),
@@ -144,7 +144,7 @@ class _DesktopNavItem extends StatelessWidget {
                       backgroundColor: selected ? p.selected : null,
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(AppRadii.nav),
                       ),
                     ),
                     onPressed: onTap,
@@ -154,8 +154,8 @@ class _DesktopNavItem extends StatelessWidget {
                           icon: selected
                               ? destination.selectedIcon
                               : destination.icon,
-                          size: 24,
-                          color: selected ? p.navigationAccent : p.ink,
+                          size: 22,
+                          color: selected ? p.navigationAccent : p.muted,
                           hasUpdate: false,
                           hint: hasPendingPlace
                               ? '有上课地点未定位，请在地图上标记'
@@ -196,19 +196,6 @@ class _DesktopNavItem extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (selected)
-                  Positioned(
-                    left: 0,
-                    top: 6,
-                    bottom: 6,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: p.navigationAccent,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: const SizedBox(width: 3),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -239,20 +226,8 @@ class AppMobileNav extends StatelessWidget {
     final p = AppPalette.of(context);
     final bottom = AppDensity.mobileNavBottomInset(context);
     if (Theme.of(context).platform == TargetPlatform.android) {
-      Widget glass(Widget child, BorderRadius radius) => ClipRRect(
-        borderRadius: radius,
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: p.surface.withValues(alpha: .94),
-              borderRadius: radius,
-              border: Border.all(color: p.mobileOutline),
-            ),
-            child: child,
-          ),
-        ),
-      );
+      Widget glass(Widget child, BorderRadius radius) =>
+          AppGlassSurface(borderRadius: radius, child: child);
       return ColoredBox(
         color: p.mobileCanvas,
         child: Padding(

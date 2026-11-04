@@ -2,98 +2,93 @@ import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
-/// Equal-weight directory entry; dense touch layout shares the same contract.
+/// Equal-weight service controls on translucent surfaces, without per-tile blur.
 class AppServiceTile extends StatelessWidget {
   const AppServiceTile({
     super.key,
     required this.title,
     required this.description,
     required this.icon,
-    required this.accent,
     required this.onPressed,
     this.compact = false,
   });
   final String title, description;
   final IconData icon;
-  final Color accent;
   final VoidCallback onPressed;
   final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final mark = Container(
+    final radius = BorderRadius.circular(AppRadii.service);
+    final symbol = Container(
+      key: const ValueKey('service-symbol'),
       width: 44,
       height: 44,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: .09),
-        shape: BoxShape.circle,
+        color: p.surface.withValues(alpha: .72),
+        borderRadius: BorderRadius.circular(AppRadii.group),
+        border: Border.all(color: p.isDark ? p.border : Colors.white),
       ),
-      child: Icon(icon, color: accent, size: 24),
+      child: Icon(icon, size: 28, color: p.ink),
     );
-    final text = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: p.ink,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          description,
-          style: Theme.of(
-            context,
-          ).textTheme.bodySmall?.copyWith(color: p.muted, height: 1.5),
-        ),
-      ],
+    final label = Text(
+      title,
+      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: p.ink,
+      ),
     );
+    final detail = Text(
+      description,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        fontSize: 13,
+        color: p.muted,
+        height: 1.5,
+      ),
+    );
+    final arrow = Icon(AppIcons.right, size: 14, color: p.muted);
     return Semantics(
       button: true,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppRadii.group),
-          boxShadow: [
-            BoxShadow(
-              color: p.ink.withValues(alpha: p.isDark ? .04 : .035),
-              blurRadius: 20,
-              offset: const Offset(0, 5),
-            ),
-          ],
-        ),
+      child: AppGlassSurface(
+        blur: 0,
+        opacity: .84,
+        borderRadius: radius,
         child: AppHoverSurface(
-          borderRadius: BorderRadius.circular(AppRadii.group),
+          outlined: false,
+          backgroundColor: Colors.transparent,
+          borderRadius: radius,
+          padding: const EdgeInsets.all(18),
           onTap: onPressed,
-          padding: const EdgeInsets.all(20),
           child: compact
               ? Row(
                   children: [
-                    mark,
+                    symbol,
                     const SizedBox(width: 18),
-                    Expanded(child: text),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [label, const SizedBox(height: 6), detail],
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Icon(AppIcons.right, size: 16, color: p.muted),
+                    arrow,
                   ],
                 )
               : ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 106),
+                  constraints: const BoxConstraints(minHeight: 100),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          mark,
-                          const Spacer(),
-                          Icon(AppIcons.right, size: 16, color: p.muted),
-                        ],
-                      ),
-                      const SizedBox(height: 18),
-                      text,
+                      Row(children: [symbol, const Spacer(), arrow]),
+                      const SizedBox(height: 10),
+                      label,
+                      const SizedBox(height: 5),
+                      detail,
                     ],
                   ),
                 ),

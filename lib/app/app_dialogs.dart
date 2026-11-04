@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 /// Shared dialog surface; business pages supply content, not another skin.
@@ -15,19 +16,29 @@ class AppDialogFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
     return Dialog(
       insetPadding: insetPadding,
-      backgroundColor: p.surface,
+      backgroundColor: Colors.transparent,
       elevation: 0,
-      clipBehavior: Clip.antiAlias,
+      surfaceTintColor: Colors.transparent,
+      clipBehavior: Clip.none,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.dialog),
-        side: BorderSide(color: p.borderStrong),
       ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth),
-        child: SizedBox(width: double.infinity, child: child),
+      child: AppGlassSurface(
+        opacity: .94,
+        borderRadius: BorderRadius.circular(AppRadii.island),
+        child: Material(
+          color: Colors.transparent,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.island),
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: SizedBox(width: double.infinity, child: child),
+          ),
+        ),
       ),
     );
   }

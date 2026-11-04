@@ -4,6 +4,30 @@ import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 void main() {
+  test('text, focus and primary actions retain contrast in both themes', () {
+    double contrast(Color a, Color b) {
+      final first = a.computeLuminance(), second = b.computeLuminance();
+      final light = first > second ? first : second;
+      final dark = first > second ? second : first;
+      return (light + .05) / (dark + .05);
+    }
+
+    for (final theme in [AppTheme.light(), AppTheme.dark()]) {
+      final p = theme.brightness == Brightness.dark
+          ? AppPalette.darkPalette
+          : AppPalette.lightPalette;
+      for (final background in [p.canvas, p.surface, p.content, p.selected]) {
+        expect(contrast(p.ink, background), greaterThanOrEqualTo(4.5));
+        expect(contrast(p.muted, background), greaterThanOrEqualTo(4.5));
+        expect(contrast(p.focus, background), greaterThanOrEqualTo(3));
+      }
+      expect(
+        contrast(theme.colorScheme.onPrimary, p.primary),
+        greaterThanOrEqualTo(4.5),
+      );
+    }
+  });
+
   test('dark theme uses muted steel primary not Material purple', () {
     final theme = AppTheme.dark();
     expect(theme.colorScheme.primary, AppPalette.darkPalette.primary);

@@ -34,35 +34,35 @@ List<CampusTool> get campusTools => <CampusTool>[
     id: 'campus-map',
     title: '校园地图',
     description: '三校区楼宇与地点',
-    icon: AppIcons.map,
+    icon: AppIcons.serviceMap,
     page: (_) => const CampusAtlasPage(),
   ),
   CampusTool(
     id: 'exams',
     title: '考试安排',
     description: '本科考试时间与地点',
-    icon: AppIcons.calendar,
+    icon: AppIcons.serviceExams,
     page: (_) => const ExamPage(),
   ),
   CampusTool(
     id: 'gpa',
     title: 'GPA 计算器',
     description: '成绩查询与绩点计算',
-    icon: AppIcons.calculator,
+    icon: AppIcons.serviceGpa,
     page: (_) => const GpaPage(),
   ),
   CampusTool(
     id: 'calendar',
     title: '学年校历',
     description: '学期安排与教学周',
-    icon: AppIcons.academicCalendar,
+    icon: AppIcons.serviceCalendar,
     page: (_) => const CampusCalendarPage(),
   ),
   CampusTool(
     id: 'ta-grading',
     title: '修改作业',
     description: '助教查看作业进度、打包下载与 CSV 批量评分',
-    icon: AppIcons.homework,
+    icon: AppIcons.serviceGrading,
     page: (_) => const TaGradingPage(),
   ),
 ];
@@ -92,14 +92,8 @@ class _CampusToolsPageState extends State<CampusToolsPage>
     final tools = campusTools;
     return PageScaffold(
       title: '工具',
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color.lerp(p.canvas, p.surfaceHigh, .55)!, p.canvas],
-          ),
-        ),
+      child: ColoredBox(
+        color: p.pageBackground(context),
         child: AppContentColumn(
           maxWidth: 1040,
           child: SingleChildScrollView(
@@ -113,7 +107,7 @@ class _CampusToolsPageState extends State<CampusToolsPage>
             child: LayoutBuilder(
               builder: (context, bounds) {
                 final compact = bounds.maxWidth < 580;
-                final gap = compact ? 12.0 : 16.0;
+                final gap = compact ? 12.0 : 20.0;
                 final columns = compact ? 1 : 2;
                 final tileWidth =
                     (bounds.maxWidth - gap * (columns - 1)) / columns;
@@ -149,12 +143,6 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                                             : '作业打包下载与批量评分'
                                       : tool.description,
                                   icon: tool.icon,
-                                  accent: switch (tool.id) {
-                                    'exams' => p.warning,
-                                    'gpa' => p.muted,
-                                    'calendar' => p.success,
-                                    _ => p.primary,
-                                  },
                                   compact: compact,
                                   onPressed: () => AppPageRoutes.push(
                                     context,
@@ -193,6 +181,7 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                         ])
                           AppHoverSurface(
                             outlined: false,
+                            backgroundColor: Colors.transparent,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
                               vertical: 12,

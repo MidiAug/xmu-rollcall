@@ -14,6 +14,7 @@ import '../fixtures/preview_fonts.dart';
 import '../fixtures/desktop_ui_capture.dart';
 
 void main() {
+  initializeDesktopUiCapture();
   setUpAll(() async {
     await loadDesktopPreviewFonts();
     await loadDesktopUiCaptureFonts();

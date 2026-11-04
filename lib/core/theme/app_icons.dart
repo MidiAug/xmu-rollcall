@@ -1,7 +1,14 @@
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 
-/// One optical family for navigation, actions and metadata (20px regular).
+/// Cupertino navigation and common actions; remaining specialist Fluent symbols
+/// retain their established meaning until their owning flow is migrated.
 abstract final class AppIcons {
+  static const serviceMap = CupertinoIcons.map;
+  static const serviceExams = CupertinoIcons.calendar;
+  static const serviceGpa = CupertinoIcons.chart_bar_square;
+  static const serviceCalendar = CupertinoIcons.calendar_today;
+  static const serviceGrading = CupertinoIcons.doc_checkmark;
   static const upload = FluentIcons.arrow_upload_20_regular;
   static const copy = FluentIcons.copy_20_regular;
   static const code = FluentIcons.code_20_regular;
@@ -17,25 +24,25 @@ abstract final class AppIcons {
   static const add = FluentIcons.add_20_regular;
   static const remove = FluentIcons.subtract_circle_20_regular;
   static const lock = FluentIcons.lock_closed_20_regular;
-  static const rollcall = FluentIcons.calendar_checkmark_20_regular;
-  static const homework = FluentIcons.clipboard_task_20_regular;
+  static const rollcall = CupertinoIcons.checkmark_shield;
+  static const homework = CupertinoIcons.doc_text;
   static const clock = FluentIcons.clock_20_regular;
-  static const calendar = FluentIcons.calendar_ltr_20_regular;
+  static const calendar = CupertinoIcons.calendar;
   static const week = FluentIcons.calendar_week_start_20_regular;
   static const academicCalendar = FluentIcons.calendar_month_24_regular;
   static const calculator = FluentIcons.calculator_20_regular;
-  static const tools = FluentIcons.grid_20_regular;
-  static const settings = FluentIcons.settings_20_regular;
-  static const rollcallSelected = FluentIcons.calendar_checkmark_24_filled;
-  static const homeworkSelected = FluentIcons.clipboard_task_24_filled;
-  static const calendarSelected = FluentIcons.calendar_ltr_24_filled;
-  static const toolsSelected = FluentIcons.grid_24_filled;
-  static const settingsSelected = FluentIcons.settings_24_filled;
-  static const search = FluentIcons.search_20_regular;
-  static const refresh = FluentIcons.arrow_sync_20_regular;
+  static const tools = CupertinoIcons.square_grid_2x2;
+  static const settings = CupertinoIcons.gear_alt;
+  static const rollcallSelected = CupertinoIcons.checkmark_shield_fill;
+  static const homeworkSelected = CupertinoIcons.doc_text_fill;
+  static const calendarSelected = CupertinoIcons.calendar;
+  static const toolsSelected = CupertinoIcons.square_grid_2x2_fill;
+  static const settingsSelected = CupertinoIcons.gear_alt_fill;
+  static const search = CupertinoIcons.search;
+  static const refresh = CupertinoIcons.arrow_clockwise;
   static const swap = FluentIcons.arrow_swap_20_regular;
-  static const right = FluentIcons.chevron_right_20_regular;
-  static const down = FluentIcons.chevron_down_20_regular;
+  static const right = CupertinoIcons.chevron_right;
+  static const down = CupertinoIcons.chevron_down;
   static const more = FluentIcons.more_horizontal_20_regular;
   static const personSelected = FluentIcons.person_24_filled;
   static const person = FluentIcons.person_20_regular;
@@ -55,9 +62,9 @@ abstract final class AppIcons {
   static const detect = FluentIcons.pulse_20_regular;
   static const stop = FluentIcons.stop_20_regular;
   static const stopSolid = FluentIcons.stop_20_filled;
-  static const close = FluentIcons.dismiss_20_regular;
+  static const close = CupertinoIcons.xmark;
   static const closeStrong = FluentIcons.dismiss_24_filled;
-  static const back = FluentIcons.arrow_left_20_regular;
+  static const back = CupertinoIcons.chevron_left;
   static const info = FluentIcons.info_20_regular;
   static const notification = FluentIcons.alert_20_regular;
   static const data = FluentIcons.data_usage_20_regular;
