@@ -445,8 +445,10 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
   List<TaStudent> _students = [];
   final _selected = <int>{};
   String _search = '';
+  int _submissionFilter = 0;
   final _checkingScores = <int>{};
   TaZip? _zip, _oldZip;
+  bool _downloadMatchesSelection = false, _packSelectionChanged = false;
   bool _building = false, _zipBusy = false, _importing = false;
   String? _zipMessage;
   Timer? _poll;
@@ -454,6 +456,8 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
   bool _zipCoolingDown = false;
   Timer? _zipCooldown;
   List<TaGradeRow> _rows = [];
+  VoidCallback? _refreshCsv;
+  String? _csvError;
   bool _overwrite = false, _allowUnsubmitted = false;
   final _batch = TaGradeBatch();
   @override
@@ -500,6 +504,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
 
   void _changed() {
     if (mounted) setState(() {});
+    _refreshCsv?.call();
   }
 
   void _message(String text) {
@@ -538,6 +543,9 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
           _oldZip == null || zip.id != _oldZip!.id || zip.key != _oldZip!.key;
       if (!_building || fresh && zip.download != null) {
         _zip = zip;
+        if (_building && zip.download != null) {
+          _downloadMatchesSelection = !_packSelectionChanged;
+        }
         if (zip.download != null) {
           _building = false;
           _zipMessage = null;
@@ -567,6 +575,8 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
     setState(() {
       _zipBusy = true;
       _zipMessage = null;
+      _packSelectionChanged = false;
+      _downloadMatchesSelection = false;
     });
     try {
       // Obtain a baseline immediately before re-packaging; stale ready packages
@@ -607,7 +617,11 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
     if (_batch.running || _importing || !_repository.active) {
       return;
     }
-    setState(() => _importing = true);
+    setState(() {
+      _importing = true;
+      _csvError = null;
+    });
+    _refreshCsv?.call();
     try {
       final text = await ref.read(taCsvReaderProvider)();
       if (text == null || !mounted || !_repository.active) {
@@ -620,11 +634,14 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
         _allowUnsubmitted = false;
       });
     } on FormatException catch (error) {
-      _message(error.message);
+      _csvError = error.message;
     } catch (_) {
-      _message('无法读取 CSV，请检查文件编码与访问权限');
+      _csvError = '无法读取 CSV，请检查文件编码与访问权限';
     } finally {
-      if (mounted) setState(() => _importing = false);
+      if (mounted) {
+        _importing = false;
+        _changed();
+      }
     }
   }
 
@@ -743,6 +760,315 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
     }
   }
 
+  Future<void> _openCsvReview() async {
+    if (!_repository.active) {
+      return;
+    }
+    var copied = false;
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => Consumer(
+          builder: (context, dialogRef, _) {
+            if (!identical(
+                  dialogRef.watch(taRepositoryProvider).valueOrNull,
+                  widget.repository,
+                ) ||
+                !_repository.active) {
+              return AlertDialog(
+                title: const Text('当前页面已失效'),
+                content: const Text('请返回后重新选择账号与作业。'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('关闭'),
+                  ),
+                ],
+              );
+            }
+            return StatefulBuilder(
+              builder: (context, update) {
+                _refreshCsv = () {
+                  if (context.mounted) {
+                    update(() {});
+                  }
+                };
+                final invalid = _rows.where((r) => r.issue != null).length;
+                final saved = _rows
+                    .where((r) => r.status == TaRowStatus.saved)
+                    .length;
+                final canSubmit =
+                    !_batch.running &&
+                    !_importing &&
+                    invalid == 0 &&
+                    !_rows.any(
+                      (r) =>
+                          r.status == TaRowStatus.uncertain ||
+                          r.status == TaRowStatus.failed,
+                    ) &&
+                    _rows.any((r) => r.status == TaRowStatus.ready);
+                final palette = AppPalette.of(context);
+                return PopScope(
+                  canPop: !_batch.running,
+                  child: Dialog(
+                    insetPadding: const EdgeInsets.all(16),
+                    child: SizedBox(
+                      width: 720,
+                      height:
+                          (_rows.isEmpty ? 380.0 : 420.0 + _rows.length * 42)
+                              .clamp(
+                                300.0,
+                                (MediaQuery.sizeOf(context).height * .82).clamp(
+                                  300.0,
+                                  620.0,
+                                ),
+                              ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _rows.isEmpty ? '导入成绩' : '核对成绩表',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.titleLarge,
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: '关闭',
+                                  onPressed: _batch.running
+                                      ? null
+                                      : () => Navigator.pop(context),
+                                  icon: const Icon(Icons.close, size: 20),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            if (_csvError != null)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Text(
+                                  _csvError!,
+                                  style: TextStyle(color: palette.danger),
+                                ),
+                              ),
+                            if (_rows.isEmpty)
+                              Expanded(
+                                child: Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '表格只需两列：学号、成绩。',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodyLarge,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      SelectableText(
+                                        'user_no,score\nDEMO0001,86\nDEMO0002,90',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodyMedium,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      const Text('学号保留前导零，成绩范围为 0 至 100。'),
+                                      const SizedBox(height: 8),
+                                      TextButton(
+                                        onPressed: () async {
+                                          await Clipboard.setData(
+                                            const ClipboardData(
+                                              text:
+                                                  'user_no,score\nDEMO0001,86\nDEMO0002,90\n',
+                                            ),
+                                          );
+                                          if (context.mounted) {
+                                            update(() => copied = true);
+                                          }
+                                        },
+                                        child: Text(copied ? '已复制模板' : '复制模板'),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            if (_rows.isNotEmpty) ...[
+                              Text(
+                                '共 ${_rows.length} 行，错误 $invalid 行，已保存 $saved 行',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              const SizedBox(height: 12),
+                              Expanded(
+                                child: Scrollbar(
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: SizedBox(
+                                      width: 620,
+                                      child: Column(
+                                        children: [
+                                          _csvRow([
+                                            '学号',
+                                            '姓名',
+                                            '新成绩',
+                                            '处理结果',
+                                          ], heading: true),
+                                          Expanded(
+                                            child: ListView.builder(
+                                              itemCount: _rows.length,
+                                              itemBuilder: (_, i) {
+                                                final row = _rows[i];
+                                                return _csvRow(
+                                                  [
+                                                    row.number,
+                                                    row.student?.name ?? '未匹配',
+                                                    row.score,
+                                                    row.issue ??
+                                                        row.result ??
+                                                        '待提交',
+                                                  ],
+                                                  error:
+                                                      row.issue != null ||
+                                                      row.status ==
+                                                          TaRowStatus.failed ||
+                                                      row.status ==
+                                                          TaRowStatus.uncertain,
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              CheckboxListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                                title: Text(
+                                  '允许覆盖已有成绩',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                                value: _overwrite,
+                                onChanged: _batch.running
+                                    ? null
+                                    : (v) {
+                                        _overwrite = v!;
+                                        update(() {});
+                                      },
+                              ),
+                              CheckboxListTile(
+                                dense: true,
+                                contentPadding: EdgeInsets.zero,
+                                controlAffinity:
+                                    ListTileControlAffinity.leading,
+                                title: Text(
+                                  '允许为未提交者评分',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                                value: _allowUnsubmitted,
+                                onChanged: _batch.running
+                                    ? null
+                                    : (v) {
+                                        _allowUnsubmitted = v!;
+                                        update(() {});
+                                      },
+                              ),
+                              if (_batch.running)
+                                const LinearProgressIndicator(minHeight: 2),
+                            ],
+                            const SizedBox(height: 12),
+                            Wrap(
+                              alignment: WrapAlignment.end,
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                if (_batch.running)
+                                  TextButton(
+                                    onPressed: () {
+                                      _batch.stop();
+                                      update(() {});
+                                    },
+                                    child: const Text('停止后续提交'),
+                                  ),
+                                if (!_batch.running)
+                                  TextButton(
+                                    onPressed: _importing ? null : _import,
+                                    child: Text(
+                                      _importing
+                                          ? '正在读取…'
+                                          : _rows.isEmpty
+                                          ? '选择 CSV 文件'
+                                          : '更换文件',
+                                    ),
+                                  ),
+                                if (_rows.isNotEmpty)
+                                  FilledButton(
+                                    onPressed: canSubmit ? _submit : null,
+                                    child: const Text('提交成绩'),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      );
+    } finally {
+      _refreshCsv = null;
+      if (mounted) setState(() {});
+    }
+  }
+
+  Widget _csvRow(
+    List<String> cells, {
+    bool heading = false,
+    bool error = false,
+  }) {
+    final p = AppPalette.of(context);
+    return Container(
+      constraints: const BoxConstraints(minHeight: 42),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: heading ? p.content : null,
+        border: Border(bottom: BorderSide(color: p.border)),
+      ),
+      child: Row(
+        children: [
+          for (var i = 0; i < cells.length; i++)
+            Expanded(
+              flex: i == 3 ? 3 : 2,
+              child: Text(
+                cells[i],
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: error ? p.danger : p.ink,
+                  fontWeight: heading ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!identical(
@@ -770,414 +1096,421 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
         }
       },
       child: PageScaffold(
-        title: '批改作业',
-        subtitle: widget.assignment.title,
-        child: FutureBuilder<void>(
-          future: _loading,
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return _Failure(
-                error: snapshot.error!,
-                retry: () {
-                  setState(() {
+        title: widget.assignment.title,
+        subtitle:
+            '应交 ${_summary.expected}    已提交 ${_summary.submitted}    已批改 ${_summary.graded}',
+        child: Material(
+          color: p.canvas,
+          child: FutureBuilder<void>(
+            future: _loading,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return _Failure(
+                  error: snapshot.error!,
+                  retry: () => setState(() {
                     _loading = _load();
-                  });
-                },
-              );
-            }
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            final visible = _students
-                .where((s) => '${s.number} ${s.name}'.contains(_search))
-                .toList();
-            final blocked = _batch.running || _importing || _zipBusy;
-            final studentPanel = _Panel(
-              title: '学生作业',
-              icon: Icons.people_outline,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    decoration: const InputDecoration(
-                      prefixIcon: Icon(Icons.search),
-                      hintText: '搜索学号或姓名',
-                    ),
-                    onChanged: (value) => setState(() => _search = value),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      TextButton(
-                        onPressed: blocked
-                            ? null
-                            : () => setState(
-                                () => _selected.addAll(
-                                  visible
-                                      .where((s) => s.submitted)
-                                      .map((s) => s.id),
+                  }),
+                );
+              }
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final visible = _students
+                  .where(
+                    (s) =>
+                        '${s.number} ${s.name}'.contains(_search) &&
+                        (_submissionFilter == 0 ||
+                            (_submissionFilter == 1
+                                ? s.submitted
+                                : !s.submitted)),
+                  )
+                  .toList();
+              final blocked = _batch.running || _importing || _zipBusy;
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(24, 6, 24, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _studentToolbar(blocked),
+                    const SizedBox(height: 14),
+                    if (_selected.isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 7,
+                        ),
+                        color: p.controlSurface,
+                        child: Wrap(
+                          spacing: 14,
+                          runSpacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              '已选 ${_selected.length} 人',
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                            TextButton(
+                              onPressed: blocked
+                                  ? null
+                                  : () => _changeSelection(
+                                      () => _selected.clear(),
+                                    ),
+                              child: const Text('取消选择'),
+                            ),
+                            TextButton.icon(
+                              onPressed: blocked || _building ? null : _pack,
+                              icon: const Icon(
+                                Icons.archive_outlined,
+                                size: 18,
+                              ),
+                              label: const Text('打包所选'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (_building || _zipMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            if (_building)
+                              const Padding(
+                                padding: EdgeInsets.only(right: 8),
+                                child: SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 ),
                               ),
-                        child: const Text('选择已提交学生'),
-                      ),
-                      TextButton(
-                        onPressed: blocked
-                            ? null
-                            : () => setState(() => _selected.clear()),
-                        child: const Text('清空选择'),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text('已选 ${_selected.length} 人'),
-                      ),
-                    ],
-                  ),
-                  const Divider(),
-                  SizedBox(
-                    height: (visible.length * 104.0).clamp(82, 500),
-                    child: ListView.builder(
-                      primary: false,
-                      itemCount: visible.length,
-                      itemBuilder: (context, index) {
-                        final student = visible[index];
-                        return TaStudentRow(
-                          student: student,
-                          selected: _selected.contains(student.id),
-                          onSelected: blocked
-                              ? null
-                              : (value) => setState(() {
-                                  value == true
-                                      ? _selected.add(student.id)
-                                      : _selected.remove(student.id);
-                                }),
-                          gradingKnown: _summary.graded == 0,
-                          checking: _checkingScores.contains(student.id),
-                          onCheck:
-                              blocked || _checkingScores.contains(student.id)
-                              ? null
-                              : () => _checkStudent(student),
-                        );
-                      },
-                    ),
-                  ),
-                  if (visible.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text('没有匹配的学生'),
-                    ),
-                ],
-              ),
-            );
-            final packPanel = _Panel(
-              title: '打包下载',
-              icon: Icons.archive_outlined,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _zipMessage ??
-                        (_building
-                            ? '服务器正在打包'
-                            : _zip?.download != null
-                            ? '打包已完成'
-                            : '选择学生后打包，可随时检查已有包状态'),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '更改选人后，需要重新打包。',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: p.muted),
-                  ),
-                  if (_building)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 12),
-                      child: LinearProgressIndicator(),
-                    ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      FilledButton.icon(
-                        onPressed: blocked || _selected.isEmpty ? null : _pack,
-                        icon: const Icon(Icons.archive_outlined),
-                        label: Text(
-                          _zip?.download != null || _building ? '重新打包' : '打包',
+                            Expanded(
+                              child: Text(
+                                _zipMessage ?? '正在打包',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: _zipBusy || _zipCoolingDown
+                                  ? null
+                                  : _checkZip,
+                              child: const Text('检查状态'),
+                            ),
+                          ],
                         ),
                       ),
-                      OutlinedButton(
-                        onPressed: _zipBusy || _batch.running || _zipCoolingDown
-                            ? null
-                            : _checkZip,
-                        child: const Text('检查打包状态'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: _zip?.download == null || _building
-                            ? null
-                            : () async {
-                                final uri = _zip!.download!;
-                                try {
-                                  if (!await launchUrl(
-                                    uri,
-                                    mode: LaunchMode.externalApplication,
-                                  )) {
-                                    _message('无法打开下载，请复制链接到浏览器');
-                                  }
-                                } catch (_) {
-                                  _message('无法打开下载，请复制链接到浏览器');
-                                }
-                              },
-                        icon: const Icon(Icons.download),
-                        label: const Text('下载打包'),
-                      ),
-                      TextButton(
-                        onPressed: _zip?.download == null || _building
-                            ? null
-                            : () async {
-                                await Clipboard.setData(
-                                  ClipboardData(
-                                    text: _zip!.download.toString(),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, bounds) {
+                          final table = Column(
+                            children: [
+                              _studentTableRow(
+                                null,
+                                visible,
+                                heading: true,
+                                blocked: blocked,
+                              ),
+                              Expanded(
+                                child: ListView.builder(
+                                  key: const ValueKey('ta-assignment-scroll'),
+                                  itemCount: visible.length,
+                                  itemBuilder: (_, i) => _studentTableRow(
+                                    visible[i],
+                                    visible,
+                                    blocked: blocked,
                                   ),
-                                );
-                                _message('下载链接已复制');
-                              },
-                        child: const Text('复制下载链接'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-            final csvPanel = _Panel(
-              title: '批量评分',
-              icon: Icons.grading_outlined,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '两列：user_no,score\n学号保持文本格式，分数为 0 至 100。先预览，再确认提交。',
-                  ),
-                  const SizedBox(height: 12),
-                  if (_detail?.canGrade != true)
-                    const Text('当前仅支持普通个人百分制作业，小组、量规和互评作业请在网页处理。'),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      OutlinedButton.icon(
-                        onPressed: blocked || _detail?.canGrade != true
-                            ? null
-                            : _import,
-                        icon: const Icon(Icons.upload_file),
-                        label: const Text('导入 CSV'),
-                      ),
-                      TextButton(
-                        onPressed: () async {
-                          await Clipboard.setData(
-                            const ClipboardData(
-                              text: 'user_no,score\nDEMO0001,86\nDEMO0002,90\n',
-                            ),
+                                ),
+                              ),
+                            ],
                           );
-                          _message('虚构 CSV 示例已复制，请替换为实际学号与成绩');
-                        },
-                        child: const Text('复制格式示例'),
-                      ),
-                    ],
-                  ),
-                  if (_rows.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: Text(
-                        '允许覆盖已有成绩',
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                      value: _overwrite,
-                      onChanged: _batch.running
-                          ? null
-                          : (v) => setState(() => _overwrite = v!),
-                    ),
-                    CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      controlAffinity: ListTileControlAffinity.leading,
-                      title: Text(
-                        '允许为未提交作业的学生评分',
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                      value: _allowUnsubmitted,
-                      onChanged: _batch.running
-                          ? null
-                          : (v) => setState(() => _allowUnsubmitted = v!),
-                    ),
-                    Text(
-                      '共 ${_rows.length} 行，错误 ${_rows.where((r) => r.issue != null).length} 行，已保存 ${_rows.where((r) => r.status == TaRowStatus.saved).length} 行',
-                    ),
-                    if (_batch.running) const LinearProgressIndicator(),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: (_rows.length * 62.0).clamp(62, 320),
-                      child: ListView.builder(
-                        primary: false,
-                        itemCount: _rows.length,
-                        itemBuilder: (context, index) {
-                          final row = _rows[index];
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 7),
-                            child: Text(
-                              '第 ${row.line} 行  ${row.number}  ${row.student?.name ?? ''}  ${row.score} 分\n'
-                              '${row.issue ?? row.result ?? '待提交'}',
-                              style: TextStyle(
-                                color:
-                                    row.issue != null ||
-                                        row.status == TaRowStatus.uncertain ||
-                                        row.status == TaRowStatus.failed
-                                    ? p.danger
-                                    : p.ink,
+                          if (bounds.maxWidth >= 640) {
+                            return table;
+                          }
+                          return Scrollbar(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: SizedBox(
+                                width: 640,
+                                height: bounds.maxHeight,
+                                child: table,
                               ),
                             ),
                           );
                         },
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        FilledButton(
-                          onPressed:
-                              blocked ||
-                                  _building ||
-                                  !_repository.active ||
-                                  _rows.any(
-                                    (r) =>
-                                        r.issue != null ||
-                                        r.status == TaRowStatus.failed ||
-                                        r.status == TaRowStatus.uncertain,
-                                  ) ||
-                                  !_rows.any(
-                                    (r) => r.status == TaRowStatus.ready,
-                                  )
-                              ? null
-                              : _submit,
-                          child: const Text('预览确认并提交'),
-                        ),
-                        if (_batch.running)
-                          OutlinedButton(
-                            onPressed: () {
-                              _batch.stop();
-                              _message('将停止后续提交，正在处理的这一行会完成核对');
-                            },
-                            child: const Text('停止后续提交'),
-                          ),
-                      ],
+                    const SizedBox(height: 8),
+                    Text(
+                      '显示 ${visible.length} 人',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: p.muted),
                     ),
                   ],
-                ],
-              ),
-            );
-            return AppContentColumn(
-              maxWidth: 1100,
-              child: ListView(
-                key: const ValueKey('ta-assignment-scroll'),
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                children: [
-                  TaOverview(
-                    title: widget.assignment.title,
-                    caption: '作业概览',
-                    total: _summary.expected,
-                    submitted: _summary.submitted,
-                    graded: _summary.graded,
-                  ),
-                  const SizedBox(height: 20),
-                  LayoutBuilder(
-                    builder: (context, bounds) {
-                      final tools = Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          packPanel,
-                          const SizedBox(height: 16),
-                          csvPanel,
-                        ],
-                      );
-                      if (bounds.maxWidth < 850) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            studentPanel,
-                            const SizedBox(height: 16),
-                            tools,
-                          ],
-                        );
-                      }
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(flex: 6, child: studentPanel),
-                          const SizedBox(width: 20),
-                          Expanded(flex: 5, child: tools),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ),
-            );
-          },
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
   }
-}
 
-class _Panel extends StatelessWidget {
-  const _Panel({required this.title, required this.icon, required this.child});
-  final String title;
-  final IconData icon;
-  final Widget child;
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return Material(
-      color: p.surface,
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: p.borderStrong),
+  void _changeSelection(VoidCallback change) {
+    setState(() {
+      change();
+      _downloadMatchesSelection = false;
+      if (_building) _packSelectionChanged = true;
+    });
+  }
+
+  Widget _studentToolbar(bool blocked) {
+    final search = SizedBox(
+      width: 230,
+      child: TextField(
+        decoration: const InputDecoration(
+          isDense: true,
+          hintText: '搜索姓名或学号',
+          prefixIcon: Icon(Icons.search, size: 18),
+        ),
+        onChanged: (v) => setState(() => _search = v),
       ),
+    );
+    final filter = PopupMenuButton<int>(
+      tooltip: '筛选提交状态',
+      initialValue: _submissionFilter,
+      onSelected: (v) => setState(() => _submissionFilter = v),
+      itemBuilder: (_) => const [
+        PopupMenuItem(value: 0, child: Text('全部学生')),
+        PopupMenuItem(value: 1, child: Text('已提交')),
+        PopupMenuItem(value: 2, child: Text('未提交')),
+      ],
       child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: p.controlSurface,
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  child: Icon(icon, size: 18, color: p.primary),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            child,
+            Text(['全部学生', '已提交', '未提交'][_submissionFilter]),
+            const SizedBox(width: 4),
+            const Icon(Icons.keyboard_arrow_down, size: 16),
           ],
         ),
+      ),
+    );
+    final select = _selected.isNotEmpty
+        ? const SizedBox.shrink()
+        : TextButton(
+            onPressed: blocked
+                ? null
+                : () => _changeSelection(
+                    () => _selected.addAll(
+                      _students
+                          .where(
+                            (s) =>
+                                s.submitted &&
+                                '${s.number} ${s.name}'.contains(_search) &&
+                                _submissionFilter != 2,
+                          )
+                          .map((s) => s.id),
+                    ),
+                  ),
+            child: const Text('选择已提交学生'),
+          );
+    final actions = <Widget>[
+      FilledButton(
+        onPressed: _detail?.canGrade != true || _batch.running
+            ? null
+            : _openCsvReview,
+        child: const Text('导入成绩'),
+      ),
+      if (_zip?.download != null &&
+          !_building &&
+          (_selected.isEmpty || _downloadMatchesSelection)) ...[
+        OutlinedButton.icon(
+          onPressed: () async {
+            try {
+              if (!await launchUrl(
+                _zip!.download!,
+                mode: LaunchMode.externalApplication,
+              )) {
+                _message('无法打开下载链接');
+              }
+            } catch (_) {
+              _message('无法打开下载链接');
+            }
+          },
+          icon: const Icon(Icons.download_outlined, size: 18),
+          label: Text(_downloadMatchesSelection ? '下载打包' : '下载上次打包'),
+        ),
+        PopupMenuButton<String>(
+          tooltip: '下载选项',
+          onSelected: (_) async {
+            await Clipboard.setData(
+              ClipboardData(text: _zip!.download.toString()),
+            );
+            _message('下载链接已复制');
+          },
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'copy', child: Text('复制下载链接')),
+          ],
+        ),
+      ],
+    ];
+    return LayoutBuilder(
+      builder: (context, bounds) {
+        if (bounds.maxWidth >=
+            840 *
+                (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(
+                  1,
+                  1.5,
+                )) {
+          return Row(
+            children: [
+              search,
+              const SizedBox(width: 12),
+              filter,
+              const SizedBox(width: 8),
+              select,
+              const Spacer(),
+              for (final action in actions)
+                Padding(padding: const EdgeInsets.only(left: 8), child: action),
+            ],
+          );
+        }
+        return Wrap(
+          spacing: 12,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [search, filter, select, ...actions],
+        );
+      },
+    );
+  }
+
+  Widget _studentTableRow(
+    TaStudent? student,
+    List<TaStudent> visible, {
+    bool heading = false,
+    bool blocked = false,
+  }) {
+    final p = AppPalette.of(context);
+    final all =
+        visible.isNotEmpty && visible.every((s) => _selected.contains(s.id));
+    final some = visible.any((s) => _selected.contains(s.id));
+    final score = student?.score?.toString().replaceFirst(RegExp(r'\.0$'), '');
+    final grade =
+        score ??
+        (student?.scoreChecked == true || _summary.graded == 0 ? '未批改' : '待核对');
+    return Container(
+      constraints: const BoxConstraints(minHeight: 48),
+      decoration: BoxDecoration(
+        color: heading
+            ? p.content
+            : _selected.contains(student?.id)
+            ? p.primary.withValues(alpha: .06)
+            : null,
+        border: Border(bottom: BorderSide(color: p.border)),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 42,
+            child: Checkbox(
+              key: ValueKey('ta-select-${student?.id ?? 'all'}'),
+              tristate: heading,
+              value: heading
+                  ? all
+                        ? true
+                        : some
+                        ? null
+                        : false
+                  : _selected.contains(student!.id),
+              onChanged: blocked
+                  ? null
+                  : (v) => _changeSelection(() {
+                      if (heading) {
+                        if (all) {
+                          _selected.removeAll(visible.map((s) => s.id));
+                        } else {
+                          _selected.addAll(visible.map((s) => s.id));
+                        }
+                      } else {
+                        v == true
+                            ? _selected.add(student!.id)
+                            : _selected.remove(student!.id);
+                      }
+                    }),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: AppTruncatedText(
+              heading ? '姓名' : student!.name,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: heading ? FontWeight.w500 : FontWeight.normal,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              heading ? '学号' : student!.number,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: p.muted),
+            ),
+          ),
+          SizedBox(
+            width: 84,
+            child: Text(
+              heading
+                  ? '提交状态'
+                  : student!.submitted
+                  ? '已提交'
+                  : '未提交',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: heading
+                    ? p.muted
+                    : student!.submitted
+                    ? p.success
+                    : p.muted,
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 96,
+            child: heading
+                ? Text(
+                    '成绩',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: p.muted),
+                  )
+                : Tooltip(
+                    message: '核对${student!.name}的成绩',
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          foregroundColor: p.muted,
+                          padding: EdgeInsets.zero,
+                        ),
+                        onPressed:
+                            blocked || _checkingScores.contains(student.id)
+                            ? null
+                            : () => _checkStudent(student),
+                        child: Text(
+                          _checkingScores.contains(student.id) ? '核对中' : grade,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: p.muted),
+                        ),
+                      ),
+                    ),
+                  ),
+          ),
+        ],
       ),
     );
   }

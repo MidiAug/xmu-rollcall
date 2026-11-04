@@ -9,6 +9,8 @@ import 'package:xmu_rollcall/features/ta_grading/ta_repository.dart';
 
 /// Synthetic HTTP boundary; no real identifiers, files or credentials.
 class TaHttpFixture implements HttpClientAdapter {
+  TaHttpFixture({this.studentCount = 3, this.submittedCount = 2});
+  final int studentCount, submittedCount;
   final requests = <RequestOptions>[];
   final scores = <int, double>{};
   Future<ResponseBody?> Function(RequestOptions)? intercept;
@@ -20,8 +22,8 @@ class TaHttpFixture implements HttpClientAdapter {
     'id': 81,
     'course_id': 91,
     'title': title,
-    'expected_submit_count': 3,
-    'submitted_count': 2,
+    'expected_submit_count': studentCount,
+    'submitted_count': submittedCount,
     'scored_count': scores.length,
     'type': 'homework',
     'submit_by_group': group,
@@ -72,7 +74,7 @@ class TaHttpFixture implements HttpClientAdapter {
     if (path.endsWith('/students')) {
       return response({
         'students': [
-          for (var i = 1; i <= 3; i++)
+          for (var i = 1; i <= studentCount; i++)
             {'id': i, 'user_no': '000$i', 'name': '示例学生$i'},
         ],
       });
@@ -80,7 +82,7 @@ class TaHttpFixture implements HttpClientAdapter {
     if (path.endsWith('/student-submissions')) {
       return response({
         'submissions': [
-          for (var i = 1; i <= 2; i++)
+          for (var i = 1; i <= submittedCount; i++)
             {
               'id': 100 + i,
               'created_by': {'id': i},
