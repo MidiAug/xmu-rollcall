@@ -7,6 +7,7 @@ import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/grades/gpa_page.dart';
 import 'package:xmu_rollcall/features/exams/exam_page.dart';
 import 'package:xmu_rollcall/features/location/campus_atlas_page.dart';
+import 'package:xmu_rollcall/features/ta_grading/ta_grading_page.dart';
 
 /// Built-in tool descriptors are the extension seam. No phantom future services.
 class CampusTool {
@@ -45,6 +46,13 @@ List<CampusTool> get campusTools => <CampusTool>[
     icon: AppIcons.calculator,
     page: (_) => const GpaPage(),
   ),
+  CampusTool(
+    id: 'ta-grading',
+    title: '修改作业',
+    description: '助教查看作业进度、打包下载与 CSV 批量评分',
+    icon: AppIcons.homework,
+    page: (_) => const TaGradingPage(),
+  ),
 ];
 
 class CampusToolsPage extends StatefulWidget {
@@ -72,7 +80,7 @@ class _CampusToolsPageState extends State<CampusToolsPage>
     final touch = AppDensity.isTouch(context);
     return PageScaffold(
       title: '工具',
-      subtitle: '校园地图、考试安排与成绩计算',
+      subtitle: '校园地图、考试安排、成绩计算与助教工具',
       child: AppContentColumn(
         maxWidth: 900,
         child: SingleChildScrollView(
@@ -88,7 +96,15 @@ class _CampusToolsPageState extends State<CampusToolsPage>
               spacing: 20,
               runSpacing: 20,
               children: [
-                for (final tool in campusTools)
+                for (final tool in campusTools) ...[
+                  if (tool.id == 'ta-grading')
+                    SizedBox(
+                      width: constraints.maxWidth,
+                      child: Text(
+                        '研究生',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
                   SizedBox(
                     width: touch || constraints.maxWidth < 640
                         ? constraints.maxWidth
@@ -158,6 +174,7 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                       ),
                     ),
                   ),
+                ],
               ],
             ),
           ),
