@@ -36,13 +36,22 @@ final taRepositoryProvider = FutureProvider.autoDispose<TaGradingRepository>((
     alive = false;
     repository?.dispose();
   });
-  if (!auth.isSignedIn) throw StateError('请先登录');
-  await prepareHomeworkSession(ref, scope);
-  if (!alive) throw StateError('账号已变更');
-  await http.init();
-  if (!alive) throw StateError('账号已变更');
-  // Keep the current identity's course summaries across route visits. Watched
-  // identity/session dependencies still dispose this repository on change.
+  final userId = scope ?? auth.profile?.id;
+  if (!auth.isSignedIn || userId == null || userId <= 0) {
+    throw StateError('请先登录');
+  }
+  // Local mirrors must not wait for assisted-account authentication.
+  // Identity dependencies still cancel this repository on switch/logout.
   ref.keepAlive();
-  return repository = TaGradingRepository(http);
+  return repository = TaGradingRepository(
+    http,
+    cacheUserId: userId,
+    prepareSession: () async {
+      if (!alive) throw StateError('账号已变更');
+      await prepareHomeworkSession(ref, scope);
+      if (!alive) throw StateError('账号已变更');
+      await http.init();
+      if (!alive) throw StateError('账号已变更');
+    },
+  );
 });

@@ -55,6 +55,12 @@ class TaAssignment {
   final bool canGrade;
 }
 
+class TaAssignmentSnapshot {
+  const TaAssignmentSnapshot(this.items, this.checkedAt);
+  final List<TaAssignment> items;
+  final DateTime checkedAt;
+}
+
 class TaStudent {
   const TaStudent({
     required this.id,

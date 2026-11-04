@@ -71,10 +71,24 @@ class _TaCourses extends StatefulWidget {
 class _TaCoursesState extends State<_TaCourses> {
   int? _course;
   Future<List<TaAssignment>>? _assignments;
+  Future<List<TaAssignment>> _readAssignments(
+    int id, {
+    bool refresh = false,
+  }) async {
+    await widget.repository.restoreAssignments(id);
+    if (!mounted || _course != id) {
+      return widget.repository.cachedAssignments(id)?.items ?? const [];
+    }
+    if (widget.repository.cachedAssignments(id) != null) {
+      setState(() {});
+    }
+    return widget.repository.assignments(id, refresh: refresh);
+  }
+
   void _select(int id, {bool refresh = false}) {
     setState(() {
       _course = id;
-      _assignments = widget.repository.assignments(id, refresh: refresh);
+      _assignments = _readAssignments(id, refresh: refresh);
     });
   }
 
@@ -84,7 +98,7 @@ class _TaCoursesState extends State<_TaCourses> {
     if (widget.courses.isNotEmpty) {
       _course = int.tryParse(widget.courses.first.id);
       if (_course != null) {
-        _assignments = widget.repository.assignments(_course!);
+        _assignments = _readAssignments(_course!);
       }
     }
   }
@@ -96,9 +110,7 @@ class _TaCoursesState extends State<_TaCourses> {
       _course = widget.courses.isEmpty
           ? null
           : int.tryParse(widget.courses.first.id);
-      _assignments = _course == null
-          ? null
-          : widget.repository.assignments(_course!);
+      _assignments = _course == null ? null : _readAssignments(_course!);
     }
   }
 
@@ -295,7 +307,7 @@ class _TaCoursesState extends State<_TaCourses> {
                       Padding(
                         padding: const EdgeInsets.only(top: 12),
                         child: Text(
-                          '上次核对 ${cached.checkedAt.hour.toString().padLeft(2, '0')}:${cached.checkedAt.minute.toString().padLeft(2, '0')}',
+                          '上次核对 ${cached.checkedAt.toLocal().toString().substring(0, 16)}',
                           style: Theme.of(
                             context,
                           ).textTheme.bodySmall?.copyWith(color: p.muted),

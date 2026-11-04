@@ -4,6 +4,7 @@ import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+import 'package:xmu_rollcall/features/ta_grading/ta_providers.dart';
 
 /// Auth transitions invalidate owner views without deleting disk snapshots.
 void invalidateOwnerRemoteMemory(Ref ref) {
@@ -18,6 +19,7 @@ void invalidateOwnerRemoteMemory(Ref ref) {
 
 /// The explicit clear action covers owner and imported accounts.
 void invalidateRemoteCourseMemoryFromWidget(WidgetRef ref) {
+  ref.invalidate(taRepositoryProvider);
   ref.invalidate(courseCatalogProvider);
   ref.invalidate(scopedCourseCatalogProvider);
   ref.invalidate(courseHistoryProvider);

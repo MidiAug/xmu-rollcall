@@ -12,6 +12,7 @@ import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/homework/homework_repository.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_providers.dart';
+import 'package:xmu_rollcall/features/ta_grading/ta_assignment_store.dart';
 import '../fixtures/ta_http_fixture.dart';
 
 class _AuthRepository extends Fake implements AuthRepository {}
@@ -24,6 +25,10 @@ class _Auth extends AuthController {
     );
   }
   void logout() => state = const AuthState(status: AuthStatus.signedOut);
+  void loginAs(int id) => state = AuthState(
+    status: AuthStatus.signedIn,
+    profile: UserProfile(id: id, name: 'owner'),
+  );
 }
 
 class _SessionService extends Fake implements AssistService {
@@ -94,17 +99,29 @@ void main() {
       expect(b.cachedAssignments(91), isNull);
       expect(page.active, isFalse);
       expect(identical(b.http, assist.http), isTrue);
-      expect(service.calls, 1);
+      expect(service.calls, 0);
       final ownerRequests = ownerFixture.requests.length;
       await b.saveScore(81, 1, '90');
+      expect(service.calls, 1);
       expect(ownerFixture.requests.length, ownerRequests);
       expect(assistFixture.scores[1], 90);
+      await b.assignments(91);
+      expect((await TaAssignmentStore(11).read(91))!.items.single.graded, 0);
+      expect((await TaAssignmentStore(22).read(91))!.items.single.graded, 1);
       auth.logout();
       await expectLater(
         container.read(taRepositoryProvider.future),
         throwsStateError,
       );
       expect(b.active, isFalse);
+      expect(await TaAssignmentStore(22).read(91), isNotNull);
+      auth.loginAs(33);
+      final c = await container.read(taRepositoryProvider.future);
+      await c.restoreAssignments(91);
+      expect(c.cachedAssignments(91), isNull);
+      await c.assignments(91);
+      expect(await TaAssignmentStore(33).read(91), isNotNull);
+      expect((await TaAssignmentStore(11).read(91))!.items.single.graded, 0);
     },
   );
 }

@@ -3,30 +3,56 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'ta_models.dart';
+import 'ta_assignment_store.dart';
 
-class TaAssignmentSnapshot {
-  const TaAssignmentSnapshot(this.items, this.checkedAt);
-  final List<TaAssignment> items;
-  final DateTime checkedAt;
+/// Parent and detail pages share readiness and the resulting session revision.
+/// Cached summaries can be read before assisted-session authentication finishes.
+class _TaSession {
+  _TaSession(this.http, this.prepare) : revision = http.sessionRevision;
+  final TronHttpClient http;
+  final Future<void> Function()? prepare;
+  int revision;
+  Future<void>? _ready;
+  Future<void> ensureReady() => _ready ??= _prepare();
+  Future<void> _prepare() async {
+    try {
+      if (prepare != null) {
+        await prepare!();
+        revision = http.sessionRevision;
+      }
+    } catch (_) {
+      _ready = null;
+      rethrow;
+    }
+  }
 }
 
 class TaGradingRepository {
-  TaGradingRepository(this.http, {DateTime Function()? now})
-    : _sessionRevision = http.sessionRevision,
-      _now = now ?? DateTime.now;
+  TaGradingRepository(
+    this.http, {
+    DateTime Function()? now,
+    int? cacheUserId,
+    Future<void> Function()? prepareSession,
+  }) : _session = _TaSession(http, prepareSession),
+       _disk = cacheUserId == null ? null : TaAssignmentStore(cacheUserId),
+       _now = now ?? DateTime.now;
+  TaGradingRepository._(this.http, this._session, this._now, this._disk);
   final TronHttpClient http;
+  final _TaSession _session;
+  final TaAssignmentStore? _disk;
   final DateTime Function() _now;
   final _assignmentCache = <int, TaAssignmentSnapshot>{};
   final _assignmentRequests = <int, Future<List<TaAssignment>>>{};
   final _assignmentAttempts = <int, DateTime>{};
   final _staleCourses = <int>{};
-  final int _sessionRevision;
+  final _diskReads = <int, Future<void>>{};
+  final _diskLoaded = <int>{};
   final _cancel = CancelToken();
   bool get active =>
-      !_cancel.isCancelled && http.sessionRevision == _sessionRevision;
+      !_cancel.isCancelled && http.sessionRevision == _session.revision;
 
   TaGradingRepository fork() {
-    final child = TaGradingRepository(http, now: _now);
+    final child = TaGradingRepository._(http, _session, _now, _disk);
     if (!active) child.dispose();
     unawaited(_cancel.whenCancel.then((_) => child.dispose()));
     return child;
@@ -46,6 +72,8 @@ class TaGradingRepository {
 
   Future<Object?> _get(String path, [Map<String, String>? query]) async {
     checkActive();
+    await _session.ensureReady();
+    checkActive();
     await http.init();
     final response = await http.getUri<dynamic>(
       _uri(path, query),
@@ -59,6 +87,29 @@ class TaGradingRepository {
 
   TaAssignmentSnapshot? cachedAssignments(int courseId) =>
       active ? _assignmentCache[courseId] : null;
+
+  Future<void> restoreAssignments(int courseId) {
+    if (_disk == null ||
+        _diskLoaded.contains(courseId) ||
+        _assignmentCache.containsKey(courseId)) {
+      return Future.value();
+    }
+    return _diskReads[courseId] ??= _restoreAssignments(courseId);
+  }
+
+  Future<void> _restoreAssignments(int courseId) async {
+    try {
+      checkActive();
+      final cached = await _disk!.read(courseId);
+      checkActive();
+      _diskLoaded.add(courseId);
+      if (cached != null && !_assignmentCache.containsKey(courseId)) {
+        _assignmentCache[courseId] = cached;
+      }
+    } finally {
+      _diskReads.remove(courseId);
+    }
+  }
 
   void markAssignmentsStale(int courseId) {
     _staleCourses.add(courseId);
@@ -98,7 +149,10 @@ class TaGradingRepository {
         await _fetchAssignments(courseId),
       );
       checkActive();
-      _assignmentCache[courseId] = TaAssignmentSnapshot(items, _now());
+      final snapshot = TaAssignmentSnapshot(items, _now());
+      await _disk?.write(courseId, snapshot);
+      checkActive();
+      _assignmentCache[courseId] = snapshot;
       _staleCourses.remove(courseId);
       return items;
     } finally {
@@ -214,6 +268,8 @@ class TaGradingRepository {
 
   Future<void> saveScore(int activityId, int studentId, String score) async {
     checkActive();
+    await _session.ensureReady();
+    checkActive();
     await http.init();
     final response = await http.putUri<dynamic>(
       _uri('/api/course/activities/$activityId/score'),
@@ -255,6 +311,8 @@ class TaGradingRepository {
     if (selected.isEmpty || !selected.every(all.contains)) {
       throw const FormatException('请先选择本课程学生');
     }
+    await _session.ensureReady();
+    checkActive();
     await http.init();
     final response = await http.postUri<dynamic>(
       _uri('/api/homeworks/$activityId/zip'),
