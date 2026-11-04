@@ -5,12 +5,83 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/app_service_tile.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import '../fixtures/preview_fonts.dart';
 
 void main() {
   setUpAll(loadDesktopPreviewFonts);
+  testWidgets('transparent service hover never flashes dark between frames', (
+    tester,
+  ) async {
+    final capture = GlobalKey();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: RepaintBoundary(
+              key: capture,
+              child: ColoredBox(
+                color: AppPalette.lightPalette.canvas,
+                child: SizedBox(
+                  width: 360,
+                  child: AppServiceTile(
+                    title: '校园地图',
+                    description: '三校区楼宇与地点',
+                    icon: AppIcons.serviceMap,
+                    onPressed: () {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    Future<double> luminance() async {
+      final result = await tester.runAsync(() async {
+        final boundary =
+            capture.currentContext!.findRenderObject()!
+                as RenderRepaintBoundary;
+        final image = await boundary.toImage();
+        final bytes = await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        );
+        final pixels = bytes!.buffer.asUint8List();
+        final offset =
+            ((image.height * .8).floor() * image.width +
+                (image.width * .85).floor()) *
+            4;
+        final color = Color.fromARGB(
+          255,
+          pixels[offset],
+          pixels[offset + 1],
+          pixels[offset + 2],
+        );
+        image.dispose();
+        return color.computeLuminance();
+      });
+      return result!;
+    }
+
+    final idle = await luminance();
+    await _capture(tester, capture, 'service-idle');
+    final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(500, 400));
+    addTearDown(mouse.removePointer);
+    for (final position in [const Offset(180, 50), const Offset(500, 400)]) {
+      await mouse.moveTo(position);
+      await tester.pump();
+      for (final milliseconds in [35, 50, 85]) {
+        await tester.pump(Duration(milliseconds: milliseconds));
+        expect(await luminance(), greaterThanOrEqualTo(idle - .015));
+      }
+    }
+  });
   testWidgets('segment selection slides with an opaque mint surface', (
     tester,
   ) async {

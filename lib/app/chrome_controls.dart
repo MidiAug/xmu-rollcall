@@ -216,14 +216,18 @@ class _AppHoverSurfaceState extends State<AppHoverSurface> {
     final p = AppPalette.of(context);
     final radius = widget.borderRadius ?? BorderRadius.circular(AppRadii.card);
     final lift = widget.onTap != null && (_pressed || _hover || _focused);
+    final background = widget.backgroundColor ?? p.surface;
+    // Transparent black introduces a gray dip while RGB and alpha interpolate.
+    // Match the hover hue at zero alpha to preserve the underlying glass.
+    final idle = background.a == 0
+        ? AppPalette.clearOf(p.cardHover)
+        : background;
     final body = AnimatedContainer(
       duration: AppMotion.fast,
       curve: AppMotion.fastCurve,
       padding: widget.padding,
       decoration: BoxDecoration(
-        color: _pressed
-            ? p.content
-            : (lift ? p.cardHover : (widget.backgroundColor ?? p.surface)),
+        color: _pressed ? p.content : (lift ? p.cardHover : idle),
         borderRadius: radius,
         // Keep one border's space in every state so keyboard focus never jumps.
         border: Border.all(

@@ -153,7 +153,7 @@ class AssistController extends StateNotifier<AssistUiState> {
       final lastUser = await store.read(SecureStore.keyLastUsername);
       final savedPass = await store.read(SecureStore.keyOwnerPassword);
       final svc = await _service();
-      return svc.exportOwnerPackage(
+      return await svc.exportOwnerPackage(
         kind: kind,
         profileId: profile.id,
         profileName: profile.name,

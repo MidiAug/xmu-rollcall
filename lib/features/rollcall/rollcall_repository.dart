@@ -265,7 +265,7 @@ class RollcallRepository {
         },
       );
       final parsed = _catalogFromPayload(res.data);
-      if (parsed.courses.isNotEmpty) return _resolveCatalogRoles(parsed);
+      if (parsed.courses.isNotEmpty) return await _resolveCatalogRoles(parsed);
     } catch (_) {
       // fall through
     }
