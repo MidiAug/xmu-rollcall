@@ -22,30 +22,15 @@ class AppServiceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final mark = SizedBox(
+    final mark = Container(
       width: 44,
       height: 44,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            bottom: 0,
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: .10),
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Icon(icon, color: accent, size: 32),
-          ),
-        ],
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: .09),
+        shape: BoxShape.circle,
       ),
+      child: Icon(icon, color: accent, size: 24),
     );
     final text = Column(
       crossAxisAlignment: CrossAxisAlignment.start,

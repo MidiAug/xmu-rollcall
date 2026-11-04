@@ -32,6 +32,19 @@ void main() {
       ),
     );
     final before = tester.getRect(find.byType(AppServiceTile));
+    final icon = find
+        .descendant(
+          of: find.byType(AppServiceTile),
+          matching: find.byType(Icon),
+        )
+        .first;
+    final badge = find.byWidgetPredicate(
+      (w) =>
+          w is Container &&
+          w.decoration is BoxDecoration &&
+          (w.decoration! as BoxDecoration).shape == BoxShape.circle,
+    );
+    expect(tester.getCenter(icon), tester.getCenter(badge));
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();

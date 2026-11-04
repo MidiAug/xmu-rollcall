@@ -22,6 +22,7 @@ abstract final class AppIcons {
   static const clock = FluentIcons.clock_20_regular;
   static const calendar = FluentIcons.calendar_ltr_20_regular;
   static const week = FluentIcons.calendar_week_start_20_regular;
+  static const academicCalendar = FluentIcons.calendar_month_24_regular;
   static const calculator = FluentIcons.calculator_20_regular;
   static const tools = FluentIcons.grid_20_regular;
   static const settings = FluentIcons.settings_20_regular;

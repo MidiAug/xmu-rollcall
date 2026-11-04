@@ -55,7 +55,7 @@ List<CampusTool> get campusTools => <CampusTool>[
     id: 'calendar',
     title: '学年校历',
     description: '学期安排与教学周',
-    icon: AppIcons.calendar,
+    icon: AppIcons.academicCalendar,
     page: (_) => const CampusCalendarPage(),
   ),
   CampusTool(
