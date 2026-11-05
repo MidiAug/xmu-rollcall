@@ -18,7 +18,7 @@ class DiskCacheSnapshot {
 
 /// Tiny JSON list cache on [SharedPreferences] — no Hive.
 ///
-/// Keys use [keyPrefix]; logout clears the prefix.
+/// Keys use [keyPrefix]; explicit cache clearing removes them, logout retains them.
 abstract final class JsonDiskCache {
   static const keyPrefix = 'swr_v1_';
 
@@ -26,19 +26,21 @@ abstract final class JsonDiskCache {
 
   static Future<DiskCacheSnapshot?> readList(String suffix) async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(key(suffix));
-    if (raw == null || raw.isEmpty) return null;
     try {
+      final raw = prefs.getString(key(suffix));
+      if (raw == null || raw.isEmpty) return null;
       final decoded = jsonDecode(raw);
       if (decoded is! Map) return null;
       final map = Map<String, dynamic>.from(decoded);
       final at = DateTime.tryParse(map['fetchedAt'] as String? ?? '');
       final itemsRaw = map['items'];
       if (at == null || itemsRaw is! List) return null;
-      final items = <Map<String, dynamic>>[
-        for (final e in itemsRaw)
-          if (e is Map) Map<String, dynamic>.from(e),
-      ];
+      final items = <Map<String, dynamic>>[];
+      for (final row in itemsRaw) {
+        // A partial list must not masquerade as a complete successful mirror.
+        if (row is! Map) return null;
+        items.add(Map<String, dynamic>.from(row));
+      }
       return DiskCacheSnapshot(fetchedAt: at, items: items);
     } catch (_) {
       return null;

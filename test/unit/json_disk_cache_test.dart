@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
@@ -35,6 +36,41 @@ void main() {
     expect(snap.isFresh(const Duration(minutes: 10)), isFalse);
     expect(snap.isFresh(const Duration(hours: 3)), isTrue);
   });
+
+  test(
+    'invalid envelope rows are a miss rather than a partial successful list',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      for (final rows in [
+        [
+          {'id': 1},
+          null,
+        ],
+        [
+          {'id': 1},
+          7,
+        ],
+        ['bad'],
+      ]) {
+        await prefs.setString(
+          JsonDiskCache.key('damaged'),
+          jsonEncode({
+            'fetchedAt': DateTime(2026, 11, 5).toIso8601String(),
+            'items': rows,
+          }),
+        );
+        expect(await JsonDiskCache.readList('damaged'), isNull);
+      }
+      await prefs.setInt(JsonDiskCache.key('damaged'), 7);
+      expect(await JsonDiskCache.readList('damaged'), isNull);
+      await JsonDiskCache.writeList(
+        'damaged',
+        [],
+        fetchedAt: DateTime(2026, 11, 5),
+      );
+      expect((await JsonDiskCache.readList('damaged'))!.items, isEmpty);
+    },
+  );
 
   test('JsonDiskCache clearAll drops swr keys only', () async {
     await JsonDiskCache.writeList('course_history_1', [

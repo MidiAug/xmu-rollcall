@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -80,6 +81,23 @@ void main() {
       expect(await TaRosterStore(11).read(91, 81), isNull);
     }
   });
+  test(
+    'a malformed envelope member cannot silently shorten a student roster',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        JsonDiskCache.key('ta_roster_v1_11_91_81'),
+        jsonEncode({
+          'fetchedAt': at.toIso8601String(),
+          'items': [
+            {'id': 1, 'number': '0001', 'name': 'A', 'submitted': true},
+            null,
+          ],
+        }),
+      );
+      expect(await TaRosterStore(11).read(91, 81), isNull);
+    },
+  );
   test(
     'refresh fills grades automatically and failure leaves the successful mirror intact',
     () async {
