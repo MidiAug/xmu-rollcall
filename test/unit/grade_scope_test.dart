@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/exams/exam_cache.dart';
 import 'package:xmu_rollcall/features/academic/academic_identity.dart';
 import 'package:xmu_rollcall/features/academic/academic_access.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
@@ -22,7 +23,6 @@ import 'package:xmu_rollcall/features/schedule/academic_sync.dart';
 import 'package:xmu_rollcall/features/grades/academic_grade_reader.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/features/exams/exam_models.dart';
-import 'package:xmu_rollcall/features/exams/exam_providers.dart';
 import 'package:xmu_rollcall/features/grades/grade_release_policy.dart';
 
 class _AuthRepo extends Fake implements AuthRepository {}

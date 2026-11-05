@@ -9,26 +9,7 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'academic_exam_reader.dart';
 import 'exam_models.dart';
-
-String examCacheKey(int owner, int uid, String term) =>
-    'exams_v1_${owner}_${uid}_$term';
-ExamSnapshot? readExamCache(
-  SharedPreferences prefs,
-  int owner,
-  int uid,
-  String term,
-) {
-  try {
-    final raw = prefs.getString(examCacheKey(owner, uid, term));
-    if (raw == null) return null;
-    final snapshot = ExamSnapshot.fromJson(
-      jsonDecode(raw) as Map<String, dynamic>,
-    );
-    return snapshot.term == term ? snapshot : null;
-  } catch (_) {
-    return null;
-  }
-}
+import 'exam_cache.dart';
 
 final examClockProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 final examReaderProvider = Provider<AcademicExamReader Function()>((ref) {

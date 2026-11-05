@@ -1,5 +1,5 @@
 import 'grade_release_policy.dart';
-import 'package:xmu_rollcall/features/exams/exam_providers.dart';
+import 'package:xmu_rollcall/features/exams/exam_cache.dart';
 export 'grade_release_policy.dart' show gradeReleaseWindow;
 import 'dart:async';
 import 'package:xmu_rollcall/core/logging/app_log.dart';

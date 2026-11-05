@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/exams/exam_cache.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:dio/dio.dart';
@@ -48,7 +49,8 @@ void main() {
       final adapter = ExamAdapter()..failUnarranged = true;
       final captureKey = GlobalKey();
       Future<void> captureProgress(String name) async {
-        if (origin != 'retry' || Platform.environment['CAPTURE_EXAM_UI'] != '1') {
+        if (origin != 'retry' ||
+            Platform.environment['CAPTURE_EXAM_UI'] != '1') {
           return;
         }
         await tester.runAsync(() async {
