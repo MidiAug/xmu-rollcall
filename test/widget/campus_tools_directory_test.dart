@@ -164,6 +164,34 @@ void main() {
           expect(find.byType(AppServiceTile), findsNWidgets(5));
           expect(find.text('常用工具'), findsOneWidget);
           expect(find.text('研究生'), findsOneWidget);
+          for (final name in [
+            '信息门户',
+            '本研教务',
+            '学工平台',
+            '研究生选课',
+            '图书馆',
+            '校园邮箱',
+            '校外访问',
+            '密码服务',
+          ]) {
+            expect(find.text(name), findsOneWidget);
+            final link = tester.widget<AppTextLink>(
+              find.ancestor(
+                of: find.text(name),
+                matching: find.byType(AppTextLink),
+              ),
+            );
+            expect(link.icon, isNull);
+          }
+          expect(
+            tester.getTopLeft(find.text('信息门户')).dx,
+            tester.getTopLeft(find.text('常用网站')).dx,
+          );
+          expect(
+            tester.getTopLeft(find.text('本研教务')).dy,
+            tester.getTopLeft(find.text('信息门户')).dy,
+          );
+
           expect(
             tester.getTopLeft(find.text('常用网站')).dy,
             greaterThan(tester.getTopLeft(find.text('研究生')).dy),
@@ -180,6 +208,9 @@ void main() {
             }
           }
           await captureDesktopUi(tester, 'tools-directory-$width-$dark');
+          await tester.ensureVisible(find.text('密码服务'));
+          await tester.pumpAndSettle();
+          await captureDesktopUi(tester, 'tools-websites-$width-$dark');
           await tester.ensureVisible(find.text('学年校历'));
           await tester.tap(find.text('学年校历'));
           await tester.pumpAndSettle();

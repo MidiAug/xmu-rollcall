@@ -802,7 +802,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SizedBox(width: 300, child: list),
+                    SizedBox(width: 225, child: list),
                     const SizedBox(width: 16),
                     Expanded(child: map),
                   ],

@@ -375,6 +375,12 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is SizedBox && w.width == 225 && w.child != null,
+        ),
+        findsOneWidget,
+      );
       await capture(tester, 'building-overview');
       await tester.tap(find.byKey(const ValueKey('map-building-学武楼')));
       await tester.pumpAndSettle();

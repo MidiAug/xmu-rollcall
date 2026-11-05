@@ -228,10 +228,14 @@ class AppTextLink extends StatelessWidget {
     super.key,
     required this.onPressed,
     this.icon = AppIcons.right,
+    this.padding = const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    this.textStyle,
   });
   final String label;
   final VoidCallback onPressed;
-  final IconData icon;
+  final IconData? icon;
+  final EdgeInsetsGeometry padding;
+  final TextStyle? textStyle;
   @override
   Widget build(BuildContext context) => TextButton(
     onPressed: onPressed,
@@ -239,7 +243,7 @@ class AppTextLink extends StatelessWidget {
         TextButton.styleFrom(
           minimumSize: Size(0, AppMobileUi.useTouchChrome(context) ? 44 : 32),
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          padding: padding,
         ).copyWith(
           backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
           overlayColor: const WidgetStatePropertyAll(Colors.transparent),
@@ -252,12 +256,17 @@ class AppTextLink extends StatelessWidget {
                 : AppPalette.of(context).muted,
           ),
           textStyle: WidgetStatePropertyAll(
-            AppTypography.caption.copyWith(decoration: TextDecoration.none),
+            (textStyle ?? AppTypography.caption).copyWith(
+              decoration: TextDecoration.none,
+            ),
           ),
         ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
-      children: [Text(label), const SizedBox(width: 4), Icon(icon, size: 14)],
+      children: [
+        Text(label),
+        if (icon != null) ...[const SizedBox(width: 4), Icon(icon, size: 14)],
+      ],
     ),
   );
 }
