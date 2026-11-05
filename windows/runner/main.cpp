@@ -40,6 +40,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
   }
 
   flutter::DartProject project(L"data");
+  // Measured with Flutter 3.47: Skia lowers resize cost for our shadowed surfaces.
+  // Keep the existing effects and the engine's resize/presentation handshake.
+  project.set_impeller_switch(flutter::ImpellerSwitch::Disabled);
 
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 

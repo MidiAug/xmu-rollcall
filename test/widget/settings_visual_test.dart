@@ -168,7 +168,7 @@ Widget _app({
           data: MediaQuery.of(
             context,
           ).copyWith(textScaler: TextScaler.linear(textScale)),
-          child: child!,
+          child: AppDensityScope(child: child!),
         ),
         home: _SettingsFrame(platform: platform),
       ),

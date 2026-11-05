@@ -192,10 +192,30 @@ abstract final class AppRadii {
   static const dialog = 24.0;
 }
 
+/// Shares the density breakpoint while layout keeps following live constraints.
+/// A geometry override, such as a retained tab, needs its own scope below it.
+class AppDensityScope extends StatelessWidget {
+  const AppDensityScope({super.key, required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => _AppDensityData(
+    touch: MediaQuery.sizeOf(context).width < AppLayout.shellBreakpoint,
+    child: child,
+  );
+}
+
+class _AppDensityData extends InheritedWidget {
+  const _AppDensityData({required this.touch, required super.child});
+  final bool touch;
+  @override
+  bool updateShouldNotify(_AppDensityData oldWidget) =>
+      touch != oldWidget.touch;
+}
+
 /// Desktop vs touch density (breakpoint = [AppLayout.shellBreakpoint]).
 ///
-/// Narrow layouts use **tighter** settings/list density so vertical space
-/// isn't wasted; nav stays slightly taller for thumb targets.
+/// Narrow layouts use tighter settings/list density so vertical space isn't
+/// wasted; navigation stays slightly taller for thumb targets.
 abstract final class AppDensity {
   static double controlHeight(BuildContext context) =>
       switch (Theme.of(context).platform) {
@@ -218,6 +238,7 @@ abstract final class AppDensity {
   static const touchRowPadV = AppSpace.xs;
 
   static bool isTouch(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_AppDensityData>()?.touch ??
       MediaQuery.sizeOf(context).width < AppLayout.shellBreakpoint;
 
   static double rowHeight(BuildContext context) =>

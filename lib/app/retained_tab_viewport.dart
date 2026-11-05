@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 /// Retain routes and state without relaying every resize through hidden tabs.
 /// Offstage alone still lays out its subtree. The frozen constraints and
@@ -50,7 +51,9 @@ class _RetainedTabViewportState extends State<RetainedTabViewport> {
                 enabled: widget.active,
                 child: ExcludeFocus(
                   excluding: !widget.active,
-                  child: RepaintBoundary(child: widget.child),
+                  child: AppDensityScope(
+                    child: RepaintBoundary(child: widget.child),
+                  ),
                 ),
               ),
             ),

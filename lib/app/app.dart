@@ -9,6 +9,7 @@ import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/app/session_lifecycle.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
@@ -73,8 +74,12 @@ class _XmuRollcallAppState extends ConsumerState<XmuRollcallApp>
 
     Widget app = MaterialApp(
       navigatorKey: _rootNavigatorKey,
-      builder: (context, child) =>
-          DesktopBackNavigation(navigatorKey: _rootNavigatorKey, child: child!),
+      builder: (context, child) => AppDensityScope(
+        child: DesktopBackNavigation(
+          navigatorKey: _rootNavigatorKey,
+          child: child!,
+        ),
+      ),
       title: kAppDisplayName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
