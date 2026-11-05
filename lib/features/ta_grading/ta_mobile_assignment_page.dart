@@ -11,7 +11,7 @@ import 'ta_providers.dart';
 import 'ta_repository.dart';
 import 'ta_widgets.dart';
 
-/// The mobile route only reads student submissions and score history.
+/// The mobile route reads the roster and bulk final grades without writes.
 class TaMobileAssignmentPage extends ConsumerStatefulWidget {
   const TaMobileAssignmentPage({
     super.key,
@@ -74,20 +74,15 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
           orElse: () => _summary,
         ),
       );
-      final result = await _repository.refreshStudents(
+      final result = await _repository.students(
         widget.courseId,
         widget.assignment.id,
-        graded: _summary.graded,
-        onProgress: (students) {
-          if (mounted && _repository.active) {
-            setState(() {
-              _students = students;
-              _ready = true;
-            });
-          }
-        },
       );
       if (mounted && _repository.active) {
+        setState(() {
+          _students = result;
+          _ready = true;
+        });
         await _repository.cacheStudents(
           widget.courseId,
           widget.assignment.id,

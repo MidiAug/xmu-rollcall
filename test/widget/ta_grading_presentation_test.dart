@@ -75,8 +75,12 @@ void main() {
         expect(f.requests.every((r) => r.method == 'GET'), isTrue);
         expect(f.requests.where((r) => r.uri.path.contains('/zip')), isEmpty);
         expect(
-          f.requests.any((r) => r.uri.path.endsWith('/score-records')),
+          f.requests.any((r) => r.uri.path.endsWith('/homework-scores')),
           isTrue,
+        );
+        expect(
+          f.requests.where((r) => r.uri.path.endsWith('/score-records')),
+          isEmpty,
         );
         await captureDesktopUi(tester, 'ta-mobile-detail-${entry.$1}-$dark');
         expect(tester.takeException(), isNull);

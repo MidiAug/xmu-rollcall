@@ -78,6 +78,41 @@ void main() {
     await loadDesktopPreviewFonts();
     await loadDesktopUiCaptureFonts();
   });
+  testWidgets(
+    'cold entry publishes the complete 111-person grade roster at once',
+    (tester) async {
+      final f = TaHttpFixture(studentCount: 111, submittedCount: 111);
+      for (var id = 1; id <= 111; id++) {
+        f.scores[id] = id == 111 ? 0 : 86.5;
+      }
+      final gate = Completer<void>();
+      f.intercept = (r) async {
+        if (r.uri.path.endsWith('/homework-scores')) await gate.future;
+        return null;
+      };
+      final repo = await f.repository();
+      addTearDown(repo.dispose);
+      await open(tester, repo, settleDetail: false);
+      expect(scoreField(1), findsNothing);
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(scoreField(1)).controller!.text, '86.5');
+      final cached = await repo.restoreStudents(91, 81);
+      expect(cached!.students, hasLength(111));
+      expect(cached.students.last.score, 0);
+      expect(
+        f.requests.where((r) => r.uri.path.endsWith('/homework-scores')),
+        hasLength(1),
+      );
+      expect(
+        f.requests.where((r) => r.uri.path.endsWith('/score-records')),
+        isEmpty,
+      );
+      await captureDesktopUi(tester, 'ta-bulk-grades-111');
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+  );
   for (final dark in [false, true]) {
     testWidgets(
       'Enter saves an existing score once and keeps focus dark=$dark',
@@ -223,13 +258,12 @@ void main() {
     final gate = Completer<void>();
     var first = true;
     f.intercept = (r) async {
-      if (r.uri.path.endsWith('/submitter/1/score-records') && first) {
+      if (r.uri.path.endsWith('/homework-scores') && first) {
         first = false;
         await gate.future;
         return TaHttpFixture.response({
-          'pages': 1,
-          'records': [
-            {'id': 1, 'created_at': '2026-01-01T00:00:00Z', 'final_score': 39},
+          'homework_scores': [
+            {'activity_id': 81, 'student_id': 1, 'final_score': '39'},
           ],
         });
       }

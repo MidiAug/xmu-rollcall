@@ -99,7 +99,7 @@ void main() {
     },
   );
   test(
-    'refresh fills grades automatically and failure leaves the successful mirror intact',
+    'bulk refresh keeps the previous mirror until all grades arrive and on failure',
     () async {
       final f = TaHttpFixture()..scores[1] = 88;
       final base = await f.repository();
@@ -108,33 +108,26 @@ void main() {
       addTearDown(repo.dispose);
       await repo.cacheStudents(91, 81, snapshot.students, checkedAt: at);
       final gate = Completer<void>();
-      final first = Completer<List<TaStudent>>();
+      final entered = Completer<void>();
       f.intercept = (r) async {
-        if (r.uri.path.endsWith('/score-records')) await gate.future;
+        if (r.uri.path.endsWith('/homework-scores')) {
+          entered.complete();
+          await gate.future;
+        }
         return null;
       };
-      final refresh = repo.refreshStudents(
-        91,
-        81,
-        graded: 1,
-        onProgress: (s) {
-          if (!first.isCompleted) first.complete(s);
-        },
-      );
-      final early = await first.future;
-      expect(early.first.score, 0);
+      final refresh = repo.students(91, 81);
+      await entered.future;
+      expect((await repo.restoreStudents(91, 81))!.students.first.score, 0);
       gate.complete();
       final fresh = await refresh;
       expect(fresh.first.score, 88);
       expect(fresh.every((s) => s.scoreChecked), isTrue);
       await repo.cacheStudents(91, 81, fresh, checkedAt: at);
-      f.intercept = (r) async => r.uri.path.endsWith('/score-records')
+      f.intercept = (r) async => r.uri.path.endsWith('/homework-scores')
           ? TaHttpFixture.response({}, 403)
           : null;
-      await expectLater(
-        repo.refreshStudents(91, 81, graded: 1, onProgress: (_) {}),
-        throwsException,
-      );
+      await expectLater(repo.students(91, 81), throwsException);
       final kept = await repo.restoreStudents(91, 81);
       expect(kept!.students.first.score, 88);
       expect(kept.checkedAt, at);

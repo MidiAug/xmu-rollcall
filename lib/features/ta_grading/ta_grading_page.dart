@@ -505,26 +505,22 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
         orElse: () => _summary,
       );
       _changed();
-      await _repository.refreshStudents(
+      final students = await _repository.students(
         widget.courseId,
         widget.assignment.id,
-        graded: _summary.graded,
-        onProgress: (students) {
-          if (!mounted || !_repository.active) return;
-          setState(() {
-            _students = [
-              for (final s in students)
-                if (_localScores.containsKey(s.id))
-                  s.withScore(_localScores[s.id])
-                else
-                  s,
-            ];
-            _rosterReady = true;
-            _selected.removeWhere((id) => !_students.any((s) => s.id == id));
-          });
-        },
       );
       if (!mounted || !_repository.active) return;
+      setState(() {
+        _students = [
+          for (final s in students)
+            if (_localScores.containsKey(s.id))
+              s.withScore(_localScores[s.id])
+            else
+              s,
+        ];
+        _rosterReady = true;
+        _selected.removeWhere((id) => !_students.any((s) => s.id == id));
+      });
       await _repository.cacheStudents(
         widget.courseId,
         widget.assignment.id,

@@ -101,6 +101,18 @@ class TaHttpFixture implements HttpClientAdapter {
         ],
       });
     }
+    if (path.endsWith('/homework-scores')) {
+      return response({
+        'homework_scores': [
+          for (final entry in scores.entries)
+            {
+              'activity_id': 81,
+              'student_id': entry.key,
+              'final_score': '${entry.value}',
+            },
+        ],
+      });
+    }
     if (path.endsWith('/score-records')) {
       final id = int.parse(path.split('/')[5]);
       return response({

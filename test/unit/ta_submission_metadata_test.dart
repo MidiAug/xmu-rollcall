@@ -4,6 +4,64 @@ import '../fixtures/ta_http_fixture.dart';
 
 void main() {
   test(
+    '111 final grades load in one bulk request without per-student reads',
+    () async {
+      final f = TaHttpFixture(studentCount: 111, submittedCount: 108);
+      for (var id = 1; id <= 111; id++) {
+        f.scores[id] = id == 111 ? 0 : 86.5;
+      }
+      final repo = await f.repository();
+      addTearDown(repo.dispose);
+      final rows = await repo.students(91, 81);
+      expect(rows, hasLength(111));
+      expect(rows.every((s) => s.scoreChecked), isTrue);
+      expect(rows.first.score, 86.5);
+      expect(rows.last.score, 0);
+      expect(rows.last.submitted, isFalse);
+      expect(f.requests.map((r) => r.uri.path), [
+        '/api/course/91/students',
+        '/api/homework/81/student-submissions',
+        '/api/activities/81/homework-scores',
+      ]);
+      f.scores.clear();
+      final empty = await repo.students(91, 81);
+      expect(empty.every((s) => s.score == null && s.scoreChecked), isTrue);
+    },
+  );
+  test(
+    'final grade is authoritative, and malformed bulk responses fail as a whole',
+    () async {
+      final f = TaHttpFixture();
+      final repo = await f.repository();
+      addTearDown(repo.dispose);
+      List<Map<String, Object?>> grades = [
+        {'activity_id': 81, 'student_id': 2, 'final_score': '0', 'score': '90'},
+        {'activity_id': 81, 'student_id': 1, 'final_score': '88.5'},
+      ];
+      f.intercept = (r) async => r.uri.path.endsWith('/homework-scores')
+          ? TaHttpFixture.response({'homework_scores': grades})
+          : null;
+      expect((await repo.students(91, 81)).map((s) => s.score), [
+        88.5,
+        0,
+        null,
+      ]);
+      for (final bad in [
+        {'activity_id': 82, 'student_id': 1, 'final_score': '80'},
+        {'activity_id': 81, 'student_id': 1, 'final_score': 'NaN'},
+        {'activity_id': 81, 'student_id': 1},
+      ]) {
+        grades = [bad];
+        await expectLater(repo.students(91, 81), throwsFormatException);
+      }
+      grades = [
+        {'activity_id': 81, 'student_id': 1, 'final_score': '80'},
+        {'activity_id': 81, 'student_id': 1, 'final_score': '90'},
+      ];
+      await expectLater(repo.students(91, 81), throwsFormatException);
+    },
+  );
+  test(
     'submission attachment bytes are independent of submission presence',
     () async {
       final f = TaHttpFixture();

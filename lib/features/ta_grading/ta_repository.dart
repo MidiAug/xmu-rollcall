@@ -228,20 +228,31 @@ class TaGradingRepository {
       'submissions',
     );
     final submitted = <int>{};
-    final scores = <int, double?>{};
     final sizes = <int, int>{};
     for (final row in submissions) {
       final id = taId(taMap(row['created_by'])['id']);
       submitted.add(id);
-      scores[id] = taScore(row['instructor_score'] ?? row['score']);
       final bytes = row['attachments_size'];
       if (bytes != null && (bytes is! int || bytes < 0)) {
         throw const FormatException('附件大小格式异常');
       }
       sizes[id] = bytes as int? ?? 0;
     }
-    // Nonempty homework_scores has not been captured. Use the known submission
-    // scores for the overview, and authoritative history before every write.
+    // Final grades can differ from instructor_score (including students whose
+    // submission has no instructor score). Join the complete grade response.
+    final scores = <int, double?>{};
+    for (final row in taRows(
+      await _get('/api/activities/$activityId/homework-scores'),
+      'homework_scores',
+    )) {
+      final id = taId(row['student_id']);
+      if (taId(row['activity_id']) != activityId ||
+          scores.containsKey(id) ||
+          !row.containsKey('final_score')) {
+        throw const FormatException('作业成绩关联格式异常');
+      }
+      scores[id] = taScore(row['final_score']);
+    }
     final seen = <int>{};
     return [
       for (final row in roster)
@@ -252,6 +263,7 @@ class TaGradingRepository {
             name: row['name'] as String,
             submitted: submitted.contains(row['id']),
             score: scores[row['id']],
+            scoreChecked: true,
             attachmentBytes: sizes[row['id']] ?? 0,
           )
         else
@@ -304,37 +316,6 @@ class TaGradingRepository {
       for (final s in cached.students)
         if (scores.containsKey(s.id)) s.withScore(scores[s.id]) else s,
     ], checkedAt: cached.checkedAt);
-  }
-
-  /// One entry-triggered refresh, through the normal rate-limited HTTP queue.
-  /// The bulk submission response supplies known scores. Missing grades are
-  /// loaded automatically from the captured history endpoint, never on hover.
-  Future<List<TaStudent>> refreshStudents(
-    int courseId,
-    int activityId, {
-    required int graded,
-    required void Function(List<TaStudent>) onProgress,
-  }) async {
-    final roster = await students(courseId, activityId);
-    final previous = _session.rosters[(courseId, activityId)];
-    final old = {for (final s in previous?.students ?? <TaStudent>[]) s.id: s};
-    final result = [
-      for (final s in roster)
-        s.withScore(
-          s.score ?? (graded == 0 ? null : old[s.id]?.score),
-          checked: graded == 0 || s.score != null,
-        ),
-    ];
-    onProgress(List.unmodifiable(result));
-    for (var i = 0; i < result.length; i++) {
-      if (result[i].scoreChecked) continue;
-      final s = result[i];
-      final score = await currentScore(activityId, s.id);
-      checkActive();
-      result[i] = s.withScore(score);
-      onProgress(List.unmodifiable(result));
-    }
-    return List.unmodifiable(result);
   }
 
   Future<List<TaScoreRecord>> scoreRecords(

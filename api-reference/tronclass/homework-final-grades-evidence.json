@@ -1,0 +1,50 @@
+{
+  "analysis_date": "2026-11-05",
+  "source_sha256": "4482e2633d15fe16a6525830c20c052c68c3854d87e55a9b47ecb0547d0bd908",
+  "source_bytes": 3872482,
+  "verification": "Offline analysis of the user-supplied nonempty grade capture; no session replay or live grading.",
+  "redaction": "Only parameterized endpoints, field names, types, counts and structural checks. No source identifiers, scores, names, headers or credentials.",
+  "endpoint": {
+    "method": "GET",
+    "path": "/api/activities/{activityId}/homework-scores",
+    "query_parameter_names": [],
+    "response_root_field": "homework_scores",
+    "observed_rows": 111,
+    "item_field_types": {
+      "activity_id": [
+        "integer"
+      ],
+      "final_score": [
+        "string"
+      ],
+      "instructor_comment": [
+        "null",
+        "string"
+      ],
+      "inter_score": [
+        "null"
+      ],
+      "intra_score": [
+        "null"
+      ],
+      "review_incomplete_score_minus": [
+        "null",
+        "string"
+      ],
+      "score": [
+        "null",
+        "string"
+      ],
+      "status_comment": [
+        "null"
+      ],
+      "student_id": [
+        "integer"
+      ]
+    },
+    "unique_student_ids": true,
+    "one_activity_id": true,
+    "all_final_scores_numeric_and_finite": true,
+    "activity_ids_match_request": true
+  }
+}
