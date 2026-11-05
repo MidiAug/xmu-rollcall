@@ -51,6 +51,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
   bool _visible = false;
   (int?, int?)? _campusIdentity;
   CampusCachedData? _campusSnapshot;
+  DateTime? _campusTime;
   ({String text, bool error})? _manualFeedback;
   Timer? _feedbackTimer;
 
@@ -299,6 +300,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
       if (_campusIdentity != identity) {
         _campusIdentity = identity;
         _campusSnapshot = null;
+        _campusTime = null;
       }
       final cachedState = active && auth.isSignedIn
           ? ref.watch(campusCachedDataProvider)
@@ -308,11 +310,14 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
           !cachedState.isLoading) {
         _campusSnapshot = cachedState.value;
       }
-      final cached = active && auth.isSignedIn ? _campusSnapshot : null;
+      // Keep the last layout projection while hidden. Removing the context
+      // column can remount responsive task controls and restart their requests.
+      final cached = auth.isSignedIn ? _campusSnapshot : null;
       final now = active && auth.isSignedIn
           ? ref.watch(campusClockProvider).valueOrNull ??
                 ref.read(campusNowProvider)()
-          : DateTime.now();
+          : _campusTime ?? DateTime.now();
+      if (active && auth.isSignedIn) _campusTime = now;
       final contextLoading = cached == null && cachedState?.isLoading == true;
       final hasContext =
           cached != null &&

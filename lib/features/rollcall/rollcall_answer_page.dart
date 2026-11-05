@@ -27,15 +27,23 @@ Future<bool?> showRadarAnswerDialog(
   BuildContext context, {
   required RollcallItem item,
   int? assistUserId,
-}) => showDialog<bool>(
-  context: context,
-  barrierDismissible: false,
-  builder: (_) => RollcallAnswerPage(
-    item: item,
-    assistUserId: assistUserId,
-    mapDialog: true,
-  ),
-);
+}) {
+  final container = ProviderScope.containerOf(context);
+  return showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    // The root overlay may sit above an identity/preview ProviderScope.
+    // Keep the caller's transport and account instead of resolving root state.
+    builder: (_) => UncontrolledProviderScope(
+      container: container,
+      child: RollcallAnswerPage(
+        item: item,
+        assistUserId: assistUserId,
+        mapDialog: true,
+      ),
+    ),
+  );
+}
 
 class RollcallAnswerPage extends ConsumerStatefulWidget {
   const RollcallAnswerPage({

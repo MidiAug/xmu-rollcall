@@ -20,7 +20,6 @@ import 'package:xmu_rollcall/features/rollcall/attendance_count_row.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/location/map_pick_panel.dart';
-import 'package:xmu_rollcall/features/location/location_picker.dart';
 import 'package:flutter_map/flutter_map.dart';
 import '../fixtures/preview_fonts.dart';
 
@@ -499,16 +498,28 @@ void main() {
       expect(find.byType(MapPickPanel), findsOneWidget);
       final mapAction = find.widgetWithText(FilledButton, '签到');
       expect(tester.widget<FilledButton>(mapAction).onPressed, isNull);
-      await tester.tap(find.byTooltip('已保存地点'));
-      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<RollcallAnswerPage>(find.byType(RollcallAnswerPage))
+            .mapDialog,
+        isTrue,
+      );
       expect(
         ProviderScope.containerOf(
-          tester.element(find.byType(LocationPickerContent)),
+          tester.element(find.byType(RollcallAnswerPage)),
         ),
         same(previewContainer),
       );
-      await tester.tap(find.byTooltip('关闭地点选择'));
+      await tester.tap(find.byTooltip('取消'));
       await tester.pumpAndSettle();
+      expect(find.byType(RollcallAnswerPage), findsNothing);
+      expect(
+        find.widgetWithText(FilledButton, '已签到'),
+        findsOneWidget,
+        reason: 'Canceling location selection does not submit the radar task',
+      );
+      await _tapTask(tester, 9002);
+      expect(tester.widget<FilledButton>(mapAction).onPressed, isNull);
       await tester.tap(find.byType(FlutterMap).first);
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pumpAndSettle();

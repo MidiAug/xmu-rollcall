@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/rollcall/attendance_count_row.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
 import 'package:xmu_rollcall/core/theme/app_icons.dart';
@@ -222,6 +223,7 @@ void main() {
   ]) {
     testWidgets(
       'desktop workspace and actual two-course context $variant',
+      // Keep the full retained-page flow together, including account switches.
       (tester) async {
         SharedPreferences.setMockInitialValues({
           'theme_preference': variant.$3 ? 1 : 2,
@@ -419,38 +421,56 @@ void main() {
         expect(find.byType(HomeworkDetailPage), findsNothing);
         expect(tester.takeException(), isNull);
         final trigger = find.descendant(
-          of: sidebar,
-          matching: find.byType(AppSelectTrigger),
+          of: find.descendant(
+            of: sidebar,
+            matching: find.byKey(const ValueKey('rollcall-identity-menu')),
+          ),
+          matching: find.byType(TextButton),
         );
-        final target = find
-            .descendant(of: trigger, matching: find.byType(AnimatedContainer))
-            .first;
-        Color fill() =>
-            (tester
-                        .widget<DecoratedBox>(
-                          find
-                              .descendant(
-                                of: target,
-                                matching: find.byType(DecoratedBox),
-                              )
-                              .first,
-                        )
-                        .decoration
-                    as BoxDecoration)
-                .color!;
-        final normal = fill();
+        expect(trigger, findsOneWidget);
+        Future<Color> fill() async {
+          final rect = tester.getRect(trigger);
+          final rendered =
+              boundary.currentContext!.findRenderObject()!
+                  as RenderRepaintBoundary;
+          final point = rendered.globalToLocal(
+            Offset(rect.right - 25, rect.top + 4),
+          );
+          return (await tester.runAsync(() async {
+            final image = await rendered.toImage();
+            final data = await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            );
+            final at = (point.dy.floor() * image.width + point.dx.floor()) * 4;
+            final bytes = data!.buffer.asUint8List();
+            final color = Color.fromARGB(
+              bytes[at + 3],
+              bytes[at],
+              bytes[at + 1],
+              bytes[at + 2],
+            );
+            image.dispose();
+            return color;
+          }))!;
+        }
+
+        final normal = await fill();
         final mouse = await tester.createGesture(
           kind: ui.PointerDeviceKind.mouse,
         );
         await mouse.addPointer(location: Offset.zero);
         await mouse.moveTo(tester.getCenter(trigger));
         await tester.pump(const Duration(milliseconds: 80));
-        final mid = fill();
+        final mid = await fill();
         await tester.pump(const Duration(milliseconds: 300));
-        final settled = fill();
+        final settled = await fill();
         expect(settled, isNot(normal));
         await tester.pump(const Duration(milliseconds: 500));
-        expect(fill(), settled, reason: 'Account hover stays highlighted');
+        expect(
+          await fill(),
+          settled,
+          reason: 'Account hover stays highlighted',
+        );
         final low = normal.computeLuminance() < settled.computeLuminance()
             ? normal
             : settled;
@@ -486,6 +506,7 @@ void main() {
           reason: 'Record action aligns to the card right edge',
         );
         final loads = attendance.loads;
+        final countState = tester.state(find.byType(AttendanceCountRow));
         await tester.tap(
           find.descendant(of: sidebar, matching: find.text('作业')),
         );
@@ -494,6 +515,7 @@ void main() {
           find.descendant(of: sidebar, matching: find.text('签到')),
         );
         await tester.pumpAndSettle();
+        expect(tester.state(find.byType(AttendanceCountRow)), same(countState));
         expect(
           attendance.loads,
           loads,
@@ -633,6 +655,8 @@ void main() {
               tester.element(find.byType(AdaptiveShell)),
             );
             container.read(selectedRollcallAccountProvider.notifier).state = 2;
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('学期'));
             await tester.pumpAndSettle();
             expect(find.textContaining('账号二课程'), findsWidgets);
             container.read(selectedRollcallAccountProvider.notifier).state =

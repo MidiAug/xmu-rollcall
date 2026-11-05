@@ -1,4 +1,3 @@
-import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -142,17 +141,11 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          final entryLabel = width < 600
-              ? (type == RollcallType.qrcode
-                    ? '扫码'
-                    : type == RollcallType.radar
-                    ? '选择位置'
-                    : '签到')
-              : type == RollcallType.qrcode
-              ? '扫码签到'
-              : type == RollcallType.radar
-              ? '选择位置'
-              : (PlatformHooks.isDesktop && width >= 600 ? '确认签到' : '一键签到');
+          final entryLabel = switch (type) {
+            RollcallType.qrcode => '扫码',
+            RollcallType.radar => '选择位置',
+            _ => '签到',
+          };
           expect(
             tester
                 .widget<FilledButton>(
@@ -164,7 +157,7 @@ void main() {
           final container = ProviderScope.containerOf(
             tester.element(find.byType(RollcallListPage)),
           );
-          if (width < 600 && type == RollcallType.number) {
+          if (type == RollcallType.number) {
             await tester.tap(find.widgetWithText(FilledButton, entryLabel));
             await tester.pumpAndSettle();
             expect(find.byType(TextField), findsNothing);
@@ -181,12 +174,17 @@ void main() {
           final completed = find.widgetWithText(FilledButton, '已签到');
           expect(tester.widget<FilledButton>(completed).onPressed, isNull);
           final calls = repo.calls;
+          final submissions = repo.submissions;
           await tester.tap(completed);
           await tester.pump(const Duration(seconds: 30));
           expect(repo.calls, calls);
+          expect(repo.submissions, submissions);
+          expect(find.byType(AttendanceCountRow), findsOneWidget);
           expect(
-            find.byType(AttendanceCountRow),
-            width < 600 ? findsOneWidget : findsNothing,
+            tester
+                .widget<AttendanceCountRow>(find.byType(AttendanceCountRow))
+                .completed,
+            isTrue,
           );
           notifier.debugSeed([
             item(type: type, answered: true, expired: true, code: '1234'),
@@ -200,7 +198,7 @@ void main() {
     }
   }
   testWidgets(
-    'signed card removes decision aids and stops polling but keeps code',
+    'completed card keeps the final attendance count and code without polling',
     (tester) async {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(
@@ -226,18 +224,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(AttendanceCountRow), findsOneWidget);
-      if (PlatformHooks.isDesktop) {
-        expect(find.byType(SessionPriorPanel), findsNothing);
-        await tester.tap(find.byTooltip('课程操作'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('课堂参考'));
-        await tester.pumpAndSettle();
-        expect(find.byType(SessionPriorPanel), findsOneWidget);
-        await tester.tap(find.byTooltip('关闭'));
-        await tester.pumpAndSettle();
-      } else {
-        expect(find.byType(SessionPriorPanel), findsOneWidget);
-      }
+      expect(find.byType(SessionPriorPanel), findsNothing);
       expect(repo.calls, 1);
       final container = ProviderScope.containerOf(
         tester.element(find.byType(RollcallListPage)),
@@ -246,11 +233,22 @@ void main() {
         item(answered: true, code: '1234', withCourse: true),
       ]);
       await tester.pumpAndSettle();
-      expect(find.byType(AttendanceCountRow), findsNothing);
+      expect(find.byType(AttendanceCountRow), findsOneWidget);
+      expect(
+        tester
+            .widget<AttendanceCountRow>(find.byType(AttendanceCountRow))
+            .completed,
+        isTrue,
+      );
+      expect(
+        repo.calls,
+        2,
+        reason: 'Completion reads one final attendance count',
+      );
       expect(find.byType(SessionPriorPanel), findsNothing);
       expect(find.text('1234'), findsOneWidget);
       await tester.pump(const Duration(seconds: 60));
-      expect(repo.calls, 1);
+      expect(repo.calls, 2);
       await tester.tap(find.text('1234'));
       await tester.pumpAndSettle();
       expect(find.text('已复制签到码'), findsOneWidget);
@@ -284,22 +282,15 @@ void main() {
       }
 
       await show(item());
-      if (PlatformHooks.isDesktop) {
-        await tester.tap(find.byTooltip('课程操作'));
-        await tester.pumpAndSettle();
-        expect(find.text('手动输入'), findsOneWidget);
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await tester.pumpAndSettle();
-      } else {
-        expect(find.text('手动输入'), findsOneWidget);
-      }
+      final manual = find.widgetWithText(FilledButton, '手动输入');
+      expect(tester.widget<FilledButton>(manual).onPressed, isNotNull);
+      await tester.tap(manual);
+      await tester.pumpAndSettle();
       expect(find.text('输入签到码'), findsOneWidget);
-      expect(
-        tester
-            .widget<FilledButton>(find.widgetWithText(FilledButton, '输入签到码'))
-            .onPressed,
-        isNotNull,
-      );
+      expect(find.byType(TextField), findsOneWidget);
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsNothing);
       await show(item(expired: true));
       expect(
         tester
@@ -307,18 +298,10 @@ void main() {
             .onPressed,
         isNull,
       );
-      if (!PlatformHooks.isDesktop) {
-        expect(
-          tester
-              .widget<TextButton>(find.widgetWithText(TextButton, '手动输入'))
-              .onPressed,
-          isNull,
-        );
-      }
       await show(item(expired: true, type: RollcallType.qrcode));
       expect(
         tester
-            .widget<FilledButton>(find.widgetWithText(FilledButton, '扫码签到'))
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '已结束'))
             .onPressed,
         isNull,
       );
