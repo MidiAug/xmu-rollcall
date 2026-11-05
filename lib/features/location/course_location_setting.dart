@@ -223,7 +223,7 @@ class _CourseLocationSettingState extends ConsumerState<CourseLocationSetting> {
                 : null,
             child: Row(
               children: [
-                Icon(Icons.place_outlined, size: 18, color: p.muted),
+                Icon(AppIcons.location, size: 18, color: p.muted),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
@@ -238,7 +238,7 @@ class _CourseLocationSettingState extends ConsumerState<CourseLocationSetting> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(Icons.chevron_right_rounded, size: 18, color: p.muted),
+                Icon(AppIcons.right, size: 14, color: p.muted),
               ],
             ),
           ),

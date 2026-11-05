@@ -14,6 +14,7 @@ import '../fixtures/preview_fonts.dart';
 import '../fixtures/desktop_ui_capture.dart';
 
 void main() {
+  initializeDesktopUiCapture();
   setUpAll(() async {
     await loadDesktopPreviewFonts();
     await loadDesktopUiCaptureFonts();
@@ -299,7 +300,13 @@ void main() {
         await tester.tap(find.text('取消选择'));
         await tester.pumpAndSettle();
         expect(find.text('打包所选'), findsNothing);
-        await tester.enterText(find.byType(TextField), '示例学生47');
+        await tester.enterText(
+          find.descendant(
+            of: find.byType(AppSearchField),
+            matching: find.byType(TextField),
+          ),
+          '示例学生47',
+        );
         await tester.pumpAndSettle();
         expect(find.text('显示 1 人'), findsOneWidget);
         await tester.tap(selectAll);

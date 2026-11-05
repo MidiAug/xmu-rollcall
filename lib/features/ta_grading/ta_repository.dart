@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'ta_models.dart';
 import 'ta_assignment_store.dart';
+import 'ta_roster_store.dart';
 
 /// Parent and detail pages share readiness and the resulting session revision.
 /// Cached summaries can be read before assisted-session authentication finishes.
@@ -12,6 +13,7 @@ class _TaSession {
   final TronHttpClient http;
   final Future<void> Function()? prepare;
   int revision;
+  final rosters = <(int, int), TaRosterSnapshot>{};
   Future<void>? _ready;
   Future<void> ensureReady() => _ready ??= _prepare();
   Future<void> _prepare() async {
@@ -35,11 +37,19 @@ class TaGradingRepository {
     Future<void> Function()? prepareSession,
   }) : _session = _TaSession(http, prepareSession),
        _disk = cacheUserId == null ? null : TaAssignmentStore(cacheUserId),
+       _rosterDisk = cacheUserId == null ? null : TaRosterStore(cacheUserId),
        _now = now ?? DateTime.now;
-  TaGradingRepository._(this.http, this._session, this._now, this._disk);
+  TaGradingRepository._(
+    this.http,
+    this._session,
+    this._now,
+    this._disk,
+    this._rosterDisk,
+  );
   final TronHttpClient http;
   final _TaSession _session;
   final TaAssignmentStore? _disk;
+  final TaRosterStore? _rosterDisk;
   final DateTime Function() _now;
   final _assignmentCache = <int, TaAssignmentSnapshot>{};
   final _assignmentRequests = <int, Future<List<TaAssignment>>>{};
@@ -52,7 +62,13 @@ class TaGradingRepository {
       !_cancel.isCancelled && http.sessionRevision == _session.revision;
 
   TaGradingRepository fork() {
-    final child = TaGradingRepository._(http, _session, _now, _disk);
+    final child = TaGradingRepository._(
+      http,
+      _session,
+      _now,
+      _disk,
+      _rosterDisk,
+    );
     if (!active) child.dispose();
     unawaited(_cancel.whenCancel.then((_) => child.dispose()));
     return child;
@@ -213,10 +229,16 @@ class TaGradingRepository {
     );
     final submitted = <int>{};
     final scores = <int, double?>{};
+    final sizes = <int, int>{};
     for (final row in submissions) {
       final id = taId(taMap(row['created_by'])['id']);
       submitted.add(id);
       scores[id] = taScore(row['instructor_score'] ?? row['score']);
+      final bytes = row['attachments_size'];
+      if (bytes != null && (bytes is! int || bytes < 0)) {
+        throw const FormatException('附件大小格式异常');
+      }
+      sizes[id] = bytes as int? ?? 0;
     }
     // Nonempty homework_scores has not been captured. Use the known submission
     // scores for the overview, and authoritative history before every write.
@@ -230,14 +252,96 @@ class TaGradingRepository {
             name: row['name'] as String,
             submitted: submitted.contains(row['id']),
             score: scores[row['id']],
+            attachmentBytes: sizes[row['id']] ?? 0,
           )
         else
           throw const FormatException('学生名单重复'),
     ];
   }
 
-  Future<double?> currentScore(int activityId, int studentId) async {
-    final records = <Map<String, dynamic>>[];
+  Future<TaRosterSnapshot?> restoreStudents(
+    int courseId,
+    int activityId,
+  ) async {
+    checkActive();
+    final key = (courseId, activityId);
+    final memory = _session.rosters[key];
+    if (memory != null) return memory;
+    final disk = await _rosterDisk?.read(courseId, activityId);
+    checkActive();
+    if (disk != null) _session.rosters[key] = disk;
+    return disk;
+  }
+
+  Future<void> cacheStudents(
+    int courseId,
+    int activityId,
+    List<TaStudent> students, {
+    DateTime? checkedAt,
+  }) async {
+    checkActive();
+    final snapshot = TaRosterSnapshot(
+      List.unmodifiable(students),
+      checkedAt ?? _now(),
+    );
+    _session.rosters[(courseId, activityId)] = snapshot;
+    try {
+      await _rosterDisk?.write(courseId, activityId, snapshot);
+    } catch (_) {
+      // The live server result remains usable when local storage is unavailable.
+    }
+    checkActive();
+  }
+
+  Future<void> cacheStudentScores(
+    int courseId,
+    int activityId,
+    Map<int, double> scores,
+  ) async {
+    final cached = _session.rosters[(courseId, activityId)];
+    if (cached == null || scores.isEmpty) return;
+    await cacheStudents(courseId, activityId, [
+      for (final s in cached.students)
+        if (scores.containsKey(s.id)) s.withScore(scores[s.id]) else s,
+    ], checkedAt: cached.checkedAt);
+  }
+
+  /// One entry-triggered refresh, through the normal rate-limited HTTP queue.
+  /// The bulk submission response supplies known scores. Missing grades are
+  /// loaded automatically from the captured history endpoint, never on hover.
+  Future<List<TaStudent>> refreshStudents(
+    int courseId,
+    int activityId, {
+    required int graded,
+    required void Function(List<TaStudent>) onProgress,
+  }) async {
+    final roster = await students(courseId, activityId);
+    final previous = _session.rosters[(courseId, activityId)];
+    final old = {for (final s in previous?.students ?? <TaStudent>[]) s.id: s};
+    final result = [
+      for (final s in roster)
+        s.withScore(
+          s.score ?? (graded == 0 ? null : old[s.id]?.score),
+          checked: graded == 0 || s.score != null,
+        ),
+    ];
+    onProgress(List.unmodifiable(result));
+    for (var i = 0; i < result.length; i++) {
+      if (result[i].scoreChecked) continue;
+      final s = result[i];
+      final score = await currentScore(activityId, s.id);
+      checkActive();
+      result[i] = s.withScore(score);
+      onProgress(List.unmodifiable(result));
+    }
+    return List.unmodifiable(result);
+  }
+
+  Future<List<TaScoreRecord>> scoreRecords(
+    int activityId,
+    int studentId,
+  ) async {
+    final records = <TaScoreRecord>[];
     var page = 1;
     while (true) {
       final data = taMap(
@@ -250,18 +354,21 @@ class TaGradingRepository {
       if (pages is! int || pages < 0 || pages > 100) {
         throw const FormatException('成绩历史分页异常');
       }
-      records.addAll(taRows(data, 'records'));
+      records.addAll(taRows(data, 'records').map(TaScoreRecord.parse));
       if (page >= pages) break;
       page++;
     }
-    if (records.isEmpty) return null;
     records.sort((a, b) {
-      final order = DateTime.parse(
-        b['created_at'] as String,
-      ).compareTo(DateTime.parse(a['created_at'] as String));
-      return order != 0 ? order : taId(b['id']).compareTo(taId(a['id']));
+      final order = b.createdAt.compareTo(a.createdAt);
+      return order != 0 ? order : b.id.compareTo(a.id);
     });
-    final score = taScore(records.first['final_score']);
+    return List.unmodifiable(records);
+  }
+
+  Future<double?> currentScore(int activityId, int studentId) async {
+    final records = await scoreRecords(activityId, studentId);
+    if (records.isEmpty) return null;
+    final score = records.first.score;
     if (score == null) throw const FormatException('成绩历史缺少最终分数，请在网页核对');
     return score;
   }

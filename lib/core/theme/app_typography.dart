@@ -18,8 +18,8 @@ abstract final class AppTypography {
   static TextStyle get pageTitle => TextStyle(
     fontFamily: family,
     fontFamilyFallback: fallback,
-    fontSize: 24,
-    height: 1.35,
+    fontSize: 26,
+    height: 1.28,
     fontWeight: FontWeight.w600,
     letterSpacing: 0,
   );

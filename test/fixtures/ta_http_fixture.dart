@@ -70,7 +70,15 @@ class TaHttpFixture implements HttpClientAdapter {
         'pages': 1,
       });
     }
-    if (path == '/api/activities/81') return response(assignment);
+    if (path == '/api/activities/81') {
+      // Captured activity detail contains configuration, not list aggregates.
+      return response(
+        Map<String, Object?>.from(assignment)
+          ..remove('expected_submit_count')
+          ..remove('submitted_count')
+          ..remove('scored_count'),
+      );
+    }
     if (path.endsWith('/students')) {
       return response({
         'students': [

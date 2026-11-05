@@ -3,10 +3,10 @@ part of 'chrome.dart';
 /// Shared visual language for choice menus and contextual action menus.
 abstract final class AppMenuStyle {
   static const inset = 6.0;
-  static const elevation = 6.0;
+  static const elevation = 8.0;
   static ShapeBorder shape(BuildContext context) => RoundedRectangleBorder(
     borderRadius: BorderRadius.circular(AppRadii.card),
-    side: BorderSide(color: AppPalette.of(context).borderStrong),
+    side: BorderSide(color: AppPalette.of(context).border),
   );
   static Color shadow(BuildContext context) => Colors.black.withValues(
     alpha: Theme.of(context).brightness == Brightness.dark ? 0.35 : 0.10,
@@ -71,7 +71,9 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
             focusColor: Colors.transparent,
             highlightColor: Colors.transparent,
             child: AnimatedContainer(
-              duration: AppMotion.fast,
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : AppMotion.fast,
               constraints: BoxConstraints(
                 minHeight: AppMobileUi.useTouchChrome(context)
                     ? AppMobileUi.target
@@ -94,7 +96,7 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
                       ? p.sidebar
                       : AppMobileUi.useTouchChrome(context)
                       ? p.controlSurface
-                      : p.content,
+                      : p.surface,
                 ),
                 borderRadius: BorderRadius.circular(AppRadii.control),
                 border: Border.all(
@@ -142,9 +144,11 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
                   ],
                   SizedBox(width: widget.compact ? 4 : 8),
                   AnimatedRotation(
-                    turns: widget.open ? (widget.plain ? -0.25 : 0.25) : 0,
-                    duration: AppMotion.fast,
-                    child: Icon(AppIcons.right, size: 18, color: p.muted),
+                    turns: widget.open ? .5 : 0,
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : AppMotion.fast,
+                    child: Icon(AppIcons.down, size: 12, color: p.muted),
                   ),
                 ],
               ),

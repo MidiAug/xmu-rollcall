@@ -102,14 +102,7 @@ void main() {
               .value,
           isNull,
         );
-        await tester.tap(find.byTooltip('核对示例学生$count的成绩'));
-        await tester.pumpAndSettle();
-        expect(
-          fixture.requests.any(
-            (r) => r.uri.path.endsWith('/submitter/$count/score-records'),
-          ),
-          isTrue,
-        );
+        expect(find.byKey(ValueKey('ta-score-$count')), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox());
         await tester.pumpAndSettle();

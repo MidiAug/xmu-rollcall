@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 /// Shared dialog surface; business pages supply content, not another skin.
@@ -15,19 +16,30 @@ class AppDialogFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
     return Dialog(
       insetPadding: insetPadding,
-      backgroundColor: p.surface,
+      backgroundColor: Colors.transparent,
       elevation: 0,
-      clipBehavior: Clip.antiAlias,
+      surfaceTintColor: Colors.transparent,
+      clipBehavior: Clip.none,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.dialog),
-        side: BorderSide(color: p.borderStrong),
       ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxWidth),
-        child: SizedBox(width: double.infinity, child: child),
+      child: AppGlassSurface(
+        blur: 0,
+        opacity: 1,
+        borderRadius: BorderRadius.circular(AppRadii.dialog),
+        child: Material(
+          color: Colors.transparent,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.dialog),
+          ),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth),
+            child: SizedBox(width: double.infinity, child: child),
+          ),
+        ),
       ),
     );
   }
@@ -57,7 +69,7 @@ class AppNoticeDialog extends StatelessWidget {
           const SizedBox(height: AppSpace.lg),
           Align(
             alignment: Alignment.centerRight,
-            child: FilledButton(onPressed: onClose, child: const Text('关闭')),
+            child: AppButton(label: '关闭', onPressed: onClose),
           ),
         ],
       ),
@@ -107,9 +119,10 @@ Future<bool> showAppConfirmDialog(
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
+                    child: AppButton(
+                      kind: AppButtonKind.secondary,
+                      label: cancelLabel,
                       onPressed: () => Navigator.pop(ctx, false),
-                      child: Text(cancelLabel),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -279,9 +292,10 @@ class _AppPromptDialogState extends State<_AppPromptDialog> {
               Row(
                 children: [
                   Expanded(
-                    child: OutlinedButton(
+                    child: AppButton(
+                      kind: AppButtonKind.secondary,
+                      label: widget.cancelLabel,
                       onPressed: () => Navigator.pop(context),
-                      child: Text(widget.cancelLabel),
                     ),
                   ),
                   const SizedBox(width: 10),

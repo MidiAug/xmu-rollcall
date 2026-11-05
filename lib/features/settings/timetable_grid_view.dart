@@ -8,6 +8,7 @@ import 'package:xmu_rollcall/features/location/place_matching.dart';
 import 'package:xmu_rollcall/features/location/location_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'dart:math' as math;
 import 'dart:async';
 
@@ -366,14 +367,8 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
       showDialog<void>(
         context: context,
         barrierColor: Colors.black.withValues(alpha: .40),
-        builder: (_) => Dialog(
-          backgroundColor: AppPalette.of(context).surface,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadii.dialog),
-            side: BorderSide(color: AppPalette.of(context).border),
-          ),
-          insetPadding: const EdgeInsets.all(24),
+        builder: (_) => AppDialogFrame(
+          maxWidth: 440,
           child: ConstrainedBox(
             constraints: BoxConstraints(
               maxWidth: 440,
@@ -610,7 +605,14 @@ class _CourseDetail extends StatelessWidget {
             _DetailRow(icon: AppIcons.calendar, text: block.weekLabel!),
           if (c.instructorsLabel.isNotEmpty)
             _DetailRow(icon: AppIcons.person, text: c.instructorsLabel),
-          if (!c.id.startsWith('academic:'))
+          if (!c.id.startsWith('academic:')) ...[
+            Text(
+              '签到地点',
+              style: text.labelMedium?.copyWith(
+                color: AppPalette.of(context).muted,
+              ),
+            ),
+            const SizedBox(height: 6),
             CourseLocationSetting(
               courseId: c.id,
               courseTitle: c.title,
@@ -620,14 +622,22 @@ class _CourseDetail extends StatelessWidget {
               meetingKey: courseMeetingKey(block.weekday, block.block),
               meetings: courseMeetingLabels(c),
             ),
+          ],
+          Text(
+            '教务教室',
+            style: text.labelMedium?.copyWith(
+              color: AppPalette.of(context).muted,
+            ),
+          ),
+          const SizedBox(height: 6),
           Material(
             color: Colors.transparent,
             child: InkWell(
               key: const ValueKey('course-location-map-link'),
               onTap: c.location?.isNotEmpty == true ? onMap : null,
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(AppRadii.control),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
+                padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
                 child: Row(
                   children: [
                     Icon(

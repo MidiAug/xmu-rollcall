@@ -197,26 +197,12 @@ class _CampusSearchPageState extends ConsumerState<CampusSearchPage> {
         ),
         child: Column(
           children: [
-            TextField(
+            AppSearchField(
               key: const ValueKey('campus-search-field'),
               controller: _query,
               autofocus: true,
-              textInputAction: TextInputAction.search,
+              hintText: '搜索功能、课程与校园办事',
               onChanged: (_) => setState(() {}),
-              decoration: InputDecoration(
-                hintText: '搜索功能、课程与校园办事',
-                prefixIcon: const Icon(AppIcons.search),
-                suffixIcon: q.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: '清空',
-                        onPressed: () {
-                          _query.clear();
-                          setState(() {});
-                        },
-                        icon: const Icon(AppIcons.close),
-                      ),
-              ),
             ),
             Expanded(
               child: ListView(

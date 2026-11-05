@@ -603,7 +603,6 @@ class AppActionMenu<T> extends StatelessWidget {
   final bool enabled, framed;
   @override
   Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
     return AppShellSelect<T?>(
       value: null,
       items: [for (final action in actions) action.value],
@@ -618,31 +617,14 @@ class AppActionMenu<T> extends StatelessWidget {
               if (value != null) onSelected(value);
             }
           : null,
-      triggerBuilder: (context, open, toggle, focus) => AppTooltipAnchor(
-        child: IconButton(
-          tooltip: tooltip,
-          focusNode: focus,
-          onPressed: toggle,
-          icon: const Icon(AppIcons.more, size: 20),
-          style: IconButton.styleFrom(
-            backgroundColor: AppMobileUi.useTouchChrome(context)
-                ? Colors.transparent
-                : open
-                ? p.selected
-                : AppPalette.clearOf(p.primary),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            minimumSize: Size.square(
-              AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 32,
-            ),
-            padding: const EdgeInsets.all(6),
-            side: framed && !AppMobileUi.useTouchChrome(context)
-                ? BorderSide(color: p.borderStrong)
-                : BorderSide.none,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(7),
-            ),
-          ),
-        ),
+      triggerBuilder: (context, open, toggle, focus) => AppIconButton(
+        tooltip: tooltip,
+        focusNode: focus,
+        onPressed: toggle,
+        icon: const Icon(AppIcons.more, size: 20),
+        extent: AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 32,
+        active: open && !AppMobileUi.useTouchChrome(context),
+        framed: framed && !AppMobileUi.useTouchChrome(context),
       ),
     );
   }

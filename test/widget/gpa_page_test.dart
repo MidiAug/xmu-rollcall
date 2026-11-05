@@ -128,6 +128,42 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+  testWidgets('GPA receipt stays readable with large text on a narrow phone', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 1100);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => Auth()),
+          gradeSnapshotProvider.overrideWith(Grades.new),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(1.5)),
+            child: child!,
+          ),
+          home: const GpaPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('3.33'), findsOneWidget);
+    await tester.ensureVisible(find.byKey(const ValueKey('grade-b')));
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byKey(const ValueKey('grade-b')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('grade-summary')));
+    expect(find.text('4.00'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
   for (final width in [320.0, 384.0, 960.0]) {
     for (final dark in [false, true]) {
       testWidgets(

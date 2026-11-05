@@ -32,20 +32,18 @@ Future<void> loadDesktopPreviewFonts() async {
       jsonDecode(File('.dart_tool/package_config.json').readAsStringSync())
           as Map;
   for (final package in config['packages'] as List) {
-    if (package['name'] != 'fluentui_system_icons') continue;
-    final uri = Uri.parse(package['rootUri'] as String);
-    final dir = uri.isAbsolute
-        ? Directory.fromUri(uri).path
-        : Directory('.dart_tool/${package['rootUri']}').absolute.path;
-    for (final face in ['Regular', 'Filled']) {
-      await (FontLoader(
-            'packages/fluentui_system_icons/FluentSystemIcons-$face',
-          )..addFont(
+    if (package['name'] == 'cupertino_icons') {
+      final uri = Uri.parse(package['rootUri'] as String);
+      final dir = uri.isAbsolute
+          ? Directory.fromUri(uri).path
+          : Directory('.dart_tool/${package['rootUri']}').absolute.path;
+      await (FontLoader('packages/cupertino_icons/CupertinoIcons')..addFont(
             File(
-              '$dir/lib/fonts/FluentSystemIcons-$face.ttf',
+              '$dir/assets/CupertinoIcons.ttf',
             ).readAsBytes().then(ByteData.sublistView),
           ))
           .load();
+      continue;
     }
   }
 }

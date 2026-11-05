@@ -32,10 +32,9 @@ class SettingsSection extends StatelessWidget {
     final p = AppPalette.of(context);
     final touch = AppMobileUi.useTouchChrome(context);
     final rowPad = rowPadding ?? AppDensity.rowPadding(context);
-    const captionInset = 0.0;
+    const captionInset = 12.0;
     final dividerIndent =
-        rowPad.left +
-        (hasLeading ? (touch ? 36 : 20) + AppDensity.rowInnerGap(context) : 0);
+        rowPad.left + (hasLeading ? 36 + AppDensity.rowInnerGap(context) : 0);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -138,7 +137,6 @@ class SettingsRow extends StatefulWidget {
 }
 
 class _SettingsRowState extends State<SettingsRow> {
-  var _hover = false;
   var _pressed = false;
   var _focused = false;
 
@@ -148,7 +146,7 @@ class _SettingsRowState extends State<SettingsRow> {
     final h = widget.minHeight ?? AppDensity.rowHeight(context);
     final gap = AppDensity.rowInnerGap(context);
     final interactive = widget.onTap != null;
-    final wash = interactive && (_pressed || _hover || _focused)
+    final wash = interactive && _pressed
         ? p.hover
         : AppPalette.clearOf(p.hover);
 
@@ -163,9 +161,17 @@ class _SettingsRowState extends State<SettingsRow> {
             style: Theme.of(context).textTheme.bodySmall,
           );
     Widget buildContent(bool below) => AnimatedContainer(
-      duration: AppMotion.fast,
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : AppMotion.fast,
       curve: AppMotion.fastCurve,
       color: wash,
+      foregroundDecoration: BoxDecoration(
+        border: Border.all(
+          color: _focused ? p.focus : AppPalette.clearOf(p.focus),
+        ),
+        borderRadius: BorderRadius.circular(AppRadii.control),
+      ),
       padding: widget.contentPadding ?? AppDensity.rowPadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -176,25 +182,12 @@ class _SettingsRowState extends State<SettingsRow> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 if (widget.leading != null) ...[
-                  if (AppMobileUi.useTouchChrome(context) &&
-                      widget.leading is Icon)
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: p.accentSurface,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: IconTheme(
-                        data: IconThemeData(color: p.primary, size: 20),
-                        child: widget.leading!,
-                      ),
-                    )
+                  if (widget.leading is Icon)
+                    AppIconSurface(child: widget.leading!)
                   else
-                    IconTheme(
-                      data: IconThemeData(color: p.muted, size: 20),
-                      child: widget.leading!,
+                    SizedBox.square(
+                      dimension: 36,
+                      child: Center(child: widget.leading!),
                     ),
                   SizedBox(width: gap),
                 ],
@@ -247,8 +240,6 @@ class _SettingsRowState extends State<SettingsRow> {
     if (!interactive) return content;
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
       cursor: SystemMouseCursors.click,
       child: Material(
         type: MaterialType.transparency,
@@ -256,7 +247,12 @@ class _SettingsRowState extends State<SettingsRow> {
         child: InkWell(
           hoverColor: Colors.transparent,
           highlightColor: Colors.transparent,
-          onFocusChange: (focused) => setState(() => _focused = focused),
+          onFocusChange: (focused) => setState(
+            () => _focused =
+                focused &&
+                FocusManager.instance.highlightMode ==
+                    FocusHighlightMode.traditional,
+          ),
           splashFactory: NoSplash.splashFactory,
           focusColor: Colors.transparent,
           onHighlightChanged: (pressed) => setState(() => _pressed = pressed),

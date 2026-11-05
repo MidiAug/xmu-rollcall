@@ -29,7 +29,7 @@ void main() {
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
-        final f = TaHttpFixture();
+        final f = TaHttpFixture()..scores[1] = 88;
         final repo = await f.repository();
         addTearDown(repo.dispose);
         await tester.pumpWidget(
@@ -70,8 +70,8 @@ void main() {
         expect(find.text('导入 CSV'), findsNothing);
         expect(find.text('下载打包'), findsNothing);
         expect(find.byType(Checkbox), findsNothing);
-        await tester.tap(find.byTooltip('核对成绩').first);
-        await tester.pumpAndSettle();
+        expect(find.text('待核对'), findsNothing);
+        expect(find.text('88 分'), findsOneWidget);
         expect(f.requests.every((r) => r.method == 'GET'), isTrue);
         expect(f.requests.where((r) => r.uri.path.contains('/zip')), isEmpty);
         expect(

@@ -118,6 +118,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('已提交'), findsOneWidget);
+      expect(find.text('open'), findsNothing);
+      expect(find.text('homework'), findsNothing);
       expect(find.text('已批改'), findsOneWidget);
       final bottom = tester
           .getBottomLeft(find.text('Assignment instructions'))

@@ -335,6 +335,8 @@ void main() {
           );
         }
         expect(find.byType(Dialog), desktop ? findsOneWidget : findsNothing);
+        expect(find.text('签到地点'), findsOneWidget);
+        expect(find.text('教务教室'), findsOneWidget);
         await capture('03-detail');
         final flow = find.byKey(const ValueKey('course-detail-flow'));
         final width = tester.getSize(flow).width;

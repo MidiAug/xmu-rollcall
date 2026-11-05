@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/app_checkbox.dart';
+import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 
@@ -9,19 +11,7 @@ Future<void> showLoginDialog(BuildContext context) {
   return showDialog<void>(
     context: context,
     barrierColor: Colors.black.withValues(alpha: 0.4),
-    builder: (ctx) {
-      final p = AppPalette.of(ctx);
-      return Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
-        backgroundColor: p.surface,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadii.dialog),
-          side: BorderSide(color: p.border),
-        ),
-        child: const LoginDialog(),
-      );
-    },
+    builder: (_) => const AppDialogFrame(maxWidth: 400, child: LoginDialog()),
   );
 }
 
@@ -123,11 +113,10 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
                       ),
                     ),
                   ),
-                  IconButton(
+                  AppIconButton(
                     tooltip: '关闭',
-                    visualDensity: VisualDensity.compact,
                     onPressed: () => Navigator.of(context).pop(),
-                    icon: Icon(Icons.close_rounded, size: 18, color: p.muted),
+                    icon: Icon(AppIcons.close, size: 16, color: p.muted),
                   ),
                 ],
               ),
@@ -149,7 +138,7 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
                 ],
                 decoration: const InputDecoration(
                   labelText: '学号',
-                  prefixIcon: Icon(Icons.badge_outlined, size: 20),
+                  prefixIcon: Icon(AppIcons.person, size: 19),
                 ),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return '请输入学号';
@@ -165,13 +154,12 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
                 onFieldSubmitted: (_) => _submit(),
                 decoration: InputDecoration(
                   labelText: '密码',
-                  prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
-                  suffixIcon: IconButton(
+                  prefixIcon: const Icon(AppIcons.lock, size: 19),
+                  suffixIcon: AppIconButton(
+                    tooltip: _obscure ? '显示密码' : '隐藏密码',
                     onPressed: () => setState(() => _obscure = !_obscure),
                     icon: Icon(
-                      _obscure
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
+                      _obscure ? AppIcons.visible : AppIcons.hidden,
                       size: 20,
                     ),
                   ),
@@ -181,16 +169,12 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
                   return null;
                 },
               ),
-              CheckboxListTile(
+              AppCheckboxRow(
+                label: '记住密码',
                 value: _rememberPassword,
                 onChanged: loading
                     ? null
-                    : (value) =>
-                          setState(() => _rememberPassword = value ?? false),
-                title: const Text('记住密码', style: TextStyle(fontSize: 13)),
-                controlAffinity: ListTileControlAffinity.leading,
-                contentPadding: EdgeInsets.zero,
-                dense: true,
+                    : (value) => setState(() => _rememberPassword = value),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 12),
@@ -202,18 +186,10 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
               const SizedBox(height: 20),
               Padding(
                 padding: const EdgeInsets.only(right: 8),
-                child: FilledButton(
-                  onPressed: loading ? null : _submit,
-                  child: loading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('登录'),
+                child: AppButton(
+                  label: '登录',
+                  busy: loading,
+                  onPressed: _submit,
                 ),
               ),
             ],

@@ -118,7 +118,7 @@ void main() {
             triggerDecoration().color,
             width < AppLayout.shellBreakpoint
                 ? palette.controlSurface
-                : palette.content,
+                : palette.surface,
           );
           // Focus returns to the trigger after selection, so keyboard can reopen it.
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -128,7 +128,7 @@ void main() {
             triggerDecoration().color,
             width < AppLayout.shellBreakpoint
                 ? palette.controlSurface
-                : palette.content,
+                : palette.surface,
           );
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           await tester.pumpAndSettle();

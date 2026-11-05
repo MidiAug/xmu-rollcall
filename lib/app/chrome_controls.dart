@@ -16,57 +16,6 @@ abstract final class AppControlStyle {
   }
 }
 
-/// A compact table-cell action on the table's existing Material surface.
-/// Avoids creating a separate button surface and minimum-width layout per row.
-class AppTableAction extends StatelessWidget {
-  const AppTableAction({
-    super.key,
-    required this.label,
-    required this.tooltip,
-    required this.onPressed,
-  });
-  final String label, tooltip;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return AppTooltipAnchor(
-      child: Tooltip(
-        message: tooltip,
-        child: Semantics(
-          button: true,
-          enabled: onPressed != null,
-          child: InkWell(
-            onTap: onPressed,
-            borderRadius: BorderRadius.circular(AppRadii.control),
-            hoverColor: p.hover,
-            focusColor: p.selected,
-            highlightColor: p.selected,
-            splashFactory: NoSplash.splashFactory,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 44),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: onPressed == null
-                        ? p.muted.withValues(alpha: .5)
-                        : p.muted,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Strong, consistently aligned dismissal action with a full touch target.
 class AppSheetCloseButton extends StatelessWidget {
   const AppSheetCloseButton({
@@ -81,15 +30,11 @@ class AppSheetCloseButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool enabled;
   @override
-  Widget build(BuildContext context) => IconButton(
+  Widget build(BuildContext context) => AppIconButton(
     tooltip: tooltip,
     padding: EdgeInsets.zero,
-    constraints: BoxConstraints(
-      minWidth: AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 44,
-      minHeight: AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 44,
-    ),
+    extent: 44,
     alignment: alignWithTitle ? Alignment.topCenter : Alignment.center,
-    color: AppPalette.of(context).ink,
     onPressed: enabled ? onPressed ?? () => Navigator.of(context).pop() : null,
     icon: Padding(
       padding: EdgeInsets.only(top: alignWithTitle ? 2 : 0),
@@ -98,7 +43,6 @@ class AppSheetCloseButton extends StatelessWidget {
   );
 }
 
-/// Soft pill strip for grouped icon actions (desktop toolbars).
 /// Soft stadium control without Material ripple (poll / quick actions).
 class AppQuietPill extends StatelessWidget {
   const AppQuietPill({
@@ -122,6 +66,8 @@ class AppQuietPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final enabled = onTap != null;
+    final strong = background == p.primary;
+    final hover = strong ? Color.lerp(p.primary, p.ink, .12)! : p.hover;
     return MouseRegion(
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       child: Material(
@@ -130,10 +76,10 @@ class AppQuietPill extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           borderRadius: BorderRadius.circular(radius),
-          hoverColor: p.hover,
+          hoverColor: hover,
           splashFactory: NoSplash.splashFactory,
           highlightColor: Colors.transparent,
-          focusColor: p.hover,
+          focusColor: hover,
           onTap: onTap,
           child: AnimatedOpacity(
             duration: AppMotion.instant,
@@ -162,28 +108,7 @@ class AppQuietPill extends StatelessWidget {
   }
 }
 
-class AppIconCluster extends StatelessWidget {
-  const AppIconCluster({super.key, required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return Container(
-      height: 34,
-      padding: const EdgeInsets.symmetric(horizontal: 2),
-      decoration: BoxDecoration(
-        color: p.surface,
-        borderRadius: BorderRadius.circular(17),
-        border: Border.all(color: p.border),
-      ),
-      child: Row(mainAxisSize: MainAxisSize.min, children: children),
-    );
-  }
-}
-
-/// List / tile surface: color lift + hairline **on hover only** (Quiet Utility).
+/// Shared tile interaction with a stable focus outline and surface feedback.
 class AppHoverSurface extends StatefulWidget {
   const AppHoverSurface({
     super.key,
@@ -192,6 +117,7 @@ class AppHoverSurface extends StatefulWidget {
     this.borderRadius,
     this.onTap,
     this.outlined = true,
+    this.backgroundColor,
   });
 
   final Widget child;
@@ -199,6 +125,7 @@ class AppHoverSurface extends StatefulWidget {
   final BorderRadius? borderRadius;
   final VoidCallback? onTap;
   final bool outlined;
+  final Color? backgroundColor;
 
   @override
   State<AppHoverSurface> createState() => _AppHoverSurfaceState();
@@ -214,16 +141,29 @@ class _AppHoverSurfaceState extends State<AppHoverSurface> {
     final p = AppPalette.of(context);
     final radius = widget.borderRadius ?? BorderRadius.circular(AppRadii.card);
     final lift = widget.onTap != null && (_pressed || _hover || _focused);
+    final background = widget.backgroundColor ?? p.surface;
+    // Transparent black introduces a gray dip while RGB and alpha interpolate.
+    // Match the hover hue at zero alpha to preserve the underlying glass.
+    final idle = background.a == 0
+        ? AppPalette.clearOf(p.cardHover)
+        : background;
     final body = AnimatedContainer(
-      duration: AppMotion.fast,
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : AppMotion.fast,
       curve: AppMotion.fastCurve,
       padding: widget.padding,
       decoration: BoxDecoration(
-        color: lift ? p.cardHover : p.surface,
+        color: _pressed ? p.content : (lift ? p.cardHover : idle),
         borderRadius: radius,
-        border: widget.outlined
-            ? Border.all(color: lift ? p.borderStrong : p.border)
-            : null,
+        // Keep one border's space in every state so keyboard focus never jumps.
+        border: Border.all(
+          color: _focused
+              ? p.focus
+              : widget.outlined
+              ? (lift ? p.borderStrong : p.border)
+              : AppPalette.clearOf(p.focus),
+        ),
       ),
       child: widget.child,
     );

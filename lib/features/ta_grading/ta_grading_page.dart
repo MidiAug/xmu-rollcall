@@ -19,6 +19,9 @@ import 'ta_models.dart';
 import 'ta_providers.dart';
 import 'ta_repository.dart';
 import 'ta_widgets.dart';
+import 'ta_score_field.dart';
+import 'ta_score_history_dialog.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'ta_mobile_assignment_page.dart';
 
 class TaGradingPage extends ConsumerWidget {
@@ -32,7 +35,6 @@ class TaGradingPage extends ConsumerWidget {
           ? () => Navigator.of(context).maybePop()
           : null,
       title: taIsMobile(context) ? '助教作业' : '修改作业',
-      subtitle: taIsMobile(context) ? '课程进度与学生提交' : '作业进度、打包下载与批量评分',
       child: repository.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => _Failure(
@@ -130,7 +132,7 @@ class _TaCoursesState extends State<_TaCourses> {
                   color: p.accentSurface,
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: Icon(Icons.school_outlined, size: 32, color: p.primary),
+                child: Icon(AppIcons.people, size: 32, color: p.primary),
               ),
               const SizedBox(height: 20),
               Text('还没有助教课程', style: Theme.of(context).textTheme.titleLarge),
@@ -175,7 +177,12 @@ class _TaCoursesState extends State<_TaCourses> {
             return const Center(child: CircularProgressIndicator());
           }
           return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+            padding: EdgeInsets.fromLTRB(
+              AppSpace.pageXOf(context),
+              8,
+              AppSpace.pageXOf(context),
+              24,
+            ),
             itemCount: assignments.length + 1,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
@@ -183,67 +190,52 @@ class _TaCoursesState extends State<_TaCourses> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: p.accentSurface.withValues(alpha: .6),
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                    Row(
+                      children: [
+                        const AppIconSurface(
+                          size: 44,
+                          child: Icon(AppIcons.homework),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
-                                Icons.school_outlined,
-                                color: p.primary,
-                                size: 21,
-                              ),
-                              const SizedBox(width: 8),
                               Text(
-                                '助教工作台',
-                                style: Theme.of(context).textTheme.labelMedium
-                                    ?.copyWith(color: p.primary),
+                                '助教课程',
+                                style: TextStyle(color: p.muted, fontSize: 12),
                               ),
-                              const Spacer(),
-                              AppRefreshButton(
-                                tooltip: '更新作业',
-                                iconSize: 20,
-                                busy:
-                                    snapshot.connectionState ==
-                                    ConnectionState.waiting,
-                                onRefresh: () async {
-                                  if (_course != null) {
-                                    _select(_course!, refresh: true);
-                                    try {
-                                      await _assignments;
-                                    } catch (_) {
-                                      // FutureBuilder keeps cached content and reports the failure.
-                                    }
-                                  }
-                                },
+                              const SizedBox(height: 5),
+                              AppTruncatedText(
+                                course.title,
+                                style: TextStyle(
+                                  color: p.ink,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          AppTruncatedText(
-                            course.title,
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 18),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              TaTag('${assignments.length} 项作业'),
-                              TaTag(
-                                '待批改 ${assignments.fold<int>(0, (n, a) => n + (a.submitted - a.graded).clamp(0, a.submitted))}',
-                                color: p.warning,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 12),
+                        AppRefreshButton(
+                          tooltip: '更新作业',
+                          iconSize: 20,
+                          busy:
+                              snapshot.connectionState ==
+                              ConnectionState.waiting,
+                          onRefresh: () async {
+                            if (_course != null) {
+                              _select(_course!, refresh: true);
+                              try {
+                                await _assignments;
+                              } catch (_) {
+                                // FutureBuilder keeps cached content and reports the failure.
+                              }
+                            }
+                          },
+                        ),
+                      ],
                     ),
                     if (widget.courses.length > 1) ...[
                       const SizedBox(height: 14),
@@ -264,6 +256,11 @@ class _TaCoursesState extends State<_TaCourses> {
                                 ),
                                 clipBehavior: Clip.antiAlias,
                                 child: InkWell(
+                                  hoverColor: c.id == '$_course'
+                                      ? Colors.transparent
+                                      : p.hover,
+                                  highlightColor: Colors.transparent,
+                                  focusColor: p.primary.withValues(alpha: .12),
                                   onTap: () {
                                     final id = int.tryParse(c.id);
                                     if (id != null && id != _course) {
@@ -276,8 +273,8 @@ class _TaCoursesState extends State<_TaCourses> {
                                       children: [
                                         Icon(
                                           c.id == '$_course'
-                                              ? Icons.check_circle_outline
-                                              : Icons.circle_outlined,
+                                              ? AppIcons.checkCircle
+                                              : AppIcons.person,
                                           size: 16,
                                           color: p.primary,
                                         ),
@@ -314,9 +311,15 @@ class _TaCoursesState extends State<_TaCourses> {
                         ),
                       ),
                     const SizedBox(height: 26),
-                    Text(
-                      '课程作业',
-                      style: Theme.of(context).textTheme.titleMedium,
+                    Row(
+                      children: [
+                        Text(
+                          '课程作业',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(width: 8),
+                        AppStatusBadge('${assignments.length}'),
+                      ],
                     ),
                     if (assignments.isEmpty)
                       const Padding(
@@ -331,121 +334,73 @@ class _TaCoursesState extends State<_TaCourses> {
                 0,
                 item.submitted,
               );
-              return Material(
-                color: p.surface,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: p.borderStrong),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () async {
-                    final courseId = _course!;
-                    await AppPageRoutes.push(
-                      context,
-                      taIsMobile(context)
-                          ? TaMobileAssignmentPage(
-                              repository: widget.repository,
-                              courseId: courseId,
-                              assignment: item,
-                            )
-                          : TaAssignmentPage(
-                              repository: widget.repository,
-                              courseId: courseId,
-                              assignment: item,
-                            ),
-                    );
-                    if (mounted &&
-                        widget.repository.active &&
-                        _course == courseId) {
-                      _select(courseId);
-                    }
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              return AppHoverSurface(
+                padding: const EdgeInsets.all(16),
+                onTap: () async {
+                  final courseId = _course!;
+                  await AppPageRoutes.push(
+                    context,
+                    taIsMobile(context)
+                        ? TaMobileAssignmentPage(
+                            repository: widget.repository,
+                            courseId: courseId,
+                            assignment: item,
+                          )
+                        : TaAssignmentPage(
+                            repository: widget.repository,
+                            courseId: courseId,
+                            assignment: item,
+                          ),
+                  );
+                  if (mounted &&
+                      widget.repository.active &&
+                      _course == courseId) {
+                    _select(courseId);
+                  }
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: p.controlSurface,
-                                borderRadius: BorderRadius.circular(11),
-                              ),
-                              child: Icon(
-                                Icons.assignment_outlined,
-                                color: p.primary,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: AppTruncatedText(
-                                item.title,
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Icon(Icons.chevron_right, color: p.muted, size: 20),
-                          ],
+                        const AppIconSurface(
+                          child: Icon(AppIcons.serviceGrading),
                         ),
-                        const SizedBox(height: 18),
-                        Wrap(
-                          spacing: 16,
-                          runSpacing: 8,
-                          children: [
-                            Text(
-                              '应交 ${item.expected}',
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodySmall?.copyWith(color: p.muted),
-                            ),
-                            Text(
-                              '已提交 ${item.submitted}',
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodySmall?.copyWith(color: p.muted),
-                            ),
-                            Text(
-                              '已批改 ${item.graded}',
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodySmall?.copyWith(color: p.muted),
-                            ),
-                          ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: AppTruncatedText(
+                            item.title,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
                         ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: LinearProgressIndicator(
-                                  minHeight: 4,
-                                  value: item.expected == 0
-                                      ? 0
-                                      : (item.submitted / item.expected).clamp(
-                                          0,
-                                          1,
-                                        ),
-                                  backgroundColor: p.controlSurface,
-                                  color: p.primary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            TaTag(
-                              pending == 0 ? '暂无待批改' : '待批改 $pending',
-                              color: pending == 0 ? p.muted : p.warning,
-                            ),
-                          ],
+                        const SizedBox(width: 8),
+                        Icon(AppIcons.right, color: p.muted, size: 20),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 6,
+                      children: [
+                        for (final metric in [
+                          ('应交', item.expected),
+                          ('已提交', item.submitted),
+                          ('已批改', item.graded),
+                        ])
+                          Text(
+                            '${metric.$1} ${metric.$2}',
+                            style: TextStyle(color: p.muted, fontSize: 12),
+                          ),
+                        Text(
+                          pending == 0 ? '批改完成' : '待批改 $pending',
+                          style: TextStyle(
+                            color: pending == 0 ? p.muted : p.warning,
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
-                  ),
+                  ],
                 ),
               );
             },
@@ -490,7 +445,10 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
   final _selected = <int>{};
   String _search = '';
   int _submissionFilter = 0;
-  final _checkingScores = <int>{};
+  final _scoreDrafts = <int, String>{};
+  final _localScores = <int, double>{};
+  int? _savingStudent;
+  bool _rosterReady = false, _refreshingRoster = false;
   TaZip? _zip, _oldZip;
   bool _downloadMatchesSelection = false, _packSelectionChanged = false;
   bool _building = false, _zipBusy = false, _importing = false;
@@ -513,22 +471,72 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
     _loading = _load();
   }
 
-  Future<void> _load() async {
-    final detail = await _repository.detail(
-      widget.courseId,
-      widget.assignment.id,
-    );
-    final students = await _repository.students(
-      widget.courseId,
-      widget.assignment.id,
-    );
-    if (!mounted) {
-      return;
+  Future<void> _load({bool refreshSummary = false}) async {
+    _refreshingRoster = true;
+    _localScores.clear();
+    try {
+      final cached = await _repository.restoreStudents(
+        widget.courseId,
+        widget.assignment.id,
+      );
+      if (!mounted || !_repository.active) return;
+      if (cached != null && !_rosterReady) {
+        _students = cached.students;
+        _rosterReady = true;
+        _changed();
+      }
+      final detail = await _repository.detail(
+        widget.courseId,
+        widget.assignment.id,
+      );
+      if (!mounted || !_repository.active) return;
+      _detail = detail;
+      // Activity detail has no count fields in the captured response. Counts
+      // come from the course assignment list, never the parser's zero defaults.
+      final assignments = await _repository.assignments(
+        widget.courseId,
+        refresh: refreshSummary,
+      );
+      if (!mounted || !_repository.active) return;
+      _summary = assignments.firstWhere(
+        (a) => a.id == widget.assignment.id,
+        orElse: () => _summary,
+      );
+      _changed();
+      await _repository.refreshStudents(
+        widget.courseId,
+        widget.assignment.id,
+        graded: _summary.graded,
+        onProgress: (students) {
+          if (!mounted || !_repository.active) return;
+          setState(() {
+            _students = [
+              for (final s in students)
+                if (_localScores.containsKey(s.id))
+                  s.withScore(_localScores[s.id])
+                else
+                  s,
+            ];
+            _rosterReady = true;
+            _selected.removeWhere((id) => !_students.any((s) => s.id == id));
+          });
+        },
+      );
+      if (!mounted || !_repository.active) return;
+      await _repository.cacheStudents(
+        widget.courseId,
+        widget.assignment.id,
+        _students,
+      );
+      unawaited(_checkZip());
+    } catch (_) {
+      if (!mounted || !_repository.active) return;
+      if (!_rosterReady) rethrow;
+      _message('更新失败，保留已加载的名单和成绩');
+    } finally {
+      _refreshingRoster = false;
+      _changed();
     }
-    _detail = detail;
-    _students = students;
-    _selected.removeWhere((id) => !students.any((s) => s.id == id));
-    unawaited(_checkZip());
   }
 
   @override
@@ -553,7 +561,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
 
   void _message(String text) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+      AppToast.show(context, text);
     }
   }
 
@@ -690,7 +698,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
   }
 
   Future<void> _submit() async {
-    if (_batch.running || !_repository.active) {
+    if (_batch.running || _savingStudent != null || !_repository.active) {
       return;
     }
     final yes = await showAppConfirmDialog(
@@ -727,18 +735,28 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
       () => _students = [
         for (final student in _students)
           if (saved.containsKey(student.id))
-            TaStudent(
-              id: student.id,
-              number: student.number,
-              name: student.name,
-              submitted: student.submitted,
-              score: saved[student.id],
-              scoreChecked: true,
-            )
+            student.withScore(saved[student.id])
           else
             student,
       ],
     );
+    _localScores.addAll(saved);
+    _scoreDrafts.removeWhere((id, _) => saved.containsKey(id));
+    try {
+      await _repository.cacheStudentScores(
+        widget.courseId,
+        widget.assignment.id,
+        saved,
+      );
+    } catch (_) {
+      if (!mounted || !_repository.active) return;
+      rethrow;
+    }
+    if (!mounted || !_repository.active) return;
+    await _refreshSummary();
+  }
+
+  Future<void> _refreshSummary() async {
     try {
       _repository.markAssignmentsStale(widget.courseId);
       final assignments = await _repository.assignments(widget.courseId);
@@ -752,47 +770,127 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
         );
       });
     } catch (_) {
-      _message('成绩处理已结束，作业进度未更新，请返回后刷新');
+      if (mounted && _repository.active) {
+        _message('作业进度未更新，请稍后刷新');
+      }
     }
   }
 
-  Future<void> _checkStudent(TaStudent student) async {
+  Future<void> _saveInline(TaStudent student, String text) async {
     if (_batch.running ||
+        _importing ||
         !_repository.active ||
-        !_checkingScores.add(student.id)) {
+        _detail?.canGrade != true ||
+        _savingStudent != null) {
       return;
     }
-    _changed();
+    if (!student.submitted) {
+      _message('未提交作业不能直接评分');
+      return;
+    }
+    final score = text.trim();
+    final issue = taPercentageScoreIssue(score);
+    if (issue != null) {
+      AppToast.show(context, issue, error: true);
+      return;
+    }
+    _savingStudent = student.id;
+    final row = TaGradeRow(
+      line: 1,
+      number: student.number,
+      score: score,
+      student: student,
+    );
+    widget.repository.markAssignmentsStale(widget.courseId);
     try {
-      final score = await _repository.currentScore(
-        widget.assignment.id,
-        student.id,
+      await _batch.run(
+        repository: _repository,
+        activityId: widget.assignment.id,
+        rows: [row],
+        overwrite: true,
+        allowUnsubmitted: false,
+        onChanged: _changed,
       );
-      if (!mounted) {
-        return;
+      if (!mounted || !_repository.active) return;
+      // A lost acknowledgement is resolved by a read, never by retrying a PUT.
+      if (row.status == TaRowStatus.uncertain) {
+        try {
+          if (await _repository.currentScore(
+                widget.assignment.id,
+                student.id,
+              ) ==
+              double.parse(score)) {
+            row.status = TaRowStatus.saved;
+          }
+        } catch (_) {
+          /* Keep the draft when the server is still unavailable. */
+        }
       }
-      setState(
-        () => _students = [
-          for (final s in _students)
-            if (s.id == student.id)
-              TaStudent(
-                id: s.id,
-                number: s.number,
-                name: s.name,
-                submitted: s.submitted,
-                score: score,
-                scoreChecked: true,
-              )
-            else
-              s,
-        ],
-      );
-    } catch (error) {
-      _message(requestFailureMessage(error));
+      if (!mounted || !_repository.active) return;
+      if (row.status == TaRowStatus.saved ||
+          row.status == TaRowStatus.skipped) {
+        final value = double.parse(score);
+        setState(() {
+          _localScores[student.id] = value;
+          _scoreDrafts.remove(student.id);
+          _students = [
+            for (final s in _students)
+              if (s.id == student.id) s.withScore(value) else s,
+          ];
+        });
+        _message(
+          row.status == TaRowStatus.saved ? '${student.name}的成绩已保存' : '成绩未变化',
+        );
+        await _repository.cacheStudentScores(
+          widget.courseId,
+          widget.assignment.id,
+          {student.id: value},
+        );
+        await _refreshSummary();
+      } else {
+        AppToast.show(
+          context,
+          row.status == TaRowStatus.uncertain
+              ? '成绩同步失败，输入已保留，请稍后刷新'
+              : '保存失败，输入已保留',
+          error: true,
+        );
+      }
+    } catch (_) {
+      if (mounted && _repository.active) {
+        AppToast.show(context, '成绩同步失败，输入已保留', error: true);
+      }
     } finally {
-      _checkingScores.remove(student.id);
+      _savingStudent = null;
       _changed();
     }
+  }
+
+  Future<void> _openScoreHistory(TaStudent student) async {
+    if (!_repository.active) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Consumer(
+        builder: (context, ref, _) {
+          if (!identical(
+                ref.watch(taRepositoryProvider).valueOrNull,
+                widget.repository,
+              ) ||
+              !_repository.active) {
+            return AppNoticeDialog(
+              title: '当前页面已失效',
+              message: '请返回后重新打开作业',
+              onClose: () => Navigator.pop(context),
+            );
+          }
+          return TaScoreHistoryDialog(
+            repository: _repository,
+            activityId: widget.assignment.id,
+            student: student,
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _openCsvReview() async {
@@ -849,7 +947,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                       width: double.infinity,
                       height: _rows.isEmpty
                           ? null
-                          : (420.0 + _rows.length * 42).clamp(
+                          : (324.0 + _rows.length * 42).clamp(
                               300.0,
                               (MediaQuery.sizeOf(context).height * .82).clamp(
                                 300.0,
@@ -988,37 +1086,23 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                                 ),
                               ),
                               const SizedBox(height: 8),
-                              CheckboxListTile(
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
-                                controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                title: Text(
-                                  '允许覆盖已有成绩',
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
+                              AppCheckboxRow(
+                                label: '允许覆盖已有成绩',
                                 value: _overwrite,
                                 onChanged: _batch.running
                                     ? null
                                     : (v) {
-                                        _overwrite = v!;
+                                        _overwrite = v;
                                         update(() {});
                                       },
                               ),
-                              CheckboxListTile(
-                                dense: true,
-                                contentPadding: EdgeInsets.zero,
-                                controlAffinity:
-                                    ListTileControlAffinity.leading,
-                                title: Text(
-                                  '允许为未提交者评分',
-                                  style: Theme.of(context).textTheme.bodyMedium,
-                                ),
+                              AppCheckboxRow(
+                                label: '允许为未提交者评分',
                                 value: _allowUnsubmitted,
                                 onChanged: _batch.running
                                     ? null
                                     : (v) {
-                                        _allowUnsubmitted = v!;
+                                        _allowUnsubmitted = v;
                                         update(() {});
                                       },
                               ),
@@ -1055,11 +1139,11 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                                     child: Text(copied ? '已复制模板' : '复制模板'),
                                   ),
                                 if (!_batch.running && _rows.isEmpty)
-                                  FilledButton(
-                                    onPressed: _importing ? null : _import,
-                                    child: Text(
-                                      _importing ? '正在读取…' : '选择 CSV 文件',
-                                    ),
+                                  AppButton(
+                                    label: _importing ? '正在读取…' : '选择 CSV 文件',
+                                    icon: AppIcons.upload,
+                                    busy: _importing,
+                                    onPressed: _import,
                                   ),
                                 if (!_batch.running && _rows.isNotEmpty)
                                   TextButton(
@@ -1067,9 +1151,10 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                                     child: Text(_importing ? '正在读取…' : '更换文件'),
                                   ),
                                 if (_rows.isNotEmpty)
-                                  FilledButton(
+                                  AppButton(
+                                    label: '提交成绩',
+                                    icon: AppIcons.check,
                                     onPressed: canSubmit ? _submit : null,
-                                    child: const Text('提交成绩'),
                                   ),
                               ],
                             ),
@@ -1161,7 +1246,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
           child: FutureBuilder<void>(
             future: _loading,
             builder: (context, snapshot) {
-              if (snapshot.hasError) {
+              if (snapshot.hasError && !_rosterReady) {
                 return _Failure(
                   error: snapshot.error!,
                   retry: () => setState(() {
@@ -1169,7 +1254,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                   }),
                 );
               }
-              if (snapshot.connectionState != ConnectionState.done) {
+              if (!_rosterReady) {
                 return const Center(child: CircularProgressIndicator());
               }
               final visible = _students
@@ -1182,7 +1267,11 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                                 : !s.submitted)),
                   )
                   .toList();
-              final blocked = _batch.running || _importing || _zipBusy;
+              final blocked =
+                  _batch.running ||
+                  _importing ||
+                  _zipBusy ||
+                  _savingStudent != null;
               return Padding(
                 padding: const EdgeInsets.fromLTRB(24, 6, 24, 12),
                 child: Column(
@@ -1222,53 +1311,55 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                         ),
                       ),
                     Expanded(
-                      child: LayoutBuilder(
-                        builder: (context, bounds) {
-                          final table = Column(
-                            children: [
-                              _studentTableRow(
-                                null,
-                                visible,
-                                heading: true,
-                                blocked: blocked,
-                              ),
-                              Expanded(
-                                child: ListView.builder(
-                                  key: const ValueKey('ta-assignment-scroll'),
-                                  // Rows are single-line. Known extents avoid
-                                  // measuring preceding rows during scrolling.
-                                  // Grow with accessibility text, not row data.
-                                  itemExtent:
-                                      48 *
-                                      (MediaQuery.textScalerOf(
-                                                context,
-                                              ).scale(14) /
-                                              14)
-                                          .clamp(1.0, double.infinity),
-                                  itemCount: visible.length,
-                                  itemBuilder: (_, i) => _studentTableRow(
-                                    visible[i],
-                                    visible,
-                                    blocked: blocked,
+                      child: Card(
+                        child: LayoutBuilder(
+                          builder: (context, bounds) {
+                            final table = Column(
+                              children: [
+                                _studentTableRow(
+                                  null,
+                                  visible,
+                                  heading: true,
+                                  blocked: blocked,
+                                ),
+                                Expanded(
+                                  child: ListView.builder(
+                                    key: const ValueKey('ta-assignment-scroll'),
+                                    // Rows are single-line. Known extents avoid
+                                    // measuring preceding rows during scrolling.
+                                    // Grow with accessibility text, not row data.
+                                    itemExtent:
+                                        48 *
+                                        (MediaQuery.textScalerOf(
+                                                  context,
+                                                ).scale(14) /
+                                                14)
+                                            .clamp(1.0, double.infinity),
+                                    itemCount: visible.length,
+                                    itemBuilder: (_, i) => _studentTableRow(
+                                      visible[i],
+                                      visible,
+                                      blocked: blocked,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          );
-                          if (bounds.maxWidth >= 640) {
-                            return table;
-                          }
-                          return Scrollbar(
-                            child: SingleChildScrollView(
+                              ],
+                            );
+                            if (bounds.maxWidth >= 760) {
+                              return table;
+                            }
+                            // Desktop ScrollView already provides a themed scrollbar
+                            // attached to its own horizontal position.
+                            return SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
                               child: SizedBox(
-                                width: 640,
+                                width: 760,
                                 height: bounds.maxHeight,
                                 child: table,
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -1299,12 +1390,8 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
   Widget _studentToolbar(bool blocked) {
     final search = SizedBox(
       width: 230,
-      child: TextField(
-        decoration: const InputDecoration(
-          isDense: true,
-          hintText: '搜索姓名或学号',
-          prefixIcon: Icon(Icons.search, size: 18),
-        ),
+      child: AppSearchField(
+        hintText: '搜索姓名或学号',
         onChanged: (v) => setState(() => _search = v),
       ),
     );
@@ -1319,7 +1406,9 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
       compact: true,
       onChanged: (v) => setState(() => _submissionFilter = v),
     );
-    final select = TextButton(
+    final select = AppButton(
+      kind: AppButtonKind.quiet,
+      label: '选择已提交学生',
       onPressed: blocked
           ? null
           : () => _changeSelection(
@@ -1334,14 +1423,31 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                     .map((s) => s.id),
               ),
             ),
-      child: const Text('选择已提交学生'),
     );
     final actions = <Widget>[
-      FilledButton(
-        onPressed: _detail?.canGrade != true || _batch.running
+      AppRefreshButton(
+        tooltip: '更新名单和成绩',
+        busy: _refreshingRoster || _savingStudent != null,
+        onRefresh: () async {
+          if (_batch.running || _refreshingRoster || _savingStudent != null) {
+            return;
+          }
+          final pending = _load(refreshSummary: true);
+          setState(() {
+            _loading = pending;
+          });
+          await pending;
+        },
+      ),
+      AppButton(
+        label: '导入成绩',
+        icon: AppIcons.upload,
+        onPressed:
+            _detail?.canGrade != true ||
+                _batch.running ||
+                _savingStudent != null
             ? null
             : _openCsvReview,
-        child: const Text('导入成绩'),
       ),
       if (_zip?.download != null && !_building) ...[
         OutlinedButton.icon(
@@ -1357,7 +1463,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
               _message('无法打开下载链接');
             }
           },
-          icon: const Icon(Icons.download_outlined, size: 18),
+          icon: const Icon(AppIcons.download, size: 18),
           label: Text(_downloadMatchesSelection ? '下载打包' : '下载上次打包'),
         ),
         AppActionMenu<String>(
@@ -1427,11 +1533,11 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
             ),
             FilledButton.icon(
               onPressed: blocked || _building ? null : _pack,
-              icon: const Icon(Icons.archive_outlined, size: 18),
+              icon: const Icon(AppIcons.archive, size: 18),
               label: const Text('打包所选'),
             ),
-            actions.first,
-            if (_downloadMatchesSelection) ...actions.skip(1),
+            actions[1],
+            if (_downloadMatchesSelection) ...actions.skip(2),
           ],
         ),
       ],
@@ -1453,11 +1559,10 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
         visible.every((s) => _selected.contains(s.id));
     final some =
         heading && (all || visible.any((s) => _selected.contains(s.id)));
-    final score = student?.score?.toString().replaceFirst(RegExp(r'\.0$'), '');
-    final grade =
-        score ??
-        (student?.scoreChecked == true || _summary.graded == 0 ? '未批改' : '待核对');
+    final score =
+        student?.score?.toString().replaceFirst(RegExp(r'\.0$'), '') ?? '';
     return Container(
+      key: ValueKey('ta-row-${student?.id ?? 'header'}'),
       constraints: const BoxConstraints(minHeight: 48),
       decoration: BoxDecoration(
         color: heading
@@ -1519,37 +1624,80 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
             ),
           ),
           SizedBox(
-            width: 84,
-            child: Text(
-              heading
-                  ? '提交状态'
-                  : student!.submitted
-                  ? '已提交'
-                  : '未提交',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: heading
-                    ? p.muted
-                    : student!.submitted
-                    ? p.success
-                    : p.muted,
-              ),
-            ),
+            width: 96,
+            child: heading
+                ? Text('状态', style: TextStyle(color: p.muted, fontSize: 12))
+                : Row(
+                    children: [
+                      Text(
+                        student!.submitted ? '已交' : '未交',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: student.submitted ? p.success : p.muted,
+                        ),
+                      ),
+                      if (student.hasAttachments) ...[
+                        const SizedBox(width: 6),
+                        AppTooltipAnchor(
+                          child: Tooltip(
+                            message: '有附件',
+                            child: Icon(
+                              AppIcons.attachment,
+                              size: 14,
+                              color: p.muted,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
           ),
           SizedBox(
             width: 96,
+            child: Text(
+              heading ? '附件大小' : taAttachmentSize(student!.attachmentBytes),
+              style: TextStyle(color: p.muted, fontSize: 12),
+            ),
+          ),
+          SizedBox(
+            width: 148,
             child: heading
-                ? Text(
-                    '成绩',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: p.muted),
-                  )
-                : AppTableAction(
-                    tooltip: '核对${student!.name}的成绩',
-                    label: _checkingScores.contains(student.id) ? '核对中' : grade,
-                    onPressed: blocked || _checkingScores.contains(student.id)
-                        ? null
-                        : () => _checkStudent(student),
+                ? Text('成绩', style: TextStyle(color: p.muted, fontSize: 12))
+                : Padding(
+                    padding: const EdgeInsets.only(right: 8, top: 5, bottom: 5),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TaScoreField(
+                            key: ValueKey('ta-score-${student!.id}'),
+                            name: student.name,
+                            value: _scoreDrafts[student.id] ?? score,
+                            hint: !student.submitted
+                                ? '未提交'
+                                : student.scoreChecked
+                                ? '未评分'
+                                : '—',
+                            enabled:
+                                !blocked &&
+                                _detail?.canGrade == true &&
+                                student.submitted,
+                            saving: _savingStudent == student.id,
+                            onChanged: (v) => _scoreDrafts[student.id] = v,
+                            onSubmitted: (v) => _saveInline(student, v),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        AppIconButton(
+                          key: ValueKey('ta-score-history-${student.id}'),
+                          tooltip: '查看评分记录',
+                          extent: 32,
+                          icon: const Icon(AppIcons.history, size: 16),
+                          onPressed: _savingStudent != null || _batch.running
+                              ? null
+                              : () => _openScoreHistory(student),
+                        ),
+                      ],
+                    ),
                   ),
           ),
         ],

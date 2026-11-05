@@ -8,7 +8,7 @@
 
 厦大签到（xmu-rollcall）是基于 Flutter 的第三方开源客户端，面向厦门大学畅课（TronClass），提供数字、雷达与二维码签到、作业查看、课表管理及多身份协助。非学校官方应用。
 
-[![Flutter](https://img.shields.io/badge/Flutter-3.44-02569B?logo=flutter&logoColor=white)](https://flutter.dev/)
+[![Flutter](https://img.shields.io/badge/Flutter-3.47-02569B?logo=flutter&logoColor=white)](https://flutter.dev/)
 [![Platforms](https://img.shields.io/badge/平台-Android%20%2F%20Windows-5356FF)](#界面预览)
 [![Checks](https://github.com/MidiAug/xmu-rollcall/actions/workflows/checks.yml/badge.svg)](https://github.com/MidiAug/xmu-rollcall/actions/workflows/checks.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-64748B)](LICENSE)
@@ -95,7 +95,7 @@ Android 当前沿用项目开发签名；Windows 安装程序尚无发布者数�
 
 目前主要在 **Android 和 Windows** 上开发与验证。仓库也保留了 iOS、macOS、Linux 工程，但这些平台还没有完成完整实机验收。
 
-准备 **Flutter 3.44.0 / Dart 3.12**，以及目标平台所需的开发工具：
+准备 **Flutter 3.47.9 / Dart 3.13.7**（与 CI 固定版本一致），以及目标平台所需的开发工具：
 
 ```powershell
 git clone https://github.com/MidiAug/xmu-rollcall.git
@@ -145,6 +145,8 @@ powershell -ExecutionPolicy Bypass -File scripts/install-phone.ps1 -Mode release
 脚本使用 `adb install -r` 保留登录和设置。更新时请沿用相同签名和构建模式；如果手机装的是 debug 版，参数也用 `-Mode debug`。
 
 ### 本地检查
+
+界面开发先阅读 [设计规范](DESIGN.md)，统一页面结构、控件状态、操作层级和文案取舍；不要为每个新页面重新定义视觉风格。
 
 项目网站源码位于 [`site/`](site/)，构建、发布与搜索收录步骤见 [`site/README.md`](site/README.md)。网站部署到本仓库的 `gh-pages` 分支，与应用发布独立。
 

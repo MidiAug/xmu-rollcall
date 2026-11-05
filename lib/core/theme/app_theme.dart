@@ -60,15 +60,19 @@ abstract final class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: p.surface,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.card),
+          side: BorderSide(color: p.border),
         ),
         clipBehavior: Clip.antiAlias,
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: p.surface,
+        surfaceTintColor: Colors.transparent,
+        barrierColor: const Color(0x66212A3A),
         elevation: 6,
         shadowColor: Colors.black.withValues(alpha: 0.18),
         shape: RoundedRectangleBorder(
@@ -77,23 +81,28 @@ abstract final class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size(64, 36),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          minimumSize: const Size(64, 40),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.button),
           ),
           elevation: 0,
           textStyle: AppTypography.control,
+          disabledBackgroundColor: p.content,
+          disabledForegroundColor: p.muted.withValues(alpha: .6),
+          overlayColor: scheme.onPrimary.withValues(alpha: .09),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(64, 36),
+          minimumSize: const Size(64, 40),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.button),
           ),
           side: BorderSide(color: p.borderStrong),
+          backgroundColor: p.surface,
+          overlayColor: p.primary.withValues(alpha: .05),
           foregroundColor: p.ink,
           textStyle: AppTypography.control,
         ),
@@ -101,6 +110,7 @@ abstract final class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: p.primary,
+          overlayColor: p.primary.withValues(alpha: .06),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.button),
@@ -144,27 +154,30 @@ abstract final class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: p.content,
+        fillColor: p.surface,
+        hoverColor: Colors.transparent,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
-          vertical: 12,
+          vertical: 14,
         ),
         hintStyle: TextStyle(color: p.muted, fontSize: 13),
         labelStyle: TextStyle(color: p.muted, fontSize: 13),
         prefixIconColor: p.muted,
         suffixIconColor: p.muted,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadii.input),
-          borderSide: BorderSide(color: p.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadii.input),
-          borderSide: BorderSide(color: p.border),
+        border: WidgetStateInputBorder.resolveWith(
+          (states) => OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppRadii.input),
+            borderSide: BorderSide(
+              color: states.contains(WidgetState.hovered)
+                  ? p.borderStrong
+                  : p.border,
+            ),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
-          borderSide: BorderSide(color: p.primary, width: 1.2),
+          borderSide: BorderSide(color: p.focus, width: 1.2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
@@ -203,8 +216,14 @@ abstract final class AppTheme {
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
-          highlightColor: Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadii.control),
+          ),
+          iconSize: 20,
+          foregroundColor: p.ink,
+          highlightColor: p.selected,
           hoverColor: p.hover,
+          focusColor: p.selected,
         ),
       ),
       switchTheme: SwitchThemeData(

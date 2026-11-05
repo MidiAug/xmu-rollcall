@@ -5,6 +5,38 @@ import 'package:xmu_rollcall/app/app_checkbox.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 
 void main() {
+  testWidgets('preference label and keyboard toggle one shared selection', (
+    tester,
+  ) async {
+    var value = false;
+    var changes = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (_, set) => AppCheckboxRow(
+              label: '允许覆盖已有成绩',
+              value: value,
+              onChanged: (next) => set(() {
+                value = next;
+                changes++;
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('允许覆盖已有成绩'));
+    await tester.pumpAndSettle();
+    expect(value, isTrue);
+    expect(changes, 1);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    await tester.pumpAndSettle();
+    expect(value, isFalse);
+    expect(changes, 2);
+  });
   testWidgets('mixed selection, keyboard and pointer follow the owner value', (
     tester,
   ) async {

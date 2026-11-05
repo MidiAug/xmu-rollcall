@@ -1,5 +1,101 @@
 part of 'chrome.dart';
 
+/// Consistent optical frame for symbolic list markers, distinct from the larger
+/// illustrated service destinations. No shadow or backdrop filter per row.
+class AppIconSurface extends StatelessWidget {
+  const AppIconSurface({super.key, required this.child, this.size = 36});
+  final Widget child;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: p.content,
+        borderRadius: BorderRadius.circular(AppRadii.control),
+        border: Border.all(color: p.border),
+      ),
+      child: IconTheme(
+        data: IconThemeData(color: p.primary, size: 19),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// Frosted chrome is clipped to its own bounds. Static content surfaces use
+/// blur=0 so scrolling data never pays for a backdrop filter per row.
+class AppGlassSurface extends StatelessWidget {
+  const AppGlassSurface({
+    super.key,
+    required this.child,
+    this.borderRadius,
+    this.padding = EdgeInsets.zero,
+    this.blur = 18,
+    this.opacity = .78,
+  });
+  final Widget child;
+  final BorderRadius? borderRadius;
+  final EdgeInsetsGeometry padding;
+  final double blur, opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final radius = borderRadius ?? BorderRadius.circular(AppRadii.island);
+    final highContrast = MediaQuery.highContrastOf(context);
+    final surface = DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            p.surface.withValues(alpha: highContrast || opacity == 1 ? 1 : .97),
+            p.surface.withValues(alpha: highContrast ? 1 : opacity),
+          ],
+        ),
+        border: Border.all(
+          color: p.isDark
+              ? Colors.white.withValues(alpha: .12)
+              : p.border.withValues(alpha: .8),
+        ),
+      ),
+      child: Padding(padding: padding, child: child),
+    );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: p.isDark ? .18 : .035),
+            blurRadius: 20,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: p.isDark ? .08 : .015),
+            blurRadius: 2,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: blur > 0 && !highContrast
+            ? BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                child: surface,
+              )
+            : surface,
+      ),
+    );
+  }
+}
+
 class BrandMark extends StatelessWidget {
   const BrandMark({super.key, this.size = 26});
 
@@ -18,24 +114,6 @@ class BrandMark extends StatelessWidget {
       alignment: Alignment.center,
       child: UserCheckIcon(size: size * 0.58, color: p.primary),
     );
-  }
-}
-
-/// Isolates a tooltip / icon-button anchor for Windows accessibility.
-///
-/// Adjacent [Tooltip] overlays can drop their traversal-parent id when
-/// semantics configs merge; the Windows embedder then rejects the whole
-/// AXTree update (`Nodes left pending…`, flutter/flutter#182444). Each
-/// tooltip anchor needs its own semantics container on desktop.
-class AppTooltipAnchor extends StatelessWidget {
-  const AppTooltipAnchor({super.key, required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!PlatformHooks.isDesktop) return child;
-    return Semantics(container: true, child: child);
   }
 }
 
@@ -121,39 +199,18 @@ class _AppRefreshButtonState extends State<AppRefreshButton>
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return AppTooltipAnchor(
-      child: IconButton(
-        tooltip: widget.tooltip,
-        style: PlatformHooks.isDesktop && !AppMobileUi.useTouchChrome(context)
-            ? IconButton.styleFrom(
-                minimumSize: Size.square(widget.extent ?? 34),
-                backgroundColor: p.surface,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                visualDensity: VisualDensity.standard,
-                padding: const EdgeInsets.all(6),
-                side: BorderSide(color: p.border),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(7),
-                ),
-              )
-            : AppMobileUi.useTouchChrome(context)
-            ? IconButton.styleFrom(
-                minimumSize: const Size(AppMobileUi.target, AppMobileUi.target),
-                visualDensity: VisualDensity.standard,
-                backgroundColor: Colors.transparent,
-                side: BorderSide.none,
-                hoverColor: Colors.transparent,
-              )
-            : null,
-        visualDensity: widget.visualDensity,
-        onPressed: _busy || widget.busy ? null : _handle,
-        icon: RotationTransition(
-          turns: _spin,
-          child: Icon(
-            AppIcons.refresh,
-            color: widget.color ?? p.muted,
-            size: widget.iconSize,
-          ),
+    return AppIconButton(
+      tooltip: widget.tooltip,
+      extent: widget.extent ?? (AppMobileUi.useTouchChrome(context) ? 44 : 34),
+      framed: PlatformHooks.isDesktop && !AppMobileUi.useTouchChrome(context),
+      visualDensity: widget.visualDensity,
+      onPressed: _busy || widget.busy ? null : _handle,
+      icon: RotationTransition(
+        turns: _spin,
+        child: Icon(
+          AppIcons.refresh,
+          color: widget.color ?? p.muted,
+          size: widget.iconSize,
         ),
       ),
     );

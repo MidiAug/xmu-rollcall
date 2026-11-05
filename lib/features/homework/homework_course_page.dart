@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'homework_list_row.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
@@ -216,6 +217,22 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
                   itemCount: filtered.length,
                   itemBuilder: (context, i) {
                     final item = filtered[i];
+                    if (!AppMobileUi.useTouchChrome(context)) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpace.xs),
+                        child: Card(
+                          child: HomeworkListRow(
+                            item: item,
+                            subtitle: '',
+                            trailing: HomeworkStatusBadges(
+                              item: item,
+                              withDeadline: true,
+                            ),
+                            onTap: () => _openDetail(item),
+                          ),
+                        ),
+                      );
+                    }
                     return Padding(
                       padding: const EdgeInsets.only(bottom: AppSpace.xs),
                       child: AppHoverSurface(
@@ -244,11 +261,7 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
                                   HomeworkStatusBadges(item: item),
                                   const SizedBox(height: 4),
                                   Text(
-                                    [
-                                      item.dueLabel,
-                                      if (item.status.isNotEmpty) item.status,
-                                      if (item.type.isNotEmpty) item.type,
-                                    ].join('  '),
+                                    item.dueLabel,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(

@@ -44,7 +44,7 @@ class AppSidebar extends StatelessWidget {
                           alignment: Alignment.bottomCenter,
                           cacheWidth: 512,
                           filterQuality: FilterQuality.low,
-                          opacity: AlwaysStoppedAnimation(p.isDark ? .28 : .36),
+                          opacity: AlwaysStoppedAnimation(p.isDark ? .16 : .18),
                           excludeFromSemantics: true,
                         ),
                       ),
@@ -114,102 +114,106 @@ class _DesktopNavItem extends StatelessWidget {
     this.hasPendingPlace = false,
   });
   final AppDestination destination;
-  final bool selected;
+  final bool selected, hasUpdate, hasPendingPlace;
   final VoidCallback onTap;
-  final bool hasUpdate;
-  final bool hasPendingPlace;
+
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final hint = hasPendingPlace
+        ? '有上课地点未定位，请在地图上标记'
+        : hasUpdate
+        ? '有新版本可更新'
+        : '';
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Semantics(
         selected: selected,
         button: true,
         child: Tooltip(
-          message: hasPendingPlace
-              ? '有上课地点未定位，请在地图上标记'
-              : hasUpdate
-              ? '有新版本可更新'
-              : '',
+          message: hint,
           child: SizedBox(
             height: 40,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: TextButton(
-                    style: TextButton.styleFrom(
-                      alignment: Alignment.centerLeft,
-                      foregroundColor: p.ink,
-                      backgroundColor: selected ? p.selected : null,
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+            child: TextButton(
+              onPressed: onTap,
+              style:
+                  TextButton.styleFrom(
+                    alignment: Alignment.centerLeft,
+                    foregroundColor: p.ink,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadii.nav),
+                    ),
+                  ).copyWith(
+                    // Persistent selection is the surface itself, not an overlay that
+                    // transient button feedback can obscure.
+                    backgroundColor: WidgetStateProperty.resolveWith((states) {
+                      if (selected) {
+                        return p.isDark ? p.selected : p.surface;
+                      }
+                      if (states.contains(WidgetState.pressed)) {
+                        return p.selected;
+                      }
+                      if (states.contains(WidgetState.hovered)) {
+                        return p.hover;
+                      }
+                      return AppPalette.clearOf(p.sidebar);
+                    }),
+                    overlayColor: const WidgetStatePropertyAll(
+                      Colors.transparent,
+                    ),
+                    side: WidgetStateProperty.resolveWith(
+                      (states) => BorderSide(
+                        color: states.contains(WidgetState.focused)
+                            ? p.focus
+                            : selected
+                            ? p.border
+                            : AppPalette.clearOf(p.border),
                       ),
                     ),
-                    onPressed: onTap,
-                    child: Row(
-                      children: [
-                        _NavigationIcon(
-                          icon: selected
-                              ? destination.selectedIcon
-                              : destination.icon,
-                          size: 24,
-                          color: selected ? p.navigationAccent : p.ink,
-                          hasUpdate: false,
-                          hint: hasPendingPlace
-                              ? '有上课地点未定位，请在地图上标记'
-                              : '有新版本可更新',
-                          dotSize: 4,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            destination.desktopLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: selected
-                                  ? FontWeight.w600
-                                  : FontWeight.w400,
+                  ),
+              child: Row(
+                children: [
+                  _NavigationIcon(
+                    icon: selected
+                        ? destination.selectedIcon
+                        : destination.icon,
+                    size: 22,
+                    color: selected ? p.navigationAccent : p.muted,
+                    hasUpdate: false,
+                    hint: hint,
+                    dotSize: 4,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      destination.desktopLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: selected
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 7,
+                    height: 7,
+                    child: hasUpdate || hasPendingPlace
+                        ? Container(
+                            key: ValueKey('desktop-notice-${destination.id}'),
+                            decoration: BoxDecoration(
+                              color: p.primary,
+                              shape: BoxShape.circle,
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        SizedBox(
-                          width: 7,
-                          height: 7,
-                          child: hasUpdate || hasPendingPlace
-                              ? Container(
-                                  key: ValueKey(
-                                    'desktop-notice-${destination.id}',
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: p.primary,
-                                    shape: BoxShape.circle,
-                                  ),
-                                )
-                              : null,
-                        ),
-                      ],
-                    ),
+                          )
+                        : null,
                   ),
-                ),
-                if (selected)
-                  Positioned(
-                    left: 0,
-                    top: 6,
-                    bottom: 6,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: p.navigationAccent,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: const SizedBox(width: 3),
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -239,20 +243,8 @@ class AppMobileNav extends StatelessWidget {
     final p = AppPalette.of(context);
     final bottom = AppDensity.mobileNavBottomInset(context);
     if (Theme.of(context).platform == TargetPlatform.android) {
-      Widget glass(Widget child, BorderRadius radius) => ClipRRect(
-        borderRadius: radius,
-        child: BackdropFilter(
-          filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: p.surface.withValues(alpha: .94),
-              borderRadius: radius,
-              border: Border.all(color: p.mobileOutline),
-            ),
-            child: child,
-          ),
-        ),
-      );
+      Widget glass(Widget child, BorderRadius radius) =>
+          AppGlassSurface(borderRadius: radius, child: child);
       return ColoredBox(
         color: p.mobileCanvas,
         child: Padding(

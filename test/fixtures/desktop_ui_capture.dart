@@ -18,6 +18,19 @@ Future<void> loadDesktopUiCaptureFonts() async {
   }
 }
 
+class _DesktopUiCaptureBinding extends AutomatedTestWidgetsFlutterBinding {
+  @override
+  bool get disableShadows => false;
+}
+
+/// Capture runs use the binding's supported shadow policy, without changing
+/// painting debug variables during a test or weakening its invariant checks.
+void initializeDesktopUiCapture() {
+  if (Platform.environment['CAPTURE_DESKTOP_UI'] == '1') {
+    _DesktopUiCaptureBinding();
+  }
+}
+
 ThemeData desktopCaptureTheme(ThemeData theme) {
   if (Platform.environment['CAPTURE_DESKTOP_UI'] != '1') return theme;
   ButtonStyle? font(ButtonStyle? style) => style?.copyWith(
