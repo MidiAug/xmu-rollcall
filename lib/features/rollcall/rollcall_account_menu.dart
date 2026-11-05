@@ -150,15 +150,41 @@ class _SidebarAccountTrigger extends StatelessWidget {
     return TextButton(
       focusNode: focusNode,
       onPressed: onPressed,
-      style: TextButton.styleFrom(
-        minimumSize: const Size(0, 52),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        foregroundColor: p.ink,
-        disabledForegroundColor: p.ink,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadii.control),
-        ),
-      ),
+      style:
+          TextButton.styleFrom(
+            minimumSize: const Size(0, 52),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            foregroundColor: p.ink,
+            disabledForegroundColor: p.ink,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadii.control),
+            ),
+          ).copyWith(
+            // Restoring menu focus must not look like a persistent selection.
+            backgroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.disabled)) {
+                return AppPalette.clearOf(p.sidebar);
+              }
+              if (open || states.contains(WidgetState.pressed)) {
+                return p.selected;
+              }
+              if (states.contains(WidgetState.hovered)) {
+                return p.navigationHover;
+              }
+              return AppPalette.clearOf(p.sidebar);
+            }),
+            overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+            side: WidgetStateProperty.resolveWith(
+              (states) => BorderSide(
+                color:
+                    states.contains(WidgetState.focused) &&
+                        FocusManager.instance.highlightMode ==
+                            FocusHighlightMode.traditional
+                    ? p.focus
+                    : AppPalette.clearOf(p.focus),
+              ),
+            ),
+          ),
       child: Row(
         children: [
           CircleAvatar(

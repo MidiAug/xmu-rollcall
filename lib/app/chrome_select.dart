@@ -75,7 +75,9 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
                   ? Duration.zero
                   : AppMotion.fast,
               constraints: BoxConstraints(
-                minHeight: AppMobileUi.useTouchChrome(context)
+                minHeight: widget.compact
+                    ? AppDensity.controlHeight(context)
+                    : AppMobileUi.useTouchChrome(context)
                     ? AppMobileUi.target
                     : 36,
               ),

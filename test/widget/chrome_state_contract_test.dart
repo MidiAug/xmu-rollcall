@@ -12,6 +12,7 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_account_menu.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/core/session/session_credential.dart';
 import '../fixtures/preview_fonts.dart';
+import '../fixtures/desktop_ui_capture.dart';
 
 Future<Color> pixel(
   WidgetTester tester,
@@ -38,6 +39,7 @@ Future<Color> pixel(
 }
 
 void main() {
+  initializeDesktopUiCapture();
   setUpAll(() async {
     await loadDesktopPreviewFonts();
     final sdk = Platform.environment['FLUTTER_ROOT'] ?? 'D:/Dev/Flutter-xmu';
@@ -176,7 +178,14 @@ void main() {
                     current: AppDestination.campusTools,
                     onSelect: (_) {},
                   ),
-                  const Expanded(child: SizedBox()),
+                  Expanded(
+                    child: ColoredBox(
+                      color: dark
+                          ? AppPalette.darkPalette.canvas
+                          : AppPalette.lightPalette.canvas,
+                      child: const SizedBox.expand(),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -199,7 +208,112 @@ void main() {
       await mouse.moveTo(rect.center);
       await tester.pumpAndSettle();
       expect(await pixel(tester, capture, sample), idle);
+      final other = find.widgetWithText(TextButton, '作业');
+      final otherRect = tester.getRect(other);
+      final otherSample = Offset(otherRect.right - 20, otherRect.center.dy);
+      await mouse.moveTo(const Offset(600, 500));
+      await tester.pumpAndSettle();
+      final before = await pixel(tester, capture, otherSample);
+      await mouse.moveTo(otherRect.center);
+      await tester.pumpAndSettle();
+      final after = await pixel(tester, capture, otherSample);
+      expect(
+        (after.computeLuminance() - before.computeLuminance()).abs(),
+        greaterThan(dark ? .01 : .035),
+      );
+      expect(after, isNot(idle));
+      await _captureState(tester, capture, 'sidebar-hover-$dark');
+      await mouse.moveTo(const Offset(600, 500));
+      await tester.pumpAndSettle();
+      expect(await pixel(tester, capture, otherSample), before);
     });
+
+    testWidgets(
+      'account switch clears transient fill and retains current check dark=$dark',
+      (tester) async {
+        final capture = GlobalKey();
+        var value = 0;
+        final p = dark ? AppPalette.darkPalette : AppPalette.lightPalette;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
+              platform: TargetPlatform.windows,
+            ),
+            builder: (context, child) =>
+                RepaintBoundary(key: capture, child: child!),
+            home: Scaffold(
+              body: ColoredBox(
+                color: p.sidebar,
+                child: SizedBox(
+                  width: 176,
+                  child: StatefulBuilder(
+                    builder: (context, set) => RollcallAccountMenu(
+                      sidebar: true,
+                      width: 156,
+                      value: value,
+                      ownerName: '主账号同学',
+                      identities: const [
+                        AssistIdentity(
+                          userId: 2,
+                          displayName: '协助同学',
+                          kind: AssistCredentialKind.session,
+                          deviceId: 'test-device',
+                        ),
+                      ],
+                      onChanged: (next) => set(() => value = next),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final trigger = find.descendant(
+          of: find.byType(RollcallAccountMenu),
+          matching: find.byType(TextButton),
+        );
+        final rect = tester.getRect(trigger);
+        final point = Offset(rect.right - 25, rect.top + 4);
+        final idle = await pixel(tester, capture, point);
+        final mouse = await tester.createGesture(
+          kind: ui.PointerDeviceKind.mouse,
+        );
+        await mouse.addPointer(location: const Offset(600, 500));
+        addTearDown(mouse.removePointer);
+        await tester.tap(trigger);
+        await tester.pumpAndSettle();
+        expect(await pixel(tester, capture, point), isNot(idle));
+        await _captureState(tester, capture, 'account-open-$dark');
+        await tester.tap(find.widgetWithText(AppMenuOption, '协助同学'));
+        await mouse.moveTo(const Offset(600, 500));
+        await tester.pumpAndSettle();
+        expect(value, 2);
+        expect(find.byType(AppMenuOption), findsNothing);
+        expect(await pixel(tester, capture, point), idle);
+        await _captureState(tester, capture, 'account-switched-$dark');
+        await tester.tap(trigger);
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<AppMenuOption>(find.widgetWithText(AppMenuOption, '协助同学'))
+              .selected,
+          isTrue,
+        );
+        expect(
+          tester
+              .widget<AppMenuOption>(find.widgetWithText(AppMenuOption, '协助同学'))
+              .showCheck,
+          isTrue,
+        );
+        await _captureState(tester, capture, 'account-current-$dark');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byType(AppMenuOption), findsNothing);
+        expect(await pixel(tester, capture, point), idle);
+        expect(tester.takeException(), isNull);
+      },
+    );
 
     testWidgets(
       'settings navigation has no hover wash and keeps keyboard activation dark=$dark',
@@ -392,4 +506,25 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+}
+
+Future<void> _captureState(
+  WidgetTester tester,
+  GlobalKey key,
+  String name,
+) async {
+  if (Platform.environment['CAPTURE_CHROME_STATES'] != '1') return;
+  await tester.runAsync(() async {
+    final image =
+        await (key.currentContext!.findRenderObject()! as RenderRepaintBoundary)
+            .toImage();
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    final directory = await Directory(
+      'build/chrome-state-review',
+    ).create(recursive: true);
+    await File(
+      '${directory.path}/$name.png',
+    ).writeAsBytes(bytes!.buffer.asUint8List());
+    image.dispose();
+  });
 }

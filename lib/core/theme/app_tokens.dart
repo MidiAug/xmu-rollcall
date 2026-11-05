@@ -54,6 +54,9 @@ class AppPalette {
   Color get successSurface =>
       isDark ? const Color(0xFF173D30) : const Color(0xFFE4FAED);
   Color get navigationAccent => ink;
+  // Sidebar gray is darker than the content canvas; generic hover nearly
+  // disappears on it. Keep navigation feedback distinct from white selection.
+  Color get navigationHover => isDark ? hover : const Color(0xFFDBDFE7);
 
   /// Focus follows the active theme accent; it is not a separate blue palette.
   Color get focus => primary;
@@ -181,6 +184,11 @@ abstract final class AppRadii {
 /// Narrow layouts use **tighter** settings/list density so vertical space
 /// isn't wasted; nav stays slightly taller for thumb targets.
 abstract final class AppDensity {
+  static double controlHeight(BuildContext context) =>
+      switch (Theme.of(context).platform) {
+        TargetPlatform.android || TargetPlatform.iOS => 44,
+        _ => 40,
+      };
   static const desktopRow = 44.0;
   static const touchRow = 44.0;
   static const desktopNav = 40.0;

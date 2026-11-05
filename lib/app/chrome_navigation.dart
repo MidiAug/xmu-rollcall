@@ -155,7 +155,7 @@ class _DesktopNavItem extends StatelessWidget {
                         return p.selected;
                       }
                       if (states.contains(WidgetState.hovered)) {
-                        return p.hover;
+                        return p.navigationHover;
                       }
                       return AppPalette.clearOf(p.sidebar);
                     }),

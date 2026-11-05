@@ -13,16 +13,29 @@ class AppButton extends StatelessWidget {
     this.icon,
     this.busy = false,
     this.kind = AppButtonKind.primary,
+    this.compact = false,
   });
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
   final bool busy;
   final AppButtonKind kind;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final action = busy ? null : onPressed;
+    final style = compact
+        ? ButtonStyle(
+            minimumSize: WidgetStatePropertyAll(
+              Size(0, AppDensity.controlHeight(context)),
+            ),
+            padding: const WidgetStatePropertyAll(
+              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          )
+        : null;
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -42,12 +55,21 @@ class AppButton extends StatelessWidget {
       ],
     );
     return switch (kind) {
-      AppButtonKind.primary => FilledButton(onPressed: action, child: content),
-      AppButtonKind.secondary => OutlinedButton(
+      AppButtonKind.primary => FilledButton(
+        style: style,
         onPressed: action,
         child: content,
       ),
-      AppButtonKind.quiet => TextButton(onPressed: action, child: content),
+      AppButtonKind.secondary => OutlinedButton(
+        style: style,
+        onPressed: action,
+        child: content,
+      ),
+      AppButtonKind.quiet => TextButton(
+        style: style,
+        onPressed: action,
+        child: content,
+      ),
     };
   }
 }
@@ -61,11 +83,13 @@ class AppSearchField extends StatefulWidget {
     this.controller,
     this.onChanged,
     this.autofocus = false,
+    this.compact = false,
   });
   final String hintText;
   final TextEditingController? controller;
   final ValueChanged<String>? onChanged;
   final bool autofocus;
+  final bool compact;
 
   @override
   State<AppSearchField> createState() => _AppSearchFieldState();
@@ -106,11 +130,32 @@ class _AppSearchFieldState extends State<AppSearchField> {
           textInputAction: TextInputAction.search,
           style: Theme.of(context).textTheme.bodyMedium,
           decoration: InputDecoration(
+            constraints: widget.compact
+                ? BoxConstraints(minHeight: AppDensity.controlHeight(context))
+                : null,
+            contentPadding: widget.compact
+                ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
+                : null,
+            prefixIconConstraints: widget.compact
+                ? BoxConstraints(
+                    minWidth: 40,
+                    minHeight: AppDensity.controlHeight(context),
+                  )
+                : null,
+            suffixIconConstraints: widget.compact
+                ? BoxConstraints(
+                    minWidth: 40,
+                    minHeight: AppDensity.controlHeight(context),
+                  )
+                : null,
             hintText: widget.hintText,
             prefixIcon: const Icon(AppIcons.search, size: 17),
             suffixIcon: value.text.isEmpty
                 ? null
                 : AppIconButton(
+                    extent: widget.compact
+                        ? AppDensity.controlHeight(context)
+                        : 44,
                     tooltip: '清空搜索',
                     icon: const Icon(AppIcons.close, size: 13),
                     onPressed: () {

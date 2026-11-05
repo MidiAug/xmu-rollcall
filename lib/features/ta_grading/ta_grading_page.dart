@@ -1391,6 +1391,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
     final search = SizedBox(
       width: 230,
       child: AppSearchField(
+        compact: true,
         hintText: '搜索姓名或学号',
         onChanged: (v) => setState(() => _search = v),
       ),
@@ -1407,6 +1408,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
       onChanged: (v) => setState(() => _submissionFilter = v),
     );
     final select = AppButton(
+      compact: true,
       kind: AppButtonKind.quiet,
       label: '选择已提交学生',
       onPressed: blocked
@@ -1426,6 +1428,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
     );
     final actions = <Widget>[
       AppRefreshButton(
+        extent: AppDensity.controlHeight(context),
         tooltip: '更新名单和成绩',
         busy: _refreshingRoster || _savingStudent != null,
         onRefresh: () async {
@@ -1440,7 +1443,11 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
         },
       ),
       AppButton(
+        compact: true,
         label: '导入成绩',
+        kind: _selected.isEmpty
+            ? AppButtonKind.primary
+            : AppButtonKind.secondary,
         icon: AppIcons.upload,
         onPressed:
             _detail?.canGrade != true ||
@@ -1450,7 +1457,9 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
             : _openCsvReview,
       ),
       if (_zip?.download != null && !_building) ...[
-        OutlinedButton.icon(
+        AppButton(
+          compact: true,
+          kind: AppButtonKind.secondary,
           onPressed: () async {
             try {
               if (!await launchUrl(
@@ -1463,8 +1472,8 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
               _message('无法打开下载链接');
             }
           },
-          icon: const Icon(AppIcons.download, size: 18),
-          label: Text(_downloadMatchesSelection ? '下载打包' : '下载上次打包'),
+          icon: AppIcons.download,
+          label: _downloadMatchesSelection ? '下载打包' : '下载上次打包',
         ),
         AppActionMenu<String>(
           tooltip: '下载选项',
@@ -1482,7 +1491,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
     final normal = LayoutBuilder(
       builder: (context, bounds) {
         if (bounds.maxWidth >=
-            840 *
+            (840 + (actions.length > 2 ? 240 : 0)) *
                 (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(
                   1,
                   1.5,
@@ -1500,11 +1509,26 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
             ],
           );
         }
-        return Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [search, filter, select, ...actions],
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(width: bounds.maxWidth.clamp(0, 230), child: search),
+                filter,
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [select, ...actions],
+            ),
+          ],
         );
       },
     );
@@ -1525,16 +1549,19 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                 context,
               ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
-            TextButton(
+            AppButton(
+              compact: true,
+              kind: AppButtonKind.quiet,
               onPressed: blocked
                   ? null
                   : () => _changeSelection(() => _selected.clear()),
-              child: const Text('取消选择'),
+              label: '取消选择',
             ),
-            FilledButton.icon(
+            AppButton(
+              compact: true,
               onPressed: blocked || _building ? null : _pack,
-              icon: const Icon(AppIcons.archive, size: 18),
-              label: const Text('打包所选'),
+              icon: AppIcons.archive,
+              label: '打包所选',
             ),
             actions[1],
             if (_downloadMatchesSelection) ...actions.skip(2),

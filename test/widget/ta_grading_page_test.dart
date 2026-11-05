@@ -250,6 +250,17 @@ void main() {
         expect(find.text('CSV 批量评分'), findsNothing);
         expect(find.text('打包所选'), findsNothing);
         expect(find.text('下载打包'), findsNothing);
+        final searchRect = tester.getRect(find.byType(AppSearchField));
+        for (final control in [
+          find.byKey(const ValueKey('ta-submission-filter')),
+          find.widgetWithText(AppButton, '选择已提交学生'),
+          find.widgetWithText(AppButton, '导入成绩'),
+          find.byTooltip('更新名单和成绩'),
+        ]) {
+          final rect = tester.getRect(control);
+          expect(rect.height, searchRect.height);
+          expect(rect.center.dy, searchRect.center.dy);
+        }
         var visible = 0;
         for (var i = 1; i <= 30; i++) {
           final cell = find.text('示例学生$i');
@@ -309,6 +320,13 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text('显示 1 人'), findsOneWidget);
+        expect(tester.getRect(find.byType(AppSearchField)), searchRect);
+        await tester.tap(find.byTooltip('清空搜索'));
+        await tester.pumpAndSettle();
+        expect(find.text('显示 47 人'), findsOneWidget);
+        expect(tester.getRect(find.byType(AppSearchField)), searchRect);
+        await tester.enterText(find.byType(TextField).first, '示例学生47');
+        await tester.pumpAndSettle();
         await tester.tap(selectAll);
         await tester.pumpAndSettle();
         expect(find.text('已选 1 人'), findsOneWidget);

@@ -363,6 +363,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                                       if (i > 0) const SizedBox(height: 4),
                                       AppMenuOption(
                                         key: ValueKey('shell-select-option-$i'),
+                                        showCheck: true,
                                         leadingIcon: widget.iconOf?.call(
                                           widget.items[i],
                                         ),
