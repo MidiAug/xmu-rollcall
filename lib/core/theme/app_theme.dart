@@ -34,6 +34,9 @@ abstract final class AppTheme {
       highlightColor: Colors.transparent,
       splashColor: Colors.transparent,
       hoverColor: p.hoverOverlay,
+      tooltipTheme: const TooltipThemeData(
+        waitDuration: Duration(milliseconds: 500),
+      ),
       scaffoldBackgroundColor: p.canvas,
       colorScheme: scheme.copyWith(
         surfaceContainerHighest: p.surfaceHigh,

@@ -193,9 +193,7 @@ class _AppSurfaceInteractionState extends State<_AppSurfaceInteraction> {
       onExit: (_) => setState(() => _hover = false),
       child: FocusableActionDetector(
         enabled: enabled,
-        mouseCursor: enabled
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
+        mouseCursor: SystemMouseCursors.basic,
         // Flutter owns input-modality changes, including switching to Tab while
         // already focused; a one-time highlightMode check misses that transition.
         onShowFocusHighlight: (value) => setState(() => _focus = value),

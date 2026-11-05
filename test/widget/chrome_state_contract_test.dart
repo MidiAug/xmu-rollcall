@@ -372,6 +372,10 @@ void main() {
         addTearDown(mouse.removePointer);
         await mouse.moveTo(const Offset(220, 28));
         await tester.pumpAndSettle();
+        expect(
+          RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+          SystemMouseCursors.basic,
+        );
         expect(await pixel(tester, capture, const Offset(330, 28)), idle);
         await mouse.down(const Offset(220, 28));
         for (final elapsed in [20, 100, 250]) {

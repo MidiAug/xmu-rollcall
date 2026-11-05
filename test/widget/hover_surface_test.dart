@@ -84,6 +84,10 @@ void main() {
         addTearDown(mouse.removePointer);
         await mouse.moveTo(tester.getCenter(find.byKey(control)));
         await tester.pumpAndSettle();
+        expect(
+          RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+          SystemMouseCursors.basic,
+        );
         final bytes = await tester.runAsync(() async {
           final image =
               await (boundary.currentContext!.findRenderObject()!
