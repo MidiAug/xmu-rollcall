@@ -8,13 +8,8 @@ import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/providers.dart';
-import 'package:xmu_rollcall/core/cache/session_lifecycle.dart';
+import 'package:xmu_rollcall/app/session_lifecycle.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
-import 'package:xmu_rollcall/core/cache/remote_course_cache.dart';
-import 'package:xmu_rollcall/core/cache/cache_revisions.dart';
-import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
-import 'package:xmu_rollcall/features/grades/grade_providers.dart';
-import 'package:xmu_rollcall/features/homework/homework_overview.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/rollcall/radar_preview.dart';
@@ -290,15 +285,8 @@ class SettingsDataPage extends ConsumerWidget {
       ),
     );
     if (ok != true) return;
-    await clearRemoteCourseCache();
+    await clearRemoteCourseData(ref);
     if (!context.mounted) return;
-    invalidateRemoteCourseMemoryFromWidget(ref);
-    ref.read(academicRevisionProvider.notifier).state++;
-    ref.read(homeworkCacheRevisionProvider.notifier).state++;
-    ref.invalidate(campusCachedDataProvider);
-    ref.invalidate(homeworkOverviewProvider);
-    ref.invalidate(homeworkSubmissionProvider);
-    ref.invalidate(gradeSnapshotProvider);
     AppToast.show(context, '已清除本机课程数据');
   }
 }

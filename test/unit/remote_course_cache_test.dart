@@ -14,6 +14,9 @@ void main() {
         'saved_locations_1': 'user places',
         'grades_v1_1_1': 'grade cache',
         'grade_attempt_1_1': 10,
+        'exams_v1_1_1_20261': 'exam cache',
+        'exams_v1_1_2_20261_attempt': 10,
+        'exams_v1_2_2_20262_failure': 10,
         'academic_failure_kind_2': 'request',
         'academic_attempt_2': 10,
       });
@@ -45,6 +48,9 @@ void main() {
       expect(prefs.getString('saved_locations_1'), 'user places');
       expect(prefs.containsKey('grades_v1_1_1'), isFalse);
       expect(prefs.containsKey('grade_attempt_1_1'), isFalse);
+      expect(prefs.containsKey('exams_v1_1_1_20261'), isFalse);
+      expect(prefs.containsKey('exams_v1_1_2_20261_attempt'), isFalse);
+      expect(prefs.containsKey('exams_v1_2_2_20262_failure'), isFalse);
       expect(prefs.containsKey('academic_failure_kind_2'), isFalse);
       expect(prefs.containsKey('academic_attempt_2'), isFalse);
     },

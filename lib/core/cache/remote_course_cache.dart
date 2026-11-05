@@ -12,6 +12,7 @@ Future<void> clearRemoteCourseCache() async {
     'academic_calendar_missing_',
     'grades_v1_',
     'grade_attempt_',
+    'exams_v1_',
   ];
   for (final key in prefs.getKeys().where(
     (key) => prefixes.any(key.startsWith),

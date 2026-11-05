@@ -1,3 +1,10 @@
+import 'package:xmu_rollcall/core/cache/remote_course_cache.dart';
+import 'package:xmu_rollcall/core/cache/cache_revisions.dart';
+import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
+import 'package:xmu_rollcall/features/exams/exam_providers.dart';
+import 'package:xmu_rollcall/features/grades/grade_providers.dart';
+import 'package:xmu_rollcall/features/homework/homework_overview.dart';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
@@ -18,7 +25,9 @@ void invalidateOwnerRemoteMemory(Ref ref) {
 }
 
 /// The explicit clear action covers owner and imported accounts.
-void invalidateRemoteCourseMemoryFromWidget(WidgetRef ref) {
+Future<void> clearRemoteCourseData(WidgetRef ref) async {
+  await clearRemoteCourseCache();
+  if (!ref.context.mounted) return;
   ref.invalidate(taRepositoryProvider);
   ref.invalidate(courseCatalogProvider);
   ref.invalidate(scopedCourseCatalogProvider);
@@ -31,6 +40,13 @@ void invalidateRemoteCourseMemoryFromWidget(WidgetRef ref) {
   ref.invalidate(scopedSessionPriorProvider);
   ref.invalidate(importedSeenCourseIdsProvider);
   ref.read(seenInProgressCourseIdsProvider.notifier).state = {};
+  ref.read(academicRevisionProvider.notifier).state++;
+  ref.read(homeworkCacheRevisionProvider.notifier).state++;
+  ref.invalidate(campusCachedDataProvider);
+  ref.invalidate(homeworkOverviewProvider);
+  ref.invalidate(homeworkSubmissionProvider);
+  ref.invalidate(gradeSnapshotProvider);
+  ref.invalidate(examSnapshotProvider);
 }
 
 /// Watches auth transitions and clears owner remote memory on logout / account switch.

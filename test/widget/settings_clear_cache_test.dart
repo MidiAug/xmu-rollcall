@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:xmu_rollcall/features/exams/exam_models.dart';
+import 'package:xmu_rollcall/features/exams/exam_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -36,11 +39,28 @@ class _RemoteLists extends ActiveRollcallsNotifier {
   }
 }
 
+class _Exams extends ExamNotifier {
+  static int loads = 0;
+  @override
+  Future<ExamSnapshot> build() async {
+    loads++;
+    final prefs = await SharedPreferences.getInstance();
+    return readExamCache(prefs, 1, 2, '20261') ??
+        ExamSnapshot(term: '20261', at: DateTime(2026), exams: const []);
+  }
+}
+
 void main() {
   testWidgets(
     'confirmed clear removes academic cache and refreshes assist memory',
     (tester) async {
-      SharedPreferences.setMockInitialValues({});
+      final examAt = DateTime(2026, 11, 4);
+      SharedPreferences.setMockInitialValues({
+        examCacheKey(1, 2, '20261'): jsonEncode(
+          ExamSnapshot(term: '20261', at: examAt, exams: const []).toJson(),
+        ),
+      });
+      _Exams.loads = 0;
       await TaAssignmentStore(
         11,
       ).write(91, TaAssignmentSnapshot(const [], DateTime.now()));
@@ -60,6 +80,7 @@ void main() {
       _RemoteLists.loads.clear();
       final container = ProviderContainer(
         overrides: [
+          examSnapshotProvider.overrideWith(_Exams.new),
           taRepositoryProvider.overrideWith((ref) async {
             taLoads++;
             final repo = TaGradingRepository(base.http, cacheUserId: 11);
@@ -73,6 +94,9 @@ void main() {
         ],
       );
       addTearDown(container.dispose);
+      final exams = container.listen(examSnapshotProvider, (_, _) {});
+      addTearDown(exams.close);
+      expect((await container.read(examSnapshotProvider.future)).at, examAt);
       final ta = container.listen(taRepositoryProvider, (_, _) {});
       addTearDown(ta.close);
       expect(
@@ -104,6 +128,11 @@ void main() {
         isNull,
       );
       expect(taLoads, 2);
+      expect(_Exams.loads, 2);
+      expect(
+        (await container.read(examSnapshotProvider.future)).at,
+        DateTime(2026),
+      );
       expect(await TaAssignmentStore(11).read(91), isNull);
       AppToast.dismiss();
       expect(tester.takeException(), isNull);
