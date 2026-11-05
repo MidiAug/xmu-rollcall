@@ -164,32 +164,35 @@ void main() {
           expect(find.byType(AppServiceTile), findsNWidgets(5));
           expect(find.text('常用工具'), findsOneWidget);
           expect(find.text('研究生'), findsOneWidget);
-          for (final name in [
-            '信息门户',
-            '本研教务',
-            '学工平台',
-            '研究生选课',
-            '图书馆',
-            '校园邮箱',
-            '校外访问',
-            '密码服务',
-          ]) {
+          for (final name in ['信息门户', '教务', '学工', '图书馆', '邮箱']) {
             expect(find.text(name), findsOneWidget);
-            final link = tester.widget<AppTextLink>(
-              find.ancestor(
-                of: find.text(name),
-                matching: find.byType(AppTextLink),
-              ),
+            final linkFinder = find.ancestor(
+              of: find.text(name),
+              matching: find.byType(AppTextLink),
             );
-            expect(link.icon, isNull);
+            expect(tester.widget<AppTextLink>(linkFinder).icon, isNull);
+            expect(
+              tester.getCenter(linkFinder).dy,
+              tester
+                  .getCenter(
+                    find.ancestor(
+                      of: find.text('信息门户'),
+                      matching: find.byType(AppTextLink),
+                    ),
+                  )
+                  .dy,
+            );
+          }
+          for (final name in ['研究生选课', '校外访问', '密码服务']) {
+            expect(find.text(name), findsNothing);
           }
           expect(
-            tester.getTopLeft(find.text('信息门户')).dx,
-            tester.getTopLeft(find.text('常用网站')).dx,
-          );
-          expect(
-            tester.getTopLeft(find.text('本研教务')).dy,
-            tester.getTopLeft(find.text('信息门户')).dy,
+            tester
+                .widget<SingleChildScrollView>(
+                  find.byKey(const ValueKey('campus-websites-row')),
+                )
+                .scrollDirection,
+            Axis.horizontal,
           );
 
           expect(
@@ -208,7 +211,7 @@ void main() {
             }
           }
           await captureDesktopUi(tester, 'tools-directory-$width-$dark');
-          await tester.ensureVisible(find.text('密码服务'));
+          await tester.ensureVisible(find.text('邮箱'));
           await tester.pumpAndSettle();
           await captureDesktopUi(tester, 'tools-websites-$width-$dark');
           await tester.ensureVisible(find.text('学年校历'));

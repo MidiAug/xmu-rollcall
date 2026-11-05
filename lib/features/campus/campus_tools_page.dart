@@ -188,59 +188,46 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               Divider(color: p.borderStrong, height: 1),
-                              const SizedBox(height: 18),
-                              Text(
-                                '常用网站',
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(
-                                      color: p.muted,
-                                      fontWeight: FontWeight.w600,
+                              const SizedBox(height: 12),
+                              SingleChildScrollView(
+                                key: const ValueKey('campus-websites-row'),
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      '常用网站',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(color: p.muted),
                                     ),
-                              ),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 16,
-                                runSpacing: 4,
-                                children: [
-                                  for (final link in const [
-                                    ('信息门户', 'https://i.xmu.edu.cn/'),
-                                    ('本研教务', 'https://jw.xmu.edu.cn/'),
-                                    ('学工平台', 'https://xmuxg.xmu.edu.cn/login'),
-                                    (
-                                      '研究生选课',
-                                      'https://yjsxk.xmu.edu.cn/yjsxkapp/sys/xsxkapp/index.html',
-                                    ),
-                                    ('图书馆', 'https://library.xmu.edu.cn/'),
-                                    ('校园邮箱', 'https://mail.stu.xmu.edu.cn/'),
-                                    ('校外访问', 'https://vpn.xmu.edu.cn/'),
-                                    ('密码服务', 'https://pass.xmu.edu.cn/'),
-                                  ])
-                                    SizedBox(
-                                      width:
-                                          (bounds.maxWidth -
-                                              16 * ((compact ? 2 : 4) - 1)) /
-                                          (compact ? 2 : 4),
-                                      child: Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: AppTextLink(
-                                          link.$1,
-                                          icon: null,
-                                          padding: const EdgeInsets.symmetric(
-                                            vertical: 6,
-                                          ),
-                                          textStyle: Theme.of(context)
-                                              .textTheme
-                                              .bodySmall
-                                              ?.copyWith(fontSize: 13),
-                                          onPressed: () => openCampusWebsite(
-                                            context,
-                                            title: link.$1,
-                                            url: Uri.parse(link.$2),
-                                          ),
+                                    for (final link in const [
+                                      ('信息门户', 'https://i.xmu.edu.cn/'),
+                                      ('教务', 'https://jw.xmu.edu.cn/'),
+                                      ('学工', 'https://xmuxg.xmu.edu.cn/login'),
+                                      ('图书馆', 'https://library.xmu.edu.cn/'),
+                                      ('邮箱', 'https://mail.stu.xmu.edu.cn/'),
+                                    ]) ...[
+                                      const SizedBox(width: 24),
+                                      AppTextLink(
+                                        link.$1,
+                                        icon: null,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 6,
+                                        ),
+                                        textStyle: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(fontSize: 13),
+                                        onPressed: () => openCampusWebsite(
+                                          context,
+                                          title: link.$1,
+                                          url: Uri.parse(link.$2),
                                         ),
                                       ),
-                                    ),
-                                ],
+                                    ],
+                                  ],
+                                ),
                               ),
                             ],
                           ),
