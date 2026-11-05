@@ -334,7 +334,7 @@ void main() {
     );
 
     testWidgets(
-      'settings navigation has no hover wash and keeps keyboard activation dark=$dark',
+      'settings navigation has no hover or press wash and keeps keyboard activation dark=$dark',
       (tester) async {
         var calls = 0;
         final capture = GlobalKey();
@@ -372,6 +372,22 @@ void main() {
         await mouse.moveTo(const Offset(220, 28));
         await tester.pumpAndSettle();
         expect(await pixel(tester, capture, const Offset(330, 28)), idle);
+        await mouse.down(const Offset(220, 28));
+        for (final elapsed in [20, 100, 250]) {
+          await tester.pump(Duration(milliseconds: elapsed));
+          expect(await pixel(tester, capture, const Offset(330, 28)), idle);
+        }
+        await _captureState(tester, capture, 'settings-held-$dark');
+        await mouse.cancel();
+        await tester.pumpAndSettle();
+        expect(calls, 0);
+        expect(await pixel(tester, capture, const Offset(330, 28)), idle);
+        final touch = await tester.startGesture(const Offset(220, 28));
+        await tester.pump(const Duration(milliseconds: 250));
+        expect(await pixel(tester, capture, const Offset(330, 28)), idle);
+        await touch.cancel();
+        await tester.pumpAndSettle();
+        expect(calls, 0);
         await tester.tap(find.text('地点管理'));
         await tester.pumpAndSettle();
         await mouse.moveTo(const Offset(600, 500));
@@ -379,7 +395,15 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
         expect(calls, 2);
+        expect(
+          await pixel(tester, capture, const Offset(0, 28)),
+          dark ? AppPalette.darkPalette.focus : AppPalette.lightPalette.focus,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pumpAndSettle();
+        expect(calls, 3);
       },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
     );
   }
   for (final owner in [true, false]) {

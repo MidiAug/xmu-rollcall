@@ -92,7 +92,7 @@ class AppQuietPill extends StatelessWidget {
 }
 
 /// Shared tile interaction with a stable focus outline and surface feedback.
-class AppHoverSurface extends StatefulWidget {
+class AppHoverSurface extends StatelessWidget {
   const AppHoverSurface({
     super.key,
     required this.child,
@@ -114,22 +114,21 @@ class AppHoverSurface extends StatefulWidget {
   final Color? hoverColor, pressedColor;
 
   @override
-  State<AppHoverSurface> createState() => _AppHoverSurfaceState();
-}
+  Widget build(BuildContext context) => _AppSurfaceInteraction(
+    onTap: onTap,
+    builder: (context, states) => _buildSurface(context, states),
+  );
 
-class _AppHoverSurfaceState extends State<AppHoverSurface> {
-  var _hover = false;
-  var _pressed = false;
-  var _focused = false;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildSurface(BuildContext context, Set<WidgetState> states) {
+    final pressed = states.contains(WidgetState.pressed);
+    final hovered = states.contains(WidgetState.hovered);
+    final focused = states.contains(WidgetState.focused);
     final p = AppPalette.of(context);
-    final radius = widget.borderRadius ?? BorderRadius.circular(AppRadii.card);
-    final lift = widget.onTap != null && (_pressed || _hover || _focused);
-    final background = widget.backgroundColor ?? p.surface;
+    final radius = borderRadius ?? BorderRadius.circular(AppRadii.card);
+    final lift = onTap != null && (pressed || hovered || focused);
+    final background = backgroundColor ?? p.surface;
     final strong = background == p.primary;
-    final hover = widget.hoverColor ?? (strong ? p.primaryHover : p.cardHover);
+    final hover = hoverColor ?? (strong ? p.primaryHover : p.cardHover);
     final focus = background == p.primary
         ? Theme.of(context).colorScheme.onPrimary
         : p.focus;
@@ -141,49 +140,92 @@ class _AppHoverSurfaceState extends State<AppHoverSurface> {
           ? Duration.zero
           : AppMotion.fast,
       curve: AppMotion.fastCurve,
-      padding: widget.padding,
+      padding: padding,
       decoration: BoxDecoration(
-        color: _pressed
-            ? widget.pressedColor ?? (strong ? p.primaryPressed : p.content)
+        color: pressed
+            ? pressedColor ?? (strong ? p.primaryPressed : p.content)
             : (lift ? hover : idle),
         borderRadius: radius,
         // Keep one border's space in every state so keyboard focus never jumps.
         border: Border.all(
-          color: _focused
+          color: focused
               ? focus
-              : widget.outlined
+              : outlined
               ? (lift ? p.borderStrong : p.border)
               : AppPalette.clearOf(p.focus),
         ),
       ),
-      child: widget.child,
+      child: child,
     );
 
+    return ClipRRect(borderRadius: radius, child: body);
+  }
+}
+
+/// Owns input only. Each surface decides how its states should be painted.
+/// No Material ink can leak through a caller's custom surface.
+class _AppSurfaceInteraction extends StatefulWidget {
+  const _AppSurfaceInteraction({required this.onTap, required this.builder});
+  final VoidCallback? onTap;
+  final Widget Function(BuildContext, Set<WidgetState>) builder;
+
+  @override
+  State<_AppSurfaceInteraction> createState() => _AppSurfaceInteractionState();
+}
+
+class _AppSurfaceInteractionState extends State<_AppSurfaceInteraction> {
+  bool _hover = false, _pressed = false, _focus = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    // Passive settings rows must leave their embedded controls' focus and
+    // semantics untouched rather than introduce an inactive action ancestor.
+    if (!enabled) return widget.builder(context, const <WidgetState>{});
+    final body = widget.builder(context, {
+      if (enabled && _hover) WidgetState.hovered,
+      if (enabled && _pressed) WidgetState.pressed,
+      if (enabled && _focus) WidgetState.focused,
+    });
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
-      cursor: widget.onTap != null
-          ? SystemMouseCursors.click
-          : SystemMouseCursors.basic,
-      child: widget.onTap == null
-          ? body
-          : Material(
-              type: MaterialType.transparency,
-              borderRadius: radius,
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                borderRadius: radius,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                splashFactory: NoSplash.splashFactory,
-                focusColor: Colors.transparent,
-                onFocusChange: (focused) => setState(() => _focused = focused),
-                onHighlightChanged: (pressed) =>
-                    setState(() => _pressed = pressed),
-                onTap: widget.onTap,
-                child: body,
-              ),
-            ),
+      child: FocusableActionDetector(
+        enabled: enabled,
+        mouseCursor: enabled
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        // Flutter owns input-modality changes, including switching to Tab while
+        // already focused; a one-time highlightMode check misses that transition.
+        onShowFocusHighlight: (value) => setState(() => _focus = value),
+        shortcuts: const {
+          SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+        },
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              widget.onTap?.call();
+              return null;
+            },
+          ),
+        },
+        child: Semantics(
+          button: enabled ? true : null,
+          onTap: widget.onTap,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            excludeFromSemantics: true,
+            onTap: widget.onTap,
+            onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
+            onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
+            onTapCancel: enabled
+                ? () => setState(() => _pressed = false)
+                : null,
+            child: body,
+          ),
+        ),
+      ),
     );
   }
 }

@@ -167,12 +167,16 @@ void main() {
             idle,
             reason: 'Leaving the pointer restores the selected surface',
           );
+          // A programmatic focus request after a mouse click is not keyboard
+          // input. Exercise the actual keyboard modality before focusing.
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           Focus.of(tester.element(label)).requestFocus();
           await tester.pumpAndSettle();
           await check('focus');
           await mouse.removePointer();
           await tester.pumpWidget(const SizedBox.shrink());
         },
+        variant: TargetPlatformVariant.only(TargetPlatform.windows),
       );
     }
   }

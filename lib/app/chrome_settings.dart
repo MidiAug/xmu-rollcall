@@ -100,7 +100,7 @@ class SettingsSection extends StatelessWidget {
 }
 
 /// One inset row inside [SettingsSection]. Height / padding follow [AppDensity].
-class SettingsRow extends StatefulWidget {
+class SettingsRow extends StatelessWidget {
   const SettingsRow({
     super.key,
     this.leading,
@@ -133,31 +133,22 @@ class SettingsRow extends StatefulWidget {
   final double subtitleSpacing;
 
   @override
-  State<SettingsRow> createState() => _SettingsRowState();
-}
+  Widget build(BuildContext context) => _AppSurfaceInteraction(
+    onTap: onTap,
+    builder: (context, states) =>
+        _buildRow(context, states.contains(WidgetState.focused)),
+  );
 
-class _SettingsRowState extends State<SettingsRow> {
-  var _pressed = false;
-  var _focused = false;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildRow(BuildContext context, bool focused) {
     final p = AppPalette.of(context);
-    final h = widget.minHeight ?? AppDensity.rowHeight(context);
+    final h = minHeight ?? AppDensity.rowHeight(context);
     final gap = AppDensity.rowInnerGap(context);
-    final interactive = widget.onTap != null;
-    final wash = interactive && _pressed
-        ? p.hover
-        : AppPalette.clearOf(p.hover);
-
-    final subtitle = widget.subtitle == null
+    final subtitle = this.subtitle == null
         ? null
         : Text(
-            widget.subtitle!,
-            maxLines: widget.subtitleMaxLines,
-            overflow: widget.subtitleMaxLines == null
-                ? null
-                : TextOverflow.ellipsis,
+            this.subtitle!,
+            maxLines: subtitleMaxLines,
+            overflow: subtitleMaxLines == null ? null : TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodySmall,
           );
     Widget buildContent(bool below) => AnimatedContainer(
@@ -165,14 +156,13 @@ class _SettingsRowState extends State<SettingsRow> {
           ? Duration.zero
           : AppMotion.fast,
       curve: AppMotion.fastCurve,
-      color: wash,
       foregroundDecoration: BoxDecoration(
         border: Border.all(
-          color: _focused ? p.focus : AppPalette.clearOf(p.focus),
+          color: focused ? p.focus : AppPalette.clearOf(p.focus),
         ),
         borderRadius: BorderRadius.circular(AppRadii.control),
       ),
-      padding: widget.contentPadding ?? AppDensity.rowPadding(context),
+      padding: contentPadding ?? AppDensity.rowPadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -181,13 +171,13 @@ class _SettingsRowState extends State<SettingsRow> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                if (widget.leading != null) ...[
-                  if (widget.leading is Icon)
-                    AppIconSurface(child: widget.leading!)
+                if (leading != null) ...[
+                  if (leading is Icon)
+                    AppIconSurface(child: leading!)
                   else
                     SizedBox.square(
                       dimension: 36,
-                      child: Center(child: widget.leading!),
+                      child: Center(child: leading!),
                     ),
                   SizedBox(width: gap),
                 ],
@@ -197,70 +187,43 @@ class _SettingsRowState extends State<SettingsRow> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.title,
+                        title,
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
-                      if (widget.subtitleWidget != null) ...[
+                      if (subtitleWidget != null) ...[
                         const SizedBox(height: AppSpace.xs),
-                        widget.subtitleWidget!,
+                        subtitleWidget!,
                       ],
                       if (subtitle != null && !below) ...[
                         SizedBox(
-                          height: widget.subtitleWidget != null
+                          height: subtitleWidget != null
                               ? AppSpace.xxs
-                              : widget.subtitleSpacing,
+                              : subtitleSpacing,
                         ),
                         subtitle,
                       ],
                     ],
                   ),
                 ),
-                if (widget.trailing != null) ...[
-                  SizedBox(width: gap),
-                  widget.trailing!,
-                ],
+                if (trailing != null) ...[SizedBox(width: gap), trailing!],
               ],
             ),
           ),
           if (subtitle != null && below) ...[
-            SizedBox(height: widget.subtitleSpacing),
+            SizedBox(height: subtitleSpacing),
             subtitle,
           ],
         ],
       ),
     );
-    final content = widget.stackSubtitleOnNarrow
+    final content = stackSubtitleOnNarrow
         ? LayoutBuilder(
-            builder: (context, constraints) => buildContent(
-              widget.trailing != null && constraints.maxWidth < 360,
-            ),
+            builder: (context, constraints) =>
+                buildContent(trailing != null && constraints.maxWidth < 360),
           )
         : buildContent(false);
 
-    if (!interactive) return content;
-
-    return MouseRegion(
-      cursor: SystemMouseCursors.click,
-      child: Material(
-        type: MaterialType.transparency,
-        clipBehavior: Clip.hardEdge,
-        child: InkWell(
-          hoverColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          onFocusChange: (focused) => setState(
-            () => _focused =
-                focused &&
-                FocusManager.instance.highlightMode ==
-                    FocusHighlightMode.traditional,
-          ),
-          splashFactory: NoSplash.splashFactory,
-          focusColor: Colors.transparent,
-          onHighlightChanged: (pressed) => setState(() => _pressed = pressed),
-          onTap: widget.onTap,
-          child: content,
-        ),
-      ),
-    );
+    return content;
   }
 }
 
