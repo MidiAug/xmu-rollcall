@@ -7,15 +7,19 @@ class DesktopPageHeader extends StatelessWidget {
   const DesktopPageHeader({
     super.key,
     required this.title,
+    this.leading,
     this.subtitle,
     this.onBack,
     this.inlineSubtitle = false,
+    this.keepActionsInline = false,
     this.actions = const [],
   });
   final String title;
+  final Widget? leading;
   final String? subtitle;
   final VoidCallback? onBack;
   final bool inlineSubtitle;
+  final bool keepActionsInline;
   final List<Widget> actions;
   @override
   Widget build(BuildContext context) {
@@ -44,12 +48,15 @@ class DesktopPageHeader extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.pageTitle.copyWith(color: p.ink),
-                    ),
+                    if (leading != null)
+                      leading!
+                    else
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.pageTitle.copyWith(color: p.ink),
+                      ),
                     if (subtitle != null && !inlineSubtitle) ...[
                       const SizedBox(height: 8),
                       Text(
@@ -72,17 +79,19 @@ class DesktopPageHeader extends StatelessWidget {
             ],
           );
           final controls = Wrap(
+            alignment: WrapAlignment.end,
             spacing: 8,
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: actions,
           );
-          if (constraints.maxWidth <
+          if (!keepActionsInline &&
+              constraints.maxWidth <
                   (inlineSubtitle ? 300 + actions.length * 52 : 420) *
                       MediaQuery.textScalerOf(context).scale(1) &&
               actions.isNotEmpty) {
             return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [heading, const SizedBox(height: 16), controls],
             );
           }
@@ -109,11 +118,15 @@ class DesktopPage extends StatelessWidget {
     super.key,
     required this.title,
     required this.child,
+    this.headerLeading,
+    this.showHeader = true,
     this.subtitle,
     this.onBack,
     this.actions = const [],
   });
   final String title;
+  final Widget? headerLeading;
+  final bool showHeader;
   final String? subtitle;
   final VoidCallback? onBack;
   final List<Widget> actions;
@@ -124,12 +137,14 @@ class DesktopPage extends StatelessWidget {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        DesktopPageHeader(
-          title: title,
-          subtitle: subtitle,
-          onBack: onBack,
-          actions: actions,
-        ),
+        if (showHeader)
+          DesktopPageHeader(
+            title: title,
+            leading: headerLeading,
+            subtitle: subtitle,
+            onBack: onBack,
+            actions: actions,
+          ),
         Expanded(child: child),
       ],
     ),

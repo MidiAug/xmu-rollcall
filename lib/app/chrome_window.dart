@@ -44,7 +44,7 @@ class AppTitleBar extends StatelessWidget {
     return SizedBox(
       height: AppLayout.titleBarHeight,
       child: ColoredBox(
-        color: p.window,
+        color: p.sidebar,
         child: Stack(
           children: [
             if (PlatformHooks.isDesktop)

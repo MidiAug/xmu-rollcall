@@ -243,13 +243,13 @@ void main() {
           expect(filter, findsOneWidget);
           expect(
             (tester.getCenter(filter).dy -
-                    tester.getCenter(find.text('作业').first).dy)
+                    tester.getCenter(find.byType(AppRefreshButton).first).dy)
                 .abs(),
             lessThan(4),
           );
           expect(
-            tester.getTopLeft(filter).dx,
-            greaterThan(tester.getTopRight(find.text('作业').first).dx),
+            tester.getTopRight(filter).dx,
+            lessThan(tester.getTopLeft(find.byType(AppRefreshButton).first).dx),
           );
         }
 

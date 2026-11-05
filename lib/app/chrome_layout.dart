@@ -68,6 +68,7 @@ class PageScaffold extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.trailing,
+    this.headerLeading,
     this.onBack,
     required this.child,
     this.showHeader = true,
@@ -76,6 +77,7 @@ class PageScaffold extends StatelessWidget {
   final String title;
   final String? subtitle;
   final Widget? trailing;
+  final Widget? headerLeading;
   final VoidCallback? onBack;
   final Widget child;
   final bool showHeader;
@@ -87,6 +89,8 @@ class PageScaffold extends StatelessWidget {
     if (PlatformHooks.isDesktop && !AppMobileUi.useTouchChrome(context)) {
       return DesktopPage(
         title: title,
+        headerLeading: headerLeading,
+        showHeader: showHeader,
         subtitle: subtitle,
         onBack: onBack,
         actions: trailing == null ? const [] : [trailing!],

@@ -171,30 +171,26 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
     final hostActions = PlatformHooks.isDesktop && !AppDensity.isTouch(context);
     return PageScaffold(
       title: '作业',
-      showHeader: false,
+      showHeader: signedIn && hostActions,
+      headerLeading: signedIn && hostActions
+          ? _HomeworkFilters(
+              value: _filter,
+              onChanged: (v) => setState(() => _filter = v),
+            )
+          : null,
       trailing: signedIn && hostActions
-          ? Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _HomeworkFilters(
-                  value: _filter,
-                  onChanged: (v) => setState(() => _filter = v),
+          ? SizedBox(
+              height: 44,
+              width: 44,
+              child: Center(
+                child: KeyedSubtree(
+                  key: ValueKey((
+                    ref.watch(authControllerProvider).profile?.id,
+                    ref.watch(selectedRollcallAccountProvider),
+                  )),
+                  child: const _HomeworkRefreshAction(),
                 ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  height: 44,
-                  width: 44,
-                  child: Center(
-                    child: KeyedSubtree(
-                      key: ValueKey((
-                        ref.watch(authControllerProvider).profile?.id,
-                        ref.watch(selectedRollcallAccountProvider),
-                      )),
-                      child: const _HomeworkRefreshAction(),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             )
           : null,
       child: AppContentColumn(

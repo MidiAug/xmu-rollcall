@@ -429,8 +429,24 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
           : null;
       return DesktopWorkspace(
         title: '签到',
-        subtitle:
-            '${now.month}月${now.day}日  ${const ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][now.weekday - 1]}',
+        headerLeading: Wrap(
+          spacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.end,
+          children: [
+            Text(
+              '${now.month}月${now.day}日',
+              key: const ValueKey('rollcall-header-date'),
+              style: AppTypography.cardTitle.copyWith(color: p.ink),
+            ),
+            Text(
+              const ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][now.weekday - 1],
+              key: const ValueKey('rollcall-header-weekday'),
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: p.muted),
+            ),
+          ],
+        ),
         actions: [
           if (!(ShellTabScope.maybeOf(context)?.hasGlobalIdentityControl ??
               false))

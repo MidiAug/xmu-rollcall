@@ -113,7 +113,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           controller: _scroll,
           padding: EdgeInsets.fromLTRB(
             AppSpace.pageXOf(context),
-            AppSpace.md,
+            AppSpace.xl,
             AppSpace.pageXOf(context),
             AppSpace.xl,
           ),

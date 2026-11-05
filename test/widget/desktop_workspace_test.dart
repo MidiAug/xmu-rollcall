@@ -1,7 +1,6 @@
 import 'package:xmu_rollcall/features/rollcall/attendance_count_row.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
-import 'package:xmu_rollcall/core/theme/app_icons.dart';
 import '../fixtures/preview_fonts.dart';
 import 'dart:io';
 import 'dart:async';
@@ -25,6 +24,7 @@ import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/core/session/assist_service.dart';
 import 'package:xmu_rollcall/core/session/session_credential.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
@@ -547,6 +547,34 @@ void main() {
           matching: find.byType(DesktopPageHeader),
         );
         final container = ProviderScope.containerOf(tester.element(workspace));
+        final date = find.byKey(const ValueKey('rollcall-header-date'));
+        final day = tester.widget<Text>(date);
+        final weekday = tester.widget<Text>(
+          find.byKey(const ValueKey('rollcall-header-weekday')),
+        );
+        expect(day.style!.fontSize, greaterThan(weekday.style!.fontSize!));
+        expect(day.style!.fontSize, lessThan(AppTypography.pageTitle.fontSize!));
+        final refresh = find.descendant(
+          of: header,
+          matching: find.byType(AppRefreshButton),
+        );
+        expect(
+          (tester.getCenter(date).dy - tester.getCenter(refresh).dy).abs(),
+          lessThan(4),
+        );
+        expect(
+          find.descendant(of: header, matching: find.text('签到')),
+          findsNothing,
+        );
+        expect(
+          tester.widget<ColoredBox>(
+            find.descendant(
+              of: find.byType(AppTitleBar),
+              matching: find.byType(ColoredBox),
+            ).first,
+          ).color,
+          AppPalette.of(tester.element(workspace)).sidebar,
+        );
         final originalContext = container.read(contextData);
         container.read(contextTime.notifier).state = DateTime(2026, 10, 28, 12);
         await tester.pumpAndSettle();
@@ -647,7 +675,40 @@ void main() {
             ),
             findsOneWidget,
           );
-          expect(find.byType(DesktopPageHeader), findsOneWidget);
+          final hasHeader = label == '作业' || label == '课表';
+          expect(
+            find.byType(DesktopPageHeader),
+            hasHeader ? findsOneWidget : findsNothing,
+          );
+          expect(
+            find.descendant(
+              of: find.byType(DesktopPageHeader),
+              matching: find.text(label),
+            ),
+            findsNothing,
+          );
+          if (label == '作业') {
+            final filters = find.descendant(
+              of: find.byType(DesktopPageHeader),
+              matching: find.byWidgetPredicate((w) => w is AppSegmentedControl),
+            );
+            final refresh = find.descendant(
+              of: find.byType(DesktopPageHeader),
+              matching: find.byType(AppRefreshButton),
+            );
+            expect(
+              tester.getRect(filters).left,
+              lessThan(tester.getRect(refresh).left),
+            );
+          }
+          if (label == '课表') {
+            final meta = find.byKey(const ValueKey('timetable-header-meta'));
+            expect(meta, findsOneWidget);
+            expect(
+              tester.getRect(meta).right,
+              greaterThan(tester.getRect(find.text('学期')).right),
+            );
+          }
           expect(tester.takeException(), isNull);
           await capture(label);
           if (label == '课表') {
@@ -659,6 +720,7 @@ void main() {
             await tester.tap(find.text('学期'));
             await tester.pumpAndSettle();
             expect(find.textContaining('账号二课程'), findsWidgets);
+            await capture('课表-学期');
             container.read(selectedRollcallAccountProvider.notifier).state =
                 null;
             await tester.pumpAndSettle();

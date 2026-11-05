@@ -9,11 +9,13 @@ class DesktopWorkspace extends StatelessWidget {
     super.key,
     required this.title,
     required this.child,
+    this.headerLeading,
     this.subtitle,
     this.actions = const [],
     this.contextPanel,
   });
   final String title;
+  final Widget? headerLeading;
   final String? subtitle;
   final Widget child;
   final List<Widget> actions;
@@ -28,8 +30,10 @@ class DesktopWorkspace extends StatelessWidget {
           children: [
             DesktopPageHeader(
               title: title,
+              leading: headerLeading,
               subtitle: subtitle,
               inlineSubtitle: true,
+              keepActionsInline: headerLeading != null,
               actions: actions,
             ),
             Expanded(child: child),

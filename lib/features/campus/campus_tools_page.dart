@@ -91,6 +91,7 @@ class _CampusToolsPageState extends State<CampusToolsPage>
     final tools = campusTools;
     return PageScaffold(
       title: '工具',
+      showHeader: AppMobileUi.useTouchChrome(context),
       child: ColoredBox(
         color: p.pageBackground(context),
         child: AppContentColumn(
