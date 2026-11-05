@@ -351,6 +351,9 @@ class _StoryDisclosureState extends State<_StoryDisclosure> {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : AppMotion.enter;
     return Padding(
       padding: const EdgeInsets.only(top: 22),
       child: Column(
@@ -363,6 +366,7 @@ class _StoryDisclosureState extends State<_StoryDisclosure> {
             child: AppHoverSurface(
               outlined: false,
               backgroundColor: Colors.transparent,
+              hoverColor: Colors.transparent,
               padding: const EdgeInsets.symmetric(vertical: 12),
               onTap: () => setState(() => _expanded = !_expanded),
               child: Row(
@@ -373,19 +377,50 @@ class _StoryDisclosureState extends State<_StoryDisclosure> {
                       style: AppTypography.control.copyWith(color: p.muted),
                     ),
                   ),
-                  RotatedBox(
-                    quarterTurns: _expanded ? 2 : 0,
+                  AnimatedRotation(
+                    turns: _expanded ? .5 : 0,
+                    duration: duration,
+                    curve: AppMotion.enterCurve,
                     child: Icon(AppIcons.down, size: 14, color: p.muted),
                   ),
                 ],
               ),
             ),
           ),
-          if (_expanded) ...[
-            const SizedBox(height: 4),
-            ...widget.children,
-            const SizedBox(height: 10),
-          ],
+          TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: _expanded ? 1 : 0),
+            duration: duration,
+            curve: AppMotion.enterCurve,
+            builder: (context, value, child) => value == 0
+                ? SizedBox.shrink(
+                    key: ValueKey('story-disclosure-body-${widget.title}'),
+                  )
+                : ClipRect(
+                    key: ValueKey('story-disclosure-body-${widget.title}'),
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      heightFactor: value,
+                      child: Opacity(
+                        opacity: value,
+                        child: IgnorePointer(
+                          ignoring: !_expanded,
+                          child: ExcludeSemantics(
+                            excluding: !_expanded,
+                            child: child!,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 4),
+                ...widget.children,
+                const SizedBox(height: 10),
+              ],
+            ),
+          ),
         ],
       ),
     );

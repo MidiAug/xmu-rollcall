@@ -86,6 +86,7 @@ void main() {
     String id = 'xa-pool',
     double scale = 1,
     bool highContrast = false,
+    bool reduceMotion = false,
   }) async {
     tester.view.physicalSize = Size(width, 840);
     tester.view.devicePixelRatio = 1;
@@ -105,6 +106,7 @@ void main() {
             data: MediaQuery.of(context).copyWith(
               textScaler: TextScaler.linear(scale),
               highContrast: highContrast,
+              disableAnimations: reduceMotion,
             ),
             child: child!,
           ),
@@ -203,14 +205,60 @@ void main() {
     expect(find.byType(ShaderMask), findsNothing);
     expect(find.byType(SelectableText), findsNothing);
     await tester.ensureVisible(find.text('参考资料'));
+    final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.text('参考资料')));
+    await tester.pumpAndSettle();
+    await captureDesktopUi(tester, 'building-disclosure-hover');
+    await mouse.moveTo(Offset.zero);
+    await mouse.removePointer();
+    await tester.pumpAndSettle();
+    final collapsed = tester
+        .getSize(find.byKey(const ValueKey('story-disclosure-body-参考资料')))
+        .height;
     Focus.of(tester.element(find.text('参考资料'))).requestFocus();
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    final opening = tester
+        .getSize(find.byKey(const ValueKey('story-disclosure-body-参考资料')))
+        .height;
+    await captureDesktopUi(tester, 'building-disclosure-opening');
     await tester.pumpAndSettle();
+    final expanded = tester
+        .getSize(find.byKey(const ValueKey('story-disclosure-body-参考资料')))
+        .height;
+    expect(opening, greaterThan(collapsed));
+    expect(opening, lessThan(expanded));
     expect(find.byType(SelectableText), findsWidgets);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    final closing = tester
+        .getSize(find.byKey(const ValueKey('story-disclosure-body-参考资料')))
+        .height;
+    expect(closing, greaterThan(collapsed));
+    expect(closing, lessThan(expanded));
+    await captureDesktopUi(tester, 'building-disclosure-closing');
     await tester.pumpAndSettle();
     expect(find.byType(SelectableText), findsNothing);
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('story-disclosure-body-参考资料')))
+          .height,
+      collapsed,
+    );
     expect(tester.takeException(), isNull);
+    await tester.tap(find.byTooltip('关闭介绍'));
+    await tester.pumpAndSettle();
+    await open(tester, width: 1000, dark: false, reduceMotion: true);
+    await tester.ensureVisible(find.text('参考资料'));
+    await tester.tap(find.text('参考资料'));
+    await tester.pump();
+    expect(find.byType(SelectableText), findsWidgets);
+    await tester.tap(find.text('参考资料'));
+    await tester.pump();
+    expect(find.byType(SelectableText), findsNothing);
   });
 }
