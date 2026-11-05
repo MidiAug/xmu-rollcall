@@ -37,8 +37,16 @@ class _Adapter implements HttpClientAdapter {
     requests.add(options);
     expect(options.method, 'GET');
     final path = options.uri.path;
-    expect(path, isIn(['/api/rollcall/7', '/api/timetable_rollcalls']));
-    final isDetail = path == '/api/rollcall/7';
+    expect(
+      path,
+      isIn([
+        '/api/rollcall/7',
+        '/api/rollcall/8',
+        '/api/rollcall/9',
+        '/api/timetable_rollcalls',
+      ]),
+    );
+    final isDetail = path.startsWith('/api/rollcall/');
     if (isDetail) afterDetail?.call();
     return ResponseBody.fromString(
       jsonEncode(isDetail ? detail : timetable),
@@ -209,4 +217,44 @@ void main() {
     expect(result.single.numberCode, isNull);
     expect(result.single.numberCodeError, contains('手动输入'));
   });
+
+  test('one timetable response supplies all returned active codes', () async {
+    final items = [
+      for (final id in [7, 8])
+        RollcallItem.fromJson({'rollcall_id': id, 'is_number': true}),
+    ];
+    final result = await repo.enrichActive(items);
+    expect(result.map((r) => r.numberCode), ['0042', '9999']);
+    expect(adapter.requests.map((r) => r.uri.path), [
+      '/api/rollcall/7',
+      '/api/timetable_rollcalls',
+    ]);
+    adapter.requests.clear();
+    // A new refresh rechecks the server; no cross-refresh code cache is added.
+    await repo.enrichActive(items);
+    expect(adapter.requests, hasLength(2));
+  });
+  test(
+    'returned empty codes are not re-fetched, absent activities still load',
+    () async {
+      adapter.timetable = {
+        'rollcalls': [
+          {'id': 7, 'number_code': '0042'},
+          {'id': 8, 'number_code': null},
+        ],
+      };
+      final result = await repo.enrichActive([
+        for (final id in [7, 8, 9])
+          RollcallItem.fromJson({'rollcall_id': id, 'is_number': true}),
+      ]);
+      expect(result.first.numberCode, '0042');
+      expect(result.skip(1).every((r) => r.numberCodeError != null), isTrue);
+      expect(adapter.requests.map((r) => r.uri.path), [
+        '/api/rollcall/7',
+        '/api/timetable_rollcalls',
+        '/api/rollcall/9',
+        '/api/timetable_rollcalls',
+      ]);
+    },
+  );
 }

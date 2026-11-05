@@ -129,6 +129,14 @@ class _Repo extends Fake implements RollcallRepository {
   }
 
   @override
+  Future<Map<int, String?>> fetchNumberCodesFor(
+    int id, {
+    CancelToken? cancelToken,
+    String? opId,
+  }) async => {
+    id: await fetchNumberCode(id, cancelToken: cancelToken, opId: opId),
+  };
+  @override
   Future<String?> fetchNumberCode(
     int id, {
     CancelToken? cancelToken,

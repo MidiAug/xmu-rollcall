@@ -59,6 +59,14 @@ class _Repo extends RollcallRepository {
     bool manual = false,
   }) async => items;
   @override
+  Future<Map<int, String?>> fetchNumberCodesFor(
+    int id, {
+    CancelToken? cancelToken,
+    String? opId,
+  }) async => {
+    id: await fetchNumberCode(id, cancelToken: cancelToken, opId: opId),
+  };
+  @override
   Future<String?> fetchNumberCode(
     int id, {
     CancelToken? cancelToken,
@@ -195,13 +203,9 @@ void main() {
         await Future<void>.delayed(Duration.zero);
         container.dispose();
       }
-      await JsonDiskCache.writeList(
-        'number_codes_1_1',
-        [
-          {'id': 7, 'code': '0001'},
-        ],
-        fetchedAt: DateTime.now().subtract(const Duration(days: 8)),
-      );
+      await JsonDiskCache.writeList('number_codes_1_1', [
+        {'id': 7, 'code': '0001'},
+      ], fetchedAt: DateTime.now().subtract(const Duration(days: 8)));
       final repo = _Repo();
       final container = make(repo);
       addTearDown(container.dispose);

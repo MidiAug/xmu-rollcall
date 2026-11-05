@@ -1,16 +1,23 @@
 /// Read only the requested rollcall's own code, never a neighbouring record.
 String? findTimetableNumberCode(Object? data, {required int rollcallId}) {
+  return timetableNumberCodes(data)[rollcallId];
+}
+
+/// A timetable response already contains every returned activity's code.
+Map<int, String?> timetableNumberCodes(Object? data) {
   if (data is! Map || data['rollcalls'] is! List) {
     throw const FormatException('Invalid timetable rollcall list response');
   }
+  final result = <int, String?>{};
   for (final row in data['rollcalls'] as List) {
-    if (row is! Map || '${row['id']}' != '$rollcallId') continue;
+    if (row is! Map) continue;
+    final id = int.tryParse('${row['id']}');
+    if (id == null || id <= 0 || result.containsKey(id)) continue;
     final code = row['number_code'];
-    if (code is! String && code is! int) return null;
-    final value = '$code'.trim();
-    return value.isEmpty ? null : value;
+    final value = code is String || code is int ? '$code'.trim() : '';
+    result[id] = value.isEmpty ? null : value;
   }
-  return null;
+  return result;
 }
 
 /// Legacy parser for archived student_rollcalls responses.

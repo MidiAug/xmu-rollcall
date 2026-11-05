@@ -130,18 +130,27 @@ class RollcallRepository {
   }) async {
     if (items.isEmpty) return items;
     final out = <RollcallItem>[];
+    final codes = <int, String?>{};
     for (final item in items) {
+      if (cancelToken?.isCancelled == true) throw cancelToken!.cancelError!;
       if (!item.isNumber ||
           item.isExpired ||
           item.numberCode?.isNotEmpty == true) {
         out.add(item);
         continue;
       }
+      var requested = false;
       try {
-        final code = await fetchNumberCode(
-          item.rollcallId,
-          cancelToken: cancelToken,
-        );
+        if (!codes.containsKey(item.rollcallId)) {
+          requested = true;
+          codes.addAll(
+            await fetchNumberCodesFor(
+              item.rollcallId,
+              cancelToken: cancelToken,
+            ),
+          );
+        }
+        final code = codes[item.rollcallId];
         if (code == null || code.isEmpty) {
           out.add(item.copyWith(numberCodeError: '暂未获取到本次签到码，请刷新或手动输入'));
         } else {
@@ -151,12 +160,26 @@ class RollcallRepository {
         if (cancelToken?.isCancelled == true) rethrow;
         out.add(item.copyWith(numberCodeError: '$e'));
       }
-      await Future<void>.delayed(const Duration(milliseconds: 80));
+      if (requested) {
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+      }
     }
     return out;
   }
 
   Future<String?> fetchNumberCode(
+    int rollcallId, {
+    CancelToken? cancelToken,
+    String? opId,
+  }) async => (await fetchNumberCodesFor(
+    rollcallId,
+    cancelToken: cancelToken,
+    opId: opId,
+  ))[rollcallId];
+
+  /// Use every activity in this response during one enrichment operation.
+  /// Do not keep codes across refreshes or reuse this for write authorization.
+  Future<Map<int, String?>> fetchNumberCodesFor(
     int rollcallId, {
     CancelToken? cancelToken,
     String? opId,
@@ -199,7 +222,7 @@ class RollcallRepository {
         '\u83b7\u53d6\u7b7e\u5230\u7801\u5931\u8d25 (${res.statusCode})',
       );
     }
-    return findTimetableNumberCode(res.data, rollcallId: rollcallId);
+    return timetableNumberCodes(res.data);
   }
 
   /// Single-course student rollcalls (for session prior; KB-01: one request).
