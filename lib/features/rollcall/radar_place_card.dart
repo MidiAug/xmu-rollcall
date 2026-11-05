@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -275,7 +276,7 @@ Future<RadarLocationAction?> showRadarLocationSheet(BuildContext context) {
   );
 }
 
-class _SheetAction extends StatefulWidget {
+class _SheetAction extends StatelessWidget {
   const _SheetAction({
     required this.icon,
     required this.title,
@@ -289,68 +290,50 @@ class _SheetAction extends StatefulWidget {
   final VoidCallback onTap;
 
   @override
-  State<_SheetAction> createState() => _SheetActionState();
-}
-
-class _SheetActionState extends State<_SheetAction> {
-  var _hover = false;
-
-  @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpace.xs),
-      child: MouseRegion(
-        onEnter: (_) => setState(() => _hover = true),
-        onExit: (_) => setState(() => _hover = false),
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: AnimatedContainer(
-            duration: AppMotion.fast,
-            curve: AppMotion.fastCurve,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpace.sm,
-              vertical: AppSpace.sm,
-            ),
-            decoration: BoxDecoration(
-              color: _hover ? p.hover : AppPalette.clearOf(p.hover),
-              borderRadius: BorderRadius.circular(AppRadii.card),
-              border: Border.all(color: p.border),
-            ),
-            child: Row(
-              children: [
-                Icon(widget.icon, size: 20, color: p.muted),
-                const SizedBox(width: AppSpace.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.title,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.15,
-                          color: p.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        widget.subtitle,
-                        style: TextStyle(
-                          fontSize: 12,
-                          height: 1.35,
-                          color: p.muted,
-                        ),
-                      ),
-                    ],
+      child: AppHoverSurface(
+        onTap: onTap,
+        backgroundColor: Colors.transparent,
+        hoverColor: p.hover,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpace.sm,
+          vertical: AppSpace.sm,
+        ),
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: p.muted),
+            const SizedBox(width: AppSpace.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: -0.15,
+                      color: p.ink,
+                    ),
                   ),
-                ),
-                Icon(Icons.chevron_right_rounded, size: 18, color: p.muted),
-              ],
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.35,
+                      color: p.muted,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+            Icon(Icons.chevron_right_rounded, size: 18, color: p.muted),
+          ],
         ),
       ),
     );

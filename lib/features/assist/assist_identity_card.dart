@@ -176,34 +176,17 @@ class _MoreButton extends StatelessWidget {
   final ValueChanged<_RosterAction> onSelected;
 
   @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-
-    return Tooltip(
-      message: '更多',
-      child: MouseRegion(
-        cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: enabled
-              ? () async {
-                  final action = await _showAssistRosterMenu(context);
-                  if (action != null) onSelected(action);
-                }
-              : null,
-          child: SizedBox(
-            width: 34,
-            height: 34,
-            child: Icon(
-              Icons.more_horiz_rounded,
-              size: 20,
-              color: enabled ? p.muted : p.muted.withValues(alpha: 0.4),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => AppIconButton(
+    tooltip: '更多',
+    extent: 34,
+    icon: const Icon(AppIcons.more, size: 20),
+    onPressed: enabled
+        ? () async {
+            final action = await _showAssistRosterMenu(context);
+            if (action != null) onSelected(action);
+          }
+        : null,
+  );
 }
 
 /// Rounded floating action menu for an assist roster card.

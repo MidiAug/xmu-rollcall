@@ -89,9 +89,7 @@ class _AppCheckboxState extends State<AppCheckbox> {
           onTap: enabled ? _activate : null,
           child: FocusableActionDetector(
             enabled: enabled,
-            mouseCursor: enabled
-                ? SystemMouseCursors.click
-                : SystemMouseCursors.basic,
+            mouseCursor: WidgetStateMouseCursor.adaptiveClickable,
             onShowHoverHighlight: (v) => setState(() => _hovered = v),
             onShowFocusHighlight: (v) => setState(() => _focused = v),
             shortcuts: const {

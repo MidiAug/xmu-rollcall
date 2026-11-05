@@ -14,7 +14,7 @@ abstract final class AppMenuStyle {
 }
 
 /// Compact, bounded select trigger. Focus, hover and open states stay in-shape.
-class AppSelectTrigger extends StatefulWidget {
+class AppSelectTrigger extends StatelessWidget {
   const AppSelectTrigger({
     super.key,
     required this.label,
@@ -39,124 +39,101 @@ class AppSelectTrigger extends StatefulWidget {
   final bool plain;
 
   @override
-  State<AppSelectTrigger> createState() => _AppSelectTriggerState();
-}
-
-class _AppSelectTriggerState extends State<AppSelectTrigger> {
-  bool _hover = false;
-  bool _focused = false;
-  bool _pressed = false;
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final enabled = widget.onTap != null;
-    final hovering = enabled && _hover;
-    final outlined = enabled && (widget.open || _focused);
-    return Semantics(
-      button: true,
-      enabled: enabled,
-      child: MouseRegion(
-        cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-        onEnter: (_) => setState(() => _hover = true),
-        onExit: (_) => setState(() => _hover = false),
+  Widget build(BuildContext context) => _AppSurfaceInteraction(
+    onTap: onTap,
+    focusNode: focusNode,
+    builder: (context, states) {
+      final p = AppPalette.of(context);
+      final enabled = onTap != null;
+      final hovering = states.contains(WidgetState.hovered);
+      final pressed = states.contains(WidgetState.pressed);
+      final outlined =
+          enabled && (open || states.contains(WidgetState.focused));
+      return Semantics(
+        button: true,
+        enabled: enabled,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(AppRadii.control),
-          child: InkWell(
-            focusNode: widget.focusNode,
-            onTap: widget.onTap,
-            onFocusChange: (value) => setState(() => _focused = value),
-            onHighlightChanged: (value) => setState(() => _pressed = value),
-            splashFactory: NoSplash.splashFactory,
-            hoverColor: Colors.transparent,
-            focusColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            child: AnimatedContainer(
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : AppMotion.fast,
-              constraints: BoxConstraints(
-                minHeight: widget.compact
-                    ? AppDensity.controlHeight(context)
-                    : AppMobileUi.useTouchChrome(context)
-                    ? AppMobileUi.target
-                    : 36,
-              ),
-              padding: EdgeInsets.symmetric(
-                horizontal: widget.compact ? 8 : 10,
-                vertical: 6,
-              ),
-              decoration: BoxDecoration(
-                color: _pressed && enabled
-                    ? p.controlPressed
+          child: AnimatedContainer(
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : AppMotion.fast,
+            constraints: BoxConstraints(
+              minHeight: compact
+                  ? AppDensity.controlHeight(context)
+                  : AppMobileUi.useTouchChrome(context)
+                  ? AppMobileUi.target
+                  : 36,
+            ),
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 8 : 10,
+              vertical: 6,
+            ),
+            decoration: BoxDecoration(
+              color: pressed && enabled
+                  ? p.controlPressed
+                  : hovering
+                  ? p.controlHover
+                  : plain
+                  ? p.sidebar
+                  : AppMobileUi.useTouchChrome(context)
+                  ? p.controlSurface
+                  : p.surface,
+              borderRadius: BorderRadius.circular(AppRadii.control),
+              border: Border.all(
+                color: outlined
+                    ? p.focus
                     : hovering
-                    ? p.controlHover
-                    : widget.plain
-                    ? p.sidebar
+                    ? p.controlOutlineHover
+                    : plain
+                    ? AppPalette.clearOf(p.primary)
                     : AppMobileUi.useTouchChrome(context)
-                    ? p.controlSurface
-                    : p.surface,
-                borderRadius: BorderRadius.circular(AppRadii.control),
-                border: Border.all(
-                  color: outlined
-                      ? p.focus
-                      : hovering
-                      ? p.controlOutlineHover
-                      : widget.plain
-                      ? AppPalette.clearOf(p.primary)
-                      : AppMobileUi.useTouchChrome(context)
-                      ? p.mobileOutline
-                      : p.border,
-                ),
+                    ? p.mobileOutline
+                    : p.border,
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (widget.leading != null) ...[
-                    widget.leading!,
-                    const SizedBox(width: 8),
-                  ],
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        AppTruncatedText(
-                          widget.label,
-                          style: TextStyle(
-                            fontSize: widget.compact ? 13 : 14,
-                            height: 1.4,
-                            fontWeight: FontWeight.w500,
-                            color: enabled ? p.ink : p.muted,
-                          ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (leading != null) ...[leading!, const SizedBox(width: 8)],
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppTruncatedText(
+                        label,
+                        style: TextStyle(
+                          fontSize: compact ? 13 : 14,
+                          height: 1.4,
+                          fontWeight: FontWeight.w500,
+                          color: enabled ? p.ink : p.muted,
                         ),
-                        if (widget.subtitle != null)
-                          Text(
-                            widget.subtitle!,
-                            style: TextStyle(fontSize: 11, color: p.muted),
-                          ),
-                      ],
-                    ),
+                      ),
+                      if (subtitle != null)
+                        Text(
+                          subtitle!,
+                          style: TextStyle(fontSize: 11, color: p.muted),
+                        ),
+                    ],
                   ),
-                  if (widget.trailing != null) ...[
-                    const SizedBox(width: 6),
-                    widget.trailing!,
-                  ],
-                  SizedBox(width: widget.compact ? 4 : 8),
-                  AnimatedRotation(
-                    turns: widget.open ? .5 : 0,
-                    duration: MediaQuery.disableAnimationsOf(context)
-                        ? Duration.zero
-                        : AppMotion.fast,
-                    child: Icon(AppIcons.down, size: 12, color: p.muted),
-                  ),
-                ],
-              ),
+                ),
+                if (trailing != null) ...[const SizedBox(width: 6), trailing!],
+                SizedBox(width: compact ? 4 : 8),
+                AnimatedRotation(
+                  turns: open ? .5 : 0,
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : AppMotion.fast,
+                  child: Icon(AppIcons.down, size: 12, color: p.muted),
+                ),
+              ],
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
 }
 
 /// Popup routes use the same inset option without a second full-width hover layer.

@@ -489,7 +489,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
 }
 
 /// Shared inset option for filter and identity menus.
-class AppMenuOption extends StatefulWidget {
+class AppMenuOption extends StatelessWidget {
   const AppMenuOption({
     super.key,
     required this.label,
@@ -514,110 +514,102 @@ class AppMenuOption extends StatefulWidget {
   final bool autofocus;
 
   @override
-  State<AppMenuOption> createState() => _AppMenuOptionState();
-}
-
-class _AppMenuOptionState extends State<AppMenuOption> {
-  var _hover = false;
-  var _focused = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final active = _hover || _focused;
-    final bg = widget.selected
-        ? p.selected
-        : active
-        ? p.hover
-        : AppPalette.clearOf(p.hover);
-    final style = TextStyle(
-      fontSize: 14,
-      height: 22 / 14,
-      fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w400,
-      color: widget.danger
-          ? p.danger
-          : widget.selected
-          ? p.primary
-          : p.ink,
-    );
-    return Semantics(
-      selected: widget.selected,
-      button: true,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hover = true),
-        onExit: (_) => setState(() => _hover = false),
+  Widget build(BuildContext context) => _AppSurfaceInteraction(
+    onTap: onTap,
+    autofocus: autofocus,
+    builder: (context, states) {
+      final p = AppPalette.of(context);
+      final active =
+          states.contains(WidgetState.hovered) ||
+          states.contains(WidgetState.focused);
+      final bg = selected
+          ? p.selected
+          : active
+          ? p.hover
+          : AppPalette.clearOf(p.hover);
+      final style = TextStyle(
+        fontSize: 14,
+        height: 22 / 14,
+        fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+        color: danger
+            ? p.danger
+            : selected
+            ? p.primary
+            : p.ink,
+      );
+      return Semantics(
+        selected: selected,
+        button: true,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(AppRadii.control),
-          child: InkWell(
-            onTap: widget.onTap,
-            autofocus: widget.autofocus,
-            onFocusChange: (focused) => setState(() => _focused = focused),
-            hoverColor: Colors.transparent,
-            focusColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            splashFactory: NoSplash.splashFactory,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 100),
-              curve: Curves.easeOut,
-              constraints: BoxConstraints(
-                minHeight: AppMobileUi.useTouchChrome(context)
-                    ? AppMobileUi.choiceRow
-                    : 40,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            curve: Curves.easeOut,
+            constraints: BoxConstraints(
+              minHeight: AppMobileUi.useTouchChrome(context)
+                  ? AppMobileUi.choiceRow
+                  : 40,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(AppRadii.control),
+            ),
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadii.control),
+              border: Border.all(
+                color: states.contains(WidgetState.focused)
+                    ? p.focus
+                    : AppPalette.clearOf(p.focus),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: bg,
-                borderRadius: BorderRadius.circular(AppRadii.control),
-              ),
-              child: Row(
-                children: [
-                  if (widget.leadingIcon != null) ...[
-                    Icon(
-                      widget.leadingIcon,
-                      size: 18,
-                      color: widget.danger
-                          ? p.danger
-                          : widget.selected
-                          ? p.primary
-                          : p.muted,
-                    ),
-                    const SizedBox(width: 10),
-                  ],
-                  Expanded(
-                    child: widget.wrap
-                        ? Text(widget.label, style: style)
-                        : AppTruncatedText(widget.label, style: style),
+            ),
+            child: Row(
+              children: [
+                if (leadingIcon != null) ...[
+                  Icon(
+                    leadingIcon,
+                    size: 18,
+                    color: danger
+                        ? p.danger
+                        : selected
+                        ? p.primary
+                        : p.muted,
                   ),
-                  if (widget.trailing.isNotEmpty) ...[
-                    const SizedBox(width: 8),
-                    Text(
-                      widget.trailing,
-                      maxLines: 1,
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 22 / 12,
-                        color: widget.selected ? p.primary : p.muted,
-                      ),
-                    ),
-                  ],
-                  if (widget.showCheck) ...[
-                    const SizedBox(width: 12),
-                    SizedBox.square(
-                      dimension: 18,
-                      child: widget.selected
-                          ? Icon(AppIcons.check, size: 18, color: p.primary)
-                          : null,
-                    ),
-                  ],
+                  const SizedBox(width: 10),
                 ],
-              ),
+                Expanded(
+                  child: wrap
+                      ? Text(label, style: style)
+                      : AppTruncatedText(label, style: style),
+                ),
+                if (trailing.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    trailing,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 22 / 12,
+                      color: selected ? p.primary : p.muted,
+                    ),
+                  ),
+                ],
+                if (showCheck) ...[
+                  const SizedBox(width: 12),
+                  SizedBox.square(
+                    dimension: 18,
+                    child: selected
+                        ? Icon(AppIcons.check, size: 18, color: p.primary)
+                        : null,
+                  ),
+                ],
+              ],
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
 }
 
 /// Shared contextual menu, with the same option shape as account/filter menus.

@@ -1,5 +1,6 @@
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -87,7 +88,7 @@ void main() {
 
     expect(find.text('同学甲'), findsOneWidget);
     expect(find.text('临时会话'), findsOneWidget);
-    expect(find.byIcon(Icons.more_horiz_rounded), findsOneWidget);
+    expect(find.byTooltip('更多'), findsOneWidget);
     await tester.tap(find.text('同学甲'));
     await tester.pump(); // start route
     await tester.pump(const Duration(milliseconds: 500)); // nav + bootstrap
@@ -157,7 +158,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('同课 1'), findsNothing);
-    await tester.tap(find.byIcon(Icons.more_horiz_rounded));
+    final more = find.byTooltip('更多');
+    Focus.of(
+      tester.element(find.descendant(of: more, matching: find.byType(Icon))),
+    ).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.text('查看同课'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.tap(more);
     await tester.pumpAndSettle();
     await tester.tap(find.text('查看同课'));
     await tester.pumpAndSettle();

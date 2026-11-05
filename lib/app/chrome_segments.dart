@@ -244,7 +244,7 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
   }
 }
 
-class _SegmentButton extends StatefulWidget {
+class _SegmentButton extends StatelessWidget {
   const _SegmentButton({
     super.key,
     required this.label,
@@ -261,25 +261,16 @@ class _SegmentButton extends StatefulWidget {
   final VoidCallback onTap;
 
   @override
-  State<_SegmentButton> createState() => _SegmentButtonState();
-}
-
-class _SegmentButtonState extends State<_SegmentButton> {
-  var _focused = false;
-  var _hovered = false;
-  var _pressed = false;
-
-  @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final foreground = widget.selected ? p.primary : p.muted;
+    final foreground = selected ? p.primary : p.muted;
     if (AppMobileUi.useTouchChrome(context)) {
       return Semantics(
-        selected: widget.selected,
+        selected: selected,
         inMutuallyExclusiveGroup: true,
         child: TextButton(
-          focusNode: widget.focusNode,
-          onPressed: widget.onTap,
+          focusNode: focusNode,
+          onPressed: onTap,
           style: TextButton.styleFrom(
             minimumSize: const Size(AppMobileUi.target, AppMobileUi.target),
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -287,83 +278,74 @@ class _SegmentButtonState extends State<_SegmentButton> {
             shape: const RoundedRectangleBorder(),
             textStyle: Theme.of(context).textTheme.labelLarge?.copyWith(
               fontSize: 13,
-              fontWeight: widget.selected ? FontWeight.w600 : FontWeight.w500,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
             ),
           ),
-          child: Text(
-            widget.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
       );
     }
 
-    final active = _hovered || _pressed;
-    final radius = BorderRadius.circular(AppRadii.control);
-    return Semantics(
-      button: true,
-      selected: widget.selected,
-      inMutuallyExclusiveGroup: true,
-      child: Material(
-        type: MaterialType.transparency,
-        borderRadius: radius,
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          focusNode: widget.focusNode,
-          borderRadius: radius,
-          onFocusChange: (v) => setState(() => _focused = v),
-          onHover: (v) => setState(() => _hovered = v),
-          onHighlightChanged: (v) => setState(() => _pressed = v),
-          onTap: widget.onTap,
-          hoverColor: Colors.transparent,
-          focusColor: Colors.transparent,
-          highlightColor: Colors.transparent,
-          splashFactory: NoSplash.splashFactory,
-          child: AnimatedContainer(
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : AppMotion.instant,
-            curve: AppMotion.instantCurve,
-            constraints: BoxConstraints(
-              minHeight: AppMobileUi.useTouchChrome(context)
-                  ? AppMobileUi.target
-                  : 36,
-            ),
-            padding: EdgeInsets.symmetric(
-              horizontal: 8,
-              vertical: AppMobileUi.useTouchChrome(context) ? 8 : 4,
-            ),
-            decoration: BoxDecoration(
-              color: p.primary.withValues(alpha: active ? .04 : 0),
-              borderRadius: radius,
-              border: Border.all(
-                color: _focused ? p.primary : AppPalette.clearOf(p.primary),
+    return _AppSurfaceInteraction(
+      onTap: onTap,
+      focusNode: focusNode,
+      builder: (context, states) {
+        final active =
+            states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.pressed);
+        final focused = states.contains(WidgetState.focused);
+        final radius = BorderRadius.circular(AppRadii.control);
+        return Semantics(
+          button: true,
+          selected: selected,
+          inMutuallyExclusiveGroup: true,
+          child: ClipRRect(
+            borderRadius: radius,
+            child: AnimatedContainer(
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : AppMotion.instant,
+              curve: AppMotion.instantCurve,
+              constraints: BoxConstraints(
+                minHeight: AppMobileUi.useTouchChrome(context)
+                    ? AppMobileUi.target
+                    : 36,
+              ),
+              padding: EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: AppMobileUi.useTouchChrome(context) ? 8 : 4,
+              ),
+              decoration: BoxDecoration(
+                color: p.primary.withValues(alpha: active ? .04 : 0),
+                borderRadius: radius,
+                border: Border.all(
+                  color: focused ? p.primary : AppPalette.clearOf(p.primary),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, size: 18, color: foreground),
+                    const SizedBox(width: 6),
+                  ],
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.labelLarge?.copyWith(color: foreground),
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (widget.icon != null) ...[
-                  Icon(widget.icon, size: 18, color: foreground),
-                  const SizedBox(width: 6),
-                ],
-                Flexible(
-                  child: Text(
-                    widget.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelLarge?.copyWith(color: foreground),
-                  ),
-                ),
-              ],
-            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

@@ -1410,21 +1410,17 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     );
     return Tooltip(
       message: '点击复制',
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: () => _copyCode(code),
-          behavior: HitTestBehavior.opaque,
-          child: Row(
-            children: [
-              Flexible(child: text),
-              if (!_desktop &&
-                  Theme.of(context).platform != TargetPlatform.android) ...[
-                const SizedBox(width: AppSpace.xs),
-                Icon(Icons.copy_rounded, size: 15, color: palette.muted),
-              ],
+      child: InkWell(
+        onTap: () => _copyCode(code),
+        child: Row(
+          children: [
+            Flexible(child: text),
+            if (!_desktop &&
+                Theme.of(context).platform != TargetPlatform.android) ...[
+              const SizedBox(width: AppSpace.xs),
+              Icon(Icons.copy_rounded, size: 15, color: palette.muted),
             ],
-          ),
+          ],
         ),
       ),
     );

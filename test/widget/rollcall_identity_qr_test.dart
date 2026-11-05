@@ -1081,16 +1081,8 @@ void main() {
           tester.getRect(option).right,
           lessThan(tester.getRect(entry).right),
         );
-        // There is only the shared inset InkWell; no full-width parent hover wash.
-        expect(
-          find.descendant(of: entry, matching: find.byType(InkWell)),
-          findsNWidgets(
-            find
-                .descendant(of: entry, matching: find.byType(AppMenuOption))
-                .evaluate()
-                .length,
-          ),
-        );
+        // Assert the inset surface and actual activation below, independently
+        // of whether the shared input layer uses InkWell or gesture actions.
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer();
         addTearDown(mouse.removePointer);

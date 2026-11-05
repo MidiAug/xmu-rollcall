@@ -66,9 +66,7 @@ class _AppSwitchState extends State<AppSwitch>
       onTap: enabled ? _toggle : null,
       child: FocusableActionDetector(
         enabled: enabled,
-        mouseCursor: enabled
-            ? SystemMouseCursors.click
-            : SystemMouseCursors.basic,
+        mouseCursor: WidgetStateMouseCursor.adaptiveClickable,
         onShowFocusHighlight: (value) => setState(() => _focused = value),
         shortcuts: const {
           SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),

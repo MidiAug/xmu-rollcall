@@ -166,9 +166,16 @@ class AppHoverSurface extends StatelessWidget {
 /// Owns input only. Each surface decides how its states should be painted.
 /// No Material ink can leak through a caller's custom surface.
 class _AppSurfaceInteraction extends StatefulWidget {
-  const _AppSurfaceInteraction({required this.onTap, required this.builder});
+  const _AppSurfaceInteraction({
+    required this.onTap,
+    required this.builder,
+    this.focusNode,
+    this.autofocus = false,
+  });
   final VoidCallback? onTap;
   final Widget Function(BuildContext, Set<WidgetState>) builder;
+  final FocusNode? focusNode;
+  final bool autofocus;
 
   @override
   State<_AppSurfaceInteraction> createState() => _AppSurfaceInteractionState();
@@ -176,6 +183,14 @@ class _AppSurfaceInteraction extends StatefulWidget {
 
 class _AppSurfaceInteractionState extends State<_AppSurfaceInteraction> {
   bool _hover = false, _pressed = false, _focus = false;
+  bool _pointerFocus = false;
+  final _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -186,42 +201,70 @@ class _AppSurfaceInteractionState extends State<_AppSurfaceInteraction> {
     final body = widget.builder(context, {
       if (enabled && _hover) WidgetState.hovered,
       if (enabled && _pressed) WidgetState.pressed,
-      if (enabled && _focus) WidgetState.focused,
+      if (enabled && _focus && !_pointerFocus) WidgetState.focused,
     });
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
-      child: FocusableActionDetector(
-        enabled: enabled,
-        mouseCursor: SystemMouseCursors.basic,
-        // Flutter owns input-modality changes, including switching to Tab while
-        // already focused; a one-time highlightMode check misses that transition.
-        onShowFocusHighlight: (value) => setState(() => _focus = value),
-        shortcuts: const {
-          SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
-          SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+      child: Focus(
+        canRequestFocus: false,
+        includeSemantics: false,
+        onKeyEvent: (_, event) {
+          if (event is KeyDownEvent && _pointerFocus) {
+            setState(() => _pointerFocus = false);
+          }
+          return KeyEventResult.ignored;
         },
-        actions: {
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (_) {
-              widget.onTap?.call();
-              return null;
+        child: Listener(
+          onPointerDown: (_) {
+            // Desktop traditional highlight mode includes mouse input. Keep
+            // actual focus for navigation, but draw its ring only for keys.
+            setState(() => _pointerFocus = true);
+            (widget.focusNode ?? _focusNode).requestFocus();
+          },
+          child: FocusableActionDetector(
+            enabled: enabled,
+            focusNode: widget.focusNode ?? _focusNode,
+            autofocus: widget.autofocus,
+            mouseCursor: WidgetStateMouseCursor.adaptiveClickable,
+            onFocusChange: (focused) {
+              if (!focused && _pointerFocus) {
+                setState(() => _pointerFocus = false);
+              }
             },
-          ),
-        },
-        child: Semantics(
-          button: enabled ? true : null,
-          onTap: widget.onTap,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTap: widget.onTap,
-            onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
-            onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
-            onTapCancel: enabled
-                ? () => setState(() => _pressed = false)
-                : null,
-            child: body,
+            onShowFocusHighlight: (value) => setState(() => _focus = value),
+            shortcuts: const {
+              SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+              SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+            },
+            actions: {
+              ActivateIntent: CallbackAction<ActivateIntent>(
+                onInvoke: (_) {
+                  if (_pointerFocus) setState(() => _pointerFocus = false);
+                  widget.onTap?.call();
+                  return null;
+                },
+              ),
+            },
+            child: Semantics(
+              button: enabled ? true : null,
+              onTap: widget.onTap,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                excludeFromSemantics: true,
+                onTap: widget.onTap,
+                onTapDown: enabled
+                    ? (_) => setState(() => _pressed = true)
+                    : null,
+                onTapUp: enabled
+                    ? (_) => setState(() => _pressed = false)
+                    : null,
+                onTapCancel: enabled
+                    ? () => setState(() => _pressed = false)
+                    : null,
+                child: body,
+              ),
+            ),
           ),
         ),
       ),

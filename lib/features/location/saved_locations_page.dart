@@ -563,49 +563,74 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                                     fontWeight: FontWeight.w600,
                                                   ),
                                             ),
-                                            subtitle: Tooltip(
-                                              message: e.courses.isEmpty
-                                                  ? ''
-                                                  : e.courses.join('、'),
-                                              child: Text(
-                                                invalid
-                                                    ? '位置校验未通过，点击校正'
-                                                    : isPending
-                                                    ? (e.courses.isNotEmpty
-                                                          ? e.courses.join('、')
-                                                          : '${e.pending} 个区域待补全')
-                                                    : [
-                                                        if (e.grouped)
-                                                          '${e.children.length} 个区域',
-                                                        if (e
-                                                            .courses
-                                                            .isNotEmpty)
-                                                          '${e.courses.length} 门课程',
-                                                        if (!e.grouped &&
-                                                            e.courses.isEmpty)
-                                                          isTeachingPreset(
-                                                                e.place!,
-                                                              )
-                                                              ? '内置教学地点'
-                                                              : isReferencePlace(
-                                                                  e.place!,
-                                                                )
-                                                              ? '楼宇参考'
-                                                              : '个人地点',
-                                                      ].join('，'),
-                                                maxLines: isPending ? 2 : 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: Theme.of(context)
-                                                    .textTheme
-                                                    .bodySmall
-                                                    ?.copyWith(
-                                                      fontSize: androidList
-                                                          ? 12
-                                                          : 11,
-                                                      color: p.muted,
+                                            subtitle:
+                                                isPending &&
+                                                    !invalid &&
+                                                    e.courses.isNotEmpty
+                                                ? AppTruncatedText(
+                                                    e.courses.join('、'),
+                                                    style: Theme.of(context)
+                                                        .textTheme
+                                                        .bodySmall
+                                                        ?.copyWith(
+                                                          fontSize: androidList
+                                                              ? 12
+                                                              : 11,
+                                                          color: p.muted,
+                                                        ),
+                                                  )
+                                                : Tooltip(
+                                                    message: e.courses.isEmpty
+                                                        ? ''
+                                                        : e.courses.join('、'),
+                                                    child: Text(
+                                                      invalid
+                                                          ? '位置校验未通过，点击校正'
+                                                          : isPending
+                                                          ? (e
+                                                                    .courses
+                                                                    .isNotEmpty
+                                                                ? e.courses
+                                                                      .join('、')
+                                                                : '${e.pending} 个区域待补全')
+                                                          : [
+                                                              if (e.grouped)
+                                                                '${e.children.length} 个区域',
+                                                              if (e
+                                                                  .courses
+                                                                  .isNotEmpty)
+                                                                '${e.courses.length} 门课程',
+                                                              if (!e.grouped &&
+                                                                  e
+                                                                      .courses
+                                                                      .isEmpty)
+                                                                isTeachingPreset(
+                                                                      e.place!,
+                                                                    )
+                                                                    ? '内置教学地点'
+                                                                    : isReferencePlace(
+                                                                        e.place!,
+                                                                      )
+                                                                    ? '楼宇参考'
+                                                                    : '个人地点',
+                                                            ].join('，'),
+                                                      maxLines: isPending
+                                                          ? 2
+                                                          : 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: Theme.of(context)
+                                                          .textTheme
+                                                          .bodySmall
+                                                          ?.copyWith(
+                                                            fontSize:
+                                                                androidList
+                                                                ? 12
+                                                                : 11,
+                                                            color: p.muted,
+                                                          ),
                                                     ),
-                                              ),
-                                            ),
+                                                  ),
                                             trailing: Icon(
                                               AppIcons.right,
                                               size: 15,

@@ -361,6 +361,14 @@ void main() {
       expect(copiedCode, '1234');
       AppToast.dismiss();
       await tester.pumpAndSettle();
+      copiedCode = null;
+      Focus.of(tester.element(inside(find.text('1234')))).requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(copiedCode, '1234');
+      AppToast.dismiss();
+      await tester.pumpAndSettle();
       await tester.runAsync(
         () => precacheImage(
           const AssetImage('assets/illustrations/campus_header.png'),
