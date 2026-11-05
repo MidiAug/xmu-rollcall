@@ -1,9 +1,23 @@
+import 'package:xmu_rollcall/features/monitor/monitor_status_line.dart';
+import 'package:xmu_rollcall/features/rollcall/mobile_rollcall_home.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
+import 'package:xmu_rollcall/features/history/history_summary.dart';
+import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
+import 'package:xmu_rollcall/features/monitor/monitor_quick_control.dart';
+import 'package:xmu_rollcall/app/desktop/desktop_workspace.dart';
+import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
+import 'package:xmu_rollcall/features/campus/campus_summary.dart';
+import 'package:xmu_rollcall/app/shell_navigation.dart';
+import 'package:xmu_rollcall/features/campus/campus_context_panel.dart';
+import 'package:xmu_rollcall/features/settings/courses_page.dart';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
+import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
-import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
@@ -14,9 +28,7 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_account_menu.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/history/history_page.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
-import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
-import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_list_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
@@ -37,6 +49,56 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
   String? _switchError;
   int _switchRevision = 0;
   bool _visible = false;
+  (int?, int?)? _campusIdentity;
+  CampusCachedData? _campusSnapshot;
+  ({String text, bool error})? _manualFeedback;
+  Timer? _feedbackTimer;
+
+  void _clearManualFeedback() {
+    _feedbackTimer?.cancel();
+    _manualFeedback = null;
+  }
+
+  Future<void> _refreshManually() async {
+    if (_switching) return;
+    if (_switchError != null) {
+      await _selectIdentity(_assistUserId ?? 0);
+      return;
+    }
+    final revision = _switchRevision;
+    final scope = _assistUserId;
+    var failed = false;
+    try {
+      await ref.read(activeRollcallsProvider(scope).notifier).refresh();
+    } catch (_) {
+      failed = true;
+    }
+    if (!mounted || revision != _switchRevision) return;
+    final snapshot = ref.read(activeRollcallsProvider(scope));
+    failed = failed || snapshot.hasError;
+    final items = snapshot.valueOrNull ?? const <RollcallItem>[];
+    final pending = items
+        .where((item) => !item.isAnswered && !item.isExpired)
+        .length;
+    _feedbackTimer?.cancel();
+    setState(
+      () => _manualFeedback = (
+        text: failed
+            ? '刷新失败，请重试'
+            : pending > 0
+            ? '已刷新，有 $pending 项待签到'
+            : items.any((item) => item.isAnswered)
+            ? '已刷新，当前签到已完成'
+            : '已刷新，暂无进行中的签到',
+        error: failed,
+      ),
+    );
+    _feedbackTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted && revision == _switchRevision) {
+        setState(() => _manualFeedback = null);
+      }
+    });
+  }
 
   @override
   void initState() {
@@ -79,6 +141,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
   @override
   void onShellTabHidden() {
     _visible = false;
+    _clearManualFeedback();
     super.onShellTabHidden();
   }
 
@@ -99,6 +162,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
   Future<void> _loadIdentity(int? id) async {
     final revision = ++_switchRevision;
     setState(() {
+      _clearManualFeedback();
       _switching = id != null;
       _switchError = null;
     });
@@ -114,7 +178,12 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
           .firstWhere((e) => e.userId == id);
       final service = await ref.read(assistServiceProvider.future);
       await service.ensureSession(identity);
+      final healed = await service.ensureDeviceId(identity);
       if (!mounted || revision != _switchRevision) return;
+      ref.read(assistControllerProvider.notifier).updateIdentity(healed);
+      unawaited(
+        ref.read(academicSyncProvider).sync(id).catchError((Object _) {}),
+      );
       // Reload even when this identity already has a cached list.
       await ref.read(activeRollcallsProvider(id).notifier).refresh();
     } catch (error, stack) {
@@ -142,6 +211,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _scroll.dispose();
+    _feedbackTimer?.cancel();
     super.dispose();
   }
 
@@ -155,13 +225,13 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
 
   @override
   Widget build(BuildContext context) {
-    final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
     final p = AppPalette.of(context);
     final auth = ref.watch(authControllerProvider);
     final roster = ref.watch(assistControllerProvider).identities;
     final selected = ref.watch(selectedRollcallAccountProvider);
     final scope = roster.any((e) => e.userId == selected) ? selected : null;
-    final window = ref.watch(detectionWindowProvider);
+    final planned = ref.watch(selectedDetectionWindowProvider);
+    final window = planned.valueOrNull;
     final outsideWindow =
         window != null &&
         !window.allows(ref.read(activeRollcallClockProvider)());
@@ -174,7 +244,12 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
           .lastUpdatedAt;
     }
     final updatedLabel = outsideWindow
-        ? '时段外暂停获取签到（${window.label}）'
+        ? (window.scheduleBased
+              ? detectionStatusLabel(
+                  window,
+                  ref.read(activeRollcallClockProvider)(),
+                )
+              : '时段外暂停获取签到（${window.label}）')
         : _switching
         ? '正在切换…'
         : confirming
@@ -192,6 +267,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
       if (previous == next) return;
       _switchRevision++;
       setState(() {
+        _clearManualFeedback();
         _switching = false;
         _switchError = null;
       });
@@ -209,106 +285,237 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
       }
     });
 
-    return PageScaffold(
-      title: '签到',
-      showHeader: false,
-      child: AppContentColumn(
+    if (PlatformHooks.isDesktop && !AppDensity.isTouch(context)) {
+      final active =
+          ShellTabScope.maybeOf(context)?.isActive(AppDestination.rollcall) ??
+          true;
+      final pendingCount = auth.isSignedIn
+          ? (ref.watch(activeRollcallsProvider(scope)).valueOrNull ??
+                    const <RollcallItem>[])
+                .where((item) => !item.isAnswered && !item.isExpired)
+                .length
+          : 0;
+      final identity = auth.isSignedIn ? (auth.profile?.id, scope) : null;
+      if (_campusIdentity != identity) {
+        _campusIdentity = identity;
+        _campusSnapshot = null;
+      }
+      final cachedState = active && auth.isSignedIn
+          ? ref.watch(campusCachedDataProvider)
+          : null;
+      // Disk rereads must not collapse the sidebar while the same identity loads.
+      if (cachedState is AsyncData<CampusCachedData> &&
+          !cachedState.isLoading) {
+        _campusSnapshot = cachedState.value;
+      }
+      final cached = active && auth.isSignedIn ? _campusSnapshot : null;
+      final now = active && auth.isSignedIn
+          ? ref.watch(campusClockProvider).valueOrNull ??
+                ref.read(campusNowProvider)()
+          : DateTime.now();
+      final contextLoading = cached == null && cachedState?.isLoading == true;
+      final hasContext =
+          cached != null &&
+          (cached.homework.isNotEmpty ||
+              (cached.schedule != null &&
+                  selectCampusCourses(
+                    cached.schedule!,
+                    now,
+                  ).visible.isNotEmpty));
+      final records = auth.isSignedIn
+          ? ref
+                    .watch(currentCourseHistoryProvider)
+                    .whenOrNull(
+                      skipLoadingOnReload: false,
+                      data: (data) => data,
+                    ) ??
+                const <CourseRollcallRecord>[]
+          : const <CourseRollcallRecord>[];
+      final history = HistorySummary(records).records;
+      final latest = history.isEmpty ? null : history.first;
+      final latestAt = latest?.rollcallTime?.toLocal();
+      final latestSigned =
+          latest != null &&
+          historyAttendance(latest) == HistoryAttendance.signed;
+      final historyLink = auth.isSignedIn
+          ? Column(
+              key: const ValueKey('latest-history-footer'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Divider(color: p.border, height: 1),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: latest == null
+                            ? const SizedBox.shrink()
+                            : Row(
+                                children: [
+                                  Text(
+                                    '上次签到',
+                                    style: TextStyle(
+                                      color: p.muted,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Container(
+                                    width: 32,
+                                    height: 32,
+                                    decoration: BoxDecoration(
+                                      color: latestSigned
+                                          ? p.successSurface
+                                          : p.surfaceHigh,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      latestSigned
+                                          ? AppIcons.check
+                                          : AppIcons.history,
+                                      size: 20,
+                                      color: latestSigned
+                                          ? p.successAccent
+                                          : p.muted,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Flexible(
+                                    child: Text(
+                                      latest.courseTitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.control.copyWith(
+                                        color: p.ink,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    latestAt == null
+                                        ? '时间未提供'
+                                        : '${latestAt.year == now.year && latestAt.month == now.month && latestAt.day == now.day ? '今天' : '${latestAt.month}/${latestAt.day}'} ${latestAt.hour.toString().padLeft(2, '0')}:${latestAt.minute.toString().padLeft(2, '0')}',
+                                    style: AppTypography.caption.copyWith(
+                                      color: p.muted,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  AppStatusBadge(
+                                    latest.signedStatus.isEmpty
+                                        ? '状态未知'
+                                        : latest.signedStatus,
+                                    tone: latestSigned
+                                        ? AppStatusTone.success
+                                        : AppStatusTone.danger,
+                                  ),
+                                ],
+                              ),
+                      ),
+                      const SizedBox(width: 12),
+                      AppTextLink(
+                        '查看记录',
+                        onPressed: () => _openHistory(context),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          : null;
+      return DesktopWorkspace(
+        title: '签到',
+        subtitle:
+            '${now.month}月${now.day}日  ${const ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][now.weekday - 1]}',
+        actions: [
+          if (!(ShellTabScope.maybeOf(context)?.hasGlobalIdentityControl ??
+              false))
+            RollcallAccountMenu(
+              width: 140,
+              value: scope ?? 0,
+              identities: roster,
+              ownerName: auth.profile?.name ?? '我',
+              onChanged: _selectIdentity,
+            ),
+          const MonitorQuickControl(style: MonitorControlStyle.toolbar),
+          AppRefreshButton(
+            key: ValueKey((auth.profile?.id, scope)),
+            iconSize: 20,
+            onRefresh: _refreshManually,
+          ),
+          IconButton(
+            tooltip: '签到记录',
+            style: IconButton.styleFrom(
+              minimumSize: const Size(34, 34),
+              padding: const EdgeInsets.all(7),
+              backgroundColor: p.surface,
+              side: BorderSide(color: p.border),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(7),
+              ),
+            ),
+            onPressed: () => _openHistory(context),
+            icon: const Icon(AppIcons.history, size: 20),
+          ),
+          IconButton(
+            tooltip: '签到设置',
+            style: IconButton.styleFrom(
+              minimumSize: const Size(34, 34),
+              padding: const EdgeInsets.all(7),
+              backgroundColor: p.surface,
+              side: BorderSide(color: p.border),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(7),
+              ),
+            ),
+            onPressed: () => _openSettings(context),
+            icon: const Icon(AppIcons.settings, size: 20),
+          ),
+        ],
+        contextPanel: hasContext || contextLoading
+            ? CampusContextView(
+                data: cached ?? const CampusCachedData(),
+                loading: contextLoading,
+                now: now,
+                onTimetable: () {
+                  if (scope == null) {
+                    ShellNavigation.instance.open(AppDestination.timetable);
+                  } else {
+                    AppPageRoutes.push(
+                      context,
+                      CoursesPage(assistUserId: scope),
+                    );
+                  }
+                },
+                onHomework: () =>
+                    ShellNavigation.instance.open(AppDestination.homework),
+                onOpenHomework: (item) =>
+                    AppPageRoutes.push(context, HomeworkDetailPage(seed: item)),
+              )
+            : null,
         child: PrimaryScrollController(
           controller: _scroll,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: EdgeInsets.fromLTRB(
-                  AppSpace.pageXOf(context),
-                  wide ? AppSpace.sm : AppSpace.xs,
-                  AppSpace.pageXOf(context),
-                  AppSpace.sm,
-                ),
-                child: DecoratedBox(
-                  key: const ValueKey('rollcall-toolbar'),
-                  decoration: BoxDecoration(
-                    color: p.surface,
-                    borderRadius: BorderRadius.circular(AppRadii.group),
-                    border: Border.all(color: p.border),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 10, 12),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child:
-                                  wide && ShellTabScope.maybeOf(context) != null
-                                  ? const _PollQuickBar()
-                                  : RollcallAccountMenu(
-                                      value: scope ?? 0,
-                                      identities: roster,
-                                      ownerName: auth.profile?.name ?? '我',
-                                      onChanged: _selectIdentity,
-                                    ),
-                            ),
-                            const SizedBox(width: 4),
-                            AppRefreshButton(
-                              visualDensity: VisualDensity.compact,
-                              color: p.muted,
-                              iconSize: 20,
-                              onRefresh: () async {
-                                if (_switching) return;
-                                if (_switchError != null) {
-                                  await _selectIdentity(scope ?? 0);
-                                } else {
-                                  await ref
-                                      .read(
-                                        activeRollcallsProvider(scope).notifier,
-                                      )
-                                      .refresh();
-                                }
-                              },
-                            ),
-                            IconButton(
-                              tooltip: '自动检测设置',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () => _openSettings(context),
-                              icon: Icon(
-                                Icons.tune_rounded,
-                                color: p.muted,
-                                size: 20,
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: '签到记录',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () => _openHistory(context),
-                              icon: Icon(
-                                Icons.history_rounded,
-                                color: p.muted,
-                                size: 20,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                updatedLabel,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(fontSize: 11, color: p.muted),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            if (!wide || ShellTabScope.maybeOf(context) == null)
-                              const _PollQuickBar(),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+                child: MonitorStatusLine(
+                  fallback: updatedLabel,
+                  overrideMessage:
+                      _switchError ??
+                      _manualFeedback?.text ??
+                      (_switching ? '正在切换账号' : null),
+                  warning:
+                      _switchError != null || _manualFeedback?.error == true,
+                  pendingCount: pendingCount,
+                  completedCount: auth.isSignedIn
+                      ? (ref
+                                    .watch(activeRollcallsProvider(scope))
+                                    .valueOrNull ??
+                                const <RollcallItem>[])
+                            .where((item) => item.isAnswered)
+                            .length
+                      : 0,
                 ),
               ),
               Expanded(
@@ -316,7 +523,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                     ? const Center(child: CircularProgressIndicator())
                     : _switchError != null
                     ? EmptyHint(
-                        icon: Icons.person_outline,
+                        icon: AppIcons.person,
                         title: _switchError!,
                         action: TextButton(
                           onPressed: () => _selectIdentity(scope ?? 0),
@@ -327,182 +534,51 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                         key: ValueKey(scope),
                         embedded: true,
                         showUpdatedAt: false,
+                        onRefresh: _refreshManually,
                         assistUserId: scope,
+                        academicSchedule: cached?.schedule,
+                        at: now,
                       ),
               ),
+              if (historyLink != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 12),
+                  child: historyLink,
+                ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Idle: 「开始检测」pill. Running: capsule with countdown (tap = pollNow) + stop.
-class _PollQuickBar extends ConsumerStatefulWidget {
-  const _PollQuickBar();
-
-  @override
-  ConsumerState<_PollQuickBar> createState() => _PollQuickBarState();
-}
-
-class _PollQuickBarState extends ConsumerState<_PollQuickBar> {
-  Timer? _tick;
-  bool _outsideWindow = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted) return;
-      final window = ref.read(detectionWindowProvider);
-      final outsideWindow =
-          window != null &&
-          !window.allows(ref.read(activeRollcallClockProvider)());
-      if (ref.read(monitorControllerProvider).running ||
-          outsideWindow != _outsideWindow) {
-        setState(() => _outsideWindow = outsideWindow);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _tick?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final monitor = ref.watch(monitorControllerProvider);
-    final ctrl = ref.read(monitorControllerProvider.notifier);
-    final signedIn = ref.watch(authControllerProvider).isSignedIn;
-    final window = ref.watch(detectionWindowProvider);
-    _outsideWindow =
-        window != null &&
-        !window.allows(ref.read(activeRollcallClockProvider)());
-
-    if (!monitor.running) {
-      final enabled =
-          signedIn &&
-          !monitor.starting &&
-          !monitor.loadingSettings &&
-          window != null &&
-          !_outsideWindow;
-      return Align(
-        alignment: Alignment.centerLeft,
-        child: AppTooltipAnchor(
-          child: Tooltip(
-            message: !signedIn
-                ? '请先登录'
-                : _outsideWindow
-                ? '检测时段为 ${window!.label}'
-                : '',
-            child: AppQuietPill(
-              onTap: enabled
-                  ? () async {
-                      final currentWindow = ref.read(detectionWindowProvider);
-                      if (currentWindow == null ||
-                          !currentWindow.allows(
-                            ref.read(activeRollcallClockProvider)(),
-                          )) {
-                        return;
-                      }
-                      final r = await ctrl.startAsync();
-                      if (!context.mounted) return;
-                      switch (r) {
-                        case StartMonitorResult.started:
-                          await showBackgroundReminderSetup(context);
-                        case StartMonitorResult.notificationDenied:
-                          AppToast.show(context, '需要通知权限才能在后台检测', error: true);
-                          await showBackgroundReminderSetup(context);
-                        case StartMonitorResult.fgsFailed:
-                          AppToast.show(context, '无法启动后台检测通知', error: true);
-                        default:
-                          break;
-                      }
-                    }
-                  : null,
-              background: enabled ? p.selected : p.surfaceHigh,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.radar_outlined,
-                    size: 16,
-                    color: enabled ? p.primary : p.muted,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    monitor.starting ? '启动中…' : '开始检测',
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.1,
-                      color: enabled ? p.primary : p.muted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
         ),
       );
     }
 
-    final next = monitor.nextPollAt;
-    final secs = next == null
-        ? 0
-        : next.difference(DateTime.now()).inSeconds.clamp(0, 9999);
-    final failed = monitor.consecutiveFailures > 0;
-    final paused = _outsideWindow;
-    final label = paused
-        ? '${DetectionWindow.formatMinute(window!.startMinute)} 继续'
-        : failed
-        ? '重试中  ${secs}s'
-        : '检测中  ${secs}s';
-
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AppTooltipAnchor(
-            child: Tooltip(
-              message: paused
-                  ? '时段外暂停检测，到时自动恢复'
-                  : failed
-                  ? '上次检测失败，点击立即重试'
-                  : '立即检测一次',
-              child: AppQuietPill(
-                onTap: paused ? null : ctrl.pollNow,
-                background: failed && !paused
-                    ? p.danger.withValues(alpha: 0.12)
-                    : p.selected,
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.1,
-                    color: failed && !paused ? p.danger : p.primary,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-              ),
-            ),
+    return PageScaffold(
+      title: '签到',
+      showHeader: false,
+      child: AppContentColumn(
+        child: MobileRollcallHome(
+          controller: _scroll,
+          scope: scope,
+          updatedLabel: updatedLabel,
+          outsideDetectionWindow: outsideWindow,
+          switching: _switching,
+          switchError: _switchError,
+          onRetryIdentity: () => _selectIdentity(scope ?? 0),
+          accountMenu: RollcallAccountMenu(
+            masthead: Theme.of(context).platform == TargetPlatform.android,
+            value: scope ?? 0,
+            identities: roster,
+            ownerName: auth.profile?.name ?? '我',
+            onChanged: _selectIdentity,
           ),
-          const SizedBox(width: 6),
-          AppTooltipAnchor(
-            child: IconButton(
-              tooltip: '停止检测',
-              visualDensity: VisualDensity.compact,
-              onPressed: ctrl.stop,
-              icon: Icon(Icons.stop_circle_outlined, color: p.muted, size: 22),
-            ),
-          ),
-        ],
+          onHistory: () => _openHistory(context),
+          onSettings: () => _openSettings(context),
+          onTimetable: () =>
+              AppPageRoutes.push(context, CoursesPage(assistUserId: scope)),
+          onHomework: () =>
+              ShellNavigation.instance.open(AppDestination.homework),
+          onOpenHomework: (item) =>
+              AppPageRoutes.push(context, HomeworkDetailPage(seed: item)),
+        ),
       ),
     );
   }

@@ -1,6 +1,70 @@
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
+/// Shared dialog surface; business pages supply content, not another skin.
+class AppDialogFrame extends StatelessWidget {
+  const AppDialogFrame({
+    super.key,
+    required this.child,
+    this.maxWidth = 720,
+    this.insetPadding = const EdgeInsets.all(AppSpace.xl),
+  });
+  final Widget child;
+  final double maxWidth;
+  final EdgeInsets insetPadding;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Dialog(
+      insetPadding: insetPadding,
+      backgroundColor: p.surface,
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.dialog),
+        side: BorderSide(color: p.borderStrong),
+      ),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: SizedBox(width: double.infinity, child: child),
+      ),
+    );
+  }
+}
+
+class AppNoticeDialog extends StatelessWidget {
+  const AppNoticeDialog({
+    super.key,
+    required this.title,
+    required this.message,
+    required this.onClose,
+  });
+  final String title, message;
+  final VoidCallback onClose;
+  @override
+  Widget build(BuildContext context) => AppDialogFrame(
+    maxWidth: 360,
+    child: Padding(
+      padding: const EdgeInsets.all(AppSpace.xl),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppSpace.xs),
+          Text(message, style: Theme.of(context).textTheme.bodyMedium),
+          const SizedBox(height: AppSpace.lg),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton(onPressed: onClose, child: const Text('关闭')),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 /// Shared confirm / prompt dialogs (Quiet Utility, not raw [AlertDialog]).
 Future<bool> showAppConfirmDialog(
   BuildContext context, {
@@ -15,64 +79,55 @@ Future<bool> showAppConfirmDialog(
     barrierColor: Colors.black.withValues(alpha: 0.48),
     builder: (ctx) {
       final p = AppPalette.of(ctx);
-      return Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 28),
-        backgroundColor: p.surface,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadii.dialog),
-          side: BorderSide(color: p.border),
-        ),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 360),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.2,
-                    color: p.ink,
-                  ),
+      return AppDialogFrame(
+        maxWidth: 360,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.2,
+                  color: p.ink,
                 ),
-                if (message != null && message.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    message,
-                    style: TextStyle(fontSize: 13, height: 1.4, color: p.muted),
-                  ),
-                ],
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => Navigator.pop(ctx, false),
-                        child: Text(cancelLabel),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: () => Navigator.pop(ctx, true),
-                        style: destructive
-                            ? FilledButton.styleFrom(
-                                backgroundColor: p.danger,
-                                foregroundColor: Colors.white,
-                              )
-                            : null,
-                        child: Text(confirmLabel),
-                      ),
-                    ),
-                  ],
+              ),
+              if (message != null && message.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  message,
+                  style: TextStyle(fontSize: 13, height: 1.4, color: p.muted),
                 ),
               ],
-            ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: Text(cancelLabel),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: destructive
+                          ? FilledButton.styleFrom(
+                              backgroundColor: p.danger,
+                              foregroundColor: Colors.white,
+                            )
+                          : null,
+                      child: Text(confirmLabel),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       );

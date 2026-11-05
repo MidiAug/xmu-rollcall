@@ -45,11 +45,15 @@ class AttendanceCountRow extends ConsumerStatefulWidget {
     required this.rollcallId,
     required this.expired,
     this.assistUserId,
+    this.compact = false,
+    this.completed = false,
   });
 
   final int rollcallId;
   final int? assistUserId;
   final bool expired;
+  final bool compact;
+  final bool completed;
 
   @override
   ConsumerState<AttendanceCountRow> createState() => _AttendanceCountRowState();
@@ -64,6 +68,7 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
   AttendanceCount? _count;
   bool _failed = false;
   bool _busy = false;
+  bool _finalCountRead = false;
   bool _visible = false;
   bool _foreground = true;
   ({int ownerId, int? accountId}) get _pauseScope => (
@@ -79,6 +84,7 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
       _visible &&
       _foreground &&
       !widget.expired &&
+      (!widget.completed || !_finalCountRead) &&
       !_manuallyPaused &&
       ref.read(authControllerProvider).isSignedIn;
   DateTime get _now => ref.read(attendanceCountClockProvider)();
@@ -122,12 +128,17 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
         oldWidget.assistUserId != widget.assistUserId) {
       _revision++;
       _busy = false;
+      _finalCountRead = false;
       _count = ref.read(
         _pausedCountActivitiesProvider(_pauseScope),
       )[widget.rollcallId];
       _nextAt = null;
       _updatedAt = null;
       _failed = false;
+      _restart();
+    } else if (oldWidget.completed != widget.completed) {
+      _finalCountRead = false;
+      _nextAt = null;
       _restart();
     } else if (oldWidget.expired != widget.expired) {
       _restart();
@@ -203,7 +214,10 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
       setState(() => _failed = true);
     } finally {
       if (mounted && revision == _revision) {
-        setState(() => _busy = false);
+        setState(() {
+          _busy = false;
+          if (widget.completed) _finalCountRead = true;
+        });
         _schedule();
       }
     }
@@ -244,6 +258,7 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
         _updatedAt = null;
         _nextAt = null;
         _busy = false;
+        _finalCountRead = false;
         _failed = false;
       });
       _restart();
@@ -262,6 +277,56 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
             0,
             _seconds,
           );
+    if (widget.compact) {
+      final label = count != null
+          ? '${count.signed} / ${count.total} 人'
+          : widget.expired
+          ? '已结束'
+          : _failed
+          ? '暂不可用'
+          : _manuallyPaused
+          ? '未更新'
+          : '查询中…';
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Tooltip(
+                message:
+                    '已签到人数${_manuallyPaused
+                        ? '  已暂停'
+                        : remaining != null
+                        ? '  ${remaining}s 后刷新'
+                        : ''}',
+                textAlign: TextAlign.center,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(AppIcons.people, size: 20, color: p.ink),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          softWrap: false,
+                          style: TextStyle(fontSize: 13, color: p.ink),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (!widget.expired && !widget.completed && !automaticCountWait)
+              _pauseButton(p, compact: true),
+          ],
+        ),
+      );
+    }
     return Wrap(
       spacing: 8,
       runSpacing: 2,
@@ -280,7 +345,7 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
                 ),
               )
             else
-              Icon(Icons.people_outline_rounded, size: 15, color: p.muted),
+              Icon(AppIcons.people, size: 15, color: p.muted),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -328,26 +393,51 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
                   style: TextStyle(fontSize: 11, color: p.muted),
                 ),
               ),
-            if (!widget.expired && !automaticCountWait)
-              IconButton(
-                tooltip: _manuallyPaused ? '继续刷新人数' : '暂停刷新人数',
-                onPressed: _togglePause,
-                icon: Icon(
-                  _manuallyPaused
-                      ? Icons.play_arrow_rounded
-                      : Icons.pause_rounded,
-                ),
-                iconSize: 16,
-                color: p.muted,
-                padding: EdgeInsets.zero,
-                constraints: BoxConstraints.tightFor(
-                  width: AppDensity.isTouch(context) ? 44 : 28,
-                  height: AppDensity.isTouch(context) ? 44 : 28,
-                ),
-              ),
+            if (!widget.expired && !widget.completed && !automaticCountWait)
+              _pauseButton(p, compact: false),
           ],
         ),
       ],
+    );
+  }
+
+  Widget _pauseButton(AppPalette p, {required bool compact}) {
+    final width = compact
+        ? 24.0
+        : AppDensity.isTouch(context)
+        ? 44.0
+        : 28.0;
+    final height = compact
+        ? 28.0
+        : AppDensity.isTouch(context)
+        ? 44.0
+        : 28.0;
+    return IconButton(
+      tooltip: _manuallyPaused ? '继续刷新人数' : '暂停刷新人数',
+      onPressed: _togglePause,
+      icon: Icon(_manuallyPaused ? AppIcons.play : AppIcons.pause),
+      iconSize: compact ? 13 : 16,
+      style:
+          IconButton.styleFrom(
+            minimumSize: Size(width, height),
+            maximumSize: Size(width, height),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: EdgeInsets.zero,
+            hoverColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            focusColor: p.primary.withValues(alpha: .08),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
+          ).copyWith(
+            foregroundColor: WidgetStateProperty.resolveWith(
+              (states) =>
+                  states.contains(WidgetState.hovered) ||
+                      states.contains(WidgetState.focused)
+                  ? p.primary
+                  : p.muted,
+            ),
+          ),
     );
   }
 }

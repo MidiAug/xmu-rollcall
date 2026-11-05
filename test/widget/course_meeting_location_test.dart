@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
@@ -21,7 +22,6 @@ import 'package:xmu_rollcall/features/location/location_models.dart';
 import 'package:xmu_rollcall/features/location/location_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/settings/courses_page.dart';
-import 'package:xmu_rollcall/features/settings/course_schedule_editor.dart';
 
 const identity = AssistIdentity(
   userId: 2,
@@ -42,6 +42,9 @@ class _Auth extends AuthController {
 
 ProviderContainer scope() => ProviderContainer(
   overrides: [
+    academicTimetableProvider(2).overrideWith(
+      (ref) async => const AcademicTimetableState(message: '暂无教务会话'),
+    ),
     authControllerProvider.overrideWith((ref) => _Auth()),
     assistControllerProvider.overrideWith(
       (ref) => AssistController(
@@ -262,11 +265,8 @@ void main() {
         tester.widget<CoursesPage>(find.byType(CoursesPage)).assistUserId,
         2,
       );
-      await tester.tap(find.text('补全安排'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('协助课程'));
-      await tester.pumpAndSettle();
-      expect(find.byType(CourseScheduleEditor), findsOneWidget);
+      expect(find.text('补全安排'), findsNothing);
+      expect(find.text('暂时无法获取教务课表'), findsOneWidget);
       expect(container.read(selectedRollcallAccountProvider), selected);
       expect(tester.takeException(), isNull);
     },

@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/core/identity/device_identity.dart';
+import 'package:xmu_rollcall/features/academic/academic_session.dart';
 import 'package:dio/dio.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/network/tron_endpoints.dart';
@@ -6,10 +8,15 @@ import 'package:xmu_rollcall/core/session/session_key.dart';
 import 'package:xmu_rollcall/core/session/cookie_codec.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
-import 'package:xmu_rollcall/features/auth/ids_password.dart';
+import 'package:xmu_rollcall/features/auth/ids_auth.dart';
 
 class AuthRepository {
-  AuthRepository({required this.http, required this.store});
+  AuthRepository({
+    required this.http,
+    required this.store,
+    DeviceIdentity? identity,
+  }) : identity = identity ?? DeviceIdentity(store);
+  final DeviceIdentity identity;
 
   final TronHttpClient http;
   final SecureStore store;
@@ -38,57 +45,19 @@ class AuthRepository {
 
     AppLog.event('login.step', fields: {'step': 'fetch_form'});
     final form = await _fetchLoginForm();
-    if (idsFormLooksLikeCaptcha(form.html)) {
-      AppLog.event('login.step', level: 'W', fields: {'step': 'captcha'});
-      throw AuthException('登录页出现验证码，请稍后再试，勿连续重试');
-    }
-    final fields = parseIdsLoginForm(form.html);
-    if (fields == null) {
-      throw AuthException('登录页面异常，请稍后再试');
-    }
-
-    AppLog.event('login.step', fields: {'step': 'post_ids'});
-    final encrypted = encryptIdsPassword(password, fields.salt);
-    final posted = await http.hop(
-      'POST',
-      form.url,
-      data: {
-        'username': username,
-        'password': encrypted,
-        'captcha': '',
-        '_eventId': 'submit',
-        'cllt': 'userNameLogin',
-        'dllt': 'generalLogin',
-        'lt': '',
-        'execution': fields.execution,
-      },
-      contentType: Headers.formUrlEncodedContentType,
+    final next = await IdsAuth(http.hop).submit(
+      url: form.url,
+      html: form.html,
+      username: username,
+      password: password,
     );
 
-    final postLoc = posted.headers.value('location');
-    if (postLoc == null || postLoc.isEmpty) {
-      final body = posted.data?.toString() ?? '';
-      if (idsFormLooksLikeCaptcha(body)) {
-        AppLog.event(
-          'login.step',
-          level: 'W',
-          fields: {'step': 'captcha', 'status': posted.statusCode},
-        );
-        throw AuthException('需要验证码，请稍后再试');
-      }
-      AppLog.event(
-        'login.step',
-        level: 'W',
-        fields: {'step': 'bad_credentials', 'status': posted.statusCode},
-      );
-      throw AuthException('学号或密码不正确');
-    }
-
     AppLog.event('login.step', fields: {'step': 'follow_code'});
-    final code = await _followToAuthCode(form.url.resolve(postLoc));
+    final code = await _followToAuthCode(next);
     AppLog.event('login.step', fields: {'step': 'oauth_token'});
     final profile = await completeOAuthCode(code);
     await store.write(SecureStore.keyLastUsername, username);
+    await identity.bindStudentNumber(profile.studentNo ?? username);
     await store.write(SecureStore.keyRememberPassword, '$rememberPassword');
     if (rememberPassword) {
       await store.write(SecureStore.keyOwnerPassword, password);
@@ -200,12 +169,17 @@ class AuthRepository {
     if (profile.id == 0) throw AuthException('资料接口返回无效账号');
     await store.write(SecureStore.keyUserDisplayName, profile.name);
     await store.write(SecureStore.keyUserId, '${profile.id}');
+    if (profile.studentNo != null) {
+      await identity.bindStudentNumber(profile.studentNo);
+    }
     await http.persistCookies();
     return profile;
   }
 
   Future<void> signOut() async {
+    final uid = int.tryParse(await store.read(SecureStore.keyUserId) ?? '');
     await http.clearSession();
+    if (uid != null) await store.delete(AcademicSession.credentialKey(uid));
     await store.delete(SecureStore.keyOwnerPassword);
   }
 }

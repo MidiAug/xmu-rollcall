@@ -1,26 +1,30 @@
+import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
+import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
+import 'package:xmu_rollcall/features/location/place_providers.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account_menu.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
+import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_brand.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
+import 'package:xmu_rollcall/features/campus/campus_search_page.dart';
+import 'package:xmu_rollcall/features/homework/homework_badge.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
-import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
+import 'package:xmu_rollcall/app/shell_destination_scope.dart';
+import 'package:xmu_rollcall/app/app_modules.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/app/shell_tab_exit_guard.dart';
 import 'package:xmu_rollcall/app/shell_navigation.dart';
+import 'package:xmu_rollcall/app/retained_tab_viewport.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
-import 'package:xmu_rollcall/features/assist/assist_controller.dart';
-import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
-import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
-import 'package:xmu_rollcall/features/rollcall/rollcall_account_menu.dart';
-import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
-import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
-import 'package:xmu_rollcall/features/settings/settings_page.dart';
 import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
@@ -33,17 +37,20 @@ class AdaptiveShell extends StatefulWidget {
 
 class _AdaptiveShellState extends State<AdaptiveShell> {
   AppDestination _current = AppDestination.rollcall;
+  final _visited = <AppDestination>{AppDestination.rollcall};
   int _retapEpoch = 0;
   AppDestination? _retapDestination;
 
-  final _chrome = DesktopShellChromeController();
   final _tabExit = ShellTabExitController();
   bool _selecting = false;
 
-  final _navKeys = List<GlobalKey<NavigatorState>>.generate(
-    AppDestination.values.length,
-    (_) => GlobalKey<NavigatorState>(),
-  );
+  final _navKeys = {
+    for (final module in appModules)
+      module.destination: GlobalKey<NavigatorState>(),
+  };
+  final _routeObservers = {
+    for (final module in appModules) module.destination: _TabRouteObserver(),
+  };
 
   @override
   void initState() {
@@ -52,9 +59,22 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   }
 
   @override
+  void reassemble() {
+    super.reassemble();
+    // Handwritten providers have no source hash to invalidate on hot reload.
+    // Re-read local snapshots so updated matching rules also refresh badges.
+    ProviderScope.containerOf(
+      context,
+      listen: false,
+    ).invalidate(campusCachedDataProvider);
+  }
+
+  @override
   void dispose() {
     ShellNavigation.instance.unbind(_openDestination);
-    _chrome.dispose();
+    for (final observer in _routeObservers.values) {
+      observer.hasSubpage.dispose();
+    }
     super.dispose();
   }
 
@@ -67,8 +87,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   }
 
   void _resetRoutes(AppDestination d) {
-    _navKeys[d.index].currentState?.popUntil((route) => route.isFirst);
-    _chrome.clearSubpageClaims(d);
+    _routeObservers[d]?.resetToRoot();
   }
 
   Future<void> _selectDestination(
@@ -84,35 +103,33 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
       _resetRoutes(_current);
       if (d != _current) _resetRoutes(d);
       setState(() {
+        _visited.add(d);
         _current = d;
         _retapEpoch++;
         _retapDestination = d;
       });
-      _chrome.current = d;
     } finally {
       _selecting = false;
     }
   }
 
-  Widget _tabNavigator(AppDestination d, Widget home) {
+  Widget _tabNavigator(AppDestination d, WidgetBuilder page) {
     return ShellTabDestination(
       destination: d,
       child: Navigator(
-        key: _navKeys[d.index],
+        key: _navKeys[d]!,
+        observers: [_routeObservers[d]!],
         onGenerateRoute: (settings) {
-          return MaterialPageRoute<void>(
-            settings: settings,
-            builder: (_) => home,
-          );
+          return MaterialPageRoute<void>(settings: settings, builder: page);
         },
       ),
     );
   }
 
   void _onSystemBack() {
-    final nav = _navKeys[_current.index].currentState;
+    final nav = _navKeys[_current]?.currentState;
     if (nav != null && nav.canPop()) {
-      nav.pop();
+      unawaited(nav.maybePop());
       return;
     }
     if (!PlatformHooks.isDesktop) {
@@ -124,12 +141,17 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final wide = MediaQuery.sizeOf(context).width >= AppLayout.shellBreakpoint;
-    final body = IndexedStack(
-      index: _current.index,
+    final body = Stack(
+      fit: StackFit.expand,
       children: [
-        _tabNavigator(AppDestination.rollcall, const RollcallHubPage()),
-        _tabNavigator(AppDestination.homework, const HomeworkHubPage()),
-        _tabNavigator(AppDestination.settings, const SettingsPage()),
+        for (final module in appModules)
+          RetainedTabViewport(
+            key: ValueKey(module.destination),
+            active: module.destination == _current,
+            child: _visited.contains(module.destination)
+                ? _tabNavigator(module.destination, module.page)
+                : const SizedBox.shrink(),
+          ),
       ],
     );
     final showTitleBar = PlatformHooks.isDesktop;
@@ -137,7 +159,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     final scaffold = wide
         ? Scaffold(
             resizeToAvoidBottomInset: false,
-            backgroundColor: p.canvas,
+            backgroundColor: p.pageBackground(context),
             body: Column(
               children: [
                 if (showTitleBar) const AppTitleBar(title: kAppDisplayName),
@@ -163,15 +185,30 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                           final selected = ref.watch(
                             selectedRollcallAccountProvider,
                           );
+
                           return AppSidebar(
+                            hasPendingPlace: ref
+                                .watch(unmatchedRoomsProvider)
+                                .isNotEmpty,
                             current: _current,
                             onSelect: _onSelect,
                             userLabel: name,
                             accountControl: auth.isSignedIn
                                 ? RollcallAccountMenu(
+                                    sidebar: true,
+                                    watchingAccounts: {
+                                      for (final entry
+                                          in ref
+                                              .watch(
+                                                accountMonitorStatesProvider,
+                                              )
+                                              .entries)
+                                        if (entry.value.running &&
+                                            entry.value.config.courseWatch)
+                                          entry.key ?? 0,
+                                    },
                                     width:
-                                        AppLayout.sidebarWidth -
-                                        AppSpace.sm * 2,
+                                        AppLayout.sidebarWidthOf(context) - 20,
                                     value:
                                         roster.any((a) => a.userId == selected)
                                         ? selected!
@@ -184,8 +221,9 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                                         AppDestination.rollcall,
                                         AppDestination.homework,
                                       ]) {
-                                        _navKeys[d.index].currentState
-                                            ?.popUntil((r) => r.isFirst);
+                                        _navKeys[d]?.currentState?.popUntil(
+                                          (r) => r.isFirst,
+                                        );
                                       }
                                       ref
                                           .read(
@@ -199,21 +237,21 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                                   )
                                 : TextButton.icon(
                                     onPressed: () => showLoginDialog(context),
-                                    icon: const Icon(
-                                      Icons.person_outline_rounded,
-                                      size: 18,
-                                    ),
+                                    icon: const Icon(AppIcons.person, size: 18),
                                     label: const Text('登录账号'),
                                   ),
                             hasUpdate: hasUpdate,
-                            hasPendingSchedule: ref.watch(
-                              hasIncompleteCourseScheduleProvider,
-                            ),
                           );
                         },
                       ),
-                      Container(width: 1, color: p.border),
-                      Expanded(child: AppToastRegion(child: body)),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(16),
+                          ),
+                          child: AppToastRegion(child: body),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -222,7 +260,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
           )
         : Scaffold(
             resizeToAvoidBottomInset: false,
-            backgroundColor: p.canvas,
+            backgroundColor: p.pageBackground(context),
             body: Column(
               children: [
                 if (showTitleBar) const AppTitleBar(title: kAppDisplayName),
@@ -236,39 +274,125 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                 ),
               ],
             ),
-            bottomNavigationBar: Consumer(
-              builder: (context, ref, _) => AppMobileNav(
-                current: _current,
-                onSelect: _onSelect,
-                hasPendingSchedule: ref.watch(
-                  hasIncompleteCourseScheduleProvider,
-                ),
-                hasUpdate: ref.watch(
-                  appUpdateControllerProvider.select((c) => c.update != null),
-                ),
-              ),
+            bottomNavigationBar: ValueListenableBuilder<bool>(
+              valueListenable: _routeObservers[_current]!.hasSubpage,
+              builder: (context, hasSubpage, _) =>
+                  Theme.of(context).platform == TargetPlatform.android &&
+                      hasSubpage
+                  ? const SizedBox.shrink()
+                  : Consumer(
+                      builder: (context, ref, _) => AppMobileNav(
+                        current: _current,
+                        onSelect: _onSelect,
+                        homeworkCount:
+                            Theme.of(context).platform == TargetPlatform.android
+                            ? ref
+                                      .watch(homeworkBadgeCountProvider)
+                                      .whenOrNull(
+                                        skipLoadingOnReload: false,
+                                        data: (count) => count,
+                                      ) ??
+                                  0
+                            : 0,
+                        onSearch:
+                            Theme.of(context).platform == TargetPlatform.android
+                            ? () {
+                                AppShellSelect.closeAll();
+                                FocusManager.instance.primaryFocus?.unfocus();
+                                Navigator.of(context, rootNavigator: true).push(
+                                  AppPageRoutes.build(const CampusSearchPage()),
+                                );
+                              }
+                            : null,
+                        hasUpdate: ref.watch(
+                          appUpdateControllerProvider.select(
+                            (c) => c.update != null,
+                          ),
+                        ),
+                      ),
+                    ),
             ),
           );
 
     return ShellTabExitScope(
       controller: _tabExit,
-      child: DesktopShellChromeScope(
-        controller: _chrome,
-        child: ShellTabScope(
-          current: _current,
-          retapEpoch: _retapEpoch,
-          retapDestination: _retapDestination,
-          child: PopScope(
-            // Nested tab stacks are not visible to the root navigator; handle
-            // back here with a live canPop check (build-time canPop would be stale).
-            canPop: false,
-            onPopInvokedWithResult: (didPop, _) {
-              if (!didPop) _onSystemBack();
-            },
+      child: ShellTabScope(
+        current: _current,
+        hasGlobalIdentityControl: wide,
+        retapEpoch: _retapEpoch,
+        retapDestination: _retapDestination,
+        child: PopScope(
+          // Nested tab stacks are not visible to the root navigator; handle
+          // back here with a live canPop check (build-time canPop would be stale).
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (!didPop) _onSystemBack();
+          },
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: PlatformHooks.isDesktop
+                ? (event) {
+                    final focus = FocusManager.instance.primaryFocus;
+                    final box = focus?.context?.findRenderObject();
+                    if (box is RenderBox &&
+                        box.attached &&
+                        box.hasSize &&
+                        !(box.localToGlobal(Offset.zero) & box.size).contains(
+                          event.position,
+                        )) {
+                      focus?.unfocus();
+                    }
+                  }
+                : null,
             child: scaffold,
           ),
         ),
       ),
     );
+  }
+}
+
+/// Leaving a tab already passed its draft/busy guard. Remove nested routes
+/// immediately, rather than starting exit animations that a hidden tab mutes.
+class _TabRouteObserver extends NavigatorObserver {
+  final _routes = <Route<dynamic>>[];
+  final hasSubpage = ValueNotifier<bool>(false);
+  void _notify() => hasSubpage.value = _routes.any((route) => !route.isFirst);
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _routes.add(route);
+    _notify();
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _routes.remove(route);
+    _notify();
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _routes.remove(route);
+    _notify();
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    final index = oldRoute == null ? -1 : _routes.indexOf(oldRoute);
+    if (index >= 0) {
+      if (newRoute == null) {
+        _routes.removeAt(index);
+      } else {
+        _routes[index] = newRoute;
+      }
+    }
+    _notify();
+  }
+
+  void resetToRoot() {
+    for (final route
+        in _routes.where((route) => !route.isFirst).toList().reversed) {
+      navigator?.removeRoute(route);
+    }
   }
 }

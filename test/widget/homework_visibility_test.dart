@@ -11,6 +11,8 @@ import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_models.dart';
 import 'package:xmu_rollcall/features/homework/homework_overview.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
+import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
+import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 
 class _Repo extends Fake implements AuthRepository {}
 
@@ -25,22 +27,24 @@ class _Auth extends AuthController {
 
 class _Todos extends HomeworkTodosNotifier {
   @override
-  Future<List<HomeworkItem>> build() async => [];
+  Future<List<HomeworkItem>> build() async => const [
+    HomeworkItem(id: 1, title: '缓存作业', courseName: '测试课程', type: 'exam'),
+  ];
+}
+
+class _Catalog extends CourseCatalogNotifier {
+  @override
+  Future<CourseCatalogSnapshot?> build() async =>
+      CourseCatalogSnapshot(fetchedAt: DateTime.now(), courses: const []);
 }
 
 class _Overview extends HomeworkOverviewNotifier {
   static int checks = 0;
   @override
-  Future<HomeworkOverview> build() async {
-    ref.keepAlive();
-    return const HomeworkOverview([
-      HomeworkItem(id: 1, title: '缓存作业', courseName: '测试课程', type: 'exam'),
-    ]);
-  }
-
-  @override
-  Future<void> ensureFresh({bool force = false}) async {
-    checks++;
+  Future<bool> ensureFresh({bool force = false}) async {
+    final refreshed = await super.ensureFresh(force: force);
+    if (refreshed) checks++;
+    return refreshed;
   }
 }
 
@@ -58,6 +62,7 @@ void main() {
             authControllerProvider.overrideWith((ref) => _Auth()),
             homeworkTodosProvider.overrideWith(_Todos.new),
             homeworkOverviewProvider.overrideWith(_Overview.new),
+            courseCatalogProvider.overrideWith(_Catalog.new),
             homeworkClockProvider.overrideWithValue(tester.binding.clock.now),
             currentTeachingCoursesProvider.overrideWith((ref) async => []),
           ],
@@ -80,6 +85,23 @@ void main() {
       final initial = _Overview.checks;
       expect(initial, greaterThan(0));
       final initialPosition = tester.getTopLeft(find.text('缓存作业'));
+      var pageBuilds = 0;
+      final previousBuildHook = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previousBuildHook?.call(element, builtOnce);
+        if (element.widget is HomeworkHubPage) pageBuilds++;
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previousBuildHook);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pumpAndSettle();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      debugOnRebuildDirtyWidget = previousBuildHook;
+      debugPrint(
+        'homework unchanged focus round-trip: $pageBuilds page builds',
+      );
+      expect(pageBuilds, 0);
+
       for (var i = 0; i < 5; i++) {
         tab.value = AppDestination.rollcall;
         await tester.pumpAndSettle();

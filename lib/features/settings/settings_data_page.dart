@@ -10,9 +10,15 @@ import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/cache/session_lifecycle.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
-import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
+import 'package:xmu_rollcall/core/cache/remote_course_cache.dart';
+import 'package:xmu_rollcall/core/cache/cache_revisions.dart';
+import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
+import 'package:xmu_rollcall/features/grades/grade_providers.dart';
+import 'package:xmu_rollcall/features/homework/homework_overview.dart';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/rollcall/radar_preview.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_preview_page.dart';
 import 'package:xmu_rollcall/features/rollcall/session_prior_preview.dart';
 import 'package:xmu_rollcall/features/settings/recent_logs_page.dart';
 import 'package:xmu_rollcall/features/settings/timetable_preview.dart';
@@ -34,6 +40,18 @@ class SettingsDataPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final deviceFuture = ref.watch(deviceIdentityProvider).getId();
     final p = AppPalette.of(context);
+    final auth = ref.watch(authControllerProvider);
+    final scope = ref.watch(selectedRollcallAccountProvider);
+    final uid = scope ?? auth.profile?.id;
+    final accountName = scope == null
+        ? auth.profile?.name ?? '当前账号'
+        : ref
+                  .watch(assistControllerProvider)
+                  .identities
+                  .where((identity) => identity.userId == scope)
+                  .firstOrNull
+                  ?.displayName ??
+              '当前协助账号';
 
     return SubpageScaffold(
       title: '数据与诊断',
@@ -46,15 +64,27 @@ class SettingsDataPage extends ConsumerWidget {
             AppSpace.xl,
           ),
           children: [
+            if (auth.isSignedIn && uid != null)
+              SettingsSection(
+                padTop: false,
+                header: '数据更新',
+                children: [
+                  _TimetableRefreshRow(
+                    key: ValueKey((auth.profile!.id, uid)),
+                    uid: uid,
+                    accountName: accountName,
+                  ),
+                ],
+              ),
             SettingsSection(
-              padTop: false,
+              padTop: auth.isSignedIn,
               header: '本机数据',
               children: [
                 SettingsRow(
-                  leading: const Icon(Icons.cleaning_services_outlined),
+                  leading: const Icon(AppIcons.clean),
                   title: '清除本机课程数据',
-                  subtitle: '清除已保存的课表、作业与签到记录；主题、常用地点与本机标识会保留',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  subtitle: '清除已缓存的课表、成绩、作业与签到记录；手工安排、地点与本机设置会保留',
+                  trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: () => _confirmClearCache(context, ref),
                 ),
               ],
@@ -67,7 +97,7 @@ class SettingsDataPage extends ConsumerWidget {
                   builder: (context, snap) {
                     final id = snap.data;
                     return SettingsRow(
-                      leading: const Icon(Icons.devices_outlined),
+                      leading: const Icon(AppIcons.devices),
                       title: '本机标识',
                       subtitleWidget: Text(
                         id ?? (snap.hasError ? '暂时无法读取' : '…'),
@@ -84,11 +114,7 @@ class SettingsDataPage extends ConsumerWidget {
                       ),
                       trailing: Tooltip(
                         message: '复制本机标识',
-                        child: Icon(
-                          Icons.copy_outlined,
-                          color: p.muted,
-                          size: 18,
-                        ),
+                        child: Icon(AppIcons.copy, color: p.muted, size: 18),
                       ),
                       onTap: id == null
                           ? null
@@ -114,10 +140,10 @@ class SettingsDataPage extends ConsumerWidget {
                   },
                 ),
                 SettingsRow(
-                  leading: const Icon(Icons.receipt_long_outlined),
+                  leading: const Icon(AppIcons.document),
                   title: '最近日志',
                   subtitle: '本机诊断事件，可按关键词搜索',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: () =>
                       AppPageRoutes.push(context, const RecentLogsPage()),
                 ),
@@ -129,33 +155,39 @@ class SettingsDataPage extends ConsumerWidget {
                 header: '开发预览',
                 children: [
                   SettingsRow(
-                    leading: const Icon(Icons.system_update_alt_rounded),
+                    leading: const Icon(AppIcons.radar),
+                    title: PlatformHooks.isDesktop ? '电脑端签到与状态' : '签到首页',
+                    subtitle: '完整首页、多方式与状态组合，模拟提交',
+                    trailing: const Icon(AppIcons.right, size: 18),
+                    onTap: () => AppPageRoutes.push(
+                      context,
+                      RollcallPreviewPage(desktop: PlatformHooks.isDesktop),
+                    ),
+                  ),
+                  SettingsRow(
+                    leading: const Icon(AppIcons.download),
                     title: '更新流程',
                     subtitle: '说明、检查、下载、线路与安装确认',
-                    trailing: const Icon(Icons.chevron_right, size: 18),
+                    trailing: const Icon(AppIcons.right, size: 18),
                     onTap: () =>
                         AppPageRoutes.push(context, UpdatePreviewPage()),
                   ),
                   if (PlatformHooks.isWindows)
                     SettingsRow(
-                      leading: const Icon(Icons.qr_code_scanner),
+                      leading: const Icon(AppIcons.qr),
                       title: '电脑扫码  透明浮窗',
                       subtitle: '屏幕识别  拖入图片  选择图片，不提交签到',
-                      trailing: const Icon(Icons.chevron_right, size: 18),
+                      trailing: const Icon(AppIcons.right, size: 18),
                       onTap: () => AppPageRoutes.push(
                         context,
                         const DesktopQrPreviewPage(),
                       ),
                     ),
                   SettingsRow(
-                    leading: const Icon(Icons.radar_outlined),
+                    leading: const Icon(AppIcons.radar),
                     title: '雷达签到  空态',
                     subtitle: '无本课记忆，确认卡为空',
-                    trailing: Icon(
-                      Icons.chevron_right,
-                      color: p.muted,
-                      size: 18,
-                    ),
+                    trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                     onTap: () => openRadarPreview(
                       context,
                       ref,
@@ -163,14 +195,10 @@ class SettingsDataPage extends ConsumerWidget {
                     ),
                   ),
                   SettingsRow(
-                    leading: const Icon(Icons.bookmark_outline),
+                    leading: const Icon(AppIcons.bookmark),
                     title: '雷达签到  记忆预设',
                     subtitle: '预填「翔安教学楼」',
-                    trailing: Icon(
-                      Icons.chevron_right,
-                      color: p.muted,
-                      size: 18,
-                    ),
+                    trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                     onTap: () => openRadarPreview(
                       context,
                       ref,
@@ -178,14 +206,10 @@ class SettingsDataPage extends ConsumerWidget {
                     ),
                   ),
                   SettingsRow(
-                    leading: const Icon(Icons.my_location_outlined),
+                    leading: const Icon(AppIcons.location),
                     title: '雷达签到  记忆定位',
                     subtitle: '预填系统定位坐标',
-                    trailing: Icon(
-                      Icons.chevron_right,
-                      color: p.muted,
-                      size: 18,
-                    ),
+                    trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                     onTap: () => openRadarPreview(
                       context,
                       ref,
@@ -193,56 +217,40 @@ class SettingsDataPage extends ConsumerWidget {
                     ),
                   ),
                   SettingsRow(
-                    leading: const Icon(Icons.insights_outlined),
+                    leading: const Icon(AppIcons.data),
                     title: '上课段先验',
                     subtitle: '符合 / 突然数字 / 样本不足 / 无课表',
-                    trailing: Icon(
-                      Icons.chevron_right,
-                      color: p.muted,
-                      size: 18,
-                    ),
+                    trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                     onTap: () => openSessionPriorPreview(context),
                   ),
                   SettingsRow(
-                    leading: const Icon(Icons.calendar_view_week_outlined),
+                    leading: const Icon(AppIcons.week),
                     title: '课表样式',
                     subtitle: '周末列  有无 10–11 节  假数据',
-                    trailing: Icon(
-                      Icons.chevron_right,
-                      color: p.muted,
-                      size: 18,
-                    ),
+                    trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                     onTap: () => openTimetablePreview(context),
                   ),
                   if (PlatformHooks.isDesktop || PlatformHooks.isAndroid) ...[
                     SettingsRow(
-                      leading: const Icon(Icons.notifications_outlined),
+                      leading: const Icon(AppIcons.notification),
                       title: PlatformHooks.isDesktop
                           ? '托盘  立即测试通知'
                           : 'Android  立即测试发现通知',
                       subtitle: PlatformHooks.isDesktop
                           ? '最小化后发一条发现通知（L1）'
                           : '直接测试声音与震动，不影响正在进行的检测',
-                      trailing: Icon(
-                        Icons.chevron_right,
-                        color: p.muted,
-                        size: 18,
-                      ),
+                      trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                       onTap: () => ShellDebugPreview.notifyNow(context),
                     ),
                     SettingsRow(
-                      leading: const Icon(Icons.timer_outlined),
+                      leading: const Icon(AppIcons.clock),
                       title: PlatformHooks.isDesktop
                           ? '托盘  10s 模拟发现'
                           : 'Android  30s 模拟发现',
                       subtitle: PlatformHooks.isAndroid
                           ? '由后台服务发送，可回桌或锁屏验证'
                           : '延时测试通知，不修改真实签到列表',
-                      trailing: Icon(
-                        Icons.chevron_right,
-                        color: p.muted,
-                        size: 18,
-                      ),
+                      trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                       onTap: () => ShellDebugPreview.scheduleDiscovery(
                         context,
                         ref,
@@ -266,8 +274,8 @@ class SettingsDataPage extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('清除本机课程数据？'),
         content: const Text(
-          '将删除已保存的课表、作业与签到记录。'
-          '主题、常用地点与本机标识会保留。',
+          '将删除已缓存的课表、成绩、作业与签到记录。'
+          '手工课程安排、学期日期、地点与本机设置会保留。',
         ),
         actions: [
           TextButton(
@@ -282,10 +290,117 @@ class SettingsDataPage extends ConsumerWidget {
       ),
     );
     if (ok != true) return;
-    await JsonDiskCache.clearAll();
-    invalidateOwnerRemoteMemoryFromWidget(ref);
+    await clearRemoteCourseCache();
     if (!context.mounted) return;
+    invalidateRemoteCourseMemoryFromWidget(ref);
+    ref.read(academicRevisionProvider.notifier).state++;
+    ref.read(homeworkCacheRevisionProvider.notifier).state++;
+    ref.invalidate(campusCachedDataProvider);
+    ref.invalidate(homeworkOverviewProvider);
+    ref.invalidate(homeworkSubmissionProvider);
+    ref.invalidate(gradeSnapshotProvider);
     AppToast.show(context, '已清除本机课程数据');
+  }
+}
+
+class _TimetableRefreshRow extends ConsumerStatefulWidget {
+  const _TimetableRefreshRow({
+    super.key,
+    required this.uid,
+    required this.accountName,
+  });
+  final int uid;
+  final String accountName;
+  @override
+  ConsumerState<_TimetableRefreshRow> createState() =>
+      _TimetableRefreshRowState();
+}
+
+class _TimetableRefreshRowState extends ConsumerState<_TimetableRefreshRow> {
+  bool _busy = false;
+  String? _status;
+  bool _error = false;
+
+  Future<void> _refresh() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _status = null;
+    });
+    try {
+      final before = await ref.read(
+        academicCachedScheduleProvider(widget.uid).future,
+      );
+      if (!mounted) return;
+      final sync = ref.read(academicSyncProvider);
+      await sync.sync(widget.uid, force: true);
+      if (!mounted) return;
+      ref.invalidate(academicCachedScheduleProvider(widget.uid));
+      ref.invalidate(academicTimetableProvider(widget.uid));
+      final after = await ref.read(
+        academicCachedScheduleProvider(widget.uid).future,
+      );
+      if (!mounted) return;
+      final error = sync.errorFor(widget.uid);
+      setState(() {
+        _error = error != null;
+        _status =
+            error ??
+            (after?.fetchedAt == before?.fetchedAt ? '刚刚检查过，请稍后再试' : '课表已更新');
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _error = true;
+          _status = '更新失败，请稍后重试';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final snapshot = ref.watch(academicCachedScheduleProvider(widget.uid));
+    final at = snapshot.valueOrNull?.fetchedAt.toLocal();
+    final updated = at == null
+        ? snapshot.isLoading
+              ? '正在读取更新时间…'
+              : '尚未缓存课表'
+        : '上次更新 ${at.year}/${at.month}/${at.day} ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+    return SettingsRow(
+      key: const ValueKey('academic-timetable-update-row'),
+      leading: const Icon(AppIcons.calendar),
+      title: '教务课表',
+      subtitleWidget: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${widget.accountName}  $updated',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          if (_status != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              _status!,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.4,
+                color: _error ? p.danger : p.muted,
+              ),
+            ),
+          ],
+        ],
+      ),
+      stackSubtitleOnNarrow: true,
+      trailing: OutlinedButton(
+        key: const ValueKey('academic-timetable-update'),
+        onPressed: _busy ? null : _refresh,
+        child: Text(_busy ? '更新中…' : '更新'),
+      ),
+    );
   }
 }
 
@@ -384,7 +499,7 @@ class _ExportLogsRowState extends ConsumerState<_ExportLogsRow> {
 
   @override
   Widget build(BuildContext context) => SettingsRow(
-    leading: const Icon(Icons.ios_share_outlined),
+    leading: const Icon(AppIcons.share),
     title: _busy ? '正在准备诊断日志…' : '导出诊断日志',
     subtitle: PlatformHooks.isDesktop
         ? '打包请求流水和错误详情，另存为 ZIP'
@@ -395,7 +510,7 @@ class _ExportLogsRowState extends ConsumerState<_ExportLogsRow> {
             height: 18,
             child: CircularProgressIndicator(strokeWidth: 2),
           )
-        : const Icon(Icons.chevron_right, size: 18),
+        : const Icon(AppIcons.right, size: 18),
     onTap: _busy ? null : _export,
   );
 }

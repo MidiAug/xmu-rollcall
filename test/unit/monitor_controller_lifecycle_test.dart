@@ -1,3 +1,7 @@
+import 'package:xmu_rollcall/features/schedule/academic_calendar.dart';
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
+import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,6 +36,7 @@ class Repo extends Fake implements RollcallRepository {
   Future<List<RollcallItem>> fetchActive({
     CancelToken? cancelToken,
     String? opId,
+    bool manual = false,
   }) async {
     calls++;
     if (!entered.isCompleted) entered.complete();
@@ -46,6 +51,7 @@ void main() {
   late Auth auth;
   setUp(() {
     SharedPreferences.setMockInitialValues({
+      'schedule_detection_only_v2': false,
       'monitor_interval': 60,
       'monitor_jitter': 0.0,
     });
@@ -62,11 +68,48 @@ void main() {
     PlatformHooks.onRollcallsDiscovered = null;
     container.dispose();
   });
+  test('unsaved settings load sixty seconds', () async {
+    SharedPreferences.setMockInitialValues({});
+    container.read(monitorControllerProvider);
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      container.read(monitorControllerProvider).config.intervalSeconds,
+      60,
+    );
+  });
+
+  test(
+    'explicit main-account launch preference resumes desktop watch without discovery outside windows',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        'monitor_account_1_1_course_watch': true,
+        'monitor_account_1_1_resume_watch': true,
+      });
+      final resumed = Completer<void>();
+      final subscription = container.listen(monitorControllerProvider, (
+        _,
+        state,
+      ) {
+        if (state.running && !resumed.isCompleted) resumed.complete();
+      });
+      addTearDown(subscription.close);
+      await resumed.future.timeout(const Duration(seconds: 2));
+      expect(
+        container.read(monitorControllerProvider).config.resumeWatch,
+        isTrue,
+      );
+      expect(container.read(monitorControllerProvider).running, isTrue);
+      expect(repo.calls, 0);
+    },
+  );
 
   test(
     'legacy five-second interval loads on the new ten-second grid',
     () async {
-      SharedPreferences.setMockInitialValues({'monitor_interval': 25});
+      SharedPreferences.setMockInitialValues({
+        'schedule_detection_only_v2': false,
+        'monitor_interval': 25,
+      });
       container.read(monitorControllerProvider);
       await Future<void>.delayed(Duration.zero);
       final state = container.read(monitorControllerProvider);
@@ -161,4 +204,62 @@ void main() {
     expect(container.read(monitorControllerProvider).starting, isFalse);
     expect(repo.calls, 0);
   });
+  test(
+    'changing semester Monday reschedules a waiting monitor, without starting a stopped one',
+    () async {
+      await (await SharedPreferences.getInstance()).setBool(
+        'schedule_detection_only_v2',
+        true,
+      );
+      final now = DateTime.now();
+      final term = currentSemester(now);
+      final start =
+          academicMondays[term] ??
+          DateTime(now.year, now.month, now.day - now.weekday + 1);
+      final week = semesterDate(now).difference(start).inDays ~/ 7;
+      final minute = now.hour * 60 + now.minute;
+      await AcademicScheduleStore.write(
+        1,
+        AcademicSchedule(
+          term: term,
+          monday: start,
+          fetchedAt: now,
+          rows: [
+            {
+              'KCDM': 'fake',
+              'KCMC': '测试课程',
+              'BJDM': 'A',
+              'XQ': now.weekday,
+              'ZCBH': List.generate(60, (i) => i == week ? '1' : '0').join(),
+              'KSJCDM': 1,
+              'JSJCDM': 2,
+              'startMinute': (minute - 10).clamp(0, 1438),
+              'endMinute': (minute + 10).clamp(1, 1439),
+            },
+          ].map(AcademicCourseRow.fromJson).toList(),
+        ),
+      );
+      await SemesterPreferences.save(
+        1,
+        term,
+        start.add(const Duration(days: 7)),
+      );
+      final ctrl = container.read(monitorControllerProvider.notifier);
+      container.read(academicRevisionProvider.notifier).state++;
+      await Future<void>.delayed(Duration.zero);
+      expect(repo.calls, 0);
+      expect(container.read(monitorControllerProvider).running, isFalse);
+      expect(await ctrl.startAsync(), StartMonitorResult.started);
+      for (var i = 0; i < 30; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      }
+      expect(repo.calls, 0);
+      expect(container.read(monitorControllerProvider).running, isTrue);
+      await SemesterPreferences.save(1, term, null);
+      container.read(academicRevisionProvider.notifier).state++;
+      await repo.entered.future.timeout(const Duration(seconds: 2));
+      expect(repo.calls, 1);
+      ctrl.stop();
+    },
+  );
 }

@@ -21,10 +21,33 @@ class Repo extends Fake implements AuthRepository {
   @override
   Future<UserProfile?> cachedProfile() async => cached;
   @override
+  Future<UserProfile> signIn({
+    required String username,
+    required String password,
+    bool rememberPassword = false,
+  }) async => result!;
+  @override
   Future<void> signOut() async {}
 }
 
 void main() {
+  test(
+    'restored login triggers independent academic connection without another password login',
+    () async {
+      final repo = Repo()..result = const UserProfile(id: 1, name: 'Test');
+      var restored = 0;
+      final auth = AuthController(
+        repo,
+        afterRestore: (profile) async {
+          restored = profile.id;
+        },
+      );
+      await auth.bootstrap();
+      expect(auth.state.isSignedIn, isTrue);
+      expect(restored, 1);
+      auth.dispose();
+    },
+  );
   test(
     'cached account is visible while network validation is pending',
     () async {
@@ -93,4 +116,26 @@ void main() {
     expect(auth.state.status, AuthStatus.signedOut);
     auth.dispose();
   });
+  test(
+    'academic sync neither delays nor revokes a successful TronClass sign-in',
+    () async {
+      final pending = Completer<void>();
+      final repo = Repo()..result = const UserProfile(id: 1, name: 'Test');
+      final auth = AuthController(
+        repo,
+        afterSignIn: (_, username, password) {
+          expect(username, 'fake');
+          expect(password, 'fake');
+          return pending.future;
+        },
+      );
+      await auth.signIn(username: 'fake', password: 'fake');
+      expect(auth.state.isSignedIn, isTrue);
+      pending.completeError(StateError('academic offline'));
+      await Future<void>.delayed(Duration.zero);
+      expect(auth.state.isSignedIn, isTrue);
+      expect(auth.state.errorMessage, isNull);
+      auth.dispose();
+    },
+  );
 }

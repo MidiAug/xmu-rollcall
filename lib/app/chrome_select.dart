@@ -21,15 +21,22 @@ class AppSelectTrigger extends StatefulWidget {
     required this.onTap,
     this.open = false,
     this.leading,
+    this.trailing,
     this.focusNode,
     this.compact = false,
+    this.subtitle,
+    this.plain = false,
   });
   final String label;
   final VoidCallback? onTap;
   final bool open;
   final Widget? leading;
+  final Widget? trailing;
   final FocusNode? focusNode;
   final bool compact;
+
+  final String? subtitle;
+  final bool plain;
 
   @override
   State<AppSelectTrigger> createState() => _AppSelectTriggerState();
@@ -66,21 +73,38 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
             child: AnimatedContainer(
               duration: AppMotion.fast,
               constraints: BoxConstraints(
-                minHeight: AppDensity.isTouch(context) ? 44 : 36,
+                minHeight: AppMobileUi.useTouchChrome(context)
+                    ? AppMobileUi.target
+                    : 36,
               ),
               padding: EdgeInsets.symmetric(
                 horizontal: widget.compact ? 8 : 10,
                 vertical: 6,
               ),
               decoration: BoxDecoration(
-                color: _pressed && enabled
-                    ? p.surfaceHigh
-                    : hovering
-                    ? Color.alphaBlend(p.hover, p.surface)
-                    : p.content,
+                color: Color.alphaBlend(
+                  p.primary.withValues(
+                    alpha: _pressed && enabled
+                        ? .075
+                        : hovering
+                        ? .04
+                        : 0,
+                  ),
+                  widget.plain
+                      ? p.sidebar
+                      : AppMobileUi.useTouchChrome(context)
+                      ? p.controlSurface
+                      : p.content,
+                ),
                 borderRadius: BorderRadius.circular(AppRadii.control),
                 border: Border.all(
-                  color: hovering || outlined ? p.borderStrong : p.border,
+                  color: hovering || outlined
+                      ? p.borderStrong
+                      : widget.plain
+                      ? AppPalette.clearOf(p.primary)
+                      : AppMobileUi.useTouchChrome(context)
+                      ? p.mobileOutline
+                      : p.border,
                 ),
               ),
               child: Row(
@@ -91,25 +115,36 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
                     const SizedBox(width: 8),
                   ],
                   Expanded(
-                    child: AppTruncatedText(
-                      widget.label,
-                      style: TextStyle(
-                        fontSize: widget.compact ? 13 : 14,
-                        height: 1.4,
-                        fontWeight: FontWeight.w500,
-                        color: enabled ? p.ink : p.muted,
-                      ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppTruncatedText(
+                          widget.label,
+                          style: TextStyle(
+                            fontSize: widget.compact ? 13 : 14,
+                            height: 1.4,
+                            fontWeight: FontWeight.w500,
+                            color: enabled ? p.ink : p.muted,
+                          ),
+                        ),
+                        if (widget.subtitle != null)
+                          Text(
+                            widget.subtitle!,
+                            style: TextStyle(fontSize: 11, color: p.muted),
+                          ),
+                      ],
                     ),
                   ),
+                  if (widget.trailing != null) ...[
+                    const SizedBox(width: 6),
+                    widget.trailing!,
+                  ],
                   SizedBox(width: widget.compact ? 4 : 8),
                   AnimatedRotation(
-                    turns: widget.open ? 0.5 : 0,
+                    turns: widget.open ? (widget.plain ? -0.25 : 0.25) : 0,
                     duration: AppMotion.fast,
-                    child: Icon(
-                      Icons.expand_more_rounded,
-                      size: 18,
-                      color: p.muted,
-                    ),
+                    child: Icon(AppIcons.right, size: 18, color: p.muted),
                   ),
                 ],
               ),

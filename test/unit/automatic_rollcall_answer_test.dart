@@ -36,6 +36,7 @@ RollcallItem item({
 class Repo extends Fake implements RollcallRepository {
   final calls = <String>[];
   final readOpIds = <String?>[];
+  final discoveryManualFlags = <bool>[];
   AttendanceCount count = const AttendanceCount(0, 11);
   List<RollcallItem> latest = [item()];
   Object? countError;
@@ -44,6 +45,8 @@ class Repo extends Fake implements RollcallRepository {
   Completer<String?>? pendingCode;
   void Function()? onCode;
   bool radarOk = true;
+  AnswerResult? radarResult;
+  void Function()? onRadarResult;
   Future<void> Function()? onAttendance;
   double expectedLatitude = 24.5;
   double expectedLongitude = 118.2;
@@ -61,8 +64,10 @@ class Repo extends Fake implements RollcallRepository {
   Future<List<RollcallItem>> fetchActive({
     CancelToken? cancelToken,
     String? opId,
+    bool manual = false,
   }) async {
     calls.add('active');
+    discoveryManualFlags.add(manual);
     readOpIds.add(opId);
     return latest;
   }
@@ -108,7 +113,8 @@ class Repo extends Fake implements RollcallRepository {
     expect(accuracy, 180);
     calls.add('radar');
     if (answerError != null) throw answerError!;
-    return AnswerResult(ok: radarOk);
+    onRadarResult?.call();
+    return radarResult ?? AnswerResult(ok: radarOk);
   }
 }
 
@@ -135,6 +141,20 @@ void main() {
   });
   Future<String?> run([MonitorConfig c = percent]) =>
       automatic.process([item()], c, () => current);
+
+  test(
+    'restored terminal activity is never revalidated or submitted again',
+    () async {
+      final restored = AutomaticRollcallAnswer(
+        repository: repo,
+        requireCurrent: () async {},
+        terminalIds: {item().rollcallId},
+      );
+      await restored.process([item()], noWait, () => true);
+      expect(repo.calls, isEmpty);
+      expect(restored.terminalIds, contains(item().rollcallId));
+    },
+  );
 
   final radar = item(type: RollcallType.radar, courseId: '7');
 
@@ -192,6 +212,54 @@ void main() {
     now: () => now,
   );
 
+  test(
+    'location rejection records once; stale coordinates and generic errors do not',
+    () async {
+      repo.latest = [radar];
+      repo.radarResult = const AnswerResult(
+        ok: false,
+        status: 400,
+        raw: {'code': 'out_of_range'},
+      );
+      var recorded = 0;
+      final handler = AutomaticRollcallAnswer(
+        repository: repo,
+        requireCurrent: () async {},
+        radarLocation: (_) async => location(),
+        onRadarRejected: (_) async => recorded++,
+        now: () => now,
+      );
+      await handler.process([radar], noWait, () => true);
+      await handler.process([radar], noWait, () => true);
+      expect(recorded, 1);
+      expect(repo.calls.where((c) => c == 'radar').length, 1);
+      repo = Repo()..latest = [radar];
+      repo.radarResult = const AnswerResult(
+        ok: false,
+        status: 400,
+        raw: {'code': 'out_of_range'},
+      );
+      var changed = false;
+      repo.onRadarResult = () => changed = true;
+      final stale = AutomaticRollcallAnswer(
+        repository: repo,
+        requireCurrent: () async {},
+        radarLocation: (_) async => changed
+            ? CourseRadarPref(
+                courseId: '7',
+                courseTitle: '课',
+                latitude: 24.51,
+                longitude: 118.2,
+                accuracy: 180,
+              )
+            : location(),
+        onRadarRejected: (_) async => recorded++,
+        now: () => now,
+      );
+      await stale.process([radar], noWait, () => true);
+      expect(recorded, 1);
+    },
+  );
   test('radar requires opt-in and an exact current-course location', () async {
     repo.latest = [radar];
     for (final pref in [null, location(courseId: 'other')]) {
@@ -210,7 +278,7 @@ void main() {
       'saved-place ${delete ? 'deletion' : 'coordinate edit'} during attendance is checked before radar submission',
       () async {
         SharedPreferences.setMockInitialValues({});
-        final places = SavedLocationsController();
+        final places = SavedLocationsController(ownerId: 1, userId: 1);
         final defaults = CourseRadarDefaultsController(userId: 1);
         addTearDown(places.dispose);
         addTearDown(defaults.dispose);
@@ -322,10 +390,10 @@ void main() {
         );
         repo.count = const AttendanceCount(3, 11);
         await handler.process([radar], percent, () => true);
-        expect(repo.calls, ['count']);
+        expect(repo.calls, ['count', 'active']);
         repo.count = const AttendanceCount(4, 11);
         await handler.process([radar], percent, () => true);
-        expect(repo.calls, ['count', 'count', 'active', 'radar']);
+        expect(repo.calls, ['count', 'active', 'count', 'active', 'radar']);
         expect(handler.completedIds, contains(9));
       }
     },
@@ -589,13 +657,36 @@ void main() {
   test('percentage rounds up, waits, refreshes code, submits once', () async {
     repo.count = const AttendanceCount(3, 11);
     expect(await run(), contains('3/4'));
-    expect(repo.calls, ['count']);
+    expect(repo.calls, ['count', 'active']);
     repo.count = const AttendanceCount(4, 11);
     expect(await run(), contains('成功'));
-    expect(repo.calls, ['count', 'count', 'active', 'code', 'put']);
+    expect(repo.calls, ['count', 'active', 'count', 'active', 'code', 'put']);
     await run();
     expect(repo.calls.where((v) => v == 'put'), hasLength(1));
   });
+  test('unmet percentage never submits after prolonged waiting', () async {
+    repo.count = const AttendanceCount(3, 11);
+    for (final minutes in [0, 5, 60]) {
+      now = now.add(Duration(minutes: minutes));
+      expect(await run(), contains('3/4'));
+    }
+    expect(
+      repo.calls.where((call) => call == 'put' || call == 'code'),
+      isEmpty,
+    );
+    expect(repo.calls.where((call) => call == 'count'), hasLength(3));
+    repo.count = const AttendanceCount(4, 11);
+    await run();
+    expect(repo.calls.where((call) => call == 'put'), hasLength(1));
+  });
+  test(
+    'watch revalidation is independent from ordinary detection bounds',
+    () async {
+      await run(noWait.copyWith(courseWatch: true));
+      expect(repo.discoveryManualFlags, [true]);
+      expect(repo.calls.where((call) => call == 'put'), hasLength(1));
+    },
+  );
   test('absolute threshold is not reduced to class size', () async {
     repo.count = const AttendanceCount(2, 2);
     expect(
@@ -608,8 +699,35 @@ void main() {
       ),
       contains('2/3'),
     );
-    expect(repo.calls, ['count']);
+    expect(repo.calls, ['count', 'active']);
   });
+
+  test(
+    'external completion below the count threshold settles without a put',
+    () async {
+      repo.count = const AttendanceCount(1, 100);
+      repo.latest = [item(answered: true)];
+      await run();
+      expect(automatic.completedIds, contains(item().rollcallId));
+      expect(automatic.terminalIds, contains(item().rollcallId));
+      expect(repo.calls, ['count', 'active']);
+      await run();
+      expect(repo.calls, ['count', 'active']);
+    },
+  );
+
+  test(
+    'ended activity below the count threshold settles without adopting new events',
+    () async {
+      repo.count = const AttendanceCount(1, 100);
+      repo.latest = [];
+      await run();
+      await run();
+      expect(automatic.terminalIds, contains(item().rollcallId));
+      expect(automatic.completedIds, isEmpty);
+      expect(repo.calls, ['count', 'active']);
+    },
+  );
   test(
     'no-wait mode skips attendance lookup but checks current event',
     () async {
@@ -634,6 +752,11 @@ void main() {
       ]) {
         repo.calls.clear();
         repo.latest = rows;
+        automatic = AutomaticRollcallAnswer(
+          repository: repo,
+          requireCurrent: () async {},
+          now: () => now,
+        );
         await run(noWait);
         expect(repo.calls, ['active']);
       }
@@ -652,7 +775,7 @@ void main() {
     'timeout after a slow code response returns to monitoring without put',
     () async {
       repo.onCode = () => now = now.add(const Duration(minutes: 5));
-      expect(await run(noWait), contains('超时'));
+      expect(await run(noWait), contains('已过时'));
       expect(repo.calls, isNot(contains('put')));
       repo.onCode = null;
       await run(noWait);

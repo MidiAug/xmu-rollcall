@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
 import 'dart:ui' show PointerDeviceKind;
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
@@ -6,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/providers.dart';
+import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'package:xmu_rollcall/app/shell_navigation.dart';
 import 'package:xmu_rollcall/features/settings/settings_page.dart';
 import 'package:xmu_rollcall/features/history/history_page.dart';
@@ -152,14 +155,18 @@ var _appearanceChecks = 0;
 var _manualChecks = 0;
 
 class _AppearanceLists extends _Lists {
+  bool failRefresh = false;
   @override
   Future<void> ensureFreshOnAppear() async {
     _appearanceChecks++;
   }
 
   @override
-  Future<void> refresh() async {
+  Future<void> refresh({bool manual = true}) async {
     _manualChecks++;
+    if (failRefresh) {
+      state = AsyncError(StateError('offline'), StackTrace.current);
+    }
   }
 }
 
@@ -185,8 +192,9 @@ class _AccountHomework extends HomeworkOverviewNotifier {
   }
 
   @override
-  Future<void> ensureFresh({bool force = false}) async {
+  Future<bool> ensureFresh({bool force = false}) async {
     if (force) _homeworkManualChecks++;
+    return true;
   }
 }
 
@@ -196,6 +204,13 @@ class _RunningMonitor extends MonitorController {
   }
   void finish() =>
       state = state.copyWith(running: false, loadingSettings: false);
+  void selectWatch(bool value) =>
+      state = state.copyWith(config: state.config.copyWith(courseWatch: value));
+  void handoff() => state = state.copyWith(
+    running: true,
+    discovering: false,
+    clearNext: true,
+  );
 }
 
 class _History extends CourseHistoryNotifier {
@@ -234,6 +249,15 @@ class _StartMonitor extends MonitorController {
   }
 }
 
+Future<void> openHistory(WidgetTester tester) async {
+  if (find.byTooltip('签到记录').evaluate().isNotEmpty) {
+    await tester.tap(find.byTooltip('签到记录'));
+  } else {
+    await tester.tap(find.text('签到记录').last);
+  }
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUpAll(loadDesktopUiCaptureFonts);
   tearDown(AppToast.dismiss);
@@ -252,6 +276,7 @@ void main() {
     WidgetTester tester,
     Widget page, {
     bool visibleTab = false,
+    bool noClassForAssist = false,
     StartMonitorResult? startResult,
     DateTime? now,
     DateTime Function()? clock,
@@ -291,6 +316,17 @@ void main() {
           ),
           if (now != null || clock != null)
             activeRollcallClockProvider.overrideWithValue(clock ?? () => now!),
+          if (noClassForAssist)
+            selectedDetectionWindowProvider.overrideWith(
+              (ref) async => ref.watch(selectedRollcallAccountProvider) == null
+                  ? const DetectionWindow(enabled: false)
+                  : const DetectionWindow(
+                      enabled: true,
+                      scheduleBased: true,
+                      hasSchedule: true,
+                      intervals: [],
+                    ),
+            ),
           if (startResult != null)
             monitorControllerProvider.overrideWith(
               (ref) => _StartMonitor(ref, startResult),
@@ -358,14 +394,14 @@ void main() {
       expect(refresh, findsOneWidget);
       expect(
         find.descendant(of: find.byType(AppTitleBar), matching: refresh),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         find.descendant(
           of: find.byType(HomeworkHubPage),
           matching: find.byType(AppRefreshButton),
         ),
-        findsNothing,
+        findsOneWidget,
       );
       await tester.tap(refresh);
       await tester.pumpAndSettle();
@@ -426,13 +462,21 @@ void main() {
         final cached = container.read(activeRollcallsProvider(null).notifier);
         final nav = find.byType(width < 600 ? AppMobileNav : AppSidebar);
         Future<void> select(String label) async {
-          await tester.tap(
-            find.descendant(of: nav, matching: find.text(label)),
-          );
+          if (width < 600 && nav.evaluate().isEmpty) {
+            // Android detail pages have no bottom bar. Platform navigation
+            // must still respect the same draft/busy guards.
+            ShellNavigation.instance.open(
+              AppDestination.values.singleWhere((d) => d.label == label),
+            );
+          } else {
+            await tester.tap(
+              find.descendant(of: nav, matching: find.text(label)),
+            );
+          }
           await tester.pumpAndSettle();
         }
 
-        await tester.tap(find.byTooltip('签到记录'));
+        await openHistory(tester);
         await tester.pumpAndSettle();
         final oldHistory = tester.state(find.byType(HistoryPage));
         for (final filter in [
@@ -455,7 +499,9 @@ void main() {
         }
         await tester.tap(find.byKey(const ValueKey('history-status-filter')));
         await tester.pumpAndSettle();
-        await select('作业');
+        // A mobile choice is modal; programmatic tab navigation must dismiss it.
+        ShellNavigation.instance.open(AppDestination.homework);
+        await tester.pumpAndSettle();
         expect(find.byType(AppMenuOption), findsNothing);
         expect(find.byType(HistoryPage, skipOffstage: false), findsNothing);
         expect(oldHistory.mounted, isFalse);
@@ -471,12 +517,12 @@ void main() {
         );
         await select('签到');
         expect(find.byType(HistoryPage), findsNothing);
-        await tester.tap(find.byTooltip('签到记录'));
+        await openHistory(tester);
         await tester.pumpAndSettle();
         for (final label in ['全部状态', '全部类型', '全部课程', '全部时间']) {
           expect(find.text(label), findsOneWidget);
         }
-        await select('我的');
+        await select(width < 600 ? '我的' : '设置');
         final list = tester.widget<ListView>(
           find.descendant(
             of: find.byType(SettingsPage),
@@ -497,7 +543,12 @@ void main() {
             paintedScrolling =
                 list.controller!.position.isScrollingNotifier.value;
           });
-          await tester.tap(find.descendant(of: nav, matching: find.text('我的')));
+          await tester.tap(
+            find.descendant(
+              of: nav,
+              matching: find.text(width < 600 ? '我的' : '设置'),
+            ),
+          );
           await tester.pump();
           expect(paintedOffset, 0, reason: 'The first visible frame is at top');
           expect(paintedScrolling, isFalse);
@@ -520,7 +571,7 @@ void main() {
         ShellNavigation.instance.openRollcall();
         await tester.pumpAndSettle();
         expect(find.byTooltip('返回'), findsNothing);
-        await select('我的');
+        await select(width < 600 ? '我的' : '设置');
         expect(find.text('设置详情内容', skipOffstage: false), findsNothing);
         await select('作业');
         Navigator.of(tester.element(find.byType(HomeworkHubPage))).push(
@@ -533,7 +584,12 @@ void main() {
         await select('作业');
         expect(find.text('作业详情内容', skipOffstage: false), findsNothing);
         // Repeated fast selections must not leave a stale title-bar claim.
-        await tester.tap(find.descendant(of: nav, matching: find.text('我的')));
+        await tester.tap(
+          find.descendant(
+            of: nav,
+            matching: find.text(width < 600 ? '我的' : '设置'),
+          ),
+        );
         await tester.pump();
         await tester.tap(find.descendant(of: nav, matching: find.text('签到')));
         await tester.pumpAndSettle();
@@ -556,13 +612,19 @@ void main() {
         await show(tester, const AdaptiveShell());
         final nav = find.byType(width < 600 ? AppMobileNav : AppSidebar);
         Future<void> select(String label) async {
-          await tester.tap(
-            find.descendant(of: nav, matching: find.text(label)),
-          );
+          if (width < 600 && nav.evaluate().isEmpty) {
+            ShellNavigation.instance.open(
+              AppDestination.values.singleWhere((d) => d.label == label),
+            );
+          } else {
+            await tester.tap(
+              find.descendant(of: nav, matching: find.text(label)),
+            );
+          }
           await tester.pumpAndSettle();
         }
 
-        await select('我的');
+        await select(width < 600 ? '我的' : '设置');
         final ctx = tester.element(find.byType(SettingsPage));
         Navigator.of(ctx).push(
           MaterialPageRoute<void>(
@@ -581,7 +643,7 @@ void main() {
         expect(find.byType(MapPickPanel), findsOneWidget);
         expect(find.text('未保存的教室'), findsOneWidget);
         await select(
-          '我的',
+          width < 600 ? '我的' : '设置',
         ); // Re-tapping the current tab also protects the draft.
         await tester.tap(find.text('放弃并离开'));
         await tester.pumpAndSettle();
@@ -625,13 +687,22 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.descendant(of: nav, matching: find.text('作业')));
+        if (width < 600) {
+          expect(nav, findsNothing);
+          ShellNavigation.instance.open(AppDestination.homework);
+        } else {
+          await tester.tap(find.descendant(of: nav, matching: find.text('作业')));
+        }
         await tester.pumpAndSettle();
         expect(find.text('正在保存'), findsOneWidget);
         expect(find.text('正在处理，请稍候再切换页面'), findsOneWidget);
         busy = false;
         AppToast.dismiss();
-        await tester.tap(find.descendant(of: nav, matching: find.text('作业')));
+        if (width < 600) {
+          ShellNavigation.instance.open(AppDestination.homework);
+        } else {
+          await tester.tap(find.descendant(of: nav, matching: find.text('作业')));
+        }
         await tester.pumpAndSettle();
         expect(find.text('正在保存', skipOffstage: false), findsNothing);
         expect(tester.takeException(), isNull);
@@ -642,6 +713,33 @@ void main() {
       ),
     );
   }
+
+  testWidgets(
+    'handoff shows automatic processing and completion restores start',
+    (tester) async {
+      tester.view.physicalSize = const Size(960, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await show(tester, const RollcallHubPage(), visibleTab: true);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(RollcallHubPage)),
+      );
+      final monitor =
+          container.read(monitorControllerProvider.notifier) as _RunningMonitor;
+      monitor.handoff();
+      await tester.pumpAndSettle();
+      expect(find.text('正在处理自动签到'), findsOneWidget);
+      expect(find.text('停止检测'), findsOneWidget);
+      expect(find.textContaining('检测中  '), findsNothing);
+      await captureDesktopUi(tester, 'automatic-handoff');
+      monitor.finish();
+      await tester.pumpAndSettle();
+      expect(find.text('开始检测'), findsOneWidget);
+      expect(find.text('正在处理自动签到'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 
   for (final scenario in [
     (hour: 7, minute: 29, enabled: true, overnight: false, allowed: false),
@@ -679,12 +777,18 @@ void main() {
               ),
             );
         await tester.pumpAndSettle();
+        final android =
+            Theme.of(tester.element(find.text('开始检测'))).platform ==
+                TargetPlatform.android &&
+            width < 600;
         final button = find.ancestor(
           of: find.text('开始检测'),
-          matching: find.byType(AppQuietPill),
+          matching: find.byType(android ? OutlinedButton : AppQuietPill),
         );
         expect(
-          tester.widget<AppQuietPill>(button).onTap,
+          android
+              ? tester.widget<OutlinedButton>(button).onPressed
+              : tester.widget<AppQuietPill>(button).onTap,
           scenario.allowed ? isNotNull : isNull,
         );
         if (!scenario.allowed) {
@@ -768,34 +872,112 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets(
-    'running detection owns automatic refresh, manual refresh remains available',
-    (tester) async {
-      _appearanceChecks = 0;
-      _manualChecks = 0;
-      await show(tester, const RollcallHubPage(), visibleTab: true);
-      final context = tester.element(find.byType(RollcallHubPage));
-      final container = ProviderScope.containerOf(context);
-      for (var i = 0; i < 3; i++) {
+  for (final watch in [false, true]) {
+    testWidgets(
+      'running task owns refresh and idle uses ordinary policy, watch=$watch',
+      (tester) async {
+        _appearanceChecks = 0;
+        _manualChecks = 0;
+        await show(tester, const RollcallHubPage(), visibleTab: true);
+        final context = tester.element(find.byType(RollcallHubPage));
+        final container = ProviderScope.containerOf(context);
+        (container.read(monitorControllerProvider.notifier) as _RunningMonitor)
+            .selectWatch(watch);
+        for (var i = 0; i < 3; i++) {
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.inactive,
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+          await tester.pump(const Duration(seconds: 25));
+        }
+        expect(_appearanceChecks, 0);
+        await tester.tap(find.byType(AppRefreshButton));
+        await tester.pumpAndSettle();
+        expect(_manualChecks, 1);
+        (container.read(monitorControllerProvider.notifier) as _RunningMonitor)
+            .finish();
         tester.binding.handleAppLifecycleStateChanged(
           AppLifecycleState.inactive,
         );
         tester.binding.handleAppLifecycleStateChanged(
           AppLifecycleState.resumed,
         );
-        await tester.pump(const Duration(seconds: 25));
-      }
-      expect(_appearanceChecks, 0);
+        await tester.pumpAndSettle();
+        expect(_appearanceChecks, 1);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+      },
+    );
+  }
+  testWidgets(
+    'manual results remain for five seconds across monitor updates and pull refresh',
+    (tester) async {
+      _manualChecks = 0;
+      await show(tester, const RollcallHubPage(), visibleTab: true);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(RollcallHubPage)),
+      );
+      final monitor =
+          container.read(monitorControllerProvider.notifier) as _RunningMonitor;
       await tester.tap(find.byType(AppRefreshButton));
       await tester.pumpAndSettle();
-      expect(_manualChecks, 1);
-      (container.read(monitorControllerProvider.notifier) as _RunningMonitor)
-          .finish();
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      expect(find.text('已刷新，有 1 项待签到'), findsOneWidget);
+      monitor.handoff();
+      await tester.pump(const Duration(seconds: 4));
+      expect(find.text('已刷新，有 1 项待签到'), findsOneWidget);
+      expect(find.text('正在处理自动签到'), findsNothing);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('已刷新，有 1 项待签到'), findsNothing);
+      expect(find.text('正在处理自动签到'), findsOneWidget);
+      await tester
+          .widget<AppPullToRefresh>(find.byType(AppPullToRefresh).first)
+          .onRefresh();
       await tester.pumpAndSettle();
-      expect(_appearanceChecks, 1);
+      expect(_manualChecks, 2);
+      expect(find.text('已刷新，有 1 项待签到'), findsOneWidget);
+      (container.read(activeRollcallsProvider(null).notifier)
+                  as _AppearanceLists)
+              .failRefresh =
+          true;
+      await tester.tap(find.byType(AppRefreshButton));
+      await tester.pumpAndSettle();
+      expect(find.text('刷新失败，请重试'), findsOneWidget);
+      monitor.finish();
+      await tester.pump(const Duration(seconds: 4));
+      expect(find.text('刷新失败，请重试'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.text('刷新失败，请重试'), findsNothing);
       expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'switch to an account with no classes disables automatic detection and updates explanation',
+    (tester) async {
+      _data[SessionKey.assist(2).storageId] = [];
+      await show(
+        tester,
+        const RollcallHubPage(),
+        startResult: StartMonitorResult.started,
+        noClassForAssist: true,
+      );
+      final c = ProviderScope.containerOf(
+        tester.element(find.byType(RollcallHubPage)),
+      );
+      AppQuietPill button() => tester.widget<AppQuietPill>(
+        find.ancestor(
+          of: find.text('开始检测'),
+          matching: find.byType(AppQuietPill),
+        ),
+      );
+      expect(button().onTap, isNotNull);
+      c.read(selectedRollcallAccountProvider.notifier).state = 2;
+      await tester.pumpAndSettle();
+      expect(button().onTap, isNull);
+      expect(find.text('今日无课'), findsWidgets);
       await tester.pumpWidget(const SizedBox());
     },
   );
@@ -805,12 +987,19 @@ void main() {
     final container = ProviderScope.containerOf(
       tester.element(find.byType(RollcallHubPage)),
     );
+    await container
+        .read(detectionWindowProvider.notifier)
+        .save(const DetectionWindow(enabled: false));
     container
         .read(activeRollcallsProvider(null).notifier)
         .applyMonitorItems(
           const [],
           fetchedAt: DateTime(2026, 10, 26, 16, 21, 37).toUtc(),
         );
+    await tester.pumpAndSettle();
+    expect(find.text('更新于 16:21:37'), findsNothing);
+    (container.read(monitorControllerProvider.notifier) as _RunningMonitor)
+        .finish();
     await tester.pumpAndSettle();
     expect(find.text('更新于 16:21:37'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
@@ -837,14 +1026,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.getSize(find.byType(AppMenuOption).first).width,
-        lessThanOrEqualTo(220),
+        closeTo(320 - 32, 1),
       );
       await tester.tap(find.text('未签同学').last);
       await tester.pumpAndSettle();
       expect(find.text('协助课程'), findsOneWidget);
       expect(find.text('本人课程'), findsNothing);
       expect(service.sessions, contains(2));
-      await tester.tap(find.text('扫码签到'));
+      await tester.tap(find.text('去签到'));
       await tester.pumpAndSettle();
       expect(find.byType(QrAnswerPage), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -1019,7 +1208,7 @@ void main() {
       expect(find.text('自动检测 · 当前账号'), findsNothing);
       expect(find.byKey(const ValueKey('monitor-auto-answer')), findsOneWidget);
       expect(find.text('更多设置'), findsNothing);
-      expect(find.text('随机扰动'), findsOneWidget);
+      expect(find.text('时间浮动'), findsOneWidget);
       expect(find.text('±20%'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('monitor-auto-answer')));
       await tester.pumpAndSettle();

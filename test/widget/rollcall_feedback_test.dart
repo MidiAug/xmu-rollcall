@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,6 +21,17 @@ class Repo extends Fake implements AuthRepository {}
 
 class AttendanceRepo extends Fake implements RollcallRepository {
   int calls = 0;
+  int submissions = 0;
+  @override
+  Future<AnswerResult> answerNumber({
+    required int rollcallId,
+    required String numberCode,
+    String? opId,
+  }) async {
+    submissions++;
+    return const AnswerResult(ok: true);
+  }
+
   @override
   Future<AttendanceCount> fetchAttendanceCount(int id, {String? opId}) async {
     calls++;
@@ -40,6 +52,8 @@ class Seed extends ActiveRollcallsNotifier {
   @override
   Future<List<RollcallItem>> build(int? id) async => rows;
   static List<RollcallItem> rows = [];
+  @override
+  Future<void> refresh({bool manual = true}) async {}
 }
 
 RollcallItem item({
@@ -63,6 +77,43 @@ RollcallItem item({
 
 void main() {
   tearDown(AppToast.dismiss);
+  testWidgets('card update time stays distinct from the detection status', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final row = item(code: '1234');
+    Seed.rows = [row];
+    final repo = AttendanceRepo();
+    final container = ProviderContainer(
+      overrides: [
+        authControllerProvider.overrideWith((ref) => Auth()),
+        activeRollcallsProvider.overrideWith(Seed.new),
+        rollcallRepositoryForProvider(null).overrideWithValue(repo),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(activeRollcallsProvider(null).future);
+    container.read(activeRollcallsProvider(null).notifier).lastUpdatedAt =
+        DateTime(2026, 10, 30, 10, 31).toUtc();
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.android),
+          home: Scaffold(
+            body: RollcallTaskCard(item: row, mobileSummary: '今日无课'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('更新于 10:31'), findsOneWidget);
+    expect(find.text('今日无课'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
   for (final width in [320.0, 960.0]) {
     for (final type in [
       RollcallType.number,
@@ -91,11 +142,17 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          final entryLabel = type == RollcallType.qrcode
+          final entryLabel = width < 600
+              ? (type == RollcallType.qrcode
+                    ? '扫码'
+                    : type == RollcallType.radar
+                    ? '选择位置'
+                    : '签到')
+              : type == RollcallType.qrcode
               ? '扫码签到'
               : type == RollcallType.radar
               ? '选择位置'
-              : '一键签到';
+              : (PlatformHooks.isDesktop && width >= 600 ? '确认签到' : '一键签到');
           expect(
             tester
                 .widget<FilledButton>(
@@ -107,6 +164,12 @@ void main() {
           final container = ProviderScope.containerOf(
             tester.element(find.byType(RollcallListPage)),
           );
+          if (width < 600 && type == RollcallType.number) {
+            await tester.tap(find.widgetWithText(FilledButton, entryLabel));
+            await tester.pumpAndSettle();
+            expect(find.byType(TextField), findsNothing);
+            expect(repo.submissions, 1);
+          }
           final notifier = container.read(
             activeRollcallsProvider(null).notifier,
           );
@@ -121,7 +184,10 @@ void main() {
           await tester.tap(completed);
           await tester.pump(const Duration(seconds: 30));
           expect(repo.calls, calls);
-          expect(find.byType(AttendanceCountRow), findsNothing);
+          expect(
+            find.byType(AttendanceCountRow),
+            width < 600 ? findsOneWidget : findsNothing,
+          );
           notifier.debugSeed([
             item(type: type, answered: true, expired: true, code: '1234'),
           ]);
@@ -160,7 +226,18 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byType(AttendanceCountRow), findsOneWidget);
-      expect(find.byType(SessionPriorPanel), findsOneWidget);
+      if (PlatformHooks.isDesktop) {
+        expect(find.byType(SessionPriorPanel), findsNothing);
+        await tester.tap(find.byTooltip('课程操作'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('课堂参考'));
+        await tester.pumpAndSettle();
+        expect(find.byType(SessionPriorPanel), findsOneWidget);
+        await tester.tap(find.byTooltip('关闭'));
+        await tester.pumpAndSettle();
+      } else {
+        expect(find.byType(SessionPriorPanel), findsOneWidget);
+      }
       expect(repo.calls, 1);
       final container = ProviderScope.containerOf(
         tester.element(find.byType(RollcallListPage)),
@@ -207,7 +284,15 @@ void main() {
       }
 
       await show(item());
-      expect(find.text('手动输入'), findsOneWidget);
+      if (PlatformHooks.isDesktop) {
+        await tester.tap(find.byTooltip('课程操作'));
+        await tester.pumpAndSettle();
+        expect(find.text('手动输入'), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      } else {
+        expect(find.text('手动输入'), findsOneWidget);
+      }
       expect(find.text('输入签到码'), findsOneWidget);
       expect(
         tester
@@ -222,12 +307,14 @@ void main() {
             .onPressed,
         isNull,
       );
-      expect(
-        tester
-            .widget<TextButton>(find.widgetWithText(TextButton, '手动输入'))
-            .onPressed,
-        isNull,
-      );
+      if (!PlatformHooks.isDesktop) {
+        expect(
+          tester
+              .widget<TextButton>(find.widgetWithText(TextButton, '手动输入'))
+              .onPressed,
+          isNull,
+        );
+      }
       await show(item(expired: true, type: RollcallType.qrcode));
       expect(
         tester

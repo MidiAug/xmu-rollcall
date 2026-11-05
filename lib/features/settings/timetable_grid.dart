@@ -10,11 +10,15 @@ class TimetablePlacedBlock {
     required this.course,
     required this.weekday,
     required this.block,
+    this.weekLabel,
+    this.dates,
   });
 
   final CatalogCourse course;
   final int weekday;
   final SessionBlock block;
+  final String? weekLabel;
+  final Set<String>? dates;
 }
 
 /// Vertical axis row: a period, or a break band (午休 / 晚休).
@@ -192,9 +196,30 @@ List<TimetablePlacedBlock> placeTimetableBlocks(
   final out = <TimetablePlacedBlock>[];
   for (final c in courses) {
     for (final e in c.timetables.entries) {
-      final blocks = mergeConsecutiveSequenceBlocks(e.value);
-      for (final b in blocks) {
-        final slot = e.value.where((s) => s.sequence == b.startSequence).first;
+      final meetings = [
+        for (final slot in e.value.where((s) => s.dates != null))
+          (
+            slot: slot,
+            block: SessionBlock(
+              startSequence: slot.sequence,
+              endSequence: slot.lastSequence,
+              coreStart: slot.start,
+              coreEnd: slot.end,
+            ),
+          ),
+        for (final block in mergeConsecutiveSequenceBlocks(
+          e.value.where((s) => s.dates == null).toList(),
+        ))
+          (
+            slot: e.value.firstWhere(
+              (s) => s.dates == null && s.sequence == block.startSequence,
+            ),
+            block: block,
+          ),
+      ];
+      for (final meeting in meetings) {
+        final b = meeting.block;
+        final slot = meeting.slot;
         final placedCourse = slot.classroom == null
             ? c
             : CatalogCourse(
@@ -207,7 +232,13 @@ List<TimetablePlacedBlock> placeTimetableBlocks(
                 roles: c.roles,
               );
         out.add(
-          TimetablePlacedBlock(course: placedCourse, weekday: e.key, block: b),
+          TimetablePlacedBlock(
+            course: placedCourse,
+            weekday: e.key,
+            block: b,
+            weekLabel: slot.weekLabel,
+            dates: slot.dates,
+          ),
         );
       }
     }
@@ -223,4 +254,80 @@ Map<int, int> sequenceToRowIndex(List<TimetableAxisRow> rows) {
     if (seq != null) map[seq] = i;
   }
   return map;
+}
+
+/// Date-disjoint variants in the same period use one stack. True same-date
+/// conflicts are separate groups and are still assigned distinct columns.
+List<List<TimetablePlacedBlock>> timetableStacks(
+  List<TimetablePlacedBlock> blocks,
+) {
+  final groups = <List<TimetablePlacedBlock>>[];
+  for (final block in blocks) {
+    final target = groups
+        .where(
+          (g) => g.every(
+            (other) =>
+                other.weekday == block.weekday &&
+                other.block.id == block.block.id &&
+                other.dates != null &&
+                block.dates != null &&
+                other.dates!.intersection(block.dates!).isEmpty,
+          ),
+        )
+        .firstOrNull;
+    if (target == null) {
+      groups.add([block]);
+    } else {
+      target.add(block);
+    }
+  }
+  return groups;
+}
+
+Map<TimetablePlacedBlock, ({int column, int count})> timetableColumns(
+  List<TimetablePlacedBlock> blocks,
+) {
+  final result = <TimetablePlacedBlock, ({int column, int count})>{};
+  final stacks = timetableStacks(blocks);
+  for (final day in blocks.map((b) => b.weekday).toSet()) {
+    final sorted = stacks.where((g) => g.first.weekday == day).toList()
+      ..sort(
+        (a, b) =>
+            a.first.block.startSequence.compareTo(b.first.block.startSequence),
+      );
+    final group = <List<TimetablePlacedBlock>>[];
+    var end = 0;
+    void flush() {
+      final ends = <int>[];
+      final assignments = <List<TimetablePlacedBlock>, int>{};
+      for (final stack in group) {
+        final b = stack.first;
+        var column = ends.indexWhere((e) => e < b.block.startSequence);
+        if (column == -1) {
+          column = ends.length;
+          ends.add(0);
+        }
+        ends[column] = b.block.endSequence;
+        assignments[stack] = column;
+      }
+      for (final stack in group) {
+        for (final block in stack) {
+          result[block] = (column: assignments[stack]!, count: ends.length);
+        }
+      }
+      group.clear();
+    }
+
+    for (final stack in sorted) {
+      final b = stack.first;
+      if (group.isNotEmpty && b.block.startSequence > end) {
+        flush();
+        end = 0;
+      }
+      group.add(stack);
+      if (b.block.endSequence > end) end = b.block.endSequence;
+    }
+    flush();
+  }
+  return result;
 }

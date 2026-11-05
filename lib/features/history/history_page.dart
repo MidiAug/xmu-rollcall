@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:xmu_rollcall/core/cache/cache_policy.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
@@ -9,6 +11,16 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/history/history_summary.dart';
+
+// Counts for filters retain their original scoped deduplication; only the
+// full-history view needs ordering, and it changes with the source snapshot.
+final _orderedHistoryProvider =
+    Provider.autoDispose<List<CourseRollcallRecord>>((ref) {
+      final records = ref.watch(
+        currentCourseHistoryProvider.select((s) => s.valueOrNull),
+      );
+      return HistorySummary(records ?? const []).records;
+    });
 
 enum HistorySignedFilter { all, unsigned, signed, other }
 
@@ -56,14 +68,15 @@ class HistoryPage extends ConsumerStatefulWidget {
   ConsumerState<HistoryPage> createState() => _HistoryPageState();
 }
 
-class _HistoryPageState extends ConsumerState<HistoryPage> {
+class _HistoryPageState extends ConsumerState<HistoryPage>
+    with WidgetsBindingObserver {
   HistorySignedFilter _signed = HistorySignedFilter.all;
   HistoryTypeFilter _type = HistoryTypeFilter.all;
   String _courseId = '';
   _HistoryPeriod _period = _HistoryPeriod.all;
   DateTimeRange? _range;
   final _scroll = ScrollController();
-  var _appeared = false;
+  Timer? _refreshTimer;
 
   void _selectPeriod(_HistoryPeriod period) {
     setState(() {
@@ -83,17 +96,62 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _appeared) return;
-      _appeared = true;
-      if (ref.read(authControllerProvider).isSignedIn) {
-        ref.read(currentHistoryControllerProvider).ensureFresh();
-      }
-    });
+    WidgetsBinding.instance.addObserver(this);
+    _syncRefreshTimer();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshVisible());
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    WidgetsBinding.instance.removeObserver(this);
+    WidgetsBinding.instance.addObserver(this);
+    _syncRefreshTimer();
+  }
+
+  void _refreshVisible() {
+    if (!mounted ||
+        !TickerMode.valuesOf(context).enabled ||
+        !(ModalRoute.of(context)?.isCurrent ?? true) ||
+        (WidgetsBinding.instance.lifecycleState != null &&
+            WidgetsBinding.instance.lifecycleState !=
+                AppLifecycleState.resumed) ||
+        !ref.read(authControllerProvider).isSignedIn) {
+      return;
+    }
+    // The provider retains load errors for the existing retry UI.
+    unawaited(
+      ref
+          .read(currentHistoryControllerProvider)
+          .ensureFresh()
+          .catchError((Object _) {}),
+    );
+  }
+
+  void _syncRefreshTimer([AppLifecycleState? state]) {
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+    final lifecycle = state ?? WidgetsBinding.instance.lifecycleState;
+    if (lifecycle == null || lifecycle == AppLifecycleState.resumed) {
+      _refreshTimer = Timer.periodic(
+        CachePolicy.activeClassHistoryFreshFor,
+        (_) => _refreshVisible(),
+      );
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _syncRefreshTimer(state);
+    if (state == AppLifecycleState.resumed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _refreshVisible());
+    }
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     _scroll.dispose();
     super.dispose();
   }
@@ -134,9 +192,11 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
             _historyMatchesType(r, _type) &&
             historyInDateRange(r, _range?.start, _range?.end),
       ),
+      sort: false,
     );
     final datedRecords = HistorySummary(
       records.where((r) => historyInDateRange(r, _range?.start, _range?.end)),
+      sort: false,
     ).records;
     int typeCount(HistoryTypeFilter type) => datedRecords
         .where(
@@ -146,28 +206,39 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
               _historyMatchesType(r, type),
         )
         .length;
-    int courseCount(String id) => datedRecords
-        .where(
-          (r) =>
-              (id.isEmpty || r.courseId == id) &&
-              _historyMatchesStatus(r, _signed) &&
-              _historyMatchesType(r, _type),
-        )
-        .length;
+    final courseCounts = <String, int>{};
+    var allCoursesCount = 0;
+    for (final record in datedRecords) {
+      if (!_historyMatchesStatus(record, _signed) ||
+          !_historyMatchesType(record, _type)) {
+        continue;
+      }
+      allCoursesCount++;
+      courseCounts.update(
+        record.courseId,
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    }
+    int courseCount(String id) =>
+        id.isEmpty ? allCoursesCount : courseCounts[id] ?? 0;
     int statusCount(HistorySignedFilter status) => switch (status) {
       HistorySignedFilter.all => summary.total,
       HistorySignedFilter.signed => summary.count(HistoryAttendance.signed),
       HistorySignedFilter.unsigned => summary.count(HistoryAttendance.unsigned),
       HistorySignedFilter.other => summary.count(HistoryAttendance.other),
     };
-    final periodRecords = HistorySummary(records).records
-        .where(
-          (r) =>
-              (courseId.isEmpty || r.courseId == courseId) &&
-              _historyMatchesStatus(r, _signed) &&
-              _historyMatchesType(r, _type),
-        )
-        .toList();
+    final periodRecords =
+        (auth.isSignedIn
+                ? ref.watch(_orderedHistoryProvider)
+                : const <CourseRollcallRecord>[])
+            .where(
+              (r) =>
+                  (courseId.isEmpty || r.courseId == courseId) &&
+                  _historyMatchesStatus(r, _signed) &&
+                  _historyMatchesType(r, _type),
+            )
+            .toList();
     final now = DateTime.now();
     int periodCount(_HistoryPeriod period) {
       final range = _rangeForPeriod(period, now);
@@ -187,6 +258,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
           ),
       ],
       body: AppContentColumn(
+        alignment: Alignment.topCenter,
         child: PrimaryScrollController(
           controller: _scroll,
           child: Column(
@@ -203,6 +275,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                   children: [
                     Expanded(
                       child: _HistoryFilter<HistorySignedFilter>(
+                        title: '签到状态',
                         key: const ValueKey('history-status-filter'),
                         value: _signed,
                         items: HistorySignedFilter.values,
@@ -214,6 +287,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                     const SizedBox(width: AppSpace.xs),
                     Expanded(
                       child: _HistoryFilter<HistoryTypeFilter>(
+                        title: '签到类型',
                         key: const ValueKey('history-type-filter'),
                         value: _type,
                         items: HistoryTypeFilter.values,
@@ -225,6 +299,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
                     const SizedBox(width: AppSpace.xs),
                     Expanded(
                       child: _HistoryFilter<String>(
+                        title: '筛选课程',
                         key: const ValueKey('history-course-filter'),
                         value: courseId,
                         items: courses.keys.toList(),
@@ -270,6 +345,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage> {
 class _HistoryFilter<T> extends StatelessWidget {
   const _HistoryFilter({
     super.key,
+    required this.title,
     required this.value,
     required this.items,
     required this.labelOf,
@@ -283,11 +359,13 @@ class _HistoryFilter<T> extends StatelessWidget {
   final int Function(T) countOf;
   final ValueChanged<T> onChanged;
   final bool wideMenu;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, bounds) => AppShellSelect<T>(
+        semanticLabel: title,
         value: value,
         items: items,
         labelOf: labelOf,
@@ -519,11 +597,23 @@ class _HistoryDateFilter extends StatelessWidget {
   Widget build(BuildContext context) {
     if (expand) {
       return _HistoryFilter<_HistoryPeriod>(
+        title: '时间范围',
         key: const ValueKey('history-date-filter'),
         value: value,
         items: _HistoryPeriod.values,
         labelOf: (v) => labels[v]!,
         countOf: countOf,
+        onChanged: onSelected,
+      );
+    }
+    if (AppMobileUi.useTouchChrome(context)) {
+      return AppToolbarChoice<_HistoryPeriod>(
+        key: const ValueKey('history-date-filter'),
+        title: '时间范围',
+        value: value,
+        items: _HistoryPeriod.values,
+        labelOf: (v) => labels[v]!,
+        trailingOf: (v) => '(${countOf(v)})',
         onChanged: onSelected,
       );
     }

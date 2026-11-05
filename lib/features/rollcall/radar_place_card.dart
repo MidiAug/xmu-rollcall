@@ -3,7 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
-import 'package:xmu_rollcall/features/location/map_pick_page.dart';
+import 'package:xmu_rollcall/features/location/campus_map_config.dart';
 
 enum RadarLocationAction { device, map, preset }
 
@@ -220,7 +220,7 @@ Future<RadarLocationAction?> showRadarLocationSheet(BuildContext context) {
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,
-    showDragHandle: true,
+    showDragHandle: false,
     backgroundColor: AppPalette.of(context).surface,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(
@@ -232,7 +232,7 @@ Future<RadarLocationAction?> showRadarLocationSheet(BuildContext context) {
       final pageX = AppSpace.pageXOf(ctx);
       return SafeArea(
         child: Padding(
-          padding: EdgeInsets.fromLTRB(pageX, 0, pageX, AppSpace.md),
+          padding: EdgeInsets.fromLTRB(pageX, 16, pageX, AppSpace.md),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -264,7 +264,7 @@ Future<RadarLocationAction?> showRadarLocationSheet(BuildContext context) {
               _SheetAction(
                 icon: Icons.bookmark_outline,
                 title: '已保存的地点',
-                subtitle: '使用带备注名的预设位置',
+                subtitle: '使用已保存的地点',
                 onTap: () => Navigator.pop(ctx, RadarLocationAction.preset),
               ),
             ],

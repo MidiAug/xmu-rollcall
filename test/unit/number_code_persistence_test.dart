@@ -56,6 +56,7 @@ class _Repo extends RollcallRepository {
   Future<List<RollcallItem>> fetchActive({
     CancelToken? cancelToken,
     String? opId,
+    bool manual = false,
   }) async => items;
   @override
   Future<String?> fetchNumberCode(
@@ -71,7 +72,14 @@ class _Repo extends RollcallRepository {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(
+    () => SharedPreferences.setMockInitialValues({
+      'schedule_detection_only_v2': false,
+      'schedule_detection_only_v2_1': false,
+      'schedule_detection_only_v2_2': false,
+      'schedule_detection_only_v2_3': false,
+    }),
+  );
   ProviderContainer make(_Repo repo, {int owner = 1}) => ProviderContainer(
     overrides: [
       authControllerProvider.overrideWith((ref) => _Auth(owner)),

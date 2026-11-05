@@ -89,7 +89,7 @@ class ReleaseNotesDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${update.target == UpdateTarget.windows ? 'Windows' : 'Android'} · ${(update.size / 1024 / 1024).toStringAsFixed(1)} MB',
+                    '${update.target == UpdateTarget.windows ? 'Windows' : 'Android'}  ${(update.size / 1024 / 1024).toStringAsFixed(1)} MB',
                     style: TextStyle(fontSize: 12, color: p.muted),
                   ),
                 ],

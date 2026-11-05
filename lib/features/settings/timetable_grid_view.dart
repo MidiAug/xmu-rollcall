@@ -1,3 +1,13 @@
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/location/course_location_setting.dart';
+import 'package:xmu_rollcall/features/location/course_meeting.dart';
+import 'package:xmu_rollcall/features/location/campus_map.dart';
+import 'package:xmu_rollcall/features/location/campus_places.dart';
+import 'package:xmu_rollcall/features/location/place_matching.dart';
+import 'package:xmu_rollcall/features/location/location_providers.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'dart:math' as math;
 import 'dart:async';
 
@@ -6,10 +16,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
-import 'package:xmu_rollcall/features/location/course_location_setting.dart';
 import 'package:xmu_rollcall/features/location/location_picker.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
-import 'package:xmu_rollcall/features/location/course_meeting.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid.dart';
 
 /// Week × period timetable. Keep readable row sizes; scroll instead of shrinking
@@ -19,20 +27,30 @@ class TimetableGridView extends StatelessWidget {
     super.key,
     required this.courses,
     this.assistUserId,
+    this.referenceDate,
   });
   final int? assistUserId;
+  final DateTime? referenceDate;
 
   final List<CatalogCourse> courses;
 
   @override
-  Widget build(BuildContext context) =>
-      _ScrollableTimetableGrid(courses: courses, assistUserId: assistUserId);
+  Widget build(BuildContext context) => _ScrollableTimetableGrid(
+    courses: courses,
+    assistUserId: assistUserId,
+    referenceDate: referenceDate,
+  );
 }
 
 class _ScrollableTimetableGrid extends StatefulWidget {
-  const _ScrollableTimetableGrid({required this.courses, this.assistUserId});
+  const _ScrollableTimetableGrid({
+    required this.courses,
+    this.assistUserId,
+    this.referenceDate,
+  });
   final int? assistUserId;
   final List<CatalogCourse> courses;
+  final DateTime? referenceDate;
 
   @override
   State<_ScrollableTimetableGrid> createState() =>
@@ -62,6 +80,8 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
     final rows = buildTimetableAxisRows(widget.courses);
     final seqIndex = sequenceToRowIndex(rows);
     final blocks = placeTimetableBlocks(widget.courses);
+    final columns = timetableColumns(blocks);
+    final maxColumns = columns.values.fold(1, (n, v) => math.max(n, v.count));
     final axisW = (touch ? 56.0 : 60.0) * scale;
     final headerH = (touch ? 36.0 : 44.0) * scale;
 
@@ -74,7 +94,7 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
         }
         final gridW = math.max(
           w,
-          axisW + days.length * (touch ? 56 : 108) * scale,
+          axisW + days.length * (touch ? 56 : 108) * scale * maxColumns,
         );
         final dayW = (gridW - axisW) / days.length;
         final breakCount = rows.where((r) => r.isBreak).length;
@@ -96,7 +116,8 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
         }
 
         final blockWidgets = <Widget>[];
-        for (final block in blocks) {
+        for (final variants in timetableStacks(blocks)) {
+          final block = variants.first;
           final start = seqIndex[block.block.startSequence];
           final end = seqIndex[block.block.endSequence];
           final day = days.indexOf(block.weekday);
@@ -105,20 +126,20 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
           final bottom = yOfRow(end) + periodH - 2;
           blockWidgets.add(
             Positioned(
-              left: day * dayW + 2,
-              width: dayW - 4,
+              left:
+                  day * dayW +
+                  columns[block]!.column * dayW / columns[block]!.count +
+                  2,
+              width: dayW / columns[block]!.count - 4,
               top: top,
               height: bottom - top,
-              child: _CourseBlockChip(
+              child: _TimetableStack(
                 key: ValueKey(
-                  'course-${block.course.id}-${block.weekday}-${block.block.id}',
+                  'stack-${block.weekday}-${block.block.id}-${variants.map((b) => b.course.id).join('-')}',
                 ),
-                block: block,
-                tint: timetableTintForCourseId(
-                  block.course.id,
-                  brightness: Theme.of(context).brightness,
-                ),
-                onTap: () => _showBlockDetail(context, block),
+                variants: variants,
+                at: widget.referenceDate ?? DateTime.now(),
+                onOpen: (b) => _showBlockDetail(context, b),
               ),
             ),
           );
@@ -368,7 +389,7 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
         useRootNavigator: true,
         useSafeArea: true,
         isScrollControlled: true,
-        showDragHandle: true,
+        showDragHandle: false,
         backgroundColor: AppPalette.of(context).surface,
         builder: (sheetContext) => Padding(
           padding: EdgeInsets.only(
@@ -400,15 +421,16 @@ String? _separateClassLabel(CatalogCourse course) {
   return label;
 }
 
-class _CourseDetailFlow extends StatefulWidget {
+class _CourseDetailFlow extends ConsumerStatefulWidget {
   const _CourseDetailFlow({required this.block, this.assistUserId});
   final int? assistUserId;
   final TimetablePlacedBlock block;
   @override
-  State<_CourseDetailFlow> createState() => _CourseDetailFlowState();
+  ConsumerState<_CourseDetailFlow> createState() => _CourseDetailFlowState();
 }
 
-class _CourseDetailFlowState extends State<_CourseDetailFlow> {
+class _CourseDetailFlowState extends ConsumerState<_CourseDetailFlow> {
+  bool _map = false;
   Completer<SavedLocation?>? _pending;
   String? _selectedId;
   LatLng? _initial;
@@ -437,46 +459,112 @@ class _CourseDetailFlowState extends State<_CourseDetailFlow> {
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedSize(
-    key: const ValueKey('course-detail-flow'),
-    duration: AppMotion.fast,
-    curve: AppMotion.fastCurve,
-    child: Stack(
-      children: [
-        ExcludeFocus(
-          excluding: _pending != null,
-          child: Offstage(
-            offstage: _pending != null,
-            child: SingleChildScrollView(
-              child: _CourseDetail(
-                block: widget.block,
-                pickLocation: _pick,
-                assistUserId: widget.assistUserId,
-              ),
+  Widget build(BuildContext context) {
+    final room = widget.block.course.location ?? '';
+    final userId =
+        widget.assistUserId == ref.watch(selectedRollcallAccountProvider)
+        ? null
+        : widget.assistUserId ?? ref.watch(authControllerProvider).profile?.id;
+    final match = matchCoursePlace(
+      room,
+      ref.watch(ref.watch(savedLocationsForUserProvider(userId))),
+    );
+    final point = match == null
+        ? null
+        : LatLng(match.latitude, match.longitude);
+    final mapView = SizedBox(
+      height: MediaQuery.sizeOf(context).height * .65,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: '返回课程',
+                  onPressed: () => setState(() => _map = false),
+                  icon: const Icon(AppIcons.back),
+                ),
+                Expanded(
+                  child: Text(room.isEmpty ? '上课地点' : room, maxLines: 2),
+                ),
+                const AppSheetCloseButton(),
+              ],
             ),
           ),
-        ),
-        if (_pending != null)
-          LocationPickerContent(
-            title: '选择上课地点',
-            selectedId: _selectedId,
-            initial: _initial,
-            onSelected: _finish,
-            onBack: () => _finish(null),
-            onClose: () => Navigator.of(context).pop(),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              child: _map
+                  ? CampusMap(
+                      zoom: 17,
+                      center:
+                          point ??
+                          (campusInName(room) ?? Campus.xiangan).center,
+                      point: point,
+                      places: const [],
+                    )
+                  : const SizedBox.shrink(),
+            ),
           ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+    return PopScope(
+      canPop: !_map,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop && _map) setState(() => _map = false);
+      },
+      child: SizedBox(
+        key: const ValueKey('course-detail-flow'),
+        child: Stack(
+          children: [
+            Offstage(
+              offstage: _pending != null,
+              child: AnimatedCrossFade(
+                duration: const Duration(milliseconds: 240),
+                reverseDuration: const Duration(milliseconds: 240),
+                sizeCurve: Curves.easeInOutCubic,
+                crossFadeState: _map
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                firstChild: SingleChildScrollView(
+                  child: _CourseDetail(
+                    block: widget.block,
+                    pickLocation: _pick,
+                    onMap: () => setState(() => _map = true),
+                    assistUserId: widget.assistUserId,
+                  ),
+                ),
+                secondChild: mapView,
+              ),
+            ),
+            if (_pending != null)
+              LocationPickerContent(
+                title: '选择上课地点',
+                userId: userId,
+                selectedId: _selectedId,
+                initial: _initial,
+                onSelected: _finish,
+                onBack: () => _finish(null),
+                onClose: () => Navigator.of(context).pop(),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _CourseDetail extends StatelessWidget {
   const _CourseDetail({
     required this.block,
     this.pickLocation,
+    this.onMap,
     this.assistUserId,
   });
   final int? assistUserId;
+  final VoidCallback? onMap;
   final TimetablePlacedBlock block;
   final Future<SavedLocation?> Function(String?, LatLng?)? pickLocation;
 
@@ -500,11 +588,9 @@ class _CourseDetail extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton(
+              const AppSheetCloseButton(
                 tooltip: '关闭课程详情',
-                visualDensity: VisualDensity.compact,
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.close_rounded, size: 20),
+                alignWithTitle: true,
               ),
             ],
           ),
@@ -515,21 +601,60 @@ class _CourseDetail extends StatelessWidget {
             ),
           const SizedBox(height: 20),
           _DetailRow(
-            icon: Icons.schedule_outlined,
+            icon: AppIcons.clock,
             text:
                 '${weekdayLabel(block.weekday)} ${block.block.sectionLabel}  '
                 '${formatHm(block.block.coreStart)}–${formatHm(block.block.coreEnd)}',
           ),
+          if (block.weekLabel != null)
+            _DetailRow(icon: AppIcons.calendar, text: block.weekLabel!),
           if (c.instructorsLabel.isNotEmpty)
-            _DetailRow(icon: Icons.person_outline, text: c.instructorsLabel),
-          CourseLocationSetting(
-            courseId: c.id,
-            courseTitle: c.title,
-            displayLocation: c.location,
-            pickLocation: pickLocation,
-            assistUserId: assistUserId,
-            meetingKey: courseMeetingKey(block.weekday, block.block),
-            meetings: courseMeetingLabels(c),
+            _DetailRow(icon: AppIcons.person, text: c.instructorsLabel),
+          if (!c.id.startsWith('academic:'))
+            CourseLocationSetting(
+              courseId: c.id,
+              courseTitle: c.title,
+              displayLocation: c.location,
+              pickLocation: pickLocation,
+              assistUserId: assistUserId,
+              meetingKey: courseMeetingKey(block.weekday, block.block),
+              meetings: courseMeetingLabels(c),
+            ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: const ValueKey('course-location-map-link'),
+              onTap: c.location?.isNotEmpty == true ? onMap : null,
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Icon(
+                      AppIcons.location,
+                      size: 18,
+                      color: AppPalette.of(context).primary,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        c.location?.isNotEmpty == true
+                            ? c.location!
+                            : '教务未提供教室',
+                        style: text.bodyMedium?.copyWith(
+                          color: AppPalette.of(context).primary,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      AppIcons.right,
+                      size: 16,
+                      color: AppPalette.of(context).primary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ],
       ),
@@ -549,7 +674,17 @@ class _DetailRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18),
+          SizedBox(
+            width: 18,
+            height:
+                MediaQuery.textScalerOf(
+                  context,
+                ).scale(Theme.of(context).textTheme.bodyMedium!.fontSize!) *
+                (Theme.of(context).textTheme.bodyMedium!.height ?? 1),
+            child: Center(
+              child: Icon(icon, size: 18, color: AppPalette.of(context).muted),
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: SelectableText(
@@ -563,16 +698,124 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
+class _TimetableStack extends StatefulWidget {
+  const _TimetableStack({
+    super.key,
+    required this.variants,
+    required this.at,
+    required this.onOpen,
+  });
+  final List<TimetablePlacedBlock> variants;
+  final DateTime at;
+  final ValueChanged<TimetablePlacedBlock> onOpen;
+  @override
+  State<_TimetableStack> createState() => _TimetableStackState();
+}
+
+class _TimetableStackState extends State<_TimetableStack> {
+  int? _selected;
+  bool current(TimetablePlacedBlock b) {
+    final monday = DateTime(
+      widget.at.year,
+      widget.at.month,
+      widget.at.day - widget.at.weekday + 1,
+    );
+    return b.dates == null ||
+        b.dates!.contains(
+          TimetableSlot.dateKey(monday.add(Duration(days: b.weekday - 1))),
+        );
+  }
+
+  @override
+  void didUpdateWidget(covariant _TimetableStack oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (TimetableSlot.dateKey(oldWidget.at) !=
+            TimetableSlot.dateKey(widget.at) ||
+        oldWidget.variants.length != widget.variants.length) {
+      _selected = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final all = widget.variants;
+    final index =
+        _selected ??
+        (all.indexWhere(current) < 0 ? 0 : all.indexWhere(current));
+    final block = all[index % all.length];
+    final multiple = all.length > 1;
+    final p = AppPalette.of(context);
+    return Stack(
+      children: [
+        if (multiple)
+          Positioned.fill(
+            left: 7,
+            top: 7,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: timetableTintForCourseId(
+                  all[(index + 1) % all.length].course.id,
+                  brightness: Theme.of(context).brightness,
+                ).fill,
+                border: Border.all(color: p.primary.withValues(alpha: .25)),
+                borderRadius: BorderRadius.circular(AppRadii.control),
+              ),
+            ),
+          ),
+        Positioned.fill(
+          right: multiple ? 7 : 0,
+          bottom: multiple ? 7 : 0,
+          child: _CourseBlockChip(
+            key: ValueKey(
+              'course-${block.course.id}-${block.weekday}-${block.block.id}${block.weekLabel == null ? '' : '-${block.weekLabel}-$index'}',
+            ),
+            block: block,
+            controlInset: multiple ? 20 : 0,
+            tint: timetableTintForCourseId(
+              block.course.id,
+              brightness: Theme.of(context).brightness,
+            ),
+            onTap: () => widget.onOpen(block),
+          ),
+        ),
+        if (multiple)
+          Positioned(
+            top: 1,
+            right: 8,
+            child: SizedBox(
+              width: 25,
+              height: 25,
+              child: IconButton(
+                tooltip: '切换课次（${index + 1}/${all.length}）',
+                style: IconButton.styleFrom(
+                  backgroundColor: p.surface.withValues(alpha: .9),
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(24, 24),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () =>
+                    setState(() => _selected = (index + 1) % all.length),
+                icon: Icon(AppIcons.swap, size: 15, color: p.primary),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _CourseBlockChip extends StatelessWidget {
   const _CourseBlockChip({
     super.key,
     required this.block,
     required this.tint,
     required this.onTap,
+    this.controlInset = 0,
   });
   final TimetablePlacedBlock block;
   final TimetableCourseTint tint;
   final VoidCallback onTap;
+  final double controlInset;
 
   @override
   Widget build(BuildContext context) {
@@ -593,9 +836,10 @@ class _CourseBlockChip extends StatelessWidget {
     );
     final titleH = scaler.scale(titleStyle.fontSize!) * 1.4 + 2;
     final metaH = scaler.scale(metaStyle.fontSize!) * 1.35 + 2;
-    final footer = c.location?.isNotEmpty == true
-        ? c.location!
-        : c.instructorNames.firstOrNull ?? '';
+    final week = block.weekLabel;
+    final compact = block.block.startSequence == block.block.endSequence;
+    final footerGap = compact ? 2.0 : 6.0;
+    final footer = c.location?.isNotEmpty == true ? c.location! : '';
 
     return Semantics(
       button: true,
@@ -615,21 +859,28 @@ class _CourseBlockChip extends StatelessWidget {
           splashFactory: NoSplash.splashFactory,
           child: ExcludeSemantics(
             child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: touch ? 6 : 10,
-                vertical: touch ? 6 : 8,
+              padding: EdgeInsets.fromLTRB(
+                touch ? 6 : 10,
+                (compact ? (touch ? 2 : 4) : (touch ? 6 : 8)) +
+                    (touch && controlInset > 0 ? 24 : 0),
+                touch ? 6 : 10,
+                compact ? (touch ? 2 : 4) : (touch ? 6 : 8),
               ),
               child: LayoutBuilder(
                 builder: (context, bounds) {
                   final showFooter =
                       footer.isNotEmpty &&
-                      bounds.maxHeight >= titleH + metaH + 6;
+                      bounds.maxHeight >= titleH + metaH + (compact ? 0 : 6);
                   final showClass =
                       _separateClassLabel(c) != null &&
                       bounds.maxHeight >=
                           titleH * 2 + metaH * (showFooter ? 2 : 1) + 12;
+                  final showWeeks =
+                      week != null &&
+                      bounds.maxHeight >= titleH + metaH * 2 + 14;
                   final reserve =
-                      (showFooter ? metaH + 6 : 0) +
+                      (showWeeks ? metaH + 4 : 0) +
+                      (showFooter ? metaH + footerGap : 0) +
                       (showClass ? metaH + 4 : 0);
                   final titleLines = ((bounds.maxHeight - reserve) / titleH)
                       .floor()
@@ -642,11 +893,16 @@ class _CourseBlockChip extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Flexible(
-                              child: Text(
-                                c.title.trim().isEmpty ? '未命名课程' : c.title,
-                                maxLines: titleLines,
-                                overflow: TextOverflow.ellipsis,
-                                style: titleStyle,
+                              child: Padding(
+                                padding: EdgeInsets.only(
+                                  right: touch ? 0 : controlInset,
+                                ),
+                                child: Text(
+                                  c.title.trim().isEmpty ? '未命名课程' : c.title,
+                                  maxLines: titleLines,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: titleStyle,
+                                ),
                               ),
                             ),
                             if (showClass) ...[
@@ -661,11 +917,16 @@ class _CourseBlockChip extends StatelessWidget {
                           ],
                         ),
                       ),
+                      if (showWeeks) ...[
+                        const SizedBox(height: 4),
+                        AppTruncatedText(week, style: metaStyle),
+                      ],
                       if (showFooter) ...[
-                        const SizedBox(height: 6),
+                        SizedBox(height: footerGap),
                         Text(
                           footer,
                           maxLines: 1,
+                          softWrap: false,
                           overflow: TextOverflow.ellipsis,
                           style: metaStyle,
                         ),

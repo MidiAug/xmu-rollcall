@@ -16,7 +16,7 @@ List<Map<String, dynamic>> cacheActiveRollcalls(
   final rows = <Map<String, dynamic>>[];
   for (final item in items) {
     if (item.isExpired) continue;
-    final slots = courses[item.courseId]?.timetables[day.weekday];
+    final slots = courses[item.courseId]?.timetablesOn(day)[day.weekday];
     if (slots == null) continue;
     for (final block in splitContiguousBlocks(slots)) {
       final start = DateTime(

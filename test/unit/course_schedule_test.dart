@@ -315,116 +315,38 @@ void main() {
   );
 
   test(
-    'unscheduled history uses every observed weekday and calendar boundaries',
+    'history timing infers every observed weekday without changing schedules',
     () {
+      final windows = inferHistoryWindows([
+        DateTime(2026, 10, 19, 9),
+        DateTime(2026, 10, 19, 16),
+        DateTime(2026, 10, 21, 9),
+      ]);
+      expect(windows.map((w) => w.weekday).toSet(), {1, 3});
+      expect(windows.where((w) => w.weekday == 1), hasLength(2));
       expect(
-        candidates(DateTime(2026, 10, 26, 10), DateTime(2026, 10, 26, 23, 59)),
-        isEmpty,
-      );
-      expect(
-        candidates(
-          DateTime(2026, 10, 26, 10),
-          DateTime(2026, 10, 27),
-        ).single.reason,
-        'observed_day_ended',
-      );
-      expect(
-        candidates(DateTime(2026, 10, 27), DateTime(2026, 10, 28, 23)),
-        isEmpty,
-      );
-      expect(
-        candidates(DateTime(2026, 10, 27), DateTime(2026, 10, 29)),
+        candidates(DateTime(2026, 10, 27), DateTime(2026, 10, 28, 9)),
         hasLength(1),
       );
       expect(
-        candidates(DateTime(2026, 10, 29), DateTime(2026, 11, 2, 23)),
-        hasLength(1),
-      );
-      expect(
-        candidates(DateTime(2026, 10, 29), DateTime(2026, 11, 3)),
-        hasLength(1),
-      );
-      expect(
-        candidates(
-          DateTime(2026, 10, 27).toUtc(),
-          DateTime(2026, 10, 28, 23).toUtc(),
-        ),
+        candidates(DateTime(2026, 10, 27), DateTime(2026, 10, 27, 12)),
         isEmpty,
       );
     },
   );
 
-  test(
-    'empty history does not invent weekdays; live discovery bypasses inference',
-    () {
-      expect(
-        candidates(DateTime(2026, 10, 1), DateTime(2026, 10, 29), records: []),
-        hasLength(1),
-      );
-      expect(
-        candidates(
-          DateTime(2026, 10, 26, 10),
-          DateTime(2026, 10, 26, 11),
-          seen: {'c'},
-        ),
-        hasLength(1),
-      );
-      expect(
-        historyDayEndedBetween(
-          {1},
-          DateTime(2026, 10, 27),
-          DateTime(2026, 10, 20),
-        ),
-        isFalse,
-      );
-    },
-  );
-  test('weekly discovery adds a previously unknown Thursday automatically', () {
-    final mondayOnly = [record(DateTime(2026, 10, 26, 15))];
+  test('empty history waits for demand; activity changes remain immediate', () {
     expect(
-      candidates(
-        DateTime(2026, 10, 27),
-        DateTime(2026, 10, 30),
-        records: mondayOnly,
-      ),
+      candidates(DateTime(2026, 10, 1), DateTime(2026, 10, 29), records: []),
       isEmpty,
     );
     expect(
       candidates(
-        DateTime(2026, 10, 27),
-        DateTime(2026, 11, 2),
-        records: mondayOnly,
-      ).single.reason,
-      'week_ended_discovery',
-    );
-    final learned = [...mondayOnly, record(DateTime(2026, 10, 29, 15))];
-    // After the next successful sync, no extra check until Thursday ends.
-    expect(
-      candidates(
-        DateTime(2026, 11, 3),
-        DateTime(2026, 11, 5, 23),
-        records: learned,
+        DateTime(2026, 10, 26, 10),
+        DateTime(2026, 10, 26, 11),
+        seen: {'c'},
       ),
-      isEmpty,
-    );
-    expect(
-      candidates(
-        DateTime(2026, 11, 3),
-        DateTime(2026, 11, 6),
-        records: learned,
-      ).single.reason,
-      'observed_day_ended',
-    );
-    expect(
-      historyWeekEndedBetween(DateTime(2026, 11, 2), DateTime(2026, 11, 2)),
-      isFalse,
-    );
-    expect(
-      historyWeekEndedBetween(
-        DateTime(2026, 11, 1, 23).toUtc(),
-        DateTime(2026, 11, 2).toUtc(),
-      ),
-      isTrue,
+      hasLength(1),
     );
   });
 }

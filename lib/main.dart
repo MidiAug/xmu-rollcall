@@ -7,6 +7,8 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app.dart';
+import 'package:xmu_rollcall/app/auth_session.dart';
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:xmu_rollcall/features/rollcall/desktop_qr_preview.dart';
@@ -72,7 +74,14 @@ Future<void> main(List<String> arguments) async {
         runApp(const DesktopQrPreviewApp());
         return;
       }
-      runApp(const ProviderScope(child: XmuRollcallApp()));
+      runApp(
+        ProviderScope(
+          overrides: [
+            authControllerProvider.overrideWith(createAppAuthController),
+          ],
+          child: const XmuRollcallApp(),
+        ),
+      );
     },
     (error, stack) {
       AppLog.logAppError(error: error, stackTrace: stack, source: 'zone');

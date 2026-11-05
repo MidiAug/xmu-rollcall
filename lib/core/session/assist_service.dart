@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/core/identity/device_identity.dart';
+import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:xmu_rollcall/core/network/request_failure.dart';
@@ -16,9 +18,14 @@ import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 
 class AssistProfileSnapshot {
-  const AssistProfileSnapshot({required this.id, required this.name});
+  const AssistProfileSnapshot({
+    required this.id,
+    required this.name,
+    this.studentNo,
+  });
   final int id;
   final String name;
+  final String? studentNo;
 }
 
 typedef AssistProfileProber =
@@ -86,10 +93,28 @@ class AssistService {
   /// Never reuse the owner install [DeviceIdentity] for assists (same rollcall
   /// multi-student collision). Empty → mint and persist a stable UUID.
   Future<AssistIdentity> ensureDeviceId(AssistIdentity identity) async {
+    final stored = (await _roster.list())
+        .where((i) => i.userId == identity.userId)
+        .firstOrNull;
+    var student = identity.studentNo ?? stored?.studentNo;
+    if (student == null) {
+      final raw = await _store.read(accountCredKey(identity.userId));
+      if (raw != null) {
+        try {
+          student = (jsonDecode(raw) as Map)['username'] as String?;
+        } catch (_) {}
+      }
+    }
     final existing = identity.deviceId?.trim() ?? '';
-    if (existing.isNotEmpty) return identity;
-    final next = identity.copyWith(deviceId: _newDeviceId());
-    await _roster.upsert(next);
+    final derived = DeviceIdentity.forStudentNumber(student);
+    final id = derived ?? (existing.isNotEmpty ? existing : _newDeviceId());
+    final next = identity.copyWith(
+      deviceId: id,
+      studentNo: derived == null ? null : student,
+    );
+    if (id != existing || next.studentNo != identity.studentNo) {
+      await _roster.upsert(next);
+    }
     return next;
   }
 
@@ -208,7 +233,10 @@ class AssistService {
         userId: probed.id,
         displayName: probed.name,
         kind: AssistCredentialKind.session,
-        deviceId: _nonEmptyDeviceId(plain.deviceId),
+        deviceId:
+            DeviceIdentity.forStudentNumber(probed.studentNo) ??
+            _nonEmptyDeviceId(plain.deviceId),
+        studentNo: probed.studentNo,
         importedAt: clock,
       );
       await _roster.upsert(identity);
@@ -238,7 +266,9 @@ class AssistService {
     final assistClient = registry.forKey(SessionKey.assist(probed.id));
     await assistClient.importCookiesJson(cookies);
 
-    final deviceId = _nonEmptyDeviceId(plain.deviceId);
+    final deviceId =
+        DeviceIdentity.forStudentNumber(probed.studentNo ?? user) ??
+        _nonEmptyDeviceId(plain.deviceId);
     await _store.write(
       accountCredKey(probed.id),
       jsonEncode({'username': user, 'password': pass}),
@@ -248,6 +278,9 @@ class AssistService {
       displayName: probed.name,
       kind: AssistCredentialKind.account,
       deviceId: deviceId,
+      studentNo:
+          probed.studentNo ??
+          (DeviceIdentity.forStudentNumber(user) == null ? null : user),
       importedAt: clock,
     );
     await _roster.upsert(identity);
@@ -368,6 +401,11 @@ class AssistService {
       if (profile.id != identity.userId) {
         throw AssistException('协助账号身份不匹配，请重新导入');
       }
+      if (profile.studentNo != null) {
+        final updated = identity.copyWith(studentNo: profile.studentNo);
+        await _roster.upsert(updated);
+        await ensureDeviceId(updated);
+      }
       validated();
       return;
     } catch (error) {
@@ -435,7 +473,11 @@ class AssistService {
       store: SecureStore.memory(),
     );
     final profile = await auth.signIn(username: username, password: password);
-    return AssistProfileSnapshot(id: profile.id, name: profile.name);
+    return AssistProfileSnapshot(
+      id: profile.id,
+      name: profile.name,
+      studentNo: profile.studentNo ?? username,
+    );
   }
 
   Future<AssistProfileSnapshot> _probe(TronHttpClient client) async {
@@ -450,6 +492,10 @@ class AssistService {
     final name =
         (data['name'] as String?) ?? (data['user_name'] as String?) ?? '用户';
     if (id <= 0) throw AssistException('协助账号无效，请重新导入');
-    return AssistProfileSnapshot(id: id, name: name);
+    return AssistProfileSnapshot(
+      id: id,
+      name: name,
+      studentNo: UserProfile.fromJson(data).studentNo,
+    );
   }
 }

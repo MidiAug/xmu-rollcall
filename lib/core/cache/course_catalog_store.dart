@@ -10,6 +10,11 @@ class CatalogCourse {
   const CatalogCourse({
     required this.id,
     required this.title,
+    this.courseCode,
+    this.startDate,
+    this.academicMatched = false,
+    this.academicScheduleOnly = false,
+    this.academicGroup,
     Map<int, List<TimetableSlot>> timetables = const {},
     this.localMeetings = const [],
     this.instructorNames = const [],
@@ -22,6 +27,14 @@ class CatalogCourse {
 
   final String id;
   final String title;
+  final String? courseCode;
+  final DateTime? startDate;
+  final bool academicMatched;
+
+  /// Effective academic views keep legacy editor metadata without using it
+  /// as fallback timing. Raw platform cache serialization is unchanged.
+  final bool academicScheduleOnly;
+  final String? academicGroup;
 
   /// Weekday (1–7) → slots.
   final Map<int, List<TimetableSlot>> _timetables;
@@ -29,7 +42,7 @@ class CatalogCourse {
   bool get needsSchedule => _timetables.isEmpty && localMeetings.isEmpty;
   bool get hasPlatformSchedule => _timetables.isNotEmpty;
   Map<int, List<TimetableSlot>> get timetables =>
-      _timetables.isNotEmpty || localMeetings.isEmpty
+      academicScheduleOnly || _timetables.isNotEmpty || localMeetings.isEmpty
       ? _timetables
       : {
           for (final day in localMeetings.map((m) => m.weekday).toSet())
@@ -39,9 +52,40 @@ class CatalogCourse {
             ],
         };
 
+  CatalogCourse withTimetables(
+    Map<int, List<TimetableSlot>> value, {
+    bool? academic,
+    String? group,
+  }) => CatalogCourse(
+    id: id,
+    title: title,
+    courseCode: courseCode,
+    startDate: startDate,
+    academicMatched: academic ?? academicMatched,
+    academicScheduleOnly: academic != null || academicScheduleOnly,
+    academicGroup: group ?? academicGroup,
+    timetables: value,
+    localMeetings: localMeetings,
+    instructorNames: instructorNames,
+    teachingClassName: teachingClassName,
+    location: location,
+    roles: roles,
+  );
+
+  Map<int, List<TimetableSlot>> timetablesOn(DateTime date) => {
+    for (final entry in timetables.entries)
+      if (entry.value.any((s) => s.occursOn(date)))
+        entry.key: entry.value.where((s) => s.occursOn(date)).toList(),
+  };
+
   CatalogCourse withMeetings(List<CourseMeeting> meetings) => CatalogCourse(
     id: id,
     title: title,
+    courseCode: courseCode,
+    startDate: startDate,
+    academicMatched: academicMatched,
+    academicScheduleOnly: academicScheduleOnly,
+    academicGroup: academicGroup,
     timetables: _timetables,
     localMeetings: meetings,
     instructorNames: instructorNames,
@@ -73,6 +117,11 @@ class CatalogCourse {
   CatalogCourse withRoles(List<String> value) => CatalogCourse(
     id: id,
     title: title,
+    courseCode: courseCode,
+    startDate: startDate,
+    academicMatched: academicMatched,
+    academicScheduleOnly: academicScheduleOnly,
+    academicGroup: academicGroup,
     timetables: _timetables,
     localMeetings: localMeetings,
     instructorNames: instructorNames,
@@ -86,6 +135,10 @@ class CatalogCourse {
   Map<String, dynamic> toJson() => {
     'id': id,
     'title': title,
+    'courseCode': courseCode,
+    if (startDate != null) 'startDate': startDate!.toIso8601String(),
+    'academicMatched': academicMatched,
+    'academicGroup': academicGroup,
     'roles': roles,
     if (instructorNames.isNotEmpty) 'instructorNames': instructorNames,
     if (teachingClassName != null && teachingClassName!.isNotEmpty)
@@ -119,6 +172,10 @@ class CatalogCourse {
     return CatalogCourse(
       id: '${j['id'] ?? ''}',
       title: j['title'] as String? ?? '',
+      courseCode: j['courseCode'] as String?,
+      startDate: DateTime.tryParse('${j['startDate'] ?? ''}'),
+      academicMatched: j['academicMatched'] == true,
+      academicGroup: j['academicGroup'] as String?,
       timetables: tables,
       instructorNames: instructors,
       teachingClassName: _optionalString(j['teachingClassName']),
@@ -162,6 +219,9 @@ class CourseCatalogSnapshot {
     this.semesterId,
     this.academicYearId,
     this.rolesResolved = false,
+    this.startDatesResolved = true,
+    this.academicOnlyCourses = const [],
+    this.academicTerm,
   });
 
   final DateTime fetchedAt;
@@ -169,10 +229,19 @@ class CourseCatalogSnapshot {
   final String? semesterId;
   final String? academicYearId;
   final bool rolesResolved;
+  final bool startDatesResolved;
+
+  /// Display only; never used as TronClass attendance IDs.
+  final List<CatalogCourse> academicOnlyCourses;
+
+  /// JW term at the last TronClass catalog fetch; detects semester transitions.
+  final String? academicTerm;
 
   /// Same course set rendered by the current timetable page.
-  List<CatalogCourse> get timetableCourses =>
-      courses.where((c) => c.timetables.isNotEmpty).toList(growable: false);
+  List<CatalogCourse> get timetableCourses => [
+    ...courses,
+    ...academicOnlyCourses,
+  ].where((c) => c.timetables.isNotEmpty).toList(growable: false);
 
   Map<String, String> get timetableTitlesById => {
     for (final c in timetableCourses)
@@ -186,7 +255,7 @@ class CourseCatalogSnapshot {
   };
 
   List<CatalogCourse> get teachingCourses =>
-      timetableCourses.where((c) => c.isTeaching).toList(growable: false);
+      courses.where((c) => c.isTeaching).toList(growable: false);
 
   Map<String, String> get titlesById => {
     for (final c in courses)
@@ -202,6 +271,8 @@ class CourseCatalogSnapshot {
     'fetchedAt': fetchedAt.toIso8601String(),
     'courses': [for (final c in courses) c.toJson()],
     'rolesResolved': rolesResolved,
+    'startDatesResolved': startDatesResolved,
+    if (academicTerm != null) 'academicTerm': academicTerm,
     if (semesterId != null) 'semesterId': semesterId,
     if (academicYearId != null) 'academicYearId': academicYearId,
   };
@@ -224,6 +295,8 @@ class CourseCatalogSnapshot {
       semesterId: j['semesterId'] as String?,
       academicYearId: j['academicYearId'] as String?,
       rolesResolved: j['rolesResolved'] == true,
+      startDatesResolved: j['startDatesResolved'] == true,
+      academicTerm: j['academicTerm'] as String?,
     );
   }
 }
@@ -258,6 +331,10 @@ Map<String, dynamic> timetableSlotToJson(TimetableSlot s) {
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
   return {
     'sequence': s.sequence,
+    if (s.endSequence != null) 'endSequence': s.endSequence,
+    if (s.classroom != null) 'classroom': s.classroom,
+    if (s.weekLabel != null) 'weekLabel': s.weekLabel,
+    if (s.dates != null) 'dates': s.dates!.toList(),
     'start_time': hhmm(s.start),
     'end_time': hhmm(s.end),
   };

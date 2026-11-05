@@ -1,3 +1,7 @@
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
+import '../fixtures/preview_fonts.dart';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -38,7 +42,11 @@ class _Auth extends AuthController {
     state = signedIn
         ? const AuthState(
             status: AuthStatus.signedIn,
-            profile: UserProfile(id: 1, name: '测试同学'),
+            profile: UserProfile(
+              id: 1,
+              name: '测试同学',
+              raw: {'user_no': '2099000000001'},
+            ),
           )
         : const AuthState(status: AuthStatus.signedOut);
   }
@@ -94,10 +102,35 @@ Widget _app({
   required TargetPlatform platform,
   double textScale = 1,
   bool needsSchedule = false,
+  String college = '信息学院',
 }) {
   return ProviderScope(
     overrides: [
       secureStoreProvider.overrideWithValue(SecureStore.memory()),
+      academicCachedScheduleProvider(1).overrideWith(
+        (ref) async => AcademicSchedule(
+          term: '20261',
+          monday: DateTime(2026, 9, 14),
+          fetchedAt: DateTime(2026, 10, 29),
+          rows: [],
+          studentCollege: college,
+        ),
+      ),
+      academicCachedScheduleProvider(2).overrideWith(
+        (ref) async => AcademicSchedule(
+          term: '20261',
+          monday: DateTime(2026, 9, 14),
+          fetchedAt: DateTime(2026, 10, 29),
+          rows: [],
+          studentCollege: '其他账号学院',
+        ),
+      ),
+      academicTimetableProvider(1).overrideWith(
+        (ref) async => const AcademicTimetableState(
+          message: '请重新登录账号以连接教务课表',
+          needsLogin: true,
+        ),
+      ),
       authControllerProvider.overrideWith(
         (ref) => _Auth(signedIn: needsSchedule),
       ),
@@ -157,6 +190,7 @@ class _SettingsFrame extends StatelessWidget {
         bottomNavigationBar: AppMobileNav(
           current: AppDestination.settings,
           onSelect: (_) {},
+          onSearch: () {},
         ),
       );
     }
@@ -192,6 +226,15 @@ void main() {
   });
 
   setUpAll(() async {
+    if (Platform.environment['CAPTURE_SETTINGS_UI'] == '1') {
+      await loadDesktopPreviewFonts();
+      await (FontLoader('MaterialIcons')..addFont(
+            File(
+              'D:/Dev/Flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+            ).readAsBytes().then(ByteData.sublistView),
+          ))
+          .load();
+    }
     final font = Platform.environment['SETTINGS_UI_FONT'];
     if (font == null) return;
     await (FontLoader(
@@ -256,33 +299,23 @@ void main() {
       final chip = find.descendant(of: row, matching: find.text('待完善'));
       final arrow = find.descendant(
         of: row,
-        matching: find.byIcon(Icons.chevron_right),
+        matching: find.byIcon(AppIcons.right),
       );
-      expect(chip, findsOneWidget);
-      expect(
-        tester.getBottomRight(chip).dx,
-        lessThan(tester.getTopLeft(arrow).dx),
-      );
-      expect(
-        find.descendant(of: row, matching: find.byType(Badge)),
-        findsNothing,
-      );
-      await capture(tester, key, 'schedule-chip-${width.toInt()}');
-      await tester.tap(chip);
-      await tester.pumpAndSettle();
-      expect(find.byType(CourseSchedulesPage), findsOneWidget);
-      expect(find.byType(CoursesPage), findsNothing);
-      await tester.tap(find.byTooltip('返回'));
-      await tester.pumpAndSettle();
+      expect(chip, findsNothing);
+      await capture(tester, key, 'schedule-direct-${width.toInt()}');
+      if (width > 600) {
+        expect(find.text('本学期课表'), findsNothing);
+        return;
+      }
       await tester.tap(find.text('本学期课表'));
       await tester.pumpAndSettle();
-      expect(find.byType(CourseSchedulesPage), findsOneWidget);
-      expect(find.byType(CoursesPage), findsNothing);
+      expect(find.byType(CoursesPage), findsOneWidget);
+      expect(find.byType(CourseSchedulesPage), findsNothing);
       await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
       await tester.tap(arrow);
       await tester.pumpAndSettle();
-      expect(find.byType(CourseSchedulesPage), findsOneWidget);
+      expect(find.byType(CoursesPage), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
@@ -317,19 +350,23 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('常用'), findsOneWidget);
-        expect(find.text('应用'), findsOneWidget);
+        expect(find.text(desktop ? '外观与窗口' : '应用'), findsOneWidget);
+        expect(find.text('本学期课表'), desktop ? findsNothing : findsOneWidget);
         for (final removed in ['账号', '检测', '更多', '窗口']) {
           expect(find.text(removed), findsNothing);
         }
-        expect(find.text(desktop ? '桌面提醒' : '后台提醒'), findsOneWidget);
         expect(find.text('关闭窗口时'), desktop ? findsOneWidget : findsNothing);
         expect(find.byType(AppSegmentedControl<ThemePreference>), findsNothing);
         final appearance = find.byType(AppShellSelect<ThemePreference>);
-        final group = find.ancestor(
-          of: appearance,
-          matching: find.byType(SettingsSection),
-        );
-        expect(tester.widget<SettingsSection>(group).header, '应用');
+        if (desktop) {
+          final group = find.ancestor(
+            of: appearance,
+            matching: find.byType(SettingsSection),
+          );
+          expect(tester.widget<SettingsSection>(group).header, '外观与窗口');
+        } else {
+          expect(find.byType(SettingsSection), findsNothing);
+        }
         expect(
           tester.getCenter(appearance).dx,
           greaterThan(tester.getCenter(find.text('外观')).dx),
@@ -345,8 +382,33 @@ void main() {
           '${width.toInt()}-${dark ? 'dark' : 'light'}',
         );
 
+        if (desktop) {
+          await tester.scrollUntilVisible(find.text('启动后继续值守'), 180);
+          await tester.pumpAndSettle();
+          expect(find.text('运行与启动'), findsOneWidget);
+          expect(find.text('开机启动'), findsOneWidget);
+          await capture(
+            tester,
+            key,
+            '${width.toInt()}-${dark ? 'dark' : 'light'}-startup',
+          );
+        } else {
+          expect(find.text('运行与启动'), findsNothing);
+          expect(find.text('开机启动'), findsNothing);
+        }
+        await tester.scrollUntilVisible(
+          find.text(desktop ? '桌面提醒' : '后台提醒'),
+          180,
+        );
+        expect(find.text('通知与维护'), desktop ? findsOneWidget : findsNothing);
+
         expect(find.byKey(const ValueKey('update-route-select')), findsNothing);
         await tester.scrollUntilVisible(find.text('关于'), 180);
+        await Scrollable.ensureVisible(
+          tester.element(find.text('关于')),
+          alignment: .5,
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.text('关于'));
         await tester.pumpAndSettle();
         expect(find.text('检查更新'), findsOneWidget);
@@ -381,7 +443,9 @@ void main() {
         expect(tester.takeException(), isNull);
         await tester.tap(find.byTooltip('返回'));
         await tester.pumpAndSettle();
-        final login = find.widgetWithText(FilledButton, '登录');
+        final login = desktop
+            ? find.widgetWithText(FilledButton, '登录')
+            : find.byKey(const ValueKey('android-profile-summary'));
         await tester.scrollUntilVisible(login, -180);
         await Scrollable.ensureVisible(tester.element(login), alignment: .5);
         await tester.pumpAndSettle();
@@ -397,6 +461,118 @@ void main() {
       });
     }
   }
+
+  for (final dark in [false, true]) {
+    testWidgets('mobile signed-in account management dark=$dark', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({
+        'theme_preference':
+            (dark ? ThemePreference.dark : ThemePreference.light).index,
+      });
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: key,
+          child: _app(platform: TargetPlatform.android, needsSchedule: true),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.runAsync(
+        () => precacheImage(
+          const AssetImage('assets/illustrations/campus_header.png'),
+          tester.element(find.byType(SettingsPage)),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('我的'),
+        findsOneWidget,
+        reason: 'Only the bottom navigation keeps the page label',
+      );
+      expect(find.text('信息学院'), findsOneWidget);
+      expect(find.byType(CircleAvatar), findsNothing);
+      expect(tester.widget<Text>(find.text('测试同学')).style?.fontSize, 28);
+      expect(find.widgetWithText(TextButton, '退出'), findsOneWidget);
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SettingsPage)),
+      );
+      container.read(selectedRollcallAccountProvider.notifier).state = 2;
+      await tester.pumpAndSettle();
+      expect(find.text('信息学院'), findsOneWidget);
+      expect(find.text('其他账号学院'), findsNothing);
+      await capture(tester, key, 'mobile-account-${dark ? 'dark' : 'light'}');
+      await tester.tap(find.byKey(const ValueKey('android-profile-summary')));
+      await tester.pumpAndSettle();
+      expect(find.text('退出登录'), findsOneWidget);
+      expect(find.text('测试同学'), findsNWidgets(2));
+      await tester.tap(find.byTooltip('关闭'));
+      await tester.pumpAndSettle();
+      expect(find.text('退出登录'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  for (final platform in [TargetPlatform.android, TargetPlatform.windows]) {
+    testWidgets('settings density changes only on Android at $platform', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(_app(platform: platform, needsSchedule: true));
+      await tester.pumpAndSettle();
+      final row = find.ancestor(
+        of: find.text('地点管理'),
+        matching: find.byType(SettingsRow),
+      );
+      expect(
+        tester.getSize(row).height,
+        platform == TargetPlatform.android ? 56 : 64,
+      );
+      expect(
+        find.byKey(const ValueKey('profile-college')),
+        platform == TargetPlatform.android ? findsOneWidget : findsNothing,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  testWidgets('narrow profile keeps long college and account action usable', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final key = GlobalKey();
+    await tester.pumpWidget(
+      RepaintBoundary(
+        key: key,
+        child: _app(
+          platform: TargetPlatform.android,
+          needsSchedule: true,
+          textScale: 1.3,
+          college: '电子科学与技术学院（国家示范性微电子学院）',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('profile-college')), findsOneWidget);
+    await capture(tester, key, 'mobile-account-narrow');
+    await tester.tap(find.byKey(const ValueKey('android-profile-summary')));
+    await tester.pumpAndSettle();
+    expect(find.text('退出登录'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets(
     'signed out course entry opens login rather than ignoring the tap',
@@ -441,7 +617,18 @@ void main() {
           of: menu,
           matching: find.byType(AppSelectTrigger),
         );
-        tester.widget<AppSelectTrigger>(trigger).focusNode!.requestFocus();
+        if (platform == TargetPlatform.windows) {
+          tester.widget<AppSelectTrigger>(trigger).focusNode!.requestFocus();
+        } else {
+          tester
+              .widget<TextButton>(
+                find
+                    .descendant(of: menu, matching: find.byType(TextButton))
+                    .first,
+              )
+              .focusNode!
+              .requestFocus();
+        }
         await tester.pumpAndSettle();
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();
@@ -535,6 +722,27 @@ void main() {
         (a > b ? (a + .05) / (b + .05) : (b + .05) / (a + .05)),
         greaterThanOrEqualTo(4.5),
       );
+    }
+  });
+  test('secondary text is readable on semantic desktop surfaces', () {
+    for (final p in [AppPalette.lightPalette, AppPalette.darkPalette]) {
+      for (final surface in [
+        p.canvas,
+        p.surface,
+        p.content,
+        p.sidebar,
+        p.mobileCanvas,
+        p.controlSurface,
+        p.accentSurface,
+        Color.alphaBlend(p.selected, p.surface),
+      ]) {
+        final a = p.muted.computeLuminance();
+        final b = surface.computeLuminance();
+        expect(
+          (a > b ? (a + .05) / (b + .05) : (b + .05) / (a + .05)),
+          greaterThanOrEqualTo(4.5),
+        );
+      }
     }
   });
 }

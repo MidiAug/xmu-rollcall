@@ -70,7 +70,7 @@ class _DesktopNotificationSettingsPageState
                   header: '通知测试',
                   children: [
                     SettingsRow(
-                      leading: const Icon(Icons.notifications_outlined),
+                      leading: const Icon(AppIcons.notification),
                       title: '测试系统通知',
                       subtitle: '使用示例课程测试通知，不会提交签到。',
                       trailing: FilledButton(
@@ -86,7 +86,7 @@ class _DesktopNotificationSettingsPageState
                     ),
                     if (notifications.error != null)
                       SettingsRow(
-                        leading: Icon(Icons.error_outline, color: p.danger),
+                        leading: Icon(AppIcons.error, color: p.danger),
                         title: '未能发送通知',
                         subtitle: '请检查系统设置后重新发送。',
                       )
@@ -100,7 +100,7 @@ class _DesktopNotificationSettingsPageState
                               children: [
                                 if (confirmed) ...[
                                   Icon(
-                                    Icons.check_circle_outline,
+                                    AppIcons.checkCircle,
                                     size: 18,
                                     color: p.muted,
                                   ),
@@ -146,7 +146,7 @@ class _DesktopNotificationSettingsPageState
                       ),
                     if (_showHelp)
                       SettingsRow(
-                        leading: const Icon(Icons.settings_outlined),
+                        leading: const Icon(AppIcons.settings),
                         title: PlatformHooks.isWindows
                             ? '检查 Windows 通知设置'
                             : '检查系统通知设置',
@@ -168,12 +168,12 @@ class _DesktopNotificationSettingsPageState
                       : null,
                   children: [
                     const SettingsRow(
-                      leading: Icon(Icons.fact_check_outlined),
+                      leading: Icon(AppIcons.checkCircle),
                       title: '发现签到时',
                       subtitle: '在前台时显示应用内提醒，切到后台后发送系统通知。',
                     ),
                     SettingsRow(
-                      leading: const Icon(Icons.desktop_windows_outlined),
+                      leading: const Icon(AppIcons.desktop),
                       title: '托盘运行',
                       subtitle: shell.trayAvailable.value
                           ? '关闭到托盘后继续检测。退出应用或电脑睡眠时不会检测。'

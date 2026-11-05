@@ -1,3 +1,7 @@
+import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
+import 'dart:async';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/core/cache/cache_policy.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
@@ -39,11 +43,16 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
   CourseCatalogNotifier({this.assistUserId});
   final int? assistUserId;
   int? _boundUserId;
+  int _revision = 0;
   Future<CourseCatalogSnapshot>? _inFlight;
 
   @override
   Future<CourseCatalogSnapshot?> build() async {
+    final revision = ++_revision;
+    ref.onDispose(() => _revision++);
+    _inFlight = null;
     ref.keepAlive();
+    ref.watch(academicRevisionProvider);
     final auth = ref.watch(authControllerProvider);
     final profile = auth.profile;
     if (!auth.isSignedIn || profile == null || profile.id == 0) {
@@ -53,22 +62,38 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
     }
     final userId = assistUserId ?? profile.id;
     _boundUserId = userId;
+    if (assistUserId == null) {
+      unawaited(
+        Future(() async {
+          if (revision != _revision) return;
+          await ref.read(academicSyncProvider).sync(userId);
+        }).catchError((Object _) {}),
+      );
+    }
     final disk = await CourseCatalogStore.read(userId);
-    if (disk != null && disk.rolesResolved) return _withSchedules(userId, disk);
+    final academic = await AcademicScheduleStore.read(userId);
+    if (revision != _revision) return null;
+    if (disk != null &&
+        disk.rolesResolved &&
+        disk.startDatesResolved &&
+        (academic == null || disk.academicTerm == academic.term)) {
+      return _withSchedules(userId, disk);
+    }
     if (disk != null) {
       try {
-        return await _fetchAndPersist(userId);
+        return await _fetchAndPersist(userId, revision);
       } catch (_) {
         return _withSchedules(userId, disk);
       }
     }
-    return _fetchAndPersist(userId);
+    return _fetchAndPersist(userId, revision);
   }
 
   /// Appear does **not** hit the network when disk exists (R-35 Sticky).
   Future<void> ensureFresh({
     EnsureFreshReason reason = EnsureFreshReason.appear,
   }) async {
+    final revision = _revision;
     final uid =
         _boundUserId ??
         assistUserId ??
@@ -78,7 +103,9 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
       final disk = await CourseCatalogStore.read(uid);
       if (disk != null) {
         final effective = await _withSchedules(uid, disk);
-        if (_boundUserId == uid) state = AsyncData(effective);
+        if (_boundUserId == uid && revision == _revision) {
+          state = AsyncData(effective);
+        }
         return;
       }
     }
@@ -92,12 +119,18 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
         ref.read(authControllerProvider).profile?.id;
     if (uid == null || uid == 0) return;
     final previous = state.valueOrNull;
+    var revision = _revision;
     try {
-      final next = await _fetchAndPersist(uid);
+      if (assistUserId == null) {
+        await ref.read(academicSyncProvider).sync(uid, force: true);
+      }
       if (_boundUserId != uid) return;
+      revision = _revision;
+      final next = await _fetchAndPersist(uid, revision);
+      if (_boundUserId != uid || revision != _revision) return;
       state = AsyncData(next);
     } catch (e, st) {
-      if (_boundUserId != uid) return;
+      if (_boundUserId != uid || revision != _revision) return;
       if (previous != null) {
         state = AsyncData(previous);
       } else {
@@ -106,7 +139,7 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
     }
   }
 
-  Future<CourseCatalogSnapshot> _fetchAndPersist(int userId) {
+  Future<CourseCatalogSnapshot> _fetchAndPersist(int userId, int revision) {
     final existing = _inFlight;
     if (existing != null) return existing;
     final future = () async {
@@ -118,15 +151,38 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
         final service = await ref.read(assistServiceProvider.future);
         await service.ensureSession(identity);
       }
-      final snap = await ref
+      if (revision != _revision) throw StateError('课程目录已失效');
+      final fetched = await ref
           .read(
             assistUserId == null
                 ? rollcallRepositoryProvider
                 : rollcallRepositoryForProvider(assistUserId),
           )
           .fetchCourseCatalog();
-      if (_boundUserId != userId) return snap;
+      final academic = await AcademicScheduleStore.read(userId);
+      final snap = CourseCatalogSnapshot(
+        fetchedAt: fetched.fetchedAt,
+        courses: fetched.courses,
+        semesterId: fetched.semesterId,
+        academicYearId: fetched.academicYearId,
+        rolesResolved: fetched.rolesResolved,
+        startDatesResolved: fetched.startDatesResolved,
+        academicTerm: academic?.term,
+      );
+      if (revision != _revision) return snap;
+      final previous = await CourseCatalogStore.read(userId);
+      if (revision != _revision) return snap;
       await CourseCatalogStore.write(userId, snap);
+      if (revision != _revision) return snap;
+      final term = academic?.term;
+      if (fetched.courses.any((c) => c.startDate != null) &&
+          (previous == null ||
+              !previous.startDatesResolved ||
+              (term != null &&
+                  teachingMondayFromCourses(previous.courses, term) !=
+                      teachingMondayFromCourses(fetched.courses, term)))) {
+        ref.read(academicRevisionProvider.notifier).state++;
+      }
       return _withSchedules(userId, snap);
     }();
     _inFlight = future;
@@ -139,18 +195,22 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
     int uid,
     CourseCatalogSnapshot snap,
   ) async {
-    final courses = <CatalogCourse>[];
-    for (final course in snap.courses) {
-      courses.add(
-        course.withMeetings(await CourseScheduleStore.read(uid, course.id)),
-      );
-    }
-    return CourseCatalogSnapshot(
-      fetchedAt: snap.fetchedAt,
-      courses: courses,
-      semesterId: snap.semesterId,
-      academicYearId: snap.academicYearId,
-      rolesResolved: snap.rolesResolved,
+    final academic = await AcademicScheduleStore.read(uid);
+    final courses = [
+      for (final c in snap.courses)
+        c.withMeetings(await CourseScheduleStore.read(uid, c.id)),
+    ];
+    return projectAcademicCatalog(
+      CourseCatalogSnapshot(
+        fetchedAt: snap.fetchedAt,
+        courses: courses,
+        academicTerm: snap.academicTerm,
+        rolesResolved: snap.rolesResolved,
+        startDatesResolved: snap.startDatesResolved,
+        semesterId: snap.semesterId,
+        academicYearId: snap.academicYearId,
+      ),
+      academic,
     );
   }
 
@@ -187,5 +247,6 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
     final effective = await _withSchedules(userId, raw);
     requireScope();
     state = AsyncData(effective);
+    ref.read(academicRevisionProvider.notifier).state++;
   }
 }

@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/location/location_validation_store.dart';
+import 'package:xmu_rollcall/features/schedule/schedule_detection.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -12,9 +14,9 @@ import 'package:xmu_rollcall/core/logging/ndjson_file_sink.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_engine.dart';
-import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/features/monitor/automatic_rollcall_answer.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/platform/android_monitor_notifications.dart';
 import 'package:xmu_rollcall/platform/android_monitor_platform.dart';
 import 'package:xmu_rollcall/platform/android_monitor_store.dart';
@@ -68,6 +70,15 @@ class AndroidMonitorTaskHandler extends TaskHandler {
       final notified = previous?['runId'] == run.id
           ? (previous?['notifiedIds'] as List? ?? []).whereType<int>().toSet()
           : <int>{};
+      final resumeHandoff =
+          previous?['runId'] == run.id && previous?['discovering'] == false;
+      final handedOffItems = resumeHandoff
+          ? [
+              for (final item in previous?['items'] as List? ?? const [])
+                if (item is Map)
+                  RollcallItem.fromJson(Map<String, dynamic>.from(item)),
+            ]
+          : null;
       _snapshot = {
         'action': 'snapshot',
         'runId': run.id,
@@ -75,6 +86,9 @@ class AndroidMonitorTaskHandler extends TaskHandler {
         'ownerUserId': run.ownerUserId,
         'assistUserId': run.assistUserId,
         'running': true,
+        'discovering': !resumeHandoff,
+        if (resumeHandoff) 'terminalIds': previous?['terminalIds'] ?? [],
+        if (resumeHandoff) 'items': previous?['items'] ?? [],
         'diagnosticOnly': run.diagnosticOnly,
         'failures': 0,
         'notifiedIds': notified.toList(),
@@ -112,13 +126,27 @@ class AndroidMonitorTaskHandler extends TaskHandler {
         await client.init();
         await _requireCurrentAccount();
         final repo = RollcallRepository(
-          loadDetectionWindow: () => DetectionWindow.read(reload: true),
+          loadDetectionWindow: () =>
+              readScheduleDetectionWindow(run.userId, reload: true),
           http: client,
           identity: DeviceIdentity(memory),
         );
         final automatic = AutomaticRollcallAnswer(
           repository: repo,
           runId: run.id,
+          terminalIds: resumeHandoff
+              ? (previous?['terminalIds'] as List? ?? [])
+                    .whereType<int>()
+                    .toSet()
+              : const {},
+          onRadarRejected: (point) async {
+            await _requireCurrentAccount();
+            await recordLocationIssue(
+              run.ownerUserId,
+              run.assistUserId ?? run.ownerUserId,
+              point,
+            );
+          },
           onRadarSuccess: (point) async {
             await _requireCurrentAccount();
             await persistMeetingRadarPoint(
@@ -150,9 +178,19 @@ class AndroidMonitorTaskHandler extends TaskHandler {
         );
         _engine = MonitorEngine(
           config: run.config,
-          loadDetectionWindow: () => DetectionWindow.read(reload: true),
+          loadAutomaticWindow: () =>
+              readScheduleDetectionWindow(run.userId, reload: true),
+          manualFetch: () async {
+            await _requireCurrentAccount();
+            final items = await repo.fetchActive(manual: true);
+            await _requireCurrentAccount();
+            return items;
+          },
+          loadDetectionWindow: () =>
+              readScheduleDetectionWindow(run.userId, reload: true),
           processAutomatic: automatic.process,
           completedAutomaticIds: () => automatic.completedIds,
+          terminalAutomaticIds: () => automatic.terminalIds,
           automaticNumberCodes: () => automatic.numberCodes,
           notifiedIds: notified,
           fetch: () async {
@@ -194,7 +232,7 @@ class AndroidMonitorTaskHandler extends TaskHandler {
             }
           },
           onUpdate: _onEngineUpdate,
-        )..start();
+        )..start(handedOffItems: handedOffItems);
       }
       await _cycle();
     } catch (error, stack) {
@@ -226,6 +264,18 @@ class AndroidMonitorTaskHandler extends TaskHandler {
       return;
     }
     _snapshot['failures'] = update.failures;
+    _snapshot['terminalIds'] =
+        _engine?.terminalIds.toList() ?? _snapshot['terminalIds'] ?? [];
+    if (update.running != null) _snapshot['running'] = update.running;
+    if (update.discovering != null) {
+      _snapshot['discovering'] = update.discovering;
+    }
+    if (update.waitingForWindow != null) {
+      _snapshot['waitingForWindow'] = update.waitingForWindow;
+    }
+    if (update.discovering == false || update.running == false) {
+      _snapshot['nextPollAtMs'] = null;
+    }
     if (update.nextPollAt != null) {
       _snapshot['nextPollAtMs'] = update.nextPollAt!.millisecondsSinceEpoch;
     }
@@ -259,6 +309,14 @@ class AndroidMonitorTaskHandler extends TaskHandler {
     }
     if (update.message != null) _snapshot['message'] = update.message;
     _publish();
+    if (update.running == false) {
+      unawaited(
+        _shutdown(
+          'activity_found',
+          _snapshot['message'] as String? ?? '已发现签到，检测已结束',
+        ),
+      );
+    }
   }
 
   void _publish() {
@@ -342,11 +400,17 @@ class AndroidMonitorTaskHandler extends TaskHandler {
       final failures = _snapshot['failures'] as int? ?? 0;
       final text = run.diagnosticOnly
           ? '后台通知测试等待中'
+          : _snapshot['discovering'] == false
+          ? '已停止发现新活动，正在处理本轮自动签到'
           : failures > 0
           ? '检测失败 $failures 次，等待重试'
           : '下次检测倒计时  发现签到后另发提醒';
       await AndroidMonitorPlatform.updateCountdown(
-        title: run.diagnosticOnly ? '厦大签到  后台测试' : '厦大签到检测中',
+        title: run.diagnosticOnly
+            ? '厦大签到  后台测试'
+            : _snapshot['discovering'] == false
+            ? '厦大签到  自动签到处理中'
+            : '厦大签到检测中',
         text: text,
         deadlineMs: run.diagnosticOnly ? (diagnostic?['atMs'] as int?) : ms,
       );
@@ -420,7 +484,9 @@ class AndroidMonitorTaskHandler extends TaskHandler {
   void onReceiveData(Object data) {
     if (data is! Map || data['runId'] != _run?.id) return;
     if (data['action'] == 'poll_now') {
-      unawaited(_engine?.pollNow() ?? Future.value());
+      unawaited(
+        _engine?.pollNow(manual: data['manual'] == true) ?? Future.value(),
+      );
     }
     if (data['action'] == 'sync') {
       FlutterForegroundTask.sendDataToMain(

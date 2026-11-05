@@ -1,11 +1,17 @@
+import 'package:xmu_rollcall/features/campus/campus_tools_page.dart';
+import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
+import 'package:xmu_rollcall/features/location/place_providers.dart';
+import 'package:flutter/services.dart';
+import 'package:xmu_rollcall/app/desktop_back_navigation.dart';
+import '../fixtures/desktop_back_input.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/core/theme/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:xmu_rollcall/app/adaptive_shell.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
-import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
@@ -47,6 +53,100 @@ class _EmptyCourseHistory extends CourseHistoryNotifier {
 }
 
 void main() {
+  testWidgets('Android bottom navigation is only visible on tab home pages', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _TestAuthController()),
+          activeRollcallsProvider.overrideWith(_EmptyRollcalls.new),
+          campusCachedDataProvider.overrideWith(
+            (ref) async => const CampusCachedData(),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
+          home: const AdaptiveShell(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(of: find.byType(AppMobileNav), matching: find.text('我的')),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('数据与诊断'));
+    await tester.tap(find.text('数据与诊断'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AppMobileNav), findsNothing);
+    expect(find.byKey(const ValueKey('global-search-button')), findsNothing);
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AppMobileNav), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('global-search-button')));
+    await tester.pumpAndSettle();
+    expect(find.byType(AppMobileNav), findsNothing);
+    expect(find.byKey(const ValueKey('campus-search-field')), findsOneWidget);
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    expect(find.byType(AppMobileNav), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  testWidgets(
+    'hot reload clears retained place warning after matching rules change',
+    (tester) async {
+      tester.view.physicalSize = const Size(1100, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      var room = '文宣楼B404、C405';
+      final scope = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _TestAuthController()),
+          activeRollcallsProvider.overrideWith(_EmptyRollcalls.new),
+          campusCachedDataProvider.overrideWith(
+            (ref) async => const CampusCachedData(),
+          ),
+          coursePlaceGroupsProvider.overrideWith((ref) {
+            ref.watch(campusCachedDataProvider);
+            return [
+              CoursePlaceGroup(room, [room], ['课程示例']),
+            ];
+          }),
+        ],
+      );
+      addTearDown(scope.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: scope,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const AdaptiveShell(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final hint = find.byTooltip('有上课地点未定位，请在地图上标记');
+      expect(scope.read(unmatchedRoomsProvider), isNotEmpty);
+      expect(hint, findsOneWidget);
+      // Simulate retained pre-reload provider output; the data now resolves to B.
+      room = '文宣楼(4号楼）B404、B405';
+      await tester.pump();
+      expect(scope.read(unmatchedRoomsProvider), isNotEmpty);
+      final reassembled = tester.binding.reassembleApplication();
+      await tester.pumpAndSettle();
+      await reassembled;
+      await tester.pumpAndSettle();
+      expect(scope.read(unmatchedRoomsProvider), isEmpty);
+      expect(hint, findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
   for (final width in [320.0, 960.0]) {
     testWidgets('My tab update hint follows shared state at $width', (
       tester,
@@ -91,8 +191,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       final nav = find.byType(width < 600 ? AppMobileNav : AppSidebar);
-      final myTab = find.descendant(of: nav, matching: find.text('我的'));
-      final badges = find.descendant(of: nav, matching: find.byType(Badge));
+      final myTab = find.descendant(
+        of: nav,
+        matching: find.text(width < 600 ? '我的' : '设置'),
+      );
+      final badges = width < 600
+          ? find.descendant(of: nav, matching: find.byType(Badge))
+          : find.byKey(const ValueKey('desktop-notice-settings'));
       final initialNavSize = tester.getSize(nav);
       final initialTabRect = tester.getRect(myTab);
       expect(badges, findsNothing);
@@ -121,13 +226,17 @@ void main() {
       service.pendingCheck = null;
       await tester.pumpAndSettle();
       expect(badges, findsOneWidget);
-      expect(
-        find.descendant(
-          of: badges,
-          matching: find.byIcon(Icons.person_outline),
-        ),
-        findsOneWidget,
-      );
+      if (width < 600) {
+        expect(
+          find.descendant(of: badges, matching: find.byIcon(AppIcons.person)),
+          findsOneWidget,
+        );
+      } else {
+        expect(
+          tester.getRect(badges).left,
+          greaterThan(tester.getRect(myTab).right),
+        );
+      }
       expect(find.byTooltip('有新版本可更新'), findsOneWidget);
       expect(tester.getSize(nav), initialNavSize);
       expect(tester.getRect(myTab), initialTabRect);
@@ -163,9 +272,8 @@ void main() {
       );
       container.read(pending.notifier).state = true;
       await tester.pumpAndSettle();
-      expect(badges, findsOneWidget);
-      expect(find.byTooltip('课表待完善'), findsOneWidget);
-      expect(tester.widget<Badge>(badges).smallSize, width < 600 ? 5 : 4);
+      expect(badges, findsNothing);
+      expect(find.byTooltip('课表待完善'), findsNothing);
       expect(tester.getRect(myTab), initialTabRect);
       container.read(pending.notifier).state = false;
       await tester.pumpAndSettle();
@@ -195,6 +303,22 @@ void main() {
     expect(find.text('签到'), findsWidgets);
     expect(find.text('作业'), findsWidgets);
     expect(find.text('我的'), findsWidgets);
+    final nav = find.byType(AppMobileNav);
+    expect(find.descendant(of: nav, matching: find.text('工具')), findsOneWidget);
+    expect(find.byType(CampusToolsPage), findsNothing);
+    await tester.tap(find.descendant(of: nav, matching: find.text('工具')));
+    await tester.pumpAndSettle();
+    expect(find.byType(CampusToolsPage), findsOneWidget);
+    expect(find.text('GPA 计算器'), findsOneWidget);
+    expect(
+      tester.widget<AppMobileNav>(nav).current,
+      AppDestination.campusTools,
+    );
+    expect(find.text('校园工具'), findsNothing);
+    await tester.tap(find.descendant(of: nav, matching: find.text('签到')));
+    await tester.pumpAndSettle();
+    expect(find.byType(CampusToolsPage), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('AdaptiveShell shows sidebar on wide width', (tester) async {
@@ -216,17 +340,18 @@ void main() {
     expect(find.byType(AppSidebar), findsOneWidget);
     expect(find.text('签到'), findsWidgets);
     expect(find.text('作业'), findsWidgets);
-    expect(find.text('我的'), findsWidgets);
+    expect(find.text(PlatformHooks.isDesktop ? '设置' : '我的'), findsWidgets);
     expect(find.text('XMU TronClass'), findsNothing);
   });
 
   testWidgets(
-    'desktop nested subpage hosts chrome in AppTitleBar',
+    'desktop nested subpage owns its header while window identity remains stable',
     (tester) async {
       tester.view.physicalSize = const Size(1100, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
 
+      final desktopNavigator = GlobalKey<NavigatorState>();
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -235,7 +360,12 @@ void main() {
             courseHistoryProvider.overrideWith(_EmptyCourseHistory.new),
           ],
           child: MaterialApp(
-            theme: AppTheme.dark(),
+            navigatorKey: desktopNavigator,
+            builder: (context, child) => DesktopBackNavigation(
+              navigatorKey: desktopNavigator,
+              child: child!,
+            ),
+            theme: AppTheme.dark().copyWith(platform: TargetPlatform.windows),
             home: const AdaptiveShell(),
           ),
         ),
@@ -249,24 +379,35 @@ void main() {
 
       expect(find.text('签到记录'), findsWidgets);
       expect(find.byTooltip('返回'), findsOneWidget);
-      expect(find.text('厦大签到'), findsNothing);
+      expect(find.text('厦大签到'), findsOneWidget);
       expect(
         find.descendant(
           of: find.byType(AppTitleBar),
           matching: find.byTooltip('返回'),
         ),
-        findsOneWidget,
+        findsNothing,
       );
 
-      final oldBack = DesktopShellChromeScope.of(
-        tester.element(find.byType(AppTitleBar)),
-        listen: false,
-      ).activeClaim!.onBack;
-      await tester.tap(find.byTooltip('返回'));
+      final oldBack = tester
+          .widget<IconButton>(
+            find
+                .ancestor(
+                  of: find.byTooltip('返回'),
+                  matching: find.byType(IconButton),
+                )
+                .first,
+          )
+          .onPressed!;
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
+      expect(find.byTooltip('返回'), findsNothing);
       expect(find.text('厦大签到'), findsOneWidget);
       oldBack();
       await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('签到记录'));
+      await tester.pumpAndSettle();
+      await mouseBack(tester);
+      expect(find.byTooltip('返回'), findsNothing);
       expect(find.text('厦大签到'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },

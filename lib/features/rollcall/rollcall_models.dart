@@ -167,6 +167,39 @@ class AnswerResult {
   final String? message;
   final Map<String, dynamic> raw;
   final int? status;
+
+  /// Only explicit server location validation failures require correction.
+  bool get isLocationRejected {
+    if (ok ||
+        status == 401 ||
+        status == 429 ||
+        (status != null && status! >= 500)) {
+      return false;
+    }
+    final reason = [
+      raw['code'],
+      raw['error_code'],
+      raw['error'],
+      raw['message'],
+      message,
+    ].whereType<String>().join(' ').toLowerCase();
+    if (RegExp(
+      r'权限|登录|过期|已结束|未开始|时间|超时|permission|unauthori[sz]ed|forbidden|expired|ended|not[_ -]started|timeout|rate[_ -]limit',
+    ).hasMatch(reason)) {
+      return false;
+    }
+    if (reason.contains('radar_out_of_rollcall_scope')) return true;
+    final distance = raw['distance'];
+    if (distance is num &&
+        distance.isFinite &&
+        distance > 0 &&
+        (status == 400 || status == 403 || status == 422)) {
+      return true;
+    }
+    return RegExp(
+      r'out[_ -]of[_ -](?:range|bounds)|too[_ -]far|not[_ -]in[_ -]range|invalid[_ -](?:location|position)|(?:location|position)[_ -](?:invalid|out[_ -]of[_ -]range)|距离(?:过远|超出)|(?:不在|超出).{0,10}(?:签到|定位|位置).{0,4}范围|(?:签到|定位|位置).{0,10}(?:不在|超出).{0,4}范围|(?:位置|定位|签到范围).{0,6}(?:校验失败|验证失败)',
+    ).hasMatch(reason);
+  }
 }
 
 class RollcallHistoryEntry {

@@ -1,16 +1,13 @@
+import 'campus_map_config.dart';
+import 'location_models.dart';
+import 'campus_places.dart';
+import 'campus_map.dart' show CampusSelector, MapAttributionControls;
+import 'place_matching.dart';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/shell_tab_exit_guard.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
-
-/// 厦门大学翔安校区（高德 GCJ-02，约 24.6084, 118.3097）。
-const LatLng kDefaultMapCenter = LatLng(24.608429, 118.309669);
-
-const String kAmapTileUrlTemplate =
-    'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}';
-
-const List<String> kAmapTileSubdomains = ['1', '2', '3', '4'];
 
 class MapPickResult {
   const MapPickResult({
@@ -29,21 +26,31 @@ class MapPickPanel extends StatefulWidget {
   const MapPickPanel({
     super.key,
     this.initial,
+    this.initialCampus = Campus.xiangan,
     this.requireNote = false,
     this.confirmLabel,
     this.initialNote = '',
     this.busy = false,
+    this.requireSelection = false,
+    this.showCoordinates = true,
+    this.selectedLabel,
     this.contentPadding = const EdgeInsets.all(16),
+    this.campusSelectorPadding = const EdgeInsets.all(8),
     this.onDraftChanged,
     required this.onConfirm,
   });
 
   final LatLng? initial;
+  final Campus initialCampus;
+  final bool requireSelection;
+  final bool showCoordinates;
+  final String? selectedLabel;
   final bool requireNote;
   final String? confirmLabel;
   final String initialNote;
   final bool busy;
   final EdgeInsets contentPadding;
+  final EdgeInsets campusSelectorPadding;
   final ValueChanged<MapPickResult>? onDraftChanged;
   final ValueChanged<MapPickResult> onConfirm;
 
@@ -59,16 +66,45 @@ class MapPickPanelState extends State<MapPickPanel>
   final _noteFocus = FocusNode();
   final _noteField = GlobalKey();
   String? _noteError;
+  Campus _campus = Campus.xiangan;
+  bool _hasSelection = false;
+  bool _campusChosen = false;
 
   LatLng get point => _point;
 
   @override
   void initState() {
     super.initState();
-    _point = widget.initial ?? kDefaultMapCenter;
+    _point = widget.initial ?? widget.initialCampus.center;
+    _hasSelection = widget.initial != null;
     _note = TextEditingController(text: widget.initialNote);
+    _campus =
+        campusForPoint(
+          SavedLocation(
+            id: '',
+            note: '',
+            latitude: _point.latitude,
+            longitude: _point.longitude,
+            createdAt: DateTime.now(),
+          ),
+        ) ??
+        Campus.xiangan;
     WidgetsBinding.instance.addObserver(this);
     _noteFocus.addListener(_revealNote);
+  }
+
+  @override
+  void didUpdateWidget(MapPickPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The cached student profile may resolve after the dialog's first frame.
+    if (widget.initialCampus != oldWidget.initialCampus &&
+        widget.initial == null &&
+        !_hasSelection &&
+        !_campusChosen) {
+      _campus = widget.initialCampus;
+      _point = _campus.center;
+      _mapController.move(_point, 16);
+    }
   }
 
   @override
@@ -87,7 +123,7 @@ class MapPickPanelState extends State<MapPickPanel>
   }
 
   Future<void> confirm() async {
-    if (widget.busy) return;
+    if (widget.busy || (widget.requireSelection && !_hasSelection)) return;
     final saveNote = widget.requireNote ? _note.text.trim() : null;
     if (widget.requireNote && saveNote!.isEmpty) {
       setState(() => _noteError = '请填写地点备注');
@@ -126,7 +162,7 @@ class MapPickPanelState extends State<MapPickPanel>
   Widget build(BuildContext context) {
     return ShellTabExitGuard(
       hasUnsavedChanges: () {
-        final initial = widget.initial ?? kDefaultMapCenter;
+        final initial = widget.initial ?? widget.initialCampus.center;
         return _point.latitude != initial.latitude ||
             _point.longitude != initial.longitude ||
             _note.text.trim() != widget.initialNote.trim();
@@ -149,44 +185,78 @@ class MapPickPanelState extends State<MapPickPanel>
             MediaQuery.textScalerOf(context).scale(1);
         final panel = Column(
           children: [
+            Padding(
+              padding: widget.campusSelectorPadding,
+              child: CampusSelector(
+                value: _campus,
+                onChanged: (campus) {
+                  if (widget.busy) return;
+                  setState(() {
+                    _campus = campus;
+                    _campusChosen = true;
+                    _point = campus.center;
+                    _hasSelection = false;
+                  });
+                  _mapController.move(campus.center, 16);
+                  _draftChanged();
+                },
+              ),
+            ),
             Expanded(
               child: IgnorePointer(
                 ignoring: widget.busy,
-                child: FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    backgroundColor: p.surfaceHigh,
-                    initialCenter: _point,
-                    initialZoom: 16,
-                    onTap: (_, latLng) {
-                      FocusScope.of(context).unfocus();
-                      setState(() => _point = latLng);
-                      _draftChanged();
-                    },
-                  ),
+                child: Stack(
                   children: [
-                    TileLayer(
-                      urlTemplate: kAmapTileUrlTemplate,
-                      subdomains: kAmapTileSubdomains,
-                      userAgentPackageName: 'com.xmu.rollcall',
-                    ),
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: _point,
-                          width: 40,
-                          height: 40,
-                          alignment: Alignment.topCenter,
-                          child: Icon(
-                            Icons.location_on,
-                            color: p.primary,
-                            size: 40,
-                          ),
+                    FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(
+                        backgroundColor: p.surfaceHigh,
+                        initialCenter: _point,
+                        initialZoom: 16,
+                        minZoom: kXmuMapMinZoom,
+                        maxZoom: kAmapMaxZoom,
+                        cameraConstraint: CameraConstraint.containCenter(
+                          bounds: kXmuMapBounds,
+                        ),
+                        onTap: (_, latLng) {
+                          FocusScope.of(context).unfocus();
+                          setState(() {
+                            _point = latLng;
+                            _hasSelection = true;
+                          });
+                          _draftChanged();
+                        },
+                      ),
+                      children: [
+                        TileLayer(
+                          maxNativeZoom: kAmapMaxNativeZoom,
+                          minNativeZoom: 3,
+                          urlTemplate: kAmapTileUrlTemplate,
+                          subdomains: kAmapTileSubdomains,
+                          userAgentPackageName: 'com.xmu.rollcall',
+                        ),
+                        MarkerLayer(
+                          markers: [
+                            if (!widget.requireSelection || _hasSelection)
+                              Marker(
+                                point: _point,
+                                width: 40,
+                                height: 40,
+                                alignment: Alignment.topCenter,
+                                child: Icon(
+                                  Icons.location_on,
+                                  color: p.primary,
+                                  size: 40,
+                                ),
+                              ),
+                          ],
                         ),
                       ],
                     ),
-                    const RichAttributionWidget(
-                      attributions: [TextSourceAttribution('高德地图')],
+                    const Positioned(
+                      top: kMapOverlayInset,
+                      right: kMapOverlayInset,
+                      child: MapAttributionControls(),
                     ),
                   ],
                 ),
@@ -233,7 +303,15 @@ class MapPickPanelState extends State<MapPickPanel>
                         children: [
                           Expanded(
                             child: Text(
-                              coord,
+                              widget.requireSelection && !_hasSelection
+                                  ? '点击地图选择位置'
+                                  : widget.showCoordinates
+                                  ? coord
+                                  : _hasSelection
+                                  ? (widget.selectedLabel?.isNotEmpty == true
+                                        ? widget.selectedLabel!
+                                        : '已选择位置')
+                                  : '点击地图选择位置',
                               style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
                                     color: p.muted,
@@ -245,7 +323,11 @@ class MapPickPanelState extends State<MapPickPanel>
                           ),
                           const SizedBox(width: 12),
                           FilledButton(
-                            onPressed: widget.busy ? null : confirm,
+                            onPressed:
+                                widget.busy ||
+                                    (widget.requireSelection && !_hasSelection)
+                                ? null
+                                : confirm,
                             child: Text(
                               label,
                               style: TextStyle(

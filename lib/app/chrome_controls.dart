@@ -1,5 +1,103 @@
 part of 'chrome.dart';
 
+/// Secondary touch actions share the same surface, outline and hit target.
+abstract final class AppControlStyle {
+  static ButtonStyle touchIcon(BuildContext context) {
+    final p = AppPalette.of(context);
+    return IconButton.styleFrom(
+      minimumSize: const Size(AppMobileUi.target, AppMobileUi.target),
+      visualDensity: VisualDensity.standard,
+      backgroundColor: p.controlSurface,
+      foregroundColor: p.primary,
+      side: BorderSide(color: p.mobileOutline),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      padding: const EdgeInsets.all(10),
+    );
+  }
+}
+
+/// A compact table-cell action on the table's existing Material surface.
+/// Avoids creating a separate button surface and minimum-width layout per row.
+class AppTableAction extends StatelessWidget {
+  const AppTableAction({
+    super.key,
+    required this.label,
+    required this.tooltip,
+    required this.onPressed,
+  });
+  final String label, tooltip;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return AppTooltipAnchor(
+      child: Tooltip(
+        message: tooltip,
+        child: Semantics(
+          button: true,
+          enabled: onPressed != null,
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(AppRadii.control),
+            hoverColor: p.hover,
+            focusColor: p.selected,
+            highlightColor: p.selected,
+            splashFactory: NoSplash.splashFactory,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 44),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: onPressed == null
+                        ? p.muted.withValues(alpha: .5)
+                        : p.muted,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Strong, consistently aligned dismissal action with a full touch target.
+class AppSheetCloseButton extends StatelessWidget {
+  const AppSheetCloseButton({
+    super.key,
+    this.tooltip = '关闭',
+    this.alignWithTitle = false,
+    this.onPressed,
+    this.enabled = true,
+  });
+  final String tooltip;
+  final bool alignWithTitle;
+  final VoidCallback? onPressed;
+  final bool enabled;
+  @override
+  Widget build(BuildContext context) => IconButton(
+    tooltip: tooltip,
+    padding: EdgeInsets.zero,
+    constraints: BoxConstraints(
+      minWidth: AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 44,
+      minHeight: AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 44,
+    ),
+    alignment: alignWithTitle ? Alignment.topCenter : Alignment.center,
+    color: AppPalette.of(context).ink,
+    onPressed: enabled ? onPressed ?? () => Navigator.of(context).pop() : null,
+    icon: Padding(
+      padding: EdgeInsets.only(top: alignWithTitle ? 2 : 0),
+      child: const Icon(AppIcons.closeStrong, size: 24),
+    ),
+  );
+}
+
 /// Soft pill strip for grouped icon actions (desktop toolbars).
 /// Soft stadium control without Material ripple (poll / quick actions).
 class AppQuietPill extends StatelessWidget {
@@ -9,6 +107,7 @@ class AppQuietPill extends StatelessWidget {
     this.onTap,
     this.background,
     this.border = true,
+    this.radius = 18,
     this.padding = const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
   });
 
@@ -16,6 +115,7 @@ class AppQuietPill extends StatelessWidget {
   final VoidCallback? onTap;
   final Color? background;
   final bool border;
+  final double radius;
   final EdgeInsetsGeometry padding;
 
   @override
@@ -26,10 +126,10 @@ class AppQuietPill extends StatelessWidget {
       cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
       child: Material(
         type: MaterialType.transparency,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(radius),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(radius),
           hoverColor: p.hover,
           splashFactory: NoSplash.splashFactory,
           highlightColor: Colors.transparent,
@@ -39,14 +139,21 @@ class AppQuietPill extends StatelessWidget {
             duration: AppMotion.instant,
             curve: AppMotion.instantCurve,
             opacity: enabled ? 1 : 0.72,
-            child: Ink(
-              padding: padding,
-              decoration: BoxDecoration(
-                color: background ?? p.surfaceHigh,
-                borderRadius: BorderRadius.circular(18),
-                border: border ? Border.all(color: p.border) : null,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: AppMobileUi.useTouchChrome(context)
+                    ? AppMobileUi.target
+                    : 0,
               ),
-              child: child,
+              child: Ink(
+                padding: padding,
+                decoration: BoxDecoration(
+                  color: background ?? p.surfaceHigh,
+                  borderRadius: BorderRadius.circular(radius),
+                  border: border ? Border.all(color: p.border) : null,
+                ),
+                child: child,
+              ),
             ),
           ),
         ),

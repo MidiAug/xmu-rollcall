@@ -1,3 +1,7 @@
+import 'package:xmu_rollcall/core/theme/app_icons.dart';
+import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import '../fixtures/preview_fonts.dart';
+import '../fixtures/desktop_ui_capture.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -74,6 +78,10 @@ class _Overview extends HomeworkOverviewNotifier {
 }
 
 void main() {
+  setUpAll(() async {
+    await loadDesktopPreviewFonts();
+    await loadDesktopUiCaptureFonts();
+  });
   for (final width in [320.0, 384.0, 960.0]) {
     testWidgets(
       'compact aligned homework rows fit $width and details still link all four',
@@ -126,18 +134,32 @@ void main() {
                 ],
               ),
             ],
-            child: const MaterialApp(home: Scaffold(body: HomeworkHubPage())),
+            child: RepaintBoundary(
+              key: const ValueKey('desktop-ui-capture'),
+              child: MaterialApp(
+                theme: AppTheme.light().copyWith(
+                  platform: width < 600
+                      ? TargetPlatform.android
+                      : TargetPlatform.windows,
+                ),
+                home: const Scaffold(body: HomeworkHubPage()),
+              ),
+            ),
           ),
         );
         await tester.pumpAndSettle();
         expect(find.text('助教作业4'), findsOneWidget);
+        if (width < 600) {
+          expect(find.byKey(const ValueKey('homework-refresh')), findsNothing);
+          expect(find.byIcon(AppIcons.person), findsNothing);
+        }
         final teachingRow = find.ancestor(
           of: find.text('助教作业4'),
           matching: find.byType(AppHoverSurface),
         );
         final teachingPanel = find.ancestor(
           of: teachingRow,
-          matching: find.byType(Panel),
+          matching: find.byType(SettingsSection),
         );
         expect(
           tester.getRect(teachingRow).left,
@@ -156,7 +178,7 @@ void main() {
         expect(find.text('未提交'), findsOneWidget);
         expect(find.text('已提交'), findsNWidgets(2));
         expect(find.text('已批改 0 分'), findsOneWidget);
-        expect(find.text('已截止  2'), findsOneWidget);
+        expect(find.textContaining(RegExp(r'^已截止\s*2$')), findsOneWidget);
         expect(find.text('成绩未公布'), findsOneWidget);
         final deadline9 = find.byKey(const ValueKey('homework-deadline-9'));
         final deadline10 = find.byKey(const ValueKey('homework-deadline-10'));
@@ -190,7 +212,24 @@ void main() {
         );
         final title = tester.widget<Text>(find.textContaining('已批改的历史作业标题'));
         expect(title.maxLines, 1);
+        expect(title.softWrap, isFalse);
         expect(title.overflow, TextOverflow.ellipsis);
+        if (width >= 600) {
+          final filter = find.text('全部 3');
+          expect(filter, findsOneWidget);
+          expect(
+            (tester.getCenter(filter).dy -
+                    tester.getCenter(find.text('作业').first).dy)
+                .abs(),
+            lessThan(4),
+          );
+          expect(
+            tester.getTopLeft(filter).dx,
+            greaterThan(tester.getTopRight(find.text('作业').first).dx),
+          );
+        }
+
+        await captureDesktopUi(tester, 'homework-hub-${width.toInt()}');
         await tester.tap(find.text('助教作业4'));
         await tester.pumpAndSettle();
         expect(find.byType(HomeworkDetailPage), findsOneWidget);
@@ -199,6 +238,24 @@ void main() {
         for (var i = 1; i <= 4; i++) {
           expect(find.text('助教作业$i'), findsOneWidget);
         }
+        final filter = find.byKey(const ValueKey('homework-course-filter'));
+        final left = tester.getRect(filter).left;
+        final right = tester.getRect(find.byType(AppRefreshButton).last).right;
+        await tester.tap(filter);
+        await tester.pumpAndSettle();
+        final surface = find
+            .ancestor(
+              of: find.byType(AppMenuOption).first,
+              matching: find.byWidgetPredicate(
+                (w) => w is Material && w.shape is RoundedRectangleBorder,
+              ),
+            )
+            .first;
+        if (width >= 600) {
+          expect(tester.getRect(surface).left, closeTo(left, 1));
+          expect(tester.getRect(surface).right, closeTo(right, 1));
+        }
+        await captureDesktopUi(tester, 'homework-course-menu-${width.toInt()}');
         expect(tester.takeException(), isNull);
       },
     );

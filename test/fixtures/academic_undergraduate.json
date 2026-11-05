@@ -1,0 +1,183 @@
+{
+  "clock": [
+    {
+      "DM": "1",
+      "KSSJ": 800,
+      "JSSJ": 845
+    },
+    {
+      "DM": "2",
+      "KSSJ": 855,
+      "JSSJ": 940
+    },
+    {
+      "DM": "3",
+      "KSSJ": 1010,
+      "JSSJ": 1055
+    },
+    {
+      "DM": "4",
+      "KSSJ": 1105,
+      "JSSJ": 1150
+    },
+    {
+      "DM": "12",
+      "KSSJ": 1200,
+      "JSSJ": 1400
+    },
+    {
+      "DM": "5",
+      "KSSJ": 1430,
+      "JSSJ": 1515
+    },
+    {
+      "DM": "6",
+      "KSSJ": 1525,
+      "JSSJ": 1610
+    },
+    {
+      "DM": "7",
+      "KSSJ": 1640,
+      "JSSJ": 1725
+    },
+    {
+      "DM": "8",
+      "KSSJ": 1735,
+      "JSSJ": 1820
+    },
+    {
+      "DM": "9",
+      "KSSJ": 1910,
+      "JSSJ": 1955
+    },
+    {
+      "DM": "10",
+      "KSSJ": 2005,
+      "JSSJ": 2050
+    },
+    {
+      "DM": "11",
+      "KSSJ": 2100,
+      "JSSJ": 2145
+    }
+  ],
+  "payload": {
+    "success": true,
+    "pkjgList": [
+      {
+        "ZCBH": "101010100000000000000000000000",
+        "XQ": 1,
+        "KSJCDM": 7,
+        "JSJCDM": 8,
+        "KSSJ": 1640,
+        "JSSJ": 1820,
+        "KCDM": "course-1",
+        "BJDM": "class-1",
+        "KCMC": "测试课程",
+        "BJMC": "测试教学班",
+        "JSXM": "测试教师",
+        "JASMC": "测试教室"
+      },
+      {
+        "ZCBH": "111111110000000000000000000000",
+        "XQ": 2,
+        "KSJCDM": 5,
+        "JSJCDM": 6,
+        "KSSJ": 1430,
+        "JSSJ": 1610,
+        "KCDM": "course-2",
+        "BJDM": "class-2",
+        "KCMC": "测试课程",
+        "BJMC": "测试教学班",
+        "JSXM": "测试教师",
+        "JASMC": "测试教室"
+      },
+      {
+        "ZCBH": "111111110000000000000000000000",
+        "XQ": 2,
+        "KSJCDM": 7,
+        "JSJCDM": 8,
+        "KSSJ": 1640,
+        "JSSJ": 1820,
+        "KCDM": "course-2",
+        "BJDM": "class-2",
+        "KCMC": "测试课程",
+        "BJMC": "测试教学班",
+        "JSXM": "测试教师",
+        "JASMC": "测试教室"
+      },
+      {
+        "ZCBH": "111111110000000000000000000000",
+        "XQ": 2,
+        "KSJCDM": 7,
+        "JSJCDM": 8,
+        "KSSJ": 1640,
+        "JSSJ": 1820,
+        "KCDM": "course-2",
+        "BJDM": "class-2",
+        "KCMC": "测试课程",
+        "BJMC": "测试教学班",
+        "JSXM": "测试教师",
+        "JASMC": "测试教室"
+      },
+      {
+        "ZCBH": "111111110000000000000000000000",
+        "XQ": 4,
+        "KSJCDM": 7,
+        "JSJCDM": 8,
+        "KSSJ": 1640,
+        "JSSJ": 1820,
+        "KCDM": "course-2",
+        "BJDM": "class-2",
+        "KCMC": "测试课程",
+        "BJMC": "测试教学班",
+        "JSXM": "测试教师",
+        "JASMC": "测试教室"
+      },
+      {
+        "ZCBH": "111111110000000000000000000000",
+        "XQ": 2,
+        "KSJCDM": 9,
+        "JSJCDM": 11,
+        "KSSJ": 1910,
+        "JSSJ": 2145,
+        "KCDM": "course-3",
+        "BJDM": "class-3",
+        "KCMC": "测试课程",
+        "BJMC": "测试教学班",
+        "JSXM": "测试教师",
+        "JASMC": "测试教室"
+      },
+      {
+        "ZCBH": "111111110000000000000000000000",
+        "XQ": 4,
+        "KSJCDM": 9,
+        "JSJCDM": 11,
+        "KSSJ": 1910,
+        "JSSJ": 2145,
+        "KCDM": "course-3",
+        "BJDM": "class-3",
+        "KCMC": "测试课程",
+        "BJMC": "测试教学班",
+        "JSXM": "测试教师",
+        "JASMC": "测试教室"
+      }
+    ],
+    "ttbList": [
+      {
+        "YSKZC": "001000000000000000",
+        "YSKXQ": 1,
+        "YKSJC": 7,
+        "YJSJC": 8,
+        "XSKZC": "000100000000000000",
+        "XSKXQ": 1,
+        "XKSJC": 7,
+        "XJSJC": 8,
+        "TKLXDM": "01",
+        "KCDM": "course-1",
+        "BJDM": "class-1",
+        "XJASMC": "调课后教室"
+      }
+    ]
+  }
+}

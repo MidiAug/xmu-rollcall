@@ -23,10 +23,13 @@ extension MonitorPresetX on MonitorPreset {
 class MonitorConfig {
   const MonitorConfig({
     this.enabled = false,
-    this.preset = MonitorPreset.classroom,
-    this.intervalSeconds = 20,
+    this.preset = MonitorPreset.eco,
+    this.intervalSeconds = 60,
     this.jitterRatio = 0.2,
     this.autoAnswer = false,
+    this.courseWatch = false,
+    this.completeProbe = false,
+    this.resumeWatch = false,
     this.answerWaitMode = AnswerWaitMode.percent,
     this.answerWaitCount = 10,
     this.answerWaitPercent = 10,
@@ -40,6 +43,9 @@ class MonitorConfig {
 
   /// Always default false (KB-01).
   final bool autoAnswer;
+  final bool courseWatch;
+  final bool completeProbe;
+  final bool resumeWatch;
   final AnswerWaitMode answerWaitMode;
   final int answerWaitCount;
   final int answerWaitPercent;
@@ -66,6 +72,9 @@ class MonitorConfig {
     int? intervalSeconds,
     double? jitterRatio,
     bool? autoAnswer,
+    bool? courseWatch,
+    bool? completeProbe,
+    bool? resumeWatch,
     AnswerWaitMode? answerWaitMode,
     int? answerWaitCount,
     int? answerWaitPercent,
@@ -77,6 +86,9 @@ class MonitorConfig {
       intervalSeconds: intervalSeconds ?? this.intervalSeconds,
       jitterRatio: jitterRatio ?? this.jitterRatio,
       autoAnswer: autoAnswer ?? this.autoAnswer,
+      courseWatch: courseWatch ?? this.courseWatch,
+      completeProbe: completeProbe ?? this.completeProbe,
+      resumeWatch: resumeWatch ?? this.resumeWatch,
       answerWaitMode: answerWaitMode ?? this.answerWaitMode,
       answerWaitCount: (answerWaitCount ?? this.answerWaitCount).clamp(1, 200),
       answerWaitPercent: (answerWaitPercent ?? this.answerWaitPercent).clamp(

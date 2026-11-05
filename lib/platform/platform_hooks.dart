@@ -55,19 +55,19 @@ abstract final class PlatformHooks {
     await windowManager.ensureInitialized();
     final options = WindowOptions(
       size: AppLayout.windowSize,
-      minimumSize: AppLayout.windowSize,
-      maximumSize: AppLayout.windowSize,
+      minimumSize: AppLayout.minimumWindowSize,
+      maximumSize: const Size(10000, 10000),
       title: kAppDisplayName,
       titleBarStyle: TitleBarStyle.hidden,
       backgroundColor: Colors.transparent,
     );
     await windowManager.waitUntilReadyToShow(options, () async {
-      // Fixed frame: no resize / maximize (re-assert after ready on some platforms).
-      await windowManager.setMinimumSize(AppLayout.windowSize);
-      await windowManager.setMaximumSize(AppLayout.windowSize);
+      // Keep the native window constraints in sync after the frame is ready.
+      await windowManager.setMinimumSize(AppLayout.minimumWindowSize);
+      await windowManager.setMaximumSize(const Size(10000, 10000));
       await windowManager.setSize(AppLayout.windowSize);
-      await windowManager.setResizable(false);
-      await windowManager.setMaximizable(false);
+      await windowManager.setResizable(true);
+      await windowManager.setMaximizable(true);
       await windowManager.show();
       await windowManager.focus();
     });

@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/location/location_providers.dart';
+import 'package:xmu_rollcall/app/desktop_back_navigation.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -46,6 +48,7 @@ class _XmuRollcallAppState extends ConsumerState<XmuRollcallApp>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
+      ref.invalidate(locationIssuesProvider);
       unawaited(ref.read(appUpdateControllerProvider).check());
     }
   }
@@ -70,6 +73,8 @@ class _XmuRollcallAppState extends ConsumerState<XmuRollcallApp>
 
     Widget app = MaterialApp(
       navigatorKey: _rootNavigatorKey,
+      builder: (context, child) =>
+          DesktopBackNavigation(navigatorKey: _rootNavigatorKey, child: child!),
       title: kAppDisplayName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),

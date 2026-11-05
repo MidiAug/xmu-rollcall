@@ -1,13 +1,132 @@
+import 'package:xmu_rollcall/features/location/campus_places.dart';
 import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/features/location/course_radar_store.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
 import 'package:xmu_rollcall/features/location/location_providers.dart';
+import 'package:xmu_rollcall/features/location/place_matching.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  test(
+    'explicit matched group binding resolves the current maintained area point',
+    () async {
+      final point = matchCoursePlace('法学院', [], campus: Campus.siming)!;
+      final ctrl = CourseRadarDefaultsController(userId: 1);
+      addTearDown(ctrl.dispose);
+      await ctrl.configureForCourse(
+        courseId: 'area',
+        courseTitle: 'fixture',
+        selection: RadarGeoSelection(
+          latitude: point.latitude,
+          longitude: point.longitude,
+          accuracy: point.accuracy,
+          obtainedVia: RadarObtainedVia.place,
+          placeId: point.id,
+          label: point.note,
+        ),
+      );
+      final read = await readAutomaticRadarLocation(
+        ownerId: 1,
+        assistUserId: null,
+        courseId: 'area',
+      );
+      expect(read?.placeId, point.id);
+      expect(read?.latitude, point.latitude);
+      expect(
+        await readAutomaticRadarLocation(
+          ownerId: 1,
+          assistUserId: 2,
+          courseId: 'area',
+        ),
+        isNull,
+      );
+    },
+  );
+  test(
+    'explicit teaching region reads its exact point, never a building centroid',
+    () async {
+      final region = teachingPlaces
+          .singleWhere((p) => p.id == 'xmu:teaching:xuewu-b')
+          .saved;
+      final ctrl = CourseRadarDefaultsController(userId: 1);
+      addTearDown(ctrl.dispose);
+      await ctrl.configureForCourse(
+        courseId: 'region',
+        courseTitle: 'fixture',
+        selection: RadarGeoSelection(
+          latitude: region.latitude,
+          longitude: region.longitude,
+          accuracy: region.accuracy,
+          obtainedVia: RadarObtainedVia.place,
+          placeId: region.id,
+          label: region.note,
+        ),
+      );
+      final read = await readAutomaticRadarLocation(
+        ownerId: 1,
+        assistUserId: null,
+        courseId: 'region',
+      );
+      expect(read!.placeId, region.id);
+      expect(read.latitude, 24.6055024);
+      expect(read.longitude, 118.3138315);
+      expect(
+        await readAutomaticRadarLocation(
+          ownerId: 1,
+          assistUserId: 2,
+          courseId: 'region',
+        ),
+        isNull,
+      );
+    },
+  );
+  test(
+    'explicit built-in place uses directory coordinates without custom storage',
+    () async {
+      final place = campusPlaces.first.saved;
+      final ctrl = CourseRadarDefaultsController(userId: 1);
+      addTearDown(ctrl.dispose);
+      expect(
+        await readAutomaticRadarLocation(
+          ownerId: 1,
+          assistUserId: null,
+          courseId: '7',
+        ),
+        isNull,
+      );
+      await ctrl.configureForCourse(
+        courseId: '7',
+        courseTitle: 'test',
+        selection: RadarGeoSelection(
+          latitude: place.latitude,
+          longitude: place.longitude,
+          accuracy: place.accuracy,
+          obtainedVia: RadarObtainedVia.place,
+          placeId: place.id,
+          label: place.note,
+        ),
+      );
+      final pref = await readAutomaticRadarLocation(
+        ownerId: 1,
+        assistUserId: null,
+        courseId: '7',
+      );
+      expect(pref?.placeId, place.id);
+      expect(pref?.latitude, place.latitude);
+      expect(pref?.accuracy, place.accuracy);
+      expect(
+        await readAutomaticRadarLocation(
+          ownerId: 1,
+          assistUserId: 2,
+          courseId: '7',
+        ),
+        isNull,
+      );
+    },
+  );
   test(
     'explicit course setup persists without a successful network submission',
     () async {
@@ -122,7 +241,7 @@ void main() {
   test(
     'linked automatic location follows edits and refuses deleted or same-name replacement places',
     () async {
-      final places = SavedLocationsController();
+      final places = SavedLocationsController(ownerId: 1, userId: 1);
       final defaults = CourseRadarDefaultsController(userId: 1);
       addTearDown(places.dispose);
       addTearDown(defaults.dispose);
@@ -162,7 +281,7 @@ void main() {
       // The manual confirmation path can still show the old point as a suggestion.
       expect(defaults.forCourse(courseId: '7')!.latitude, 24.5);
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(savedRadarLocationsKey, '{damaged');
+      await prefs.setString(savedLocationsKey(1, 1), '{damaged');
       expect(await read(), isNull);
     },
   );

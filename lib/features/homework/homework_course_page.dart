@@ -6,7 +6,6 @@ import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'package:xmu_rollcall/app/refresh_feedback.dart';
 import 'package:xmu_rollcall/core/network/request_failure.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
-import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_models.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/homework/homework_status_badges.dart';
@@ -32,11 +31,13 @@ class HomeworkCoursePage extends ConsumerStatefulWidget {
   const HomeworkCoursePage({
     super.key,
     required this.courseId,
+    required this.detailBuilder,
     this.courseName = '',
     this.initialFilter = HomeworkCourseFilter.all,
   });
 
   final int courseId;
+  final Widget Function(HomeworkItem) detailBuilder;
   final String courseName;
   final HomeworkCourseFilter initialFilter;
 
@@ -67,7 +68,7 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
         : (item.courseName.isEmpty && courseName.isNotEmpty
               ? item.copyWith(courseName: courseName)
               : item);
-    AppPageRoutes.push(context, HomeworkDetailPage(seed: seeded));
+    AppPageRoutes.push(context, widget.detailBuilder(seeded));
   }
 
   @override
@@ -83,27 +84,54 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
     final title = widget.courseName.isEmpty ? '课程作业' : widget.courseName;
     final async = ref.watch(courseHomeworkProvider(widget.courseId));
 
+    final refreshExtent = AppDensity.isTouch(context)
+        ? AppMobileUi.target
+        : 34.0;
     return SubpageScaffold(
       title: title,
       actions: [
-        Center(
-          child: AppShellSelect<HomeworkCourseFilter>(
-            key: const ValueKey('homework-course-filter'),
-            value: _filter,
-            items: HomeworkCourseFilter.values,
-            labelOf: (v) => v.label,
-            menuTrailingOf: (v) => async.hasValue
-                ? '(${async.requireValue.where(v.matches).length})'
-                : '',
-            onChanged: (v) => setState(() => _filter = v),
-            width: 100,
-            menuWidth: 180,
-          ),
-        ),
-        AppRefreshButton(
-          onRefresh: () => ref
-              .read(courseHomeworkProvider(widget.courseId).notifier)
-              .refresh(),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: AppDensity.isTouch(context)
+                  ? AppToolbarChoice<HomeworkCourseFilter>(
+                      key: const ValueKey('homework-course-filter'),
+                      title: '筛选作业',
+                      value: _filter,
+                      items: HomeworkCourseFilter.values,
+                      labelOf: (v) => v.label,
+                      trailingOf: (v) => async.hasValue
+                          ? '(${async.requireValue.where(v.matches).length})'
+                          : '',
+                      onChanged: (v) => setState(() => _filter = v),
+                      width: 88,
+                    )
+                  : AppShellSelect<HomeworkCourseFilter>(
+                      key: const ValueKey('homework-course-filter'),
+                      value: _filter,
+                      items: HomeworkCourseFilter.values,
+                      labelOf: (v) => v.label,
+                      menuTrailingOf: (v) => async.hasValue
+                          ? '(${async.requireValue.where(v.matches).length})'
+                          : '',
+                      onChanged: (v) => setState(() => _filter = v),
+                      width: 100,
+                      menuWidth: 108 + refreshExtent,
+                      fixedMenuWidth: true,
+                    ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: refreshExtent,
+              height: refreshExtent,
+              child: AppRefreshButton(
+                onRefresh: () => ref
+                    .read(courseHomeworkProvider(widget.courseId).notifier)
+                    .refresh(),
+              ),
+            ),
+          ],
         ),
       ],
       body: AppContentColumn(
@@ -167,7 +195,7 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
                       SliverFillRemaining(
                         hasScrollBody: false,
                         child: EmptyHint(
-                          icon: Icons.assignment_outlined,
+                          icon: AppIcons.homework,
                           title: items.isEmpty
                               ? '本课暂无作业'
                               : '当前没有${_filter.label}的作业',
@@ -204,7 +232,8 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
                                 children: [
                                   Text(
                                     item.title.isEmpty ? '未命名作业' : item.title,
-                                    maxLines: 2,
+                                    maxLines: 1,
+                                    softWrap: false,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
@@ -230,7 +259,7 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
                                 ],
                               ),
                             ),
-                            Icon(Icons.chevron_right_rounded, color: p.muted),
+                            Icon(AppIcons.right, color: p.muted),
                           ],
                         ),
                       ),

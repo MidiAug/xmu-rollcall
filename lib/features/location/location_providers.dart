@@ -1,3 +1,5 @@
+import 'location_validation_store.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,14 +10,67 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
 import 'package:xmu_rollcall/features/location/course_radar_store.dart';
 
+final locationIssuesProvider =
+    FutureProvider.autoDispose<List<LocationValidationIssue>>((ref) {
+      final owner = ref.watch(authControllerProvider).profile?.id;
+      final user = ref.watch(selectedRollcallAccountProvider) ?? owner;
+      if (owner == null || user == null) return [];
+      return readLocationIssues(owner, user);
+    });
+
 final radarMeetingClockProvider = Provider<DateTime Function()>(
   (ref) => DateTime.now,
 );
 
 final savedLocationsProvider =
     StateNotifierProvider<SavedLocationsController, List<SavedLocation>>((ref) {
-      return SavedLocationsController();
+      final owner = ref.watch(authControllerProvider).profile?.id;
+      final scope = ref.watch(selectedRollcallAccountProvider);
+      return SavedLocationsController(
+        ownerId: owner,
+        userId: scope ?? owner,
+        storageKey: owner == null ? 'saved_radar_locations_signed_out' : null,
+      );
     });
+
+final _savedLocationsByUserProvider =
+    StateNotifierProvider.family<
+      SavedLocationsController,
+      List<SavedLocation>,
+      int
+    >((ref, userId) {
+      // Edits use the selected controller while this account is current.
+      ref.watch(selectedRollcallAccountProvider);
+      return SavedLocationsController(
+        ownerId: ref.watch(authControllerProvider).profile?.id,
+        userId: userId,
+      );
+    });
+
+final savedLocationsForUserProvider =
+    Provider.family<
+      StateNotifierProvider<SavedLocationsController, List<SavedLocation>>,
+      int?
+    >((ref, userId) {
+      final auth = ref.watch(authControllerProvider);
+      if (!auth.isSignedIn) return savedLocationsProvider;
+      final current =
+          ref.watch(selectedRollcallAccountProvider) ?? auth.profile?.id;
+      return userId == null || userId == current
+          ? savedLocationsProvider
+          : _savedLocationsByUserProvider(userId);
+    });
+
+final _locationIssuesByUserProvider = FutureProvider.autoDispose
+    .family<List<LocationValidationIssue>, int>((ref, userId) {
+      final owner = ref.watch(authControllerProvider).profile?.id;
+      return owner == null ? [] : readLocationIssues(owner, userId);
+    });
+
+AutoDisposeFutureProvider<List<LocationValidationIssue>>
+locationIssuesForUserProvider(int? userId) => userId == null
+    ? locationIssuesProvider
+    : _locationIssuesByUserProvider(userId);
 
 final courseRadarDefaultsProvider =
     StateNotifierProvider<
@@ -52,18 +107,32 @@ courseRadarDefaultsForProvider(int? assistUserId) => assistUserId == null
     : assistCourseRadarDefaultsProvider(assistUserId);
 
 class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
-  SavedLocationsController() : super(const []) {
+  SavedLocationsController({this.ownerId, this.userId, this.storageKey})
+    : super(const []) {
     ready = _load();
   }
 
   late final Future<void> ready;
   Future<void> _writes = Future.value();
-  static const _key = savedRadarLocationsKey;
+  final int? ownerId, userId;
+  final String? storageKey;
+  String get _key =>
+      storageKey ??
+      (ownerId == null || userId == null
+          ? savedRadarLocationsKey
+          : savedLocationsKey(ownerId!, userId!));
   final _uuid = const Uuid();
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
+    if (ownerId != null && userId != null) {
+      try {
+        final saved = await readScopedSavedLocations(prefs, ownerId!, userId!);
+        if (mounted) state = saved;
+      } catch (_) {}
+      return;
+    }
     final raw = prefs.getString(_key);
     if (raw == null || raw.isEmpty) return;
     try {
@@ -125,6 +194,7 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
   }
 
   Future<void> remove(String id) async {
+    if (id.startsWith('xmu:') || id.startsWith('room:')) return;
     await ready;
     if (!mounted) return;
     state = state.where((e) => e.id != id).toList();
@@ -139,6 +209,7 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
   }
 
   Future<void> rename(String id, String note) async {
+    if (id.startsWith('xmu:') || id.startsWith('room:')) return;
     await ready;
     if (!mounted) return;
     final trimmed = note.trim().isEmpty ? '未命名位置' : note.trim();
@@ -171,6 +242,7 @@ class SavedLocationsController extends StateNotifier<List<SavedLocation>> {
     required double latitude,
     required double longitude,
   }) async {
+    if (id.startsWith('xmu:') || id.startsWith('room:')) return;
     await ready;
     if (!mounted) return;
     validateRadarLocation(latitude: latitude, longitude: longitude);

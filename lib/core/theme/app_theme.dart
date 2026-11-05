@@ -39,15 +39,12 @@ abstract final class AppTheme {
         surfaceContainerHighest: p.surfaceHigh,
         outline: p.border,
       ),
-      // Platform UI font + CJK fallbacks (no forced Segoe everywhere).
-      fontFamilyFallback: const [
-        'Segoe UI',
-        'PingFang SC',
-        'Microsoft YaHei UI',
-        'Noto Sans CJK SC',
-        'Roboto',
-      ],
-      textTheme: _textTheme(p.ink, p.muted),
+      fontFamily: AppTypography.family,
+      fontFamilyFallback: AppTypography.fallback,
+      textTheme: _textTheme(
+        p.ink,
+        p.muted,
+      ).apply(fontFamily: AppTypography.family),
       appBarTheme: AppBarTheme(
         backgroundColor: p.surface,
         foregroundColor: p.ink,
@@ -86,11 +83,7 @@ abstract final class AppTheme {
             borderRadius: BorderRadius.circular(AppRadii.button),
           ),
           elevation: 0,
-          textStyle: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            letterSpacing: -0.1,
-          ),
+          textStyle: AppTypography.control,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -102,7 +95,7 @@ abstract final class AppTheme {
           ),
           side: BorderSide(color: p.borderStrong),
           foregroundColor: p.ink,
-          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          textStyle: AppTypography.control,
         ),
       ),
       textButtonTheme: TextButtonThemeData(
@@ -112,7 +105,7 @@ abstract final class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadii.button),
           ),
-          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          textStyle: AppTypography.control,
         ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(

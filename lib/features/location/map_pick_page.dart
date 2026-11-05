@@ -43,9 +43,15 @@ class MapPickPage extends StatelessWidget {
 
 Future<RadarGeoSelection?> pickSavedLocation(
   BuildContext context,
-  List<SavedLocation> locations,
-) async {
-  final loc = await showLocationPicker(context, locations: locations);
+  List<SavedLocation> locations, {
+  int? userId,
+}) async {
+  final loc = await showLocationPicker(
+    context,
+    locations: locations,
+    userId: userId,
+    useRootNavigator: false,
+  );
   if (loc == null) return null;
   return RadarGeoSelection(
     latitude: loc.latitude,

@@ -13,6 +13,7 @@ import 'package:xmu_rollcall/features/history/history_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import '../fixtures/desktop_ui_capture.dart';
+import '../fixtures/preview_fonts.dart';
 
 class _Repo extends Fake implements AuthRepository {}
 
@@ -118,7 +119,10 @@ class _PeriodHistory extends _History {
 }
 
 void main() {
-  setUpAll(loadDesktopUiCaptureFonts);
+  setUpAll(() async {
+    await loadDesktopPreviewFonts();
+    await loadDesktopUiCaptureFonts();
+  });
   setUp(() => SharedPreferences.setMockInitialValues({}));
   testWidgets('pulling filtered history requests only the selected course', (
     tester,
@@ -441,12 +445,19 @@ void main() {
         final menu = tester.getRect(option);
         expect(menu.left, greaterThanOrEqualTo(0));
         expect(menu.right, lessThanOrEqualTo(width));
-        expect(menu.width, lessThanOrEqualTo(240));
+        expect(
+          menu.width,
+          width < 680 ? closeTo(width - 32, 1) : lessThanOrEqualTo(240),
+        );
         final menuText = tester.widget<Text>(
           find.descendant(of: option, matching: find.byType(Text)).first,
         );
-        expect(menuText.maxLines, 1);
-        expect(menuText.overflow, TextOverflow.ellipsis);
+        if (width < 680) {
+          expect(menuText.maxLines, isNull);
+        } else {
+          expect(menuText.maxLines, 1);
+          expect(menuText.overflow, TextOverflow.ellipsis);
+        }
         final countLabel = find.descendant(
           of: option,
           matching: find.text('(2)'),

@@ -1,18 +1,83 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_switch.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window.dart';
-import 'package:xmu_rollcall/features/monitor/detection_window_editor.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
+import 'package:xmu_rollcall/features/schedule/schedule_detection.dart';
+
+final selectedDetectionWindowProvider =
+    FutureProvider.autoDispose<DetectionWindow>((ref) async {
+      final initial = ref.watch(detectionWindowProvider);
+      ref.watch(academicRevisionProvider);
+      final uid =
+          ref.watch(selectedRollcallAccountProvider) ??
+          ref.watch(authControllerProvider).profile?.id;
+      final controller = ref.read(detectionWindowProvider.notifier);
+      if (initial == null) {
+        await controller.ready;
+      }
+      final setting = initial ?? ref.read(detectionWindowProvider);
+      if (setting != null && !setting.scheduleBased) return setting;
+      return readScheduleDetectionWindow(
+        uid,
+        setting: setting,
+        at: ref.read(activeRollcallClockProvider)(),
+      );
+    });
+
+String todayDetectionRanges(DetectionWindow window, DateTime now) {
+  if (!window.enabled) return '全天检测';
+  final day = DateTime(now.year, now.month, now.day);
+  final end = DateTime(now.year, now.month, now.day + 1);
+  String hm(DateTime time) =>
+      DetectionWindow.formatMinute(time.hour * 60 + time.minute);
+  final ranges = [
+    for (final range
+        in window.intervals ?? <({DateTime start, DateTime end})>[])
+      if (range.end.isAfter(day) && range.start.isBefore(end))
+        '${range.start.isBefore(day) ? '00:00' : hm(range.start)}—${!range.end.isBefore(end) ? '24:00' : hm(range.end)}',
+  ];
+  return ranges.isEmpty
+      ? (window.hasSchedule ? '今日无课' : '暂无课表')
+      : ranges.join('、');
+}
+
+String detectionStatusLabel(DetectionWindow window, DateTime now) {
+  final ranges = todayDetectionRanges(window, now);
+  final day = DateTime(now.year, now.month, now.day);
+  final end = day.add(const Duration(days: 1));
+  final hasToday =
+      window.intervals?.any(
+        (r) => r.end.isAfter(day) && r.start.isBefore(end),
+      ) ??
+      false;
+  if (!window.enabled ||
+      window.allows(now) ||
+      !window.hasSchedule ||
+      window.intervals == null ||
+      window.intervals!.isEmpty ||
+      !hasToday) {
+    return ranges;
+  }
+  return '课外暂停';
+}
 
 class DetectionWindowSetting extends ConsumerStatefulWidget {
   const DetectionWindowSetting({
     super.key,
     required this.enabled,
     required this.padding,
+    this.watchMode = false,
   });
   final bool enabled;
   final EdgeInsets padding;
+  final bool watchMode;
   @override
   ConsumerState<DetectionWindowSetting> createState() =>
       _DetectionWindowSettingState();
@@ -22,112 +87,77 @@ class _DetectionWindowSettingState
     extends ConsumerState<DetectionWindowSetting> {
   bool _saving = false;
   String? _error;
-  Future<void> _save(DetectionWindow window) async {
+  Future<void> _save(bool enabled) async {
     setState(() {
       _saving = true;
       _error = null;
     });
     try {
-      await ref.read(detectionWindowProvider.notifier).save(window);
+      await ref
+          .read(detectionWindowProvider.notifier)
+          .save(DetectionWindow(scheduleBased: true, enabled: enabled));
     } catch (_) {
-      if (mounted) setState(() => _error = '时段未能保存，请重试');
+      if (mounted) setState(() => _error = '检测范围未能保存，请重试');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  Future<void> _pick(DetectionWindow window, bool start) async {
-    final next = await showDetectionWindowEditor(
-      context,
-      window,
-      focusStart: start,
-    );
-    if (!mounted || next == null) return;
-    await _save(next);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final window = ref.watch(detectionWindowProvider);
-    final enabled = widget.enabled && window != null && !_saving;
+    final setting = ref.watch(detectionWindowProvider);
+    final planned = ref.watch(selectedDetectionWindowProvider);
+    final now = ref.read(activeRollcallClockProvider)();
+    final p = AppPalette.of(context);
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SettingsRow(
           contentPadding: widget.padding,
           subtitleSpacing: 6,
-          minHeight: 40,
-          title: '检测时段',
-          subtitle: _error ?? '时段外暂停获取签到，手动刷新也适用',
+          title: widget.watchMode ? '按课表限制普通检测' : '按课表检测',
+          subtitle:
+              _error ??
+              (widget.watchMode
+                  ? '普通检测的范围；值守仍按上方课前、课间与课后时段运行'
+                  : '上课期间及前后30分钟自动检测'),
           stackSubtitleOnNarrow: true,
-          trailing: SizedBox(
-            width: 148,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: AppSwitch(
-                key: const ValueKey('detection-window-switch'),
-                value: window?.enabled ?? false,
-                onChanged: enabled
-                    ? (value) => _save(
-                        DetectionWindow(
-                          enabled: value,
-                          startMinute: window.startMinute,
-                          endMinute: window.endMinute,
-                        ),
-                      )
-                    : null,
-              ),
-            ),
+          trailing: AppSwitch(
+            key: const ValueKey('detection-window-switch'),
+            value: setting?.enabled ?? true,
+            onChanged: widget.enabled && setting != null && !_saving
+                ? _save
+                : null,
           ),
         ),
-        if (window?.enabled == true) ...[
-          Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: widget.padding.horizontal / 2,
-            ),
-            child: const Divider(height: 1),
+        Padding(
+          padding: EdgeInsets.fromLTRB(
+            widget.padding.left,
+            0,
+            widget.padding.right,
+            16,
           ),
-          SettingsRow(
-            contentPadding: widget.padding,
-            minHeight: 40,
-            title: '生效时间',
-            subtitle: window!.startMinute > window.endMinute
-                ? '结束时间为次日'
-                : '每天生效',
-            stackSubtitleOnNarrow: true,
-            trailing: SizedBox(
-              width: 148,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(0, 36),
-                      ),
-                      onPressed: enabled ? () => _pick(window, true) : null,
-                      child: Text(
-                        DetectionWindow.formatMinute(window.startMinute),
-                      ),
-                    ),
-                  ),
-                  const Text('–'),
-                  Expanded(
-                    child: TextButton(
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: const Size(0, 36),
-                      ),
-                      onPressed: enabled ? () => _pick(window, false) : null,
-                      child: Text(
-                        DetectionWindow.formatMinute(window.endMinute),
-                      ),
-                    ),
-                  ),
-                ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '今日检测时间',
+                style: AppTypography.control.copyWith(color: p.ink),
               ),
-            ),
+              const SizedBox(height: 6),
+              Text(
+                setting?.enabled == false
+                    ? '全天检测'
+                    : planned.valueOrNull != null
+                    ? todayDetectionRanges(planned.valueOrNull!, now)
+                    : planned.hasError
+                    ? '课表暂不可用'
+                    : '—',
+                style: AppTypography.caption.copyWith(color: p.muted),
+              ),
+            ],
           ),
-        ],
+        ),
       ],
     );
   }

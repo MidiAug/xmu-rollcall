@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/location/place_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -14,8 +15,11 @@ Future<SavedLocation?> showLocationPicker(
   String? selectedId,
   LatLng? initial,
   List<SavedLocation>? locations,
+  int? userId,
+  bool useRootNavigator = true,
 }) => showDialog<SavedLocation>(
   context: context,
+  useRootNavigator: useRootNavigator,
   barrierColor: Colors.black.withValues(alpha: .40),
   builder: (context) => Dialog(
     backgroundColor: AppPalette.of(context).surface,
@@ -35,6 +39,7 @@ Future<SavedLocation?> showLocationPicker(
         selectedId: selectedId,
         initial: initial,
         locations: locations,
+        userId: userId,
       ),
     ),
   ),
@@ -45,6 +50,7 @@ class LocationPickerContent extends ConsumerStatefulWidget {
     super.key,
     required this.title,
     this.selectedId,
+    this.userId,
     this.initial,
     this.locations,
     this.onSelected,
@@ -53,6 +59,7 @@ class LocationPickerContent extends ConsumerStatefulWidget {
   });
   final String title;
   final String? selectedId;
+  final int? userId;
   final LatLng? initial;
   final List<SavedLocation>? locations;
   final ValueChanged<SavedLocation>? onSelected;
@@ -110,7 +117,7 @@ class _LocationPickerState extends ConsumerState<LocationPickerContent> {
     });
     try {
       final place = await ref
-          .read(savedLocationsProvider.notifier)
+          .read(ref.read(savedLocationsForUserProvider(widget.userId)).notifier)
           .add(
             note: result.saveNote!,
             latitude: result.latitude,
@@ -128,8 +135,14 @@ class _LocationPickerState extends ConsumerState<LocationPickerContent> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final text = Theme.of(context).textTheme;
-    final saved = ref.watch(savedLocationsProvider);
-    final locations = widget.locations ?? saved;
+    final saved = ref.watch(
+      widget.userId == null
+          ? knownLocationsProvider
+          : knownLocationsForUserProvider(widget.userId),
+    );
+    final locations = (widget.locations ?? saved)
+        .where((p) => !p.id.startsWith('room:'))
+        .toList();
     final initial = _draft == null
         ? widget.initial
         : LatLng(_draft!.latitude, _draft!.longitude);

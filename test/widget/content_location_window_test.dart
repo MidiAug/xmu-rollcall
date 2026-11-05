@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_store.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,6 +39,7 @@ class _Repo extends Fake implements RollcallRepository {
   Future<List<RollcallItem>> fetchActiveEnriched({
     CancelToken? cancelToken,
     Map<int, String> cachedNumberCodes = const {},
+    bool manual = false,
   }) async {
     calls++;
     return [
@@ -153,81 +156,70 @@ void main() {
     },
   );
 
-  testWidgets('entry and manual refresh obey window and keep the last list', (
+  testWidgets(
+    'automatic entry obeys its policy while manual refresh remains available',
+    (tester) async {
+      final repo = _Repo();
+      var now = DateTime(2026, 10, 24, 7, 29);
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          rollcallRepositoryForProvider.overrideWith((ref, id) => repo),
+          activeRollcallClockProvider.overrideWithValue(() => now),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(detectionWindowProvider.notifier).ready;
+      await container
+          .read(detectionWindowProvider.notifier)
+          .save(const DetectionWindow(enabled: true));
+      final provider = activeRollcallsProvider(null);
+      container.read(provider);
+      await tester.pumpAndSettle();
+      expect(container.read(provider).requireValue, isEmpty);
+      await container.read(provider.notifier).refresh();
+      expect(repo.calls, 1);
+      now = DateTime(2026, 10, 24, 7, 30);
+      await container.read(provider.notifier).refresh();
+      expect(repo.calls, 2);
+      expect(container.read(provider).requireValue.single.rollcallId, 1);
+      now = DateTime(2026, 10, 24, 22);
+      await container.read(provider.notifier).refresh();
+      expect(repo.calls, 3);
+      expect(container.read(provider).requireValue.single.rollcallId, 1);
+      final restored = await DetectionWindowStore.read(reload: true);
+      expect(restored.enabled, isTrue);
+      expect(restored.label, '课前30分钟至课后30分钟');
+    },
+  );
+
+  testWidgets('schedule toggle persists without obsolete clock-hour fields', (
     tester,
   ) async {
-    final repo = _Repo();
-    var now = DateTime(2026, 10, 24, 7, 29);
-    final container = ProviderContainer(
-      overrides: [
-        authControllerProvider.overrideWith((ref) => _Auth()),
-        rollcallRepositoryForProvider.overrideWith((ref, id) => repo),
-        activeRollcallClockProvider.overrideWithValue(() => now),
-      ],
-    );
+    final container = ProviderContainer();
     addTearDown(container.dispose);
-    await container.read(detectionWindowProvider.notifier).ready;
-    await container
-        .read(detectionWindowProvider.notifier)
-        .save(const DetectionWindow(enabled: true));
-    final provider = activeRollcallsProvider(null);
-    container.read(provider);
-    await tester.pumpAndSettle();
-    expect(container.read(provider).requireValue, isEmpty);
-    await container.read(provider.notifier).refresh();
-    expect(repo.calls, 0);
-    now = DateTime(2026, 10, 24, 7, 30);
-    await container.read(provider.notifier).refresh();
-    expect(repo.calls, 1);
-    expect(container.read(provider).requireValue.single.rollcallId, 1);
-    now = DateTime(2026, 10, 24, 22);
-    await container.read(provider.notifier).refresh();
-    expect(repo.calls, 1);
-    expect(container.read(provider).requireValue.single.rollcallId, 1);
-    final restored = await DetectionWindow.read(reload: true);
-    expect(restored.enabled, isTrue);
-    expect(restored.label, '07:30–22:00');
-  });
-
-  testWidgets(
-    'window switch reveals times and cancelled editing preserves settings',
-    (tester) async {
-      final container = ProviderContainer();
-      addTearDown(container.dispose);
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            theme: AppTheme.light(),
-            home: const Scaffold(
-              body: DetectionWindowSetting(
-                enabled: true,
-                padding: EdgeInsets.all(16),
-              ),
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: const Scaffold(
+            body: DetectionWindowSetting(
+              enabled: true,
+              padding: EdgeInsets.all(16),
             ),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('detection-window-switch')));
-      await tester.pumpAndSettle();
-      expect(find.text('07:30'), findsOneWidget);
-      expect(find.text('22:00'), findsOneWidget);
-      await tester.tap(find.text('07:30'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('取消'));
-      await tester.pumpAndSettle();
-      expect(container.read(detectionWindowProvider)!.startMinute, 450);
-      await tester.tap(find.text('22:00'));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byKey(const ValueKey('window-time-2')), '21');
-      await tester.enterText(find.byType(TextField).last, '30');
-      await tester.tap(find.text('保存'));
-      await tester.pumpAndSettle();
-      expect(container.read(detectionWindowProvider)!.endMinute, 1290);
-      expect((await DetectionWindow.read(reload: true)).endMinute, 1290);
-    },
-  );
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('今日检测时间'), findsOneWidget);
+    expect(find.text('07:30'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('detection-window-switch')));
+    await tester.pumpAndSettle();
+    expect((await DetectionWindowStore.read(reload: true)).enabled, false);
+    await tester.pumpWidget(const SizedBox());
+  });
 
   testWidgets(
     'course location picks saved place, then adds map place with note, and persists exact course',

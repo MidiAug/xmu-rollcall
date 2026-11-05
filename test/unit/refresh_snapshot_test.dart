@@ -45,6 +45,7 @@ class Rollcalls extends Fake implements RollcallRepository {
   Future<List<RollcallItem>> fetchActiveEnriched({
     CancelToken? cancelToken,
     Map<int, String> cachedNumberCodes = const {},
+    bool manual = false,
   }) async {
     if (fail) throw StateError('offline');
     if (initial != null) {
@@ -87,7 +88,12 @@ void main() {
   late Rollcalls rollcalls;
   late Homework homework;
   setUp(() {
-    SharedPreferences.setMockInitialValues({});
+    SharedPreferences.setMockInitialValues({
+      'schedule_detection_only_v2': false,
+      'schedule_detection_only_v2_1': false,
+      'schedule_detection_only_v2_2': false,
+      'schedule_detection_only_v2_3': false,
+    });
     rollcalls = Rollcalls();
     homework = Homework();
     container = ProviderContainer(

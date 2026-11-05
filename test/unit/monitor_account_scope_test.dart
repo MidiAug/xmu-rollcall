@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
+import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
@@ -24,6 +26,7 @@ import 'package:xmu_rollcall/platform/android_monitor_store.dart';
 class _AuthRepo extends Fake implements AuthRepository {}
 
 class _Auth extends AuthController {
+  void logout() => state = const AuthState(status: AuthStatus.signedOut);
   _Auth() : super(_AuthRepo()) {
     state = const AuthState(
       status: AuthStatus.signedIn,
@@ -33,6 +36,11 @@ class _Auth extends AuthController {
 }
 
 class _Service extends Fake implements AssistService {
+  @override
+  Future<AssistIdentity> ensureDeviceId(AssistIdentity identity) async =>
+      identity;
+  @override
+  Future<List<AssistIdentity>> listIdentities() async => [];
   final sessions = <int>[];
   @override
   Future<void> ensureSession(AssistIdentity identity) async {
@@ -43,6 +51,8 @@ class _Service extends Fake implements AssistService {
 class _Repo extends Fake implements RollcallRepository {
   final entered = Completer<void>();
   Completer<String?>? code;
+  final answered = Completer<void>();
+  final codeEntered = Completer<void>();
   int puts = 0;
   bool expired = false;
   String courseId = 'a';
@@ -97,6 +107,7 @@ class _Repo extends Fake implements RollcallRepository {
   Future<List<RollcallItem>> fetchActive({
     CancelToken? cancelToken,
     String? opId,
+    bool manual = false,
   }) async {
     if (!entered.isCompleted) entered.complete();
     if (expired) {
@@ -109,6 +120,8 @@ class _Repo extends Fake implements RollcallRepository {
     return [
       RollcallItem.fromJson({
         'rollcall_id': 9,
+        'course_id': 'watch',
+        'course_title': '值守测试课',
         'is_number': true,
         'status': 'absent',
       }),
@@ -120,7 +133,11 @@ class _Repo extends Fake implements RollcallRepository {
     int id, {
     CancelToken? cancelToken,
     String? opId,
-  }) async => code?.future ?? '1234';
+  }) async {
+    if (!codeEntered.isCompleted) codeEntered.complete();
+    return code?.future ?? '1234';
+  }
+
   @override
   Future<AnswerResult> answerNumber({
     required int rollcallId,
@@ -128,6 +145,7 @@ class _Repo extends Fake implements RollcallRepository {
     String? opId,
   }) async {
     puts++;
+    if (!answered.isCompleted) answered.complete();
     return const AnswerResult(ok: true);
   }
 }
@@ -139,6 +157,10 @@ void main() {
   late _Service service;
   setUp(() {
     SharedPreferences.setMockInitialValues({
+      'schedule_detection_only_v2': false,
+      'schedule_detection_only_v2_1': false,
+      'schedule_detection_only_v2_2': false,
+      'schedule_detection_only_v2_3': false,
       'monitor_auto_answer': true,
       'monitor_answer_wait_mode': 0,
     });
@@ -148,6 +170,9 @@ void main() {
     container = ProviderContainer(
       overrides: [
         authControllerProvider.overrideWith((ref) => _Auth()),
+        courseHistoryClockProvider.overrideWithValue(
+          () => DateTime(2026, 10, 26, 8, 30),
+        ),
         assistServiceProvider.overrideWith((ref) async => service),
         assistControllerProvider.overrideWith(
           (ref) => AssistController(
@@ -256,9 +281,168 @@ void main() {
       expect(a.puts, 0);
       expect(b.puts, 0);
       expect(service.sessions, [2]);
-      expect(container.read(monitorControllerProvider).running, isTrue);
+      expect(container.read(monitorControllerProvider).running, isFalse);
+      expect(container.read(monitorControllerProvider).discovering, isFalse);
     },
   );
+
+  Future<void> seedWatch() async {
+    final now = DateTime.now();
+    final monday = DateTime(now.year, now.month, now.day - now.weekday + 1);
+    final minute = now.hour * 60 + now.minute;
+    for (final uid in [1, 2]) {
+      await SemesterPreferences.save(uid, currentSemester(now), monday);
+      await CourseCatalogStore.write(
+        uid,
+        CourseCatalogSnapshot(
+          fetchedAt: now,
+          courses: const [CatalogCourse(id: 'watch', title: '值守测试课')],
+        ),
+      );
+      await AcademicScheduleStore.write(
+        uid,
+        AcademicSchedule(
+          term: currentSemester(now),
+          monday: monday,
+          fetchedAt: now,
+          rows: [
+            AcademicCourseRow(
+              courseId: 'watch',
+              courseName: '值守测试课',
+              weekday: now.weekday,
+              firstPeriod: 1,
+              lastPeriod: 1,
+              startMinute: minute < 1436 ? minute + 2 : minute - 4,
+              endMinute: minute < 1436 ? minute + 3 : minute - 1,
+              weeks: const {1},
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  test(
+    'watch continues a pending answer in its account after switching',
+    () async {
+      await seedWatch();
+      a.code = Completer<String?>();
+      final ctrl = container.read(monitorControllerProvider.notifier);
+      await loaded();
+      ctrl.setCourseWatch(true);
+      ctrl.setAnswerWaitMode(AnswerWaitMode.none);
+      expect(await ctrl.startAsync(), StartMonitorResult.started);
+      await a.codeEntered.future.timeout(const Duration(seconds: 3));
+      select(2);
+      await loaded();
+      expect(container.read(monitorControllerProvider).running, isFalse);
+      expect(container.read(accountMonitorProvider(null)).running, isTrue);
+      a.code!.complete('1234');
+      await a.answered.future.timeout(const Duration(seconds: 3));
+      for (var i = 0; i < 20; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(a.puts, 1);
+      expect(b.puts, 0);
+      expect(
+        container.read(activeRollcallsProvider(null)).valueOrNull,
+        isNotEmpty,
+      );
+      expect(
+        container.read(container.read(localHistoryForProvider(null))).single.ok,
+        isTrue,
+      );
+      expect(
+        container.read(container.read(localHistoryForProvider(2))),
+        isEmpty,
+      );
+      expect(
+        (await SharedPreferences.getInstance()).getStringList(
+          'course_watch_success_v1_1_1',
+        ),
+        hasLength(1),
+      );
+      expect(container.read(monitorControllerProvider).running, isFalse);
+      select(null);
+      expect(container.read(monitorControllerProvider).running, isTrue);
+      ctrl.stop();
+    },
+  );
+
+  test(
+    'two account watches pause independently and global stop includes hidden watch',
+    () async {
+      final ctrl = container.read(monitorControllerProvider.notifier);
+      await loaded();
+      ctrl.setCourseWatch(true);
+      expect(await ctrl.startAsync(), StartMonitorResult.started);
+      select(2);
+      await loaded();
+      ctrl.setCourseWatch(true);
+      expect(await ctrl.startAsync(), StartMonitorResult.started);
+      expect(
+        container
+            .read(accountMonitorStatesProvider)
+            .values
+            .where((s) => s.running),
+        hasLength(2),
+      );
+      ctrl.stop();
+      expect(container.read(accountMonitorProvider(null)).running, isTrue);
+      expect(container.read(monitorControllerProvider).running, isFalse);
+      expect(container.read(globalMonitorStateProvider).running, isTrue);
+      await ctrl.stopAllAsync(reason: 'sign_out');
+      expect(
+        container
+            .read(accountMonitorStatesProvider)
+            .values
+            .any((s) => s.running),
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'owner logout cancels a hidden account pending watch submission',
+    () async {
+      await seedWatch();
+      final ctrl = container.read(monitorControllerProvider.notifier);
+      select(2);
+      await loaded();
+      ctrl.setCourseWatch(true);
+      ctrl.setAutomaticAnswer(true);
+      ctrl.setAnswerWaitMode(AnswerWaitMode.none);
+      b.code = Completer<String?>();
+      expect(await ctrl.startAsync(), StartMonitorResult.started);
+      await b.codeEntered.future.timeout(const Duration(seconds: 3));
+      select(null);
+      (container.read(authControllerProvider.notifier) as _Auth).logout();
+      b.code!.complete('1234');
+      for (var i = 0; i < 20; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(b.puts, 0);
+      expect(container.read(accountMonitorProvider(2)).running, isFalse);
+      expect(container.read(accountMonitorProvider(null)).running, isFalse);
+    },
+  );
+
+  test('removing a hidden assist account stops only its watch', () async {
+    final ctrl = container.read(monitorControllerProvider.notifier);
+    await loaded();
+    ctrl.setCourseWatch(true);
+    await ctrl.startAsync();
+    select(2);
+    await loaded();
+    ctrl.setCourseWatch(true);
+    await ctrl.startAsync();
+    select(null);
+    await container.read(assistControllerProvider.notifier).refresh();
+    expect(container.read(accountMonitorProvider(2)).running, isFalse);
+    expect(container.read(monitorControllerProvider).running, isTrue);
+    expect(container.read(authControllerProvider).isSignedIn, isTrue);
+    ctrl.stop();
+  });
 
   test('expired imported session stops only that task', () async {
     final ctrl = container.read(monitorControllerProvider.notifier);

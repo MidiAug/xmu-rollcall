@@ -1,6 +1,8 @@
 import 'dart:math' as math;
 
 const savedRadarLocationsKey = 'saved_radar_locations';
+String savedLocationsKey(int owner, int uid) =>
+    '${savedRadarLocationsKey}_${owner}_$uid';
 
 /// Validate before persisting or submitting a coordinate selection.
 void validateRadarLocation({
@@ -410,3 +412,11 @@ double metersBetween(double lat1, double lon1, double lat2, double lon2) {
           math.pow(math.sin(dLon / 2), 2);
   return 2 * earth * math.asin(math.sqrt(a.toDouble()));
 }
+
+/// Source references are separate from user-confirmed room coordinates.
+bool isReferencePlace(SavedLocation place) =>
+    place.id.startsWith('xmu:') || place.id.startsWith('room:');
+
+/// Curated presets are immutable but are not broad building-reference points.
+bool isTeachingPreset(SavedLocation place) =>
+    place.id.startsWith('xmu:teaching:');

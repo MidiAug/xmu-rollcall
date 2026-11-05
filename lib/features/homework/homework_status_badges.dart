@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/app/status_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -59,16 +60,13 @@ class HomeworkStatusBadges extends ConsumerWidget {
         style: TextStyle(fontSize: 11, color: p.muted),
       );
     }
-    Widget chip(String label, Color color) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .09),
-        borderRadius: BorderRadius.circular(AppRadii.control),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 11, height: 1.3, color: color),
-      ),
+    Widget chip(String label, Color color) => AppStatusBadge(
+      label,
+      tone: color == p.success
+          ? AppStatusTone.success
+          : color == p.danger
+          ? AppStatusTone.danger
+          : AppStatusTone.neutral,
     );
     return Wrap(
       spacing: 6,
@@ -77,7 +75,7 @@ class HomeworkStatusBadges extends ConsumerWidget {
         chip(
           state.submissionLabel,
           state.submission == HomeworkSubmission.submitted
-              ? p.primary
+              ? p.success
               : item.isOverdue
               ? p.danger
               : p.muted,
@@ -104,7 +102,7 @@ class _HomeworkMetadataRow extends StatelessWidget {
     final p = AppPalette.of(context);
     final due = item.dueAt?.toLocal();
     final timeStyle = TextStyle(
-      fontSize: 11,
+      fontSize: AppDensity.isTouch(context) ? 11 : 12,
       height: 1.3,
       color: p.muted,
       fontFeatures: const [FontFeature.tabularFigures()],
@@ -115,18 +113,13 @@ class _HomeworkMetadataRow extends StatelessWidget {
               '${due.day.toString().padLeft(2, '0')} '
               '${due.hour.toString().padLeft(2, '0')}:'
               '${due.minute.toString().padLeft(2, '0')}';
-    Widget badge(String label, Color color) => Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: .09),
-        borderRadius: BorderRadius.circular(AppRadii.control),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        textAlign: TextAlign.center,
-        style: TextStyle(fontSize: 11, height: 1.3, color: color),
-      ),
+    Widget badge(String label, Color color) => AppStatusBadge(
+      label,
+      tone: color == p.success
+          ? AppStatusTone.success
+          : color == p.danger
+          ? AppStatusTone.danger
+          : AppStatusTone.neutral,
     );
     final submission = switch (state?.submission) {
       HomeworkSubmission.draft => '草稿',
@@ -135,7 +128,7 @@ class _HomeworkMetadataRow extends StatelessWidget {
     };
     final grading = state?.gradingLabel;
     final submissionColor = state?.submission == HomeworkSubmission.submitted
-        ? p.primary
+        ? p.success
         : item.isOverdue &&
               (state?.submission == HomeworkSubmission.unsubmitted ||
                   state?.submission == HomeworkSubmission.draft)
@@ -156,7 +149,15 @@ class _HomeworkMetadataRow extends StatelessWidget {
     }
 
     final timeWidth = textWidth('00/00 00:00', timeStyle);
-    final statusWidth = textWidth('未提交', const TextStyle(fontSize: 11)) + 14;
+    final statusWidth =
+        textWidth(
+          '未提交',
+          AppTypography.caption.copyWith(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+          ),
+        ) +
+        16;
     return Row(
       children: [
         SizedBox(

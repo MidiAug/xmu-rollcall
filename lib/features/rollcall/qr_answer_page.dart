@@ -1,10 +1,10 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_store.dart';
 import 'dart:convert';
 import 'dart:async';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:xmu_rollcall/features/monitor/detection_window.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -155,7 +155,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
 
     setState(() {
       _loadingEligible = true;
-      _status = '正在核对同课未签对象…';
+      _status = '正在查看可协助的同学…';
     });
 
     try {
@@ -196,7 +196,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
           final repo = RollcallRepository(
             http: client,
             identity: identity,
-            loadDetectionWindow: DetectionWindow.read,
+            loadDetectionWindow: DetectionWindowStore.read,
           );
           final active = await repo.fetchActive();
           _checkSession();
@@ -275,9 +275,9 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
         }
         final unsigned = rows.where((r) => r.canSelect).length;
         _status = rows.isEmpty
-            ? '暂无其他同课签到对象'
-            : '同课 ${rows.length} 人，其中未签 $unsigned 人可勾选'
-                  '${saved != null ? '；已恢复本课上次勾选' : '；默认仅当前账号'}';
+            ? '没有其他同学需要协助'
+            : '可协助 $unsigned 位同学'
+                  '${saved != null ? '，已恢复上次选择' : '，默认仅自己'}';
       });
     } catch (e) {
       AppLog.event(
@@ -291,7 +291,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
       if (!mounted) return;
       setState(() {
         _rows = const [];
-        _status = '核对其他账号失败：$e';
+        _status = '暂时无法查看其他同学，请重试';
       });
     } finally {
       if (mounted) setState(() => _loadingEligible = false);
@@ -491,7 +491,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
       await client.init();
       _checkSession();
       final repo = RollcallRepository(
-        loadDetectionWindow: DetectionWindow.read,
+        loadDetectionWindow: DetectionWindowStore.read,
         http: client,
         identity: ref.read(deviceIdentityProvider),
         deviceIdOverride: deviceId,
@@ -505,7 +505,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
           .where((item) => item.rollcallId == widget.item.rollcallId)
           .firstOrNull;
       if (current == null || current.isExpired) {
-        return const AnswerResult(ok: false, message: '签到已结束或当前身份没有此签到');
+        return const AnswerResult(ok: false, message: '签到已结束，或该账号无法参与');
       }
       if (current.isAnswered) {
         ok = true;
@@ -570,7 +570,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
     }
     final targets = _buildTargets();
     if (targets.isEmpty) {
-      AppToast.show(context, '请至少勾选一个提交对象');
+      AppToast.show(context, '请选择要签到的账号');
       return;
     }
     setState(() {
@@ -745,12 +745,12 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
             if (!_singleAssist) ...[
               SettingsSection(
                 padTop: false,
-                header: '提交对象',
+                header: '为谁签到',
                 children: [
                   SettingsRow(
                     leading: const Icon(Icons.person_outline),
                     title: primary?.displayName ?? '我',
-                    subtitle: _primaryDone ? '已签到或已结束' : '当前身份',
+                    subtitle: _primaryDone ? '已签到或已结束' : '当前账号',
                     onTap: _submitting || _loadingEligible || _primaryDone
                         ? null
                         : () => setState(() => _includeOwner = !_includeOwner),

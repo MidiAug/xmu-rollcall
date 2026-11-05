@@ -1,24 +1,34 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
-import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
     http: ref.watch(tronHttpClientProvider),
     store: ref.watch(secureStoreProvider),
+    identity: ref.watch(deviceIdentityProvider),
   );
 });
 
 class AuthController extends StateNotifier<AuthState> {
-  AuthController(this._repo, {this.beforeSignOut})
-    : super(const AuthState(status: AuthStatus.unknown));
+  AuthController(
+    this._repo, {
+    this.beforeSignOut,
+    this.afterSignIn,
+    this.afterRestore,
+  }) : super(const AuthState(status: AuthStatus.unknown));
 
   final AuthRepository _repo;
   final Future<void> Function()? beforeSignOut;
+  final Future<void> Function(UserProfile)? afterRestore;
+  final Future<void> Function(UserProfile, String, String)? afterSignIn;
   int _generation = 0;
+
+  bool isSignedInAs(int userId) =>
+      mounted && state.isSignedIn && state.profile?.id == userId;
 
   Future<void> bootstrap() async {
     final generation = ++_generation;
@@ -65,6 +75,10 @@ class AuthController extends StateNotifier<AuthState> {
           },
         );
         state = AuthState(status: AuthStatus.signedIn, profile: profile);
+        final sync = afterRestore;
+        if (sync != null) {
+          unawaited(sync(profile).catchError((Object _) {}));
+        }
       } else {
         AppLog.event(
           'auth.restore.fail',
@@ -117,6 +131,10 @@ class AuthController extends StateNotifier<AuthState> {
       );
       if (!mounted || generation != _generation) return;
       state = AuthState(status: AuthStatus.signedIn, profile: profile);
+      final sync = afterSignIn;
+      if (sync != null) {
+        unawaited(sync(profile, username, password).catchError((Object _) {}));
+      }
     } catch (e) {
       if (!mounted || generation != _generation) rethrow;
       state = AuthState(
@@ -137,12 +155,5 @@ class AuthController extends StateNotifier<AuthState> {
 }
 
 final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
-  (ref) {
-    return AuthController(
-      ref.watch(authRepositoryProvider),
-      beforeSignOut: () => ref
-          .read(monitorControllerProvider.notifier)
-          .stopAsync(reason: 'sign_out'),
-    );
-  },
+  (ref) => AuthController(ref.watch(authRepositoryProvider)),
 );

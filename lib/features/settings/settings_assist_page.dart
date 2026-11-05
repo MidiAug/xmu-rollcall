@@ -6,6 +6,7 @@ import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/assist/assist_dialogs.dart';
+import 'package:xmu_rollcall/features/assist/assist_identities_page.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/core/session/session_credential.dart';
 
@@ -35,64 +36,64 @@ class SettingsAssistPage extends ConsumerWidget {
               header: '协助',
               children: [
                 SettingsRow(
-                  leading: const Icon(Icons.upload_outlined),
+                  leading: const Icon(AppIcons.upload),
                   title: '导出协助码',
                   subtitle: auth.isSignedIn ? '生成后复制给同学' : '请先登录',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: !auth.isSignedIn || assist.busy
                       ? null
                       : () => showAssistExportDialog(
-                            context,
-                            export: (kind) => ref
-                                .read(assistControllerProvider.notifier)
-                                .exportOwner(kind: kind),
-                          ),
+                          context,
+                          export: (kind) => ref
+                              .read(assistControllerProvider.notifier)
+                              .exportOwner(kind: kind),
+                        ),
                 ),
                 SettingsRow(
-                  leading: const Icon(Icons.download_outlined),
+                  leading: const Icon(AppIcons.download),
                   title: '导入协助身份',
                   subtitle: '粘贴协助码或输入学号密码',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
+                  trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: assist.busy
                       ? null
                       : () => showAssistImportDialog(
-                            context,
-                            onImportToken: (token) async {
-                              final id = await ref
-                                  .read(assistControllerProvider.notifier)
-                                  .importToken(token);
-                              if (context.mounted) {
-                                AppToast.show(
-                                  context,
-                                  '已导入 ${id.displayName}（${id.kind.labelZh}，同课 ${id.sharedCourses.length} 门）',
+                          context,
+                          onImportToken: (token) async {
+                            final id = await ref
+                                .read(assistControllerProvider.notifier)
+                                .importToken(token);
+                            if (context.mounted) {
+                              AppToast.show(
+                                context,
+                                '已导入 ${id.displayName}（${id.kind.labelZh}，同课 ${id.sharedCourses.length} 门）',
+                              );
+                            }
+                          },
+                          onImportPlain: (user, pass) async {
+                            final id = await ref
+                                .read(assistControllerProvider.notifier)
+                                .importPlainAccount(
+                                  username: user,
+                                  password: pass,
                                 );
-                              }
-                            },
-                            onImportPlain: (user, pass) async {
-                              final id = await ref
-                                  .read(assistControllerProvider.notifier)
-                                  .importPlainAccount(
-                                    username: user,
-                                    password: pass,
-                                  );
-                              if (context.mounted) {
-                                AppToast.show(
-                                  context,
-                                  '已导入 ${id.displayName}（${id.kind.labelZh}，同课 ${id.sharedCourses.length} 门）',
-                                );
-                              }
-                            },
-                          ),
+                            if (context.mounted) {
+                              AppToast.show(
+                                context,
+                                '已导入 ${id.displayName}（${id.kind.labelZh}，同课 ${id.sharedCourses.length} 门）',
+                              );
+                            }
+                          },
+                        ),
                 ),
                 SettingsRow(
-                  leading: const Icon(Icons.group_outlined),
+                  leading: const Icon(AppIcons.people),
                   title: '已导入名单',
-                  subtitle: assist.ready ? '${assist.identities.length} 人' : '…',
-                  trailing: Icon(Icons.chevron_right, color: p.muted, size: 18),
-                  onTap: () => AppPageRoutes.push(
-                    context,
-                    const AssistIdentitiesPage(),
-                  ),
+                  subtitle: assist.ready
+                      ? '${assist.identities.length} 人'
+                      : '…',
+                  trailing: Icon(AppIcons.right, color: p.muted, size: 18),
+                  onTap: () =>
+                      AppPageRoutes.push(context, const AssistIdentitiesPage()),
                 ),
               ],
             ),

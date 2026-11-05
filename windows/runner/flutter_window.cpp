@@ -21,6 +21,11 @@ WNDPROC g_flutter_view_proc = nullptr;
 
 LRESULT CALLBACK FlutterViewProcGuard(HWND hwnd, UINT message, WPARAM wparam,
                                       LPARAM lparam) {
+  // The engine paints the full surface. A separate GDI erase between resize
+  // and the next Flutter frame exposes a blank frame during live resizing.
+  if (message == WM_ERASEBKGND) {
+    return 1;
+  }
   if (message == kWmGetObject) {
     return 0;
   }

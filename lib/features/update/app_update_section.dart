@@ -264,7 +264,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
     final ms = _downloadClock?.elapsedMilliseconds ?? 0;
     if (ms < 400 || _received == 0) return bytes;
     final rate = _received * 1000 / ms;
-    return '$bytes · ${rate >= 1024 * 1024 ? '${(rate / 1024 / 1024).toStringAsFixed(1)} MB/s' : '${(rate / 1024).toStringAsFixed(0)} KB/s'}';
+    return '$bytes  ${rate >= 1024 * 1024 ? '${(rate / 1024 / 1024).toStringAsFixed(1)} MB/s' : '${(rate / 1024).toStringAsFixed(0)} KB/s'}';
   }
 
   @override
@@ -281,7 +281,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
         _message.isNotEmpty
             ? _message
             : update != null
-            ? '有更新 · v${update.version.name}'
+            ? '有更新  v${update.version.name}'
             : switch (_controller.status) {
                 UpdateCheckStatus.idle ||
                 UpdateCheckStatus.checking => '正在检查新版本',
@@ -330,7 +330,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
         subtitle: _phase == _UpdatePhase.downloading
             ? _downloadDetails
             : _controller.status == UpdateCheckStatus.failed
-            ? '$status · ${_controller.error ?? '请检查网络后重试'}'
+            ? '$status  ${_controller.error ?? '请检查网络后重试'}'
             : status,
         onTap: update != null ? _showReleaseNotes : (_busy ? null : _check),
         trailing: SizedBox.square(

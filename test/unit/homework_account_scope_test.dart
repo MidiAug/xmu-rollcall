@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
+import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -37,6 +39,7 @@ class _Repo extends Fake implements HomeworkRepository {
   final entered = Completer<void>();
   Completer<HomeworkTodosFetch>? pending;
   int calls = 0;
+  int courseCalls = 0;
   HomeworkItem get item => HomeworkItem(id: 9, title: name, courseId: 3);
   @override
   Future<HomeworkTodosFetch> fetchTodosDetailed() async {
@@ -46,7 +49,11 @@ class _Repo extends Fake implements HomeworkRepository {
   }
 
   @override
-  Future<List<HomeworkItem>> fetchCourseHomework(int id) async => [item];
+  Future<List<HomeworkItem>> fetchCourseHomework(int id) async {
+    courseCalls++;
+    return [item];
+  }
+
   @override
   Future<HomeworkItem> fetchDetail({
     required int activityId,
@@ -92,6 +99,73 @@ void main() {
   tearDown(() => container.dispose());
   void select(int? id) =>
       container.read(selectedRollcallAccountProvider.notifier).state = id;
+
+  test(
+    'course refresh does not use platform lesson times as an academic fallback',
+    () async {
+      final now = DateTime.now();
+      await CourseCatalogStore.write(
+        1,
+        CourseCatalogSnapshot(
+          fetchedAt: now,
+          rolesResolved: true,
+          courses: [
+            CatalogCourse(
+              id: '3',
+              title: '测试课',
+              timetables: {
+                now.weekday: [
+                  TimetableSlot(
+                    sequence: 1,
+                    start: now.subtract(const Duration(hours: 1)),
+                    end: now.subtract(const Duration(minutes: 30)),
+                  ),
+                ],
+              },
+            ),
+          ],
+        ),
+      );
+      await JsonDiskCache.writeList('course_homework_1_3', [
+        a.item.toJson(),
+      ], fetchedAt: now.subtract(const Duration(hours: 2)));
+      await container.read(courseHomeworkProvider(3).future);
+      await container.read(courseHomeworkProvider(3).notifier).ensureFresh();
+      expect(a.courseCalls, 0);
+    },
+  );
+
+  test(
+    'todos reuse recent disk and discover new items after five minutes',
+    () async {
+      Future<void> seed(int minutes) => JsonDiskCache.writeList(
+        'homework_todos_1',
+        [const HomeworkItem(id: 7, title: '缓存任务', courseId: 3).toJson()],
+        fetchedAt: DateTime.now().subtract(Duration(minutes: minutes)),
+      );
+      await seed(2);
+      await container.read(homeworkTodosProvider.future);
+      await container.read(homeworkTodosProvider.notifier).ensureFresh();
+      expect(a.calls, 0);
+      await seed(6);
+      container.invalidate(homeworkTodosProvider);
+      expect(
+        (await container.read(homeworkTodosProvider.future)).single.title,
+        '缓存任务',
+      );
+      await Future.wait([
+        container.read(homeworkTodosProvider.notifier).ensureFresh(),
+        container.read(homeworkTodosProvider.notifier).ensureFresh(),
+      ]);
+      expect(a.calls, 1);
+      expect(
+        container.read(homeworkTodosProvider).requireValue.single.title,
+        'A',
+      );
+      await container.read(homeworkTodosProvider.notifier).ensureFresh();
+      expect(a.calls, 1);
+    },
+  );
 
   test(
     'todos, course homework and details follow selection and isolate caches',

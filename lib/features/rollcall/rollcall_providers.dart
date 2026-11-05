@@ -1,3 +1,7 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
+import 'package:xmu_rollcall/features/schedule/schedule_detection.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:dio/dio.dart';
@@ -114,11 +118,19 @@ class ActiveRollcallsNotifier
       lastUpdatedAt = disk?.fetchedAt;
       return _retainNumberCodes(cached.isNotEmpty ? cached : previous);
     }
+    final scheduleWindow = await readScheduleDetectionWindow(
+      arg ?? _boundOwnerUserId,
+    );
+    if (revision != _revision) return state.valueOrNull ?? const [];
+    if (scheduleWindow.intervals != null) {
+      lastUpdatedAt = disk?.fetchedAt;
+      return _retainNumberCodes(cached.isNotEmpty ? cached : previous);
+    }
     _lastAppearCheckAt = now;
     if (cached.isNotEmpty) {
       lastUpdatedAt = disk!.fetchedAt;
       Future<void>(() async {
-        if (revision == _revision) await refresh();
+        if (revision == _revision) await refresh(manual: false);
       });
       return _retainNumberCodes(cached);
     }
@@ -153,7 +165,7 @@ class ActiveRollcallsNotifier
     if (key == null || uid == null) return;
     _activeWrites = _activeWrites
         .then((_) async {
-          final catalog = await CourseCatalogStore.read(uid);
+          final catalog = await readAcademicCatalog(uid);
           if (revision != _revision) return;
           await JsonDiskCache.writeList(
             key,
@@ -179,7 +191,7 @@ class ActiveRollcallsNotifier
     final revision = _revision;
     final previous = state.valueOrNull;
     if (previous != null && lastUpdatedAt != null) {
-      final catalog = await CourseCatalogStore.read(arg ?? _boundOwnerUserId!);
+      final catalog = await readAcademicCatalog(arg ?? _boundOwnerUserId!);
       if (revision != _revision) return;
       state = AsyncData(
         restoreActiveRollcalls(
@@ -191,7 +203,9 @@ class ActiveRollcallsNotifier
         ),
       );
     }
-    await refresh();
+    final window = await readScheduleDetectionWindow(arg ?? _boundOwnerUserId);
+    if (revision != _revision || window.intervals != null) return;
+    await refresh(manual: false);
   }
 
   Future<void> _restoreNumberCodes(String key) async {
@@ -337,22 +351,23 @@ class ActiveRollcallsNotifier
     };
   }
 
-  Future<void> refresh() {
+  Future<void> refresh({bool manual = true}) {
     if (_refreshing != null) return _refreshing!;
-    final future = _refresh();
+    final future = _refresh(manual: manual);
     _refreshing = future;
     return future.whenComplete(() {
       if (identical(_refreshing, future)) _refreshing = null;
     });
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({required bool manual}) async {
     final beforeLoad = _revision;
     await ref.read(detectionWindowProvider.notifier).ready;
     if (beforeLoad != _revision) return;
-    if (!ref
-        .read(detectionWindowProvider)!
-        .allows(ref.read(activeRollcallClockProvider)())) {
+    if (!manual &&
+        !ref
+            .read(detectionWindowProvider)!
+            .allows(ref.read(activeRollcallClockProvider)())) {
       return;
     }
     final revision = ++_revision;
@@ -378,6 +393,7 @@ class ActiveRollcallsNotifier
       () => ref
           .read(rollcallRepositoryForProvider(arg))
           .fetchActiveEnriched(
+            manual: manual,
             cancelToken: token,
             cachedNumberCodes: Map.unmodifiable(_numberCodes),
           ),
@@ -730,16 +746,19 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
       ? seenInProgressCourseIdsProvider
       : importedSeenCourseIdsProvider(assistUserId!);
   int? _boundUserId;
+  int _revision = 0;
   Future<void>? _inFlightEnsure;
-  String? _inFlightCourseId;
-  EnsureFreshReason _inFlightReason = EnsureFreshReason.appear;
+  Set<String> _inFlightCourses = {};
   final _lastCourseAttempts = <String, DateTime>{};
   final _courseSnaps = <String, CourseRollcallsSnapshot>{};
   Set<String> _attendanceCourseIds = {};
 
   @override
   Future<List<CourseRollcallRecord>> build() async {
+    final revision = ++_revision;
+    ref.onDispose(() => _revision++);
     ref.keepAlive();
+    ref.watch(academicRevisionProvider);
     final auth = ref.watch(authControllerProvider);
     _lastCourseAttempts.clear();
     _inFlightEnsure = null;
@@ -750,11 +769,15 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
       return const [];
     }
     _boundUserId = assistUserId ?? profile.id;
-    return _loadFromDisk(_boundUserId!);
+    return _loadFromDisk(_boundUserId!, revision);
   }
 
-  Future<List<CourseRollcallRecord>> _loadFromDisk(int userId) async {
+  Future<List<CourseRollcallRecord>> _loadFromDisk(
+    int userId,
+    int revision,
+  ) async {
     final catalog = await ref.read(_catalogProvider.future);
+    if (revision != _revision) return const [];
     final titles = catalog?.attendanceTitlesById ?? <String, String>{};
     _attendanceCourseIds = titles.keys.toSet();
     _courseSnaps.clear();
@@ -768,6 +791,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
 
     for (final id in ids) {
       final snap = await CourseRollcallsStore.read(userId, id);
+      if (revision != _revision) return const [];
       if (snap != null) {
         _courseSnaps[id] = snap.courseTitle.isEmpty && titles[id] != null
             ? snap.copyWith(courseTitle: titles[id])
@@ -781,7 +805,8 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
     }
 
     // Migrate legacy package cache once into per-course (best-effort).
-    await _migrateLegacyPackage(userId, titles);
+    await _migrateLegacyPackage(userId, titles, revision);
+    if (revision != _revision) return const [];
 
     return _flatten();
   }
@@ -789,9 +814,10 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
   Future<void> _migrateLegacyPackage(
     int userId,
     Map<String, String> titles,
+    int revision,
   ) async {
     final legacy = await JsonDiskCache.readList('course_history_$userId');
-    if (legacy == null || legacy.items.isEmpty) return;
+    if (revision != _revision || legacy == null || legacy.items.isEmpty) return;
     final byCourse = <String, List<CourseRollcallRecord>>{};
     for (final m in legacy.items) {
       final r = CourseRollcallRecord.fromJson(m);
@@ -803,6 +829,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
       byCourse.putIfAbsent(r.courseId, () => []).add(r);
     }
     for (final e in byCourse.entries) {
+      if (revision != _revision) return;
       if (_courseSnaps[e.key]?.lastSuccessfulFetch != null) continue;
       final title =
           titles[e.key] ??
@@ -814,6 +841,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
         records: e.value,
         at: legacy.fetchedAt,
       );
+      if (revision != _revision) return;
       _courseSnaps[e.key] = snap;
     }
     await JsonDiskCache.remove('course_history_$userId');
@@ -836,44 +864,56 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
   Future<void> ensureFresh({
     EnsureFreshReason reason = EnsureFreshReason.appear,
     String? courseId,
+  }) => _ensureFresh(reason: reason, courseId: courseId);
+
+  Future<void> _ensureFresh({
+    required EnsureFreshReason reason,
+    String? courseId,
+    Set<String> coveredCourses = const {},
   }) {
     final existing = _inFlightEnsure;
     if (existing != null) {
-      final coversRequest =
-          _inFlightReason != EnsureFreshReason.appear &&
-          (_inFlightCourseId == null || _inFlightCourseId == courseId);
+      final handled = _inFlightCourses;
+      final revision = _revision;
       return existing.then<void>((_) async {
-        if (reason == EnsureFreshReason.appear || coversRequest) return;
-        await ensureFresh(reason: reason, courseId: courseId);
+        if (reason == EnsureFreshReason.appear || revision != _revision) {
+          return;
+        }
+        await _ensureFresh(
+          reason: reason,
+          courseId: courseId,
+          coveredCourses: {...coveredCourses, ...handled},
+        );
       });
     }
-    _inFlightCourseId = courseId;
-    _inFlightReason = reason;
+    final handled = _inFlightCourses = <String>{};
     late final Future<void> pending;
-    pending = _ensureFreshBody(reason, courseId).whenComplete(() {
-      if (identical(_inFlightEnsure, pending)) _inFlightEnsure = null;
-    });
+    pending = _ensureFreshBody(reason, courseId, handled, coveredCourses)
+        .whenComplete(() {
+          if (identical(_inFlightEnsure, pending)) _inFlightEnsure = null;
+        });
     return _inFlightEnsure = pending;
   }
 
   Future<void> _ensureFreshBody(
     EnsureFreshReason reason,
     String? courseId,
+    Set<String> handled,
+    Set<String> coveredCourses,
   ) async {
     // Page appearance can race build's disk load. Decide cold/incremental only
     // after the persisted snapshots have been loaded.
+    final revision = _revision;
     await future;
-    final uid =
-        _boundUserId ??
-        assistUserId ??
-        ref.read(authControllerProvider).profile?.id;
+    if (revision != _revision) return;
+    final uid = _boundUserId;
     if (uid == null || uid == 0) return;
 
     // Ensure catalog available (sticky; may network once).
     await ref
         .read(_catalogProvider.notifier)
         .ensureFresh(reason: EnsureFreshReason.appear);
-    if (_boundUserId != uid) return;
+    if (revision != _revision) return;
 
     final catalog = ref.read(_catalogProvider).valueOrNull;
     final titles = catalog?.attendanceTitlesById ?? <String, String>{};
@@ -881,7 +921,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
     for (final id in titles.keys) {
       // Session prior shares this store and may have fetched since page build.
       final disk = await CourseRollcallsStore.read(uid, id);
-      if (_boundUserId != uid) return;
+      if (revision != _revision) return;
       if (disk != null) _courseSnaps[id] = disk;
       _courseSnaps.putIfAbsent(
         id,
@@ -892,36 +932,31 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
       );
     }
 
-    // Passive appearance stays incremental; explicit pulls bypass the long TTL
-    // within the requested enrolled-course scope, retaining the short request gate.
+    // General pulls use the same incremental signals as appearance. Only an
+    // explicitly selected course bypasses those signals, keeping the short gate.
     final cold = historyNeedsFullScan(_courseSnaps.values);
-    final List<HistoryCandidate> candidates;
     final manual = reason != EnsureFreshReason.appear;
-    if (cold && !manual) {
-      final ids = titles.keys;
-      candidates = [
-        for (final id in ids.take(CachePolicy.updateAllMaxCourses))
-          HistoryCandidate(
-            courseId: id,
-            courseTitle: titles[id] ?? _courseSnaps[id]?.courseTitle ?? '',
-            reason: 'cold_${reason.name}',
-          ),
-      ];
-    } else {
-      final seen = ref.read(_seenProvider);
-      candidates = selectHistoryCandidates(
-        courseTitles: titles,
-        disks: Map<String, CourseRollcallsSnapshot?>.from(_courseSnaps),
-        seenInProgressCourseIds: seen,
-        timetablesByCourse: catalog?.timetablesByCourse ?? const {},
-        now: ref.read(courseHistoryClockProvider)(),
-        manualRefresh: manual,
-        requestedCourseId: courseId,
-      );
-    }
+    final planned = selectHistoryCandidates(
+      courseTitles: titles,
+      disks: Map<String, CourseRollcallsSnapshot?>.from(_courseSnaps),
+      seenInProgressCourseIds: ref.read(_seenProvider),
+      timetablesByCourse: catalog?.timetablesByCourse ?? const {},
+      now: ref.read(courseHistoryClockProvider)(),
+      manualRefresh: manual,
+      requestedCourseId: courseId,
+    );
+    final candidates = cold
+        ? planned.take(CachePolicy.updateAllMaxCourses).toList()
+        : planned;
 
     final now = ref.read(courseHistoryClockProvider)();
-    final eligible = candidates.where((c) {
+    final pendingCourses = ref.read(_seenProvider);
+    final prioritized = [
+      ...candidates.where((c) => pendingCourses.contains(c.courseId)),
+      ...candidates.where((c) => !pendingCourses.contains(c.courseId)),
+    ];
+    final eligible = prioritized.where((c) {
+      if (coveredCourses.contains(c.courseId)) return false;
       final attempted = _lastCourseAttempts[c.courseId];
       return attempted == null ||
           now.difference(attempted) >= CachePolicy.historyRequestGap;
@@ -935,24 +970,42 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
         'scope': 'enrolled_student_courses',
         'cold': cold,
         'candidates': eligible.length,
-        'throttled': candidates.length - eligible.length,
+        'throttled':
+            candidates
+                .where((c) => !coveredCourses.contains(c.courseId))
+                .length -
+            eligible.length,
+        'coalesced': candidates
+            .where((c) => coveredCourses.contains(c.courseId))
+            .length,
         'requestedCourseId': ?courseId,
         'candidateReasons': {for (final c in eligible) c.courseId: c.reason},
       },
     );
 
     for (final c in eligible) {
-      if (_boundUserId != uid) return;
-      await _fetchOne(uid, c.courseId, c.courseTitle);
+      if (revision != _revision) return;
+      await _fetchOne(uid, c.courseId, c.courseTitle, revision);
+      handled.add(c.courseId);
+      if (revision != _revision) return;
+      // A later course can wait in the rate-limit queue for a long time. Publish
+      // each completed course so it cannot hold back already confirmed results.
+      state = AsyncData(_flatten());
       await Future<void>.delayed(CachePolicy.courseFetchGap);
     }
-    if (_boundUserId == uid) {
+    if (revision == _revision) {
       state = AsyncData(_flatten());
     }
   }
 
-  Future<void> _fetchOne(int userId, String courseId, String title) async {
-    _lastCourseAttempts[courseId] = ref.read(courseHistoryClockProvider)();
+  Future<void> _fetchOne(
+    int userId,
+    String courseId,
+    String title,
+    int revision,
+  ) async {
+    final checkedThrough = ref.read(courseHistoryClockProvider)();
+    _lastCourseAttempts[courseId] = checkedThrough;
     final started = DateTime.now();
     AppLog.event(
       'history.course.start',
@@ -978,7 +1031,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
             studentId: userId,
             courseTitle: title,
           );
-      if (_boundUserId != userId) return;
+      if (revision != _revision) return;
       final truncated = data.length >= 100;
       final snap = await CourseRollcallsStore.writeSuccess(
         userId: userId,
@@ -987,9 +1040,12 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
         records: data,
         truncated: truncated,
         at: ref.read(courseHistoryClockProvider)(),
+        checkedThrough: checkedThrough,
       );
+      if (revision != _revision) return;
       // Drop legacy prior key if present.
       await JsonDiskCache.remove('course_rollcalls_${userId}_$courseId');
+      if (revision != _revision) return;
       _courseSnaps[courseId] = snap;
       AppLog.event(
         'history.course.complete',
@@ -1001,7 +1057,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
         },
       );
     } catch (e) {
-      if (_boundUserId != userId) return;
+      if (revision != _revision) return;
       if (wasPending) {
         final pending = ref.read(_seenProvider);
         ref.read(_seenProvider.notifier).state = {...pending, courseId};
@@ -1013,6 +1069,7 @@ class CourseHistoryNotifier extends AsyncNotifier<List<CourseRollcallRecord>> {
         error: e,
         previous: previous,
       );
+      if (revision != _revision) return;
       _courseSnaps[courseId] = snap;
       AppLog.event(
         'history.course.failed',
@@ -1136,7 +1193,7 @@ Future<SessionPriorState> _loadSessionPrior(
   if (byDay == null || byDay.isEmpty) {
     return const SessionPriorState(unscoped: true, missingTimetable: true);
   }
-  final slots = byDay[now.weekday];
+  final slots = byDay[now.weekday]?.where((s) => s.occursOn(now)).toList();
   if (slots == null || slots.isEmpty) {
     return const SessionPriorState(unscoped: true);
   }
@@ -1179,6 +1236,7 @@ Future<List<CourseRollcallRecord>> _fetchCourseRollcallsCached({
     return existing.records;
   }
   try {
+    final checkedThrough = DateTime.now();
     final data = await ref
         .read(
           assistUserId == null
@@ -1199,6 +1257,7 @@ Future<List<CourseRollcallRecord>> _fetchCourseRollcallsCached({
       courseTitle: courseTitle,
       records: data,
       truncated: data.length >= 100,
+      checkedThrough: checkedThrough,
     );
     await JsonDiskCache.remove('course_rollcalls_${studentId}_$courseId');
     return data;

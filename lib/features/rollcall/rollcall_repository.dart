@@ -16,7 +16,7 @@ import 'package:xmu_rollcall/features/rollcall/attendance_count.dart';
 
 class RollcallRepository {
   static const _catalogFields =
-      'id,name,course_code,timetables,instructors(id,name),course_attributes(teaching_class_name),department(id,name),semester(id),academic_year(id),academic_year_id,semester_id';
+      'id,name,course_code,start_date,timetables,instructors(id,name),course_attributes(teaching_class_name),department(id,name),semester(id),academic_year(id),academic_year_id,semester_id';
   RollcallRepository({
     required this.http,
     required this.identity,
@@ -61,13 +61,12 @@ class RollcallRepository {
   Future<List<RollcallItem>> fetchActive({
     CancelToken? cancelToken,
     String? opId,
+    bool manual = false,
   }) async {
-    if (loadDetectionWindow != null) {
+    if (!manual && loadDetectionWindow != null) {
       final window = await loadDetectionWindow!();
       final now = discoveryClock();
-      if (!window.allows(now)) {
-        throw DetectionWindowClosed(window, now);
-      }
+      if (!window.allows(now)) throw DetectionWindowClosed(window, now);
     }
     await http.init();
     final res = await http.getUri<Map<String, dynamic>>(
@@ -108,8 +107,9 @@ class RollcallRepository {
   Future<List<RollcallItem>> fetchActiveEnriched({
     CancelToken? cancelToken,
     Map<int, String> cachedNumberCodes = const {},
+    bool manual = false,
   }) async {
-    final items = await fetchActive(cancelToken: cancelToken);
+    final items = await fetchActive(cancelToken: cancelToken, manual: manual);
     return enrichActive([
       for (final item in items)
         if (item.isNumber &&
@@ -405,6 +405,8 @@ class RollcallRepository {
         CatalogCourse(
           id: id,
           title: title ?? '',
+          courseCode: m['course_code']?.toString(),
+          startDate: DateTime.tryParse('${m['start_date'] ?? ''}'),
           timetables: parseTimetables(m['timetables']),
           instructorNames: _instructorNames(m),
           teachingClassName: _teachingClassName(m),
@@ -777,9 +779,18 @@ class RollcallRepository {
           status < 400 ||
           status >= 500 ||
           status == 401 ||
-          status == 403 ||
           status == 429 ||
           response.data is! Map) {
+        rethrow;
+      }
+      // Some deployments use 403 for an explicit radar scope rejection.
+      // A generic 403 still follows the existing session-expired path.
+      if (status == 403 &&
+          !AnswerResult(
+            ok: false,
+            status: status,
+            raw: Map<String, dynamic>.from(response.data as Map),
+          ).isLocationRejected) {
         rethrow;
       }
       return _mapAnswer(response, opId: opId, rollcallId: rollcallId);

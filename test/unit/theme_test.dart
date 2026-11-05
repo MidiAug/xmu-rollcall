@@ -18,12 +18,15 @@ void main() {
     expect(theme.scaffoldBackgroundColor, isNot(AppPalette.darkPalette.canvas));
   });
 
-  test('light cardHover stays brighter than canvas (no gray melt)', () {
-    final p = AppPalette.lightPalette;
-    expect(p.cardHover, isNot(p.surfaceHigh));
-    expect(
-      p.cardHover.computeLuminance(),
-      greaterThan(p.canvas.computeLuminance()),
-    );
-  });
+  test(
+    'light card hover stays lighter than the muted surface (no gray melt)',
+    () {
+      final p = AppPalette.lightPalette;
+      expect(p.cardHover, isNot(p.surfaceHigh));
+      expect(
+        p.cardHover.computeLuminance(),
+        greaterThan(p.surfaceHigh.computeLuminance()),
+      );
+    },
+  );
 }

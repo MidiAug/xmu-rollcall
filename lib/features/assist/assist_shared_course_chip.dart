@@ -69,7 +69,7 @@ Future<void> showAssistSharedCoursesSheet(
 
   return showModalBottomSheet<void>(
     context: context,
-    showDragHandle: true,
+    showDragHandle: false,
     backgroundColor: p.surface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(
@@ -81,7 +81,7 @@ Future<void> showAssistSharedCoursesSheet(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpace.lg,
-            AppSpace.xs,
+            AppSpace.md,
             AppSpace.lg,
             AppSpace.lg,
           ),

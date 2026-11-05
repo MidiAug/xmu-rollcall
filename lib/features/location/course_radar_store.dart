@@ -1,3 +1,6 @@
+import 'place_matching.dart';
+import 'location_validation_store.dart';
+import 'campus_places.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
@@ -93,6 +96,54 @@ String? courseRadarPreferencesKey(int? ownerId, int? assistUserId) {
 
 /// Read the persisted snapshot in either the UI or the Android worker isolate.
 /// Automatic submission never falls back to a course title or another account.
+Future<List<SavedLocation>> readScopedSavedLocations(
+  SharedPreferences prefs,
+  int ownerId,
+  int uid,
+) async {
+  final key = savedLocationsKey(ownerId, uid);
+  var raw = prefs.getString(key);
+  if (raw == null) {
+    final legacyOwner = prefs.getInt('saved_locations_legacy_owner');
+    if (legacyOwner != null && legacyOwner != ownerId) return const [];
+    if (legacyOwner == null) {
+      await prefs.setInt('saved_locations_legacy_owner', ownerId);
+    }
+    final legacy = prefs.getString(savedRadarLocationsKey);
+    final all = legacy == null
+        ? <Map>[]
+        : (jsonDecode(legacy) as List).whereType<Map>().toList();
+    final allowed = <String>{};
+    if (uid != ownerId) {
+      final configKey = courseRadarPreferencesKey(ownerId, uid);
+      for (final config in prefs.getKeys().where(
+        (k) => k == configKey || k.startsWith('${configKey}_meeting_'),
+      )) {
+        final data = jsonDecode(prefs.getString(config) ?? '{}');
+        final entries = data is Map && data.containsKey('placeId')
+            ? [data]
+            : data is Map
+            ? data.values
+            : const [];
+        for (final entry in entries.whereType<Map>()) {
+          if (entry['userConfigured'] == true && entry['placeId'] is String) {
+            allowed.add(entry['placeId'] as String);
+          }
+        }
+      }
+    }
+    final migrated = uid == ownerId
+        ? all
+        : all.where((p) => allowed.contains(p['id'])).toList();
+    raw = jsonEncode(migrated);
+    if (!await prefs.setString(key, raw)) throw StateError('无法迁移当前账号地点');
+  }
+  return (jsonDecode(raw) as List)
+      .whereType<Map>()
+      .map((p) => SavedLocation.fromJson(Map<String, dynamic>.from(p)))
+      .toList();
+}
+
 Future<CourseRadarPref?> readAutomaticRadarLocation({
   required int ownerId,
   required int? assistUserId,
@@ -160,10 +211,17 @@ Future<CourseRadarPref?> readAutomaticRadarLocation({
     if (scoped == null && !pref.userConfigured) return null;
     final effective = pref.forMeeting(meeting ?? '');
     if (pref.placeId.isNotEmpty) {
-      final saved = prefs.getString(savedRadarLocationsKey);
-      if (saved == null) return null;
-      final places = jsonDecode(saved);
-      if (places is! List) return null;
+      final saved = await readScopedSavedLocations(
+        prefs,
+        ownerId,
+        assistUserId ?? ownerId,
+      );
+      final places = [
+        ...campusPlaces.map((p) => p.saved.toJson()),
+        if (teachingLocationById(pref.placeId) case final place?)
+          place.toJson(),
+        ...saved.map((p) => p.toJson()),
+      ];
       final matches = places.whereType<Map>().where(
         (p) => p['id'] == pref.placeId,
       );
@@ -179,7 +237,7 @@ Future<CourseRadarPref?> readAutomaticRadarLocation({
       // Automatic use follows the exact current place, never a deleted snapshot
       // or a different nearby/name-matched place. Manual confirmation may retain
       // the old snapshot as a visible suggestion.
-      return CourseRadarPref(
+      final resolved = CourseRadarPref(
         courseTitle: pref.courseTitle,
         courseId: pref.courseId,
         latitude: place.latitude,
@@ -192,13 +250,22 @@ Future<CourseRadarPref?> readAutomaticRadarLocation({
         meetingKey: effective.meetingKey,
         updatedAtMicros: effective.updatedAtMicros,
       );
+      return await isRejectedLocation(
+            ownerId,
+            assistUserId ?? ownerId,
+            resolved,
+          )
+          ? null
+          : resolved;
     }
     validateRadarLocation(
       latitude: pref.latitude,
       longitude: pref.longitude,
       accuracy: pref.accuracy,
     );
-    return effective;
+    return await isRejectedLocation(ownerId, assistUserId ?? ownerId, effective)
+        ? null
+        : effective;
   } on FormatException {
     return null;
   } on TypeError {
@@ -206,4 +273,68 @@ Future<CourseRadarPref?> readAutomaticRadarLocation({
   } on ArgumentError {
     return null;
   }
+}
+
+/// Update existing authorized bindings for this named place; never create consent.
+Future<void> updateRadarPlaceBindings(
+  int owner,
+  int? assist,
+  List<LocationValidationIssue> issues,
+  SavedLocation place,
+) async {
+  if (issues.any(
+    (e) =>
+        e.point.latitude == place.latitude &&
+        e.point.longitude == place.longitude,
+  )) {
+    throw ArgumentError('请选择与原定位不同的位置');
+  }
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.reload();
+  final base = courseRadarPreferencesKey(owner, assist);
+  final prefix = courseRadarMeetingPreferencePrefix(owner, assist);
+  if (base == null) return;
+  Map<String, dynamic> patch(Map<String, dynamic> json) {
+    final point = CourseRadarPref.fromJson(json);
+    final rejected = issues.any((e) => e.matches(point));
+    final sameNamedPlace =
+        point.placeId.isNotEmpty &&
+        point.labelSnapshot.isNotEmpty &&
+        coursePlaceIdentity(point.labelSnapshot) ==
+            coursePlaceIdentity(place.note);
+    if (!rejected && !sameNamedPlace) return json;
+    return {
+      ...json,
+      'latitude': place.latitude,
+      'longitude': place.longitude,
+      'accuracy': place.accuracy,
+      'placeId': place.id,
+      'labelSnapshot': place.note,
+      'obtainedVia': RadarObtainedVia.place.name,
+      'updatedAtMicros': DateTime.now().microsecondsSinceEpoch,
+    };
+  }
+
+  for (final key
+      in prefs
+          .getKeys()
+          .where((k) => k == base || k.startsWith(prefix))
+          .toList()) {
+    final raw = prefs.getString(key);
+    if (raw == null) continue;
+    final json = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    final updated = key == base
+        ? {
+            for (final e in json.entries)
+              e.key: e.value is Map
+                  ? patch(Map<String, dynamic>.from(e.value as Map))
+                  : e.value,
+          }
+        : patch(json);
+    if (jsonEncode(updated) != raw &&
+        !await prefs.setString(key, jsonEncode(updated))) {
+      throw StateError('无法更新已绑定地点');
+    }
+  }
+  await clearLocationIssues(owner, assist ?? owner, issues.map((e) => e.key));
 }

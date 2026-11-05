@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_switch.dart';
@@ -7,6 +8,8 @@ import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/features/monitor/course_watch_settings.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
 import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
 import 'package:xmu_rollcall/features/settings/desktop_notification_settings_page.dart';
@@ -40,11 +43,15 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
     final intervalDescription = shortest == longest
         ? '每 $shortest 秒检查一次'
         : '约 $shortest–$longest 秒检查一次';
-    final rowPadding = EdgeInsets.symmetric(
-      horizontal: AppDensity.isTouch(context) ? 12 : 20,
-      vertical: 12,
-    );
+    final rowPadding = EdgeInsets.symmetric(horizontal: 16, vertical: 16);
     final theme = Theme.of(context);
+    final desktop = {
+      TargetPlatform.windows,
+      TargetPlatform.macOS,
+      TargetPlatform.linux,
+    }.contains(theme.platform);
+    final ownerId = ref.watch(authControllerProvider).profile?.id ?? 0;
+    final scope = ref.watch(selectedRollcallAccountProvider);
 
     return Theme(
       data: theme.copyWith(
@@ -70,6 +77,7 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
             title: '签到设置',
             body: AppContentColumn(
               child: ListView(
+                scrollCacheExtent: const ScrollCacheExtent.pixels(3000),
                 padding: EdgeInsets.fromLTRB(
                   AppSpace.pageXOf(context),
                   AppSpace.md,
@@ -77,17 +85,63 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                   AppSpace.xl,
                 ),
                 children: [
+                  if (desktop) ...[
+                    CourseWatchSettings(
+                      key: ValueKey((ownerId, scope)),
+                      ownerId: ownerId,
+                      targetId: scope ?? ownerId,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                   SettingsSection(
-                    padTop: false,
-                    header: '签到规则',
+                    header: '检测频率与范围',
                     hasLeading: false,
                     rowPadding: rowPadding,
-                    footer: c.autoAnswer
-                        ? Text(
-                            '雷达使用本课已保存的位置；缺少位置或失败时请手动处理。二维码需扫码。',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          )
-                        : null,
+                    children: [
+                      DetectionWindowSetting(
+                        enabled: ready,
+                        padding: rowPadding,
+                        watchMode: desktop && c.courseWatch,
+                      ),
+                      _SliderSetting(
+                        padding: rowPadding,
+                        title: '检测间隔',
+                        sliderKey: const ValueKey('monitor-interval'),
+                        value: c.effectiveIntervalSeconds.toDouble(),
+                        valueLabel: '${c.effectiveIntervalSeconds} 秒',
+                        min: MonitorConfig.minIntervalSeconds.toDouble(),
+                        max: MonitorConfig.maxIntervalSeconds.toDouble(),
+                        divisions:
+                            (MonitorConfig.maxIntervalSeconds -
+                                MonitorConfig.minIntervalSeconds) ~/
+                            MonitorConfig.intervalStepSeconds,
+                        formatValue: (value) => '${value.round()} 秒',
+                        onChanged: ready
+                            ? (value) => ctrl.setIntervalSeconds(value.round())
+                            : null,
+                        onChangeEnd: ready ? (_) => ctrl.commitPersist() : null,
+                      ),
+                      _SliderSetting(
+                        padding: rowPadding,
+                        title: '时间浮动',
+                        sliderKey: const ValueKey('monitor-jitter'),
+                        value: c.jitterRatio,
+                        valueLabel: '±${(c.jitterRatio * 100).round()}%',
+                        min: 0,
+                        max: 0.5,
+                        divisions: 10,
+                        formatValue: (value) =>
+                            '上下浮动百分之${(value * 100).round()}',
+                        onChanged: ready ? ctrl.setJitterRatio : null,
+                        onChangeEnd: ready ? (_) => ctrl.commitPersist() : null,
+                        description: '$intervalDescription，连接失败后稍后重试',
+                      ),
+                    ],
+                  ),
+                  SettingsSection(
+                    header: '发现签到后',
+                    hasLeading: false,
+                    rowPadding: rowPadding,
                     children: [
                       SettingsRow(
                         contentPadding: rowPadding,
@@ -96,10 +150,10 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                         title: '自动签到',
                         stackSubtitleOnNarrow: true,
                         subtitle: !c.autoAnswer
-                            ? '仅提醒，不会自动提交'
+                            ? '发现签到时提醒我'
                             : state.running
-                            ? '发现签到后，按规则自动提交'
-                            : '已开启，开始检测后生效',
+                            ? '按下方设置自动签到'
+                            : '已开启，开始检测后生效；缺码或位置时提醒补充',
                         trailing: SizedBox(
                           width: 148,
                           child: Align(
@@ -116,13 +170,13 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                         SettingsRow(
                           contentPadding: rowPadding,
                           minHeight: 40,
-                          title: '提交时机',
+                          title: '何时签到',
                           trailing: AppShellSelect<AnswerWaitMode>(
-                            semanticLabel: '提交时机',
+                            semanticLabel: '何时签到',
                             value: c.answerWaitMode,
                             items: AnswerWaitMode.values,
                             labelOf: (mode) => switch (mode) {
-                              AnswerWaitMode.none => '直接提交',
+                              AnswerWaitMode.none => '立即签到',
                               AnswerWaitMode.count => '等待人数',
                               AnswerWaitMode.percent => '等待比例',
                             },
@@ -139,7 +193,9 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                                 ? '已签到人数'
                                 : '已签到比例',
                             stackSubtitleOnNarrow: true,
-                            subtitle: '达到后提交，最多等待 5 分钟',
+                            subtitle: c.answerWaitMode == AnswerWaitMode.percent
+                                ? '未达到设定比例不提交'
+                                : '未达到设定人数不提交',
                             trailing: _NumberControl(
                               key: const ValueKey('monitor-answer-control'),
                               label: c.answerWaitMode == AnswerWaitMode.count
@@ -167,47 +223,10 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                     ],
                   ),
                   SettingsSection(
-                    header: '检测与提醒',
+                    header: '显示与提醒',
                     hasLeading: false,
                     rowPadding: rowPadding,
                     children: [
-                      DetectionWindowSetting(
-                        enabled: ready,
-                        padding: rowPadding,
-                      ),
-                      _SliderSetting(
-                        padding: rowPadding,
-                        title: '检测间隔',
-                        sliderKey: const ValueKey('monitor-interval'),
-                        value: c.effectiveIntervalSeconds.toDouble(),
-                        valueLabel: '${c.effectiveIntervalSeconds} 秒',
-                        min: MonitorConfig.minIntervalSeconds.toDouble(),
-                        max: MonitorConfig.maxIntervalSeconds.toDouble(),
-                        divisions:
-                            (MonitorConfig.maxIntervalSeconds -
-                                MonitorConfig.minIntervalSeconds) ~/
-                            MonitorConfig.intervalStepSeconds,
-                        formatValue: (value) => '${value.round()} 秒',
-                        onChanged: ready
-                            ? (value) => ctrl.setIntervalSeconds(value.round())
-                            : null,
-                        onChangeEnd: ready ? (_) => ctrl.commitPersist() : null,
-                      ),
-                      _SliderSetting(
-                        padding: rowPadding,
-                        title: '随机扰动',
-                        sliderKey: const ValueKey('monitor-jitter'),
-                        value: c.jitterRatio,
-                        valueLabel: '±${(c.jitterRatio * 100).round()}%',
-                        min: 0,
-                        max: 0.5,
-                        divisions: 10,
-                        formatValue: (value) =>
-                            '上下浮动百分之${(value * 100).round()}',
-                        onChanged: ready ? ctrl.setJitterRatio : null,
-                        onChangeEnd: ready ? (_) => ctrl.commitPersist() : null,
-                        description: '$intervalDescription；连接失败时会延后重试。',
-                      ),
                       SettingsRow(
                         contentPadding: rowPadding,
                         subtitleSpacing: 6,
@@ -245,46 +264,54 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                                 : const DesktopNotificationSettingsPage(),
                           ),
                         ),
-                      if (state.logs.isNotEmpty) ...[
-                        SettingsRow(
-                          contentPadding: rowPadding,
-                          subtitleSpacing: 6,
-                          minHeight: 40,
-                          key: const ValueKey('monitor-logs'),
-                          title: '最近运行',
-                          subtitle: _showLogs ? null : '查看最近的检测记录',
-                          trailing: _DisclosureIcon(expanded: _showLogs),
-                          onTap: () => setState(() => _showLogs = !_showLogs),
-                        ),
-                        if (_showLogs)
-                          for (final log in state.logs.take(5))
-                            Padding(
-                              padding: rowPadding,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _formatTime(log.at),
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    log.message,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(
-                                          color: log.ok ? p.ink : p.danger,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                      ],
                     ],
                   ),
+                  if (state.logs.isNotEmpty)
+                    SettingsSection(
+                      header: '运行记录',
+                      hasLeading: false,
+                      rowPadding: rowPadding,
+                      children: [
+                        if (state.logs.isNotEmpty) ...[
+                          SettingsRow(
+                            contentPadding: rowPadding,
+                            subtitleSpacing: 6,
+                            minHeight: 40,
+                            key: const ValueKey('monitor-logs'),
+                            title: '最近运行',
+                            subtitle: _showLogs ? null : '查看最近的检测记录',
+                            trailing: _DisclosureIcon(expanded: _showLogs),
+                            onTap: () => setState(() => _showLogs = !_showLogs),
+                          ),
+                          if (_showLogs)
+                            for (final log in state.logs.take(5))
+                              Padding(
+                                padding: rowPadding,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _formatTime(log.at),
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      log.message,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            color: log.ok ? p.ink : p.danger,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                        ],
+                      ],
+                    ),
                 ],
               ),
             ),
@@ -307,13 +334,9 @@ class _DisclosureIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnimatedRotation(
-    turns: expanded ? 0.5 : 0,
+    turns: expanded ? 0.25 : 0,
     duration: AppMotion.fast,
-    child: Icon(
-      Icons.expand_more_rounded,
-      size: 18,
-      color: AppPalette.of(context).muted,
-    ),
+    child: Icon(AppIcons.right, size: 18, color: AppPalette.of(context).muted),
   );
 }
 

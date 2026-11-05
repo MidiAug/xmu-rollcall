@@ -1,0 +1,627 @@
+import 'package:xmu_rollcall/features/location/course_meeting.dart';
+import 'package:xmu_rollcall/app/shell_tab_scope.dart';
+import 'package:xmu_rollcall/app/destinations.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:xmu_rollcall/app/mobile_campus_header.dart';
+import 'package:xmu_rollcall/app/pull_to_refresh.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/core/network/request_failure.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/auth/login_page.dart';
+import 'package:xmu_rollcall/features/campus/campus_context_panel.dart';
+import 'package:xmu_rollcall/features/campus/campus_summary.dart';
+import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
+import 'package:xmu_rollcall/features/history/history_summary.dart';
+import 'package:xmu_rollcall/features/homework/homework_models.dart';
+import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
+import 'package:xmu_rollcall/features/monitor/monitor_quick_control.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_list_page.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+
+/// Mobile presentation of the existing scoped providers, not a second data flow.
+class MobileRollcallHome extends ConsumerStatefulWidget {
+  const MobileRollcallHome({
+    super.key,
+    required this.controller,
+    required this.accountMenu,
+    required this.scope,
+    required this.updatedLabel,
+    this.outsideDetectionWindow = false,
+    required this.onHistory,
+    required this.onSettings,
+    required this.onTimetable,
+    required this.onHomework,
+    required this.onOpenHomework,
+    this.switching = false,
+    this.switchError,
+    required this.onRetryIdentity,
+  });
+  final ScrollController controller;
+  final Widget accountMenu;
+  final int? scope;
+  final String updatedLabel;
+  final bool outsideDetectionWindow;
+  final VoidCallback onHistory,
+      onSettings,
+      onTimetable,
+      onHomework,
+      onRetryIdentity;
+  final ValueChanged<HomeworkItem> onOpenHomework;
+  final bool switching;
+  final String? switchError;
+
+  @override
+  ConsumerState<MobileRollcallHome> createState() => _MobileRollcallHomeState();
+}
+
+class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
+    with ShellTabAware<MobileRollcallHome> {
+  bool _checked = false;
+  (int?, int?)? _identity;
+  @override
+  AppDestination get shellTab => AppDestination.rollcall;
+  @override
+  void onShellTabHidden() {
+    super.onShellTabHidden();
+    _checked = false;
+  }
+
+  @override
+  void onShellTabRetap() {
+    super.onShellTabRetap();
+    setState(() => _checked = false);
+  }
+
+  Widget _headerIcon(String label, IconData icon, VoidCallback action) {
+    final android = Theme.of(context).platform == TargetPlatform.android;
+    final p = AppPalette.of(context);
+    return SizedBox(
+      width: android ? 44 : null,
+      height: android ? 48 : null,
+      child: IconButton(
+        tooltip: label,
+        alignment: android ? Alignment.topRight : Alignment.center,
+        padding: android ? const EdgeInsets.only(top: 4) : null,
+        constraints: android
+            ? const BoxConstraints.tightFor(width: 44, height: 48)
+            : null,
+        onPressed: action,
+        icon: Icon(icon, color: android ? p.muted : p.ink, size: 23),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final accountMenu = widget.accountMenu;
+    final scope = widget.scope;
+    final updatedLabel = widget.updatedLabel;
+    final outsideDetectionWindow = widget.outsideDetectionWindow;
+    final onHistory = widget.onHistory;
+    final onSettings = widget.onSettings;
+    final onTimetable = widget.onTimetable;
+    final onHomework = widget.onHomework;
+    final onOpenHomework = widget.onOpenHomework;
+    final switching = widget.switching;
+    final switchError = widget.switchError;
+    final onRetryIdentity = widget.onRetryIdentity;
+    final identity = (
+      ref.watch(authControllerProvider.select((s) => s.profile?.id)),
+      scope,
+    );
+    if (_identity != identity) {
+      _identity = identity;
+      _checked = false;
+    }
+
+    final p = AppPalette.of(context);
+    final android = Theme.of(context).platform == TargetPlatform.android;
+    final signedIn = ref.watch(
+      authControllerProvider.select((s) => s.isSignedIn),
+    );
+    final now =
+        ref.watch(campusClockProvider).valueOrNull ??
+        ref.read(campusNowProvider)();
+    final cached = signedIn ? ref.watch(campusCachedDataProvider) : null;
+    // A refresh or identity transition must not show stale scoped data.
+    final data =
+        (cached?.isLoading == true ? null : cached?.valueOrNull) ??
+        const CampusCachedData();
+    final active = signedIn && !switching && switchError == null
+        ? ref.watch(activeRollcallsProvider(scope))
+        : null;
+    final items = active?.valueOrNull ?? const [];
+    final running = ref.watch(
+      monitorControllerProvider.select((s) => s.running),
+    );
+    final checking = switching || (active?.isLoading == true && items.isEmpty);
+    final headerStatus = !signedIn
+        ? '登录后查看课堂签到'
+        : checking
+        ? '正在确认最新状态…'
+        : switchError ??
+              (active?.hasError == true
+                  ? '暂时无法确认签到状态'
+                  : _checked && items.isEmpty
+                  ? '暂无正在签到的课程'
+                  : outsideDetectionWindow
+                  ? updatedLabel
+                  : items.isEmpty
+                  ? '尚未开始检测'
+                  : updatedLabel);
+    final Widget headerAction = !signedIn
+        ? FilledButton(
+            onPressed: () => showLoginDialog(context),
+            child: const Text('登录'),
+          )
+        : running
+        ? const MonitorQuickControl(style: MonitorControlStyle.mastheadQuiet)
+        : checking
+        ? const SizedBox(
+            width: 48,
+            height: 48,
+            child: Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          )
+        : switchError != null
+        ? TextButton(onPressed: onRetryIdentity, child: const Text('重试'))
+        : MonitorQuickControl(
+            style: items.isEmpty
+                ? MonitorControlStyle.masthead
+                : MonitorControlStyle.mastheadQuiet,
+          );
+    final history = signedIn && !android
+        ? ref.watch(currentCourseHistoryProvider)
+        : null;
+    final records = history?.isLoading == false ? history?.valueOrNull : null;
+    final latest = HistorySummary(records ?? []).records.firstOrNull;
+    final time = latest?.rollcallTime?.toLocal();
+    final historyText = latest == null
+        ? '暂无签到历史'
+        : '${time == null ? '' : '${time.month}月${time.day}日 ${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}  '}'
+              '${historyAttendance(latest) == HistoryAttendance.signed
+                  ? '已签到'
+                  : historyAttendance(latest) == HistoryAttendance.unsigned
+                  ? '未签到'
+                  : latest.signedStatus}';
+    Widget inset(Widget child) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: child,
+    );
+    return ColoredBox(
+      color: p.mobileCanvas,
+      child: AppPullToRefresh(
+        color: p.primary,
+        onRefresh: () async {
+          if (signedIn && !switching && switchError == null) {
+            setState(() => _checked = false);
+            await ref.read(activeRollcallsProvider(scope).notifier).refresh();
+            if (mounted &&
+                _identity == identity &&
+                !ref.read(activeRollcallsProvider(scope)).hasError) {
+              setState(() => _checked = true);
+            }
+          }
+        },
+        child: CustomScrollView(
+          controller: controller,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: MobileCampusHeader(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                '签到',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  height: 1.3,
+                                  fontWeight: FontWeight.w700,
+                                  color: p.ink,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Flexible(
+                                child: Semantics(
+                                  label:
+                                      '${now.month}月${now.day}日 周${'一二三四五六日'[now.weekday - 1]}',
+                                  child: Text(
+                                    MediaQuery.sizeOf(context).width < 360 ||
+                                            MediaQuery.textScalerOf(
+                                                  context,
+                                                ).scale(1) >
+                                                1.15
+                                        ? '${now.month}/${now.day} 周${'一二三四五六日'[now.weekday - 1]}'
+                                        : '${now.month}月${now.day}日 周${'一二三四五六日'[now.weekday - 1]}',
+                                    key: const ValueKey('mobile-home-date'),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: p.muted,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        _headerIcon('签到记录', AppIcons.history, onHistory),
+                        _headerIcon('自动检测设置', AppIcons.settings, onSettings),
+                      ],
+                    ),
+                    SizedBox(height: android ? 8 : 12),
+                    if (android)
+                      _AndroidAccountActions(
+                        account: accountMenu,
+                        action: Transform.translate(
+                          offset: const Offset(0, 4),
+                          child: headerAction,
+                        ),
+                        status: running
+                            ? const MonitorQuickControl(
+                                style: MonitorControlStyle.mastheadStatus,
+                              )
+                            : Row(
+                                children: [
+                                  Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: switchError != null
+                                          ? p.danger
+                                          : p.muted.withValues(alpha: .6),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 7),
+                                  Expanded(
+                                    child: AppTruncatedText(
+                                      headerStatus,
+                                      key: const ValueKey(
+                                        'android-detection-status',
+                                      ),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        height: 1.5,
+                                        color: switchError != null
+                                            ? p.danger
+                                            : p.muted,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: items.isNotEmpty ? 140 : 180,
+                            child: accountMenu,
+                          ),
+                          if (items.isNotEmpty)
+                            const MonitorQuickControl(
+                              style: MonitorControlStyle.quiet,
+                            ),
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: inset(
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(height: android ? 0 : 20),
+                    if (!android && !signedIn)
+                      _HomeStatus(
+                        title: '登录后查看课堂签到',
+                        action: FilledButton(
+                          onPressed: () => showLoginDialog(context),
+                          child: const Text('登录'),
+                        ),
+                      )
+                    else if (!android && checking)
+                      const _HomeStatus(
+                        title: '正在确认最新状态…',
+                        action: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    else if (!android && switchError != null)
+                      _HomeStatus(
+                        title: switchError,
+                        action: TextButton(
+                          onPressed: onRetryIdentity,
+                          child: const Text('重试'),
+                        ),
+                      )
+                    else ...[
+                      if (!android && items.isEmpty)
+                        _HomeStatus(
+                          title: running ? '正在检测签到' : '尚未开始检测',
+                          detail: outsideDetectionWindow
+                              ? updatedLabel
+                              : running
+                              ? null
+                              : '暂无进行中的签到',
+                          action: const MonitorQuickControl(
+                            style: MonitorControlStyle.prominent,
+                          ),
+                        ),
+                      if (android && items.isNotEmpty)
+                        const SizedBox(height: 20),
+                      for (final item in items)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: RollcallTaskCard(
+                            key: ValueKey((scope, item.rollcallId)),
+                            item: item,
+                            assistUserId: scope,
+                            meeting: data.schedule == null
+                                ? null
+                                : selectCampusMeetingForTitle(
+                                    data.schedule!,
+                                    radarActivityReferenceTime(item, now),
+                                    item.courseTitle,
+                                  ),
+                            mobileSummary: updatedLabel,
+                          ),
+                        ),
+                      if (active?.hasError == true)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  requestFailureMessage(active!.error!),
+                                  style: TextStyle(
+                                    color: p.danger,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => ref
+                                    .read(
+                                      activeRollcallsProvider(scope).notifier,
+                                    )
+                                    .refresh(),
+                                child: const Text('重试'),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                    if (signedIn) ...[
+                      const SizedBox(height: 20),
+                      DecoratedBox(
+                        key: const ValueKey('mobile-context-surface'),
+                        decoration: BoxDecoration(
+                          color: p.surface,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: CampusContextView(
+                            data: data,
+                            now: now,
+                            mobile: true,
+                            showHomework: !android,
+                            loading: cached?.isLoading == true,
+                            onTimetable: onTimetable,
+                            onHomework: onHomework,
+                            onOpenHomework: onOpenHomework,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            if (!android)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 32, 20, 12),
+                    child: signedIn
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Divider(color: p.borderStrong, height: 1),
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: onHistory,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          AppIcons.history,
+                                          size: 18,
+                                          color: p.muted,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            '上次签到  $historyText',
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: p.muted,
+                                              fontSize: 12,
+                                              height: 1.5,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Icon(
+                                          AppIcons.right,
+                                          size: 16,
+                                          color: p.muted,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeStatus extends StatelessWidget {
+  const _HomeStatus({required this.title, required this.action, this.detail});
+  final String title;
+  final String? detail;
+  final Widget action;
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: p.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stacked =
+              constraints.maxWidth < 300 ||
+              MediaQuery.textScalerOf(context).scale(1) > 1.15;
+          final caption = Row(
+            children: [
+              Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: p.muted.withValues(alpha: .6),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: p.ink,
+                  ),
+                ),
+              ),
+            ],
+          );
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (stacked) ...[
+                caption,
+                const SizedBox(height: 12),
+                Align(alignment: Alignment.centerRight, child: action),
+              ] else
+                Row(
+                  children: [
+                    Expanded(child: caption),
+                    const SizedBox(width: 12),
+                    action,
+                  ],
+                ),
+              if (detail != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  detail!,
+                  style: TextStyle(fontSize: 12, color: p.muted, height: 1.5),
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _AndroidAccountActions extends StatelessWidget {
+  const _AndroidAccountActions({
+    required this.account,
+    required this.action,
+    this.status,
+  });
+  final Widget? status;
+  final Widget account, action;
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, bounds) {
+      final stacked =
+          bounds.maxWidth < 330 ||
+          MediaQuery.textScalerOf(context).scale(1) > 1.15;
+      if (stacked) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            account,
+            ?status,
+            const SizedBox(height: 4),
+            Align(alignment: Alignment.centerRight, child: action),
+          ],
+        );
+      }
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [account, ?status],
+            ),
+          ),
+          const SizedBox(width: 12),
+          action,
+        ],
+      );
+    },
+  );
+}

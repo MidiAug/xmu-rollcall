@@ -1,0 +1,616 @@
+import 'package:latlong2/latlong.dart';
+import 'location_models.dart';
+import 'teaching_catalog.dart';
+
+/// Source: https://map.xmu.edu.cn/openmap/mapi/place/v3/search (public building facts).
+/// Reference lookup for timetable rooms and legacy explicit IDs; not a preset menu.
+/// Public XMU campus map facts, retrieved 2026-10-28. See docs/research/52-campus-places.md.
+/// Coordinates align with the source's Amap base layer (GCJ-02).
+enum Campus {
+  siming('思明校区', LatLng(24.437011858, 118.097629446)),
+  xiangan('翔安校区', LatLng(24.604493362, 118.311476804)),
+  zhangzhou('漳州校区', LatLng(24.366898321, 118.048548841));
+
+  const Campus(this.label, this.center);
+  final String label;
+  final LatLng center;
+}
+
+class CampusPlace {
+  const CampusPlace(
+    this.id,
+    this.name,
+    this.campus,
+    this.latitude,
+    this.longitude,
+    this.aliases,
+  );
+  final String id, name;
+  final Campus campus;
+  final double latitude, longitude;
+  final List<String> aliases;
+  SavedLocation get saved => SavedLocation(
+    id: id,
+    note: name,
+    latitude: latitude,
+    longitude: longitude,
+    accuracy: id.startsWith('xmu:teaching:') ? 35 : 80,
+    createdAt: DateTime(2026, 10, 28),
+  );
+}
+
+// Current maintained coordinates. Old public map records below remain for
+// legacy explicit IDs; automatic classroom matching uses the catalog only.
+final teachingPlaces = <CampusPlace>[
+  for (final point in {
+    for (final b in teachingBuildings) ...{
+      if (b.point case final point? when point.usable) point.id: point,
+      for (final r in b.regions)
+        if (r.point case final point?
+            when point.usable && point.source == 'region')
+          point.id: point,
+    },
+  }.values)
+    if (Campus.values.where((c) => c.label == '${point.campus}校区').firstOrNull
+        case final campus?)
+      CampusPlace(
+        point.id,
+        point.name,
+        campus,
+        point.latitude,
+        point.longitude,
+        const [],
+      ),
+];
+
+/// Inherited regions and groups remain valid explicit bindings, while the
+/// default menu and map only enumerate independently maintained points.
+SavedLocation? teachingLocationById(String id) {
+  final point = <TeachingPoint?>[
+    for (final b in teachingBuildings) ...[
+      b.point,
+      ...b.regions.map((r) => r.point),
+    ],
+    ...teachingGroups.map((g) => g.point),
+  ].whereType<TeachingPoint>().where((p) => p.id == id && p.usable).firstOrNull;
+  if (point == null) return null;
+  return SavedLocation(
+    id: point.id,
+    note: point.name,
+    latitude: point.latitude,
+    longitude: point.longitude,
+    createdAt: DateTime(2026, 11, 3),
+  );
+}
+
+const campusPlaces = <CampusPlace>[
+  CampusPlace(
+    'xmu:384269',
+    "5号楼",
+    Campus.xiangan,
+    24.605003879,
+    118.308879520,
+    ["5号楼"],
+  ),
+  CampusPlace(
+    'xmu:390544',
+    "东区综合楼",
+    Campus.siming,
+    24.431908938,
+    118.109411161,
+    ["东区综合楼"],
+  ),
+  CampusPlace(
+    'xmu:385024',
+    "主楼群1号楼",
+    Campus.zhangzhou,
+    24.365613725,
+    118.047957428,
+    ["主楼群1号楼"],
+  ),
+  CampusPlace(
+    'xmu:385026',
+    "主楼群2号楼",
+    Campus.zhangzhou,
+    24.366241045,
+    118.047825913,
+    ["主楼群2号楼"],
+  ),
+  CampusPlace(
+    'xmu:385030',
+    "主楼群4号楼",
+    Campus.zhangzhou,
+    24.367840941,
+    118.047828055,
+    ["主楼群4号楼"],
+  ),
+  CampusPlace(
+    'xmu:385032',
+    "主楼群5号楼",
+    Campus.zhangzhou,
+    24.368463467,
+    118.048017948,
+    ["主楼群5号楼"],
+  ),
+  CampusPlace(
+    'xmu:385035',
+    "人文大楼",
+    Campus.zhangzhou,
+    24.369716111,
+    118.046025564,
+    ["人文大楼"],
+  ),
+  CampusPlace(
+    'xmu:382423',
+    "保欣丽英楼（嘉庚一）",
+    Campus.siming,
+    24.438120514,
+    118.097600299,
+    ["保欣丽英楼", "嘉庚一"],
+  ),
+  CampusPlace('xmu:382480', "克立楼", Campus.siming, 24.438763514, 118.098768217, [
+    "克立楼",
+  ]),
+  CampusPlace(
+    'xmu:385021',
+    "公共教学楼1号楼",
+    Campus.zhangzhou,
+    24.364812346,
+    118.046100972,
+    ["公共教学楼1号楼"],
+  ),
+  CampusPlace('xmu:389842', "凌峰楼", Campus.siming, 24.440799150, 118.097966710, [
+    "凌峰楼",
+  ]),
+  CampusPlace(
+    'xmu:393349',
+    "凌峰电镜楼",
+    Campus.siming,
+    24.440547501,
+    118.097758440,
+    ["凌峰电镜楼"],
+  ),
+  CampusPlace(
+    'xmu:384255',
+    "分子影像大楼",
+    Campus.xiangan,
+    24.607079249,
+    118.306480569,
+    ["分子影像大楼"],
+  ),
+  CampusPlace('xmu:382394', "化学楼", Campus.siming, 24.438394968, 118.094489881, [
+    "化学楼",
+  ]),
+  CampusPlace('xmu:382411', "南光楼", Campus.siming, 24.434096406, 118.098558167, [
+    "南光楼",
+  ]),
+  CampusPlace(
+    'xmu:383096',
+    "南存钿楼（电子科学与技术学院）",
+    Campus.xiangan,
+    24.604612451,
+    118.318468132,
+    ["南存钿楼", "电子科学与技术学院"],
+  ),
+  CampusPlace('xmu:382406', "南安楼", Campus.siming, 24.434403986, 118.096777460, [
+    "南安楼",
+  ]),
+  CampusPlace('xmu:382468', "博学楼", Campus.siming, 24.435103003, 118.098281313, [
+    "博学楼",
+  ]),
+  CampusPlace(
+    'xmu:382392',
+    "卢嘉锡楼",
+    Campus.siming,
+    24.437932479,
+    118.093922153,
+    ["卢嘉锡楼"],
+  ),
+  CampusPlace(
+    'xmu:384284',
+    "后勤综合楼",
+    Campus.xiangan,
+    24.610558830,
+    118.307426904,
+    ["后勤综合楼"],
+  ),
+  CampusPlace(
+    'xmu:390010',
+    "后勤综合楼",
+    Campus.siming,
+    24.435501143,
+    118.102981642,
+    ["后勤综合楼"],
+  ),
+  CampusPlace(
+    'xmu:383094',
+    "周隆泉楼（近海海洋环境科学国家重点实验室）",
+    Campus.xiangan,
+    24.605532276,
+    118.315404156,
+    ["周隆泉楼", "近海海洋环境科学国家重点实验室"],
+  ),
+  CampusPlace('xmu:380569', "囊萤楼", Campus.siming, 24.437343054, 118.093940404, [
+    "囊萤楼",
+  ]),
+  CampusPlace(
+    'xmu:389839',
+    "圣诺有色金属研究院大楼",
+    Campus.siming,
+    24.439983097,
+    118.097700788,
+    ["圣诺有色金属研究院大楼"],
+  ),
+  CampusPlace(
+    'xmu:383091',
+    "坤銮楼（国际学院/海外教育学院）",
+    Campus.xiangan,
+    24.605671711,
+    118.312579084,
+    ["坤銮楼", "坤銮楼（2号楼）", "国际学院/海外教育学院"],
+  ),
+  CampusPlace('xmu:382388', "基金楼", Campus.siming, 24.437592515, 118.095700436, [
+    "基金楼",
+  ]),
+  CampusPlace(
+    'xmu:383093',
+    "学武楼",
+    Campus.xiangan,
+    24.605616133,
+    118.313612908,
+    ["学武楼", "学武楼（1号楼）"],
+  ),
+  CampusPlace(
+    'xmu:383095',
+    "希平楼（海洋与地球学院）",
+    Campus.xiangan,
+    24.605583418,
+    118.317383818,
+    ["希平楼", "海洋与地球学院"],
+  ),
+  CampusPlace(
+    'xmu:382462',
+    "庄汉水楼（南强二）",
+    Campus.siming,
+    24.437799348,
+    118.096048796,
+    ["庄汉水楼", "南强二"],
+  ),
+  CampusPlace(
+    'xmu:384254',
+    "庄瑾楼（药学院）",
+    Campus.xiangan,
+    24.607912264,
+    118.308003324,
+    ["庄瑾楼", "药学院"],
+  ),
+  CampusPlace('xmu:382478', "建文楼", Campus.siming, 24.439068497, 118.098187009, [
+    "建文楼",
+  ]),
+  CampusPlace(
+    'xmu:382444',
+    "德贞楼、南光三（外文学院）",
+    Campus.siming,
+    24.434065036,
+    118.101492481,
+    ["德贞楼、南光三", "外文学院"],
+  ),
+  CampusPlace(
+    'xmu:384261',
+    "成义楼",
+    Campus.xiangan,
+    24.604708671,
+    118.304938669,
+    ["成义楼"],
+  ),
+  CampusPlace('xmu:382404', "成义楼", Campus.siming, 24.433967211, 118.095856498, [
+    "成义楼",
+  ]),
+  CampusPlace(
+    'xmu:384262',
+    "成伟楼",
+    Campus.xiangan,
+    24.604061390,
+    118.305189149,
+    ["成伟楼"],
+  ),
+  CampusPlace('xmu:382432', "成智楼", Campus.siming, 24.433573840, 118.099507294, [
+    "成智楼",
+  ]),
+  CampusPlace(
+    'xmu:384260',
+    "成智楼",
+    Campus.xiangan,
+    24.605385019,
+    118.304973217,
+    ["成智楼"],
+  ),
+  CampusPlace(
+    'xmu:382421',
+    "成枫楼（嘉庚二）",
+    Campus.siming,
+    24.437766507,
+    118.097361219,
+    ["成枫楼", "嘉庚二"],
+  ),
+  CampusPlace(
+    'xmu:384270',
+    "文宣楼",
+    Campus.xiangan,
+    24.605397695,
+    118.309869051,
+    ["文宣楼", "文宣楼（4号楼）"],
+  ),
+  CampusPlace('xmu:382442', "新闻楼", Campus.siming, 24.434053874, 118.100839233, [
+    "新闻楼",
+  ]),
+  CampusPlace(
+    'xmu:390034',
+    "曾厝垵学生公寓教学楼",
+    Campus.siming,
+    24.437061254,
+    118.115827125,
+    ["曾厝垵学生公寓教学楼"],
+  ),
+  CampusPlace(
+    'xmu:382402',
+    "曾呈奎楼",
+    Campus.siming,
+    24.433135969,
+    118.095149198,
+    ["曾呈奎楼"],
+  ),
+  CampusPlace(
+    'xmu:384258',
+    "曾宪梓楼（公共卫生学院）",
+    Campus.xiangan,
+    24.606388596,
+    118.306582155,
+    ["曾宪梓楼", "公共卫生学院"],
+  ),
+  CampusPlace(
+    'xmu:383106',
+    "林积灿楼（学生活动中心）",
+    Campus.xiangan,
+    24.609203438,
+    118.315826152,
+    ["林积灿楼", "学生活动中心"],
+  ),
+  CampusPlace(
+    'xmu:382464',
+    "桂华山楼（电镜新楼）",
+    Campus.siming,
+    24.437431397,
+    118.096279605,
+    ["桂华山楼", "电镜新楼"],
+  ),
+  CampusPlace(
+    'xmu:384267',
+    "椭圆楼（国家传染病诊断试剂与疫苗工程技术研究中心）",
+    Campus.xiangan,
+    24.605092349,
+    118.306434292,
+    ["椭圆楼", "国家传染病诊断试剂与疫苗工程技术研究中心"],
+  ),
+  CampusPlace(
+    'xmu:390018',
+    "海韵办公楼",
+    Campus.siming,
+    24.430025861,
+    118.113038811,
+    ["海韵办公楼"],
+  ),
+  CampusPlace(
+    'xmu:390022',
+    "海韵实验楼",
+    Campus.siming,
+    24.430783270,
+    118.113037183,
+    ["海韵实验楼"],
+  ),
+  CampusPlace(
+    'xmu:390021',
+    "海韵教学楼",
+    Campus.siming,
+    24.430502918,
+    118.113676265,
+    ["海韵教学楼"],
+  ),
+  CampusPlace(
+    'xmu:390027',
+    "海韵科研楼1",
+    Campus.siming,
+    24.430718070,
+    118.111911007,
+    ["海韵科研楼1"],
+  ),
+  CampusPlace(
+    'xmu:390029',
+    "海韵科研楼2",
+    Campus.siming,
+    24.430290639,
+    118.112134574,
+    ["海韵科研楼2"],
+  ),
+  CampusPlace(
+    'xmu:384259',
+    "爱礼楼",
+    Campus.xiangan,
+    24.606122974,
+    118.305227313,
+    ["爱礼楼"],
+  ),
+  CampusPlace(
+    'xmu:390031',
+    "物理机电航空大楼",
+    Campus.siming,
+    24.431136396,
+    118.112219187,
+    ["物理机电航空大楼"],
+  ),
+  CampusPlace(
+    'xmu:385039',
+    "理工大楼",
+    Campus.zhangzhou,
+    24.367621695,
+    118.044716295,
+    ["理工大楼"],
+  ),
+  CampusPlace(
+    'xmu:385041',
+    "生化大楼",
+    Campus.zhangzhou,
+    24.367288484,
+    118.043304728,
+    ["生化大楼"],
+  ),
+  CampusPlace(
+    'xmu:382419',
+    "祖营楼（嘉庚四）",
+    Campus.siming,
+    24.436889834,
+    118.096896955,
+    ["祖营楼", "嘉庚四"],
+  ),
+  CampusPlace('xmu:389845', "科学楼", Campus.siming, 24.441200179, 118.098163254, [
+    "科学楼",
+  ]),
+  CampusPlace('xmu:382397', "经济楼", Campus.siming, 24.439257101, 118.094121462, [
+    "经济楼",
+  ]),
+  CampusPlace(
+    'xmu:385037',
+    "经管大楼",
+    Campus.zhangzhou,
+    24.368698020,
+    118.045576470,
+    ["经管大楼"],
+  ),
+  CampusPlace(
+    'xmu:384275',
+    "综合实验楼",
+    Campus.xiangan,
+    24.615315391,
+    118.310072175,
+    ["综合实验楼"],
+  ),
+  CampusPlace('xmu:389971', "综合楼", Campus.siming, 24.436584937, 118.101788992, [
+    "综合楼",
+  ]),
+  CampusPlace(
+    'xmu:383107',
+    "综合楼",
+    Campus.xiangan,
+    24.610490203,
+    118.316803515,
+    ["综合楼"],
+  ),
+  CampusPlace('xmu:382436', "联兴楼", Campus.siming, 24.434244421, 118.099330710, [
+    "联兴楼",
+  ]),
+  CampusPlace(
+    'xmu:383097',
+    "能源材料大楼",
+    Campus.xiangan,
+    24.606355330,
+    118.318535725,
+    ["能源材料大楼"],
+  ),
+  CampusPlace('xmu:382472', "自钦楼", Campus.siming, 24.435710305, 118.100030468, [
+    "自钦楼",
+  ]),
+  CampusPlace(
+    'xmu:382446',
+    "蔡清洁楼",
+    Campus.siming,
+    24.434371108,
+    118.099647678,
+    ["蔡清洁楼"],
+  ),
+  CampusPlace(
+    'xmu:384273',
+    "超珍楼（教工俱乐部）",
+    Campus.xiangan,
+    24.607167847,
+    118.309371856,
+    ["超珍楼", "教工俱乐部"],
+  ),
+  CampusPlace(
+    'xmu:384257',
+    "跃进楼（细胞应激生物学国家重点实验室）",
+    Campus.xiangan,
+    24.606147974,
+    118.307431337,
+    ["跃进楼", "细胞应激生物学国家重点实验室"],
+  ),
+  CampusPlace('xmu:382466', "逸夫楼", Campus.siming, 24.437732504, 118.098838248, [
+    "逸夫楼",
+  ]),
+  CampusPlace(
+    'xmu:383105',
+    "金泉楼（环境与生态学院）",
+    Campus.xiangan,
+    24.607086665,
+    118.315400473,
+    ["金泉楼", "环境与生态学院"],
+  ),
+  CampusPlace(
+    'xmu:382417',
+    "钟铭选楼（嘉庚五）",
+    Campus.siming,
+    24.436511632,
+    118.096701592,
+    ["钟铭选楼", "嘉庚五"],
+  ),
+  CampusPlace(
+    'xmu:377588',
+    "颂恩楼（嘉庚三）",
+    Campus.siming,
+    24.437400369,
+    118.096987043,
+    ["颂恩楼", "嘉庚三"],
+  ),
+  CampusPlace(
+    'xmu:382438',
+    "黄宜弘楼",
+    Campus.siming,
+    24.434033757,
+    118.099833945,
+    ["黄宜弘楼"],
+  ),
+  CampusPlace(
+    'xmu:384268',
+    "黄朝阳楼（生命科学学院）",
+    Campus.xiangan,
+    24.604446279,
+    118.307015116,
+    ["黄朝阳楼", "生命科学学院"],
+  ),
+  CampusPlace('xmu:382413', "图书馆", Campus.siming, 24.438829752, 118.096541402, [
+    "图书馆",
+  ]),
+  CampusPlace(
+    'xmu:377598',
+    "图书馆",
+    Campus.zhangzhou,
+    24.367020632,
+    118.047622453,
+    ["图书馆"],
+  ),
+  CampusPlace(
+    'xmu:383086',
+    "德旺图书馆",
+    Campus.xiangan,
+    24.605749351,
+    118.311010891,
+    ["德旺图书馆"],
+  ),
+  CampusPlace(
+    'xmu:383144',
+    "综合体育馆",
+    Campus.xiangan,
+    24.611786458,
+    118.310335251,
+    ["综合体育馆"],
+  ),
+];

@@ -7,7 +7,8 @@ import 'package:xmu_rollcall/features/settings/about_page.dart';
 import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 
 class AboutSettingsRow extends ConsumerWidget {
-  const AboutSettingsRow({super.key});
+  const AboutSettingsRow({super.key, this.compact = false});
+  final bool compact;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final version = ref.watch(
@@ -15,9 +16,16 @@ class AboutSettingsRow extends ConsumerWidget {
     );
     final p = AppPalette.of(context);
     return SettingsRow(
-      leading: const Icon(Icons.info_outline_rounded),
+      leading: compact
+          ? SizedBox(
+              width: 24,
+              child: Icon(AppIcons.info, size: 23, color: p.primary),
+            )
+          : const Icon(AppIcons.info),
       title: '关于',
-      subtitle: '版本与应用信息',
+      subtitle: compact ? null : '版本与应用信息',
+      minHeight: compact ? 52 : null,
+      contentPadding: compact ? const EdgeInsets.symmetric(vertical: 6) : null,
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -42,7 +50,7 @@ class AboutSettingsRow extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
           ],
-          Icon(Icons.chevron_right, color: p.muted, size: 18),
+          Icon(AppIcons.right, color: p.muted, size: 18),
         ],
       ),
       onTap: () => AppPageRoutes.push(context, const AboutPage()),

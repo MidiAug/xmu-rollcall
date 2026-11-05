@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
+import '../fixtures/preview_fonts.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -16,6 +18,9 @@ import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
+import 'package:xmu_rollcall/features/monitor/course_watch_settings.dart';
+import 'package:xmu_rollcall/features/monitor/course_watch_courses_page.dart';
 
 class _AuthRepository extends Fake implements AuthRepository {}
 
@@ -35,8 +40,93 @@ class _Monitor extends MonitorController {
   void seed(MonitorState value) => state = value;
 }
 
+Future<void> _reveal(WidgetTester tester, Finder finder) async {
+  final scrollable = find.byType(Scrollable).first;
+  tester.state<ScrollableState>(scrollable).position.jumpTo(0);
+  await tester.pumpAndSettle();
+  await tester.scrollUntilVisible(
+    finder,
+    200,
+    scrollable: scrollable,
+    maxScrolls: 30,
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
+  testWidgets(
+    'watch course and mode taps explain running and starting restrictions',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          monitorControllerProvider.overrideWith((ref) => _Monitor(ref)),
+        ],
+      );
+      addTearDown(container.dispose);
+      addTearDown(AppToast.dismiss);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
+            home: const Scaffold(
+              body: SingleChildScrollView(
+                child: CourseWatchSettings(ownerId: 1, targetId: 1),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final ctrl =
+          container.read(monitorControllerProvider.notifier) as _Monitor;
+      for (final starting in [false, true]) {
+        ctrl.seed(
+          MonitorState(
+            config: const MonitorConfig(courseWatch: true),
+            running: !starting,
+            starting: starting,
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('值守课程'));
+        await tester.tap(find.text('值守课程'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text(starting ? '值守正在启动，请稍候再调整' : '请先暂停值守，再调整值守课程'),
+          findsOneWidget,
+        );
+        expect(find.byType(CourseWatchCoursesPage), findsNothing);
+        AppToast.dismiss();
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('monitor-course-watch')),
+        );
+        await tester.tap(find.byKey(const ValueKey('monitor-course-watch')));
+        await tester.pumpAndSettle();
+        expect(
+          container.read(monitorControllerProvider).config.courseWatch,
+          isTrue,
+        );
+        expect(
+          find.text(starting ? '值守正在启动，请稍候再调整' : '请先暂停值守，再调整课表值守设置'),
+          findsOneWidget,
+        );
+        AppToast.dismiss();
+      }
+      ctrl.seed(const MonitorState(config: MonitorConfig(courseWatch: true)));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('值守课程'));
+      await tester.tap(find.text('值守课程'));
+      await tester.pumpAndSettle();
+      expect(find.byType(CourseWatchCoursesPage), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
   setUpAll(() async {
+    await loadDesktopPreviewFonts();
     final font = Platform.environment['MONITOR_UI_FONT'];
     if (font == null) return;
     await (FontLoader(
@@ -48,6 +138,30 @@ void main() {
           ).readAsBytes().then(ByteData.sublistView),
         ))
         .load();
+  });
+  testWidgets('Android settings do not expose desktop watch or startup', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'monitor_account_1_1_course_watch': true,
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [authControllerProvider.overrideWith((ref) => _Auth())],
+        child: MaterialApp(
+          theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
+          home: const MonitorSettingsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('monitor-course-watch')), findsNothing);
+    expect(find.byKey(const ValueKey('monitor-startup')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('detection-window-switch')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
   });
   for (final scenario in [
     (width: 384.0, dark: false, scale: 1.0),
@@ -70,7 +184,8 @@ void main() {
         );
         addTearDown(container.dispose);
         final boundary = GlobalKey();
-        var theme = scenario.dark ? AppTheme.dark() : AppTheme.light();
+        var theme = (scenario.dark ? AppTheme.dark() : AppTheme.light())
+            .copyWith(platform: TargetPlatform.windows);
         if (Platform.environment['MONITOR_UI_FONT'] != null) {
           theme = theme.copyWith(
             textTheme: theme.textTheme.apply(fontFamily: 'MonitorSettingsUi'),
@@ -129,23 +244,84 @@ void main() {
         );
         await tester.pumpAndSettle();
         final ctrl = container.read(monitorControllerProvider.notifier);
-        const off = '仅提醒，不会自动提交';
-        const idle = '已开启，开始检测后生效';
-        const active = '发现签到后，按规则自动提交';
+        const off = '发现签到时提醒我';
+        const idle = '已开启，开始检测后生效；缺码或位置时提醒补充';
+        const active = '按下方设置自动签到';
+        await _reveal(tester, find.text(off));
         expect(find.text(off), findsOneWidget);
         expect(find.textContaining('雷达使用本课'), findsNothing);
         expect(find.text('最近运行'), findsNothing);
         expect(find.byKey(const ValueKey('monitor-jitter')), findsOneWidget);
         expect(find.byKey(const ValueKey('monitor-interval')), findsOneWidget);
         expect(find.text('更多设置'), findsNothing);
-        expect(find.text('签到规则'), findsOneWidget);
-        expect(find.text('检测与提醒'), findsOneWidget);
+        expect(find.text('发现签到后'), findsOneWidget);
+        expect(find.text('检测频率与范围'), findsOneWidget);
+        await _reveal(
+          tester,
+          find.byKey(const ValueKey('monitor-course-watch')),
+        );
         await capture('off');
+        expect(find.text('按课表时间'), findsOneWidget);
+        expect(find.text('最多 10 分钟'), findsNothing);
+        await tester.tap(find.byKey(const ValueKey('monitor-course-watch')));
+        await tester.pumpAndSettle();
+        expect(
+          container.read(monitorControllerProvider).config.courseWatch,
+          isTrue,
+        );
+        expect(
+          container.read(monitorControllerProvider).config.completeProbe,
+          isFalse,
+        );
+        expect(find.text('完整探查'), findsOneWidget);
+        tester
+            .state<ScrollableState>(find.byType(Scrollable).first)
+            .position
+            .jumpTo(0);
+        await tester.pumpAndSettle();
+        await capture('course-watch');
+        await _reveal(
+          tester,
+          find.byKey(const ValueKey('monitor-complete-probe')),
+        );
+        await tester.tap(find.byKey(const ValueKey('monitor-complete-probe')));
+        await tester.pumpAndSettle();
+        expect(
+          container.read(monitorControllerProvider).config.completeProbe,
+          isTrue,
+        );
+        final restoredWatch = ProviderContainer(
+          overrides: [authControllerProvider.overrideWith((ref) => _Auth())],
+        );
+        addTearDown(restoredWatch.dispose);
+        restoredWatch.read(monitorControllerProvider);
+        await tester.pumpAndSettle();
+        expect(
+          restoredWatch.read(monitorControllerProvider).config.courseWatch,
+          isTrue,
+        );
+        expect(
+          restoredWatch.read(monitorControllerProvider).config.completeProbe,
+          isTrue,
+        );
+        expect(find.text('运行与启动'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('monitor-resume-watch')),
+          findsNothing,
+        );
+        expect(find.byKey(const ValueKey('monitor-startup')), findsNothing);
+        ctrl.setCourseWatch(false);
+        await tester.pumpAndSettle();
+        await _reveal(
+          tester,
+          find.byKey(const ValueKey('monitor-auto-answer')),
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('monitor-auto-answer')));
         await tester.pumpAndSettle();
         expect(find.text(idle), findsOneWidget);
         expect(find.text(off), findsNothing);
-        expect(find.textContaining('雷达使用本课'), findsOneWidget);
+        expect(find.textContaining('雷达使用本课'), findsNothing);
         expect(container.read(monitorControllerProvider).running, isFalse);
         final select = tester.getRect(
           find.byType(AppShellSelect<AnswerWaitMode>),
@@ -167,28 +343,34 @@ void main() {
         expect(find.text(active), findsOneWidget);
         await capture('enabled-running');
         expect(find.text('人数刷新'), findsOneWidget);
-        await tester.ensureVisible(
-          find.byKey(const ValueKey('monitor-jitter')),
-        );
+        await _reveal(tester, find.byKey(const ValueKey('monitor-jitter')));
         await tester.pumpAndSettle();
         await capture('detection');
         await container
             .read(detectionWindowProvider.notifier)
             .save(const DetectionWindow(enabled: true));
         await tester.pumpAndSettle();
-        await tester.ensureVisible(
+        await _reveal(
+          tester,
           find.byKey(const ValueKey('detection-window-switch')),
         );
         await tester.pumpAndSettle();
-        expect(find.text('07:30'), findsOneWidget);
-        expect(find.text('22:00'), findsOneWidget);
+        expect(find.text('今日检测时间'), findsOneWidget);
+        expect(find.text('07:30'), findsNothing);
+        expect(find.text('22:00'), findsNothing);
         await capture('detection-window');
         expect(tester.takeException(), isNull);
         await container
             .read(detectionWindowProvider.notifier)
-            .save(const DetectionWindow());
+            .save(const DetectionWindow(scheduleBased: true, enabled: false));
         await tester.pumpAndSettle();
-        await tester.ensureVisible(
+        await _reveal(
+          tester,
+          find.byKey(const ValueKey('monitor-auto-answer')),
+        );
+        await tester.pumpAndSettle();
+        await _reveal(
+          tester,
           find.byKey(const ValueKey('monitor-auto-answer')),
         );
         await tester.pumpAndSettle();
@@ -241,12 +423,12 @@ void main() {
         fail('Slider could not be reached using Tab');
       }
 
-      await tester.ensureVisible(find.byTooltip('增加人数刷新间隔'));
+      await _reveal(tester, find.byTooltip('增加人数刷新间隔'));
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('增加人数刷新间隔'));
       await tester.pumpAndSettle();
       final intervalFinder = find.byKey(const ValueKey('monitor-interval'));
-      await tester.ensureVisible(intervalFinder);
+      await _reveal(tester, intervalFinder);
       await tester.pumpAndSettle();
       final slider = tester.widget<Slider>(intervalFinder);
       expect(slider.min, 10);
@@ -273,7 +455,7 @@ void main() {
         300,
       );
       await expectSavedInterval(300);
-      expect(find.text('约 240–360 秒检查一次；连接失败时会延后重试。'), findsOneWidget);
+      expect(find.text('约 240–360 秒检查一次，连接失败后稍后重试'), findsOneWidget);
       await tester.tapAt(Offset(track.left + 8, track.center.dy));
       await tester.pumpAndSettle();
       expect(
@@ -281,7 +463,7 @@ void main() {
         10,
       );
       await expectSavedInterval(10);
-      expect(find.text('约 10–12 秒检查一次；连接失败时会延后重试。'), findsOneWidget);
+      expect(find.text('约 10–12 秒检查一次，连接失败后稍后重试'), findsOneWidget);
       await focusWithTab(intervalFinder);
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
@@ -290,7 +472,7 @@ void main() {
         20,
       );
       final jitterFinder = find.byKey(const ValueKey('monitor-jitter'));
-      await tester.ensureVisible(jitterFinder);
+      await _reveal(tester, jitterFinder);
       await tester.pumpAndSettle();
       track = tester.getRect(jitterFinder);
       await tester.tapAt(Offset(track.left + 8, track.center.dy));
@@ -367,6 +549,10 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        await _reveal(
+          tester,
+          find.byKey(const ValueKey('monitor-auto-answer')),
+        );
         expect(
           tester
               .widget<AppSwitch>(
@@ -375,12 +561,14 @@ void main() {
               .onChanged,
           isNull,
         );
+        await _reveal(tester, find.byKey(const ValueKey('monitor-interval')));
         expect(
           tester
               .widget<Slider>(find.byKey(const ValueKey('monitor-interval')))
               .onChanged,
           isNull,
         );
+        await _reveal(tester, find.byType(AppShellSelect<AnswerWaitMode>));
         expect(
           tester
               .widget<AppShellSelect<AnswerWaitMode>>(
@@ -399,6 +587,7 @@ void main() {
                 )) {
           expect(button.onPressed, isNull);
         }
+        await _reveal(tester, find.byKey(const ValueKey('monitor-jitter')));
         expect(
           tester
               .widget<Slider>(find.byKey(const ValueKey('monitor-jitter')))
@@ -406,12 +595,12 @@ void main() {
           isNull,
         );
         expect(find.text('未发现新的签到'), findsNothing);
-        await tester.ensureVisible(find.byKey(const ValueKey('monitor-logs')));
+        await _reveal(tester, find.byKey(const ValueKey('monitor-logs')));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('monitor-logs')));
         await tester.pumpAndSettle();
         expect(find.text('未发现新的签到'), findsOneWidget);
-        await tester.ensureVisible(find.byKey(const ValueKey('monitor-logs')));
+        await _reveal(tester, find.byKey(const ValueKey('monitor-logs')));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('monitor-logs')));
         await tester.pumpAndSettle();

@@ -8,9 +8,9 @@ class AssistSharedCourse {
   final String title;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        if (title.isNotEmpty) 'title': title,
-      };
+    'id': id,
+    if (title.isNotEmpty) 'title': title,
+  };
 
   factory AssistSharedCourse.fromJson(Map<String, dynamic> json) {
     return AssistSharedCourse(
@@ -39,6 +39,7 @@ class AssistIdentity {
     required this.displayName,
     required this.kind,
     this.deviceId,
+    this.studentNo,
     this.importedAt,
     this.sharedCourses = const [],
     this.sharedCoursesSyncedAt,
@@ -48,6 +49,7 @@ class AssistIdentity {
   final String displayName;
   final AssistCredentialKind kind;
   final String? deviceId;
+  final String? studentNo;
   final DateTime? importedAt;
 
   /// Owner ∩ assist course ids (and titles) written at import / refresh.
@@ -72,6 +74,7 @@ class AssistIdentity {
     String? displayName,
     AssistCredentialKind? kind,
     String? deviceId,
+    String? studentNo,
     DateTime? importedAt,
     List<AssistSharedCourse>? sharedCourses,
     DateTime? sharedCoursesSyncedAt,
@@ -82,6 +85,7 @@ class AssistIdentity {
       displayName: displayName ?? this.displayName,
       kind: kind ?? this.kind,
       deviceId: deviceId ?? this.deviceId,
+      studentNo: studentNo ?? this.studentNo,
       importedAt: importedAt ?? this.importedAt,
       sharedCourses: sharedCourses ?? this.sharedCourses,
       sharedCoursesSyncedAt: clearSharedCoursesSyncedAt
@@ -91,18 +95,17 @@ class AssistIdentity {
   }
 
   Map<String, dynamic> toJson() => {
-        'userId': userId,
-        'displayName': displayName,
-        'kind': kind.wire,
-        if (deviceId != null && deviceId!.isNotEmpty) 'deviceId': deviceId,
-        if (importedAt != null)
-          'importedAt': importedAt!.toUtc().toIso8601String(),
-        if (sharedCourses.isNotEmpty)
-          'sharedCourses': sharedCourses.map((e) => e.toJson()).toList(),
-        if (sharedCoursesSyncedAt != null)
-          'sharedCoursesSyncedAt':
-              sharedCoursesSyncedAt!.toUtc().toIso8601String(),
-      };
+    'userId': userId,
+    'displayName': displayName,
+    'kind': kind.wire,
+    if (deviceId != null && deviceId!.isNotEmpty) 'deviceId': deviceId,
+    if (studentNo != null) 'studentNo': studentNo,
+    if (importedAt != null) 'importedAt': importedAt!.toUtc().toIso8601String(),
+    if (sharedCourses.isNotEmpty)
+      'sharedCourses': sharedCourses.map((e) => e.toJson()).toList(),
+    if (sharedCoursesSyncedAt != null)
+      'sharedCoursesSyncedAt': sharedCoursesSyncedAt!.toUtc().toIso8601String(),
+  };
 
   factory AssistIdentity.fromJson(Map<String, dynamic> json) {
     final rawShared = json['sharedCourses'];
@@ -119,8 +122,10 @@ class AssistIdentity {
       displayName: (json['displayName'] as String?) ?? '用户',
       kind: AssistCredentialKindX.parse(json['kind'] as String?),
       deviceId: json['deviceId'] as String?,
-      importedAt:
-          DateTime.tryParse(json['importedAt'] as String? ?? '')?.toUtc(),
+      studentNo: json['studentNo'] as String?,
+      importedAt: DateTime.tryParse(
+        json['importedAt'] as String? ?? '',
+      )?.toUtc(),
       sharedCourses: shared,
       sharedCoursesSyncedAt: DateTime.tryParse(
         json['sharedCoursesSyncedAt'] as String? ?? '',

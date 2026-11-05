@@ -109,9 +109,9 @@ void main() {
   });
 
   group('MonitorConfig', () {
-    test('default interval stays 20s', () {
+    test('default interval is sixty seconds', () {
       const c = MonitorConfig();
-      expect(c.effectiveIntervalSeconds, 20);
+      expect(c.effectiveIntervalSeconds, 60);
       expect(MonitorConfig.minIntervalSeconds, 10);
     });
 
@@ -133,6 +133,16 @@ void main() {
           MonitorConfig(intervalSeconds: entry.key).effectiveIntervalSeconds,
           entry.value,
         );
+      }
+    });
+
+    test('new settings default to sixty seconds with bounded jitter', () {
+      const config = MonitorConfig();
+      expect(config.preset, MonitorPreset.eco);
+      expect(config.effectiveIntervalSeconds, 60);
+      final random = Random(7);
+      for (var i = 0; i < 30; i++) {
+        expect(config.nextDelay(random).inSeconds, inInclusiveRange(48, 72));
       }
     });
 

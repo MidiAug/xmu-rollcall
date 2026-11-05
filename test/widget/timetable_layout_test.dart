@@ -1,3 +1,4 @@
+import '../fixtures/preview_fonts.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -11,7 +12,7 @@ import 'package:xmu_rollcall/features/location/location_providers.dart';
 import 'package:xmu_rollcall/features/location/map_pick_panel.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
-import 'package:xmu_rollcall/app/desktop_shell_chrome.dart';
+import 'package:xmu_rollcall/app/shell_destination_scope.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
@@ -21,7 +22,6 @@ import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
-import 'package:xmu_rollcall/features/settings/courses_page.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid_view.dart';
 
 class _AuthRepository extends Fake implements AuthRepository {}
@@ -65,7 +65,11 @@ List<CatalogCourse> _courses(bool weekend) {
         title: title,
         teachingClassName: '信息 1 班',
         instructorNames: const ['陈老师'],
-        location: id == 'late' ? '海韵教学楼 205' : null,
+        location: id == 'single'
+            ? '示例教学楼完整地点名称很长时应保留前部并裁切后部 A101'
+            : id == 'late'
+            ? '海韵教学楼 205'
+            : null,
         timetables: {
           day: [
             for (var seq = start; seq <= end; seq++)
@@ -103,44 +107,53 @@ List<CatalogCourse> _courses(bool weekend) {
   ];
 }
 
+/// Keep grid/location regressions independent of the direct JW data source.
+class _GridHarness extends ConsumerWidget {
+  const _GridHarness();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => SubpageScaffold(
+    title: '课表',
+    body: TimetableGridView(
+      courses:
+          ref.watch(courseCatalogProvider).valueOrNull?.courses ?? const [],
+    ),
+  );
+}
+
 class _DesktopFrame extends StatelessWidget {
-  const _DesktopFrame({required this.chrome});
-  final DesktopShellChromeController chrome;
+  const _DesktopFrame();
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return DesktopShellChromeScope(
-      controller: chrome,
-      child: Scaffold(
-        body: Column(
-          children: [
-            const AppTitleBar(title: '厦大签到'),
-            Container(height: 1, color: p.border),
-            Expanded(
-              child: Row(
-                children: [
-                  AppSidebar(
-                    current: AppDestination.settings,
-                    userLabel: '预览同学',
-                    onSelect: (_) {},
-                  ),
-                  Container(width: 1, color: p.border),
-                  Expanded(
-                    child: ShellTabDestination(
-                      destination: AppDestination.settings,
-                      child: Navigator(
-                        onGenerateRoute: (_) => MaterialPageRoute<void>(
-                          builder: (_) => const CoursesPage(),
-                        ),
+    return Scaffold(
+      body: Column(
+        children: [
+          const AppTitleBar(title: '厦大签到'),
+          Container(height: 1, color: p.border),
+          Expanded(
+            child: Row(
+              children: [
+                AppSidebar(
+                  current: AppDestination.settings,
+                  userLabel: '预览同学',
+                  onSelect: (_) {},
+                ),
+                Container(width: 1, color: p.border),
+                Expanded(
+                  child: ShellTabDestination(
+                    destination: AppDestination.settings,
+                    child: Navigator(
+                      onGenerateRoute: (_) => MaterialPageRoute<void>(
+                        builder: (_) => const _GridHarness(),
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -149,6 +162,7 @@ class _DesktopFrame extends StatelessWidget {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   setUpAll(() async {
+    await loadDesktopPreviewFonts();
     final cache = await Directory(
       '.tools/timetable-polish/cache',
     ).create(recursive: true);
@@ -215,9 +229,6 @@ void main() {
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
-        final chrome = DesktopShellChromeController()
-          ..current = AppDestination.settings;
-        addTearDown(chrome.dispose);
         var theme = scenario.dark ? AppTheme.dark() : AppTheme.light();
         if (Platform.environment['SETTINGS_UI_FONT'] != null) {
           theme = theme.copyWith(
@@ -272,15 +283,20 @@ void main() {
                   ).copyWith(textScaler: TextScaler.linear(scenario.scale)),
                   child: child!,
                 ),
-                home: desktop
-                    ? _DesktopFrame(chrome: chrome)
-                    : const CoursesPage(),
+                home: desktop ? const _DesktopFrame() : const _GridHarness(),
               ),
             ),
           ),
         );
         await tester.pumpAndSettle();
         expect(find.byType(TimetableGridView), findsOneWidget);
+        final room = find.text('示例教学楼完整地点名称很长时应保留前部并裁切后部 A101');
+        expect(
+          room,
+          findsOneWidget,
+          reason: 'A single period still reserves the full room caption',
+        );
+        expect(tester.widget<Text>(room).overflow, TextOverflow.ellipsis);
         expect(
           tester.widget<Text>(find.text('工程伦理')).style!.fontSize,
           greaterThanOrEqualTo(desktop ? 13 : 11),
@@ -312,6 +328,12 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('海韵教学楼 205'), findsWidgets);
         expect(find.byTooltip('关闭课程详情'), findsOneWidget);
+        if (!desktop) {
+          expect(
+            tester.widget<BottomSheet>(find.byType(BottomSheet)).showDragHandle,
+            isFalse,
+          );
+        }
         expect(find.byType(Dialog), desktop ? findsOneWidget : findsNothing);
         await capture('03-detail');
         final flow = find.byKey(const ValueKey('course-detail-flow'));

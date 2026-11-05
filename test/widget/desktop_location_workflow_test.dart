@@ -1,3 +1,15 @@
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
+import '../fixtures/preview_fonts.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/features/location/campus_places.dart';
+import 'package:xmu_rollcall/features/location/place_providers.dart';
+import 'dart:io';
+import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:xmu_rollcall/features/location/campus_map.dart';
+import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,6 +64,18 @@ class _Repo extends Fake implements RollcallRepository {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() async {
+    if (Platform.environment['CAPTURE_LOCATION_HEADER'] == '1') {
+      await loadDesktopPreviewFonts();
+    }
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('plugins.flutter.io/path_provider'),
+          (_) async => (await Directory(
+            'build/map-test-cache',
+          ).create(recursive: true)).absolute.path,
+        );
+  });
   setUp(() => SharedPreferences.setMockInitialValues({}));
   Future<void> desktop(WidgetTester tester) async {
     tester.view.physicalSize = const Size(960, 720);
@@ -59,6 +83,150 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
   }
+
+  testWidgets('mobile campus uses shared menu and keeps explicit selection', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(384, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final screen = GlobalKey();
+    Future<void> capture(String state) async {
+      if (Platform.environment['CAPTURE_LOCATION_HEADER'] != '1') return;
+      await tester.runAsync(() async {
+        final image =
+            await (screen.currentContext!.findRenderObject()
+                    as RenderRepaintBoundary)
+                .toImage();
+        final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+        await Directory('build/location-header-review').create(recursive: true);
+        await File(
+          'build/location-header-review/$state.png',
+        ).writeAsBytes(bytes!.buffer.asUint8List());
+        image.dispose();
+      });
+    }
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          courseRoomsProvider.overrideWithValue(const ['学武楼A404']),
+          campusCachedDataProvider.overrideWith(
+            (ref) async => const CampusCachedData(),
+          ),
+          preferredCampusProvider.overrideWithValue(Campus.xiangan),
+        ],
+        child: RepaintBoundary(
+          key: screen,
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light(),
+            home: const SavedLocationsPage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DropdownButton<Campus>), findsNothing);
+    expect(
+      tester
+          .widget<AppShellSelect<Campus>>(find.byType(AppShellSelect<Campus>))
+          .value,
+      Campus.xiangan,
+    );
+    final trigger = find.byType(AppToolbarChoice<Campus>);
+    expect(tester.getSize(trigger).height, 48);
+    expect(find.byType(AppSelectTrigger), findsNothing);
+    await capture('list');
+    await tester.tap(find.byKey(const ValueKey('managed-room-学武楼')));
+    await tester.pumpAndSettle();
+    expect(find.text('地点管理'), findsNothing);
+    expect(find.text('地点列表'), findsOneWidget);
+    expect(find.byKey(const ValueKey('map-back-to-list')), findsNothing);
+    final mapRect = tester.getRect(find.byType(FlutterMap));
+    final panel = tester.getRect(
+      find.byKey(const ValueKey('map-building-inspector')),
+    );
+    expect(mapRect.left, 0);
+    expect(mapRect.right, 384);
+    expect(panel.left - mapRect.left, 16);
+    expect(mapRect.right - panel.right, 16);
+    expect(mapRect.bottom - panel.bottom, 16);
+    await capture('map');
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    expect(find.text('地点管理'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('managed-room-学武楼')));
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('地点管理'), findsOneWidget);
+    await tester.tap(find.byType(AppShellSelect<Campus>));
+    await tester.pumpAndSettle();
+    await capture('campus-sheet');
+    await tester.tap(find.text('漳州校区'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<AppShellSelect<Campus>>(find.byType(AppShellSelect<Campus>))
+          .value,
+      Campus.zhangzhou,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('small map form keeps equal edges and scrolls above keyboard', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          courseRoomsProvider.overrideWithValue(const ['西部片区9号楼']),
+          preferredCampusProvider.overrideWithValue(Campus.xiangan),
+          campusCachedDataProvider.overrideWith(
+            (ref) async => const CampusCachedData(),
+          ),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(1.3)),
+            child: child!,
+          ),
+          home: const SavedLocationsPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('managed-room-西部片区9号楼')));
+    await tester.pumpAndSettle();
+    tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+    await tester.pumpAndSettle();
+    final panel = find.byKey(const ValueKey('map-place-inspector'));
+    final clip = find
+        .ancestor(of: panel, matching: find.byType(ClipRRect))
+        .first;
+    final bounds = tester.getRect(clip);
+    final map = tester.getRect(find.byType(FlutterMap));
+    expect(bounds.left - map.left, 16);
+    expect(map.right - bounds.right, 16);
+    expect(map.bottom - bounds.bottom, 16);
+    expect(bounds.height, lessThanOrEqualTo(map.height - 32));
+    final save = find.widgetWithText(FilledButton, '保存坐标');
+    await tester.ensureVisible(save);
+    await tester.pumpAndSettle();
+    expect(bounds.contains(tester.getCenter(save)), isTrue);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('mobile add location keeps note above keyboard', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
@@ -86,8 +254,18 @@ void main() {
     'desktop add and update location return to saved list and persist',
     (tester) async {
       await desktop(tester);
-      final container = ProviderContainer();
+      final container = ProviderContainer(
+        overrides: [
+          campusCachedDataProvider.overrideWith(
+            (ref) async => const CampusCachedData(),
+          ),
+          courseRoomsProvider.overrideWithValue(const ['测试教室']),
+        ],
+      );
       addTearDown(container.dispose);
+      await tester.runAsync(
+        () => container.read(savedLocationsProvider.notifier).ready,
+      );
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: container,
@@ -98,29 +276,56 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('添加'));
+      expect(find.byType(CampusMap), findsOneWidget);
+      expect(
+        tester.widget<FlutterMap>(find.byType(FlutterMap)).options.onTap,
+        isNull,
+      );
+      await tester.tap(find.byKey(const ValueKey('managed-room-测试教室')));
       await tester.pumpAndSettle();
-      expect(find.byType(MapPickPanel), findsOneWidget);
-      await tester.tap(find.text('保存'));
-      await tester.pumpAndSettle();
-      expect(find.text('请填写地点备注'), findsOneWidget);
-      expect(find.byType(Dialog), findsNothing);
-      await tester.enterText(find.byType(TextField), '测试教室');
-      await tester.tap(find.widgetWithText(FilledButton, '保存'));
-      await tester.pumpAndSettle();
-      expect(find.byType(MapPickPanel), findsNothing);
-      expect(find.text('测试教室'), findsWidgets);
-      final place = container.read(savedLocationsProvider).single;
-      expect(place.latitude, kDefaultMapCenter.latitude);
-      await tester.tap(find.text('测试教室').first);
-      await tester.pumpAndSettle();
-      expect(find.text('更新坐标'), findsOneWidget);
-      await tester.tapAt(
-        tester.getCenter(find.byType(MapPickPanel)) + const Offset(60, -30),
+      tester.widget<FlutterMap>(find.byType(FlutterMap)).options.onTap!(
+        const TapPosition(Offset.zero, Offset.zero),
+        const LatLng(24.4375, 118.098),
       );
       await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 400));
-      await tester.tap(find.text('更新坐标'));
+      final name = find.byKey(const ValueKey('managed-place-name'));
+      await tester.ensureVisible(name);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(name).readOnly, isTrue);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('保存坐标'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '保存坐标'))
+            .onPressed,
+        isNotNull,
+      );
+      final save = tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '保存坐标'))
+          .onPressed!;
+      await tester.runAsync(() async => await Function.apply(save, const []));
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsNothing);
+      expect(find.text('地点未能保存，请重试'), findsNothing);
+      final place = container.read(savedLocationsProvider).single;
+      await tester.ensureVisible(find.text('校正坐标'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('校正坐标'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byType(CampusMap));
+      await tester.pumpAndSettle();
+      tester.widget<FlutterMap>(find.byType(FlutterMap)).options.onTap!(
+        const TapPosition(Offset.zero, Offset.zero),
+        const LatLng(24.4385, 118.098),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('保存校正'));
+      await tester.pumpAndSettle();
+      final update = tester
+          .widget<FilledButton>(find.widgetWithText(FilledButton, '保存校正'))
+          .onPressed!;
+      await tester.runAsync(() async => await Function.apply(update, const []));
       await tester.pumpAndSettle();
       final updatedLatitude = container
           .read(savedLocationsProvider)
@@ -132,7 +337,9 @@ void main() {
       await tester.runAsync(() => restored.ready);
       final prefs = await SharedPreferences.getInstance();
       expect(
-        jsonDecode(prefs.getString('saved_radar_locations')!)[0]['latitude'],
+        jsonDecode(
+          prefs.getString('saved_radar_locations_signed_out')!,
+        )[0]['latitude'],
         updatedLatitude,
       );
       await tester.pump(const Duration(seconds: 3));
@@ -196,7 +403,7 @@ void main() {
         UncontrolledProviderScope(
           container: container,
           child: MaterialApp(
-            theme: AppTheme.light(),
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
             home: const RollcallAnswerPage(
               assistUserId: 2,
               item: RollcallItem(
@@ -228,6 +435,7 @@ void main() {
         true,
       );
       await tester.ensureVisible(find.text('用此位置签到'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('用此位置签到'));
       await tester.pumpAndSettle();
       expect(repo.calls, 0);

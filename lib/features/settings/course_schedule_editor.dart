@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/location/place_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
@@ -49,7 +50,7 @@ class CourseSchedulesPage extends ConsumerWidget {
                   child: SettingsSection(
                     children: [
                       SettingsRow(
-                        leading: const Icon(Icons.event_note_outlined),
+                        leading: const Icon(AppIcons.calendar),
                         title: course.title,
                         subtitle: course.needsSchedule
                             ? '尚未设置上课安排'
@@ -58,7 +59,7 @@ class CourseSchedulesPage extends ConsumerWidget {
                                     (m) =>
                                         '${weekdayLabel(m.weekday)} 第${m.first}–${m.last}节',
                                   )
-                                  .join(' · '),
+                                  .join('  '),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -66,11 +67,7 @@ class CourseSchedulesPage extends ConsumerWidget {
                               const ScheduleStatusChip(),
                               const SizedBox(width: 8),
                             ],
-                            Icon(
-                              Icons.chevron_right_rounded,
-                              color: p.muted,
-                              size: 18,
-                            ),
+                            Icon(AppIcons.right, color: p.muted, size: 18),
                           ],
                         ),
                         onTap: () async {
@@ -165,7 +162,7 @@ class CourseSchedulesPage extends ConsumerWidget {
                 ),
               if (courses.isEmpty)
                 const EmptyHint(
-                  icon: Icons.event_available_outlined,
+                  icon: AppIcons.rollcall,
                   title: '课程安排已完整',
                   detail: '所有课程都已有上课安排',
                 ),
@@ -268,6 +265,9 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
     });
   }
 
+  int? get _locationUserId =>
+      widget.assistUserId ?? ref.read(authControllerProvider).profile?.id;
+
   CourseRadarPref? _preference(_MeetingDraft d) => ref
       .read(courseRadarDefaultsForProvider(widget.assistUserId).notifier)
       .forCourse(
@@ -278,7 +278,9 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
     if (d.selected != null) return d.selected;
     final pref = _preference(d);
     final id = pref?.placeId;
-    for (final place in ref.read(savedLocationsProvider)) {
+    for (final place in ref.read(
+      knownLocationsForUserProvider(_locationUserId),
+    )) {
       if (place.id == id) return place;
     }
     if (pref == null) {
@@ -424,11 +426,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
                         _drafts.remove(d);
                         _dirty = true;
                       }),
-                icon: Icon(
-                  Icons.remove_circle_outline_rounded,
-                  size: 18,
-                  color: p.muted,
-                ),
+                icon: Icon(AppIcons.remove, size: 18, color: p.muted),
               ),
             ],
           ),
@@ -502,11 +500,11 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
           const SizedBox(height: 14),
           Row(
             children: [
-              Icon(Icons.schedule_rounded, size: 16, color: p.muted),
+              Icon(AppIcons.clock, size: 16, color: p.muted),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '${periodTimeLabel(m.startMinutes)}–${periodTimeLabel(m.endMinutes)}  ·  第 ${m.first}–${m.last} 节',
+                  '${periodTimeLabel(m.startMinutes)}–${periodTimeLabel(m.endMinutes)}    第 ${m.first}–${m.last} 节',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ),
@@ -521,7 +519,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
             onTap: _saving ? null : () => setState(() => _picking = d),
             child: Row(
               children: [
-                Icon(Icons.place_outlined, size: 18, color: p.muted),
+                Icon(AppIcons.location, size: 18, color: p.muted),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -530,7 +528,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(Icons.chevron_right_rounded, size: 18, color: p.muted),
+                Icon(AppIcons.right, size: 18, color: p.muted),
               ],
             ),
           ),
@@ -542,7 +540,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
   @override
   Widget build(BuildContext context) {
     ref.watch(courseRadarDefaultsForProvider(widget.assistUserId));
-    ref.watch(savedLocationsProvider);
+    ref.watch(knownLocationsForUserProvider(_locationUserId));
     final p = AppPalette.of(context);
     final picking = _picking;
     return ShellTabExitGuard(
@@ -567,6 +565,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
             child: picking != null
                 ? LocationPickerContent(
                     title: '选择上课地点',
+                    userId: _locationUserId,
                     selectedId: _savedPlace(picking)?.id,
                     onSelected: (place) => setState(() {
                       picking.selected = place;
@@ -618,7 +617,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
                                           _drafts.add(_MeetingDraft());
                                           _dirty = true;
                                         }),
-                                  icon: const Icon(Icons.add_rounded, size: 18),
+                                  icon: const Icon(AppIcons.add, size: 18),
                                   label: const Text('添加一次上课'),
                                 ),
                               ],

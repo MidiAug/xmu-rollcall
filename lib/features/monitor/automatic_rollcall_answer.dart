@@ -15,23 +15,35 @@ class AutomaticRollcallAnswer {
     this.onAnswered,
     this.radarLocation,
     this.onRadarSuccess,
+    this.onRadarRejected,
     this.runId,
-  }) : _now = now ?? DateTime.now;
+    this.onAlreadyAnswered,
+    Set<int> terminalIds = const {},
+  }) : _now = now ?? DateTime.now {
+    _unavailable.addAll(terminalIds);
+  }
   final RollcallRepository repository;
   final Future<void> Function() requireCurrent;
   final Future<void> Function(RollcallItem, AnswerResult)? onAnswered;
   final Future<CourseRadarPref?> Function(RollcallItem)? radarLocation;
   final Future<void> Function(CourseRadarPref)? onRadarSuccess;
+  final Future<void> Function(CourseRadarPref)? onRadarRejected;
   final DateTime Function() _now;
   final String? runId;
+  final Future<void> Function(RollcallItem)? onAlreadyAnswered;
   final _numberCodes = <int, String>{};
   Map<int, String> get numberCodes => Map.unmodifiable(_numberCodes);
   final _completed = <int>{};
-  final _roundStarted = <int, DateTime>{};
   final _retryAt = <int, DateTime>{};
   final _radarAttempted = <int>{};
+  final _unavailable = <int>{};
 
   Set<int> get completedIds => Set.unmodifiable(_completed);
+  Set<int> get terminalIds => {
+    ..._completed,
+    ..._radarAttempted,
+    ..._unavailable,
+  };
 
   Future<CourseRadarPref?> _location(RollcallItem item) async {
     final id = item.courseId;
@@ -53,7 +65,6 @@ class AutomaticRollcallAnswer {
   ) async {
     if (!config.autoAnswer || !current()) return null;
     final activeIds = items.map((i) => i.rollcallId).toSet();
-    _roundStarted.removeWhere((id, _) => !activeIds.contains(id));
     _retryAt.removeWhere((id, _) => !activeIds.contains(id));
     String? message;
     for (final item in items) {
@@ -62,6 +73,7 @@ class AutomaticRollcallAnswer {
       if ((!item.isNumber && !item.isRadar) ||
           item.isAnswered ||
           item.isExpired ||
+          _unavailable.contains(id) ||
           _completed.contains(id)) {
         continue;
       }
@@ -104,13 +116,6 @@ class AutomaticRollcallAnswer {
           continue;
         }
         if (!current()) break;
-        final start = _roundStarted.putIfAbsent(id, _now);
-        if (_now().difference(start) >= const Duration(minutes: 5)) {
-          _roundStarted[id] = _now();
-          trace('monitor.auto.wait_timeout');
-          message = '等待人数超时，下一轮重新检查签到';
-          continue;
-        }
         if (config.answerWaitMode != AnswerWaitMode.none) {
           stage = 'attendance';
           final count = await repository.fetchAttendanceCount(id, opId: opId);
@@ -125,6 +130,27 @@ class AutomaticRollcallAnswer {
             'target': target,
           });
           if (count.signed < target) {
+            // Discovery has handed off this fixed batch. Check only whether
+            // its activity still needs us; never adopt newly discovered ids.
+            final latest = await repository.fetchActive(
+              opId: opId,
+              manual: config.courseWatch,
+            );
+            if (!current()) break;
+            final matches = latest.where((i) => i.rollcallId == id);
+            if (matches.isEmpty ||
+                matches.first.isExpired ||
+                matches.first.isAnswered) {
+              if (matches.isNotEmpty && matches.first.isAnswered) {
+                _completed.add(id);
+                await onAlreadyAnswered?.call(matches.first);
+                message = '签到已完成';
+              } else {
+                _unavailable.add(id);
+                message = '签到活动已结束，请检查签到记录';
+              }
+              continue;
+            }
             message = target >= count.total
                 ? '当前 ${count.signed}/$target 人；课程共 ${count.total} 人，门槛可能无法达到，请调整规则'
                 : '等待同学签到：${count.signed}/$target 人';
@@ -133,7 +159,10 @@ class AutomaticRollcallAnswer {
         }
         // Refresh the event and code after waiting, immediately before submission.
         stage = 'revalidate';
-        final latest = await repository.fetchActive(opId: opId);
+        final latest = await repository.fetchActive(
+          opId: opId,
+          manual: config.courseWatch,
+        );
         if (!current()) break;
         final matches = latest.where((i) => i.rollcallId == id);
         if (matches.isEmpty ||
@@ -144,9 +173,16 @@ class AutomaticRollcallAnswer {
           trace('monitor.auto.decision', {
             'reason': 'event_unavailable_or_changed',
           });
+          if (matches.isNotEmpty && matches.first.isAnswered) {
+            _completed.add(id);
+            await onAlreadyAnswered?.call(matches.first);
+          } else {
+            _unavailable.add(id);
+          }
           continue;
         }
         stage = 'number_code';
+        final codeRequestedAt = _now();
         final code = item.isNumber
             ? await repository.fetchNumberCode(id, opId: opId)
             : null;
@@ -158,10 +194,9 @@ class AutomaticRollcallAnswer {
         // Read the point last, so a user change during any earlier await wins.
         final location = item.isRadar ? await _location(item) : null;
         if (!current()) break;
-        if (_now().difference(start) >= const Duration(minutes: 5)) {
-          _roundStarted[id] = _now();
-          trace('monitor.auto.wait_timeout');
-          message = '等待人数超时，下一轮重新检查签到';
+        if (_now().difference(codeRequestedAt) >= const Duration(minutes: 5)) {
+          trace('monitor.auto.stale_response');
+          message = '签到信息已过时，稍后重新确认';
           continue;
         }
         if (item.isNumber && (code == null || code.isEmpty)) {
@@ -250,6 +285,27 @@ class AutomaticRollcallAnswer {
           }
         } else {
           message = item.isRadar ? '雷达自动签到未成功，请手动确认位置' : '自动签到未成功，稍后重新检查';
+          if (current() &&
+              submittedPoint != null &&
+              result.isLocationRejected) {
+            final latest = await _location(item);
+            if (current() &&
+                latest != null &&
+                latest.latitude == submittedPoint!.latitude &&
+                latest.longitude == submittedPoint!.longitude &&
+                latest.placeId == submittedPoint!.placeId) {
+              try {
+                await onRadarRejected?.call(submittedPoint!);
+                message = '上课地点未通过位置校验，请到地点管理校正';
+              } catch (error, stack) {
+                trace(
+                  'monitor.auto.location_issue_failed',
+                  LogRedactor.exceptionFields(error: error, stackTrace: stack),
+                  'W',
+                );
+              }
+            }
+          }
         }
         if (current()) {
           stage = 'feedback';
