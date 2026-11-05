@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'app_service_symbol.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -53,6 +54,8 @@ class AppServiceTile extends StatelessWidget {
       child: AppGlassSurface(
         blur: 0,
         opacity: 1,
+        cacheShadows:
+            !kIsWeb && defaultTargetPlatform == TargetPlatform.windows,
         borderRadius: radius,
         child: AppHoverSurface(
           outlined: false,
