@@ -1491,7 +1491,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
     final normal = LayoutBuilder(
       builder: (context, bounds) {
         if (bounds.maxWidth >=
-            (840 + (actions.length > 2 ? 240 : 0)) *
+            (760 + (actions.length > 2 ? 220 : 0)) *
                 (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(
                   1,
                   1.5,
@@ -1522,11 +1522,20 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
               ],
             ),
             const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [select, ...actions],
+            Row(
+              children: [
+                select,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: actions,
+                  ),
+                ),
+              ],
             ),
           ],
         );

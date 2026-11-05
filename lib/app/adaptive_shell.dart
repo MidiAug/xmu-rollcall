@@ -99,7 +99,11 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
     AppShellSelect.closeAll();
     FocusManager.instance.primaryFocus?.unfocus();
     try {
-      if (!await _tabExit.canLeave(context, _current) || !mounted) return;
+      final permission = _tabExit.canLeave(context, _current);
+      final allowed = permission is Future<bool>
+          ? await permission
+          : permission;
+      if (!allowed || !mounted) return;
       _resetRoutes(_current);
       if (d != _current) _resetRoutes(d);
       setState(() {

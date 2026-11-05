@@ -5,6 +5,15 @@ import 'package:flutter/services.dart';
 /// Use the actual desktop font families, plus the package's own icon font.
 /// These are local QA fonts, never copied into the distributable assets.
 Future<void> loadDesktopPreviewFonts() async {
+  final sdk = Platform.environment['FLUTTER_ROOT'] ?? 'D:/Dev/Flutter-xmu';
+  final materialIcons = File(
+    '$sdk/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+  );
+  if (materialIcons.existsSync()) {
+    await (FontLoader(
+      'MaterialIcons',
+    )..addFont(materialIcons.readAsBytes().then(ByteData.sublistView))).load();
+  }
   for (final entry in {
     'Microsoft YaHei UI': [
       'C:/Windows/Fonts/msyh.ttc',

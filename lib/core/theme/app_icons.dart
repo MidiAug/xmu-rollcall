@@ -43,7 +43,7 @@ abstract final class AppIcons {
   static const toolsSelected = CupertinoIcons.square_grid_2x2_fill;
   static const settingsSelected = CupertinoIcons.gear_alt_fill;
   static const search = CupertinoIcons.search;
-  static const refresh = CupertinoIcons.arrow_clockwise;
+  static const refresh = CupertinoIcons.arrow_2_circlepath;
   static const swap = CupertinoIcons.arrow_right_arrow_left;
   static const right = CupertinoIcons.chevron_right;
   static const down = CupertinoIcons.chevron_down;

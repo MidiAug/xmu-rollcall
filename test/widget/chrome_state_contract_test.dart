@@ -281,16 +281,33 @@ void main() {
         );
         await mouse.addPointer(location: const Offset(600, 500));
         addTearDown(mouse.removePointer);
-        await tester.tap(trigger);
+        await mouse.moveTo(tester.getCenter(trigger));
+        await mouse.down(tester.getCenter(trigger));
+        await mouse.up();
         await tester.pumpAndSettle();
         expect(await pixel(tester, capture, point), isNot(idle));
         await _captureState(tester, capture, 'account-open-$dark');
-        await tester.tap(find.widgetWithText(AppMenuOption, '协助同学'));
+        await mouse.moveTo(
+          tester.getCenter(find.widgetWithText(AppMenuOption, '协助同学')),
+        );
+        await mouse.down(
+          tester.getCenter(find.widgetWithText(AppMenuOption, '协助同学')),
+        );
+        await mouse.up();
         await mouse.moveTo(const Offset(600, 500));
         await tester.pumpAndSettle();
         expect(value, 2);
+        expect(tester.widget<TextButton>(trigger).focusNode!.hasFocus, isFalse);
         expect(find.byType(AppMenuOption), findsNothing);
         expect(await pixel(tester, capture, point), idle);
+        expect(
+          await pixel(
+            tester,
+            capture,
+            rect.topLeft + Offset(1, rect.height / 2),
+          ),
+          p.sidebar,
+        );
         await _captureState(tester, capture, 'account-switched-$dark');
         await tester.tap(trigger);
         await tester.pumpAndSettle();
@@ -310,6 +327,7 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         expect(find.byType(AppMenuOption), findsNothing);
+        expect(tester.widget<TextButton>(trigger).focusNode!.hasFocus, isTrue);
         expect(await pixel(tester, capture, point), idle);
         expect(tester.takeException(), isNull);
       },
@@ -445,8 +463,8 @@ void main() {
       tester.element(find.byType(IconButton)),
     ).iconButtonTheme.style!;
     expect(
-      theme.overlayColor!.resolve({WidgetState.pressed})!.a,
-      greaterThan(0),
+      theme.backgroundColor!.resolve({WidgetState.pressed}),
+      AppPalette.of(tester.element(find.byType(IconButton))).controlPressed,
     );
   });
   for (final dark in [false, true]) {

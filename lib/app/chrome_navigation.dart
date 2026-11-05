@@ -145,6 +145,9 @@ class _DesktopNavItem extends StatelessWidget {
                       borderRadius: BorderRadius.circular(AppRadii.nav),
                     ),
                   ).copyWith(
+                    // A destination change is immediate; interpolating the
+                    // persistent surface makes an accepted click look delayed.
+                    animationDuration: Duration.zero,
                     // Persistent selection is the surface itself, not an overlay that
                     // transient button feedback can obscure.
                     backgroundColor: WidgetStateProperty.resolveWith((states) {

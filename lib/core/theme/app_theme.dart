@@ -94,29 +94,70 @@ abstract final class AppTheme {
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size(64, 40),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadii.button),
-          ),
-          side: BorderSide(color: p.borderStrong),
-          backgroundColor: p.surface,
-          overlayColor: p.primary.withValues(alpha: .05),
-          foregroundColor: p.ink,
-          textStyle: AppTypography.control,
-        ),
+        style:
+            OutlinedButton.styleFrom(
+              minimumSize: const Size(64, 40),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.button),
+              ),
+              side: BorderSide(color: p.borderStrong),
+              backgroundColor: p.surface,
+              overlayColor: Colors.transparent,
+              foregroundColor: p.ink,
+              textStyle: AppTypography.control,
+            ).copyWith(
+              backgroundColor: WidgetStateProperty.resolveWith(
+                (s) => s.contains(WidgetState.pressed)
+                    ? p.controlPressed
+                    : s.contains(WidgetState.hovered) &&
+                          !s.contains(WidgetState.disabled)
+                    ? p.controlHover
+                    : p.surface,
+              ),
+              side: WidgetStateProperty.resolveWith(
+                (s) => BorderSide(
+                  color: s.contains(WidgetState.disabled)
+                      ? p.border
+                      : s.contains(WidgetState.focused)
+                      ? p.focus
+                      : s.contains(WidgetState.hovered)
+                      ? p.controlOutlineHover
+                      : p.borderStrong,
+                ),
+              ),
+            ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: p.primary,
-          overlayColor: p.primary.withValues(alpha: .06),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadii.button),
-          ),
-          textStyle: AppTypography.control,
-        ),
+        style:
+            TextButton.styleFrom(
+              foregroundColor: p.primary,
+              overlayColor: Colors.transparent,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.button),
+              ),
+              textStyle: AppTypography.control,
+            ).copyWith(
+              backgroundColor: WidgetStateProperty.resolveWith(
+                (s) => s.contains(WidgetState.disabled)
+                    ? null
+                    : s.contains(WidgetState.pressed)
+                    ? p.controlPressed
+                    : s.contains(WidgetState.hovered)
+                    ? p.controlHover
+                    : null,
+              ),
+              side: WidgetStateProperty.resolveWith(
+                (s) => BorderSide(
+                  color: s.contains(WidgetState.focused)
+                      ? p.focus
+                      : s.contains(WidgetState.hovered)
+                      ? p.controlOutlineHover
+                      : AppPalette.clearOf(p.controlOutlineHover),
+                ),
+              ),
+            ),
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
@@ -215,16 +256,34 @@ abstract final class AppTheme {
         subtitleTextStyle: TextStyle(fontSize: 12, color: p.muted),
       ),
       iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadii.control),
-          ),
-          iconSize: 20,
-          foregroundColor: p.ink,
-          highlightColor: p.selected,
-          hoverColor: p.hover,
-          focusColor: p.selected,
-        ),
+        style:
+            IconButton.styleFrom(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.control),
+              ),
+              iconSize: 20,
+              foregroundColor: p.ink,
+            ).copyWith(
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+              backgroundColor: WidgetStateProperty.resolveWith(
+                (s) => s.contains(WidgetState.disabled)
+                    ? null
+                    : s.contains(WidgetState.pressed)
+                    ? p.controlPressed
+                    : s.contains(WidgetState.hovered)
+                    ? p.controlHover
+                    : null,
+              ),
+              side: WidgetStateProperty.resolveWith(
+                (s) => BorderSide(
+                  color: s.contains(WidgetState.focused)
+                      ? p.focus
+                      : s.contains(WidgetState.hovered)
+                      ? p.controlOutlineHover
+                      : AppPalette.clearOf(p.controlOutlineHover),
+                ),
+              ),
+            ),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((s) {

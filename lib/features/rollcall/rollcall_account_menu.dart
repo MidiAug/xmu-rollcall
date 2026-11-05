@@ -176,10 +176,7 @@ class _SidebarAccountTrigger extends StatelessWidget {
             overlayColor: const WidgetStatePropertyAll(Colors.transparent),
             side: WidgetStateProperty.resolveWith(
               (states) => BorderSide(
-                color:
-                    states.contains(WidgetState.focused) &&
-                        FocusManager.instance.highlightMode ==
-                            FocusHighlightMode.traditional
+                color: states.contains(WidgetState.focused)
                     ? p.focus
                     : AppPalette.clearOf(p.focus),
               ),

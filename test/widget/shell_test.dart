@@ -53,6 +53,41 @@ class _EmptyCourseHistory extends CourseHistoryNotifier {
 }
 
 void main() {
+  testWidgets(
+    'unguarded sidebar accepts consecutive destinations without dropping the last selection',
+    (tester) async {
+      tester.view.physicalSize = const Size(1100, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authControllerProvider.overrideWith((ref) => _TestAuthController()),
+            activeRollcallsProvider.overrideWith(_EmptyRollcalls.new),
+            campusCachedDataProvider.overrideWith(
+              (ref) async => const CampusCachedData(),
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
+            home: const AdaptiveShell(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final sidebar = tester.widget<AppSidebar>(find.byType(AppSidebar));
+      sidebar.onSelect(AppDestination.campusTools);
+      sidebar.onSelect(AppDestination.settings);
+      await tester.pump();
+      expect(
+        tester.widget<AppSidebar>(find.byType(AppSidebar)).current,
+        AppDestination.settings,
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
   testWidgets('Android bottom navigation is only visible on tab home pages', (
     tester,
   ) async {

@@ -58,6 +58,13 @@ class AppPalette {
   // disappears on it. Keep navigation feedback distinct from white selection.
   Color get navigationHover => isDark ? hover : const Color(0xFFDBDFE7);
 
+  /// Action surfaces stay distinct from the canvas even under the pointer.
+  Color get controlHover => isDark ? const Color(0xFF353D4C) : surface;
+  Color get controlPressed =>
+      isDark ? const Color(0xFF3D485C) : const Color(0xFFEDF2FA);
+  Color get controlOutlineHover =>
+      isDark ? const Color(0xFF74839C) : const Color(0xFFAAB8CE);
+
   /// Focus follows the active theme accent; it is not a separate blue palette.
   Color get focus => primary;
   Color get warning =>
@@ -118,7 +125,7 @@ class AppPalette {
     borderStrong: Color(0xFFD1D7E1),
     // Solid, with no dark overlay on the light canvas.
     hover: Color(0xFFEAEDF2),
-    cardHover: Color(0xFFFCFDFF),
+    cardHover: Color(0xFFF8FAFE),
     selected: Color(0xFFE6EAF1),
   );
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
@@ -8,7 +9,7 @@ import 'package:xmu_rollcall/app/destinations.dart';
 class ShellTabExitController {
   final _guards = <AppDestination, Map<Object, _ShellTabExitGuardState>>{};
 
-  Future<bool> canLeave(BuildContext context, AppDestination tab) async {
+  FutureOr<bool> canLeave(BuildContext context, AppDestination tab) {
     Iterable<ShellTabExitGuard> guards() =>
         (_guards[tab]?.values ?? const <_ShellTabExitGuardState>[])
             .where((g) => g.mounted && (g._route?.isActive ?? true))
@@ -18,14 +19,15 @@ class ShellTabExitController {
       return false;
     }
     if (!guards().any((g) => g.hasUnsavedChanges?.call() ?? false)) return true;
-    final discard = await showAppConfirmDialog(
+    return showAppConfirmDialog(
       context,
       title: '放弃未保存的修改？',
       message: '离开后，这些修改不会保留。',
       cancelLabel: '继续编辑',
       confirmLabel: '放弃并离开',
+    ).then(
+      (discard) => discard && !guards().any((g) => g.isBusy?.call() ?? false),
     );
-    return discard && !guards().any((g) => g.isBusy?.call() ?? false);
   }
 }
 

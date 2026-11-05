@@ -67,41 +67,26 @@ class AppQuietPill extends StatelessWidget {
     final p = AppPalette.of(context);
     final enabled = onTap != null;
     final strong = background == p.primary;
-    final hover = strong ? Color.lerp(p.primary, p.ink, .12)! : p.hover;
-    return MouseRegion(
-      cursor: enabled ? SystemMouseCursors.click : SystemMouseCursors.basic,
-      child: Material(
-        type: MaterialType.transparency,
+    final hover = strong ? Color.lerp(p.primary, p.ink, .12)! : p.controlHover;
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minHeight: AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 0,
+      ),
+      child: AppHoverSurface(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(radius),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(radius),
-          hoverColor: hover,
-          splashFactory: NoSplash.splashFactory,
-          highlightColor: Colors.transparent,
-          focusColor: hover,
-          onTap: onTap,
-          child: AnimatedOpacity(
-            duration: AppMotion.instant,
-            curve: AppMotion.instantCurve,
-            opacity: enabled ? 1 : 0.72,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: AppMobileUi.useTouchChrome(context)
-                    ? AppMobileUi.target
-                    : 0,
-              ),
-              child: Ink(
-                padding: padding,
-                decoration: BoxDecoration(
-                  color: background ?? p.surfaceHigh,
-                  borderRadius: BorderRadius.circular(radius),
-                  border: border ? Border.all(color: p.border) : null,
-                ),
-                child: child,
-              ),
-            ),
-          ),
+        outlined: border,
+        backgroundColor: background ?? p.surfaceHigh,
+        hoverColor: hover,
+        pressedColor: strong
+            ? Color.lerp(p.primary, p.ink, .2)!
+            : p.controlPressed,
+        padding: padding,
+        child: AnimatedOpacity(
+          duration: AppMotion.instant,
+          curve: AppMotion.instantCurve,
+          opacity: enabled ? 1 : 0.72,
+          child: child,
         ),
       ),
     );
@@ -118,6 +103,8 @@ class AppHoverSurface extends StatefulWidget {
     this.onTap,
     this.outlined = true,
     this.backgroundColor,
+    this.hoverColor,
+    this.pressedColor,
   });
 
   final Widget child;
@@ -126,6 +113,7 @@ class AppHoverSurface extends StatefulWidget {
   final VoidCallback? onTap;
   final bool outlined;
   final Color? backgroundColor;
+  final Color? hoverColor, pressedColor;
 
   @override
   State<AppHoverSurface> createState() => _AppHoverSurfaceState();
@@ -142,11 +130,13 @@ class _AppHoverSurfaceState extends State<AppHoverSurface> {
     final radius = widget.borderRadius ?? BorderRadius.circular(AppRadii.card);
     final lift = widget.onTap != null && (_pressed || _hover || _focused);
     final background = widget.backgroundColor ?? p.surface;
+    final hover = widget.hoverColor ?? p.cardHover;
+    final focus = background == p.primary
+        ? Theme.of(context).colorScheme.onPrimary
+        : p.focus;
     // Transparent black introduces a gray dip while RGB and alpha interpolate.
     // Match the hover hue at zero alpha to preserve the underlying glass.
-    final idle = background.a == 0
-        ? AppPalette.clearOf(p.cardHover)
-        : background;
+    final idle = background.a == 0 ? AppPalette.clearOf(hover) : background;
     final body = AnimatedContainer(
       duration: MediaQuery.disableAnimationsOf(context)
           ? Duration.zero
@@ -154,12 +144,14 @@ class _AppHoverSurfaceState extends State<AppHoverSurface> {
       curve: AppMotion.fastCurve,
       padding: widget.padding,
       decoration: BoxDecoration(
-        color: _pressed ? p.content : (lift ? p.cardHover : idle),
+        color: _pressed
+            ? widget.pressedColor ?? p.content
+            : (lift ? hover : idle),
         borderRadius: radius,
         // Keep one border's space in every state so keyboard focus never jumps.
         border: Border.all(
           color: _focused
-              ? p.focus
+              ? focus
               : widget.outlined
               ? (lift ? p.borderStrong : p.border)
               : AppPalette.clearOf(p.focus),

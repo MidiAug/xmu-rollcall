@@ -160,15 +160,9 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    group('常用工具', tools.where((t) => t.id != 'ta-grading')),
-                    const SizedBox(height: 28),
-                    group('研究生', tools.where((t) => t.id == 'ta-grading')),
-                    const SizedBox(height: 28),
-                    Divider(color: p.borderStrong, height: 1),
-                    const SizedBox(height: 12),
                     Wrap(
-                      spacing: 20,
-                      runSpacing: 4,
+                      spacing: 12,
+                      runSpacing: 8,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
@@ -182,14 +176,12 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                           ('图书馆', 'https://library.xmu.edu.cn/'),
                           ('校园邮箱', 'https://mail.stu.xmu.edu.cn/'),
                         ])
-                          AppHoverSurface(
-                            outlined: false,
-                            backgroundColor: Colors.transparent,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 12,
-                            ),
-                            onTap: () async {
+                          AppButton(
+                            kind: AppButtonKind.secondary,
+                            compact: true,
+                            label: link.$1,
+                            icon: AppIcons.externalLink,
+                            onPressed: () async {
                               try {
                                 if (!await launchUrl(
                                       Uri.parse(link.$2),
@@ -204,24 +196,13 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                                 }
                               }
                             },
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  link.$1,
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                                const SizedBox(width: 5),
-                                Icon(
-                                  Icons.north_east,
-                                  size: 13,
-                                  color: p.muted,
-                                ),
-                              ],
-                            ),
                           ),
                       ],
                     ),
+                    const SizedBox(height: 24),
+                    group('常用工具', tools.where((t) => t.id != 'ta-grading')),
+                    const SizedBox(height: 28),
+                    group('研究生', tools.where((t) => t.id == 'ta-grading')),
                   ],
                 );
               },

@@ -92,6 +92,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
   bool _sheetOpen = false;
   late final VoidCallback _closeHook;
   final _triggerFocus = FocusNode();
+  bool _pointerActivation = false;
   final _tapGroup = Object();
   final _menuFocus = FocusScopeNode(
     traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
@@ -139,7 +140,11 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
     AppShellSelect._openHooks.remove(_closeHook);
     if (mounted) {
       setState(() {});
-      if (restoreFocus) _triggerFocus.requestFocus();
+      if (restoreFocus && !_pointerActivation) {
+        _triggerFocus.requestFocus();
+      } else {
+        _triggerFocus.unfocus();
+      }
     }
   }
 
@@ -172,6 +177,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
       labelOf: widget.menuLabelOf ?? widget.labelOf,
       trailingOf: widget.menuTrailingOf,
       iconOf: widget.iconOf,
+      onPointerMode: (value) => _pointerActivation = value,
       onPresented: (context) {
         if (_sheetOpen) {
           _sheetRoute = ModalRoute.of(context);
@@ -184,7 +190,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
     AppShellSelect._openHooks.remove(_closeHook);
     if (!mounted) return;
     setState(() => _sheetOpen = false);
-    _triggerFocus.requestFocus();
+    if (!_pointerActivation) _triggerFocus.requestFocus();
     if (result != null && widget.items.contains(result.value)) {
       widget.onChanged?.call(result.value);
     }
@@ -201,6 +207,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
       return;
     }
     AppShellSelect._closeOthers(_closeHook);
+    if (_pointerActivation) _triggerFocus.unfocus();
     _portal.show();
     AppShellSelect._openHooks.add(_closeHook);
     setState(() {});
@@ -317,6 +324,12 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                         child: FocusScope(
                           node: _menuFocus,
                           autofocus: true,
+                          onKeyEvent: (_, event) {
+                            if (event is KeyDownEvent) {
+                              _pointerActivation = false;
+                            }
+                            return KeyEventResult.ignored;
+                          },
                           child: Shortcuts(
                             shortcuts: const {
                               SingleActivator(LogicalKeyboardKey.escape):
@@ -330,6 +343,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                               actions: {
                                 DismissIntent: CallbackAction<DismissIntent>(
                                   onInvoke: (_) {
+                                    _pointerActivation = false;
                                     _hide();
                                     return null;
                                   },
@@ -337,6 +351,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                                 NextFocusIntent:
                                     CallbackAction<NextFocusIntent>(
                                       onInvoke: (_) {
+                                        _pointerActivation = false;
                                         _menuFocus.nextFocus();
                                         return null;
                                       },
@@ -344,55 +359,61 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                                 PreviousFocusIntent:
                                     CallbackAction<PreviousFocusIntent>(
                                       onInvoke: (_) {
+                                        _pointerActivation = false;
                                         _menuFocus.previousFocus();
                                         return null;
                                       },
                                     ),
                               },
-                              child: SingleChildScrollView(
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    for (
-                                      var i = 0;
-                                      i < widget.items.length;
-                                      i++
-                                    ) ...[
-                                      if (i > 0) const SizedBox(height: 4),
-                                      AppMenuOption(
-                                        key: ValueKey('shell-select-option-$i'),
-                                        showCheck: true,
-                                        leadingIcon: widget.iconOf?.call(
-                                          widget.items[i],
-                                        ),
-                                        label:
-                                            (widget.menuLabelOf ??
-                                            widget.labelOf)(widget.items[i]),
-                                        trailing:
-                                            widget.menuTrailingOf?.call(
-                                              widget.items[i],
-                                            ) ??
-                                            '',
-                                        wrap: widget.wrapMenuLabels,
-                                        selected:
-                                            widget.items[i] == widget.value,
-                                        autofocus:
-                                            widget.items[i] == widget.value ||
-                                            (i == 0 &&
-                                                !widget.items.contains(
-                                                  widget.value,
-                                                )),
-                                        onTap: () {
-                                          _hide();
-                                          widget.onChanged?.call(
+                              child: Listener(
+                                onPointerDown: (_) => _pointerActivation = true,
+                                child: SingleChildScrollView(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      for (
+                                        var i = 0;
+                                        i < widget.items.length;
+                                        i++
+                                      ) ...[
+                                        if (i > 0) const SizedBox(height: 4),
+                                        AppMenuOption(
+                                          key: ValueKey(
+                                            'shell-select-option-$i',
+                                          ),
+                                          showCheck: true,
+                                          leadingIcon: widget.iconOf?.call(
                                             widget.items[i],
-                                          );
-                                        },
-                                      ),
+                                          ),
+                                          label:
+                                              (widget.menuLabelOf ??
+                                              widget.labelOf)(widget.items[i]),
+                                          trailing:
+                                              widget.menuTrailingOf?.call(
+                                                widget.items[i],
+                                              ) ??
+                                              '',
+                                          wrap: widget.wrapMenuLabels,
+                                          selected:
+                                              widget.items[i] == widget.value,
+                                          autofocus:
+                                              widget.items[i] == widget.value ||
+                                              (i == 0 &&
+                                                  !widget.items.contains(
+                                                    widget.value,
+                                                  )),
+                                          onTap: () {
+                                            _hide();
+                                            widget.onChanged?.call(
+                                              widget.items[i],
+                                            );
+                                          },
+                                        ),
+                                      ],
                                     ],
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -414,40 +435,51 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
             _triggerFocus.unfocus();
             _hide(restoreFocus: false);
           },
-          child: SizedBox(
-            width: widget.width,
-            child: Semantics(
-              label: widget.semanticLabel,
-              child:
-                  widget.triggerBuilder?.call(
-                    context,
-                    open,
-                    widget.onChanged == null || widget.items.isEmpty
-                        ? null
-                        : _toggle,
-                    _triggerFocus,
-                  ) ??
-                  AppSelectTrigger(
-                    label: widget.labelOf(widget.value),
-                    subtitle: widget.subtitle,
-                    plain: widget.plain,
-                    leading:
-                        widget.leading ??
-                        (widget.iconOf == null
+          child: Focus(
+            canRequestFocus: false,
+            skipTraversal: true,
+            onKeyEvent: (_, event) {
+              if (event is KeyDownEvent) _pointerActivation = false;
+              return KeyEventResult.ignored;
+            },
+            child: Listener(
+              onPointerDown: (_) => _pointerActivation = true,
+              child: SizedBox(
+                width: widget.width,
+                child: Semantics(
+                  label: widget.semanticLabel,
+                  child:
+                      widget.triggerBuilder?.call(
+                        context,
+                        open,
+                        widget.onChanged == null || widget.items.isEmpty
                             ? null
-                            : Icon(
-                                widget.iconOf!(widget.value),
-                                size: 16,
-                                color: p.muted,
-                              )),
-                    trailing: widget.trailing,
-                    compact: widget.compact || widget.width < 110,
-                    focusNode: _triggerFocus,
-                    open: open,
-                    onTap: widget.onChanged == null || widget.items.isEmpty
-                        ? null
-                        : _toggle,
-                  ),
+                            : _toggle,
+                        _triggerFocus,
+                      ) ??
+                      AppSelectTrigger(
+                        label: widget.labelOf(widget.value),
+                        subtitle: widget.subtitle,
+                        plain: widget.plain,
+                        leading:
+                            widget.leading ??
+                            (widget.iconOf == null
+                                ? null
+                                : Icon(
+                                    widget.iconOf!(widget.value),
+                                    size: 16,
+                                    color: p.muted,
+                                  )),
+                        trailing: widget.trailing,
+                        compact: widget.compact || widget.width < 110,
+                        focusNode: _triggerFocus,
+                        open: open,
+                        onTap: widget.onChanged == null || widget.items.isEmpty
+                            ? null
+                            : _toggle,
+                      ),
+                ),
+              ),
             ),
           ),
         ),

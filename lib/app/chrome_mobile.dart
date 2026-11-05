@@ -28,6 +28,7 @@ Future<_ChoiceResult<T>?> _showChoiceSheet<T>(
   String Function(T)? trailingOf,
   IconData Function(T)? iconOf,
   required ValueChanged<BuildContext> onPresented,
+  required ValueChanged<bool> onPointerMode,
 }) {
   final selectedAnchor = GlobalKey();
   return showModalBottomSheet<_ChoiceResult<T>>(
@@ -76,61 +77,75 @@ Future<_ChoiceResult<T>?> _showChoiceSheet<T>(
               },
             ),
           },
-          child: SafeArea(
-            top: false,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.sizeOf(sheetContext).height * .75,
-              ),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
+          child: Focus(
+            canRequestFocus: false,
+            skipTraversal: true,
+            onKeyEvent: (_, event) {
+              if (event is KeyDownEvent) onPointerMode(false);
+              return KeyEventResult.ignored;
+            },
+            child: Listener(
+              onPointerDown: (_) => onPointerMode(true),
+              child: SafeArea(
+                top: false,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(sheetContext).height * .75,
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            style: Theme.of(
-                              sheetContext,
-                            ).textTheme.titleMedium?.copyWith(fontSize: 18),
-                          ),
-                        ),
-                        const AppSheetCloseButton(),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Flexible(
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                        Row(
                           children: [
-                            for (var i = 0; i < items.length; i++)
-                              KeyedSubtree(
-                                key: items[i] == value ? selectedAnchor : null,
-                                child: AppMenuOption(
-                                  key: ValueKey('shell-select-option-$i'),
-                                  label: labelOf(items[i]),
-                                  trailing: trailingOf?.call(items[i]) ?? '',
-                                  leadingIcon: iconOf?.call(items[i]),
-                                  selected: items[i] == value,
-                                  showCheck: true,
-                                  wrap: true,
-                                  autofocus:
-                                      items[i] == value ||
-                                      (i == 0 && !items.contains(value)),
-                                  onTap: () => Navigator.pop(
-                                    sheetContext,
-                                    _ChoiceResult(items[i]),
-                                  ),
-                                ),
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: Theme.of(
+                                  sheetContext,
+                                ).textTheme.titleMedium?.copyWith(fontSize: 18),
                               ),
+                            ),
+                            const AppSheetCloseButton(),
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 8),
+                        Flexible(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                for (var i = 0; i < items.length; i++)
+                                  KeyedSubtree(
+                                    key: items[i] == value
+                                        ? selectedAnchor
+                                        : null,
+                                    child: AppMenuOption(
+                                      key: ValueKey('shell-select-option-$i'),
+                                      label: labelOf(items[i]),
+                                      trailing:
+                                          trailingOf?.call(items[i]) ?? '',
+                                      leadingIcon: iconOf?.call(items[i]),
+                                      selected: items[i] == value,
+                                      showCheck: true,
+                                      wrap: true,
+                                      autofocus:
+                                          items[i] == value ||
+                                          (i == 0 && !items.contains(value)),
+                                      onTap: () => Navigator.pop(
+                                        sheetContext,
+                                        _ChoiceResult(items[i]),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),

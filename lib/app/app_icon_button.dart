@@ -40,19 +40,37 @@ class AppIconButton extends StatelessWidget {
         onPressed: onPressed,
         alignment: alignment,
         icon: icon,
-        style: IconButton.styleFrom(
-          fixedSize: Size.square(extent),
-          minimumSize: Size.square(extent),
-          maximumSize: Size.square(extent),
-          padding: padding ?? EdgeInsets.all(extent < 40 ? 6 : 10),
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          backgroundColor: active
-              ? p.selected
-              : framed
-              ? p.surface
-              : null,
-          side: framed ? BorderSide(color: p.border) : null,
-        ),
+        style:
+            IconButton.styleFrom(
+              fixedSize: Size.square(extent),
+              minimumSize: Size.square(extent),
+              maximumSize: Size.square(extent),
+              padding: padding ?? EdgeInsets.all(extent < 40 ? 6 : 10),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ).copyWith(
+              backgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (active) return p.selected;
+                if (states.contains(WidgetState.pressed)) {
+                  return p.controlPressed;
+                }
+                if (states.contains(WidgetState.hovered)) {
+                  return p.controlHover;
+                }
+                if (framed) return p.surface;
+                return null;
+              }),
+              side: WidgetStateProperty.resolveWith(
+                (states) => BorderSide(
+                  color: states.contains(WidgetState.focused)
+                      ? p.focus
+                      : states.contains(WidgetState.hovered)
+                      ? p.controlOutlineHover
+                      : framed
+                      ? p.border
+                      : AppPalette.clearOf(p.controlOutlineHover),
+                ),
+              ),
+            ),
       ),
     );
   }

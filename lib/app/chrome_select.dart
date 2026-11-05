@@ -86,24 +86,21 @@ class _AppSelectTriggerState extends State<AppSelectTrigger> {
                 vertical: 6,
               ),
               decoration: BoxDecoration(
-                color: Color.alphaBlend(
-                  p.primary.withValues(
-                    alpha: _pressed && enabled
-                        ? .075
-                        : hovering
-                        ? .04
-                        : 0,
-                  ),
-                  widget.plain
-                      ? p.sidebar
-                      : AppMobileUi.useTouchChrome(context)
-                      ? p.controlSurface
-                      : p.surface,
-                ),
+                color: _pressed && enabled
+                    ? p.controlPressed
+                    : hovering
+                    ? p.controlHover
+                    : widget.plain
+                    ? p.sidebar
+                    : AppMobileUi.useTouchChrome(context)
+                    ? p.controlSurface
+                    : p.surface,
                 borderRadius: BorderRadius.circular(AppRadii.control),
                 border: Border.all(
-                  color: hovering || outlined
-                      ? p.borderStrong
+                  color: outlined
+                      ? p.focus
+                      : hovering
+                      ? p.controlOutlineHover
                       : widget.plain
                       ? AppPalette.clearOf(p.primary)
                       : AppMobileUi.useTouchChrome(context)

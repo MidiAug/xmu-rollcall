@@ -119,7 +119,7 @@ void main() {
         final fill = kind == 'strong-pill'
             ? Color.lerp(palette.primary, palette.ink, .12)!
             : kind == 'pill'
-            ? Color.alphaBlend(palette.hover, palette.surfaceHigh)
+            ? palette.controlHover
             : palette.cardHover;
         expect(pixel(23, 60), fill.toARGB32());
         expect(pixel(216, 60), fill.toARGB32());

@@ -207,10 +207,15 @@ class _AppRefreshButtonState extends State<AppRefreshButton>
       onPressed: _busy || widget.busy ? null : _handle,
       icon: RotationTransition(
         turns: _spin,
-        child: Icon(
-          AppIcons.refresh,
-          color: widget.color ?? p.muted,
-          size: widget.iconSize,
+        child: SizedBox.square(
+          dimension: widget.iconSize ?? 18,
+          child: Center(
+            child: Icon(
+              AppIcons.refresh,
+              color: widget.color ?? p.muted,
+              size: widget.iconSize ?? 18,
+            ),
+          ),
         ),
       ),
     );
