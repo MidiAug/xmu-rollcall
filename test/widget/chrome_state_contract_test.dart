@@ -460,80 +460,102 @@ void main() {
       );
     }
   }
-  for (final dark in [false, true]) {
-    testWidgets('page back keeps hover and press borderless dark=$dark', (
-      tester,
-    ) async {
-      final capture = GlobalKey();
-      var calls = 0;
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: dark ? AppTheme.dark() : AppTheme.light(),
-          home: Scaffold(
-            body: RepaintBoundary(
-              key: capture,
-              child: ColoredBox(
-                color: dark
-                    ? AppPalette.darkPalette.canvas
-                    : AppPalette.lightPalette.canvas,
-                child: Column(
-                  children: [
-                    DesktopPageHeader(title: '签到设置', onBack: () => calls++),
-                    const Expanded(child: SizedBox.shrink()),
-                  ],
+  for (final (dark, closing) in [
+    (false, false),
+    (true, false),
+    (false, true),
+    (true, true),
+  ]) {
+    testWidgets(
+      '${closing ? 'sheet close' : 'page back'} keeps hover and press borderless dark=$dark',
+      (tester) async {
+        final capture = GlobalKey();
+        var calls = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: dark ? AppTheme.dark() : AppTheme.light(),
+            home: Scaffold(
+              body: RepaintBoundary(
+                key: capture,
+                child: ColoredBox(
+                  color: dark
+                      ? AppPalette.darkPalette.canvas
+                      : AppPalette.lightPalette.canvas,
+                  child: Column(
+                    children: [
+                      DesktopPageHeader(
+                        title: '签到设置',
+                        onBack: closing ? null : () => calls++,
+                        actions: [
+                          if (closing)
+                            AppSheetCloseButton(onPressed: () => calls++),
+                        ],
+                      ),
+                      const Expanded(child: SizedBox.shrink()),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final back = find.byTooltip('返回');
-      final rect = tester.getRect(back);
-      final size = tester.getSize(back);
-      final edge = Offset(rect.left, rect.center.dy);
-      final inside = edge + const Offset(3, 0);
-      final mouse = await tester.createGesture(
-        kind: ui.PointerDeviceKind.mouse,
-      );
-      await mouse.addPointer(location: const Offset(790, 590));
-      addTearDown(mouse.removePointer);
-      await mouse.moveTo(rect.center);
-      await tester.pumpAndSettle();
-      expect(
-        await pixel(tester, capture, edge),
-        await pixel(tester, capture, inside),
-      );
-      await _captureState(tester, capture, 'back-hover-$dark');
-      await mouse.down(rect.center);
-      await tester.pumpAndSettle();
-      expect(
-        await pixel(tester, capture, edge),
-        await pixel(tester, capture, inside),
-      );
-      await _captureState(tester, capture, 'back-held-$dark');
-      await mouse.up();
-      await tester.pumpAndSettle();
-      expect(calls, 1);
-      expect(tester.getSize(back), size);
-      expect(
-        await pixel(tester, capture, edge),
-        await pixel(tester, capture, inside),
-      );
-      await mouse.moveTo(const Offset(790, 590));
-      await tester.pumpAndSettle();
-      expect(
-        await pixel(tester, capture, edge),
-        await pixel(tester, capture, inside),
-      );
-      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-      await tester.pumpAndSettle();
-      final p = dark ? AppPalette.darkPalette : AppPalette.lightPalette;
-      expect(await pixel(tester, capture, edge), p.focus);
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pumpAndSettle();
-      expect(calls, 2);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+        );
+        await tester.pumpAndSettle();
+        final back = find.byTooltip(closing ? '关闭' : '返回');
+        final rect = tester.getRect(back);
+        final size = tester.getSize(back);
+        final edge = Offset(rect.left, rect.center.dy);
+        final inside = edge + const Offset(3, 0);
+        final mouse = await tester.createGesture(
+          kind: ui.PointerDeviceKind.mouse,
+        );
+        await mouse.addPointer(location: const Offset(790, 590));
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(rect.center);
+        await tester.pumpAndSettle();
+        expect(
+          await pixel(tester, capture, edge),
+          await pixel(tester, capture, inside),
+        );
+        await _captureState(
+          tester,
+          capture,
+          '${closing ? 'close' : 'back'}-hover-$dark',
+        );
+        await mouse.down(rect.center);
+        await tester.pumpAndSettle();
+        expect(
+          await pixel(tester, capture, edge),
+          await pixel(tester, capture, inside),
+        );
+        await _captureState(
+          tester,
+          capture,
+          '${closing ? 'close' : 'back'}-held-$dark',
+        );
+        await mouse.up();
+        await tester.pumpAndSettle();
+        expect(calls, 1);
+        expect(tester.getSize(back), size);
+        expect(
+          await pixel(tester, capture, edge),
+          await pixel(tester, capture, inside),
+        );
+        await mouse.moveTo(const Offset(790, 590));
+        await tester.pumpAndSettle();
+        expect(
+          await pixel(tester, capture, edge),
+          await pixel(tester, capture, inside),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        final p = dark ? AppPalette.darkPalette : AppPalette.lightPalette;
+        expect(await pixel(tester, capture, edge), p.focus);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(calls, 2);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
   }
   testWidgets('legacy icon actions inherit the rounded rectangle surface', (
     tester,

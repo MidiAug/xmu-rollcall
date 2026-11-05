@@ -32,6 +32,7 @@ class AppSheetCloseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => AppIconButton(
     tooltip: tooltip,
+    hoverOutline: false,
     padding: EdgeInsets.zero,
     extent: 44,
     alignment: alignWithTitle ? Alignment.topCenter : Alignment.center,
