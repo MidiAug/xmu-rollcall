@@ -135,8 +135,8 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
           ],
         ),
       ],
-      body: AppContentColumn(
-        child: RefreshFeedback(
+      body: AppPageViewport(
+        builder: (context, contentInsets) => RefreshFeedback(
           error: async.hasValue ? async.error : null,
           onRetry: () => ref
               .read(courseHomeworkProvider(widget.courseId).notifier)
@@ -153,7 +153,7 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.all(pageX),
+                padding: contentInsets + EdgeInsets.all(pageX),
                 children: [
                   Panel(
                     child: Column(
@@ -208,12 +208,14 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
                 }
                 return ListView.builder(
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(
-                    pageX,
-                    AppSpace.md,
-                    pageX,
-                    AppSpace.xl,
-                  ),
+                  padding:
+                      contentInsets +
+                      EdgeInsets.fromLTRB(
+                        pageX,
+                        AppSpace.md,
+                        pageX,
+                        AppSpace.xl,
+                      ),
                   itemCount: filtered.length,
                   itemBuilder: (context, i) {
                     final item = filtered[i];

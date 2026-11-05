@@ -707,14 +707,16 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
           _codeCtrl.text.trim().isNotEmpty || _pinnedByUser,
       isBusy: () => _submitting,
       title: widget.previewMode ? '雷达签到（预览）' : '${item.typeLabel}签到',
-      body: AppContentColumn(
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            AppSpace.pageXOf(context),
-            AppSpace.md,
-            AppSpace.pageXOf(context),
-            AppSpace.xl,
-          ),
+      body: AppPageViewport(
+        builder: (context, contentInsets) => ListView(
+          padding:
+              contentInsets +
+              EdgeInsets.fromLTRB(
+                AppSpace.pageXOf(context),
+                AppSpace.md,
+                AppSpace.pageXOf(context),
+                AppSpace.xl,
+              ),
           children: [
             Text(
               item.courseTitle,

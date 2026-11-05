@@ -95,9 +95,9 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
     final p = AppPalette.of(context);
     return SubpageScaffold(
       title: '值守课程',
-      body: AppContentColumn(
+      body: AppPageViewport(
         maxWidth: 1040,
-        child: Theme(
+        builder: (context, contentInsets) => Theme(
           data: Theme.of(context).copyWith(
             splashFactory: NoSplash.splashFactory,
             highlightColor: Colors.transparent,
@@ -115,7 +115,7 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
           ),
           child: LayoutBuilder(
             builder: (context, bounds) => ListView(
-              padding: const EdgeInsets.all(24),
+              padding: contentInsets + const EdgeInsets.all(24),
               children: [
                 Text(
                   '只照看你需要的课',
@@ -142,7 +142,7 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
                     '暂无可关联的课程，请先获取课表并查看一次畅课课程。',
                     style: TextStyle(color: p.muted),
                   ),
-                if (bounds.maxWidth >= 728)
+                if (bounds.maxWidth - contentInsets.horizontal >= 728)
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [

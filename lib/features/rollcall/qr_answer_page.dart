@@ -711,14 +711,16 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
       hasUnsavedChanges: () => _dataCtrl.text.trim().isNotEmpty,
       isBusy: () => _submitting,
       title: '二维码签到',
-      body: AppContentColumn(
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            AppSpace.pageXOf(context),
-            AppSpace.md,
-            AppSpace.pageXOf(context),
-            AppSpace.xl,
-          ),
+      body: AppPageViewport(
+        builder: (context, contentInsets) => ListView(
+          padding:
+              contentInsets +
+              EdgeInsets.fromLTRB(
+                AppSpace.pageXOf(context),
+                AppSpace.md,
+                AppSpace.pageXOf(context),
+                AppSpace.xl,
+              ),
           children: [
             Text(
               item.courseTitle,

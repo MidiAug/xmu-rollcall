@@ -15,20 +15,22 @@ class AssistIdentitiesPage extends ConsumerWidget {
 
     return SubpageScaffold(
       title: '协助身份',
-      body: AppContentColumn(
-        child: assist.identities.isEmpty
+      body: AppPageViewport(
+        builder: (context, contentInsets) => assist.identities.isEmpty
             ? EmptyHint(
                 icon: Icons.person_add_alt_1_outlined,
                 title: '还没有协助对象',
                 detail: '请先导入协助身份，再点姓名进入其签到页。',
               )
             : ListView(
-                padding: EdgeInsets.fromLTRB(
-                  AppSpace.pageXOf(context),
-                  AppSpace.sm,
-                  AppSpace.pageXOf(context),
-                  AppSpace.xl,
-                ),
+                padding:
+                    contentInsets +
+                    EdgeInsets.fromLTRB(
+                      AppSpace.pageXOf(context),
+                      AppSpace.sm,
+                      AppSpace.pageXOf(context),
+                      AppSpace.xl,
+                    ),
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(

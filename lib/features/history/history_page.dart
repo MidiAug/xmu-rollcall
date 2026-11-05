@@ -257,20 +257,16 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
             countOf: periodCount,
           ),
       ],
-      body: AppContentColumn(
-        alignment: Alignment.topCenter,
-        child: PrimaryScrollController(
+      body: AppPageViewport(
+        builder: (context, contentInsets) => PrimaryScrollController(
           controller: _scroll,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: EdgeInsets.fromLTRB(
-                  pageX,
-                  AppSpace.sm,
-                  pageX,
-                  AppSpace.xs,
-                ),
+                padding:
+                    contentInsets +
+                    EdgeInsets.fromLTRB(pageX, AppSpace.sm, pageX, AppSpace.xs),
                 child: Row(
                   children: [
                     Expanded(
@@ -325,6 +321,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
               ),
               Expanded(
                 child: _CourseHistoryBody(
+                  contentInsets: contentInsets,
                   signedIn: auth.isSignedIn,
                   signedFilter: _signed,
                   typeFilter: _type,
@@ -381,6 +378,7 @@ class _HistoryFilter<T> extends StatelessWidget {
 class _CourseHistoryBody extends ConsumerWidget {
   const _CourseHistoryBody({
     required this.signedIn,
+    this.contentInsets = EdgeInsets.zero,
     required this.signedFilter,
     required this.typeFilter,
     required this.courseId,
@@ -389,6 +387,7 @@ class _CourseHistoryBody extends ConsumerWidget {
   });
 
   final bool signedIn;
+  final EdgeInsets contentInsets;
   final HistorySignedFilter signedFilter;
   final HistoryTypeFilter typeFilter;
   final String courseId;
@@ -436,7 +435,7 @@ class _CourseHistoryBody extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(24),
+          padding: contentInsets + const EdgeInsets.all(24),
           children: [
             Panel(
               child: Column(
@@ -494,12 +493,14 @@ class _CourseHistoryBody extends ConsumerWidget {
           }
           return ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(
-              AppSpace.pageXOf(context),
-              AppSpace.xxs,
-              AppSpace.pageXOf(context),
-              AppSpace.xl,
-            ),
+            padding:
+                contentInsets +
+                EdgeInsets.fromLTRB(
+                  AppSpace.pageXOf(context),
+                  AppSpace.xxs,
+                  AppSpace.pageXOf(context),
+                  AppSpace.xl,
+                ),
             itemCount: filtered.length,
             separatorBuilder: (_, _) =>
                 SizedBox(height: AppSpace.stackOf(context) * 0.55),

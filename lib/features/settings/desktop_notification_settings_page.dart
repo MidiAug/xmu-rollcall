@@ -54,8 +54,8 @@ class _DesktopNotificationSettingsPageState
     final notifications = _notifications;
     return SubpageScaffold(
       title: '桌面提醒',
-      body: AppContentColumn(
-        child: ListenableBuilder(
+      body: AppPageViewport(
+        builder: (context, contentInsets) => ListenableBuilder(
           listenable: Listenable.merge([notifications, shell.trayAvailable]),
           builder: (context, _) {
             final sent = notifications.lastTestSentAt != null;
@@ -63,7 +63,8 @@ class _DesktopNotificationSettingsPageState
                 notifications.lastTestConfirmedAt != null &&
                 notifications.error == null;
             return ListView(
-              padding: EdgeInsets.all(AppSpace.pageXOf(context)),
+              padding:
+                  contentInsets + EdgeInsets.all(AppSpace.pageXOf(context)),
               children: [
                 SettingsSection(
                   padTop: false,

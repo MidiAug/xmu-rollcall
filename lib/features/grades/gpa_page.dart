@@ -117,15 +117,17 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                     )
                     .toList();
                 final summary = calculateGpa(included);
-                return AppContentColumn(
+                return AppPageViewport(
                   maxWidth: 960,
-                  child: ListView(
-                    padding: EdgeInsets.fromLTRB(
-                      AppSpace.pageXOf(context),
-                      12,
-                      AppSpace.pageXOf(context),
-                      24,
-                    ),
+                  builder: (context, contentInsets) => ListView(
+                    padding:
+                        contentInsets +
+                        EdgeInsets.fromLTRB(
+                          AppSpace.pageXOf(context),
+                          12,
+                          AppSpace.pageXOf(context),
+                          24,
+                        ),
                     children: [
                       Padding(
                         padding: const EdgeInsets.only(bottom: 4),

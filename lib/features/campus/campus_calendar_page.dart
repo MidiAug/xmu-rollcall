@@ -36,15 +36,17 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
       onBack: () => Navigator.of(context).maybePop(),
       child: Material(
         color: p.canvas,
-        child: AppContentColumn(
+        child: AppPageViewport(
           maxWidth: 960,
-          child: ListView(
-            padding: EdgeInsets.fromLTRB(
-              AppSpace.pageXOf(context),
-              8,
-              AppSpace.pageXOf(context),
-              32,
-            ),
+          builder: (context, contentInsets) => ListView(
+            padding:
+                contentInsets +
+                EdgeInsets.fromLTRB(
+                  AppSpace.pageXOf(context),
+                  8,
+                  AppSpace.pageXOf(context),
+                  32,
+                ),
             children: [
               Align(
                 alignment: Alignment.centerLeft,

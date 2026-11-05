@@ -46,15 +46,17 @@ class _AboutPageState extends State<AboutPage> {
     final p = AppPalette.of(context);
     return SubpageScaffold(
       title: '关于',
-      body: AppContentColumn(
+      body: AppPageViewport(
         maxWidth: 600,
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            AppSpace.pageXOf(context),
-            AppDensity.isTouch(context) ? 24 : 60,
-            AppSpace.pageXOf(context),
-            AppSpace.xl,
-          ),
+        builder: (context, contentInsets) => ListView(
+          padding:
+              contentInsets +
+              EdgeInsets.fromLTRB(
+                AppSpace.pageXOf(context),
+                AppDensity.isTouch(context) ? 24 : 60,
+                AppSpace.pageXOf(context),
+                AppSpace.xl,
+              ),
           children: [
             const Center(child: BrandMark(size: 56)),
             const SizedBox(height: 14),

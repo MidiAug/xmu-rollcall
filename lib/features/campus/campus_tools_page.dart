@@ -94,17 +94,19 @@ class _CampusToolsPageState extends State<CampusToolsPage>
       showHeader: AppMobileUi.useTouchChrome(context),
       child: ColoredBox(
         color: p.pageBackground(context),
-        child: AppContentColumn(
+        child: AppPageViewport(
           maxWidth: 1040,
-          child: LayoutBuilder(
+          builder: (context, contentInsets) => LayoutBuilder(
             builder: (context, viewport) => SingleChildScrollView(
               controller: _scroll,
-              padding: EdgeInsets.fromLTRB(
-                AppSpace.pageXOf(context),
-                20,
-                AppSpace.pageXOf(context),
-                32,
-              ),
+              padding:
+                  contentInsets +
+                  EdgeInsets.fromLTRB(
+                    AppSpace.pageXOf(context),
+                    20,
+                    AppSpace.pageXOf(context),
+                    32,
+                  ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
                   minHeight: (viewport.maxHeight - 52).clamp(

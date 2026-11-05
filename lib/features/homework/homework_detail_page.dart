@@ -59,11 +59,11 @@ class HomeworkDetailPage extends ConsumerWidget {
             child: const Text('查看该课全部'),
           ),
       ],
-      body: AppContentColumn(
-        child: async.when(
+      body: AppPageViewport(
+        builder: (context, contentInsets) => async.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => ListView(
-            padding: EdgeInsets.all(pageX),
+            padding: contentInsets + EdgeInsets.all(pageX),
             children: [
               Panel(
                 child: Column(
@@ -97,12 +97,9 @@ class HomeworkDetailPage extends ConsumerWidget {
             ],
           ),
           data: (item) => ListView(
-            padding: EdgeInsets.fromLTRB(
-              pageX,
-              AppSpace.md,
-              pageX,
-              AppSpace.xl,
-            ),
+            padding:
+                contentInsets +
+                EdgeInsets.fromLTRB(pageX, AppSpace.md, pageX, AppSpace.xl),
             children: [
               _DetailBody(item: item),
               if (courseId == null || courseId <= 0) ...[

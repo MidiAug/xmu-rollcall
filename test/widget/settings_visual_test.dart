@@ -4,6 +4,7 @@ import '../fixtures/preview_fonts.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:flutter/gestures.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -198,7 +199,6 @@ class _SettingsFrame extends StatelessWidget {
       body: Column(
         children: [
           const AppTitleBar(title: '厦大签到'),
-          Container(height: 1, color: p.border),
           Expanded(
             child: Row(
               children: [
@@ -264,6 +264,110 @@ void main() {
         '${dir.path}/$name.png',
       ).writeAsBytes(data!.buffer.asUint8List());
       image.dispose();
+    });
+  }
+
+  for (final dark in [false, true]) {
+    testWidgets('settings scroll at window edge, dark=$dark', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'theme_preference':
+            (dark ? ThemePreference.dark : ThemePreference.light).index,
+      });
+      tester.view.physicalSize = const Size(1440, 520);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final key = GlobalKey();
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: key,
+          child: _app(platform: TargetPlatform.windows),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final list = find.descendant(
+        of: find.byType(SettingsPage),
+        matching: find.byType(ListView),
+      );
+      final viewport = tester.getRect(list);
+      expect(viewport.right, 1440);
+      final group = find.byType(SettingsSection).first;
+      final content = tester.getRect(group);
+      expect(
+        content.width,
+        closeTo(AppLayout.contentMaxWidth - 2 * AppSpace.pageX, .1),
+      );
+      expect(content.center.dx, closeTo(viewport.center.dx, .1));
+      final scrollbar = find.descendant(
+        of: list,
+        matching: find.byType(Scrollbar),
+      );
+      expect(scrollbar, findsOneWidget);
+      expect(tester.getRect(scrollbar).right, 1440);
+      final controller = tester.widget<ListView>(list).controller!;
+      expect(controller.position.maxScrollExtent, greaterThan(0));
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: viewport.center);
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: viewport.center,
+          scrollDelta: const Offset(0, 120),
+        ),
+      );
+      await tester.pump();
+      expect(controller.offset, greaterThan(0));
+      await tester.pump(const Duration(milliseconds: 200));
+      controller.jumpTo(0);
+      await tester.pump();
+      // Hit the painted native thumb at the page edge, then drag it.
+      final thumb = Offset(viewport.right - 4, viewport.top + 12);
+      await mouse.moveTo(thumb);
+      await tester.pump(const Duration(milliseconds: 200));
+      final paint =
+          tester
+                  .widget<CustomPaint>(
+                    find.descendant(
+                      of: scrollbar,
+                      matching: find.byWidgetPredicate(
+                        (w) =>
+                            w is CustomPaint &&
+                            w.foregroundPainter is ScrollbarPainter,
+                      ),
+                    ),
+                  )
+                  .foregroundPainter!
+              as ScrollbarPainter;
+      expect(paint.fadeoutOpacityAnimation.value, greaterThan(0));
+      expect(
+        paint.hitTestOnlyThumbInteractive(
+          thumb - viewport.topLeft,
+          PointerDeviceKind.mouse,
+        ),
+        isTrue,
+      );
+      await capture(
+        tester,
+        key,
+        'edge-scrollbar-before-${dark ? 'dark' : 'light'}',
+      );
+      await mouse.down(thumb);
+      await tester.pump();
+      await mouse.moveBy(const Offset(0, 24));
+      await tester.pump();
+      await mouse.moveBy(const Offset(0, 100));
+      await tester.pump();
+      await mouse.up();
+      expect(controller.offset, greaterThan(50));
+      await capture(tester, key, 'edge-scrollbar-${dark ? 'dark' : 'light'}');
+      final offset = controller.offset;
+      tester.view.physicalSize = const Size(960, 520);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(list).right, 960);
+      expect(controller.offset, closeTo(offset, .1));
+      await mouse.removePointer();
+      await tester.pumpWidget(const SizedBox.shrink());
     });
   }
 

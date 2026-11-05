@@ -55,10 +55,10 @@ class _UpdatePreviewPageState extends State<UpdatePreviewPage> {
     final p = AppPalette.of(context);
     return SubpageScaffold(
       title: '更新流程预览',
-      body: AppContentColumn(
+      body: AppPageViewport(
         maxWidth: 600,
-        child: ListView(
-          padding: EdgeInsets.all(AppSpace.pageXOf(context)),
+        builder: (context, contentInsets) => ListView(
+          padding: contentInsets + EdgeInsets.all(AppSpace.pageXOf(context)),
           children: [
             Text(
               '模拟检查、下载和安装，可安全查看各个状态。',

@@ -53,6 +53,8 @@
 
 ### 设置与表单
 
+- 页面整体滚动时，滚动视口占满主内容区域，竖向滚动条靠窗口/主区域最右边；仅正文按阅读宽度居中。使用AppPageViewport把居中留白加入滚动内容的padding，不把整个ScrollView套在限宽列内。弹窗、地图目录、表格横向滚动和独立上下文栏沿自身区域边界显示，不将局部滚动条拉到窗口外侧。此为用户本轮明确要求（U9）；保留系统滚动条拖动和原滚动控制器，不叠加第二条滚动条。
+
 - 相关设置组成一个分组，以对齐、间距和分隔线建立层次；不为每个设置新增卡片。
 - 名称、当前值、操作位置保持一致。只有名称不足以解释选择后果时才加一行辅助说明。
 - 桌面表单/设置阅读列使用 `AppContentColumn`；不把表格宽度、短对话框宽度与表单宽度混为一个全局上限。
@@ -102,7 +104,7 @@
 | 用途 | 复用入口 |
 | --- | --- |
 | 页面与子页 | `PageScaffold`、`SubpageScaffold`、`DesktopPageHeader` |
-| 内容阅读列、截断 | `AppContentColumn`、`AppTruncatedText` |
+| 整页视口、静态阅读列、截断 | `AppPageViewport`、`AppContentColumn`、`AppTruncatedText` |
 | 筛选与动作菜单 | `AppShellSelect`、`AppActionMenu` |
 | 确认、输入与复杂弹窗 | `showAppConfirmDialog`、`showAppPromptDialog`、`AppDialogFrame`、`AppNoticeDialog` |
 | 三态选择、开关 | `AppCheckbox`、`AppSwitch` |

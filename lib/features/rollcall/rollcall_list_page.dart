@@ -35,6 +35,7 @@ class RollcallListPage extends ConsumerWidget {
   const RollcallListPage({
     super.key,
     this.embedded = false,
+    this.contentInsets = EdgeInsets.zero,
     this.showUpdatedAt = true,
     this.assistUserId,
     this.enableAssistMulti = true,
@@ -46,6 +47,7 @@ class RollcallListPage extends ConsumerWidget {
 
   /// When true, omit outer [PageScaffold] (used inside hub pages).
   final bool embedded;
+  final EdgeInsets contentInsets;
   final bool showUpdatedAt;
 
   /// `null` = owner; otherwise assist identity userId.
@@ -103,7 +105,7 @@ class RollcallListPage extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(24),
+          padding: contentInsets + const EdgeInsets.all(24),
           children: [
             Panel(
               child: Column(
@@ -150,10 +152,12 @@ class RollcallListPage extends ConsumerWidget {
                       ),
                       if (footer != null)
                         Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 28,
-                            vertical: 24,
-                          ),
+                          padding:
+                              contentInsets +
+                              const EdgeInsets.symmetric(
+                                horizontal: 28,
+                                vertical: 24,
+                              ),
                           child: footer!,
                         ),
                     ],
@@ -164,12 +168,14 @@ class RollcallListPage extends ConsumerWidget {
           }
           return ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(
-              desktop ? 24 : AppSpace.pageXOf(context),
-              AppSpace.xxs,
-              desktop ? 24 : AppSpace.pageXOf(context),
-              AppSpace.xl,
-            ),
+            padding:
+                contentInsets +
+                EdgeInsets.fromLTRB(
+                  desktop ? 24 : AppSpace.pageXOf(context),
+                  AppSpace.xxs,
+                  desktop ? 24 : AppSpace.pageXOf(context),
+                  AppSpace.xl,
+                ),
             itemCount: items.length + (footer == null ? 0 : 1),
             separatorBuilder: (context, _) =>
                 SizedBox(height: AppSpace.stackOf(context)),

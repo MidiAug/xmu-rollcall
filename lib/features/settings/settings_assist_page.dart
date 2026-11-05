@@ -22,14 +22,16 @@ class SettingsAssistPage extends ConsumerWidget {
 
     return SubpageScaffold(
       title: '协助同学',
-      body: AppContentColumn(
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            AppSpace.pageXOf(context),
-            AppSpace.md,
-            AppSpace.pageXOf(context),
-            AppSpace.xl,
-          ),
+      body: AppPageViewport(
+        builder: (context, contentInsets) => ListView(
+          padding:
+              contentInsets +
+              EdgeInsets.fromLTRB(
+                AppSpace.pageXOf(context),
+                AppSpace.md,
+                AppSpace.pageXOf(context),
+                AppSpace.xl,
+              ),
           children: [
             SettingsSection(
               padTop: false,

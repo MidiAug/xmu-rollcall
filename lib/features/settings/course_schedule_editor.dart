@@ -30,144 +30,139 @@ class CourseSchedulesPage extends ConsumerWidget {
     final p = AppPalette.of(context);
     return SubpageScaffold(
       title: '补全上课安排',
-      body: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 800),
-          child: ListView(
-            padding: const EdgeInsets.all(24),
-            children: [
-              Text('完善你的课表', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 6),
-              Text(
-                '为未排课的课程选择上课节次和地点。',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 20),
-              for (final course in courses)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: SettingsSection(
-                    children: [
-                      SettingsRow(
-                        leading: const Icon(AppIcons.calendar),
-                        title: course.title,
-                        subtitle: course.needsSchedule
-                            ? '尚未设置上课安排'
-                            : course.localMeetings
-                                  .map(
-                                    (m) =>
-                                        '${weekdayLabel(m.weekday)} 第${m.first}–${m.last}节',
-                                  )
-                                  .join('  '),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (course.needsSchedule) ...[
-                              const ScheduleStatusChip(),
-                              const SizedBox(width: 8),
-                            ],
-                            Icon(AppIcons.right, color: p.muted, size: 18),
+      body: AppPageViewport(
+        maxWidth: 800,
+        builder: (context, contentInsets) => ListView(
+          padding: contentInsets + const EdgeInsets.all(24),
+          children: [
+            Text('完善你的课表', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 6),
+            Text(
+              '为未排课的课程选择上课节次和地点。',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 20),
+            for (final course in courses)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: SettingsSection(
+                  children: [
+                    SettingsRow(
+                      leading: const Icon(AppIcons.calendar),
+                      title: course.title,
+                      subtitle: course.needsSchedule
+                          ? '尚未设置上课安排'
+                          : course.localMeetings
+                                .map(
+                                  (m) =>
+                                      '${weekdayLabel(m.weekday)} 第${m.first}–${m.last}节',
+                                )
+                                .join('  '),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (course.needsSchedule) ...[
+                            const ScheduleStatusChip(),
+                            const SizedBox(width: 8),
                           ],
-                        ),
-                        onTap: () async {
-                          final owner = ref
-                              .read(authControllerProvider)
-                              .profile
-                              ?.id;
-                          if (owner == null) return;
-                          final uid = assistUserId ?? owner;
-                          final pageRoute = ModalRoute.of(context);
-                          final dialog = DialogRoute<bool>(
-                            context: context,
-                            barrierDismissible: false,
-                            builder: (_) => CourseScheduleEditor(
-                              course: course,
-                              assistUserId: assistUserId,
-                              onSave: (meetings) => ref
-                                  .read(catalog.notifier)
-                                  .saveMeetings(
-                                    uid,
-                                    course.id,
-                                    meetings,
-                                    expectedOwnerId: owner,
-                                  ),
-                              onSaveLocations: (locations) async {
-                                if (ref
-                                        .read(authControllerProvider)
-                                        .profile
-                                        ?.id !=
-                                    owner) {
-                                  throw StateError('账号已切换');
-                                }
-                                final controller = ref.read(
-                                  courseRadarDefaultsForProvider(
-                                    assistUserId,
-                                  ).notifier,
-                                );
-                                for (final entry in locations.entries) {
-                                  if (ref
-                                              .read(authControllerProvider)
-                                              .profile
-                                              ?.id !=
-                                          owner ||
-                                      (assistUserId != null &&
-                                          !ref
-                                              .read(assistControllerProvider)
-                                              .identities
-                                              .any(
-                                                (i) => i.userId == assistUserId,
-                                              ))) {
-                                    throw StateError('账号已切换或协助身份已移除');
-                                  }
-                                  final place = entry.value;
-                                  await controller.configureForCourse(
-                                    courseId: course.id,
-                                    courseTitle: course.title,
-                                    meetingKeys: [entry.key],
-                                    selection: RadarGeoSelection(
-                                      latitude: place.latitude,
-                                      longitude: place.longitude,
-                                      accuracy: place.accuracy,
-                                      obtainedVia: RadarObtainedVia.place,
-                                      placeId: place.id,
-                                      label: place.note,
-                                    ),
-                                  );
-                                }
-                              },
-                            ),
-                          );
-                          final saved = await Navigator.of(
-                            context,
-                          ).push(dialog);
-                          await dialog.completed;
-                          if (saved != true ||
-                              !context.mounted ||
-                              ref.read(authControllerProvider).profile?.id !=
-                                  owner) {
-                            return;
-                          }
-                          final latest = ref.read(catalog).valueOrNull;
-                          if (latest != null &&
-                              !latest.courses.any((c) => c.needsSchedule) &&
-                              pageRoute?.isCurrent == true &&
-                              Navigator.of(context).canPop()) {
-                            Navigator.of(context).pop();
-                          }
-                        },
+                          Icon(AppIcons.right, color: p.muted, size: 18),
+                        ],
                       ),
-                    ],
-                  ),
+                      onTap: () async {
+                        final owner = ref
+                            .read(authControllerProvider)
+                            .profile
+                            ?.id;
+                        if (owner == null) return;
+                        final uid = assistUserId ?? owner;
+                        final pageRoute = ModalRoute.of(context);
+                        final dialog = DialogRoute<bool>(
+                          context: context,
+                          barrierDismissible: false,
+                          builder: (_) => CourseScheduleEditor(
+                            course: course,
+                            assistUserId: assistUserId,
+                            onSave: (meetings) => ref
+                                .read(catalog.notifier)
+                                .saveMeetings(
+                                  uid,
+                                  course.id,
+                                  meetings,
+                                  expectedOwnerId: owner,
+                                ),
+                            onSaveLocations: (locations) async {
+                              if (ref
+                                      .read(authControllerProvider)
+                                      .profile
+                                      ?.id !=
+                                  owner) {
+                                throw StateError('账号已切换');
+                              }
+                              final controller = ref.read(
+                                courseRadarDefaultsForProvider(
+                                  assistUserId,
+                                ).notifier,
+                              );
+                              for (final entry in locations.entries) {
+                                if (ref
+                                            .read(authControllerProvider)
+                                            .profile
+                                            ?.id !=
+                                        owner ||
+                                    (assistUserId != null &&
+                                        !ref
+                                            .read(assistControllerProvider)
+                                            .identities
+                                            .any(
+                                              (i) => i.userId == assistUserId,
+                                            ))) {
+                                  throw StateError('账号已切换或协助身份已移除');
+                                }
+                                final place = entry.value;
+                                await controller.configureForCourse(
+                                  courseId: course.id,
+                                  courseTitle: course.title,
+                                  meetingKeys: [entry.key],
+                                  selection: RadarGeoSelection(
+                                    latitude: place.latitude,
+                                    longitude: place.longitude,
+                                    accuracy: place.accuracy,
+                                    obtainedVia: RadarObtainedVia.place,
+                                    placeId: place.id,
+                                    label: place.note,
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        );
+                        final saved = await Navigator.of(context).push(dialog);
+                        await dialog.completed;
+                        if (saved != true ||
+                            !context.mounted ||
+                            ref.read(authControllerProvider).profile?.id !=
+                                owner) {
+                          return;
+                        }
+                        final latest = ref.read(catalog).valueOrNull;
+                        if (latest != null &&
+                            !latest.courses.any((c) => c.needsSchedule) &&
+                            pageRoute?.isCurrent == true &&
+                            Navigator.of(context).canPop()) {
+                          Navigator.of(context).pop();
+                        }
+                      },
+                    ),
+                  ],
                 ),
-              if (courses.isEmpty)
-                const EmptyHint(
-                  icon: AppIcons.rollcall,
-                  title: '课程安排已完整',
-                  detail: '所有课程都已有上课安排',
-                ),
-            ],
-          ),
+              ),
+            if (courses.isEmpty)
+              const EmptyHint(
+                icon: AppIcons.rollcall,
+                title: '课程安排已完整',
+                detail: '所有课程都已有上课安排',
+              ),
+          ],
         ),
       ),
     );

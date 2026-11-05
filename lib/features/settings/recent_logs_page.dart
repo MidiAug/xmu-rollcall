@@ -55,12 +55,11 @@ class _RecentLogsPageState extends ConsumerState<RecentLogsPage> {
           onPressed: () => setState(() {}),
         ),
       ],
-      body: AppContentColumn(
-        child: ValueListenableBuilder<int>(
+      body: AppPageViewport(
+        builder: (context, contentInsets) => ValueListenableBuilder<int>(
           valueListenable: AppLog.revision,
           builder: (context, _, _) {
-            final unhealthy =
-                !AppLog.sinkHealthy || AppLog.droppedCount > 0;
+            final unhealthy = !AppLog.sinkHealthy || AppLog.droppedCount > 0;
             final items = _filtered;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -69,10 +68,12 @@ class _RecentLogsPageState extends ConsumerState<RecentLogsPage> {
                   Material(
                     color: p.danger.withValues(alpha: 0.12),
                     child: Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: AppSpace.pageXOf(context),
-                        vertical: AppSpace.sm,
-                      ),
+                      padding:
+                          contentInsets +
+                          EdgeInsets.symmetric(
+                            horizontal: AppSpace.pageXOf(context),
+                            vertical: AppSpace.sm,
+                          ),
                       child: Text(
                         '部分日志未持久化，导出可能不完整',
                         style: TextStyle(color: p.danger, fontSize: 13),
@@ -80,12 +81,14 @@ class _RecentLogsPageState extends ConsumerState<RecentLogsPage> {
                     ),
                   ),
                 Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    AppSpace.pageXOf(context),
-                    AppSpace.md,
-                    AppSpace.pageXOf(context),
-                    AppSpace.sm,
-                  ),
+                  padding:
+                      contentInsets +
+                      EdgeInsets.fromLTRB(
+                        AppSpace.pageXOf(context),
+                        AppSpace.md,
+                        AppSpace.pageXOf(context),
+                        AppSpace.sm,
+                      ),
                   child: TextField(
                     controller: _queryCtrl,
                     decoration: const InputDecoration(
@@ -106,17 +109,17 @@ class _RecentLogsPageState extends ConsumerState<RecentLogsPage> {
                           ),
                         )
                       : ListView.separated(
-                          padding: EdgeInsets.fromLTRB(
-                            AppSpace.pageXOf(context),
-                            0,
-                            AppSpace.pageXOf(context),
-                            AppSpace.xl,
-                          ),
+                          padding:
+                              contentInsets +
+                              EdgeInsets.fromLTRB(
+                                AppSpace.pageXOf(context),
+                                0,
+                                AppSpace.pageXOf(context),
+                                AppSpace.xl,
+                              ),
                           itemCount: items.length,
-                          separatorBuilder: (_, _) => Divider(
-                            height: 1,
-                            color: p.border,
-                          ),
+                          separatorBuilder: (_, _) =>
+                              Divider(height: 1, color: p.border),
                           itemBuilder: (context, i) {
                             final r = items[i];
                             final bits = <String>[
@@ -134,13 +137,14 @@ class _RecentLogsPageState extends ConsumerState<RecentLogsPage> {
                               contentPadding: EdgeInsets.zero,
                               title: Text(
                                 bits.join('  '),
-                                style:
-                                    const TextStyle(fontSize: 13, height: 1.35),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  height: 1.35,
+                                ),
                               ),
                               subtitle: Text(
                                 _shortTime(r.ts),
-                                style:
-                                    TextStyle(color: p.muted, fontSize: 11),
+                                style: TextStyle(color: p.muted, fontSize: 11),
                               ),
                             );
                           },

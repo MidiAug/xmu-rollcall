@@ -132,15 +132,17 @@ class _ExamPageState extends ConsumerState<ExamPage>
                             ),
                           ),
                 };
-                return AppContentColumn(
+                return AppPageViewport(
                   maxWidth: 900,
-                  child: ListView(
-                    padding: EdgeInsets.fromLTRB(
-                      AppSpace.pageXOf(context),
-                      12,
-                      AppSpace.pageXOf(context),
-                      28,
-                    ),
+                  builder: (context, contentInsets) => ListView(
+                    padding:
+                        contentInsets +
+                        EdgeInsets.fromLTRB(
+                          AppSpace.pageXOf(context),
+                          12,
+                          AppSpace.pageXOf(context),
+                          28,
+                        ),
                     children: [
                       _ExamOverview(
                         snapshot: snapshot,

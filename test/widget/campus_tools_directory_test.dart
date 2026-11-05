@@ -162,6 +162,12 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.byType(AppServiceTile), findsNWidgets(5));
+          final pageScroll = find.byWidgetPredicate(
+            (w) =>
+                w is SingleChildScrollView &&
+                w.scrollDirection == Axis.vertical,
+          );
+          expect(tester.getRect(pageScroll).right, closeTo(width, .1));
           expect(find.text('常用工具'), findsOneWidget);
           expect(find.text('研究生'), findsOneWidget);
           for (final name in ['信息门户', '教务', '学工', '图书馆', '邮箱']) {

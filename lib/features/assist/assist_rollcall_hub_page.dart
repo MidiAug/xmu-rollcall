@@ -37,7 +37,9 @@ class _AssistRollcallHubPageState extends ConsumerState<AssistRollcallHubPage> {
           .read(activeRollcallsProvider(widget.identity.userId).notifier)
           .refresh(),
       readList: () =>
-          ref.read(activeRollcallsProvider(widget.identity.userId)).valueOrNull ??
+          ref
+              .read(activeRollcallsProvider(widget.identity.userId))
+              .valueOrNull ??
           const [],
       readConfig: () => ref.read(monitorControllerProvider).config,
       onChanged: () {
@@ -87,75 +89,72 @@ class _AssistRollcallHubPageState extends ConsumerState<AssistRollcallHubPage> {
           AppRefreshButton(
             visualDensity: VisualDensity.compact,
             color: p.muted,
-            onRefresh: () => ref
-                .read(activeRollcallsProvider(id.userId).notifier)
-                .refresh(),
+            onRefresh: () =>
+                ref.read(activeRollcallsProvider(id.userId).notifier).refresh(),
           ),
       ],
       body: !_ready
           ? const Center(child: CircularProgressIndicator())
           : _bootError != null
-              ? Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '无法加载协助会话',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: p.ink,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(_bootError!, style: TextStyle(color: p.muted)),
-                      const SizedBox(height: 12),
-                      FilledButton(
-                        onPressed: () {
-                          setState(() {
-                            _ready = false;
-                            _bootError = null;
-                          });
-                          _bootstrap();
-                        },
-                        child: const Text('重试'),
-                      ),
-                    ],
+          ? Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '无法加载协助会话',
+                    style: TextStyle(fontWeight: FontWeight.w600, color: p.ink),
                   ),
-                )
-              : AppContentColumn(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: EdgeInsets.fromLTRB(
+                  const SizedBox(height: 8),
+                  Text(_bootError!, style: TextStyle(color: p.muted)),
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: () {
+                      setState(() {
+                        _ready = false;
+                        _bootError = null;
+                      });
+                      _bootstrap();
+                    },
+                    child: const Text('重试'),
+                  ),
+                ],
+              ),
+            )
+          : AppPageViewport(
+              builder: (context, contentInsets) => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding:
+                        contentInsets +
+                        EdgeInsets.fromLTRB(
                           AppSpace.pageXOf(context),
                           wide ? AppSpace.xxs : AppSpace.xxs,
                           AppSpace.pageXOf(context),
                           AppSpace.sm,
                         ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: _AssistPollQuickBar(monitor: _monitor),
-                            ),
-                            Text(
-                              id.kind.labelZh,
-                              style: TextStyle(fontSize: 12, color: p.muted),
-                            ),
-                          ],
+                    child: Row(
+                      children: [
+                        Expanded(child: _AssistPollQuickBar(monitor: _monitor)),
+                        Text(
+                          id.kind.labelZh,
+                          style: TextStyle(fontSize: 12, color: p.muted),
                         ),
-                      ),
-                      Expanded(
-                        child: RollcallListPage(
-                          embedded: true,
-                          assistUserId: id.userId,
-                          enableAssistMulti: false,
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                  Expanded(
+                    child: RollcallListPage(
+                      embedded: true,
+                      contentInsets: contentInsets,
+                      assistUserId: id.userId,
+                      enableAssistMulti: false,
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }

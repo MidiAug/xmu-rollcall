@@ -193,15 +193,15 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
               ),
             )
           : null,
-      child: AppContentColumn(
+      child: AppPageViewport(
         maxWidth: 960,
-        alignment: Alignment.topCenter,
-        child: PrimaryScrollController(
+        builder: (context, contentInsets) => PrimaryScrollController(
           controller: _scroll,
           child: !signedIn
               ? _SignedOutHint(onLogin: () => showLoginDialog(context))
               : active
               ? _TodosBody(
+                  contentInsets: contentInsets,
                   onOpen: _openDetail,
                   showToolbar:
                       !hostActions &&
@@ -241,10 +241,12 @@ enum _TaskFilter { all, upcoming, overdue }
 class _TodosBody extends ConsumerStatefulWidget {
   const _TodosBody({
     required this.onOpen,
+    this.contentInsets = EdgeInsets.zero,
     required this.showToolbar,
     required this.filter,
   });
   final _TaskFilter filter;
+  final EdgeInsets contentInsets;
   final bool showToolbar;
   final ValueChanged<HomeworkItem> onOpen;
   @override
@@ -257,6 +259,7 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final pageX = AppSpace.pageXOf(context);
+    final contentInsets = widget.contentInsets;
     final async = ref.watch(homeworkTodosProvider);
     final teaching = ref.watch(currentTeachingCoursesProvider);
     final overview = ref.watch(homeworkOverviewProvider);
@@ -279,7 +282,7 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.all(pageX),
+            padding: contentInsets + EdgeInsets.all(pageX),
             children: [
               Panel(
                 child: Column(
@@ -408,12 +411,9 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
             ];
             return ListView.builder(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(
-                pageX,
-                AppSpace.sm,
-                pageX,
-                AppSpace.xl,
-              ),
+              padding:
+                  contentInsets +
+                  EdgeInsets.fromLTRB(pageX, AppSpace.sm, pageX, AppSpace.xl),
               itemCount: rows.length,
               itemBuilder: (_, i) => rows[i],
             );
@@ -425,7 +425,7 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
     return Column(
       children: [
         Padding(
-          padding: EdgeInsets.fromLTRB(pageX, 4, pageX, 4),
+          padding: contentInsets + EdgeInsets.fromLTRB(pageX, 4, pageX, 4),
           child: Row(
             children: [
               if (MediaQuery.sizeOf(context).width >=

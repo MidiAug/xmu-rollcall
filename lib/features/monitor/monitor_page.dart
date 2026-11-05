@@ -75,15 +75,17 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
         builder: (context) {
           return SubpageScaffold(
             title: '签到设置',
-            body: AppContentColumn(
-              child: ListView(
+            body: AppPageViewport(
+              builder: (context, contentInsets) => ListView(
                 scrollCacheExtent: const ScrollCacheExtent.pixels(3000),
-                padding: EdgeInsets.fromLTRB(
-                  AppSpace.pageXOf(context),
-                  AppSpace.md,
-                  AppSpace.pageXOf(context),
-                  AppSpace.xl,
-                ),
+                padding:
+                    contentInsets +
+                    EdgeInsets.fromLTRB(
+                      AppSpace.pageXOf(context),
+                      AppSpace.md,
+                      AppSpace.pageXOf(context),
+                      AppSpace.xl,
+                    ),
                 children: [
                   if (desktop) ...[
                     CourseWatchSettings(

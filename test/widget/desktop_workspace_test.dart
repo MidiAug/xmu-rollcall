@@ -1,6 +1,7 @@
 import 'package:xmu_rollcall/features/rollcall/attendance_count_row.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
+import 'package:xmu_rollcall/features/history/history_page.dart';
 import '../fixtures/preview_fonts.dart';
 import 'dart:io';
 import 'dart:async';
@@ -553,7 +554,10 @@ void main() {
           find.byKey(const ValueKey('rollcall-header-weekday')),
         );
         expect(day.style!.fontSize, greaterThan(weekday.style!.fontSize!));
-        expect(day.style!.fontSize, lessThan(AppTypography.pageTitle.fontSize!));
+        expect(
+          day.style!.fontSize,
+          lessThan(AppTypography.pageTitle.fontSize!),
+        );
         final refresh = find.descendant(
           of: header,
           matching: find.byType(AppRefreshButton),
@@ -567,12 +571,16 @@ void main() {
           findsNothing,
         );
         expect(
-          tester.widget<ColoredBox>(
-            find.descendant(
-              of: find.byType(AppTitleBar),
-              matching: find.byType(ColoredBox),
-            ).first,
-          ).color,
+          tester
+              .widget<ColoredBox>(
+                find
+                    .descendant(
+                      of: find.byType(AppTitleBar),
+                      matching: find.byType(ColoredBox),
+                    )
+                    .first,
+              )
+              .color,
           AppPalette.of(tester.element(workspace)).sidebar,
         );
         final originalContext = container.read(contextData);
@@ -750,12 +758,17 @@ void main() {
         await tester.tap(find.text('查看记录'));
         await tester.pumpAndSettle();
         await capture('签到记录');
-        final column = find.byType(AppContentColumn);
-        final content = find
-            .descendant(of: column, matching: find.byType(ConstrainedBox))
+        final content = find.byKey(const ValueKey('history-course-filter'));
+        final filters = find
+            .ancestor(of: content, matching: find.byType(Row))
             .first;
+        final list = find.descendant(
+          of: find.byType(HistoryPage),
+          matching: find.byType(ListView),
+        );
+        expect(tester.getRect(list).right, closeTo(variant.$1, 1));
         expect(
-          tester.getRect(content).center.dx,
+          tester.getRect(filters).center.dx,
           closeTo((variant.$1 + tester.getSize(sidebar).width) / 2, 1),
         );
         expect(tester.takeException(), isNull);

@@ -62,6 +62,30 @@ class AppContentColumn extends StatelessWidget {
   }
 }
 
+/// Keeps the page viewport full width while its scroll content stays readable.
+/// Apply the builder's content insets to scroll padding (or sliver padding), so
+/// Flutter's native scrollbar remains at the viewport edge and stays draggable.
+class AppPageViewport extends StatelessWidget {
+  const AppPageViewport({
+    super.key,
+    required this.builder,
+    this.maxWidth = AppLayout.contentMaxWidth,
+  });
+
+  final double maxWidth;
+  final Widget Function(BuildContext context, EdgeInsets contentInsets) builder;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, bounds) {
+      final gutter = AppDensity.isTouch(context)
+          ? 0.0
+          : ((bounds.maxWidth - maxWidth) / 2).clamp(0.0, double.infinity);
+      return builder(context, EdgeInsets.symmetric(horizontal: gutter));
+    },
+  );
+}
+
 class PageScaffold extends StatelessWidget {
   const PageScaffold({
     super.key,

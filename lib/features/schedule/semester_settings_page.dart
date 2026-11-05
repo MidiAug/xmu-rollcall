@@ -139,102 +139,96 @@ class _SemesterSettingsPageState extends ConsumerState<SemesterSettingsPage> {
     return SubpageScaffold(
       title: '学期设置',
       isBusy: () => _busy,
-      body: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              const Text('学期'),
-              const SizedBox(height: 8),
-              LayoutBuilder(
-                builder: (context, constraints) => AppShellSelect<String>(
-                  key: ValueKey('semester-$_term'),
-                  value: _term ?? terms.first,
-                  width: constraints.maxWidth,
-                  items: terms,
-                  labelOf: semesterLabel,
-                  semanticLabel: '选择学期',
-                  onChanged: _busy ? null : _load,
-                ),
+      body: AppPageViewport(
+        maxWidth: 600,
+        builder: (context, contentInsets) => ListView(
+          padding: contentInsets + const EdgeInsets.all(20),
+          children: [
+            const Text('学期'),
+            const SizedBox(height: 8),
+            LayoutBuilder(
+              builder: (context, constraints) => AppShellSelect<String>(
+                key: ValueKey('semester-$_term'),
+                value: _term ?? terms.first,
+                width: constraints.maxWidth,
+                items: terms,
+                labelOf: semesterLabel,
+                semanticLabel: '选择学期',
+                onChanged: _busy ? null : _load,
               ),
-              const SizedBox(height: 20),
-              Panel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      '第一周起始日',
-                      style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 20),
+            Panel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    '第一周起始日',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text('第1周的周一', style: Theme.of(context).textTheme.bodySmall),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    key: const ValueKey('choose-first-monday'),
+                    onPressed: _busy ? null : _choose,
+                    icon: const Icon(Icons.calendar_month_outlined),
+                    label: Text(
+                      value == null
+                          ? '选择日期'
+                          : '${value.year}年${shortScheduleDate(value)}',
+                      style: Theme.of(context).textTheme.bodyLarge,
                     ),
-                    const SizedBox(height: 4),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _manual != null
+                        ? '手动设置'
+                        : _default == null
+                        ? '默认校历尚未更新'
+                        : academicMondays.containsKey(_term)
+                        ? '默认校历'
+                        : '教务周次',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  if (_term != null)
                     Text(
-                      '第1周的周一',
+                      '本学期${semesterWeeks(_term!)}周${academicTerms.containsKey(_term) ? '' : '（估算）'}',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      key: const ValueKey('choose-first-monday'),
-                      onPressed: _busy ? null : _choose,
-                      icon: const Icon(Icons.calendar_month_outlined),
-                      label: Text(
-                        value == null
-                            ? '选择日期'
-                            : '${value.year}年${shortScheduleDate(value)}',
-                        style: Theme.of(context).textTheme.bodyLarge,
+                  if (week != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        now.isBefore(value!)
+                            ? '尚未开课'
+                            : week > semesterWeeks(_term!)
+                            ? '学期已结束'
+                            : '当前第$week周',
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      _manual != null
-                          ? '手动设置'
-                          : _default == null
-                          ? '默认校历尚未更新'
-                          : academicMondays.containsKey(_term)
-                          ? '默认校历'
-                          : '教务周次',
-                      style: Theme.of(context).textTheme.bodySmall,
+                  if (_manual != null && _default != null)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: _busy ? null : () => _save(null),
+                        child: const Text('恢复默认'),
+                      ),
                     ),
-                    if (_term != null)
-                      Text(
-                        '本学期${semesterWeeks(_term!)}周${academicTerms.containsKey(_term) ? '' : '（估算）'}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    if (week != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          now.isBefore(value!)
-                              ? '尚未开课'
-                              : week > semesterWeeks(_term!)
-                              ? '学期已结束'
-                              : '当前第$week周',
-                        ),
-                      ),
-                    if (_manual != null && _default != null)
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: _busy ? null : () => _save(null),
-                          child: const Text('恢复默认'),
-                        ),
-                      ),
-                  ],
-                ),
+                ],
               ),
-              if (_busy)
-                const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(_error!),
-                ),
-            ],
-          ),
+            ),
+            if (_busy)
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: Text(_error!),
+              ),
+          ],
         ),
       ),
     );

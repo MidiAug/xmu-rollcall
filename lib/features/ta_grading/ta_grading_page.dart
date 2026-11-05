@@ -153,9 +153,9 @@ class _TaCoursesState extends State<_TaCourses> {
       (c) => c.id == '$_course',
       orElse: () => widget.courses.first,
     );
-    return AppContentColumn(
+    return AppPageViewport(
       maxWidth: 1000,
-      child: FutureBuilder<List<TaAssignment>>(
+      builder: (context, contentInsets) => FutureBuilder<List<TaAssignment>>(
         key: ValueKey((_course, _assignments)),
         future: _assignments,
         initialData: _course == null
@@ -177,12 +177,14 @@ class _TaCoursesState extends State<_TaCourses> {
             return const Center(child: CircularProgressIndicator());
           }
           return ListView.separated(
-            padding: EdgeInsets.fromLTRB(
-              AppSpace.pageXOf(context),
-              8,
-              AppSpace.pageXOf(context),
-              24,
-            ),
+            padding:
+                contentInsets +
+                EdgeInsets.fromLTRB(
+                  AppSpace.pageXOf(context),
+                  8,
+                  AppSpace.pageXOf(context),
+                  24,
+                ),
             itemCount: assignments.length + 1,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) {

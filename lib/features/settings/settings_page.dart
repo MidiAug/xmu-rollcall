@@ -107,16 +107,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           ? '设置'
           : '我的',
       showHeader: false,
-      child: AppContentColumn(
-        alignment: Alignment.topCenter,
-        child: ListView(
+      child: AppPageViewport(
+        builder: (context, contentInsets) => ListView(
           controller: _scroll,
-          padding: EdgeInsets.fromLTRB(
-            AppSpace.pageXOf(context),
-            AppSpace.xl,
-            AppSpace.pageXOf(context),
-            AppSpace.xl,
-          ),
+          padding:
+              contentInsets +
+              EdgeInsets.fromLTRB(
+                AppSpace.pageXOf(context),
+                AppSpace.xl,
+                AppSpace.pageXOf(context),
+                AppSpace.xl,
+              ),
           children: [
             if (AppDensity.isTouch(context))
               _SettingsAccountCard(
