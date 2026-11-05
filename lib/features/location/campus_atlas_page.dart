@@ -28,6 +28,7 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
   Campus _campus = Campus.xiangan;
   String? _groupId, _buildingId, _regionId;
   int _level = 0;
+  int _mapSelectionRevision = 0;
 
   List<TeachingBuilding> get _buildings =>
       teachingBuildings.where((b) => '${b.campus}校区' == _campus.label).toList();
@@ -115,6 +116,7 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
       _groupId = id;
       _buildingId = null;
       _regionId = null;
+      if (!moveCamera) _mapSelectionRevision++;
     });
     if (moveCamera) {
       _map.move(
@@ -136,6 +138,7 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
       _groupId = _groups.any((g) => g.id == b.groupId) ? b.groupId : '_other';
       _buildingId = b.id;
       _regionId = region?.id;
+      if (!moveCamera) _mapSelectionRevision++;
     });
     if (moveCamera && point?.usable == true) {
       _map.move(
@@ -151,6 +154,7 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
     groupId: _groupId,
     buildingId: _buildingId,
     regionId: _regionId,
+    mapSelectionRevision: _mapSelectionRevision,
     mobile: mobile,
     onGroup: _selectGroup,
     onBuilding: (b) {
@@ -550,8 +554,10 @@ class _AtlasDirectory extends StatefulWidget {
     required this.onGroup,
     required this.onBuilding,
     required this.onRegion,
+    required this.mapSelectionRevision,
   });
   final Campus campus;
+  final int mapSelectionRevision;
   final bool mobile;
   final String? groupId, buildingId, regionId;
   final ValueChanged<String?> onGroup;
@@ -563,21 +569,67 @@ class _AtlasDirectory extends StatefulWidget {
 
 class _AtlasDirectoryState extends State<_AtlasDirectory> {
   final _search = TextEditingController();
+  final _buildingScroll = ScrollController();
+  final _buildingKeys = <String, GlobalKey>{};
   String? _groupId;
   @override
   void initState() {
     super.initState();
     _groupId = widget.groupId;
+    if (widget.buildingId != null) _revealMapSelection();
+  }
+
+  void _revealMapSelection() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target = _buildingKeys[widget.buildingId]?.currentContext;
+      if (target == null) {
+        if (widget.buildingId == null && _buildingScroll.hasClients) {
+          _buildingScroll.jumpTo(0);
+        }
+        return;
+      }
+      Scrollable.ensureVisible(
+        target,
+        alignment: .15,
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : AppMotion.fast,
+        curve: AppMotion.fastCurve,
+      );
+    });
   }
 
   @override
   void didUpdateWidget(_AtlasDirectory oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.groupId != widget.groupId) _groupId = widget.groupId;
+    if (oldWidget.mapSelectionRevision != widget.mapSelectionRevision) {
+      // A map pick must reveal its directory entry even in the same collection
+      // or while the previous search excludes that building.
+      _groupId = widget.groupId;
+      final building = teachingBuildings
+          .where((b) => b.id == widget.buildingId)
+          .firstOrNull;
+      if (building == null ||
+          !_matchesQuery(building, normalizeTeachingName(_search.text))) {
+        _search.clear();
+      }
+      _revealMapSelection();
+    }
   }
+
+  bool _matchesQuery(TeachingBuilding building, String query) =>
+      query.isEmpty ||
+      [
+        building.name,
+        ...building.aliases,
+        ...building.regions.expand((r) => r.aliases),
+      ].any((name) => normalizeTeachingName(name).contains(query));
 
   @override
   void dispose() {
+    _buildingScroll.dispose();
     _search.dispose();
     super.dispose();
   }
@@ -602,12 +654,7 @@ class _AtlasDirectoryState extends State<_AtlasDirectory> {
                   (_groupId == '_other'
                       ? !groupIds.contains(b.groupId)
                       : b.groupId == _groupId)) &&
-              (query.isEmpty ||
-                  [
-                    b.name,
-                    ...b.aliases,
-                    ...b.regions.expand((r) => r.aliases),
-                  ].any((n) => normalizeTeachingName(n).contains(query))),
+              _matchesQuery(b, query),
         )
         .toList();
     final sections = <({String id, String name, int count})>[
@@ -633,121 +680,146 @@ class _AtlasDirectoryState extends State<_AtlasDirectory> {
         ? Center(
             child: Text('没有找到对应楼宇', style: TextStyle(color: p.muted)),
           )
-        : ListView.builder(
+        : SingleChildScrollView(
             key: const ValueKey('atlas-building-list'),
+            controller: _buildingScroll,
             padding: const EdgeInsets.fromLTRB(8, 4, 8, 16),
-            itemCount: visible.length,
-            itemBuilder: (context, i) {
-              final b = visible[i], active = widget.buildingId == visible[i].id;
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Material(
-                      color: active ? p.accentSurface : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
-                      child: InkWell(
-                        key: ValueKey('atlas-building-${b.id}'),
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: () => widget.onBuilding(b),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 13,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    AppTruncatedText(
-                                      b.name,
-                                      style: TextStyle(
-                                        color: active ? p.primary : p.ink,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 13,
+            // This bounded campus directory has tens of entries. Build their
+            // actual geometry so map picks can reveal an offscreen row without
+            // estimating heights, including expanded regions and text scaling.
+            child: Column(
+              children: [
+                for (final b in visible)
+                  Builder(
+                    builder: (context) {
+                      final active = widget.buildingId == b.id;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Padding(
+                            key: _buildingKeys.putIfAbsent(b.id, GlobalKey.new),
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Material(
+                              color: active
+                                  ? p.accentSurface
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(10),
+                              child: InkWell(
+                                key: ValueKey('atlas-building-${b.id}'),
+                                borderRadius: BorderRadius.circular(10),
+                                onTap: () => widget.onBuilding(b),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 13,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            AppTruncatedText(
+                                              b.name,
+                                              style: TextStyle(
+                                                color: active
+                                                    ? p.primary
+                                                    : p.ink,
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 5),
+                                            Text(
+                                              b.point?.usable == true
+                                                  ? b.regions.isEmpty
+                                                        ? '楼宇定位'
+                                                        : '${b.regions.length} 个分区'
+                                                  : '定位待补充',
+                                              style: TextStyle(
+                                                color: p.muted,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 5),
-                                    Text(
-                                      b.point?.usable == true
-                                          ? b.regions.isEmpty
-                                                ? '楼宇定位'
-                                                : '${b.regions.length} 个分区'
-                                          : '定位待补充',
-                                      style: TextStyle(
+                                      const SizedBox(width: 8),
+                                      Icon(
+                                        AppIcons.right,
                                         color: p.muted,
-                                        fontSize: 11,
+                                        size: 15,
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Icon(AppIcons.right, color: p.muted, size: 15),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (!widget.mobile && active)
-                    for (final r in b.regions)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 16, bottom: 2),
-                        child: Material(
-                          color: widget.regionId == r.id
-                              ? p.accentSurface
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(8),
-                          child: InkWell(
-                            key: ValueKey('atlas-region-${r.id}'),
-                            onTap: () => widget.onRegion(b, r),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 10,
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 2,
-                                    height: 18,
-                                    color: p.primary.withValues(alpha: .2),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: AppTruncatedText(
-                                      _regionLabel(r),
-                                      style: TextStyle(
-                                        color: p.ink,
-                                        fontSize: 13,
-                                      ),
-                                    ),
-                                  ),
-                                  Text(
-                                    r.point?.source == 'region'
-                                        ? '独立定位'
-                                        : r.point?.usable == true
-                                        ? '沿用定位'
-                                        : '未定位',
-                                    style: TextStyle(
-                                      color: p.muted,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ],
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                ],
-              );
-            },
+                          if (!widget.mobile && active)
+                            for (final r in b.regions)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 16,
+                                  bottom: 2,
+                                ),
+                                child: Material(
+                                  color: widget.regionId == r.id
+                                      ? p.accentSurface
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: InkWell(
+                                    key: ValueKey('atlas-region-${r.id}'),
+                                    onTap: () => widget.onRegion(b, r),
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 10,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            width: 2,
+                                            height: 18,
+                                            color: p.primary.withValues(
+                                              alpha: .2,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: AppTruncatedText(
+                                              _regionLabel(r),
+                                              style: TextStyle(
+                                                color: p.ink,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ),
+                                          Text(
+                                            r.point?.source == 'region'
+                                                ? '独立定位'
+                                                : r.point?.usable == true
+                                                ? '沿用定位'
+                                                : '未定位',
+                                            style: TextStyle(
+                                              color: p.muted,
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                        ],
+                      );
+                    },
+                  ),
+              ],
+            ),
           );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

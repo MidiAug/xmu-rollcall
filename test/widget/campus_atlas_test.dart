@@ -379,7 +379,8 @@ void main() {
       await tester.tap(find.text('详情'));
       await tester.pumpAndSettle();
       expect(find.text('楼群成员'), findsOneWidget);
-      expect(find.text('校区建设背景'), findsOneWidget);
+      expect(find.text('校区建设背景'), findsNothing);
+      expect(find.text('沿革与命名'), findsWidgets);
       await tester.tap(find.byTooltip('关闭介绍'));
       await tester.pumpAndSettle();
       expect(controller.camera.center, groupCenter);
@@ -444,11 +445,12 @@ void main() {
         if (building == null) {
           expect(find.text('楼群成员'), findsOneWidget);
           expect(find.text('营建沿革'), findsNothing);
-          expect(find.text('校区建设背景'), findsOneWidget);
+          expect(find.text('校区建设背景'), findsNothing);
+          expect(find.text('沿革与命名'), findsWidgets);
         } else {
-          expect(find.text('资料状态'), findsOneWidget);
+          expect(find.text('资料状态'), findsNothing);
           expect(
-            find.text('所在片区背景'),
+            find.textContaining('了解'),
             building.id == 'xa-hemu' ? findsOneWidget : findsNothing,
           );
         }
@@ -506,7 +508,7 @@ void main() {
       final beforeDetails = map.controller!.camera.center;
       await tester.tap(find.text('详情'));
       await tester.pumpAndSettle();
-      expect(find.text('营建与建筑'), findsOneWidget);
+      expect(find.text('沿革与命名'), findsOneWidget);
       expect(find.textContaining('两楼通过连廊相接'), findsOneWidget);
       expect(find.text('参考资料'), findsOneWidget);
       await tester.tap(find.byTooltip('关闭介绍'));
@@ -548,10 +550,12 @@ void main() {
       await tester.tap(find.text('打开档案'));
       await tester.pumpAndSettle();
       final story = campusBuildingStories[building.id]!;
-      final sourcesText = tester
-          .widgetList<Text>(find.byType(Text))
-          .map((t) => t.data ?? '')
-          .join('\n');
+      final sourcesText = [
+        ...tester.widgetList<Text>(find.byType(Text)).map((t) => t.data ?? ''),
+        ...tester
+            .widgetList<SelectableText>(find.byType(SelectableText))
+            .map((t) => t.data ?? ''),
+      ].join('\n');
       for (final url in story.sourceUrls) {
         expect(sourcesText, contains(campusStorySources[url]));
       }
@@ -885,8 +889,8 @@ void main() {
           await tester.tap(find.text('详情'));
           await tester.pumpAndSettle();
           expect(find.byType(CampusStoryDialog), findsOneWidget);
-          expect(find.text('当前分区'), findsOneWidget);
-          expect(find.text('所在片区背景'), findsOneWidget);
+          expect(find.text('当前分区'), findsNothing);
+          expect(find.text('所在片区背景'), findsNothing);
           expect(find.text('参考资料'), findsOneWidget);
           expect(find.textContaining('http'), findsNothing);
           expect(tester.takeException(), isNull);

@@ -8,7 +8,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     sections: [
       (title: '沿革与命名', text: '楼名取自车胤以萤火照书的典故，由陈敬贤题写，寄托勤学向上的期许。'),
       (
-        title: '建筑与使用',
+        title: '建筑与空间',
         text:
             '建筑统计表记载本楼1922年底建成，初作学生宿舍；名称取自车胤囊萤读书典故。群贤、集美、同安、映雪与囊萤共同组成一字排列的嘉庚风格楼群。',
       ),
@@ -20,11 +20,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://news.xmu.edu.cn/info/1047/41869.htm',
     sections: [
       (title: '沿革与命名', text: '名字来自厦大建校时所属的同安地名，建筑将中式屋顶与花岗岩墙身结合。'),
-      (
-        title: '建筑与使用',
-        text:
-            '校方建筑资料将同安楼列为首批校舍群成员，并记载其为教室；群贤楼群建于1921至1922年。楼群史料不能单独证实“一”字编号沿用年代。',
-      ),
+      (title: '建筑与空间', text: '校方建筑资料将同安楼列为首批校舍群成员，并记载其为教室；群贤楼群建于1921至1922年。'),
     ],
     references: ['https://arch.xmu.edu.cn/info/1013/11863.htm'],
   ),
@@ -34,7 +30,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     sections: [
       (title: '沿革与命名', text: '楼名取意于《兰亭集序》的“群贤毕至”，由林文庆题写，是厦大早期嘉庚建筑的代表。'),
       (
-        title: '建筑与使用',
+        title: '建筑与空间',
         text: '群贤楼为早期楼群主楼，曾作集会礼堂和总行政办公处；楼名取“群贤毕至”之意。校方群贤楼群资料记其于1922年底竣工。',
       ),
     ],
@@ -46,7 +42,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     sections: [
       (title: '沿革与命名', text: '楼名纪念陈嘉庚的祖籍地集美，连廊将它与周边早期校舍相连。'),
       (
-        title: '建筑与使用',
+        title: '建筑与空间',
         text: '校方建筑史料点名集美楼为首批校舍之一，早期作图书馆；楼名取陈嘉庚故乡地名。楼群1922年底竣工。',
       ),
     ],
@@ -58,7 +54,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     sections: [
       (title: '沿革与命名', text: '楼名取意于孙康映雪读书的故事，由陈嘉庚题写，红瓦白墙保留着早期校园风貌。'),
       (
-        title: '建筑与使用',
+        title: '建筑与空间',
         text: '校方史料记载映雪楼早期作学生宿舍，名称取孙康映雪读书典故；红瓦西式屋顶与中式屋顶的中间楼形成中西合璧组群。',
       ),
     ],
@@ -69,12 +65,12 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://cmlab.xmu.edu.cn/info/1024/1107.htm',
     sections: [
       (
-        title: '使用与空间',
-        text: '校方教室管理规定将基金楼列作院系自管教室；校新闻网曾记载学生新闻网编辑部设在基金楼101室，外文学院活动也使用基金楼教室。',
+        title: '沿革与命名',
+        text: '校友总会的捐赠文化回顾记载，厦门市26家外经贸企业共同设立教育发展基金，并以基金收益建成基金楼，体现社会各界支持办学的积累。',
       ),
       (
-        title: '捐建与校园支持',
-        text: '校友总会的捐赠文化回顾记载，厦门市26家外经贸企业共同设立教育发展基金，并以基金收益建成基金楼，体现社会各界支持办学的积累。',
+        title: '建筑与空间',
+        text: '校方教室管理规定将基金楼列作院系自管教室；校新闻网曾记载学生新闻网编辑部设在基金楼101室，外文学院活动也使用基金楼教室。',
       ),
     ],
     references: [
@@ -87,7 +83,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://jwc.xmu.edu.cn/virtual_attach_file.vsb?afc=7UmlVYoRLsoR-ZM2RWkMRvaUN7YnmAdVLzfRUmMfLmvPLRv0gihFp2hmCIa0USybn1y8Lky8LzvZLmfVM8MVnmT2L4nfM8QfnmVfMzA2LzQFnmN8Lln2LRTFn7-ZnlU8gjfNQmOeoIlYM4G8M2CxQzTNC188MRCigI7PQmUxMRvPQzCiMmWAMDWmgjfNQmOeqj6mgDTJQty0LzG8LSyYMzCZgtA8pU-cc&e=.pdf&nid=2568&oid=1850577293&tid=1041',
     sections: [
       (
-        title: '使用与空间',
+        title: '建筑与空间',
         text: '厦大新生学业导航记载群贤二位于群贤一正后方；公共教室资源表将其列入南强学区公共教学楼并列有开放时段。',
       ),
     ],
@@ -97,7 +93,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://jwc.xmu.edu.cn/virtual_attach_file.vsb?afc=7UmlVYoRLsoR-ZM2RWkMRvaUN7YnmAdVLzfRUmMfLmvPLRv0gihFp2hmCIa0USybn1y8Lky8LzvZLmfVM8MVnmT2L4nfM8QfnmVfMzA2LzQFnmN8Lln2LRTFn7-ZnlU8gjfNQmOeoIlYM4G8M2CxQzTNC188MRCigI7PQmUxMRvPQzCiMmWAMDWmgjfNQmOeqj6mgDTJQty0LzG8LSyYMzCZgtA8pU-cc&e=.pdf&nid=2568&oid=1850577293&tid=1041',
     sections: [
       (
-        title: '公共教学',
+        title: '学习与使用',
         text: '教务处发布的新生学业导航将集美二列为思明校区南强学区的公共教学楼，记录了它承担课程教学与学生学习的用途。',
       ),
     ],
@@ -107,9 +103,8 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://feelyoung.xmu.edu.cn/info/1023/7063.htm',
     sections: [
       (
-        title: '院系使用',
-        text:
-            '化学化工学院2025年9月更新的学生工作组名单，将多处办公地点明确列在思明校区同安二，反映其师生服务与行政办公用途。这里不沿用早期同安楼的营建日期。',
+        title: '学习与使用',
+        text: '化学化工学院2025年9月更新的学生工作组名单，将多处办公地点明确列在思明校区同安二，反映其师生服务与行政办公用途。',
       ),
     ],
   ),
@@ -118,9 +113,8 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://library.xmu.edu.cn/gybg/fxyysfg/fgjj.htm',
     sections: [
       (
-        title: '建筑与使用',
-        text:
-            '图书馆资料称法学分馆位于A座四、五楼，馆舍于1998年9月建成；法学院扩建形成了法学图书馆、公共教室、实验室等空间。旧楼段与新建扩建项目分开记录。',
+        title: '建筑与空间',
+        text: '图书馆资料称法学分馆位于A座四、五楼，馆舍于1998年9月建成；法学院扩建形成了法学图书馆、公共教室、实验室等空间。',
       ),
     ],
   ),
@@ -129,9 +123,9 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://law.xmu.edu.cn/info/1077/254001.htm',
     sections: [
       (
-        title: '学术交流',
+        title: '学习与使用',
         text:
-            '2023年12月，B137报告厅举办刑法典编纂主题讲座，师生围绕法律制度及学科问题展开讨论。楼内会议与讲座记录反映其学术交流用途，不用于推定楼宇竣工年代。',
+            '2023年12月，B137报告厅举办刑法典编纂主题讲座，师生围绕法律制度及学科问题展开讨论。楼内会议与讲座记录反映其学术交流用途。',
       ),
     ],
   ),
@@ -140,9 +134,8 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://law.xmu.edu.cn/en/info/1032/1071.htm',
     sections: [
       (
-        title: '教学与行政服务',
-        text:
-            '学校2017年春季国际学生指南把法学院C栋320列为学院联系地点，记录了该楼承担学院行政服务的用途。该历史手册不作为今天的办事地址或开放安排。',
+        title: '学习与使用',
+        text: '学校2017年春季国际学生指南把法学院C栋320列为学院联系地点，记录了该楼承担学院行政服务的用途。',
       ),
     ],
   ),
@@ -152,7 +145,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     sections: [
       (title: '沿革与命名', text: '2025年法学发展论坛上，校方特别感谢这份支持人才培养、回馈母校的心意。'),
       (
-        title: '建筑与使用',
+        title: '建筑与空间',
         text:
             '扩建工程于2022年6月开工、2025年6月竣工，规划用途包括法学图书馆、公共教室、实验室、研究中心、巡回法庭等；外观形似中国印。命名者黄毅校友为冠名捐建者。',
       ),
@@ -162,18 +155,13 @@ const _campusResearchBuildingStories = <String, CampusStory>{
   'sm-art': CampusStory(
     '艺术学院大楼于1990年落成。',
     'https://news.xmu.edu.cn/info/1023/32039.htm',
-    sections: [
-      (
-        title: '建筑与使用',
-        text: '校方转载的院庆报道指出，大楼落成结束学院此前借用院舍的阶段；学院1983年成立是机构史，不是建筑竣工时间。',
-      ),
-    ],
+    sections: [(title: '建筑与空间', text: '校方转载的院庆报道指出，大楼落成结束学院此前借用院舍的阶段。')],
   ),
   'sm-hylab': CampusStory(
     '海韵实验楼为海韵园五幢主体楼之一。',
     'https://news.xmu.edu.cn/info/1003/30179.htm',
     sections: [
-      (title: '建筑与使用', text: '校方资料记载该园实验楼在2005年初通过竣工验收，原定位为教学、科研及行政办公园区组成部分。'),
+      (title: '建筑与空间', text: '校方资料记载该园实验楼在2005年初通过竣工验收，原定位为教学、科研及行政办公园区组成部分。'),
     ],
   ),
   'sm-hyresearch1': CampusStory(
@@ -181,9 +169,9 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://multimedia.xmu.edu.cn/sstj/sycd.htm',
     sections: [
       (
-        title: '使用与空间',
+        title: '建筑与空间',
         text:
-            '校内重点实验室介绍将海韵园科研1号楼列为科研用地，记载实验室、办公室和会议室等空间；校方信息学院资料也记载CHECK-IT实训基地位于该楼二楼。海韵园整体竣工年份不据此等同本楼单体竣工日期。',
+            '校内重点实验室介绍将海韵园科研1号楼列为科研用地，记载实验室、办公室和会议室等空间；校方信息学院资料也记载CHECK-IT实训基地位于该楼二楼。',
       ),
     ],
     references: ['https://informatics.xmu.edu.cn/info/1113/173451.htm'],
@@ -191,14 +179,14 @@ const _campusResearchBuildingStories = <String, CampusStory>{
   'sm-hyresearch2': CampusStory(
     '海韵科研2号楼被校内实验室资料列为科研用地。',
     'https://multimedia.xmu.edu.cn/sstj/sycd.htm',
-    sections: [(title: '使用与空间', text: '厦门大学重点实验室介绍将海韵园科研2号楼与科研1号楼并列为主要科研用地。')],
+    sections: [(title: '建筑与空间', text: '厦门大学重点实验室介绍将海韵园科研2号楼与科研1号楼并列为主要科研用地。')],
   ),
   'sm-physics': CampusStory(
     '物理机电航空大楼位于思明校区海韵园。',
     'https://jjc.xmu.edu.cn/info/1021/1533.htm',
     sections: [
       (
-        title: '建筑与使用',
+        title: '建筑与空间',
         text: '大楼于2014年6月通过竣工验收，地上六层，供实验、教学、科研和办公使用；建设主要服务物理与机电学院，名称列航空相关用途。',
       ),
     ],
@@ -207,25 +195,25 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     '圣诺楼设有材料学科的显微分析等实验空间。',
     'https://cmlms.xmu.edu.cn/instrumentsearch.html',
     sections: [
-      (title: '建筑与使用', text: '学院共享设备平台列有放置于圣诺楼109等具体楼层房间的仪器，支持其当前科研实验用途。'),
+      (title: '建筑与空间', text: '学院共享设备平台列有放置于圣诺楼109等具体楼层房间的仪器，支持其当前科研实验用途。'),
     ],
   ),
   'sm-science': CampusStory(
     '科学楼设有材料分析与仪器实验空间。',
     'https://cmlms.xmu.edu.cn/instrumentsearch.html',
-    sections: [(title: '建筑与使用', text: '学院仪器平台列有放置在思明校区科学楼的分析仪器。')],
+    sections: [(title: '建筑与空间', text: '学院仪器平台列有放置在思明校区科学楼的分析仪器。')],
   ),
   'sm-lingfeng': CampusStory(
     '凌峰楼设有显微、衍射与材料分析实验空间。',
     'https://cmlms.xmu.edu.cn/instrumentsearch.html',
-    sections: [(title: '建筑与使用', text: '材料学院仪器共享平台列有凌峰楼104、205等房间的实验仪器。')],
+    sections: [(title: '建筑与空间', text: '材料学院仪器共享平台列有凌峰楼104、205等房间的实验仪器。')],
   ),
   'user-dac19c22a6e94cb7b8b2b8f26c0befa6': CampusStory(
     '凌峰电镜楼承担材料分析测试活动。',
     'https://atc.xmu.edu.cn/',
     sections: [
       (
-        title: '使用与空间',
+        title: '建筑与空间',
         text:
             '厦门大学分析测试中心的公开地址和实验室检查安排均提到凌峰电镜楼，具体有凌峰电镜楼105室；记录列有电镜楼实验室检查，说明此处承担材料分析测试活动。',
       ),
@@ -237,27 +225,21 @@ const _campusResearchBuildingStories = <String, CampusStory>{
   'sm-chem': CampusStory(
     '化学楼是化学化工学院实验大楼。',
     'https://chem.xmu.edu.cn/info/1272/7070.htm',
-    sections: [
-      (
-        title: '建筑与使用',
-        text: '学院门禁通知直接称卢嘉锡楼和化学楼为实验大楼。化学学科史资料谈及早期化学楼及学科发展，但不能作为当前化学楼建成年代依据。',
-      ),
-    ],
+    sections: [(title: '建筑与空间', text: '学院门禁通知直接称卢嘉锡楼和化学楼为实验大楼。')],
   ),
   'sm-chemhall': CampusStory(
     '化学报告厅用于学院报告和纪念活动。',
     'https://chem.xmu.edu.cn/info/1272/7070.htm',
-    sections: [(title: '建筑与使用', text: '化学学院公开活动报道将活动地点标为化学报告厅；卢嘉锡铜像位于报告厅前。')],
+    sections: [(title: '建筑与空间', text: '化学学院公开活动报道将活动地点标为化学报告厅；卢嘉锡铜像位于报告厅前。')],
   ),
   'sm-econ': CampusStory(
     '2004年暑假，经济楼进行改造，增设教师工作室、学术讨论和多媒体教学空间。这座楼记录着学院持续改善教学与师生交流环境的历程。',
     'https://soe.xmu.edu.cn/info/6411/507124.htm',
     sections: [
-      (title: '沿革与命名', text: '这座楼记录着学院持续改善教学与师生交流环境的历程。'),
       (
-        title: '营建与扩建背景',
+        title: '沿革与命名',
         text:
-            '基建处2011年的扩建介绍回顾，原经济学院大楼1984年建成，由A、B、C、D四幢楼组成，供经济学院、王亚南经济研究院教学科研和经济分馆使用。后续扩建规划提出增加交易模拟、案例讨论与教师研究空间。',
+            '这座楼记录着学院持续改善教学与师生交流环境的历程。\n\n基建处2011年的扩建介绍回顾，原经济学院大楼1984年建成，由A、B、C、D四幢楼组成，供经济学院、王亚南经济研究院教学科研和经济分馆使用。后续扩建规划提出增加交易模拟、案例讨论与教师研究空间。',
       ),
     ],
     references: ['https://jjc.xmu.edu.cn/info/1019/53731.htm'],
@@ -267,7 +249,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://alumni.xmu.edu.cn/info/1561/35031.htm',
     sections: [
       (
-        title: '命名与提升工程',
+        title: '沿革与命名',
         text:
             '2021年，黄宜弘、梁凤仪伉俪捐资1000万元支持教育研究院大楼提升。2022年9月，提升工程竣工启用，并以黄宜弘之名命名；与其父捐建的克立楼共同体现两代人的兴学情谊。',
       ),
@@ -278,7 +260,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://news.xmu.edu.cn/info/1025/433081.htm',
     sections: [
       (
-        title: '冠名与校友支持',
+        title: '沿革与命名',
         text:
             '1988级校友在入学30周年返校期间捐资支持学校建设。2023年4月，学校为原新闻传播学院大楼揭幕命名至善楼，延续校训与感恩母校的文化。',
       ),
@@ -287,14 +269,14 @@ const _campusResearchBuildingStories = <String, CampusStory>{
   'sm-dezhen': CampusStory(
     '德贞楼又称南光三，承载外文学院教学与交流。',
     'https://cflc.xmu.edu.cn/info/1119/4689.htm',
-    sections: [(title: '建筑与使用', text: '外文学院记录其搬迁至南光三并开展教学学术活动。')],
+    sections: [(title: '建筑与空间', text: '外文学院记录其搬迁至南光三并开展教学学术活动。')],
   ),
   'sm-nanguang2': CampusStory(
     '南光二曾承接新闻传播学院教学、考核和交流活动。',
     'https://comm.xmu.edu.cn/info/1018/17622.htm',
     sections: [
       (
-        title: '教学与交流',
+        title: '学习与使用',
         text:
             '新闻传播学院招生通知曾把南光二的教室、会议室与206空间列作考核场地，且明确属于思明校区。学校采购记录还出现南光二206报告厅，反映楼内的教学与公共交流功能。',
       ),
@@ -306,7 +288,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://news.xmu.edu.cn/info/1023/33123.htm',
     sections: [
       (
-        title: '捐建与教学',
+        title: '沿革与命名',
         text:
             '联兴楼由林联兴捐建，1999年4月建成。楼宇为五层、约4300平方米，曾供建筑学院和海外教育学院教学使用，见证学校空间拓展与校友支持。',
       ),
@@ -317,9 +299,9 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://news.xmu.edu.cn/info/1003/39528.htm',
     sections: [
       (
-        title: '学生支持空间',
+        title: '建筑与空间',
         text:
-            '2021年校方启用报道记载，思明校区心理咨询与教育中心在南光四号楼更新服务空间，个体咨询室由四间增至十间，改善学生心理支持条件。这里记录当时的场所使用。',
+            '2021年校方启用报道记载，思明校区心理咨询与教育中心在南光四号楼更新服务空间，个体咨询室由四间增至十间，改善学生心理支持条件。',
       ),
     ],
   ),
@@ -328,7 +310,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://alumni.xmu.edu.cn/info/1025/40931.htm',
     sections: [
       (
-        title: '捐建与沿革',
+        title: '沿革与命名',
         text:
             '蔡清洁捐资530万元支持留学生宿舍建设。楼宇于1991年春奠基，1993年9月竣工，为临海山坡上的十层楼，学校以捐建者姓名命名。',
       ),
@@ -339,9 +321,8 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://cwc.xmu.edu.cn/system/resource/virtual_resource_file.jsp?afc=6oRQ_7nR9Znmv4nFz7Yo7liLmGYL4n9kL8CDMNUanzLsozv0gihFp2hmCIa0MYyZMSyiM1hVM8-ZU8lYL77sn7WVnzV7nm-PL8CPMz-4L8WFLzVfo7rRnRTFUlUinmUJv2nto4OeoDMsCYhXptQ0g47YoR70Mm9ZL1bw62A8c&e=.pdf&nid=6882&oid=2081559919&tid=1281',
     sections: [
       (
-        title: '学生住宿',
-        text:
-            '厦门大学2024—2025学年学生公寓住宿费标准在“思明校区外国留学生园区”项下列有南光五，确认其思明校区住宿用途。该收费表不提供楼宇建成年代。',
+        title: '学习与使用',
+        text: '厦门大学2024—2025学年学生公寓住宿费标准在“思明校区外国留学生园区”项下列有南光五，确认其思明校区住宿用途。',
       ),
     ],
   ),
@@ -350,7 +331,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://news.xmu.edu.cn/info/1051/514012.htm',
     sections: [
       (
-        title: '科研与捐建',
+        title: '沿革与命名',
         text:
             '桂华山捐资100万港币支持电子显微镜实验科研楼建设，楼宇也称电镜楼。图书馆的捐赠者专题援引早期校报和回忆资料，记录这份支持科研的心意。',
       ),
@@ -361,7 +342,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://news.xmu.edu.cn/info/1003/26408.htm',
     sections: [
       (
-        title: '名称与沿革',
+        title: '沿革与命名',
         text: '学院专题图片说明称“海洋与环境学院大楼（现名曾呈奎楼）落成典礼（2001年）”，确认历史名称、现名和落成典礼年份。',
       ),
     ],
@@ -372,9 +353,9 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://library.xmu.edu.cn/gybg/hyxsgyfg/fgjj.htm',
     sections: [
       (
-        title: '分馆简介',
+        title: '学习与使用',
         text:
-            '厦门大学图书馆介绍，海韵学生公寓分馆（原信息工程分馆）位于曾厝垵学生公寓教学楼，面积约600平方米，提供图书借阅、期刊和报纸阅览等服务。页面称分馆建于2001年，未说明教学楼整体的建成年代。',
+            '厦门大学图书馆介绍，海韵学生公寓分馆（原信息工程分馆）位于曾厝垵学生公寓教学楼，面积约600平方米，提供图书借阅、期刊和报纸阅览等服务。',
       ),
     ],
   ),
@@ -382,10 +363,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     '台湾研究院院楼承担研究生招生复试等教学活动。',
     'https://gifts.xmu.edu.cn/info/2361/175501.htm',
     sections: [
-      (
-        title: '教学活动',
-        text: '通知明确复试在思明校区进行，并将两岸所笔试和面试地点均列为台湾研究院院楼301会议室；这是活动使用记录，不是建成年代。',
-      ),
+      (title: '学习与使用', text: '通知明确复试在思明校区进行，并将两岸所笔试和面试地点均列为台湾研究院院楼301会议室。'),
     ],
   ),
   'sm-wangpool': CampusStory(
@@ -393,7 +371,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://jjc.xmu.edu.cn/info/1021/1557.htm',
     sections: [
       (
-        title: '建设与游泳教学',
+        title: '学习与使用',
         text:
             '原天然泳场因环岛路建设拆除后，学校另建游泳馆，2003年开工。馆内设置标准泳池和训练池，后来服务游泳课程、师生练习，并承办福建省大学生运动会游泳比赛。',
       ),
@@ -405,12 +383,8 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     sections: [
       (
         title: '沿革与命名',
-        text: '1986年校庆时，佘明培校友及施淑好女士捐资支持体育馆建设。馆舍建筑面积4768平方米，是学校开展室内体育活动的重要空间。',
-      ),
-      (
-        title: '营建与捐赠',
         text:
-            '体育教学部记载，佘明培及施淑好于1986年捐资210万元。体育馆1988年开工、1990年竣工，面积4768平方米，设篮球场和2000个座位。桔红色锥形屋面网架连接四条楼梯通道，外形如火炬；2004年安装中央空调，2010年全面整修。',
+            '1986年校庆时，佘明培校友及施淑好女士捐资支持体育馆建设。馆舍建筑面积4768平方米，是学校开展室内体育活动的重要空间。\n\n体育教学部记载，佘明培及施淑好于1986年捐资210万元。体育馆1988年开工、1990年竣工，面积4768平方米，设篮球场和2000个座位。桔红色锥形屋面网架连接四条楼梯通道，外形如火炬；2004年安装中央空调，2010年全面整修。',
       ),
     ],
   ),
@@ -419,7 +393,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://tyjxb.xmu.edu.cn/info/1029/16198.htm',
     sections: [
       (
-        title: '体育与校园活动',
+        title: '学习与使用',
         text: '演武田径场承担学校体育活动。第61届学生田径运动会的校方竞赛规程将其列为思明校区田径比赛地点，留下师生运动与竞赛的公共记忆。',
       ),
     ],
@@ -429,7 +403,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://tyjxb.xmu.edu.cn/info/1050/1513.htm',
     sections: [
       (
-        title: '建设与场地更新',
+        title: '建筑与空间',
         text:
             '上弦场工程于1952年展开、1954年竣工，陈嘉庚参与设计督建，李光前等侨胞捐资支持。2003年，场地改为标准400米跑道田径场，同时配置足球与器械训练空间。',
       ),
@@ -440,7 +414,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://jwc.xmu.edu.cn/virtual_attach_file.vsb?afc=0nNlaYUlUZnl7snPR-ZMNMfMzrVLmUYDnzvsU49YU4NbnlC0gihFp2hmCIa0L1hfnky4LYybL7rRn7CYU4l4L87sUzMfMRlbUl74UNLZMmfFM8lYLNLsM46FM49PnNCJv2nto4OeoDXsCYhXptQ0g4LPLz70Mz9ZLm7Jqd4nx&e=.pdf&nid=58821&oid=1850577293&tid=3111',
     sections: [
       (
-        title: '捐建沿革与校园活动',
+        title: '沿革与命名',
         text:
             '厦门大学大事记记载，许自钦捐建的学生活动中心（自钦楼）于1992年4月举行落成典礼。学校美育年度报告记录自钦楼内设艺术活动实践场地，曾举办书画展览和舞蹈排练。',
       ),
@@ -453,7 +427,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     '成智二号楼是思明校区公共事务学院办公教学楼。',
     'https://gk.xmu.edu.cn/info/1088/29371.htm',
     sections: [
-      (title: '学院使用记录', text: '厦门大学公开采购公告将成智二号楼明确标为思明校区公共事务学院楼，并发布该楼空调采购项目。'),
+      (title: '学习与使用', text: '厦门大学公开采购公告将成智二号楼明确标为思明校区公共事务学院楼，并发布该楼空调采购项目。'),
     ],
   ),
   'user-1ad2bc79f65d474486ee3e16ecda713f': CampusStory(
@@ -461,7 +435,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://ese.xmu.edu.cn/px/info/1231/1454.htm',
     sections: [
       (
-        title: '捐建与交流',
+        title: '沿革与命名',
         text: '逸夫楼由邵逸夫捐资兴建，位于芙蓉湖西北侧。楼宇面向国际学术交流，兼有学者住宿、会议与餐饮空间，是学校接待和交流活动的一处场所。',
       ),
     ],
@@ -471,7 +445,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://ese.xmu.edu.cn/px/info/1231/1464.htm',
     sections: [
       (
-        title: '命名与公共使用',
+        title: '沿革与命名',
         text:
             '丁政曾、蔡悦诗伉俪捐建此楼，以蔡悦诗父亲蔡建文之名命名。楼宇位于大南校门入口一带，经过空间改造，承接教工活动、展览、交流与接待。',
       ),
@@ -482,7 +456,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://sbd.xmu.edu.cn/info/1057/11440.htm',
     sections: [
       (
-        title: '学术活动',
+        title: '学习与使用',
         text:
             '厦门大学智能制造学院报道，2025年7月18日，人工智能赋能科学仪器专题会在思明校区亦玄馆举行，来自多个领域的专家围绕智能仪器发展开展交流。',
       ),
@@ -493,7 +467,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://news.xmu.edu.cn/info/1003/14358.htm',
     sections: [
       (
-        title: '酒店教学与捐建',
+        title: '沿革与命名',
         text:
             '2007年，林国泰捐赠600万港元，并以父亲林梧桐之名冠名。2016年竣工揭牌后，大楼作为管理学院酒店教学科研实验基地，把酒店服务实践与教学研究结合。',
       ),
@@ -504,7 +478,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://tyjxb.xmu.edu.cn/info/1050/1516.htm',
     sections: [
       (
-        title: '建筑与更新',
+        title: '建筑与空间',
         text:
             '球馆约于1956年6月底建成，原为石墙、木屋架，服务阴雨天气的体育教学。2001年前后铺设木地板，2015年再次修整屋顶和地板，继续承担课程与运动队训练。',
       ),
@@ -515,7 +489,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://arch.xmu.edu.cn/info/1161/12723.htm',
     sections: [
       (
-        title: '餐厅沿革',
+        title: '沿革与命名',
         text: '南光餐厅早年为化学食堂，一、二楼曾分别称第七、第十食堂。2002年更名南光，2009年修缮；山墙设计联系囊萤楼的建筑意象。',
       ),
     ],
@@ -525,7 +499,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://arch.xmu.edu.cn/info/1161/12723.htm',
     sections: [
       (
-        title: '营建与建筑',
+        title: '沿革与命名',
         text: '芙蓉园区1998年开始综合改造，芙蓉与东苑餐厅随后建设，约2001年落成。两楼通过连廊相接，延续红砖及闽南装饰元素。',
       ),
     ],
@@ -545,9 +519,8 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://cwc.xmu.edu.cn/system/resource/virtual_resource_file.jsp?afc=6oRQ_7nR9Znmv4nFz7Yo7liLmGYL4n9kL8CDMNUanzLsozv0gihFp2hmCIa0MYyZMSyiM1hVM8-ZU8lYL77sn7WVnzV7nm-PL8CPMz-4L8WFLzVfo7rRnRTFUlUinmUJv2nto4OeoDMsCYhXptQ0g47YoR70Mm9ZL1bw62A8c&e=.pdf&nid=6882&oid=2081559919&tid=1281',
     sections: [
       (
-        title: '学生住宿',
-        text:
-            '厦门大学2024—2025学年学生公寓住宿费标准将“综合楼”列在思明校区芙蓉园区，确认其学生公寓用途。该表说明的是对应学年住宿安排，不代表建筑建成年代。',
+        title: '学习与使用',
+        text: '厦门大学2024—2025学年学生公寓住宿费标准将“综合楼”列在思明校区芙蓉园区，确认其学生公寓用途。',
       ),
     ],
   ),
@@ -555,7 +528,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     '后勤综合楼承担思明校区水电服务。',
     'https://hqjt.xmu.edu.cn/fwdh/bszn/sdfjj.htm',
     sections: [
-      (title: '后勤服务', text: '后勤集团水电费办事说明写明，水电费补缴地点为后勤综合楼二楼（芙蓉隧道口上方）。'),
+      (title: '学习与使用', text: '后勤集团水电费办事说明写明，水电费补缴地点为后勤综合楼二楼（芙蓉隧道口上方）。'),
     ],
   ),
   'user-f05a81bf5e444da58a690dcc52383a36': CampusStory(
@@ -563,7 +536,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://arch.xmu.edu.cn/info/1161/12723.htm',
     sections: [
       (
-        title: '校园生活记忆',
+        title: '沿革与命名',
         text: '勤业餐厅1979年始建、1981年投入使用，圆形外观使它在校友记忆中也被称为圆形餐厅，记录一代代学子的校园生活。',
       ),
     ],
@@ -573,9 +546,8 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://cwc.xmu.edu.cn/system/resource/virtual_resource_file.jsp?afc=6oRQ_7nR9Znmv4nFz7Yo7liLmGYL4n9kL8CDMNUanzLsozv0gihFp2hmCIa0MYyZMSyiM1hVM8-ZU8lYL77sn7WVnzV7nm-PL8CPMz-4L8WFLzVfo7rRnRTFUlUinmUJv2nto4OeoDMsCYhXptQ0g47YoR70Mm9ZL1bw62A8c&e=.pdf&nid=6882&oid=2081559919&tid=1281',
     sections: [
       (
-        title: '学生住宿',
-        text:
-            '厦门大学2024—2025学年学生公寓住宿费标准在“思明校区芙蓉园区”栏目列有南光七，确认该楼属于思明校区住宿名录；这份年度表不能说明其建成年代。',
+        title: '学习与使用',
+        text: '厦门大学2024—2025学年学生公寓住宿费标准在“思明校区芙蓉园区”栏目列有南光七，确认该楼属于思明校区住宿名录。',
       ),
     ],
   ),
@@ -583,28 +555,20 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     '南光八楼内设厦门大学离退休工作部（处）办公点。',
     'https://ltxc.xmu.edu.cn/bmgk/smdxltxgzbc.htm',
     sections: [
-      (
-        title: '行政服务',
-        text: '厦门大学离退休工作部（处）官网公开办公信息，列明思明校区南光八号楼内多间办公室及部门地址。页面未提供该楼建成年代。',
-      ),
+      (title: '学习与使用', text: '厦门大学离退休工作部（处）官网公开办公信息，列明思明校区南光八号楼内多间办公室及部门地址。'),
     ],
   ),
   'sm-xishan-lab': CampusStory(
     '厦大建筑与土木工程学院实验中心公开列有“西山实验室”联系方式。',
     'https://archt.xmu.edu.cn/syzx/lxfs.htm',
-    sections: [
-      (
-        title: '实验设施',
-        text: '学院实验中心联系方式页面单列“西山实验室”及联系电话，但未说明它对应的楼宇地址、建设年代或建筑特点。',
-      ),
-    ],
+    sections: [(title: '建筑与空间', text: '西山实验室是学院实验中心的实验空间。')],
   ),
   'sm-anthropology-museum': CampusStory(
     '博学楼于1923年落成，早期兼作男女生宿舍；抗战期间遭炮击，修复后继续作宿舍。',
     'https://jjc.xmu.edu.cn/info/1018/53851.htm',
     sections: [
       (
-        title: '从宿舍到博物馆',
+        title: '学习与使用',
         text:
             '博学楼1923年落成，早期作为宿舍，战时受损后修复。20世纪50年代转为人类博物馆，楼宇用途逐渐从学生居住转向收藏、研究与展示。',
       ),
@@ -614,44 +578,28 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     '芙蓉一是思明校区芙蓉楼群学生宿舍。',
     'https://news.xmu.edu.cn/info/1771/469911.htm',
     sections: [
-      (
-        title: '〖厦大嘉庚建筑的源流与传承〗芙蓉楼群（上篇）',
-        text:
-            '厦门大学建筑专题将芙蓉一列入芙蓉楼群，并说明芙蓉一、二、三、四于1951至1954年建成。资料给出的是四栋共同的年代范围，未分别对应到每栋的具体年份。',
-      ),
+      (title: '沿革与命名', text: '厦门大学建筑专题将芙蓉一列入芙蓉楼群，并说明芙蓉一、二、三、四于1951至1954年建成。'),
     ],
   ),
   'user-af87884b081d41519d06586c3fbd0fe6': CampusStory(
     '芙蓉二是思明校区芙蓉楼群学生宿舍。',
     'https://news.xmu.edu.cn/info/1771/469911.htm',
     sections: [
-      (
-        title: '〖厦大嘉庚建筑的源流与传承〗芙蓉楼群（上篇）',
-        text:
-            '厦门大学建筑专题将芙蓉二列入芙蓉楼群，并说明芙蓉一、二、三、四于1951至1954年建成。资料给出的是四栋共同的年代范围，未分别对应到每栋的具体年份。',
-      ),
+      (title: '沿革与命名', text: '厦门大学建筑专题将芙蓉二列入芙蓉楼群，并说明芙蓉一、二、三、四于1951至1954年建成。'),
     ],
   ),
   'user-3c5e03fb7f9c438c91995a18093b4753': CampusStory(
     '芙蓉三是思明校区芙蓉楼群学生宿舍。',
     'https://news.xmu.edu.cn/info/1771/469911.htm',
     sections: [
-      (
-        title: '〖厦大嘉庚建筑的源流与传承〗芙蓉楼群（上篇）',
-        text:
-            '厦门大学建筑专题将芙蓉三列入芙蓉楼群，并说明芙蓉一、二、三、四于1951至1954年建成。资料给出的是四栋共同的年代范围，未分别对应到每栋的具体年份。',
-      ),
+      (title: '沿革与命名', text: '厦门大学建筑专题将芙蓉三列入芙蓉楼群，并说明芙蓉一、二、三、四于1951至1954年建成。'),
     ],
   ),
   'user-92eac1e37237401ab02a8d9706aa87f6': CampusStory(
     '芙蓉四是思明校区芙蓉楼群学生宿舍。',
     'https://news.xmu.edu.cn/info/1771/469911.htm',
     sections: [
-      (
-        title: '〖厦大嘉庚建筑的源流与传承〗芙蓉楼群（上篇）',
-        text:
-            '厦门大学建筑专题将芙蓉四列入芙蓉楼群，并说明芙蓉一、二、三、四于1951至1954年建成。资料给出的是四栋共同的年代范围，未分别对应到每栋的具体年份。',
-      ),
+      (title: '沿革与命名', text: '厦门大学建筑专题将芙蓉四列入芙蓉楼群，并说明芙蓉一、二、三、四于1951至1954年建成。'),
     ],
   ),
   'sm-haiyun10': CampusStory(
@@ -659,7 +607,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://news.xmu.edu.cn/info/1003/20238.htm',
     sections: [
       (
-        title: '改造与住区服务',
+        title: '建筑与空间',
         text:
             '校方新闻记录海韵二期公寓的改造与分批验收，其中10号楼较早完成验收。学校2022年学生事务安排还把10号楼架空层列为公寓办服务点。',
       ),
@@ -672,13 +620,13 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     sections: [
       (title: '沿革与命名', text: '作为翔安主楼群1号楼，它与坤銮楼共同承担公共教学。'),
       (
-        title: '启用与用途',
-        text:
-            '主楼群1号楼公共教室于2012年11月5日开始上课。启用报道记载全楼有64间公共教室，可提供5780个座位。另据基建处报道，2014年元旦学武楼与另外7栋楼一同举行落成典礼；此为一批8栋楼的典礼，不是主楼群整体的落成典礼。',
+        title: '建筑与空间',
+        text: '它属于翔安校区“一主四从”主楼群，主楼群由中央图书馆和四栋公共教学、实验空间组成，以连廊形成整体。',
       ),
       (
-        title: '设计与校园空间',
-        text: '它属于翔安校区“一主四从”主楼群，主楼群由中央图书馆和四栋公共教学、实验空间组成，以连廊形成整体。',
+        title: '学习与使用',
+        text:
+            '主楼群1号楼公共教室于2012年11月5日开始上课。启用报道记载全楼有64间公共教室，可提供5780个座位。另据基建处报道，2014年元旦学武楼与另外7栋楼一同举行落成典礼。',
       ),
     ],
     references: [
@@ -690,11 +638,10 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     '翔安主楼群2号楼，与学武楼共同承担公共教学。由薛小云捐建，2014年元旦举行落成典礼。',
     'https://news.xmu.edu.cn/info/1002/3560.htm',
     sections: [
-      (title: '沿革与命名', text: '由薛小云捐建，2014年元旦举行落成典礼。'),
       (
-        title: '命名与功能',
+        title: '沿革与命名',
         text:
-            '2014年校方落成报道将坤銮楼列为主楼群2号楼，由校友薛小云捐建。国际中文教育学院现以主楼二号楼坤銮楼为院址，楼宇通过连廊与学武楼相接。',
+            '由薛小云捐建，2014年元旦举行落成典礼。\n\n2014年校方落成报道将坤銮楼列为主楼群2号楼，由校友薛小云捐建。国际中文教育学院现以主楼二号楼坤銮楼为院址，楼宇通过连廊与学武楼相接。',
       ),
     ],
     references: ['https://oec.xmu.edu.cn/info/2493/91823.htm'],
@@ -703,14 +650,13 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     '2014年投入使用，2016年命名揭牌。曹德旺捐资1亿元支持图书馆建设，让翔安校区的中央主楼成为知识与阅读的汇聚之地。',
     'https://news.xmu.edu.cn/info/1023/33434.htm',
     sections: [
-      (title: '沿革与命名', text: '曹德旺捐资1亿元支持图书馆建设，让翔安校区的中央主楼成为知识与阅读的汇聚之地。'),
       (
-        title: '落成与命名',
+        title: '沿革与命名',
         text:
-            '图书馆于2014年投入使用，福耀集团董事长曹德旺捐赠1亿元支持建设；学校于2016年举行命名揭牌。投入使用与冠名揭牌是两个不同时间节点。',
+            '曹德旺捐资1亿元支持图书馆建设，让翔安校区的中央主楼成为知识与阅读的汇聚之地。\n\n图书馆于2014年投入使用，福耀集团董事长曹德旺捐赠1亿元支持建设；学校于2016年举行命名揭牌。',
       ),
       (
-        title: '建筑与服务',
+        title: '建筑与空间',
         text:
             '翔安校区官方资料称其位于主楼群3号楼，地上9层、地下1层，建筑面积约7.3万平方米；提供大规模阅览、自习和馆藏空间，并设数学与智力玩具空间。',
       ),
@@ -725,9 +671,9 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://xaxq.xmu.edu.cn/info/1026/6702.htm',
     sections: [
       (
-        title: '楼内服务',
+        title: '学习与使用',
         text:
-            '翔安校区办事指南注明资料截至2012年12月1日、网页发布于2013年2月25日，当时将保卫办地址列为主楼群5号楼B111；这只是历史地址记录。实验室与设备管理处的安全卫生名单另列翔安主楼5号楼临床技能培训中心。',
+            '翔安校区办事指南注明资料截至2012年12月1日、网页发布于2013年2月25日，当时将保卫办地址列为主楼群5号楼B111。实验室与设备管理处的安全卫生名单另列翔安主楼5号楼临床技能培训中心。',
       ),
     ],
     references: ['https://syb.xmu.edu.cn/info/1191/1594.htm'],
@@ -737,9 +683,9 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://informatics.xmu.edu.cn/info/1102/16631.htm',
     sections: [
       (
-        title: '教学科研与学院活动',
+        title: '学习与使用',
         text:
-            '信息学院2024年安全卫生检查报道把益海嘉里楼列为西部片区楼宇；2023年学院在该楼报告厅举办学科前沿讲座，并组织学生参观空间感知与计算实验室。校方活动报道显示，这里承担学院学术交流与教学科研活动。现有材料未确认捐建/冠名沿革，也不据2021年名称公示推断“嘉信楼”与现名的对应。',
+            '信息学院2024年安全卫生检查报道把益海嘉里楼列为西部片区楼宇；2023年学院在该楼报告厅举办学科前沿讲座，并组织学生参观空间感知与计算实验室。校方活动报道显示，这里承担学院学术交流与教学科研活动。',
       ),
     ],
     references: ['https://informatics.xmu.edu.cn/info/1102/16595.htm'],
@@ -749,28 +695,24 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://edf.xmu.edu.cn/info/1033/1368.htm',
     sections: [
       (
-        title: '捐建与医学教育',
+        title: '沿革与命名',
         text:
             '学校教育发展基金会的校庆捐赠报道记载，李氏基金捐资3500万新加坡元，支持翔安校区成义楼、成智楼、成伟楼与爱礼楼建设，四楼成为医学和护理教育的教学科研阵地。成伟楼的捐建背景属于翔安校区，区别于思明的同名历史建筑。',
       ),
     ],
   ),
   'xa-chengyi': CampusStory(
-    '翔安成义楼位于医学院片区，与思明建南楼群的同名建筑分属不同校区。',
+    '翔安成义楼位于医学院片区。',
     'https://med.xmu.edu.cn/xy/xyfzjj/xyjsfzjjxmylb.htm',
     sections: [
       (
         title: '沿革与命名',
         text:
-            '医学院建设发展基金项目列有成义楼广场环境改善及成义楼、成智楼后侧停车空间项目，可确认两楼的空间联系。尚未查得足够资料确认本楼独立的营建时间。',
+            '医学院建设发展基金项目列有成义楼广场环境改善及成义楼、成智楼后侧停车空间项目，可确认两楼的空间联系。\n\n李氏基金支持翔安成义楼建设，学校校庆报道将其与另三座院楼共同介绍为医学和护理教学科研空间，延续了李氏家族的兴学传统。',
       ),
       (
-        title: '现行使用与环境',
+        title: '学习与使用',
         text: '教务处公布的学院联络表列有医学院成义楼办公室；医学院建设发展基金项目还记载成义楼广场环境改善，并提及成义、成智楼后侧空间。',
-      ),
-      (
-        title: '捐建与医学教育',
-        text: '李氏基金支持翔安成义楼建设，学校校庆报道将其与另三座院楼共同介绍为医学和护理教学科研空间，延续了李氏家族的兴学传统。',
       ),
     ],
     references: [
@@ -784,15 +726,12 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     sections: [
       (
         title: '沿革与命名',
-        text: '医学院公开的环境建设项目同时提及两楼后侧空间。此处为翔安医学院建筑，不能套用思明成智楼曾作图书馆的历史。',
+        text:
+            '医学院公开的环境建设项目同时提及两楼后侧空间。\n\n李氏基金支持翔安成智楼建设，学校校庆报道将其与另三座院楼共同介绍为医学和护理教学科研空间，延续了李氏家族的兴学传统。',
       ),
       (
-        title: '现行使用与环境',
+        title: '学习与使用',
         text: '教务处公开联系方式将医学院工作人员办公室列在成智楼401。医学院建设发展基金项目记录成义、成智楼后侧停车空间及环境改善。',
-      ),
-      (
-        title: '捐建与医学教育',
-        text: '李氏基金支持翔安成智楼建设，学校校庆报道将其与另三座院楼共同介绍为医学和护理教学科研空间，延续了李氏家族的兴学传统。',
       ),
     ],
     references: [
@@ -805,12 +744,12 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://med.xmu.edu.cn/xy/xyfzjj/xyjsfzjjxmylb.htm',
     sections: [
       (
-        title: '教学与科普',
-        text: '医学院建设发展基金项目列出爱礼楼中医药文化教育科普基地扩展及周边环境提升项目；校方联络表将办公室地址列在爱礼楼。',
+        title: '沿革与命名',
+        text: '李氏基金支持翔安爱礼楼建设，学校校庆报道将其与另三座院楼共同介绍为医学和护理教学科研空间，延续了李氏家族的兴学传统。',
       ),
       (
-        title: '捐建与医学教育',
-        text: '李氏基金支持翔安爱礼楼建设，学校校庆报道将其与另三座院楼共同介绍为医学和护理教学科研空间，延续了李氏家族的兴学传统。',
+        title: '学习与使用',
+        text: '医学院建设发展基金项目列出爱礼楼中医药文化教育科普基地扩展及周边环境提升项目；校方联络表将办公室地址列在爱礼楼。',
       ),
     ],
     references: [
@@ -823,7 +762,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://news.xmu.edu.cn/info/1002/3560.htm',
     sections: [
       (
-        title: '启用与科研平台',
+        title: '学习与使用',
         text:
             '海洋与地球学院资料称周隆泉楼举行启用仪式；楼宇又名海洋科研平台楼，服务近海海洋环境科学国家重点实验室及学院科研平台，并承担化学、生物类专业用房。',
       ),
@@ -835,7 +774,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://jjc.xmu.edu.cn/info/1020/54951.htm',
     sections: [
       (
-        title: '项目与用途',
+        title: '学习与使用',
         text:
             '基建处设有“翔安校区分子影像大楼工程（已竣工）”档案。公共卫生相关实验设备搬迁资料显示，小动物PET/CT、SPECT/CT成像实验室设在该楼三层。',
       ),
@@ -849,7 +788,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://life.xmu.edu.cn/info/1046/6301.htm',
     sections: [
       (
-        title: '学术活动',
+        title: '学习与使用',
         text: '生命科学学院“跃进系列学术讲座”曾在楼内学术报告厅围绕肿瘤空间组学、免疫微环境和临床免疫治疗开展交流，体现楼宇的学术活动功能。',
       ),
     ],
@@ -859,7 +798,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://xaxq.xmu.edu.cn/info/1032/6864.htm',
     sections: [
       (
-        title: '启用与学科实践',
+        title: '学习与使用',
         text:
             '学校在建校97周年之际举行航空航天学院大楼启用仪式。福建省政府报道将学院在该楼开展的火箭、无人机和旋翼机科研实践作为空天学科发展的展示。',
       ),
@@ -874,9 +813,9 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     sections: [
       (title: '沿革与命名', text: '大楼位于翔安校区北部，以共享科研和学科交叉为理念，为新工科实验与创新提供空间。'),
       (
-        title: '落成与空间',
+        title: '建筑与空间',
         text:
-            '校方报道记载大楼总建筑面积4.8万余平方米、地上10层；建设理念突出“工科+”与共享，空间用于航空航天科研实验、电磁声学研究、新工科现代制造科研试验及创新创业教育。落成活动和工程竣工为不同时间节点。',
+            '校方报道记载大楼总建筑面积4.8万余平方米、地上10层；建设理念突出“工科+”与共享，空间用于航空航天科研实验、电磁声学研究、新工科现代制造科研试验及创新创业教育。',
       ),
     ],
     references: ['https://jjc.xmu.edu.cn/info/1021/1492.htm'],
@@ -886,7 +825,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://jjc.xmu.edu.cn/info/1021/1482.htm',
     sections: [
       (
-        title: '建设与用途',
+        title: '学习与使用',
         text:
             '能源材料大楼2017年10月开工、2019年11月竣工验收，五栋总建筑面积约7.1万平方米。省住建厅项目介绍将1号楼列入能源材料大楼1至5号楼综合体；1、2、4、5号楼的二至四层由实验室、工作室和学生学习室组成。',
       ),
@@ -900,7 +839,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://jjc.xmu.edu.cn/info/1021/1482.htm',
     sections: [
       (
-        title: '建设与用途',
+        title: '学习与使用',
         text:
             '能源材料大楼2017年10月开工、2019年11月竣工验收，五栋总建筑面积约7.1万平方米。省住建厅项目介绍将2号楼列入能源材料大楼1至5号楼综合体；1、2、4、5号楼的二至四层由实验室、工作室和学生学习室组成。',
       ),
@@ -914,7 +853,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://jjc.xmu.edu.cn/info/1021/1482.htm',
     sections: [
       (
-        title: '建设与用途',
+        title: '学习与使用',
         text:
             '能源材料大楼2017年10月开工、2019年11月竣工验收，五栋总建筑面积约7.1万平方米。工程资料称3号楼一层设会议与休闲咖啡空间，二层设石墨烯展厅和报告厅，三至五层为行政办公室。',
       ),
@@ -928,7 +867,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://jjc.xmu.edu.cn/info/1021/1482.htm',
     sections: [
       (
-        title: '建设与用途',
+        title: '学习与使用',
         text:
             '能源材料大楼2017年10月开工、2019年11月竣工验收，五栋总建筑面积约7.1万平方米。省住建厅项目介绍将4号楼列入能源材料大楼1至5号楼综合体；1、2、4、5号楼的二至四层由实验室、工作室和学生学习室组成。',
       ),
@@ -942,7 +881,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://jjc.xmu.edu.cn/info/1021/1482.htm',
     sections: [
       (
-        title: '建设与用途',
+        title: '学习与使用',
         text:
             '能源材料大楼2017年10月开工、2019年11月竣工验收，五栋总建筑面积约7.1万平方米。省住建厅项目介绍将5号楼列入能源材料大楼1至5号楼综合体；1、2、4、5号楼的二至四层由实验室、工作室和学生学习室组成。',
       ),
@@ -956,7 +895,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://lacoa.xmu.edu.cn/?act=regmail',
     sections: [
       (
-        title: '设施规模与规范',
+        title: '建筑与空间',
         text:
             '实验动物中心预约平台介绍一期建筑面积约7050平方米，含屏障环境、普通环境、ABSL-2生物安全动物实验室及辅助区；实验须经动物伦理审查并遵守进出管理要求。',
       ),
@@ -968,7 +907,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://jjc.xmu.edu.cn/info/1021/1477.htm',
     sections: [
       (
-        title: '建设与用途',
+        title: '学习与使用',
         text:
             '基建处项目页标注实验动物中心二期2019年9月竣工，介绍其为相关学科与科研人员提供动物实验场所；中心平台资料称二期建筑面积约6800平方米。',
       ),
@@ -980,7 +919,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://ese.xmu.edu.cn/info/1016/5813.htm',
     sections: [
       (
-        title: '空间用途',
+        title: '建筑与空间',
         text:
             '电子科学与技术学院搬迁报道区分南存钿楼A栋和C栋：A栋用于学院党政和公共服务、研究生工作室等；C栋规划建设多类本科专业教学实验室。该楼与文宣楼分布教学科研空间，后来学院设置校园公交互通。',
       ),
@@ -992,9 +931,8 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://nel.xmu.edu.cn/gywm/sysjj.htm',
     sections: [
       (
-        title: '工程实践',
-        text:
-            '国家工程实验室介绍将翔安能源3号楼工程房列为过程与工艺放大平台。它服务清洁生产相关的研究与工程转化；资料没有将此编号等同于和木楼。',
+        title: '学习与使用',
+        text: '国家工程实验室介绍将翔安能源3号楼工程房列为过程与工艺放大平台。它服务清洁生产相关的研究与工程转化。',
       ),
     ],
   ),
@@ -1003,9 +941,8 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://nel.xmu.edu.cn/gywm/sysjj.htm',
     sections: [
       (
-        title: '工程实验与转化',
-        text:
-            '国家工程实验室的公开介绍明确列出，翔安能源1号楼设研发放大平台和公共仪器与分析测试平台，联系基础研发与工艺放大实践。这里依据实际楼号介绍使用功能。',
+        title: '学习与使用',
+        text: '国家工程实验室的公开介绍明确列出，翔安能源1号楼设研发放大平台和公共仪器与分析测试平台，联系基础研发与工艺放大实践。',
       ),
     ],
   ),
@@ -1014,7 +951,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://tw.xmu.edu.cn/info/1026/15165.htm',
     sections: [
       (
-        title: '学生活动与服务',
+        title: '学习与使用',
         text:
             '校团委的学生社团年审通知曾把翔安校区林积灿楼列作社团管理服务地点。学生处的毒品预防教育活动通知将其称为学生活动中心，在一楼设置主题展览，记录校园公共教育与学生组织活动。',
       ),
@@ -1026,7 +963,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://iaec.xmu.edu.cn/zxgk/zxjj.htm',
     sections: [
       (
-        title: '会议与接待服务',
+        title: '学习与使用',
         text:
             '学校国际学术交流中心简介明确将翔安校区国际学术交流中心列入其服务网络，为重大活动、学术会议和重要接待提供会议、住宿、餐饮及相关服务。',
       ),
@@ -1038,7 +975,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://xaxq.xmu.edu.cn/info/1026/14704.htm',
     sections: [
       (
-        title: '体育场馆使用',
+        title: '学习与使用',
         text:
             '翔安校区场馆开放通知将爱秋体育馆健身房与羽毛球馆、乒乓球馆列为恢复预约使用的室内场馆；校友总会称华厦眼科医院集团苏庆灿资助建设该馆。',
       ),
@@ -1046,11 +983,11 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     references: ['https://alumni.xmu.edu.cn/xyzh2023/info/1031/4823.htm'],
   ),
   'user-f67bb60bfc8c4e22a4d66231989b6b53': CampusStory(
-    '翔安综合实验楼由基建处列为已竣工项目；现有检索未取得足够的空间用途细节。',
+    '翔安综合实验楼是校区的教学科研建筑。',
     'https://jjc.xmu.edu.cn/info/1020/54771.htm',
     sections: [
       (
-        title: '建设记录',
+        title: '学习与使用',
         text: '厦门大学基建处有“翔安校区综合实验楼（已竣工）”项目页，公开施工进度记录可确认该楼建设项目及已竣工状态。',
       ),
     ],
@@ -1060,17 +997,17 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://astro.xmu.edu.cn/XMUObservatory.htm',
     sections: [
       (
-        title: '落成与设备',
+        title: '学习与使用',
         text: '厦门大学天文学系称天文台于2022年落成揭牌，主要仪器包括大口径光学望远镜、天象厅、虚拟仿真实验室和太阳色球望远镜等。',
       ),
     ],
   ),
   'user-1d62427df6a44c90afc24a73a6b7154f': CampusStory(
-    '翔安芙蓉餐厅是翔安校区芙蓉湖畔的教职工餐厅，与思明校区芙蓉餐厅是不同地点。',
+    '翔安芙蓉餐厅是翔安校区芙蓉湖畔的教职工餐厅。',
     'https://hqjt.xmu.edu.cn/jtgk/zzjg/ysfwzx.htm',
     sections: [
       (
-        title: '餐饮与位置',
+        title: '建筑与空间',
         text: '后勤集团把翔安校区芙蓉教工餐厅列为校区餐厅之一；后勤集团新生餐饮指南称翔安芙蓉餐厅位于芙蓉湖畔，与图书馆隔湖相望。',
       ),
     ],
@@ -1081,7 +1018,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://news.xmu.edu.cn/info/1023/39856.htm',
     sections: [
       (
-        title: '建筑与校园生活',
+        title: '建筑与空间',
         text:
             '思源餐厅相关校方资料记载其为地上三层、地下一层的校园综合体，总建筑面积约12968平方米，提供约2000余个用餐座位，并配置餐饮、休闲与学术交流空间。校方介绍称餐厅采用嘉庚建筑风格和闽南元素。',
       ),
@@ -1096,7 +1033,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://oec.xmu.edu.cn/info/2493/91833.htm',
     sections: [
       (
-        title: '餐饮服务',
+        title: '学习与使用',
         text: '学校国际中文教育学院的翔安餐饮指南将竞丰列为校区三个食堂之一；后勤集团介绍其含风味餐厅，楼上另设小吃区。',
       ),
     ],
@@ -1106,7 +1043,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     '丰庭餐厅是翔安校区学生餐厅之一，供应日常餐饮并设有小吃区。',
     'https://oec.xmu.edu.cn/info/2493/91833.htm',
     sections: [
-      (title: '餐饮服务', text: '校方翔安餐饮指南将丰庭列为校区食堂；后勤集团服务资料将其纳入翔安餐厅网络，并介绍三层设小吃区。'),
+      (title: '学习与使用', text: '校方翔安餐饮指南将丰庭列为校区食堂；后勤集团服务资料将其纳入翔安餐厅网络，并介绍三层设小吃区。'),
     ],
     references: ['https://hqjt.xmu.edu.cn/jtgk/zzjg/ysfwzx.htm'],
   ),
@@ -1115,7 +1052,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://www.xujc.com/info/5gp1ldgv.html',
     sections: [
       (
-        title: '教学与艺术实践',
+        title: '学习与使用',
         text: '2009年校方教学设施介绍记载，楼内设音乐专用教室和教师琴房，体现公共教学与艺术实践并存的使用特点。',
       ),
     ],
@@ -1125,9 +1062,9 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://cets.xujc.com/2026/0227/c2263a167641/page.htm',
     sections: [
       (
-        title: '教学空间的使用',
+        title: '建筑与空间',
         text:
-            '2025—2026学年第二学期的校方通知曾将楼内部分教室列作晚间、周末和节假日专用自习空间。2026年上半年CET考务通知也将本楼列为考场。这里记录具体学期的用途，不沿用当时的开放时段。',
+            '2025—2026学年第二学期的校方通知曾将楼内部分教室列作晚间、周末和节假日专用自习空间。2026年上半年CET考务通知也将本楼列为考场。',
       ),
     ],
     references: ['https://jwb.xujc.com/2026/0608/c3392a170393/page.htm'],
@@ -1137,12 +1074,12 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://news.xmu.edu.cn/info/1771/480011.htm',
     sections: [
       (
-        title: '建筑与图书馆空间',
+        title: '建筑与空间',
         text:
             '中央主楼于2005年1月建成。建筑以新中式重檐屋顶统领楼群，图书馆通过高大中庭和架空屋顶促进空气流动；二层主层可由广场大台阶及连廊进入。',
       ),
       (
-        title: '学术与公共活动',
+        title: '学习与使用',
         text: '2009年校方教学设施资料介绍，主楼一层、二层分别设置大小报告厅，为集会、学术交流和校园活动提供空间。',
       ),
     ],
@@ -1153,7 +1090,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://jwb.xujc.com/2026/0608/c3392a170393/page.htm',
     sections: [
       (
-        title: '教学与考试',
+        title: '学习与使用',
         text: '本楼既承担日常教学，也曾被2026年上半年CET考务通知列为考试场所，反映其作为公共教学空间的使用。',
       ),
     ],
@@ -1163,7 +1100,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://www.xujc.com/info/j4xvxrwg.html',
     sections: [
       (
-        title: '交流与校园记忆',
+        title: '沿革与命名',
         text:
             '2023年校方毕业专题将楼前草坪作为合影场景。2025年5月，楼内举办三城校友参与的“恰同学少年”论坛，分享职业成长和创业经历。',
       ),
@@ -1175,13 +1112,9 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://chem.xmu.edu.cn/info/1273/9159.htm',
     sections: [
       (
-        title: '科研与实验空间',
+        title: '建筑与空间',
         text:
-            '2020年古雷石化研究院揭牌报道记载，该院在生化主楼设实验室与办公场地。2025年，产业技术研究院与古雷石化研究院在此联合开展实验室应急和消防演练。',
-      ),
-      (
-        title: '公共空间与活动',
-        text: '2023年国际生物多样性日校园宣传活动在生化主楼广场开展，把实验教学空间与面向师生的生态科普联系起来。',
+            '2020年古雷石化研究院揭牌报道记载，该院在生化主楼设实验室与办公场地。2025年，产业技术研究院与古雷石化研究院在此联合开展实验室应急和消防演练。\n\n2023年国际生物多样性日校园宣传活动在生化主楼广场开展，把实验教学空间与面向师生的生态科普联系起来。',
       ),
     ],
     references: [
@@ -1195,15 +1128,14 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     sections: [
       (
         title: '沿革与命名',
-        text:
-            '生命科学实验教学中心的课程资料记载，实训基地位于该楼一楼及三楼，开展菌种、细胞培养和生物技术实验等教学。资料说明的是教学空间与课程，不据此推断整楼建成年代或全部房间用途。',
+        text: '生命科学实验教学中心的课程资料记载，实训基地位于该楼一楼及三楼，开展菌种、细胞培养和生物技术实验等教学。',
       ),
+      (title: '建筑与空间', text: '早期校方教学设施资料将生化海洋大楼分作A、B、C区。'),
       (
-        title: '实验与实践教学',
+        title: '学习与使用',
         text:
             '生命科学实验教学中心资料记载，楼内一楼及三楼设生物技术实训基地，支持菌种、细胞培养和相关实验操作。2009年校方设施资料还记载了生化大楼的制图教学空间。',
       ),
-      (title: '楼群关系', text: '早期校方教学设施资料将生化海洋大楼分作A、B、C区。'),
     ],
     references: ['https://www.xujc.com/info/5gp1ldgv.html'],
   ),
@@ -1212,11 +1144,11 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://www.xujc.com/info/5gp1ldgv.html',
     sections: [
       (
-        title: '教学空间',
+        title: '建筑与空间',
         text: '2009年校方设施资料列有案例教室、模拟法庭及语音教室。不同专业在公共教学空间相遇，构成课堂授课与实践训练相结合的学习场所。',
       ),
       (
-        title: '考试与校园活动',
+        title: '学习与使用',
         text: '2026年上半年CET考务通知将该楼列为考试场所；社区文化节的宿舍风采决赛和颁奖也曾在楼内多功能厅举行。',
       ),
     ],
@@ -1230,14 +1162,11 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://www.xujc.com/info/5gp1ldgv.html',
     sections: [
       (
-        title: '实验与工程训练',
-        text: '校方早期教学设施资料将这里介绍为理工科实验室、部分教师办公及实验教学与工业训练中心所在空间。',
-      ),
-      (
-        title: '生态课堂',
+        title: '建筑与空间',
         text:
             '2023年5月，理工楼412曾举办国际生物多样性日生态课堂，随后师生在生化主楼广场参与主题宣传，将专业课堂与环境科普实践相衔接。',
       ),
+      (title: '学习与使用', text: '校方早期教学设施资料将这里介绍为理工科实验室、部分教师办公及实验教学与工业训练中心所在空间。'),
     ],
     references: ['https://ese.xujc.com/2023/0521/c3576a145328/page.htm'],
   ),
@@ -1246,7 +1175,7 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://www.xujc.com/info/5gp1ldgv.html',
     sections: [
       (
-        title: '空间与教学更新',
+        title: '建筑与空间',
         text:
             '早期资料记载楼宇分A、B、C区，部分楼层用于教师办公。2018年，213与316教室增设互动电子白板、跨屏显示和可移动拼接课桌，为分组讨论、互动研讨及翻转课堂提供条件。',
       ),
@@ -1258,11 +1187,11 @@ const _campusResearchBuildingStories = <String, CampusStory>{
     'https://www.xujc.com/info/5gp1ldgv.html',
     sections: [
       (
-        title: '艺术与建筑教学',
+        title: '建筑与空间',
         text: '2009年校方设施资料列出A、B、C区的画室、制图室和案例教室，记录了艺术与建筑教育在楼内的多种空间形态。',
       ),
       (
-        title: '文化遗产与学科合作',
+        title: '学习与使用',
         text:
             '校方关于闽南文化遗产活化研究中心的报道记载，揭牌仪式在人文大楼B301案例教室举行，交流围绕地方文化遗产、设计与产学研合作展开。',
       ),
