@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:xmu_rollcall/app/app_toast.dart';
+import 'package:xmu_rollcall/features/browser/campus_website.dart';
 import 'package:xmu_rollcall/app/app_service_tile.dart';
 import 'campus_calendar_page.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
@@ -96,116 +95,134 @@ class _CampusToolsPageState extends State<CampusToolsPage>
         color: p.pageBackground(context),
         child: AppContentColumn(
           maxWidth: 1040,
-          child: SingleChildScrollView(
-            controller: _scroll,
-            padding: EdgeInsets.fromLTRB(
-              AppSpace.pageXOf(context),
-              20,
-              AppSpace.pageXOf(context),
-              32,
-            ),
-            child: LayoutBuilder(
-              builder: (context, bounds) {
-                final compact = bounds.maxWidth < 580;
-                final gap = compact ? 12.0 : 16.0;
-                final columns = compact ? 1 : 2;
-                final tileWidth =
-                    (bounds.maxWidth - gap * (columns - 1)) / columns;
-                Widget group(
-                  String title,
-                  Iterable<CampusTool> entries,
-                ) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 14),
-                      child: Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: p.muted,
-                        ),
-                      ),
-                    ),
-                    Wrap(
-                      spacing: gap,
-                      runSpacing: gap,
-                      children: [
-                        for (final tool in entries)
-                          SizedBox(
-                            width: tileWidth,
-                            child: AppServiceTile(
-                              key: ValueKey('tool-${tool.id}'),
-                              title:
-                                  tool.id == 'ta-grading' && taIsMobile(context)
-                                  ? '助教作业'
-                                  : tool.title,
-                              description: tool.id == 'ta-grading'
-                                  ? taIsMobile(context)
-                                        ? '提交情况与批改进度'
-                                        : '作业打包下载与批量评分'
-                                  : tool.description,
-                              icon: tool.icon,
-                              compact: compact,
-                              onPressed: () => AppPageRoutes.push(
-                                context,
-                                tool.page(context),
+          child: LayoutBuilder(
+            builder: (context, viewport) => SingleChildScrollView(
+              controller: _scroll,
+              padding: EdgeInsets.fromLTRB(
+                AppSpace.pageXOf(context),
+                20,
+                AppSpace.pageXOf(context),
+                32,
+              ),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: (viewport.maxHeight - 52).clamp(
+                    0.0,
+                    double.infinity,
+                  ),
+                ),
+                child: LayoutBuilder(
+                  builder: (context, bounds) {
+                    final compact = bounds.maxWidth < 580;
+                    final gap = compact ? 12.0 : 16.0;
+                    final columns = compact ? 1 : 2;
+                    final tileWidth =
+                        (bounds.maxWidth - gap * (columns - 1)) / columns;
+                    Widget group(String title, Iterable<CampusTool> entries) =>
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 14),
+                              child: Text(
+                                title,
+                                style: Theme.of(context).textTheme.titleSmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: p.muted,
+                                    ),
                               ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ],
-                );
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
+                            Wrap(
+                              spacing: gap,
+                              runSpacing: gap,
+                              children: [
+                                for (final tool in entries)
+                                  SizedBox(
+                                    width: tileWidth,
+                                    child: AppServiceTile(
+                                      key: ValueKey('tool-${tool.id}'),
+                                      title:
+                                          tool.id == 'ta-grading' &&
+                                              taIsMobile(context)
+                                          ? '助教作业'
+                                          : tool.title,
+                                      description: tool.id == 'ta-grading'
+                                          ? taIsMobile(context)
+                                                ? '提交情况与批改进度'
+                                                : '作业打包下载与批量评分'
+                                          : tool.description,
+                                      icon: tool.icon,
+                                      compact: compact,
+                                      onPressed: () => AppPageRoutes.push(
+                                        context,
+                                        tool.page(context),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        );
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '常用网站',
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(color: p.muted),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            group(
+                              '常用工具',
+                              tools.where((t) => t.id != 'ta-grading'),
+                            ),
+                            const SizedBox(height: 28),
+                            group(
+                              '研究生',
+                              tools.where((t) => t.id == 'ta-grading'),
+                            ),
+                          ],
                         ),
-                        for (final link in const [
-                          ('信息门户', 'https://i.xmu.edu.cn/'),
-                          ('图书馆', 'https://library.xmu.edu.cn/'),
-                          ('校园邮箱', 'https://mail.stu.xmu.edu.cn/'),
-                        ])
-                          AppButton(
-                            kind: AppButtonKind.secondary,
-                            compact: true,
-                            label: link.$1,
-                            icon: AppIcons.externalLink,
-                            onPressed: () async {
-                              try {
-                                if (!await launchUrl(
-                                      Uri.parse(link.$2),
-                                      mode: LaunchMode.externalApplication,
-                                    ) &&
-                                    context.mounted) {
-                                  AppToast.show(context, '无法打开网页');
-                                }
-                              } catch (_) {
-                                if (context.mounted) {
-                                  AppToast.show(context, '无法打开网页');
-                                }
-                              }
-                            },
+                        Padding(
+                          padding: const EdgeInsets.only(top: 28),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Divider(color: p.borderStrong, height: 1),
+                              const SizedBox(height: 12),
+                              Wrap(
+                                spacing: 12,
+                                runSpacing: 8,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(
+                                    '常用网站',
+                                    style: Theme.of(context).textTheme.bodySmall
+                                        ?.copyWith(color: p.muted),
+                                  ),
+                                  for (final link in const [
+                                    ('信息门户', 'https://i.xmu.edu.cn/'),
+                                    ('图书馆', 'https://library.xmu.edu.cn/'),
+                                    ('校园邮箱', 'https://mail.stu.xmu.edu.cn/'),
+                                  ])
+                                    AppTextLink(
+                                      link.$1,
+                                      icon: AppIcons.externalLink,
+                                      onPressed: () => openCampusWebsite(
+                                        context,
+                                        title: link.$1,
+                                        url: Uri.parse(link.$2),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
                           ),
+                        ),
                       ],
-                    ),
-                    const SizedBox(height: 24),
-                    group('常用工具', tools.where((t) => t.id != 'ta-grading')),
-                    const SizedBox(height: 28),
-                    group('研究生', tools.where((t) => t.id == 'ta-grading')),
-                  ],
-                );
-              },
+                    );
+                  },
+                ),
+              ),
             ),
           ),
         ),

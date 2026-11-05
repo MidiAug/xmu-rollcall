@@ -106,7 +106,7 @@ void main() {
           expect(find.text('研究生'), findsOneWidget);
           expect(
             tester.getTopLeft(find.text('常用网站')).dy,
-            lessThan(tester.getTopLeft(find.text('常用工具')).dy),
+            greaterThan(tester.getTopLeft(find.text('研究生')).dy),
           );
           expect(find.text('校园地图、考试安排、成绩计算与助教工具'), findsNothing);
           final map = tester.getSize(

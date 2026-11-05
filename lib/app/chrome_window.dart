@@ -32,10 +32,12 @@ class _WindowDragArea extends StatelessWidget {
   }
 }
 
-/// Window identity never changes when the content route changes.
+/// App identity stays stable on ordinary routes. The full-window website viewer
+/// supplies [onBack] and uses its document title in the center instead.
 class AppTitleBar extends StatelessWidget {
-  const AppTitleBar({super.key, required this.title});
+  const AppTitleBar({super.key, required this.title, this.onBack});
   final String title;
+  final VoidCallback? onBack;
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
@@ -47,24 +49,51 @@ class AppTitleBar extends StatelessWidget {
           children: [
             if (PlatformHooks.isDesktop)
               const Positioned.fill(child: _WindowDragArea()),
-            Row(
-              children: [
-                const SizedBox(width: 14),
-                const BrandMark(size: 18),
-                const SizedBox(width: 9),
-                IgnorePointer(
-                  child: Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: p.ink,
+            if (onBack != null)
+              Positioned.fill(
+                left: PlatformHooks.isDesktop ? 138 : 48,
+                right: PlatformHooks.isDesktop ? 138 : 48,
+                child: IgnorePointer(
+                  child: Center(
+                    child: AppTruncatedText(
+                      title,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: p.ink,
+                      ),
                     ),
                   ),
                 ),
-                if (kDebugMode) ...[
-                  const SizedBox(width: 10),
-                  Text('开发版', style: TextStyle(fontSize: 10, color: p.muted)),
+              ),
+            Row(
+              children: [
+                if (onBack != null)
+                  AppIconButton(
+                    tooltip: '返回软件',
+                    extent: AppLayout.titleBarHeight,
+                    padding: const EdgeInsets.all(6),
+                    icon: const Icon(AppIcons.back, size: 16),
+                    onPressed: onBack,
+                  )
+                else ...[
+                  const SizedBox(width: 14),
+                  const BrandMark(size: 18),
+                  const SizedBox(width: 9),
+                  IgnorePointer(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: p.ink,
+                      ),
+                    ),
+                  ),
+                  if (kDebugMode) ...[
+                    const SizedBox(width: 10),
+                    Text('开发版', style: TextStyle(fontSize: 10, color: p.muted)),
+                  ],
                 ],
                 const Spacer(),
                 if (PlatformHooks.isDesktop) const _WindowButtons(),

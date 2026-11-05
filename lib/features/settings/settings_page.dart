@@ -24,6 +24,7 @@ import 'package:xmu_rollcall/features/settings/about_settings_row.dart';
 import 'package:xmu_rollcall/features/settings/startup_settings.dart';
 import 'package:xmu_rollcall/platform/close_prefs.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
+import 'package:xmu_rollcall/features/browser/browser_preferences.dart';
 
 enum ThemePreference { system, dark, light }
 
@@ -231,6 +232,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                     },
                   ),
                 ),
+                if (platform == TargetPlatform.windows)
+                  SettingsRow(
+                    leading: const Icon(AppIcons.externalLink),
+                    title: '常用网站打开方式',
+                    trailing: AppShellSelect<WebsiteOpenMode>(
+                      semanticLabel: '常用网站打开方式',
+                      value: ref.watch(websiteOpenModeProvider),
+                      items: WebsiteOpenMode.values,
+                      labelOf: (mode) => mode.label,
+                      width: 148,
+                      menuWidth: 200,
+                      onChanged: (mode) =>
+                          ref.read(websiteOpenModeProvider.notifier).set(mode),
+                    ),
+                  ),
                 if (desktop)
                   SettingsRow(
                     leading: const Icon(AppIcons.desktop),

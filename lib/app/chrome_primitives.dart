@@ -223,17 +223,37 @@ class _AppRefreshButtonState extends State<AppRefreshButton>
 }
 
 class AppTextLink extends StatelessWidget {
-  const AppTextLink(this.label, {super.key, required this.onPressed});
+  const AppTextLink(
+    this.label, {
+    super.key,
+    required this.onPressed,
+    this.icon = AppIcons.right,
+  });
   final String label;
   final VoidCallback onPressed;
+  final IconData icon;
   @override
   Widget build(BuildContext context) => TextButton(
     onPressed: onPressed,
-    style: TextButton.styleFrom(
-      minimumSize: Size.zero,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    ),
+    style:
+        TextButton.styleFrom(
+          minimumSize: Size(0, AppMobileUi.useTouchChrome(context) ? 44 : 32),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        ).copyWith(
+          backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+          side: const WidgetStatePropertyAll(BorderSide.none),
+          textStyle: WidgetStateProperty.resolveWith(
+            (states) => AppTypography.caption.copyWith(
+              decoration:
+                  states.contains(WidgetState.hovered) ||
+                      states.contains(WidgetState.focused)
+                  ? TextDecoration.underline
+                  : TextDecoration.none,
+            ),
+          ),
+        ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -244,7 +264,7 @@ class AppTextLink extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 4),
-        Icon(AppIcons.right, size: 14, color: AppPalette.of(context).muted),
+        Icon(icon, size: 14, color: AppPalette.of(context).muted),
       ],
     ),
   );
