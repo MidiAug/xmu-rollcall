@@ -122,6 +122,7 @@ class PageScaffold extends StatelessWidget {
                         if (onBack != null) ...[
                           AppIconButton(
                             tooltip: '返回',
+                            hoverOutline: false,
                             onPressed: onBack,
                             icon: const Icon(AppIcons.back),
                           ),

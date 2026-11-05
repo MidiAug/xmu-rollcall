@@ -475,7 +475,8 @@ class _CourseDetailFlowState extends ConsumerState<_CourseDetailFlow> {
             padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
             child: Row(
               children: [
-                IconButton(
+                AppIconButton(
+                  hoverOutline: false,
                   tooltip: '返回课程',
                   onPressed: () => setState(() => _map = false),
                   icon: const Icon(AppIcons.back),
