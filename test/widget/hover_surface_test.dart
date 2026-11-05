@@ -9,7 +9,7 @@ import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 void main() {
   for (final dark in [false, true]) {
-    for (final kind in ['card', 'grouped', 'pill']) {
+    for (final kind in ['card', 'grouped', 'pill', 'strong-pill']) {
       testWidgets('$kind hover fills its surface and stays clipped ($dark)', (
         tester,
       ) async {
@@ -25,10 +25,22 @@ void main() {
                 child: Builder(
                   builder: (context) {
                     palette = AppPalette.of(context);
-                    final Widget child = kind == 'pill'
+                    final Widget child = kind.endsWith('pill')
                         ? AppQuietPill(
                             onTap: () => taps++,
-                            child: const Center(child: Text('Open')),
+                            background: kind == 'strong-pill'
+                                ? palette.primary
+                                : null,
+                            child: Center(
+                              child: Text(
+                                'Open',
+                                style: TextStyle(
+                                  color: kind == 'strong-pill'
+                                      ? (dark ? palette.canvas : Colors.white)
+                                      : palette.ink,
+                                ),
+                              ),
+                            ),
                           )
                         : kind == 'grouped'
                         ? Panel(
@@ -104,7 +116,9 @@ void main() {
         // inset/grouped row must have the same hover fill as its left edge.
         expect(pixel(20, 20), palette.canvas.toARGB32());
         expect(pixel(18, 60), palette.canvas.toARGB32());
-        final fill = kind == 'pill'
+        final fill = kind == 'strong-pill'
+            ? Color.lerp(palette.primary, palette.ink, .12)!
+            : kind == 'pill'
             ? Color.alphaBlend(palette.hover, palette.surfaceHigh)
             : palette.cardHover;
         expect(pixel(23, 60), fill.toARGB32());

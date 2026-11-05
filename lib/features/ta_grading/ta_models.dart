@@ -69,12 +69,66 @@ class TaStudent {
     this.submitted = false,
     this.score,
     this.scoreChecked = false,
+    this.attachmentBytes,
   });
   final int id;
   final String number, name;
   final bool submitted;
   final double? score;
   final bool scoreChecked;
+  final int? attachmentBytes;
+  bool get hasAttachments => (attachmentBytes ?? 0) > 0;
+
+  TaStudent withScore(double? value, {bool checked = true}) => TaStudent(
+    id: id,
+    number: number,
+    name: name,
+    submitted: submitted,
+    score: value,
+    scoreChecked: checked,
+    attachmentBytes: attachmentBytes,
+  );
+}
+
+String taAttachmentSize(int? bytes) {
+  if (bytes == null) return '—';
+  if (bytes == 0) return '无附件';
+  if (bytes < 1024) return '$bytes B';
+  var size = bytes.toDouble();
+  var unit = 0;
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit++;
+  }
+  return '${size.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '')} ${units[unit]}';
+}
+
+class TaScoreRecord {
+  const TaScoreRecord({
+    required this.id,
+    required this.createdAt,
+    required this.score,
+    this.oldScore,
+    this.operatorName = '',
+  });
+  factory TaScoreRecord.parse(Map<String, dynamic> j) {
+    final operator = j['operator_name'];
+    if (operator != null && operator is! String) {
+      throw const FormatException('评分记录操作人格式异常');
+    }
+    return TaScoreRecord(
+      id: taId(j['id']),
+      createdAt: DateTime.parse(j['created_at'] as String),
+      score: taScore(j['final_score']),
+      oldScore: taScore(j['old_final_score']),
+      operatorName: operator as String? ?? '',
+    );
+  }
+  final int id;
+  final DateTime createdAt;
+  final double? score, oldScore;
+  final String operatorName;
 }
 
 class TaRosterSnapshot {

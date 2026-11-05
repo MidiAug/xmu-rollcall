@@ -123,4 +123,43 @@ void main() {
       expect(f.requests.where((r) => r.method != 'GET'), isEmpty);
     },
   );
+  test(
+    'batch score cache update preserves attachments and full-refresh time',
+    () async {
+      final f = TaHttpFixture();
+      final base = await f.repository();
+      addTearDown(base.dispose);
+      final repo = TaGradingRepository(base.http, cacheUserId: 11);
+      addTearDown(repo.dispose);
+      await repo.cacheStudents(91, 81, const [
+        TaStudent(
+          id: 1,
+          number: '0001',
+          name: 'A',
+          submitted: true,
+          attachmentBytes: 1048576,
+        ),
+        TaStudent(
+          id: 2,
+          number: '0002',
+          name: 'B',
+          submitted: true,
+          attachmentBytes: 0,
+        ),
+        TaStudent(
+          id: 3,
+          number: '0003',
+          name: 'C',
+          score: 60,
+          scoreChecked: true,
+        ),
+      ], checkedAt: at);
+      await repo.cacheStudentScores(91, 81, {1: 80, 2: 90});
+      final disk = await TaRosterStore(11).read(91, 81);
+      expect(disk!.checkedAt, at);
+      expect(disk.students.map((s) => s.score), [80, 90, 60]);
+      expect(disk.students.map((s) => s.attachmentBytes), [1048576, 0, null]);
+      expect(disk.students.map((s) => s.number), ['0001', '0002', '0003']);
+    },
+  );
 }

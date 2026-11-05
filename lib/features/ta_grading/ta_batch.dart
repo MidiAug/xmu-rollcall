@@ -1,8 +1,10 @@
+import 'dart:math';
 import 'package:dio/dio.dart';
 import 'ta_models.dart';
 import 'ta_repository.dart';
 
 class TaGradeBatch {
+  final _random = Random();
   bool _stop = false;
   bool running = false;
   void stop() => _stop = true;
@@ -27,6 +29,7 @@ class TaGradeBatch {
     running = true;
     _stop = false;
     onChanged();
+    var savedAny = false;
     try {
       for (final row in rows) {
         if (_stop || !repository.active) break;
@@ -50,6 +53,13 @@ class TaGradeBatch {
                 ? '成绩相同，已跳过'
                 : '已有成绩，未覆盖';
           } else {
+            if (savedAny) {
+              // Extra breathing room between writes; the HTTP queue may wait longer.
+              await Future<void>.delayed(
+                Duration(milliseconds: 200 + _random.nextInt(301)),
+              );
+              if (_stop || !repository.active) break;
+            }
             writing = true;
             await repository.saveScore(activityId, student.id, row.score);
             acknowledged = true;
@@ -57,6 +67,7 @@ class TaGradeBatch {
             if (saved != double.parse(row.score)) {
               throw const FormatException('保存后成绩待核对');
             }
+            savedAny = true;
             row.status = TaRowStatus.saved;
             row.result = '已保存并核对';
           }

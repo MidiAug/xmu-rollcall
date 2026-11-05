@@ -22,6 +22,8 @@ class TaRosterStore {
             row['submitted'] is! bool) {
           return null;
         }
+        final bytes = row['attachment_bytes'];
+        if (bytes != null && (bytes is! int || bytes < 0)) return null;
         students.add(
           TaStudent(
             id: id,
@@ -30,6 +32,7 @@ class TaRosterStore {
             submitted: row['submitted'] as bool,
             score: taScore(row['score']),
             scoreChecked: true,
+            attachmentBytes: bytes as int?,
           ),
         );
       }
@@ -48,6 +51,7 @@ class TaRosterStore {
             'name': s.name,
             'submitted': s.submitted,
             'score': s.score,
+            'attachment_bytes': s.attachmentBytes,
           },
       ], fetchedAt: snapshot.checkedAt);
 }

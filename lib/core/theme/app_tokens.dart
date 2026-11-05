@@ -54,7 +54,9 @@ class AppPalette {
   Color get successSurface =>
       isDark ? const Color(0xFF173D30) : const Color(0xFFE4FAED);
   Color get navigationAccent => ink;
-  Color get focus => isDark ? const Color(0xFFA7B8ED) : const Color(0xFF5069B6);
+
+  /// Focus follows the active theme accent; it is not a separate blue palette.
+  Color get focus => primary;
   Color get warning =>
       isDark ? const Color(0xFFE6BD7C) : const Color(0xFF9B6B26);
 

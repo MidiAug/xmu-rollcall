@@ -1,6 +1,6 @@
 # 厦大签到界面设计规范
 
-版本 1.10，2026-11-05。适用于 App 的 Windows 桌面与手机界面，不套用于项目宣传网站。
+版本 1.11，2026-11-05。适用于 App 的 Windows 桌面与手机界面，不套用于项目宣传网站。
 
 这是界面任务的必读契约，覆盖布局、视觉、交互、文案和验收。它规定目标，不表示存量界面已经全部符合。业务规则、安全确认和平台能力仍以产品规格为准。
 
@@ -62,6 +62,15 @@
 - 电脑成绩列是紧凑输入框，用户输入后按回车即表示保存这一个学生的分数，使用 Toast 反馈，不另弹确认。CSV仍预览确认；未提交学生不通过单条快捷入口评分。保存中阻止重复提交，失败不自动重发写请求。手机仍只读。
 - 后台刷新不能覆盖未提交的草稿或本页刚保存的成绩；字段状态跟随学生id，滚动不能丢失输入。
 - 所有普通输入框悬停保留自身底色，以较清楚描边反馈；不能让Flutter默认hoverColor混入fillColor而融入页面背景。焦点/错误状态独立，不能靠堆叠半透明灰色覆盖层补救。
+
+### 焦点、选择与助教表格补充（2026-11-05）
+
+- 普通输入框编辑/键盘焦点使用主题主色。AppPalette.focus保持语义入口并取primary，不另硬编码一套蓝色；错误状态仍使用danger。悬停保持填充底色，只加强边界；检查真实InputDecorator焦点而不只查看主题配置。
+- 选择型入口始终选中优先于悬停；强色背景上的操作不能叠不透明浅灰hover/focus造成白字浅底。按对象职责确定状态，不用一个灰色覆盖层处理所有控件。
+- 助教名单使用“状态”和“附件大小”两列。已交/未交不由附件存在推断；attachments_size正数显示附件图标，零/缺失按服务器网页语义显示无附件，旧缓存没有元数据时显示短占位。客户端大小采用1024进制，不能宣称与未核实的网页滤镜完全一致。不臆造new/已读标记。
+- 成绩输入框右侧使用共享历史图标按钮，tooltip固定为“查看评分记录”。弹窗按最近记录优先展示旧分、新分、时间与已提供的操作人，少量记录不保留大块空白；有加载、空、失败重试状态，关闭后取消所属请求，不影响原名单会话。
+- 表格窄窗横向滚动复用ScrollView已绑定的平台滚动条，不再包无controller的第二层Scrollbar。新增列保持名单懒构建和48基准行高，原位选择不能推移表头。
+- 删除无生产调用的AppTableAction/AppIconCluster，后续不要从旧截图或历史日志复活旧入口。评分显示和更新共用TaStudent.withScore以保留附件元数据，CSV成功行清掉对应旧草稿，失败行保留。
 
 ### 参考图转译与技能使用
 
@@ -182,7 +191,7 @@
 | 筛选与动作菜单 | `AppShellSelect`、`AppActionMenu` |
 | 确认、输入与复杂弹窗 | `showAppConfirmDialog`、`showAppPromptDialog`、`AppDialogFrame`、`AppNoticeDialog` |
 | 三态选择、开关 | `AppCheckbox`、`AppSwitch` |
-| 关闭、更新、表内操作 | `AppSheetCloseButton`、`AppRefreshButton`、`AppTableAction` |
+| 关闭、更新、表内操作 | `AppSheetCloseButton`、`AppRefreshButton`、`AppIconButton` |
 | 状态与悬停 | `AppStatusBadge`、`AppHoverSurface`、`AppTooltipAnchor` |
 | 服务目录与局部透明表面 | `AppServiceTile`、`AppServiceSymbol`、`AppGlassSurface` |
 | 按钮、搜索与带文字选择 | `AppButton`、`AppSearchField`、`AppCheckboxRow` |

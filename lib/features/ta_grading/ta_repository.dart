@@ -229,10 +229,16 @@ class TaGradingRepository {
     );
     final submitted = <int>{};
     final scores = <int, double?>{};
+    final sizes = <int, int>{};
     for (final row in submissions) {
       final id = taId(taMap(row['created_by'])['id']);
       submitted.add(id);
       scores[id] = taScore(row['instructor_score'] ?? row['score']);
+      final bytes = row['attachments_size'];
+      if (bytes != null && (bytes is! int || bytes < 0)) {
+        throw const FormatException('附件大小格式异常');
+      }
+      sizes[id] = bytes as int? ?? 0;
     }
     // Nonempty homework_scores has not been captured. Use the known submission
     // scores for the overview, and authoritative history before every write.
@@ -246,6 +252,7 @@ class TaGradingRepository {
             name: row['name'] as String,
             submitted: submitted.contains(row['id']),
             score: scores[row['id']],
+            attachmentBytes: sizes[row['id']] ?? 0,
           )
         else
           throw const FormatException('学生名单重复'),
@@ -286,27 +293,16 @@ class TaGradingRepository {
     checkActive();
   }
 
-  Future<void> cacheStudentScore(
+  Future<void> cacheStudentScores(
     int courseId,
     int activityId,
-    int studentId,
-    double score,
+    Map<int, double> scores,
   ) async {
     final cached = _session.rosters[(courseId, activityId)];
-    if (cached == null) return;
+    if (cached == null || scores.isEmpty) return;
     await cacheStudents(courseId, activityId, [
       for (final s in cached.students)
-        if (s.id == studentId)
-          TaStudent(
-            id: s.id,
-            number: s.number,
-            name: s.name,
-            submitted: s.submitted,
-            score: score,
-            scoreChecked: true,
-          )
-        else
-          s,
+        if (scores.containsKey(s.id)) s.withScore(scores[s.id]) else s,
     ], checkedAt: cached.checkedAt);
   }
 
@@ -324,13 +320,9 @@ class TaGradingRepository {
     final old = {for (final s in previous?.students ?? <TaStudent>[]) s.id: s};
     final result = [
       for (final s in roster)
-        TaStudent(
-          id: s.id,
-          number: s.number,
-          name: s.name,
-          submitted: s.submitted,
-          score: s.score ?? (graded == 0 ? null : old[s.id]?.score),
-          scoreChecked: graded == 0 || s.score != null,
+        s.withScore(
+          s.score ?? (graded == 0 ? null : old[s.id]?.score),
+          checked: graded == 0 || s.score != null,
         ),
     ];
     onProgress(List.unmodifiable(result));
@@ -339,21 +331,17 @@ class TaGradingRepository {
       final s = result[i];
       final score = await currentScore(activityId, s.id);
       checkActive();
-      result[i] = TaStudent(
-        id: s.id,
-        number: s.number,
-        name: s.name,
-        submitted: s.submitted,
-        score: score,
-        scoreChecked: true,
-      );
+      result[i] = s.withScore(score);
       onProgress(List.unmodifiable(result));
     }
     return List.unmodifiable(result);
   }
 
-  Future<double?> currentScore(int activityId, int studentId) async {
-    final records = <Map<String, dynamic>>[];
+  Future<List<TaScoreRecord>> scoreRecords(
+    int activityId,
+    int studentId,
+  ) async {
+    final records = <TaScoreRecord>[];
     var page = 1;
     while (true) {
       final data = taMap(
@@ -366,18 +354,21 @@ class TaGradingRepository {
       if (pages is! int || pages < 0 || pages > 100) {
         throw const FormatException('成绩历史分页异常');
       }
-      records.addAll(taRows(data, 'records'));
+      records.addAll(taRows(data, 'records').map(TaScoreRecord.parse));
       if (page >= pages) break;
       page++;
     }
-    if (records.isEmpty) return null;
     records.sort((a, b) {
-      final order = DateTime.parse(
-        b['created_at'] as String,
-      ).compareTo(DateTime.parse(a['created_at'] as String));
-      return order != 0 ? order : taId(b['id']).compareTo(taId(a['id']));
+      final order = b.createdAt.compareTo(a.createdAt);
+      return order != 0 ? order : b.id.compareTo(a.id);
     });
-    final score = taScore(records.first['final_score']);
+    return List.unmodifiable(records);
+  }
+
+  Future<double?> currentScore(int activityId, int studentId) async {
+    final records = await scoreRecords(activityId, studentId);
+    if (records.isEmpty) return null;
+    final score = records.first.score;
     if (score == null) throw const FormatException('成绩历史缺少最终分数，请在网页核对');
     return score;
   }

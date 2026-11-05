@@ -11,6 +11,7 @@ abstract final class AppIcons {
   static const upload = CupertinoIcons.arrow_up_doc;
   static const externalLink = CupertinoIcons.arrow_up_right;
   static const archive = CupertinoIcons.archivebox;
+  static const attachment = CupertinoIcons.paperclip;
   static const copy = CupertinoIcons.doc_on_doc;
   static const code = CupertinoIcons.chevron_left_slash_chevron_right;
   static const number = CupertinoIcons.number;

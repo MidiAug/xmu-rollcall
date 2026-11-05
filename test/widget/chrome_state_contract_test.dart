@@ -379,6 +379,15 @@ void main() {
       expect(await pixel(tester, key, point), before);
       expect(tester.getRect(field), rect);
       expect(before, isNot(p.canvas));
+      await tester.tap(field);
+      await tester.pump(const Duration(milliseconds: 200));
+      final decoration = tester
+          .widget<InputDecorator>(
+            find.descendant(of: field, matching: find.byType(InputDecorator)),
+          )
+          .decoration;
+      expect(decoration.focusedBorder!.borderSide.color, p.primary);
+      expect(p.focus, p.primary);
       await mouse.removePointer();
       expect(tester.takeException(), isNull);
     });
