@@ -623,13 +623,6 @@ class _CourseDetail extends StatelessWidget {
               meetings: courseMeetingLabels(c),
             ),
           ],
-          Text(
-            '教务教室',
-            style: text.labelMedium?.copyWith(
-              color: AppPalette.of(context).muted,
-            ),
-          ),
-          const SizedBox(height: 6),
           Material(
             color: Colors.transparent,
             child: InkWell(
