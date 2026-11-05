@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:ui' as ui;
@@ -210,6 +211,34 @@ void main() {
     await mouse.moveTo(tester.getCenter(find.text('参考资料')));
     await tester.pumpAndSettle();
     await captureDesktopUi(tester, 'building-disclosure-hover');
+    Future<int> backgroundPixel() async {
+      final point = tester.getCenter(find.text('参考资料')) + const Offset(110, 0);
+      final result = await tester.runAsync(() async {
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(const ValueKey('desktop-ui-capture')),
+        );
+        final image = await boundary.toImage();
+        final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        final color = data!.getUint32(
+          (point.dy.floor() * image.width + point.dx.floor()) * 4,
+        );
+        image.dispose();
+        return color;
+      });
+      return result!;
+    }
+
+    final idlePixel = await backgroundPixel();
+    await mouse.down(tester.getCenter(find.text('参考资料')));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(await backgroundPixel(), idlePixel);
+    await captureDesktopUi(tester, 'building-disclosure-held');
+    await mouse.up();
+    await tester.pumpAndSettle();
+    expect(await backgroundPixel(), idlePixel);
+    await captureDesktopUi(tester, 'building-disclosure-clicked');
+    await tester.tap(find.text('参考资料'));
+    await tester.pumpAndSettle();
     await mouse.moveTo(Offset.zero);
     await mouse.removePointer();
     await tester.pumpAndSettle();

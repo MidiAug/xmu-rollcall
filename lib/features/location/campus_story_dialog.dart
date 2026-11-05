@@ -367,6 +367,7 @@ class _StoryDisclosureState extends State<_StoryDisclosure> {
               outlined: false,
               backgroundColor: Colors.transparent,
               hoverColor: Colors.transparent,
+              pressedColor: Colors.transparent,
               padding: const EdgeInsets.symmetric(vertical: 12),
               onTap: () => setState(() => _expanded = !_expanded),
               child: Row(
