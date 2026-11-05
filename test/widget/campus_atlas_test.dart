@@ -550,6 +550,9 @@ void main() {
       await tester.tap(find.text('打开档案'));
       await tester.pumpAndSettle();
       final story = campusBuildingStories[building.id]!;
+      await tester.ensureVisible(find.text('参考资料'));
+      await tester.tap(find.text('参考资料'));
+      await tester.pumpAndSettle();
       final sourcesText = [
         ...tester.widgetList<Text>(find.byType(Text)).map((t) => t.data ?? ''),
         ...tester

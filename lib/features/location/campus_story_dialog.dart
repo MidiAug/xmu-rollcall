@@ -64,8 +64,9 @@ class CampusStoryDialog extends StatelessWidget {
                     location: location,
                     photo: photo,
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+                  Container(
+                    color: p.surface,
+                    padding: const EdgeInsets.fromLTRB(28, 10, 28, 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -75,6 +76,7 @@ class CampusStoryDialog extends StatelessWidget {
                             key: const ValueKey('atlas-story-lead'),
                             style: AppTypography.body.copyWith(
                               color: p.ink,
+                              fontSize: 16,
                               height: 1.8,
                             ),
                           ),
@@ -117,41 +119,62 @@ class CampusStoryDialog extends StatelessWidget {
                                 .join('　'),
                           ),
                         if (area != null && g != null)
-                          _RelatedArea(name: g.name, story: area),
-                        if (sources.isNotEmpty) ...[
-                          const _StorySectionTitle('参考资料'),
-                          const SizedBox(height: 8),
-                          for (final entry in sources.indexed)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 5),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    width: 24,
-                                    child: Text(
-                                      '${entry.$1 + 1}',
-                                      style: AppTypography.caption.copyWith(
-                                        color: p.muted,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: SelectableText(
-                                      campusStorySources[entry.$2] ??
-                                          (photo == null
-                                              ? '厦门大学公开资料'
-                                              : '${photo.credit}《${photo.caption}》'),
-                                      style: AppTypography.caption.copyWith(
-                                        color: p.muted,
-                                        height: 1.6,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                          _StoryDisclosure(
+                            title: '了解${g.name}',
+                            children: [
+                              Text(
+                                area.text,
+                                style: AppTypography.body.copyWith(
+                                  color: p.ink,
+                                  height: 1.85,
+                                ),
                               ),
-                            ),
-                        ],
+                              for (final detail in area.sections)
+                                _StorySection(
+                                  title: detail.title,
+                                  text: detail.text,
+                                ),
+                            ],
+                          ),
+                        if (sources.isNotEmpty)
+                          _StoryDisclosure(
+                            title: '参考资料',
+                            children: [
+                              for (final entry in sources.indexed)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 6,
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      SizedBox(
+                                        width: 24,
+                                        child: Text(
+                                          '${entry.$1 + 1}',
+                                          style: AppTypography.caption.copyWith(
+                                            color: p.muted,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: SelectableText(
+                                          campusStorySources[entry.$2] ??
+                                              (photo == null
+                                                  ? '厦门大学公开资料'
+                                                  : '${photo.credit}《${photo.caption}》'),
+                                          style: AppTypography.caption.copyWith(
+                                            color: p.muted,
+                                            height: 1.7,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
                       ],
                     ),
                   ),
@@ -204,7 +227,7 @@ class _StoryHeaderState extends State<_StoryHeader> {
     final p = AppPalette.of(context);
     final photo = _failed ? null : widget.photo;
     final heading = Padding(
-      padding: EdgeInsets.fromLTRB(24, photo == null ? 40 : 0, 58, 22),
+      padding: EdgeInsets.fromLTRB(28, photo == null ? 40 : 0, 58, 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -230,7 +253,11 @@ class _StoryHeaderState extends State<_StoryHeader> {
       ),
     );
     if (photo == null) return heading;
-    final image = NetworkImage(photo.url);
+    final image = ResizeImage(
+      NetworkImage(photo.url),
+      width: 1440,
+      allowUpscaling: false,
+    );
     final compact = MediaQuery.sizeOf(context).width < 600;
     final height = compact ? 270.0 : 300.0;
     Widget picture({bool reportError = false}) => Image(
@@ -295,17 +322,16 @@ class _StoryHeaderState extends State<_StoryHeader> {
                     ),
                   ),
                 ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 2,
+                  child: ColoredBox(color: p.surface),
+                ),
                 Align(alignment: Alignment.bottomLeft, child: heading),
               ],
             ),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 18),
-          child: Text(
-            '图片来源　${photo.credit}',
-            key: const ValueKey('atlas-story-photo-caption'),
-            style: AppTypography.caption.copyWith(color: p.muted, fontSize: 11),
           ),
         ),
       ],
@@ -318,13 +344,28 @@ class _StorySectionTitle extends StatelessWidget {
   final String title;
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 26),
-    child: Text(
-      title,
-      style: AppTypography.sectionTitle.copyWith(
-        color: AppPalette.of(context).ink,
-        fontSize: 15,
-      ),
+    padding: const EdgeInsets.only(top: 24),
+    child: Row(
+      children: [
+        Container(
+          width: 3,
+          height: 15,
+          decoration: BoxDecoration(
+            color: AppPalette.of(context).primary.withValues(alpha: .55),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            title,
+            style: AppTypography.sectionTitle.copyWith(
+              color: AppPalette.of(context).ink,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -341,60 +382,61 @@ class _StorySection extends StatelessWidget {
       Text(
         text,
         style: AppTypography.body.copyWith(
-          color: AppPalette.of(context).muted,
-          height: 1.8,
+          color: AppPalette.of(context).ink.withValues(alpha: .85),
+          height: 1.85,
         ),
       ),
     ],
   );
 }
 
-class _RelatedArea extends StatefulWidget {
-  const _RelatedArea({required this.name, required this.story});
-  final String name;
-  final CampusStory story;
+class _StoryDisclosure extends StatefulWidget {
+  const _StoryDisclosure({required this.title, required this.children});
+  final String title;
+  final List<Widget> children;
   @override
-  State<_RelatedArea> createState() => _RelatedAreaState();
+  State<_StoryDisclosure> createState() => _StoryDisclosureState();
 }
 
-class _RelatedAreaState extends State<_RelatedArea> {
+class _StoryDisclosureState extends State<_StoryDisclosure> {
   var _expanded = false;
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return Padding(
-      padding: const EdgeInsets.only(top: 26),
+      padding: const EdgeInsets.only(top: 22),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Divider(color: p.border, height: 1),
-          AppHoverSurface(
-            outlined: false,
-            backgroundColor: Colors.transparent,
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            onTap: () => setState(() => _expanded = !_expanded),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '了解${widget.name}',
-                    style: AppTypography.control.copyWith(color: p.primary),
+          Semantics(
+            expanded: _expanded,
+            button: true,
+            child: AppHoverSurface(
+              outlined: false,
+              backgroundColor: Colors.transparent,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: AppTypography.control.copyWith(color: p.muted),
+                    ),
                   ),
-                ),
-                RotatedBox(
-                  quarterTurns: _expanded ? 2 : 0,
-                  child: Icon(AppIcons.down, size: 16, color: p.muted),
-                ),
-              ],
+                  RotatedBox(
+                    quarterTurns: _expanded ? 2 : 0,
+                    child: Icon(AppIcons.down, size: 14, color: p.muted),
+                  ),
+                ],
+              ),
             ),
           ),
           if (_expanded) ...[
-            Text(
-              widget.story.text,
-              style: AppTypography.body.copyWith(color: p.muted, height: 1.8),
-            ),
-            for (final detail in widget.story.sections)
-              _StorySection(title: detail.title, text: detail.text),
+            const SizedBox(height: 4),
+            ...widget.children,
+            const SizedBox(height: 10),
           ],
         ],
       ),

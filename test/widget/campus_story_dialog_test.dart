@@ -1,7 +1,7 @@
+import 'package:flutter/services.dart';
 import 'dart:async';
 import 'dart:ui' as ui;
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
@@ -148,15 +148,14 @@ void main() {
             find.byKey(const ValueKey('atlas-story-title')),
             findsOneWidget,
           );
-          expect(
-            find.byKey(const ValueKey('atlas-story-photo-caption')),
-            findsOneWidget,
-          );
+          expect(find.byType(Image), findsNWidgets(2));
           expect(find.byType(ShaderMask), findsOneWidget);
           expect(find.text('楼宇'), findsNothing);
           expect(find.text('资料说明'), findsNothing);
           expect(find.text('当前分区'), findsNothing);
           expect(find.textContaining('不应混作'), findsNothing);
+          expect(find.textContaining('图片来源'), findsNothing);
+          expect(find.byType(SelectableText), findsNothing);
           await captureDesktopUi(tester, 'building-profile-$width-$dark');
           await tester.drag(
             find.byKey(const ValueKey('atlas-story-scroll')),
@@ -164,6 +163,9 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.text('参考资料'), findsOneWidget);
+          await tester.tap(find.text('参考资料'));
+          await tester.pumpAndSettle();
+          expect(find.byType(SelectableText), findsWidgets);
           await captureDesktopUi(tester, 'building-profile-body-$width-$dark');
           await tester.tap(find.byTooltip('关闭介绍'));
           await tester.pumpAndSettle();
@@ -177,10 +179,7 @@ void main() {
   ) async {
     debugNetworkImageHttpClientProvider = () => _PhotoClient(bytes, fail: true);
     await open(tester, width: 360, dark: false);
-    expect(
-      find.byKey(const ValueKey('atlas-story-photo-caption')),
-      findsNothing,
-    );
+    expect(find.byType(Image), findsNothing);
     expect(find.byKey(const ValueKey('atlas-story-title')), findsOneWidget);
     expect(tester.takeException(), isNull);
     await captureDesktopUi(tester, 'building-profile-photo-failure');
@@ -197,11 +196,18 @@ void main() {
     tester,
   ) async {
     await open(tester, width: 1000, dark: false, highContrast: true);
-    expect(
-      find.byKey(const ValueKey('atlas-story-photo-caption')),
-      findsOneWidget,
-    );
+    expect(find.byType(Image), findsOneWidget);
     expect(find.byType(ShaderMask), findsNothing);
+    expect(find.byType(SelectableText), findsNothing);
+    await tester.ensureVisible(find.text('参考资料'));
+    Focus.of(tester.element(find.text('参考资料'))).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.byType(SelectableText), findsWidgets);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.byType(SelectableText), findsNothing);
     expect(tester.takeException(), isNull);
   });
 }
