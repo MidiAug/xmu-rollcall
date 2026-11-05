@@ -267,7 +267,6 @@ class CampusWebFrame extends StatelessWidget {
     body: Column(
       children: [
         AppTitleBar(title: title, onBack: onBack),
-        const Divider(height: 1),
         Expanded(child: child),
       ],
     ),

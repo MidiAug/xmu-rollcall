@@ -167,7 +167,6 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
             body: Column(
               children: [
                 if (showTitleBar) const AppTitleBar(title: kAppDisplayName),
-                if (showTitleBar) Container(height: 1, color: p.border),
                 Expanded(
                   child: Row(
                     children: [
