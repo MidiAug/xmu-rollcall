@@ -189,6 +189,43 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+  for (final width in [320.0, 1104.0]) {
+    for (final scale in [1.0, 1.5]) {
+      testWidgets('calendar dates stay separate at $width scale=$scale', (
+        tester,
+      ) async {
+        tester.view.physicalSize = Size(width, 1000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: desktopCaptureTheme(AppTheme.light()),
+            builder: (context, child) => RepaintBoundary(
+              key: const ValueKey('desktop-ui-capture'),
+              child: MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
+                child: child!,
+              ),
+            ),
+            home: CampusCalendarPage(today: DateTime(2026, 11, 4)),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final start = tester.getRect(find.text('2026.09.07'));
+        final end = tester.getRect(find.text('2027.01.09'));
+        expect(start.overlaps(end), isFalse);
+        expect(end.right, lessThanOrEqualTo(width - 16));
+        if (width == 320) expect(end.top, greaterThan(start.bottom));
+        expect(find.text('当前第 9 周'), findsOneWidget);
+        expect(find.byType(BackdropFilter), findsNothing);
+        expect(tester.takeException(), isNull);
+        await captureDesktopUi(tester, 'calendar-dates-$width-$scale');
+      });
+    }
+  }
   for (final date in [
     DateTime(2026, 11, 4),
     DateTime(2027, 1, 10),

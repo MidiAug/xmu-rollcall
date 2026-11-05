@@ -227,34 +227,32 @@ class _ExamOverview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: p.surface,
-        border: Border.all(color: p.borderStrong),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(
-                '${snapshot.term.substring(0, 4)}—${int.parse(snapshot.term.substring(0, 4)) + 1}学年',
-                style: TextStyle(
-                  color: p.ink,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w600,
-                ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              '${snapshot.term.substring(0, 4)}—${int.parse(snapshot.term.substring(0, 4)) + 1}学年',
+              style: TextStyle(
+                color: p.ink,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
               ),
-              AppStatusBadge('第${snapshot.term[4]}学期'),
-            ],
-          ),
-          const SizedBox(height: 22),
-          Row(
+            ),
+            AppStatusBadge('第${snapshot.term[4]}学期'),
+          ],
+        ),
+        const SizedBox(height: 18),
+        AppGlassSurface(
+          blur: 0,
+          opacity: 1,
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          child: Row(
             children: [
               for (final status in [
                 ExamStatus.upcoming,
@@ -262,60 +260,34 @@ class _ExamOverview extends StatelessWidget {
                 ExamStatus.finished,
               ])
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
+                  child: AppMetric(
+                    value:
                         '${groups[status]!.length}${status == ExamStatus.unarranged ? '门' : '场'}',
-                        style: TextStyle(
-                          color: status == ExamStatus.upcoming
-                              ? p.primary
-                              : p.ink,
-                          fontSize: 28,
-                          height: 1.15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                      Text(
-                        _label(status),
-                        style: TextStyle(color: p.muted, fontSize: 12),
-                      ),
-                    ],
+                    label: _label(status),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 18),
-          Divider(height: 1, color: p.borderStrong),
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '上次核对 ${snapshot.at.toLocal().toString().substring(0, 16)}',
+          style: TextStyle(color: p.muted, fontSize: 12),
+        ),
+        if (updating) ...[
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(
-                '上次核对 ${snapshot.at.toLocal().toString().substring(0, 16)}',
-                style: TextStyle(color: p.muted, fontSize: 12),
-              ),
-              const AppStatusBadge('已缓存'),
-            ],
-          ),
-          if (updating) ...[
-            const SizedBox(height: 12),
-            const LinearProgressIndicator(minHeight: 2),
-            const SizedBox(height: 8),
-            Text('正在核对教务更新…', style: TextStyle(color: p.muted, fontSize: 12)),
-          ],
-          if (warning != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              '$warning；已有安排仍保留',
-              style: TextStyle(color: p.warning, fontSize: 12),
-            ),
-          ],
+          const LinearProgressIndicator(minHeight: 2),
+          const SizedBox(height: 8),
+          Text('正在核对教务更新…', style: TextStyle(color: p.muted, fontSize: 12)),
         ],
-      ),
+        if (warning != null) ...[
+          const SizedBox(height: 12),
+          Text(
+            '$warning；已有安排仍保留',
+            style: TextStyle(color: p.warning, fontSize: 12),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -333,22 +305,20 @@ class _ExamCard extends StatelessWidget {
     return Container(
       key: ValueKey('exam-${exam.id}'),
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: p.surface,
-        border: Border.all(color: p.borderStrong),
+        border: Border.all(color: p.border),
         borderRadius: BorderRadius.circular(18),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
-            width: 56,
+            width: 60,
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              color: finished || date == null
-                  ? p.controlSurface
-                  : p.accentSurface,
+              color: p.controlSurface,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
@@ -379,7 +349,7 @@ class _ExamCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 18),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -393,33 +363,6 @@ class _ExamCard extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (date != null) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Icon(
-                          AppIcons.location,
-                          color: p.muted,
-                          size: 15,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          exam.room.isEmpty ? '地点待公布' : exam.room,
-                          style: TextStyle(
-                            color: p.muted,
-                            fontSize: 12,
-                            height: 1.5,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
@@ -461,6 +404,33 @@ class _ExamCard extends StatelessWidget {
                       ),
                   ],
                 ),
+                if (date != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Icon(
+                          AppIcons.location,
+                          color: p.muted,
+                          size: 15,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          exam.room.isEmpty ? '地点待公布' : exam.room,
+                          style: TextStyle(
+                            color: p.muted,
+                            fontSize: 12,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),

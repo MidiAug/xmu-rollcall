@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/app/app_checkbox.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -126,13 +127,8 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                       24,
                     ),
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: p.surface,
-                          border: Border.all(color: p.border),
-                          borderRadius: BorderRadius.circular(AppRadii.group),
-                        ),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -170,14 +166,14 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                                         }
                                       }),
                                     );
-                                final general = FilterChip(
-                                  label: const Text('排除通识课程'),
-                                  labelStyle: Theme.of(
-                                    context,
-                                  ).textTheme.bodySmall,
-                                  selected: _excludeGeneral,
-                                  onSelected: (v) =>
-                                      setState(() => _excludeGeneral = v),
+                                final general = SizedBox(
+                                  width: 172,
+                                  child: AppCheckboxRow(
+                                    label: '排除通识课程',
+                                    value: _excludeGeneral,
+                                    onChanged: (v) =>
+                                        setState(() => _excludeGeneral = v),
+                                  ),
                                 );
                                 return bounds.maxWidth >= 600
                                     ? Row(
@@ -340,102 +336,78 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                           ...gradeTerms(visible),
                           if (visible.any((r) => r.term.isEmpty)) '',
                         ]) ...[
-                          Padding(
-                            padding: const EdgeInsets.only(top: 14, bottom: 4),
-                            child: Row(
+                          const SizedBox(height: 12),
+                          Panel(
+                            padding: EdgeInsets.zero,
+                            child: Column(
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    _termLabel(term),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.copyWith(fontWeight: FontWeight.w600),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    16,
+                                    16,
+                                    12,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          _termLabel(term),
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: p.muted,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      Text(
+                                        '${visible.where((r) => r.term == term).length} 门',
+                                        style: TextStyle(
+                                          color: p.muted,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                Text(
-                                  '${visible.where((r) => r.term == term).length} 门',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
+                                for (final (index, row)
+                                    in visible
+                                        .where((r) => r.term == term)
+                                        .indexed) ...[
+                                  if (index > 0)
+                                    Divider(
+                                      height: 1,
+                                      indent: 60,
+                                      endIndent: 16,
+                                      color: p.border,
+                                    ),
+                                  _GradeCourseRow(
+                                    key: ValueKey('grade-${row.id}'),
+                                    row: row,
+                                    selected:
+                                        row.eligible &&
+                                        !_excluded.contains(row.id) &&
+                                        !(_excludeGeneral &&
+                                            row.generalEducation),
+                                    excludedGeneral:
+                                        row.eligible &&
+                                        _excludeGeneral &&
+                                        row.generalEducation,
+                                    onChanged:
+                                        row.eligible &&
+                                            !(_excludeGeneral &&
+                                                row.generalEducation)
+                                        ? (value) => setState(
+                                            () => value
+                                                ? _excluded.remove(row.id)
+                                                : _excluded.add(row.id),
+                                          )
+                                        : null,
+                                  ),
+                                ],
                               ],
                             ),
                           ),
-                          for (final row in visible.where(
-                            (r) => r.term == term,
-                          ))
-                            Column(
-                              children: [
-                                CheckboxListTile(
-                                  key: ValueKey('grade-${row.id}'),
-                                  value:
-                                      row.eligible &&
-                                      !_excluded.contains(row.id) &&
-                                      !(_excludeGeneral &&
-                                          row.generalEducation),
-                                  onChanged:
-                                      row.eligible &&
-                                          !(_excludeGeneral &&
-                                              row.generalEducation)
-                                      ? (value) => setState(
-                                          () => value == true
-                                              ? _excluded.remove(row.id)
-                                              : _excluded.add(row.id),
-                                        )
-                                      : null,
-                                  controlAffinity:
-                                      ListTileControlAffinity.leading,
-                                  contentPadding: EdgeInsets.zero,
-                                  title: AppTruncatedText(
-                                    row.title,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodyMedium,
-                                  ),
-                                  subtitle: Text(
-                                    [
-                                      '${row.credits} 学分',
-                                      if (row.category.isNotEmpty) row.category,
-                                      if (row.exclusionReason != null)
-                                        row.exclusionReason!,
-                                      if (row.eligible &&
-                                          _excludeGeneral &&
-                                          row.generalEducation)
-                                        '已按自选口径排除通识课程',
-                                    ].join('  '),
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodySmall,
-                                  ),
-                                  secondary: SizedBox(
-                                    width: 90,
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      children: [
-                                        Text(
-                                          row.score,
-                                          style: TextStyle(
-                                            color: p.ink,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        Text(
-                                          row.points == null
-                                              ? '无绩点'
-                                              : '绩点 ${row.points!.toStringAsFixed(2)}',
-                                          style: TextStyle(
-                                            color: p.muted,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                Divider(height: 1, color: p.border),
-                              ],
-                            ),
                         ],
                       const SizedBox(height: 16),
                       Text(
@@ -469,7 +441,7 @@ class _GpaPageState extends ConsumerState<GpaPage> {
         Text(
           summary.gpa?.toStringAsFixed(2) ?? '—',
           style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-            fontSize: 36,
+            fontSize: 42,
             color: p.primary,
             fontWeight: FontWeight.w600,
           ),
@@ -478,47 +450,47 @@ class _GpaPageState extends ConsumerState<GpaPage> {
         Text(scope, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
-    Widget metric(String label, String value) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final secondary = Row(
       children: [
-        Text(label, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
+        Expanded(
+          child: AppMetric(
+            label: '加权均分',
+            value: summary.average?.toStringAsFixed(2) ?? '—',
+          ),
+        ),
+        Expanded(
+          child: AppMetric(
+            label: '计入学分',
+            value: summary.credits.toStringAsFixed(1),
           ),
         ),
       ],
     );
-    final secondary = Row(
-      children: [
-        Expanded(
-          child: metric('加权均分', summary.average?.toStringAsFixed(2) ?? '—'),
-        ),
-        Expanded(child: metric('计入学分', summary.credits.toStringAsFixed(1))),
-      ],
-    );
-    return Container(
+    return AppGlassSurface(
       key: const ValueKey('grade-summary'),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: p.surface,
-        border: Border.all(color: p.border),
-        borderRadius: BorderRadius.circular(AppRadii.group),
-      ),
+      blur: 0,
+      opacity: 1,
+      borderRadius: BorderRadius.circular(AppRadii.card),
+      padding: const EdgeInsets.all(24),
       child: LayoutBuilder(
         builder: (context, bounds) => bounds.maxWidth >= 560
             ? Row(
                 children: [
                   Expanded(child: primary),
+                  Container(width: 1, height: 60, color: p.border),
+                  const SizedBox(width: 32),
                   Expanded(child: secondary),
                 ],
               )
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [primary, const SizedBox(height: 18), secondary],
+                children: [
+                  primary,
+                  const SizedBox(height: 20),
+                  Divider(height: 1, color: p.border),
+                  const SizedBox(height: 20),
+                  secondary,
+                ],
               ),
       ),
     );
@@ -589,4 +561,102 @@ class _GpaPageState extends ConsumerState<GpaPage> {
 
   String _termLabel(String term) =>
       GradeTerm.parse(term)?.label ?? (term.isEmpty ? '未标注学期' : term);
+}
+
+class _GradeCourseRow extends StatelessWidget {
+  const _GradeCourseRow({
+    super.key,
+    required this.row,
+    required this.selected,
+    required this.excludedGeneral,
+    required this.onChanged,
+  });
+  final GradeRecord row;
+  final bool selected, excludedGeneral;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return InkWell(
+      canRequestFocus: false,
+      excludeFromSemantics: true,
+      onTap: onChanged == null ? null : () => onChanged!(!selected),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(6, 12, 16, 16),
+        child: Row(
+          children: [
+            TooltipVisibility(
+              visible: false,
+              child: AppCheckbox(
+                value: selected,
+                label: '${row.title}，${row.score}，计入 GPA',
+                onChanged: onChanged,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AppTruncatedText(
+                    row.title,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: p.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 4,
+                    children: [
+                      Text(
+                        '${row.credits} 学分',
+                        style: TextStyle(fontSize: 12, color: p.muted),
+                      ),
+                      if (row.category.isNotEmpty)
+                        Text(
+                          row.category,
+                          style: TextStyle(fontSize: 12, color: p.muted),
+                        ),
+                    ],
+                  ),
+                  if (row.exclusionReason != null || excludedGeneral) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      row.exclusionReason ?? '已按自选口径排除通识课程',
+                      style: TextStyle(fontSize: 12, color: p.muted),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  row.score,
+                  style: TextStyle(
+                    color: p.ink,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  row.points == null
+                      ? '无绩点'
+                      : '绩点 ${row.points!.toStringAsFixed(2)}',
+                  style: TextStyle(color: p.muted, fontSize: 11),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

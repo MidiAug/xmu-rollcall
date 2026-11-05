@@ -124,7 +124,7 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
       },
       child: PageScaffold(
         title: '作业进度',
-        subtitle: '助教作业',
+        onBack: () => Navigator.of(context).maybePop(),
         child: FutureBuilder<List<TaStudent>>(
           future: _loading,
           builder: (context, snapshot) {
@@ -134,11 +134,12 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(requestFailureMessage(snapshot.error)),
-                    TextButton(
+                    AppButton(
+                      label: '重新加载',
+                      kind: AppButtonKind.secondary,
                       onPressed: () => setState(() {
                         _loading = _load();
                       }),
-                      child: const Text('重新加载'),
                     ),
                   ],
                 ),
@@ -166,7 +167,6 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
                       children: [
                         TaOverview(
                           title: widget.assignment.title,
-                          caption: '作业进度',
                           total: widget.assignment.expected,
                           submitted: widget.assignment.submitted,
                           graded: widget.assignment.graded,
@@ -174,11 +174,7 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
                         const SizedBox(height: 16),
                         Row(
                           children: [
-                            Icon(
-                              Icons.desktop_windows_outlined,
-                              size: 16,
-                              color: p.muted,
-                            ),
+                            Icon(AppIcons.desktop, size: 16, color: p.muted),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -196,11 +192,8 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 12),
-                        TextField(
-                          decoration: const InputDecoration(
-                            hintText: '搜索姓名或学号',
-                            prefixIcon: Icon(Icons.search),
-                          ),
+                        AppSearchField(
+                          hintText: '搜索姓名或学号',
                           onChanged: (value) => setState(() => _query = value),
                         ),
                         const SizedBox(height: 10),
@@ -216,11 +209,23 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
                         : const SizedBox(height: 12);
                   }
                   final s = students[index - 1];
-                  return TaStudentRow(
-                    student: s,
-                    checking: _checking.contains(s.id),
-                    gradingKnown: widget.assignment.graded == 0,
-                    onCheck: _checking.contains(s.id) ? null : () => _check(s),
+                  return ClipRRect(
+                    borderRadius: BorderRadius.vertical(
+                      top: index == 1
+                          ? const Radius.circular(AppRadii.card)
+                          : Radius.zero,
+                      bottom: index == students.length
+                          ? const Radius.circular(AppRadii.card)
+                          : Radius.zero,
+                    ),
+                    child: TaStudentRow(
+                      student: s,
+                      checking: _checking.contains(s.id),
+                      gradingKnown: widget.assignment.graded == 0,
+                      onCheck: _checking.contains(s.id)
+                          ? null
+                          : () => _check(s),
+                    ),
                   );
                 },
               ),

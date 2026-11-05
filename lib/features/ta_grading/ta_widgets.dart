@@ -33,34 +33,27 @@ class TaOverview extends StatelessWidget {
   const TaOverview({
     super.key,
     required this.title,
-    required this.caption,
     required this.total,
     required this.submitted,
     required this.graded,
   });
-  final String title, caption;
+  final String title;
   final int total, submitted, graded;
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return Container(
+    return AppGlassSurface(
+      blur: 0,
+      opacity: 1,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: p.accentSurface.withValues(alpha: p.isDark ? .6 : .65),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: p.primary.withValues(alpha: .12)),
-      ),
+      borderRadius: BorderRadius.circular(AppRadii.card),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            caption,
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(color: p.primary),
+          AppTruncatedText(
+            title,
+            style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(height: 9),
-          Text(title, style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 22),
           Row(
             children: [
@@ -70,23 +63,7 @@ class TaOverview extends StatelessWidget {
                 ('已批改', graded),
               ])
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${metric.$2}',
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        metric.$1,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: p.muted),
-                      ),
-                    ],
-                  ),
+                  child: AppMetric(value: '${metric.$2}', label: metric.$1),
                 ),
             ],
           ),
@@ -138,8 +115,9 @@ class TaStudentRow extends StatelessWidget {
         ? '未批改'
         : '待核对';
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       decoration: BoxDecoration(
+        color: p.surface,
         border: Border(bottom: BorderSide(color: p.border)),
       ),
       child: Row(
@@ -148,15 +126,7 @@ class TaStudentRow extends StatelessWidget {
           if (selected != null)
             Checkbox(value: selected, onChanged: onSelected)
           else
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: p.controlSurface,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(Icons.person_outline, size: 18, color: p.muted),
-            ),
+            const AppIconSurface(size: 34, child: Icon(AppIcons.person)),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -190,7 +160,7 @@ class TaStudentRow extends StatelessWidget {
               ],
             ),
           ),
-          IconButton(
+          AppIconButton(
             tooltip: checking ? '正在核对' : '核对成绩',
             onPressed: onCheck,
             icon: checking
@@ -199,7 +169,7 @@ class TaStudentRow extends StatelessWidget {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.sync_outlined, size: 20),
+                : const Icon(AppIcons.refresh, size: 20),
           ),
         ],
       ),

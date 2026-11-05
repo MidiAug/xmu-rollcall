@@ -37,8 +37,14 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
       child: Material(
         color: p.canvas,
         child: AppContentColumn(
+          maxWidth: 960,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+            padding: EdgeInsets.fromLTRB(
+              AppSpace.pageXOf(context),
+              8,
+              AppSpace.pageXOf(context),
+              32,
+            ),
             children: [
               Align(
                 alignment: Alignment.centerLeft,
@@ -52,70 +58,34 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
                   onChanged: (v) => setState(() => _year = v),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               if (!_years.contains(_requestedYear)) ...[
                 Text('当前学年校历尚未维护，显示已收录学年。', style: TextStyle(color: p.muted)),
                 const SizedBox(height: 16),
               ],
-              for (final term in academicTerms.values.where(
-                (t) => t.term.startsWith('$_year'),
-              )) ...[
-                AppHoverSurface(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(switch (term.term[4]) {
-                              '1' => '第一学期',
-                              '2' => '第二学期',
-                              _ => '短学期',
-                            }, style: Theme.of(context).textTheme.titleMedium),
-                          ),
-                          Text(
-                            '${term.weeks}周',
-                            style: TextStyle(color: p.primary),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 28,
-                        runSpacing: 12,
-                        children: [
-                          for (final field in [
-                            ('教学周起始', term.monday),
-                            ('学期结束', term.end),
-                          ])
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  field.$1,
-                                  style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: p.muted),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(_date(field.$2)),
-                              ],
-                            ),
-                        ],
-                      ),
-                      if (!DateUtils.dateOnly(_today).isBefore(term.monday) &&
-                          !DateUtils.dateOnly(_today).isAfter(term.end)) ...[
-                        const SizedBox(height: 16),
-                        Text(
-                          '当前第 ${DateUtils.dateOnly(_today).difference(term.monday).inDays ~/ 7 + 1} 周',
-                          style: TextStyle(color: p.primary),
+              AppGlassSurface(
+                blur: 0,
+                opacity: 1,
+                borderRadius: BorderRadius.circular(AppRadii.card),
+                child: Column(
+                  children: [
+                    for (final (index, term)
+                        in academicTerms.values
+                            .where((t) => t.term.startsWith('$_year'))
+                            .indexed) ...[
+                      if (index > 0)
+                        Divider(
+                          height: 1,
+                          indent: 22,
+                          endIndent: 22,
+                          color: p.border,
                         ),
-                      ],
+                      _term(context, term),
                     ],
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 16),
-              ],
+              ),
+              const SizedBox(height: 20),
               Text(
                 '展示已维护的教学周安排，不含完整节假日与临时调课。具体以学校公布校历为准。',
                 style: Theme.of(
@@ -123,35 +93,131 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
                 ).textTheme.bodySmall?.copyWith(color: p.muted, height: 1.6),
               ),
               const SizedBox(height: 12),
-              AppHoverSurface(
-                outlined: false,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                onTap: () async {
-                  try {
-                    if (!await launchUrl(
-                          Uri.parse(
-                            'https://dblab.xmu.edu.cn/topic/share/school-calendar/',
-                          ),
-                          mode: LaunchMode.externalApplication,
-                        ) &&
-                        context.mounted) {
-                      AppToast.show(context, '无法打开校历来源');
+              Align(
+                alignment: Alignment.centerLeft,
+                child: AppButton(
+                  label: '校方校历资料',
+                  icon: AppIcons.externalLink,
+                  kind: AppButtonKind.quiet,
+                  onPressed: () async {
+                    try {
+                      if (!await launchUrl(
+                            Uri.parse(
+                              'https://dblab.xmu.edu.cn/topic/share/school-calendar/',
+                            ),
+                            mode: LaunchMode.externalApplication,
+                          ) &&
+                          context.mounted) {
+                        AppToast.show(context, '无法打开校历来源');
+                      }
+                    } catch (_) {
+                      if (context.mounted) AppToast.show(context, '无法打开校历来源');
                     }
-                  } catch (_) {
-                    if (context.mounted) AppToast.show(context, '无法打开校历来源');
-                  }
-                },
-                child: Row(
-                  children: [
-                    Text('校方校历资料', style: TextStyle(color: p.primary)),
-                    const SizedBox(width: 8),
-                    Icon(Icons.north_east, size: 14, color: p.primary),
-                  ],
+                  },
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _term(BuildContext context, AcademicTermDates term) {
+    final p = AppPalette.of(context);
+    final today = DateUtils.dateOnly(_today);
+    final active = !today.isBefore(term.monday) && !today.isAfter(term.end);
+    final week = today.difference(term.monday).inDays ~/ 7 + 1;
+    final elapsed = today.isAfter(term.end)
+        ? term.weeks
+        : active
+        ? week
+        : 0;
+    return Padding(
+      padding: const EdgeInsets.all(22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const AppIconSurface(child: Icon(AppIcons.calendar)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  switch (term.term[4]) {
+                    '1' => '第一学期',
+                    '2' => '第二学期',
+                    _ => '短学期',
+                  },
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: p.ink,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Text(
+                '${term.weeks}周',
+                style: TextStyle(color: p.muted, fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          Wrap(
+            spacing: 32,
+            runSpacing: 16,
+            children: [
+              for (final field in [('教学周起始', term.monday), ('学期结束', term.end)])
+                SizedBox(
+                  width: 220,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        field.$1,
+                        style: TextStyle(color: p.muted, fontSize: 12),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _date(field.$2),
+                        style: TextStyle(
+                          color: p.ink,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: -.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          ExcludeSemantics(
+            child: Row(
+              children: [
+                for (var n = 1; n <= term.weeks; n++) ...[
+                  if (n > 1) const SizedBox(width: 3),
+                  Expanded(
+                    child: Container(
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: n <= elapsed
+                            ? p.primary.withValues(alpha: active ? .85 : .28)
+                            : p.controlSurface,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (active) ...[
+            const SizedBox(height: 12),
+            AppStatusBadge('当前第 $week 周'),
+          ],
+        ],
       ),
     );
   }

@@ -62,8 +62,16 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          expect(find.text('已提交 2'), findsOneWidget);
-          expect(find.text('已批改 0'), findsOneWidget);
+          for (final metric in [('应交', '3'), ('已提交', '2'), ('已批改', '0')]) {
+            final value = find.ancestor(
+              of: find.text(metric.$1),
+              matching: find.byType(AppMetric),
+            );
+            expect(
+              find.descendant(of: value, matching: find.text(metric.$2)),
+              findsOneWidget,
+            );
+          }
           await captureDesktopUi(tester, 'ta-list-$width-$dark');
           await tester.tap(find.text(TaHttpFixture.title));
           await tester.pumpAndSettle();
@@ -118,7 +126,14 @@ void main() {
           await tester.pumpAndSettle();
           await tester.tap(find.byTooltip('返回'));
           await tester.pumpAndSettle();
-          expect(find.text('已批改 2'), findsOneWidget);
+          final graded = find.ancestor(
+            of: find.text('已批改'),
+            matching: find.byType(AppMetric),
+          );
+          expect(
+            find.descendant(of: graded, matching: find.text('2')),
+            findsOneWidget,
+          );
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox());
           await tester.pumpAndSettle();

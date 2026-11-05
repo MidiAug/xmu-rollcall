@@ -32,7 +32,6 @@ class TaGradingPage extends ConsumerWidget {
           ? () => Navigator.of(context).maybePop()
           : null,
       title: taIsMobile(context) ? '助教作业' : '修改作业',
-      subtitle: taIsMobile(context) ? '课程进度与学生提交' : '作业进度、打包下载与批量评分',
       child: repository.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => _Failure(
@@ -130,7 +129,7 @@ class _TaCoursesState extends State<_TaCourses> {
                   color: p.accentSurface,
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: Icon(Icons.school_outlined, size: 32, color: p.primary),
+                child: Icon(AppIcons.people, size: 32, color: p.primary),
               ),
               const SizedBox(height: 20),
               Text('还没有助教课程', style: Theme.of(context).textTheme.titleLarge),
@@ -175,7 +174,12 @@ class _TaCoursesState extends State<_TaCourses> {
             return const Center(child: CircularProgressIndicator());
           }
           return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+            padding: EdgeInsets.fromLTRB(
+              AppSpace.pageXOf(context),
+              8,
+              AppSpace.pageXOf(context),
+              24,
+            ),
             itemCount: assignments.length + 1,
             separatorBuilder: (_, _) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
@@ -183,67 +187,52 @@ class _TaCoursesState extends State<_TaCourses> {
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: p.accentSurface.withValues(alpha: .6),
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+                    Row(
+                      children: [
+                        const AppIconSurface(
+                          size: 44,
+                          child: Icon(AppIcons.homework),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(
-                                Icons.school_outlined,
-                                color: p.primary,
-                                size: 21,
-                              ),
-                              const SizedBox(width: 8),
                               Text(
-                                '助教工作台',
-                                style: Theme.of(context).textTheme.labelMedium
-                                    ?.copyWith(color: p.primary),
+                                '助教课程',
+                                style: TextStyle(color: p.muted, fontSize: 12),
                               ),
-                              const Spacer(),
-                              AppRefreshButton(
-                                tooltip: '更新作业',
-                                iconSize: 20,
-                                busy:
-                                    snapshot.connectionState ==
-                                    ConnectionState.waiting,
-                                onRefresh: () async {
-                                  if (_course != null) {
-                                    _select(_course!, refresh: true);
-                                    try {
-                                      await _assignments;
-                                    } catch (_) {
-                                      // FutureBuilder keeps cached content and reports the failure.
-                                    }
-                                  }
-                                },
+                              const SizedBox(height: 5),
+                              AppTruncatedText(
+                                course.title,
+                                style: TextStyle(
+                                  color: p.ink,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          AppTruncatedText(
-                            course.title,
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                          const SizedBox(height: 18),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              TaTag('${assignments.length} 项作业'),
-                              TaTag(
-                                '待批改 ${assignments.fold<int>(0, (n, a) => n + (a.submitted - a.graded).clamp(0, a.submitted))}',
-                                color: p.warning,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                        ),
+                        const SizedBox(width: 12),
+                        AppRefreshButton(
+                          tooltip: '更新作业',
+                          iconSize: 20,
+                          busy:
+                              snapshot.connectionState ==
+                              ConnectionState.waiting,
+                          onRefresh: () async {
+                            if (_course != null) {
+                              _select(_course!, refresh: true);
+                              try {
+                                await _assignments;
+                              } catch (_) {
+                                // FutureBuilder keeps cached content and reports the failure.
+                              }
+                            }
+                          },
+                        ),
+                      ],
                     ),
                     if (widget.courses.length > 1) ...[
                       const SizedBox(height: 14),
@@ -276,8 +265,8 @@ class _TaCoursesState extends State<_TaCourses> {
                                       children: [
                                         Icon(
                                           c.id == '$_course'
-                                              ? Icons.check_circle_outline
-                                              : Icons.circle_outlined,
+                                              ? AppIcons.checkCircle
+                                              : AppIcons.person,
                                           size: 16,
                                           color: p.primary,
                                         ),
@@ -314,9 +303,15 @@ class _TaCoursesState extends State<_TaCourses> {
                         ),
                       ),
                     const SizedBox(height: 26),
-                    Text(
-                      '课程作业',
-                      style: Theme.of(context).textTheme.titleMedium,
+                    Row(
+                      children: [
+                        Text(
+                          '课程作业',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(width: 8),
+                        AppStatusBadge('${assignments.length}'),
+                      ],
                     ),
                     if (assignments.isEmpty)
                       const Padding(
@@ -331,121 +326,92 @@ class _TaCoursesState extends State<_TaCourses> {
                 0,
                 item.submitted,
               );
-              return Material(
-                color: p.surface,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: BorderSide(color: p.borderStrong),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () async {
-                    final courseId = _course!;
-                    await AppPageRoutes.push(
-                      context,
-                      taIsMobile(context)
-                          ? TaMobileAssignmentPage(
-                              repository: widget.repository,
-                              courseId: courseId,
-                              assignment: item,
-                            )
-                          : TaAssignmentPage(
-                              repository: widget.repository,
-                              courseId: courseId,
-                              assignment: item,
-                            ),
-                    );
-                    if (mounted &&
-                        widget.repository.active &&
-                        _course == courseId) {
-                      _select(courseId);
-                    }
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              return AppHoverSurface(
+                padding: const EdgeInsets.all(20),
+                onTap: () async {
+                  final courseId = _course!;
+                  await AppPageRoutes.push(
+                    context,
+                    taIsMobile(context)
+                        ? TaMobileAssignmentPage(
+                            repository: widget.repository,
+                            courseId: courseId,
+                            assignment: item,
+                          )
+                        : TaAssignmentPage(
+                            repository: widget.repository,
+                            courseId: courseId,
+                            assignment: item,
+                          ),
+                  );
+                  if (mounted &&
+                      widget.repository.active &&
+                      _course == courseId) {
+                    _select(courseId);
+                  }
+                },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: p.controlSurface,
-                                borderRadius: BorderRadius.circular(11),
-                              ),
-                              child: Icon(
-                                Icons.assignment_outlined,
-                                color: p.primary,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: AppTruncatedText(
-                                item.title,
-                                style: Theme.of(context).textTheme.titleMedium,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Icon(Icons.chevron_right, color: p.muted, size: 20),
-                          ],
+                        const AppIconSurface(
+                          child: Icon(AppIcons.serviceGrading),
                         ),
-                        const SizedBox(height: 18),
-                        Wrap(
-                          spacing: 16,
-                          runSpacing: 8,
-                          children: [
-                            Text(
-                              '应交 ${item.expected}',
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodySmall?.copyWith(color: p.muted),
-                            ),
-                            Text(
-                              '已提交 ${item.submitted}',
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodySmall?.copyWith(color: p.muted),
-                            ),
-                            Text(
-                              '已批改 ${item.graded}',
-                              style: Theme.of(
-                                context,
-                              ).textTheme.bodySmall?.copyWith(color: p.muted),
-                            ),
-                          ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: AppTruncatedText(
+                            item.title,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
                         ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: LinearProgressIndicator(
-                                  minHeight: 4,
-                                  value: item.expected == 0
-                                      ? 0
-                                      : (item.submitted / item.expected).clamp(
-                                          0,
-                                          1,
-                                        ),
-                                  backgroundColor: p.controlSurface,
-                                  color: p.primary,
-                                ),
-                              ),
+                        const SizedBox(width: 8),
+                        Icon(AppIcons.right, color: p.muted, size: 20),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        for (final metric in [
+                          ('应交', item.expected),
+                          ('已提交', item.submitted),
+                          ('已批改', item.graded),
+                        ])
+                          Expanded(
+                            child: AppMetric(
+                              value: '${metric.$2}',
+                              label: metric.$1,
                             ),
-                            const SizedBox(width: 12),
-                            TaTag(
-                              pending == 0 ? '暂无待批改' : '待批改 $pending',
-                              color: pending == 0 ? p.muted : p.warning,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: LinearProgressIndicator(
+                              minHeight: 4,
+                              value: item.expected == 0
+                                  ? 0
+                                  : (item.submitted / item.expected).clamp(
+                                      0,
+                                      1,
+                                    ),
+                              backgroundColor: p.controlSurface,
+                              color: p.primary,
                             ),
-                          ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        TaTag(
+                          pending == 0 ? '暂无待批改' : '待批改 $pending',
+                          color: pending == 0 ? p.muted : p.warning,
                         ),
                       ],
                     ),
-                  ),
+                  ],
                 ),
               );
             },
@@ -1344,7 +1310,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
               _message('无法打开下载链接');
             }
           },
-          icon: const Icon(Icons.download_outlined, size: 18),
+          icon: const Icon(AppIcons.download, size: 18),
           label: Text(_downloadMatchesSelection ? '下载打包' : '下载上次打包'),
         ),
         AppActionMenu<String>(
@@ -1414,7 +1380,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
             ),
             FilledButton.icon(
               onPressed: blocked || _building ? null : _pack,
-              icon: const Icon(Icons.archive_outlined, size: 18),
+              icon: const Icon(AppIcons.archive, size: 18),
               label: const Text('打包所选'),
             ),
             actions.first,

@@ -4,6 +4,7 @@ import 'campus_artwork.dart';
 import 'package:flutter/material.dart';
 export 'status_badge.dart';
 export 'app_form_controls.dart';
+export 'app_metric.dart';
 export 'app_icon_button.dart';
 export 'app_tooltip_anchor.dart';
 import 'app_tooltip_anchor.dart';
