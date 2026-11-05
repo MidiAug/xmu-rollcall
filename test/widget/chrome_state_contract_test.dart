@@ -335,4 +335,52 @@ void main() {
       greaterThan(0),
     );
   });
+  for (final dark in [false, true]) {
+    testWidgets('search hover preserves its surface and bounds dark=$dark', (
+      tester,
+    ) async {
+      final key = GlobalKey();
+      final theme = (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
+        platform: TargetPlatform.windows,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: Scaffold(
+            body: RepaintBoundary(
+              key: key,
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 230,
+                    child: AppSearchField(hintText: '搜索姓名或学号'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final field = find.byType(TextField);
+      final rect = tester.getRect(field);
+      final point = rect.topLeft + Offset(rect.width - 30, 12);
+      final before = await pixel(tester, key, point);
+      final p = AppPalette.of(tester.element(field));
+      expect(before, p.surface);
+      final mouse = await tester.createGesture(
+        kind: ui.PointerDeviceKind.mouse,
+      );
+      await mouse.addPointer(location: Offset.zero);
+      await mouse.moveTo(rect.center);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(await pixel(tester, key, point), before);
+      expect(tester.getRect(field), rect);
+      expect(before, isNot(p.canvas));
+      await mouse.removePointer();
+      expect(tester.takeException(), isNull);
+    });
+  }
 }

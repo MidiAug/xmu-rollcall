@@ -62,16 +62,8 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          for (final metric in [('应交', '3'), ('已提交', '2'), ('已批改', '0')]) {
-            final value = find.ancestor(
-              of: find.text(metric.$1),
-              matching: find.byType(AppMetric),
-            );
-            expect(
-              find.descendant(of: value, matching: find.text(metric.$2)),
-              findsOneWidget,
-            );
-          }
+          expect(find.text('已提交 2'), findsOneWidget);
+          expect(find.text('已批改 0'), findsOneWidget);
           await captureDesktopUi(tester, 'ta-list-$width-$dark');
           await tester.tap(find.text(TaHttpFixture.title));
           await tester.pumpAndSettle();
@@ -126,14 +118,7 @@ void main() {
           await tester.pumpAndSettle();
           await tester.tap(find.byTooltip('返回'));
           await tester.pumpAndSettle();
-          final graded = find.ancestor(
-            of: find.text('已批改'),
-            matching: find.byType(AppMetric),
-          );
-          expect(
-            find.descendant(of: graded, matching: find.text('2')),
-            findsOneWidget,
-          );
+          expect(find.text('已批改 2'), findsOneWidget);
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox());
           await tester.pumpAndSettle();
@@ -315,7 +300,13 @@ void main() {
         await tester.tap(find.text('取消选择'));
         await tester.pumpAndSettle();
         expect(find.text('打包所选'), findsNothing);
-        await tester.enterText(find.byType(TextField), '示例学生47');
+        await tester.enterText(
+          find.descendant(
+            of: find.byType(AppSearchField),
+            matching: find.byType(TextField),
+          ),
+          '示例学生47',
+        );
         await tester.pumpAndSettle();
         expect(find.text('显示 1 人'), findsOneWidget);
         await tester.tap(selectAll);

@@ -155,6 +155,7 @@ abstract final class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: p.surface,
+        hoverColor: Colors.transparent,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
@@ -164,13 +165,15 @@ abstract final class AppTheme {
         labelStyle: TextStyle(color: p.muted, fontSize: 13),
         prefixIconColor: p.muted,
         suffixIconColor: p.muted,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadii.input),
-          borderSide: BorderSide(color: p.border),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AppRadii.input),
-          borderSide: BorderSide(color: p.border),
+        border: WidgetStateInputBorder.resolveWith(
+          (states) => OutlineInputBorder(
+            borderRadius: BorderRadius.circular(AppRadii.input),
+            borderSide: BorderSide(
+              color: states.contains(WidgetState.hovered)
+                  ? p.borderStrong
+                  : p.border,
+            ),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),

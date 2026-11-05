@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/network/request_failure.dart';
@@ -39,65 +40,73 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
   late final TaGradingRepository _repository;
   late Future<List<TaStudent>> _loading;
   List<TaStudent> _students = [];
-  final _checking = <int>{};
+  late TaAssignment _summary;
+  bool _ready = false;
   String _query = '';
   @override
   void initState() {
     super.initState();
     _repository = widget.repository.fork();
+    _summary = widget.assignment;
     _loading = _load();
   }
 
   Future<List<TaStudent>> _load() async {
-    await _repository.detail(widget.courseId, widget.assignment.id);
-    return _repository.students(widget.courseId, widget.assignment.id);
+    try {
+      final cached = await _repository.restoreStudents(
+        widget.courseId,
+        widget.assignment.id,
+      );
+      if (!mounted || !_repository.active) return [];
+      if (cached != null && !_ready) {
+        setState(() {
+          _students = cached.students;
+          _ready = true;
+        });
+      }
+      await _repository.detail(widget.courseId, widget.assignment.id);
+      if (!mounted || !_repository.active) return [];
+      final assignments = await _repository.assignments(widget.courseId);
+      if (!mounted || !_repository.active) return [];
+      setState(
+        () => _summary = assignments.firstWhere(
+          (a) => a.id == widget.assignment.id,
+          orElse: () => _summary,
+        ),
+      );
+      final result = await _repository.refreshStudents(
+        widget.courseId,
+        widget.assignment.id,
+        graded: _summary.graded,
+        onProgress: (students) {
+          if (mounted && _repository.active) {
+            setState(() {
+              _students = students;
+              _ready = true;
+            });
+          }
+        },
+      );
+      if (mounted && _repository.active) {
+        await _repository.cacheStudents(
+          widget.courseId,
+          widget.assignment.id,
+          result,
+        );
+      }
+      return result;
+    } catch (_) {
+      if (!mounted || !_repository.active) return [];
+      if (!_ready) rethrow;
+      AppToast.show(context, '更新失败，保留已加载的名单和成绩', error: true);
+      return _students;
+    }
   }
 
   @override
   void dispose() {
     _repository.dispose();
     super.dispose();
-  }
-
-  Future<void> _check(TaStudent student) async {
-    if (!_repository.active || !_checking.add(student.id)) {
-      return;
-    }
-    setState(() {});
-    try {
-      final score = await _repository.currentScore(
-        widget.assignment.id,
-        student.id,
-      );
-      if (!mounted || !_repository.active) {
-        return;
-      }
-      setState(
-        () => _students = [
-          for (final s in _students)
-            if (s.id == student.id)
-              TaStudent(
-                id: s.id,
-                number: s.number,
-                name: s.name,
-                submitted: s.submitted,
-                score: score,
-                scoreChecked: true,
-              )
-            else
-              s,
-        ],
-      );
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(requestFailureMessage(error))));
-      }
-    } finally {
-      _checking.remove(student.id);
-      if (mounted) setState(() {});
-    }
   }
 
   @override
@@ -128,7 +137,7 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
         child: FutureBuilder<List<TaStudent>>(
           future: _loading,
           builder: (context, snapshot) {
-            if (snapshot.hasError) {
+            if (snapshot.hasError && !_ready) {
               return Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -145,12 +154,12 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
                 ),
               );
             }
-            if (!snapshot.hasData) {
+            if (!snapshot.hasData && !_ready) {
               return const Center(child: CircularProgressIndicator());
             }
             final students =
                 {
-                      for (final s in snapshot.requireData) s.id: s,
+                      for (final s in snapshot.data ?? <TaStudent>[]) s.id: s,
                       for (final s in _students) s.id: s,
                     }.values
                     .where((s) => '${s.name} ${s.number}'.contains(_query))
@@ -167,9 +176,9 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
                       children: [
                         TaOverview(
                           title: widget.assignment.title,
-                          total: widget.assignment.expected,
-                          submitted: widget.assignment.submitted,
-                          graded: widget.assignment.graded,
+                          total: _summary.expected,
+                          submitted: _summary.submitted,
+                          graded: _summary.graded,
                         ),
                         const SizedBox(height: 16),
                         Row(
@@ -220,11 +229,7 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
                     ),
                     child: TaStudentRow(
                       student: s,
-                      checking: _checking.contains(s.id),
-                      gradingKnown: widget.assignment.graded == 0,
-                      onCheck: _checking.contains(s.id)
-                          ? null
-                          : () => _check(s),
+                      gradingKnown: _summary.graded == 0,
                     ),
                   );
                 },

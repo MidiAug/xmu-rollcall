@@ -94,17 +94,10 @@ class TaStudentRow extends StatelessWidget {
   const TaStudentRow({
     super.key,
     required this.student,
-    required this.onCheck,
-    this.selected,
-    this.onSelected,
-    this.checking = false,
     this.gradingKnown = false,
   });
   final TaStudent student;
-  final VoidCallback? onCheck;
-  final bool? selected;
-  final ValueChanged<bool?>? onSelected;
-  final bool checking, gradingKnown;
+  final bool gradingKnown;
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
@@ -112,8 +105,8 @@ class TaStudentRow extends StatelessWidget {
     final grade = score != null
         ? '$score 分'
         : student.scoreChecked || gradingKnown
-        ? '未批改'
-        : '待核对';
+        ? '未评分'
+        : '—';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       decoration: BoxDecoration(
@@ -123,10 +116,7 @@ class TaStudentRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (selected != null)
-            Checkbox(value: selected, onChanged: onSelected)
-          else
-            const AppIconSurface(size: 34, child: Icon(AppIcons.person)),
+          const AppIconSurface(size: 34, child: Icon(AppIcons.person)),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -159,17 +149,6 @@ class TaStudentRow extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-          AppIconButton(
-            tooltip: checking ? '正在核对' : '核对成绩',
-            onPressed: onCheck,
-            icon: checking
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(AppIcons.refresh, size: 20),
           ),
         ],
       ),

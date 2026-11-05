@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:xmu_rollcall/core/network/tron_http_client.dart';
 import 'ta_models.dart';
 import 'ta_assignment_store.dart';
+import 'ta_roster_store.dart';
 
 /// Parent and detail pages share readiness and the resulting session revision.
 /// Cached summaries can be read before assisted-session authentication finishes.
@@ -12,6 +13,7 @@ class _TaSession {
   final TronHttpClient http;
   final Future<void> Function()? prepare;
   int revision;
+  final rosters = <(int, int), TaRosterSnapshot>{};
   Future<void>? _ready;
   Future<void> ensureReady() => _ready ??= _prepare();
   Future<void> _prepare() async {
@@ -35,11 +37,19 @@ class TaGradingRepository {
     Future<void> Function()? prepareSession,
   }) : _session = _TaSession(http, prepareSession),
        _disk = cacheUserId == null ? null : TaAssignmentStore(cacheUserId),
+       _rosterDisk = cacheUserId == null ? null : TaRosterStore(cacheUserId),
        _now = now ?? DateTime.now;
-  TaGradingRepository._(this.http, this._session, this._now, this._disk);
+  TaGradingRepository._(
+    this.http,
+    this._session,
+    this._now,
+    this._disk,
+    this._rosterDisk,
+  );
   final TronHttpClient http;
   final _TaSession _session;
   final TaAssignmentStore? _disk;
+  final TaRosterStore? _rosterDisk;
   final DateTime Function() _now;
   final _assignmentCache = <int, TaAssignmentSnapshot>{};
   final _assignmentRequests = <int, Future<List<TaAssignment>>>{};
@@ -52,7 +62,13 @@ class TaGradingRepository {
       !_cancel.isCancelled && http.sessionRevision == _session.revision;
 
   TaGradingRepository fork() {
-    final child = TaGradingRepository._(http, _session, _now, _disk);
+    final child = TaGradingRepository._(
+      http,
+      _session,
+      _now,
+      _disk,
+      _rosterDisk,
+    );
     if (!active) child.dispose();
     unawaited(_cancel.whenCancel.then((_) => child.dispose()));
     return child;
@@ -234,6 +250,106 @@ class TaGradingRepository {
         else
           throw const FormatException('学生名单重复'),
     ];
+  }
+
+  Future<TaRosterSnapshot?> restoreStudents(
+    int courseId,
+    int activityId,
+  ) async {
+    checkActive();
+    final key = (courseId, activityId);
+    final memory = _session.rosters[key];
+    if (memory != null) return memory;
+    final disk = await _rosterDisk?.read(courseId, activityId);
+    checkActive();
+    if (disk != null) _session.rosters[key] = disk;
+    return disk;
+  }
+
+  Future<void> cacheStudents(
+    int courseId,
+    int activityId,
+    List<TaStudent> students, {
+    DateTime? checkedAt,
+  }) async {
+    checkActive();
+    final snapshot = TaRosterSnapshot(
+      List.unmodifiable(students),
+      checkedAt ?? _now(),
+    );
+    _session.rosters[(courseId, activityId)] = snapshot;
+    try {
+      await _rosterDisk?.write(courseId, activityId, snapshot);
+    } catch (_) {
+      // The live server result remains usable when local storage is unavailable.
+    }
+    checkActive();
+  }
+
+  Future<void> cacheStudentScore(
+    int courseId,
+    int activityId,
+    int studentId,
+    double score,
+  ) async {
+    final cached = _session.rosters[(courseId, activityId)];
+    if (cached == null) return;
+    await cacheStudents(courseId, activityId, [
+      for (final s in cached.students)
+        if (s.id == studentId)
+          TaStudent(
+            id: s.id,
+            number: s.number,
+            name: s.name,
+            submitted: s.submitted,
+            score: score,
+            scoreChecked: true,
+          )
+        else
+          s,
+    ], checkedAt: cached.checkedAt);
+  }
+
+  /// One entry-triggered refresh, through the normal rate-limited HTTP queue.
+  /// The bulk submission response supplies known scores. Missing grades are
+  /// loaded automatically from the captured history endpoint, never on hover.
+  Future<List<TaStudent>> refreshStudents(
+    int courseId,
+    int activityId, {
+    required int graded,
+    required void Function(List<TaStudent>) onProgress,
+  }) async {
+    final roster = await students(courseId, activityId);
+    final previous = _session.rosters[(courseId, activityId)];
+    final old = {for (final s in previous?.students ?? <TaStudent>[]) s.id: s};
+    final result = [
+      for (final s in roster)
+        TaStudent(
+          id: s.id,
+          number: s.number,
+          name: s.name,
+          submitted: s.submitted,
+          score: s.score ?? (graded == 0 ? null : old[s.id]?.score),
+          scoreChecked: graded == 0 || s.score != null,
+        ),
+    ];
+    onProgress(List.unmodifiable(result));
+    for (var i = 0; i < result.length; i++) {
+      if (result[i].scoreChecked) continue;
+      final s = result[i];
+      final score = await currentScore(activityId, s.id);
+      checkActive();
+      result[i] = TaStudent(
+        id: s.id,
+        number: s.number,
+        name: s.name,
+        submitted: s.submitted,
+        score: score,
+        scoreChecked: true,
+      );
+      onProgress(List.unmodifiable(result));
+    }
+    return List.unmodifiable(result);
   }
 
   Future<double?> currentScore(int activityId, int studentId) async {

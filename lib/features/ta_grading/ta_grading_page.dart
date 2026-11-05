@@ -19,6 +19,8 @@ import 'ta_models.dart';
 import 'ta_providers.dart';
 import 'ta_repository.dart';
 import 'ta_widgets.dart';
+import 'ta_score_field.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'ta_mobile_assignment_page.dart';
 
 class TaGradingPage extends ConsumerWidget {
@@ -327,7 +329,7 @@ class _TaCoursesState extends State<_TaCourses> {
                 item.submitted,
               );
               return AppHoverSurface(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 onTap: () async {
                   final courseId = _course!;
                   await AppPageRoutes.push(
@@ -369,45 +371,26 @@ class _TaCoursesState extends State<_TaCourses> {
                         Icon(AppIcons.right, color: p.muted, size: 20),
                       ],
                     ),
-                    const SizedBox(height: 20),
-                    Row(
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 16,
+                      runSpacing: 6,
                       children: [
                         for (final metric in [
                           ('应交', item.expected),
                           ('已提交', item.submitted),
                           ('已批改', item.graded),
                         ])
-                          Expanded(
-                            child: AppMetric(
-                              value: '${metric.$2}',
-                              label: metric.$1,
-                            ),
+                          Text(
+                            '${metric.$1} ${metric.$2}',
+                            style: TextStyle(color: p.muted, fontSize: 12),
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(4),
-                            child: LinearProgressIndicator(
-                              minHeight: 4,
-                              value: item.expected == 0
-                                  ? 0
-                                  : (item.submitted / item.expected).clamp(
-                                      0,
-                                      1,
-                                    ),
-                              backgroundColor: p.controlSurface,
-                              color: p.primary,
-                            ),
+                        Text(
+                          pending == 0 ? '批改完成' : '待批改 $pending',
+                          style: TextStyle(
+                            color: pending == 0 ? p.muted : p.warning,
+                            fontSize: 12,
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        TaTag(
-                          pending == 0 ? '暂无待批改' : '待批改 $pending',
-                          color: pending == 0 ? p.muted : p.warning,
                         ),
                       ],
                     ),
@@ -456,7 +439,10 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
   final _selected = <int>{};
   String _search = '';
   int _submissionFilter = 0;
-  final _checkingScores = <int>{};
+  final _scoreDrafts = <int, String>{};
+  final _localScores = <int, double>{};
+  int? _savingStudent;
+  bool _rosterReady = false, _refreshingRoster = false;
   TaZip? _zip, _oldZip;
   bool _downloadMatchesSelection = false, _packSelectionChanged = false;
   bool _building = false, _zipBusy = false, _importing = false;
@@ -480,21 +466,75 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
   }
 
   Future<void> _load() async {
-    final detail = await _repository.detail(
-      widget.courseId,
-      widget.assignment.id,
-    );
-    final students = await _repository.students(
-      widget.courseId,
-      widget.assignment.id,
-    );
-    if (!mounted) {
-      return;
+    _refreshingRoster = true;
+    _localScores.clear();
+    try {
+      final cached = await _repository.restoreStudents(
+        widget.courseId,
+        widget.assignment.id,
+      );
+      if (!mounted || !_repository.active) return;
+      if (cached != null && !_rosterReady) {
+        _students = cached.students;
+        _rosterReady = true;
+        _changed();
+      }
+      final detail = await _repository.detail(
+        widget.courseId,
+        widget.assignment.id,
+      );
+      if (!mounted || !_repository.active) return;
+      _detail = detail;
+      // Activity detail has no count fields in the captured response. Counts
+      // come from the course assignment list, never the parser's zero defaults.
+      final assignments = await _repository.assignments(widget.courseId);
+      if (!mounted || !_repository.active) return;
+      _summary = assignments.firstWhere(
+        (a) => a.id == widget.assignment.id,
+        orElse: () => _summary,
+      );
+      _changed();
+      await _repository.refreshStudents(
+        widget.courseId,
+        widget.assignment.id,
+        graded: _summary.graded,
+        onProgress: (students) {
+          if (!mounted || !_repository.active) return;
+          setState(() {
+            _students = [
+              for (final s in students)
+                if (_localScores.containsKey(s.id))
+                  TaStudent(
+                    id: s.id,
+                    number: s.number,
+                    name: s.name,
+                    submitted: s.submitted,
+                    score: _localScores[s.id],
+                    scoreChecked: true,
+                  )
+                else
+                  s,
+            ];
+            _rosterReady = true;
+            _selected.removeWhere((id) => !_students.any((s) => s.id == id));
+          });
+        },
+      );
+      if (!mounted || !_repository.active) return;
+      await _repository.cacheStudents(
+        widget.courseId,
+        widget.assignment.id,
+        _students,
+      );
+      unawaited(_checkZip());
+    } catch (_) {
+      if (!mounted || !_repository.active) return;
+      if (!_rosterReady) rethrow;
+      _message('更新失败，保留已加载的名单和成绩');
+    } finally {
+      _refreshingRoster = false;
+      _changed();
     }
-    _detail = detail;
-    _students = students;
-    _selected.removeWhere((id) => !students.any((s) => s.id == id));
-    unawaited(_checkZip());
   }
 
   @override
@@ -519,7 +559,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
 
   void _message(String text) {
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+      AppToast.show(context, text);
     }
   }
 
@@ -656,7 +696,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
   }
 
   Future<void> _submit() async {
-    if (_batch.running || !_repository.active) {
+    if (_batch.running || _savingStudent != null || !_repository.active) {
       return;
     }
     final yes = await showAppConfirmDialog(
@@ -705,6 +745,25 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
             student,
       ],
     );
+    _localScores.addAll(saved);
+    try {
+      for (final entry in saved.entries) {
+        await _repository.cacheStudentScore(
+          widget.courseId,
+          widget.assignment.id,
+          entry.key,
+          entry.value,
+        );
+      }
+    } catch (_) {
+      if (!mounted || !_repository.active) return;
+      rethrow;
+    }
+    if (!mounted || !_repository.active) return;
+    await _refreshSummary();
+  }
+
+  Future<void> _refreshSummary() async {
     try {
       _repository.markAssignmentsStale(widget.courseId);
       final assignments = await _repository.assignments(widget.courseId);
@@ -718,45 +777,107 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
         );
       });
     } catch (_) {
-      _message('成绩处理已结束，作业进度未更新，请返回后刷新');
+      _message('作业进度未更新，请稍后刷新');
     }
   }
 
-  Future<void> _checkStudent(TaStudent student) async {
+  Future<void> _saveInline(TaStudent student, String text) async {
     if (_batch.running ||
+        _importing ||
         !_repository.active ||
-        !_checkingScores.add(student.id)) {
+        _detail?.canGrade != true ||
+        _savingStudent != null) {
       return;
     }
-    _changed();
+    if (!student.submitted) {
+      _message('未提交作业不能直接评分');
+      return;
+    }
+    final score = text.trim();
+    final issue = taPercentageScoreIssue(score);
+    if (issue != null) {
+      AppToast.show(context, issue, error: true);
+      return;
+    }
+    _savingStudent = student.id;
+    final row = TaGradeRow(
+      line: 1,
+      number: student.number,
+      score: score,
+      student: student,
+    );
+    widget.repository.markAssignmentsStale(widget.courseId);
     try {
-      final score = await _repository.currentScore(
-        widget.assignment.id,
-        student.id,
+      await _batch.run(
+        repository: _repository,
+        activityId: widget.assignment.id,
+        rows: [row],
+        overwrite: true,
+        allowUnsubmitted: false,
+        onChanged: _changed,
       );
-      if (!mounted) {
-        return;
+      if (!mounted || !_repository.active) return;
+      // A lost acknowledgement is resolved by a read, never by retrying a PUT.
+      if (row.status == TaRowStatus.uncertain) {
+        try {
+          if (await _repository.currentScore(
+                widget.assignment.id,
+                student.id,
+              ) ==
+              double.parse(score)) {
+            row.status = TaRowStatus.saved;
+          }
+        } catch (_) {
+          /* Keep the draft when the server is still unavailable. */
+        }
       }
-      setState(
-        () => _students = [
-          for (final s in _students)
-            if (s.id == student.id)
-              TaStudent(
-                id: s.id,
-                number: s.number,
-                name: s.name,
-                submitted: s.submitted,
-                score: score,
-                scoreChecked: true,
-              )
-            else
-              s,
-        ],
-      );
-    } catch (error) {
-      _message(requestFailureMessage(error));
+      if (!mounted || !_repository.active) return;
+      if (row.status == TaRowStatus.saved ||
+          row.status == TaRowStatus.skipped) {
+        final value = double.parse(score);
+        setState(() {
+          _localScores[student.id] = value;
+          _scoreDrafts.remove(student.id);
+          _students = [
+            for (final s in _students)
+              if (s.id == student.id)
+                TaStudent(
+                  id: s.id,
+                  number: s.number,
+                  name: s.name,
+                  submitted: s.submitted,
+                  score: value,
+                  scoreChecked: true,
+                )
+              else
+                s,
+          ];
+        });
+        _message(
+          row.status == TaRowStatus.saved ? '${student.name}的成绩已保存' : '成绩未变化',
+        );
+        await _repository.cacheStudentScore(
+          widget.courseId,
+          widget.assignment.id,
+          student.id,
+          value,
+        );
+        await _refreshSummary();
+      } else {
+        AppToast.show(
+          context,
+          row.status == TaRowStatus.uncertain
+              ? '成绩同步失败，输入已保留，请稍后刷新'
+              : '保存失败，输入已保留',
+          error: true,
+        );
+      }
+    } catch (_) {
+      if (mounted && _repository.active) {
+        AppToast.show(context, '成绩同步失败，输入已保留', error: true);
+      }
     } finally {
-      _checkingScores.remove(student.id);
+      _savingStudent = null;
       _changed();
     }
   }
@@ -1114,7 +1235,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
           child: FutureBuilder<void>(
             future: _loading,
             builder: (context, snapshot) {
-              if (snapshot.hasError) {
+              if (snapshot.hasError && !_rosterReady) {
                 return _Failure(
                   error: snapshot.error!,
                   retry: () => setState(() {
@@ -1122,7 +1243,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                   }),
                 );
               }
-              if (snapshot.connectionState != ConnectionState.done) {
+              if (!_rosterReady) {
                 return const Center(child: CircularProgressIndicator());
               }
               final visible = _students
@@ -1135,7 +1256,11 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                                 : !s.submitted)),
                   )
                   .toList();
-              final blocked = _batch.running || _importing || _zipBusy;
+              final blocked =
+                  _batch.running ||
+                  _importing ||
+                  _zipBusy ||
+                  _savingStudent != null;
               return Padding(
                 padding: const EdgeInsets.fromLTRB(24, 6, 24, 12),
                 child: Column(
@@ -1289,10 +1414,24 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
             ),
     );
     final actions = <Widget>[
+      AppRefreshButton(
+        tooltip: '更新名单和成绩',
+        busy: _refreshingRoster || _savingStudent != null,
+        onRefresh: () async {
+          if (_batch.running || _refreshingRoster || _savingStudent != null) {
+            return;
+          }
+          setState(() => _loading = _load());
+          await _loading;
+        },
+      ),
       AppButton(
         label: '导入成绩',
         icon: AppIcons.upload,
-        onPressed: _detail?.canGrade != true || _batch.running
+        onPressed:
+            _detail?.canGrade != true ||
+                _batch.running ||
+                _savingStudent != null
             ? null
             : _openCsvReview,
       ),
@@ -1383,8 +1522,8 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
               icon: const Icon(AppIcons.archive, size: 18),
               label: const Text('打包所选'),
             ),
-            actions.first,
-            if (_downloadMatchesSelection) ...actions.skip(1),
+            actions[1],
+            if (_downloadMatchesSelection) ...actions.skip(2),
           ],
         ),
       ],
@@ -1406,11 +1545,10 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
         visible.every((s) => _selected.contains(s.id));
     final some =
         heading && (all || visible.any((s) => _selected.contains(s.id)));
-    final score = student?.score?.toString().replaceFirst(RegExp(r'\.0$'), '');
-    final grade =
-        score ??
-        (student?.scoreChecked == true || _summary.graded == 0 ? '未批改' : '待核对');
+    final score =
+        student?.score?.toString().replaceFirst(RegExp(r'\.0$'), '') ?? '';
     return Container(
+      key: ValueKey('ta-row-${student?.id ?? 'header'}'),
       constraints: const BoxConstraints(minHeight: 48),
       decoration: BoxDecoration(
         color: heading
@@ -1489,7 +1627,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
             ),
           ),
           SizedBox(
-            width: 96,
+            width: 112,
             child: heading
                 ? Text(
                     '成绩',
@@ -1497,12 +1635,29 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                       context,
                     ).textTheme.bodySmall?.copyWith(color: p.muted),
                   )
-                : AppTableAction(
-                    tooltip: '核对${student!.name}的成绩',
-                    label: _checkingScores.contains(student.id) ? '核对中' : grade,
-                    onPressed: blocked || _checkingScores.contains(student.id)
-                        ? null
-                        : () => _checkStudent(student),
+                : Padding(
+                    padding: const EdgeInsets.only(
+                      right: 12,
+                      top: 5,
+                      bottom: 5,
+                    ),
+                    child: TaScoreField(
+                      key: ValueKey('ta-score-${student!.id}'),
+                      name: student.name,
+                      value: _scoreDrafts[student.id] ?? score,
+                      hint: !student.submitted
+                          ? '未提交'
+                          : student.scoreChecked
+                          ? '未评分'
+                          : '—',
+                      enabled:
+                          !blocked &&
+                          _detail?.canGrade == true &&
+                          student.submitted,
+                      saving: _savingStudent == student.id,
+                      onChanged: (v) => _scoreDrafts[student.id] = v,
+                      onSubmitted: (v) => _saveInline(student, v),
+                    ),
                   ),
           ),
         ],

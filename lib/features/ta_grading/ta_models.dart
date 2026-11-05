@@ -77,6 +77,23 @@ class TaStudent {
   final bool scoreChecked;
 }
 
+class TaRosterSnapshot {
+  const TaRosterSnapshot(this.students, this.checkedAt);
+  final List<TaStudent> students;
+  final DateTime checkedAt;
+}
+
+String? taPercentageScoreIssue(String score) {
+  final value = double.tryParse(score);
+  return !RegExp(r'^\d+(\.\d+)?$').hasMatch(score) ||
+          value == null ||
+          !value.isFinite ||
+          value < 0 ||
+          value > 100
+      ? '分数应为 0 至 100，空白不提交'
+      : null;
+}
+
 class TaZip {
   const TaZip({required this.id, required this.status, this.key});
   factory TaZip.parse(Object? data) {

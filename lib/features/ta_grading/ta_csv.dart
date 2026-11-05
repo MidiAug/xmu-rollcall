@@ -70,7 +70,6 @@ List<TaGradeRow> parseTaCsv(String text, List<TaStudent> students) {
     final number = record.length == 2 ? record[numberIndex].trim() : '';
     final score = record.length == 2 ? record[scoreIndex].trim() : '';
     final matches = byNumber[number] ?? [];
-    final numeric = double.tryParse(score);
     final issue = record.length != 2
         ? '列数不正确'
         : number.isEmpty
@@ -79,13 +78,7 @@ List<TaGradeRow> parseTaCsv(String text, List<TaStudent> students) {
         ? '学号重复'
         : matches.length != 1
         ? '学号不存在或不唯一'
-        : !RegExp(r'^\d+(\.\d+)?$').hasMatch(score) ||
-              numeric == null ||
-              !numeric.isFinite ||
-              numeric < 0 ||
-              numeric > 100
-        ? '分数应为 0 至 100，空白不提交'
-        : null;
+        : taPercentageScoreIssue(score);
     rows.add(
       TaGradeRow(
         line: i + 1,
