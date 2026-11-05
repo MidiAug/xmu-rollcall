@@ -101,7 +101,7 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
           data: Theme.of(context).copyWith(
             splashFactory: NoSplash.splashFactory,
             highlightColor: Colors.transparent,
-            hoverColor: p.hover.withValues(alpha: p.hover.a * .45),
+            hoverColor: p.hoverOverlay,
             checkboxTheme: CheckboxThemeData(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(5),

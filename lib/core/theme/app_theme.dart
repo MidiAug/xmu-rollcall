@@ -33,7 +33,7 @@ abstract final class AppTheme {
       splashFactory: NoSplash.splashFactory,
       highlightColor: Colors.transparent,
       splashColor: Colors.transparent,
-      hoverColor: p.hover,
+      hoverColor: p.hoverOverlay,
       scaffoldBackgroundColor: p.canvas,
       colorScheme: scheme.copyWith(
         surfaceContainerHighest: p.surfaceHigh,

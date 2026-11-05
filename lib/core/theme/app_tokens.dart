@@ -58,6 +58,12 @@ class AppPalette {
   // disappears on it. Keep navigation feedback distinct from white selection.
   Color get navigationHover => isDark ? hover : const Color(0xFFDBDFE7);
 
+  /// Ink paints over the existing surface. An opaque surface token would erase
+  /// a selected background while leaving its contrasting text unchanged.
+  Color get hoverOverlay => primary.withValues(alpha: .08);
+  Color get primaryHover => Color.lerp(primary, ink, .12)!;
+  Color get primaryPressed => Color.lerp(primary, ink, .2)!;
+
   /// Action surfaces stay distinct from the canvas even under the pointer.
   Color get controlHover => isDark ? const Color(0xFF353D4C) : surface;
   Color get controlPressed =>

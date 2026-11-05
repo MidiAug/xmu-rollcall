@@ -129,6 +129,7 @@ class _CampusMapState extends State<CampusMap> {
           ),
           child: InkWell(
             onTap: onTap,
+            focusColor: selected ? foreground.withValues(alpha: .12) : null,
             borderRadius: BorderRadius.circular(18),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 9),

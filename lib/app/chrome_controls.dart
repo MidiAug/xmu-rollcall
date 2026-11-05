@@ -67,7 +67,7 @@ class AppQuietPill extends StatelessWidget {
     final p = AppPalette.of(context);
     final enabled = onTap != null;
     final strong = background == p.primary;
-    final hover = strong ? Color.lerp(p.primary, p.ink, .12)! : p.controlHover;
+    final hover = strong ? p.primaryHover : p.controlHover;
     return ConstrainedBox(
       constraints: BoxConstraints(
         minHeight: AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 0,
@@ -78,9 +78,7 @@ class AppQuietPill extends StatelessWidget {
         outlined: border,
         backgroundColor: background ?? p.surfaceHigh,
         hoverColor: hover,
-        pressedColor: strong
-            ? Color.lerp(p.primary, p.ink, .2)!
-            : p.controlPressed,
+        pressedColor: strong ? p.primaryPressed : p.controlPressed,
         padding: padding,
         child: AnimatedOpacity(
           duration: AppMotion.instant,
@@ -130,7 +128,8 @@ class _AppHoverSurfaceState extends State<AppHoverSurface> {
     final radius = widget.borderRadius ?? BorderRadius.circular(AppRadii.card);
     final lift = widget.onTap != null && (_pressed || _hover || _focused);
     final background = widget.backgroundColor ?? p.surface;
-    final hover = widget.hoverColor ?? p.cardHover;
+    final strong = background == p.primary;
+    final hover = widget.hoverColor ?? (strong ? p.primaryHover : p.cardHover);
     final focus = background == p.primary
         ? Theme.of(context).colorScheme.onPrimary
         : p.focus;
@@ -145,7 +144,7 @@ class _AppHoverSurfaceState extends State<AppHoverSurface> {
       padding: widget.padding,
       decoration: BoxDecoration(
         color: _pressed
-            ? widget.pressedColor ?? p.content
+            ? widget.pressedColor ?? (strong ? p.primaryPressed : p.content)
             : (lift ? hover : idle),
         borderRadius: radius,
         // Keep one border's space in every state so keyboard focus never jumps.

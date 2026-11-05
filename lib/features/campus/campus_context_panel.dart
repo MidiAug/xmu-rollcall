@@ -517,7 +517,7 @@ class _TodoPreview extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        hoverColor: p.hover,
+        hoverColor: p.hoverOverlay,
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(

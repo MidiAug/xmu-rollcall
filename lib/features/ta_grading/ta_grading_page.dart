@@ -258,7 +258,7 @@ class _TaCoursesState extends State<_TaCourses> {
                                 child: InkWell(
                                   hoverColor: c.id == '$_course'
                                       ? Colors.transparent
-                                      : p.hover,
+                                      : p.hoverOverlay,
                                   highlightColor: Colors.transparent,
                                   focusColor: p.primary.withValues(alpha: .12),
                                   onTap: () {

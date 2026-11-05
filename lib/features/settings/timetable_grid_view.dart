@@ -856,7 +856,7 @@ class _CourseBlockChip extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: onTap,
-          hoverColor: p.hover,
+          hoverColor: p.hoverOverlay,
           focusColor: p.primary.withValues(alpha: .14),
           highlightColor: Colors.transparent,
           splashFactory: NoSplash.splashFactory,
