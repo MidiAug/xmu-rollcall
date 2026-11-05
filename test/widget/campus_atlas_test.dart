@@ -378,7 +378,7 @@ void main() {
       final groupZoom = controller.camera.zoom;
       await tester.tap(find.text('详情'));
       await tester.pumpAndSettle();
-      expect(find.text('楼群成员'), findsOneWidget);
+      expect(find.text('楼群成员'), findsNothing);
       expect(find.text('校区建设背景'), findsNothing);
       expect(find.text('沿革与命名'), findsWidgets);
       await tester.tap(find.byTooltip('关闭介绍'));
@@ -443,16 +443,13 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(CampusStoryDialog), findsOneWidget);
         if (building == null) {
-          expect(find.text('楼群成员'), findsOneWidget);
+          expect(find.text('楼群成员'), findsNothing);
           expect(find.text('营建沿革'), findsNothing);
           expect(find.text('校区建设背景'), findsNothing);
           expect(find.text('沿革与命名'), findsWidgets);
         } else {
           expect(find.text('资料状态'), findsNothing);
-          expect(
-            find.textContaining('了解'),
-            building.id == 'xa-hemu' ? findsOneWidget : findsNothing,
-          );
+          expect(find.textContaining('了解'), findsNothing);
         }
         await tester.drag(
           find.byKey(const ValueKey('atlas-story-scroll')),

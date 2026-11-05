@@ -7,7 +7,7 @@ import 'campus_stories.dart';
 import 'campus_story_photos.dart';
 import 'teaching_catalog.dart';
 
-/// A readable building profile. Group history stays secondary to this building.
+/// A reading profile, kept separate from the map directory and locator regions.
 class CampusStoryDialog extends StatelessWidget {
   const CampusStoryDialog({super.key, this.building, this.group, this.region});
 
@@ -24,20 +24,11 @@ class CampusStoryDialog extends StatelessWidget {
     final own = b == null
         ? campusGroupStories[g?.id]
         : campusBuildingStories[b.id];
-    final area = b == null ? null : campusGroupStories[g?.id];
-    final members = b == null
-        ? teachingBuildings.where((b) => b.groupId == g?.id).toList()
-        : <TeachingBuilding>[];
     final title = b?.name ?? g!.name;
     final photo = campusStoryPhotoFor(building: b, group: g);
-    final location = {
-      '${b?.campus ?? g!.campus}校区',
-      if (b != null && g != null && !g.id.startsWith('independent-')) g.name,
-      if (region != null) region!.aliases.firstOrNull ?? region!.code,
-    }.join('　');
+    final location = '${b?.campus ?? g!.campus}校区';
     final sources = {
       if (own != null) ...own.sourceUrls,
-      if (area != null) ...area.sourceUrls,
       if (photo != null) photo.sourceUrl,
     };
     final p = AppPalette.of(context);
@@ -93,49 +84,6 @@ class CampusStoryDialog extends StatelessWidget {
                                 text: detail.text,
                               ),
                         ],
-                        if (members.isNotEmpty) ...[
-                          const _StorySectionTitle('楼群成员'),
-                          const SizedBox(height: 8),
-                          for (final member in members)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 7),
-                              child: Text(
-                                member.name,
-                                style: AppTypography.body.copyWith(
-                                  color: p.ink,
-                                ),
-                              ),
-                            ),
-                        ],
-                        if (b != null && b.regions.isNotEmpty)
-                          _StorySection(
-                            title: '空间分区',
-                            text: b.regions
-                                .map(
-                                  (r) => RegExp(r'[区楼栋座]$').hasMatch(r.code)
-                                      ? r.code
-                                      : '${r.code}区',
-                                )
-                                .join('　'),
-                          ),
-                        if (area != null && g != null)
-                          _StoryDisclosure(
-                            title: '了解${g.name}',
-                            children: [
-                              Text(
-                                area.text,
-                                style: AppTypography.body.copyWith(
-                                  color: p.ink,
-                                  height: 1.85,
-                                ),
-                              ),
-                              for (final detail in area.sections)
-                                _StorySection(
-                                  title: detail.title,
-                                  text: detail.text,
-                                ),
-                            ],
-                          ),
                         if (sources.isNotEmpty)
                           _StoryDisclosure(
                             title: '参考资料',

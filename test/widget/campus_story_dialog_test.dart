@@ -151,6 +151,9 @@ void main() {
           expect(find.byType(Image), findsNWidgets(2));
           expect(find.byType(ShaderMask), findsOneWidget);
           expect(find.text('楼宇'), findsNothing);
+          expect(find.text('楼群成员'), findsNothing);
+          expect(find.text('空间分区'), findsNothing);
+          expect(find.textContaining('了解'), findsNothing);
           expect(find.text('资料说明'), findsNothing);
           expect(find.text('当前分区'), findsNothing);
           expect(find.textContaining('不应混作'), findsNothing);
