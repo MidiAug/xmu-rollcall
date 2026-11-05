@@ -244,28 +244,20 @@ class AppTextLink extends StatelessWidget {
           backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
           overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           side: const WidgetStatePropertyAll(BorderSide.none),
-          textStyle: WidgetStateProperty.resolveWith(
-            (states) => AppTypography.caption.copyWith(
-              decoration:
-                  states.contains(WidgetState.hovered) ||
-                      states.contains(WidgetState.focused)
-                  ? TextDecoration.underline
-                  : TextDecoration.none,
-            ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) =>
+                states.contains(WidgetState.hovered) ||
+                    states.contains(WidgetState.focused)
+                ? AppPalette.of(context).primary
+                : AppPalette.of(context).muted,
+          ),
+          textStyle: WidgetStatePropertyAll(
+            AppTypography.caption.copyWith(decoration: TextDecoration.none),
           ),
         ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          label,
-          style: AppTypography.caption.copyWith(
-            color: AppPalette.of(context).muted,
-          ),
-        ),
-        const SizedBox(width: 4),
-        Icon(icon, size: 14, color: AppPalette.of(context).muted),
-      ],
+      children: [Text(label), const SizedBox(width: 4), Icon(icon, size: 14)],
     ),
   );
 }

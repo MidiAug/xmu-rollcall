@@ -113,39 +113,41 @@ class _CampusMapState extends State<CampusMap> {
     required VoidCallback onTap,
   }) {
     final p = AppPalette.of(context);
+    final foreground = selected
+        ? Theme.of(context).colorScheme.onPrimary
+        : p.primary;
     return Tooltip(
       key: ValueKey(building ? 'map-building-$label' : 'map-place-$tooltip'),
       message: tooltip == label ? '' : tooltip ?? '放大查看$label区域',
-      child: Material(
-        color: selected ? p.primary : p.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: p.primary.withValues(alpha: .35)),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 9),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  AppIcons.location,
-                  size: 15,
-                  color: selected ? p.surface : p.primary,
-                ),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: AppTruncatedText(
-                    label,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: selected ? p.surface : p.primary,
-                      fontWeight: FontWeight.w600,
+      child: Semantics(
+        selected: selected,
+        child: Material(
+          color: selected ? p.primary : p.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: BorderSide(color: p.primary.withValues(alpha: .35)),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(18),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 9),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(AppIcons.location, size: 15, color: foreground),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: AppTruncatedText(
+                      label,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: foreground,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -167,6 +169,11 @@ class _CampusMapState extends State<CampusMap> {
                 context,
                 entry.$2.name,
                 building: true,
+                selected: entry.$2.children.any(
+                  (item) =>
+                      item.place?.id == widget.selectedPlaceId &&
+                      widget.selectedPlaceId != null,
+                ),
                 onTap: () {
                   _controller.move(entry.$2.center!, 18.3);
                   widget.onBuilding?.call(entry.$2.name);
@@ -191,6 +198,7 @@ class _CampusMapState extends State<CampusMap> {
                         ? entry.$2.name
                         : '${entry.$2.name} ${placeWing(item.name)}区',
                     tooltip: item.name,
+                    selected: widget.selectedPlaceId == place.id,
                     onTap: () => widget.onPlace?.call(place),
                   ),
                 ),

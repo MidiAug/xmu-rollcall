@@ -1,3 +1,5 @@
+import 'package:flutter/rendering.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
@@ -44,6 +46,64 @@ void main() {
     expect(tester.getRect(symbol), artBefore);
     expect(find.byType(BackdropFilter), findsNothing);
   });
+  for (final dark in [false, true]) {
+    testWidgets(
+      'text link hover and keyboard focus use color without underline $dark',
+      (tester) async {
+        var calls = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: desktopCaptureTheme(
+              (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
+                platform: TargetPlatform.windows,
+              ),
+            ),
+            builder: (context, child) => RepaintBoundary(
+              key: const ValueKey('desktop-ui-capture'),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: Center(
+                child: AppTextLink(
+                  '校园邮箱',
+                  icon: CupertinoIcons.arrow_up_right,
+                  onPressed: () => calls++,
+                ),
+              ),
+            ),
+          ),
+        );
+        final label = find.text('校园邮箱');
+        final before = tester.getRect(label);
+        TextStyle actual() => tester
+            .renderObject<RenderParagraph>(
+              find.descendant(of: label, matching: find.byType(RichText)),
+            )
+            .text
+            .style!;
+        final normal = actual().color;
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        await mouse.moveTo(tester.getCenter(label));
+        await tester.pumpAndSettle();
+        expect(actual().decoration, TextDecoration.none);
+        expect(actual().color, isNot(normal));
+        expect(tester.getRect(label), before);
+        await captureDesktopUi(tester, 'text-link-hover-$dark');
+        await mouse.moveTo(Offset.zero);
+        await tester.pumpAndSettle();
+        expect(actual().color, normal);
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        expect(actual().decoration, TextDecoration.none);
+        expect(actual().color, isNot(normal));
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(calls, 1);
+        await mouse.removePointer();
+      },
+    );
+  }
   setUpAll(() async {
     await loadDesktopPreviewFonts();
     await loadDesktopUiCaptureFonts();

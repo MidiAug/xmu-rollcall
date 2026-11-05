@@ -647,7 +647,8 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                             : BorderRadius.zero,
                         overlayInset: inset,
                         center: _viewCenter ?? campus.center,
-                        point: point,
+                        point: _creating ? point : null,
+                        selectedPlaceId: _creating ? null : _selected?.id,
                         places: visible,
                         groupBuildings: true,
                         onBuilding: (name) {

@@ -399,13 +399,60 @@ void main() {
       await tester.pumpAndSettle();
       expect(controller.camera.center, before.center);
       expect(controller.camera.zoom, before.zoom);
+      final selectedMap = tester.widget<CampusMap>(find.byType(CampusMap));
+      expect(selectedMap.point, isNull);
+      expect(selectedMap.selectedPlaceId, isNotNull);
+      expect(find.byIcon(Icons.location_on), findsNothing);
+      final selectedLabel = find.byKey(const ValueKey('map-place-学武楼 B区'));
+      final primary = Theme.of(
+        tester.element(selectedLabel),
+      ).colorScheme.primary;
       expect(
-        tester.widget<CampusMap>(find.byType(CampusMap)).point,
-        const LatLng(24.6055024, 118.3138315),
+        tester
+            .widget<Material>(
+              find.descendant(
+                of: selectedLabel,
+                matching: find.byType(Material),
+              ),
+            )
+            .color,
+        primary,
       );
       expect(find.text('暂无匹配课程'), findsOneWidget);
       expect(find.text('补充区域位置'), findsNothing);
       await capture(tester, 'building-region-selected');
+      controller.move(controller.camera.center, 16);
+      await tester.pumpAndSettle();
+      final selectedBuilding = find.byKey(const ValueKey('map-building-学武楼'));
+      expect(
+        tester
+            .widget<Material>(
+              find.descendant(
+                of: selectedBuilding,
+                matching: find.byType(Material),
+              ),
+            )
+            .color,
+        primary,
+      );
+      await capture(tester, 'building-selected-collapsed');
+      await tester.tap(find.byTooltip('关闭地点详情'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<CampusMap>(find.byType(CampusMap)).selectedPlaceId,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<Material>(
+              find.descendant(
+                of: selectedBuilding,
+                matching: find.byType(Material),
+              ),
+            )
+            .color,
+        isNot(primary),
+      );
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
