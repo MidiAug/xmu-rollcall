@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
@@ -10,6 +11,8 @@ import 'package:xmu_rollcall/features/homework/homework_submission.dart';
 
 class _Adapter implements HttpClientAdapter {
   Object payload = {};
+  Future<void>? gate;
+  void Function()? onRequest;
   final requests = <RequestOptions>[];
   @override
   void close({bool force = false}) {}
@@ -20,6 +23,8 @@ class _Adapter implements HttpClientAdapter {
     Future<void>? cancel,
   ) async {
     requests.add(options);
+    onRequest?.call();
+    await gate;
     return ResponseBody.fromString(
       jsonEncode(payload),
       200,
@@ -97,6 +102,82 @@ void main() {
       };
       expect(await repo.fetchCourseHomework(1), hasLength(100));
       expect(adapter.requests, hasLength(1));
+    },
+  );
+  test(
+    'overlapping course readers share one request and can refresh again',
+    () async {
+      adapter.payload = {
+        'homework_activities': [
+          {'id': 7, 'title': 'Task'},
+        ],
+      };
+      final gate = Completer<void>();
+      adapter.gate = gate.future;
+      final first = repo.fetchCourseHomework(1);
+      final second = repo.fetchCourseHomework(1);
+      gate.complete();
+      final results = await Future.wait([first, second]);
+      expect(adapter.requests, hasLength(1));
+      expect(results.first.single.id, 7);
+      expect(results.last.single.id, 7);
+      await repo.fetchCourseHomework(1);
+      expect(adapter.requests, hasLength(2));
+    },
+  );
+
+  test(
+    'failed shared request is released; distinct courses stay separate',
+    () async {
+      adapter.payload = {'error': 'bad payload'};
+      final results = [
+        repo.fetchCourseHomework(1),
+        repo.fetchCourseHomework(1),
+      ];
+      await Future.wait([
+        for (final result in results)
+          expectLater(result, throwsFormatException),
+      ]);
+      expect(adapter.requests, hasLength(1));
+      adapter.payload = {
+        'homework_activities': [
+          {'id': 7, 'title': 'Task'},
+        ],
+      };
+      final fresh = await Future.wait([
+        repo.fetchCourseHomework(1),
+        repo.fetchCourseHomework(2),
+      ]);
+      expect(fresh.map((items) => items.single.courseId), [1, 2]);
+      expect(adapter.requests, hasLength(3));
+    },
+  );
+
+  test(
+    'session replacement cannot join the previous session request',
+    () async {
+      adapter.payload = {
+        'homework_activities': [
+          {'id': 7, 'title': 'Task'},
+        ],
+      };
+      final started = Completer<void>();
+      final gate = Completer<void>();
+      adapter.gate = gate.future;
+      adapter.onRequest = () {
+        if (!started.isCompleted) started.complete();
+      };
+      final first = expectLater(
+        repo.fetchCourseHomework(1),
+        throwsA(isA<DioException>()),
+      );
+      await started.future;
+      await repo.http.clearSession();
+      final second = repo.fetchCourseHomework(1);
+      gate.complete();
+      await first;
+      expect((await second).single.id, 7);
+      expect(adapter.requests, hasLength(2));
     },
   );
 }

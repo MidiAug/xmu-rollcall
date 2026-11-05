@@ -11,6 +11,7 @@ class HomeworkRepository {
   final TronHttpClient http;
 
   static const maxHomeworkPages = 50;
+  final _courseRequests = <(int, int), Future<List<HomeworkItem>>>{};
 
   Future<HomeworkSubmissionState> fetchSubmission({
     required int activityId,
@@ -88,7 +89,20 @@ class HomeworkRepository {
     return HomeworkTodosFetch(items: out, diag: diag);
   }
 
-  Future<List<HomeworkItem>> fetchCourseHomework(int courseId) async {
+  /// Overview and course pages may overlap. Share transport work only; each
+  /// caller retains its own identity/page checks before publishing or saving.
+  Future<List<HomeworkItem>> fetchCourseHomework(int courseId) {
+    final key = (http.sessionRevision, courseId);
+    final existing = _courseRequests[key];
+    if (existing != null) return existing;
+    final work = _fetchCourseHomework(courseId);
+    _courseRequests[key] = work;
+    return work.whenComplete(() {
+      _courseRequests.remove(key);
+    });
+  }
+
+  Future<List<HomeworkItem>> _fetchCourseHomework(int courseId) async {
     await http.init();
     final all = <HomeworkItem>[];
     var page = 1;
