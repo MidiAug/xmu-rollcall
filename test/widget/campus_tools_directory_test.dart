@@ -476,12 +476,21 @@ void main() {
           RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
           SystemMouseCursors.basic,
         );
-        expect(fill(selected), p.selected);
+        expect(fill(selected), p.hover);
+        expect(
+          tester
+              .widget<Text>(
+                find.descendant(of: selected, matching: find.text('第一学期')),
+              )
+              .style!
+              .color,
+          p.dataAccent,
+        );
         final selectedPixel = await pixel(selected);
         await mouse.down(tester.getCenter(selected));
         await tester.pumpAndSettle();
-        expect(fill(selected), p.selected);
-        expect(await pixel(selected), selectedPixel);
+        expect(fill(selected), p.controlPressed);
+        expect(await pixel(selected), isNot(selectedPixel));
         await mouse.up();
         await tester.pumpAndSettle();
         await mouse.moveTo(Offset.zero);
@@ -493,11 +502,12 @@ void main() {
         await tester.pumpAndSettle();
         expect(fill(other), p.hover);
         expect(await pixel(other), isNot(idlePixel));
-        expect(fill(selected), p.selected);
+        expect(fill(selected), p.surface);
         await captureDesktopUi(tester, 'calendar-hover-$dark');
         await mouse.moveTo(Offset.zero);
         await tester.pumpAndSettle();
         expect(fill(other), p.surface);
+        await captureDesktopUi(tester, 'calendar-selection-idle-$dark');
         expect(tester.takeException(), isNull);
       },
     );

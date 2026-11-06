@@ -213,15 +213,9 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
                       AppHoverSurface(
                         key: ValueKey('calendar-term-row-${term.term}'),
                         outlined: false,
-                        backgroundColor: _termCode == term.term
-                            ? p.selected
-                            : p.surface,
-                        hoverColor: _termCode == term.term
-                            ? p.selected
-                            : p.hover,
-                        pressedColor: _termCode == term.term
-                            ? p.selected
-                            : p.controlPressed,
+                        backgroundColor: p.surface,
+                        hoverColor: p.hover,
+                        pressedColor: p.controlPressed,
                         padding: const EdgeInsets.all(20),
                         onTap: () => _selectTerm(term.term),
                         child: Column(
@@ -235,7 +229,9 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
                                     style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w600,
-                                      color: p.ink,
+                                      color: _termCode == term.term
+                                          ? p.dataAccent
+                                          : p.ink,
                                     ),
                                   ),
                                 ),

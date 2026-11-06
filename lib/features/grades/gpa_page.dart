@@ -203,34 +203,38 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
                               const SizedBox(height: 6),
-                              Wrap(
-                                spacing: 8,
-                                runSpacing: 6,
-                                children: [
-                                  for (final y in years)
-                                    FilterChip(
-                                      key: ValueKey('grade-year-$y'),
-                                      label: Text('$y—${y + 1}学年'),
-                                      labelStyle: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall,
-                                      selected: selectedYears.contains(y),
-                                      onSelected: (v) => setState(
-                                        () => v
-                                            ? _years.add(y)
-                                            : _years.remove(y),
+                              LayoutBuilder(
+                                builder: (context, bounds) => Wrap(
+                                  spacing: 8,
+                                  runSpacing: 6,
+                                  children: [
+                                    for (final y in years)
+                                      SizedBox(
+                                        width: bounds.maxWidth < 224
+                                            ? bounds.maxWidth
+                                            : 224,
+                                        child: AppCheckboxRow(
+                                          key: ValueKey('grade-year-$y'),
+                                          label: '$y—${y + 1}学年',
+                                          value: selectedYears.contains(y),
+                                          onChanged: (v) => setState(
+                                            () => v
+                                                ? _years.add(y)
+                                                : _years.remove(y),
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  if (years.isEmpty)
-                                    Text(
-                                      snapshot.records.isEmpty
-                                          ? '成绩发布后显示可选学年'
-                                          : '暂无可识别的学年',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall,
-                                    ),
-                                ],
+                                    if (years.isEmpty)
+                                      Text(
+                                        snapshot.records.isEmpty
+                                            ? '成绩发布后显示可选学年'
+                                            : '暂无可识别的学年',
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.bodySmall,
+                                      ),
+                                  ],
+                                ),
                               ),
                             ],
                             if (_range == GradeRange.recent &&
@@ -238,6 +242,8 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                               const SizedBox(height: 12),
                               AppShellSelect<int>(
                                 key: const ValueKey('grade-recent'),
+                                plain: true,
+                                compact: true,
                                 semanticLabel: '最近学期数量',
                                 width: 164,
                                 value: recentCount,
@@ -259,6 +265,8 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                               const SizedBox(height: 12),
                               AppShellSelect<String>(
                                 key: const ValueKey('grade-term'),
+                                plain: true,
+                                compact: true,
                                 semanticLabel: '选择学期',
                                 width: 210,
                                 value: effectiveTerm,

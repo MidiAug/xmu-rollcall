@@ -10,6 +10,7 @@
 
 - U：普通入口光标与500ms提示、规则/历史分离；根AGENTS的组件、文案和交付要求。
 - U13：校历、GPA与考试页面采用当代Apple/iOS方向，并参考具体macOS开源前端的配色与交互；保留既有光标、悬停/按下/选中与键盘反馈，不把美化做成无交互样式的静态页面。具体蓝色、图形和结构仍属于项目实现选择。
+- U14：校历学期安排不采用当前项整行灰底；GPA总绩点布局可保留，学年、近学期和学期的二级选项需要改善。名称强调配合勾选、学年复选行与紧凑选择器属于本项目实现选择，不等于用户逐项指定。
 - R：灰白/石墨方向、iOS/macOS细节倾向、连续桌面侧栏、工具等权分组、保留签到卡片。保留这些既有约束，不借整理重新设计产品。
 - P：具体tokens、自绘服务图形、Cupertino符号、组件分工与页面组合。它们实现既有方向，但代码完成不代表用户审美认可。
 - 参考图中的完整构图、表面层次和有控制的表现力可作项目设计依据；不能推断全站玻璃化、特定品牌色或大插画。统一不等于素白平铺，也不等于堆装饰。
@@ -99,6 +100,22 @@
 圆角按组件角色建立统一尺度，普通控件、内容容器和弹层各有层级；胶囊用于适合的标签、分段或主要操作，不机械覆盖全部控件。不能仅凭“去AI味”就全站减小圆角，或把大圆角、渐变和阴影本身视作缺陷。
 
 **实现值（P1，不是用户逐项指定）：** 当前 `AppRadii` 的 button/input/card/group/dialog 为12/12/18/18/24，service为22、island为26。电脑侧栏不采用 island 容器。不在业务页另造一套尺寸。现有截图只作现状证据，不自动视为用户认可的视觉标准。
+
+### macOS参考如何复用（O依据与P选择）
+
+只复用已读来源中的具体机制，先服从本项目任务和输入契约。固定源码与画面阅读范围详见[参考登记](docs/design/MACOS-REFERENCE-AND-INTERACTION.md)，跨项目经验见[Engineering案例](D:/Workbench/Engineering/10-案例/19-macOS开源界面的配色与交互复用.md)。
+
+| 已读来源 | 可复用机制 | 在本项目的选择及边界 |
+| --- | --- | --- |
+| [CodeEdit的IconButtonStyle](https://github.com/CodeEditApp/CodeEdit/blob/fa2aebd86373211c78626074b53ab75010767575/CodeEdit/Features/CodeEditUI/Styles/IconButtonStyle.swift)、同版本CapsuleButtonStyle与OverlayButtonStyle | 强调色表达active，次要文字退后，按下明度适配浅深色；材质服务控件分层 | 复用共享控件的角色和状态分工；不照搬macOS指针、任意尺寸或整页模糊。IconButtonStyle的按下实现不能证明其悬停行为 |
+| [Stats的CPU弹层](https://github.com/exelban/stats/blob/d51378c2238d1c4148792a914b220d6ca1eca466/Modules/CPU/popup.swift) | 图表强调色、标签与数值对齐、紧凑信息分组 | GPA用真实选课数据比较学期；不复制系统监控的全部颜色、仪表盘或装饰图形 |
+| Apple HIG [Layout](https://developer.apple.com/design/human-interface-guidelines/layout)、[Typography](https://developer.apple.com/design/human-interface-guidelines/typography)、[Materials](https://developer.apple.com/design/human-interface-guidelines/materials) | 内容与控件分层、字级层次、文字放大时布局适应 | 在现有Flutter组件中实现；不混用默认平台皮肤，不由Apple风格推导全站玻璃化 |
+
+配色按角色使用：canvas承载页面，surface承载正文，ink/muted表达文字层级，primary保留操作与导航；dataAccent仅强调学业数字、图表、今天与学期标识。当前浅色`#0066CC`、深色`#8AB4FF`是P选择，不是用户指定色值，也不宣称等同Apple的动态systemBlue。业务页面不另写色值，文字和工作面的组合要实测对比。
+
+选中状态不必占满整行：校历当前学期以名称强调和勾选持续标明，行背景仅提供临时hover/press；GPA多学年使用AppCheckboxRow，单学期/近学期数量复用AppShellSelect的plain+compact触发器。菜单选项继续只用底色/勾选，无描边；触发器打开和键盘焦点仍可见。具体页面契约优先，不能由此推导所有列表禁止选中填色。
+
+来源截图只证明可见构图；本轮没有运行上游macOS应用。CodeEdit README旧示意图不是当前macOS交互证据；Ice仅查过项目入口，不能列为已研究UI实现。历史Things/Raycast/Linear链接也不等于本轮重新核验原图。后续更换参考时记录固定版本、实际所读文件、采用/舍弃和本地验收，不能只增添品牌名单。
 
 ## 5. 组件入口与状态契约
 

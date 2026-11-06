@@ -398,6 +398,15 @@ void main() {
           await tester.tap(find.text('近 1 个学期').last);
           await tester.pumpAndSettle();
           expect(find.text('4.00'), findsOneWidget);
+          await capture('gpa-recent');
+          await tester.tap(find.text('学期'));
+          await tester.pumpAndSettle();
+          await capture('gpa-term');
+          await tester.tap(find.byKey(const ValueKey('grade-term')));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('2026年春季学期').last);
+          await tester.pumpAndSettle();
+          expect(find.text('2.00'), findsOneWidget);
           await tester.tap(find.text('总绩点'));
           await tester.pumpAndSettle();
           await tester.tap(find.text('排除通识课程'));
