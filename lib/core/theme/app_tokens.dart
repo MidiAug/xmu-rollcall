@@ -170,7 +170,7 @@ abstract final class AppSpace {
 
   /// Space above a settings group (previous card → next caption).
   /// Mirrors Cupertino insetGrouped header top (~16) with Quiet Utility air.
-  static const settingsGroupTop = 20.0;
+  static const settingsGroupTop = 24.0;
 
   /// Narrow-width settings group top gap.
   static const settingsGroupTopCompact = 22.0;
@@ -239,7 +239,7 @@ abstract final class AppDensity {
   static const mobileNavBottomTrim = 2.0;
 
   static const desktopRowPadH = AppSpace.md;
-  static const desktopRowPadV = AppSpace.xs;
+  static const desktopRowPadV = AppSpace.xxs;
   static const touchRowPadH = AppSpace.sm;
   static const touchRowPadV = AppSpace.xs;
 

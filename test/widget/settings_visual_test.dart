@@ -294,10 +294,7 @@ void main() {
       expect(viewport.right, 1440);
       final group = find.byType(SettingsSection).first;
       final content = tester.getRect(group);
-      expect(
-        content.width,
-        closeTo(AppLayout.contentMaxWidth - 2 * AppSpace.pageX, .1),
-      );
+      expect(content.width, closeTo(808 - 2 * AppSpace.pageX, .1));
       expect(content.center.dx, closeTo(viewport.center.dx, .1));
       final scrollbar = find.descendant(
         of: list,
@@ -453,8 +450,9 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('常用'), findsOneWidget);
-        expect(find.text(desktop ? '外观与窗口' : '应用'), findsOneWidget);
+        expect(find.text('常用'), desktop ? findsNothing : findsOneWidget);
+        expect(find.text('外观与窗口'), findsNothing);
+        expect(find.text('应用'), desktop ? findsNothing : findsOneWidget);
         expect(find.text('本学期课表'), desktop ? findsNothing : findsOneWidget);
         for (final removed in ['账号', '检测', '更多', '窗口']) {
           expect(find.text(removed), findsNothing);
@@ -468,7 +466,7 @@ void main() {
             of: appearance,
             matching: find.byType(SettingsSection),
           );
-          expect(tester.widget<SettingsSection>(group).header, '外观与窗口');
+          expect(tester.widget<SettingsSection>(group).header, isNull);
         } else {
           expect(find.byType(SettingsSection), findsNothing);
         }
@@ -492,7 +490,7 @@ void main() {
         if (desktop) {
           await tester.scrollUntilVisible(find.text('启动后继续值守'), 180);
           await tester.pumpAndSettle();
-          expect(find.text('运行与启动'), findsOneWidget);
+          expect(find.text('运行与启动'), findsNothing);
           expect(find.text('开机启动'), findsOneWidget);
           await capture(
             tester,
@@ -507,7 +505,7 @@ void main() {
           find.text(desktop ? '桌面提醒' : '后台提醒'),
           180,
         );
-        expect(find.text('通知与维护'), desktop ? findsOneWidget : findsNothing);
+        expect(find.text('通知与维护'), findsNothing);
 
         expect(find.byKey(const ValueKey('update-route-select')), findsNothing);
         await tester.scrollUntilVisible(find.text('关于'), 180);
@@ -551,7 +549,7 @@ void main() {
         await tester.tap(find.byTooltip('返回'));
         await tester.pumpAndSettle();
         final login = desktop
-            ? find.widgetWithText(FilledButton, '登录')
+            ? find.widgetWithText(TextButton, '登录')
             : find.byKey(const ValueKey('android-profile-summary'));
         await tester.scrollUntilVisible(login, -180);
         await Scrollable.ensureVisible(tester.element(login), alignment: .5);

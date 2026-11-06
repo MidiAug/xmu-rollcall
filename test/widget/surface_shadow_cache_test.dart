@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/app/app_glass_surface.dart';
 import 'package:xmu_rollcall/app/app_service_tile.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 class _ShadowTestBinding extends AutomatedTestWidgetsFlutterBinding {
   @override
@@ -62,6 +63,94 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
   for (final dark in [false, true]) {
+    testWidgets(
+      'surface has restrained depth and a solid high-contrast fallback dark=$dark',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(640, 480);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
+        final boundaryKey = GlobalKey();
+        final p = dark ? AppPalette.darkPalette : AppPalette.lightPalette;
+        Future<List<Color>> render(bool highContrast) async {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: dark ? AppTheme.dark() : AppTheme.light(),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(highContrast: highContrast),
+                child: child!,
+              ),
+              home: Scaffold(
+                body: Center(
+                  child: RepaintBoundary(
+                    key: boundaryKey,
+                    // Capture the composed surface, not premultiplied RGBA
+                    // over transparency with the Scaffold outside this layer.
+                    child: ColoredBox(
+                      color: p.canvas,
+                      child: Padding(
+                        padding: const EdgeInsets.all(40),
+                        child: SizedBox(
+                          width: 280,
+                          height: 180,
+                          child: AppGlassSurface(
+                            blur: 18,
+                            opacity: .78,
+                            child: const SizedBox.expand(),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          if (highContrast) expect(find.byType(BackdropFilter), findsNothing);
+          return (await tester.runAsync(() async {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(
+              find.byKey(boundaryKey),
+            );
+            final image = await boundary.toImage();
+            try {
+              final data = await image.toByteData(
+                format: ui.ImageByteFormat.rawRgba,
+              );
+              final bytes = data!.buffer.asUint8List();
+              Color pixel(int y) {
+                final at = (y * image.width + 180) * 4;
+                return Color.fromARGB(
+                  bytes[at + 3],
+                  bytes[at],
+                  bytes[at + 1],
+                  bytes[at + 2],
+                );
+              }
+
+              return [pixel(56), pixel(130), pixel(204)];
+            } finally {
+              image.dispose();
+            }
+          }))!;
+        }
+
+        final layered = await render(false);
+        expect(layered.map((color) => color.a), everyElement(1));
+        expect(layered.first, isNot(layered.last));
+        expect(
+          (layered.first.computeLuminance() - layered.last.computeLuminance())
+              .abs(),
+          lessThan(.08),
+          reason: 'surface depth stays quieter than text and semantic states',
+        );
+        final solid = await render(true);
+        expect(solid, everyElement(p.surface));
+        expect(tester.takeException(), isNull);
+      },
+    );
     for (final dpr in [1.0, 1.25, 2.0]) {
       testWidgets(
         'cached shadows retain pixels and layout dark=$dark dpr=$dpr',
@@ -143,7 +232,7 @@ void main() {
           for (final size in [
             const Size(300.4, 130),
             const Size(520, 180),
-            const Size(300, 88),
+            const Size(300, 64),
           ]) {
             for (final opacity in [1.0, .78]) {
               final vector = await render(

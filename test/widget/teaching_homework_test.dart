@@ -4,6 +4,7 @@ import '../fixtures/preview_fonts.dart';
 import '../fixtures/desktop_ui_capture.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -60,6 +61,11 @@ class _Course extends CourseHomeworkNotifier {
   }) async {}
 }
 
+class _EmptyCourse extends _Course {
+  @override
+  Future<List<HomeworkItem>> build(int id) async => const [];
+}
+
 class _Overview extends HomeworkOverviewNotifier {
   @override
   Future<HomeworkOverview> build() async => HomeworkOverview([
@@ -99,6 +105,103 @@ void main() {
     await loadDesktopPreviewFonts();
     await loadDesktopUiCaptureFonts();
   });
+  for (final (width, scale) in [(384.0, 1.5), (960.0, 1.0)]) {
+    testWidgets(
+      'empty teaching courses stay compact and long names remain readable at $width',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = Size(width, 800);
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        const courseTitle =
+            '复杂软件系统的分析、设计与验证：分布式架构、并发程序分析、形式化验证、'
+            '数据密集型应用、人工智能系统可靠性与跨学科工程实践联合专题研究（研究生课程）';
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authControllerProvider.overrideWith((ref) => _Auth()),
+              assistControllerProvider.overrideWith(
+                (ref) => AssistController(
+                  ref,
+                  bootstrap: false,
+                  initial: const AssistUiState(ready: true),
+                ),
+              ),
+              homeworkTodosProvider.overrideWith(_Todos.new),
+              homeworkOverviewProvider.overrideWith(_Overview.new),
+              homeworkSubmissionProvider.overrideWith(
+                (ref, key) async => const HomeworkSubmissionState(
+                  submission: HomeworkSubmission.unsubmitted,
+                ),
+              ),
+              courseHomeworkProvider.overrideWith(_EmptyCourse.new),
+              currentTeachingCoursesProvider.overrideWith(
+                (ref) async => const [
+                  CatalogCourse(
+                    id: '9',
+                    title: courseTitle,
+                    roles: ['instructor_assistant'],
+                  ),
+                ],
+              ),
+            ],
+            child: RepaintBoundary(
+              key: const ValueKey('desktop-ui-capture'),
+              child: MaterialApp(
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.linear(scale)),
+                  child: child!,
+                ),
+                theme: AppTheme.light().copyWith(
+                  platform: width < 600
+                      ? TargetPlatform.android
+                      : TargetPlatform.windows,
+                ),
+                home: const Scaffold(body: HomeworkHubPage()),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final emptyStatus = find.text('暂无进行中作业');
+        expect(emptyStatus, findsOneWidget);
+        expect(find.text('助教课程'), findsOneWidget);
+        expect(
+          find.ancestor(
+            of: emptyStatus,
+            matching: find.byType(SettingsSection),
+          ),
+          findsNothing,
+        );
+        expect(
+          tester.getSize(find.byKey(const ValueKey('teaching-empty-9'))).height,
+          lessThan(90 * scale),
+        );
+        expect(find.text('我需提交的作业'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await captureDesktopUi(
+          tester,
+          'homework-empty-teaching-${width.toInt()}-scale$scale',
+        );
+        expect(
+          tester
+              .renderObject<RenderParagraph>(find.text(courseTitle))
+              .didExceedMaxLines,
+          isTrue,
+          reason:
+              'This fixture must actually truncate before expecting a full-name tooltip',
+        );
+        await tester.longPress(find.text(courseTitle));
+        await tester.pumpAndSettle();
+        expect(find.text(courseTitle), findsNWidgets(2));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('truncated assignment names reveal the full title after hover', (
     tester,
   ) async {

@@ -533,98 +533,127 @@ class _TeachingCourseCard extends ConsumerWidget {
     if (id == null) return const SizedBox.shrink();
     final p = AppPalette.of(context);
     final async = ref.watch(courseHomeworkProvider(id));
+    final noOpenItems =
+        async.whenOrNull(
+          skipLoadingOnReload: false,
+          data: (items) => items.every((item) => item.isOverdue),
+        ) ??
+        false;
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpace.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
+            key: noOpenItems ? ValueKey('teaching-empty-$id') : null,
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpace.sm,
               vertical: 10,
             ),
-            child: Row(
-              children: [
-                Text(
-                  course.isInstructor ? '教学课程' : '助教课程',
-                  style: TextStyle(fontSize: 12, color: p.muted),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: AppTruncatedText(
-                    course.title,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      color: p.ink,
+            child: LayoutBuilder(
+              builder: (context, bounds) {
+                final scale = MediaQuery.textScalerOf(context).scale(1);
+                final wrapStatus = bounds.maxWidth < 400 * scale;
+                final heading = Row(
+                  children: [
+                    Text(
+                      course.isInstructor ? '教学课程' : '助教课程',
+                      style: AppTypography.caption.copyWith(color: p.muted),
                     ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SettingsSection(
-            padTop: false,
-            children: [
-              async.when(
-                skipLoadingOnReload: false,
-                loading: () => const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 16),
-                  child: LinearProgressIndicator(minHeight: 2),
-                ),
-                error: (_, _) => Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '暂时无法更新课程作业',
-                          style: TextStyle(fontSize: 12, color: p.muted),
-                        ),
+                    const SizedBox(width: AppSpace.sm),
+                    Expanded(
+                      child: AppTruncatedText(
+                        course.title,
+                        style: AppTypography.control.copyWith(color: p.ink),
                       ),
-                      TextButton(
-                        onPressed: () => ref
-                            .read(courseHomeworkProvider(id).notifier)
-                            .refresh(),
-                        child: const Text('重试'),
+                    ),
+                    if (noOpenItems && !wrapStatus) ...[
+                      const SizedBox(width: AppSpace.md),
+                      Text(
+                        '暂无进行中作业',
+                        style: AppTypography.caption.copyWith(color: p.muted),
                       ),
                     ],
+                  ],
+                );
+                if (!noOpenItems || !wrapStatus) return heading;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    heading,
+                    const SizedBox(height: AppSpace.xxs),
+                    Text(
+                      '暂无进行中作业',
+                      style: AppTypography.caption.copyWith(color: p.muted),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          if (!noOpenItems)
+            SettingsSection(
+              padTop: false,
+              children: [
+                async.when(
+                  skipLoadingOnReload: false,
+                  loading: () => const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: LinearProgressIndicator(minHeight: 2),
                   ),
-                ),
-                data: (items) {
-                  final open = items.where((i) => !i.isOverdue).toList();
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (open.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(16),
+                  error: (_, _) => Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        Expanded(
                           child: Text(
-                            '当前没有进行中的作业',
+                            '暂时无法更新课程作业',
                             style: TextStyle(fontSize: 12, color: p.muted),
                           ),
                         ),
-                      for (var i = 0; i < open.length; i++) ...[
-                        if (i > 0)
-                          Divider(
-                            height: 1,
-                            color: p.border,
-                            indent: 16,
-                            endIndent: 16,
-                          ),
-                        _TeachingAssignmentRow(
-                          item: open[i],
-                          onTap: () => onOpen(
-                            open[i].copyWith(courseName: course.title),
-                          ),
+                        TextButton(
+                          onPressed: () => ref
+                              .read(courseHomeworkProvider(id).notifier)
+                              .refresh(),
+                          child: const Text('重试'),
                         ),
                       ],
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
+                    ),
+                  ),
+                  data: (items) {
+                    final open = items.where((i) => !i.isOverdue).toList();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (open.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Text(
+                              '当前没有进行中的作业',
+                              style: TextStyle(fontSize: 12, color: p.muted),
+                            ),
+                          ),
+                        for (var i = 0; i < open.length; i++) ...[
+                          if (i > 0)
+                            Divider(
+                              height: 1,
+                              color: p.border,
+                              indent: 16,
+                              endIndent: 16,
+                            ),
+                          _TeachingAssignmentRow(
+                            item: open[i],
+                            onTap: () => onOpen(
+                              open[i].copyWith(courseName: course.title),
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
         ],
       ),
     );

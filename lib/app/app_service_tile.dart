@@ -28,12 +28,12 @@ class AppServiceTile extends StatelessWidget {
     final symbol = AppServiceSymbol(
       key: const ValueKey('service-symbol'),
       icon: icon,
-      size: compact ? 36 : 32,
+      size: compact ? 36 : 44,
     );
     final label = AppTruncatedText(
       title,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-        fontSize: 15,
+        fontSize: compact ? 15 : 16,
         fontWeight: FontWeight.w600,
         color: p.ink,
       ),
@@ -43,7 +43,7 @@ class AppServiceTile extends StatelessWidget {
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        fontSize: 12,
+        fontSize: 13,
         color: p.muted,
         height: 1.45,
       ),
@@ -83,16 +83,19 @@ class AppServiceTile extends StatelessWidget {
                     arrow,
                   ],
                 )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(children: [symbol, const Spacer(), arrow]),
-                    const SizedBox(height: AppSpace.sm),
-                    label,
-                    const SizedBox(height: AppSpace.xxs),
-                    detail,
-                  ],
+              : ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 116),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(children: [symbol, const Spacer(), arrow]),
+                      const SizedBox(height: AppSpace.md),
+                      label,
+                      const SizedBox(height: AppSpace.xxs),
+                      detail,
+                    ],
+                  ),
                 ),
         ),
       ),

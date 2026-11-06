@@ -300,76 +300,87 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
           ),
         );
 
-        return Material(
-          color: p.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadii.group),
-            side: BorderSide(color: p.border),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: ScrollConfiguration(
-            behavior: ScrollConfiguration.of(
-              context,
-            ).copyWith(scrollbars: false),
-            child: Scrollbar(
-              controller: _horizontal,
-              thumbVisibility: !touch && gridW > w,
-              notificationPredicate: (n) => n.metrics.axis == Axis.horizontal,
-              child: Column(
-                children: [
-                  SizedBox(
-                    key: const ValueKey('timetable-weekdays'),
-                    height: headerH,
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: axisW,
-                          child: Center(
-                            child: Text(
-                              '节次',
-                              style: Theme.of(context).textTheme.labelSmall,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: AnimatedBuilder(
-                            animation: _horizontal,
-                            child: weekdays,
-                            builder: (context, child) => ClipRect(
-                              child: OverflowBox(
-                                alignment: Alignment.centerLeft,
-                                minWidth: gridW - axisW,
-                                maxWidth: gridW - axisW,
-                                child: Transform.translate(
-                                  offset: Offset(
-                                    _horizontal.hasClients
-                                        ? -_horizontal.offset
-                                        : 0,
-                                    0,
-                                  ),
-                                  child: child,
+        return Align(
+          alignment: Alignment.topCenter,
+          child: SizedBox(
+            width: double.infinity,
+            // Sparse weeks should end at the last drawn row rather than leave
+            // a blank framed area below the grid. Long weeks still scroll.
+            height: math.min(h, headerH + bodyH),
+            child: Material(
+              key: const ValueKey('timetable-surface'),
+              color: p.surface,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.group),
+                side: BorderSide(color: p.border),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(scrollbars: false),
+                child: Scrollbar(
+                  controller: _horizontal,
+                  thumbVisibility: !touch && gridW > w,
+                  notificationPredicate: (n) =>
+                      n.metrics.axis == Axis.horizontal,
+                  child: Column(
+                    children: [
+                      SizedBox(
+                        key: const ValueKey('timetable-weekdays'),
+                        height: headerH,
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: axisW,
+                              child: Center(
+                                child: Text(
+                                  '节次',
+                                  style: Theme.of(context).textTheme.labelSmall,
                                 ),
                               ),
                             ),
+                            Expanded(
+                              child: AnimatedBuilder(
+                                animation: _horizontal,
+                                child: weekdays,
+                                builder: (context, child) => ClipRect(
+                                  child: OverflowBox(
+                                    alignment: Alignment.centerLeft,
+                                    minWidth: gridW - axisW,
+                                    maxWidth: gridW - axisW,
+                                    child: Transform.translate(
+                                      offset: Offset(
+                                        _horizontal.hasClients
+                                            ? -_horizontal.offset
+                                            : 0,
+                                        0,
+                                      ),
+                                      child: child,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Scrollbar(
+                          controller: _vertical,
+                          thumbVisibility: !touch && bodyH > h - headerH,
+                          notificationPredicate: (n) =>
+                              n.metrics.axis == Axis.vertical,
+                          child: SingleChildScrollView(
+                            key: const ValueKey('timetable-vertical'),
+                            controller: _vertical,
+                            child: body,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Scrollbar(
-                      controller: _vertical,
-                      thumbVisibility: !touch && bodyH > h - headerH,
-                      notificationPredicate: (n) =>
-                          n.metrics.axis == Axis.vertical,
-                      child: SingleChildScrollView(
-                        key: const ValueKey('timetable-vertical'),
-                        controller: _vertical,
-                        child: body,
                       ),
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),

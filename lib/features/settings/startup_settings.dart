@@ -6,10 +6,12 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/platform/windows_startup.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 /// App launch preferences live in settings, independently of the sign-in page.
 class StartupSettings extends ConsumerStatefulWidget {
-  const StartupSettings({super.key});
+  const StartupSettings({super.key, this.showHeader = true});
+  final bool showHeader;
 
   @override
   ConsumerState<StartupSettings> createState() => _StartupSettingsState();
@@ -58,10 +60,11 @@ class _StartupSettingsState extends ConsumerState<StartupSettings> {
     final isOwner = ref.watch(selectedRollcallAccountProvider) == null;
     final startup = ref.watch(windowsStartupProvider);
     return SettingsSection(
-      header: '运行与启动',
-      hasLeading: false,
+      header: widget.showHeader ? '运行与启动' : null,
+      hasLeading: !widget.showHeader,
       children: [
         SettingsRow(
+          leading: widget.showHeader ? null : const Icon(AppIcons.desktop),
           title: '开机启动',
           subtitle:
               _error ??
@@ -76,6 +79,7 @@ class _StartupSettingsState extends ConsumerState<StartupSettings> {
           ),
         ),
         SettingsRow(
+          leading: widget.showHeader ? null : const Icon(AppIcons.guard),
           title: '启动后继续值守',
           subtitle: !signedIn
               ? '登录主账号后可设置'

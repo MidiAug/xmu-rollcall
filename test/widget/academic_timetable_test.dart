@@ -10,6 +10,7 @@ import 'package:xmu_rollcall/features/schedule/academic_timetable_reader.dart';
 import '../fixtures/preview_fonts.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
+import 'package:xmu_rollcall/features/schedule/academic_calendar.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -392,6 +393,8 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
         final now = DateTime.now();
         final monday = DateTime(now.year, now.month, now.day - now.weekday + 1);
+        final termStart = academicMondays['20261']!;
+        final currentWeek = monday.difference(termStart).inDays ~/ 7 + 1;
         CatalogCourse course(String id, int offset) => CatalogCourse(
           id: id,
           title: offset == 0 ? '计算机网络' : '人工智能导论',
@@ -404,7 +407,7 @@ void main() {
                 start: DateTime(2000, 1, 3, 10, 10),
                 end: DateTime(2000, 1, 3, 11, 50),
                 classroom: '教学楼 A101',
-                weekLabel: offset == 0 ? '第1、3周' : '第2、4周',
+                weekLabel: '第${currentWeek + offset ~/ 7}周',
                 dates: {
                   TimetableSlot.dateKey(monday.add(Duration(days: offset))),
                 },
@@ -474,11 +477,14 @@ void main() {
               overrides: [
                 authControllerProvider.overrideWith((ref) => _Auth()),
                 courseCatalogProvider.overrideWith(() => catalog),
+                semesterInfoProvider(1).overrideWith(
+                  (ref) async => SemesterInfo(term: '20261', start: termStart),
+                ),
                 academicTimetableProvider(1).overrideWith(
                   (ref) async => AcademicTimetableState(
                     schedule: AcademicSchedule(
                       term: '20261',
-                      monday: monday,
+                      monday: termStart,
                       fetchedAt: now,
                       rows: [
                         for (final (i, c) in academicCourses.indexed)
@@ -492,7 +498,10 @@ void main() {
                             'startMinute': 610,
                             'endMinute': 710,
                             'JASMC': '教学楼 A101',
-                            'ZCBH': i == 0 ? '10' : '01',
+                            'ZCBH': List.generate(
+                              currentWeek + 1,
+                              (week) => week == currentWeek - 1 + i ? '1' : '0',
+                            ).join(),
                           },
                       ].map(AcademicCourseRow.fromJson).toList(),
                     ),
@@ -518,6 +527,23 @@ void main() {
         expect(find.byType(PopupMenuButton<String>), findsNothing);
         expect(find.text('补全安排'), findsNothing);
         expect(find.text('关联课程'), findsNothing);
+        expect(find.text('第$currentWeek周'), findsOneWidget);
+        final lastBlock = find.byWidgetPredicate(
+          (w) =>
+              w.key is ValueKey<String> &&
+              (w.key! as ValueKey<String>).value.startsWith(
+                'course-academic:current/A-',
+              ),
+        );
+        expect(
+          tester
+                  .getRect(find.byKey(const ValueKey('timetable-surface')))
+                  .bottom -
+              tester.getRect(lastBlock).bottom,
+          lessThan(8),
+          reason:
+              'A sparse grid surface ends with its last row, without a blank framed tail',
+        );
         expect(
           tester
               .widget<Text>(find.byKey(const ValueKey('timetable-date-1')))

@@ -119,6 +119,13 @@ void main() {
               ),
             );
             await tester.pumpAndSettle();
+            // Compare the same loaded artwork before and after navigation,
+            // rather than a first-frame placeholder with a decoded bitmap.
+            for (final element in find.byType(Image).evaluate()) {
+              final image = element.widget as Image;
+              await tester.runAsync(() => precacheImage(image.image, element));
+            }
+            await tester.pumpAndSettle();
             Future<Uint8List> pixels() async =>
                 (await tester.runAsync(() async {
                   final image =

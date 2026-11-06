@@ -33,14 +33,21 @@ class AppGlassSurface extends StatelessWidget {
     final surface = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: radius,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            p.surface.withValues(alpha: highContrast || opacity == 1 ? 1 : .97),
-            p.surface.withValues(alpha: highContrast ? 1 : opacity),
-          ],
-        ),
+        color: highContrast ? p.surface : null,
+        gradient: highContrast
+            ? null
+            : LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  p.surface.withValues(alpha: opacity == 1 ? 1 : .97),
+                  Color.lerp(
+                    p.surface,
+                    p.surfaceHigh,
+                    p.isDark ? .20 : .32,
+                  )!.withValues(alpha: opacity),
+                ],
+              ),
         border: Border.all(
           color: p.isDark
               ? Colors.white.withValues(alpha: .12)
@@ -53,12 +60,12 @@ class AppGlassSurface extends StatelessWidget {
       borderRadius: radius,
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: p.isDark ? .18 : .035),
-          blurRadius: 20,
-          offset: const Offset(0, 6),
+          color: Colors.black.withValues(alpha: p.isDark ? .18 : .045),
+          blurRadius: 12,
+          offset: const Offset(0, 3),
         ),
         BoxShadow(
-          color: Colors.black.withValues(alpha: p.isDark ? .08 : .015),
+          color: Colors.black.withValues(alpha: p.isDark ? .08 : .025),
           blurRadius: 2,
           offset: const Offset(0, 1),
         ),

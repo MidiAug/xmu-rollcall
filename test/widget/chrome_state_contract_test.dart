@@ -201,12 +201,35 @@ void main() {
       final rect = tester.getRect(selected);
       final sample = Offset(rect.right - 20, rect.center.dy);
       final idle = await pixel(tester, capture, sample);
+      final selectedTop = await pixel(
+        tester,
+        capture,
+        Offset(rect.right - 20, rect.top + 5),
+      );
+      final selectedBottom = await pixel(
+        tester,
+        capture,
+        Offset(rect.right - 20, rect.bottom - 5),
+      );
+      expect(selectedTop, isNot(selectedBottom));
+      expect(
+        (selectedTop.computeLuminance() - selectedBottom.computeLuminance())
+            .abs(),
+        lessThan(.08),
+      );
       final mouse = await tester.createGesture(
         kind: ui.PointerDeviceKind.mouse,
       );
       await mouse.addPointer(location: const Offset(600, 500));
       addTearDown(mouse.removePointer);
       await mouse.moveTo(rect.center);
+      await tester.pumpAndSettle();
+      expect(await pixel(tester, capture, sample), idle);
+      await mouse.down(rect.center);
+      await tester.pumpAndSettle();
+      expect(await pixel(tester, capture, sample), idle);
+      expect(tester.getRect(selected), rect);
+      await mouse.up();
       await tester.pumpAndSettle();
       expect(await pixel(tester, capture, sample), idle);
       final other = find.widgetWithText(TextButton, '作业');

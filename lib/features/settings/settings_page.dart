@@ -128,15 +128,39 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 ),
         )
       else
-        SettingsSection(
-          padTop: false,
-          children: [
-            SettingsRow(
-              leading: const Icon(AppIcons.person, size: 28),
-              title: auth.isSignedIn ? (auth.profile?.name ?? '已登录') : '未登录',
-              subtitle: accountSubtitle,
-              trailing: auth.isSignedIn
-                  ? OutlinedButton(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: p.surfaceHigh,
+                child: Icon(AppIcons.person, size: 28, color: p.muted),
+              ),
+              const SizedBox(width: AppSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppTruncatedText(
+                      auth.isSignedIn ? (auth.profile?.name ?? '已登录') : '未登录',
+                      style: AppTypography.sectionTitle.copyWith(
+                        fontSize: 18,
+                        color: p.ink,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.xxs),
+                    Text(
+                      accountSubtitle,
+                      maxLines: 2,
+                      style: AppTypography.caption.copyWith(color: p.muted),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpace.md),
+              auth.isSignedIn
+                  ? TextButton(
                       onPressed: () async {
                         await ref
                             .read(authControllerProvider.notifier)
@@ -144,15 +168,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                       },
                       child: const Text('退出'),
                     )
-                  : FilledButton(
+                  : TextButton(
                       onPressed: () => showLoginDialog(context),
                       child: const Text('登录'),
                     ),
-            ),
-          ],
+            ],
+          ),
         ),
       SettingsSection(
-        header: desktop ? '外观与窗口' : '应用',
+        header: desktop ? null : '应用',
         children: [
           SettingsRow(
             leading: const Icon(AppIcons.theme),
@@ -230,7 +254,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
         ],
       ),
       SettingsSection(
-        header: '常用',
+        header: desktop ? null : '常用',
         children: [
           if (!desktop)
             SettingsRow(
@@ -261,9 +285,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           ),
         ],
       ),
-      if (desktop) const StartupSettings(),
+      if (desktop) const StartupSettings(showHeader: false),
       SettingsSection(
-        header: desktop ? '通知与维护' : '通知与数据',
+        header: desktop ? null : '通知与数据',
         children: [
           if (platform == TargetPlatform.android || desktop)
             SettingsRow(
@@ -295,6 +319,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           : '我的',
       showHeader: false,
       child: AppPageViewport(
+        maxWidth: 808,
         builder: (context, contentInsets) => ListView(
           controller: _scroll,
           padding:

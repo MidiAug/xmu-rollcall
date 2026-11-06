@@ -120,6 +120,8 @@ class _DesktopNavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final highContrast = MediaQuery.highContrastOf(context);
+    final selectedSurface = p.isDark ? p.selected : p.surface;
     final hint = hasPendingPlace
         ? '有上课地点未定位，请在地图上标记'
         : hasUpdate
@@ -134,86 +136,120 @@ class _DesktopNavItem extends StatelessWidget {
           message: hint,
           child: SizedBox(
             height: 40,
-            child: TextButton(
-              onPressed: onTap,
-              style:
-                  TextButton.styleFrom(
-                    alignment: Alignment.centerLeft,
-                    foregroundColor: selected ? p.navigationAccent : p.ink,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadii.nav),
-                    ),
-                  ).copyWith(
-                    // A destination change is immediate; interpolating the
-                    // persistent surface makes an accepted click look delayed.
-                    animationDuration: Duration.zero,
-                    // Persistent selection is the surface itself, not an overlay that
-                    // transient button feedback can obscure.
-                    backgroundColor: WidgetStateProperty.resolveWith((states) {
-                      if (selected) {
-                        return p.isDark ? p.selected : p.surface;
-                      }
-                      if (states.contains(WidgetState.pressed)) {
-                        return p.selected;
-                      }
-                      if (states.contains(WidgetState.hovered)) {
-                        return p.navigationHover;
-                      }
-                      return AppPalette.clearOf(p.sidebar);
-                    }),
-                    overlayColor: const WidgetStatePropertyAll(
-                      Colors.transparent,
-                    ),
-                    side: WidgetStateProperty.resolveWith(
-                      (states) => BorderSide(
-                        color: states.contains(WidgetState.focused)
-                            ? p.focus
-                            : AppPalette.clearOf(p.focus),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(AppRadii.nav),
+                gradient: selected && !highContrast
+                    ? LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          selectedSurface,
+                          Color.lerp(
+                            selectedSurface,
+                            p.isDark ? p.surfaceHigh : p.selected,
+                            p.isDark ? .25 : .35,
+                          )!,
+                        ],
+                      )
+                    : null,
+                boxShadow: selected && !highContrast
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withValues(
+                            alpha: p.isDark ? .12 : .055,
+                          ),
+                          blurRadius: 5,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: TextButton(
+                onPressed: onTap,
+                style:
+                    TextButton.styleFrom(
+                      alignment: Alignment.centerLeft,
+                      foregroundColor: selected ? p.navigationAccent : p.ink,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(AppRadii.nav),
+                      ),
+                    ).copyWith(
+                      // A destination change is immediate; interpolating the
+                      // persistent surface makes an accepted click look delayed.
+                      animationDuration: Duration.zero,
+                      // Persistent selection is the surface itself, not an overlay that
+                      // transient button feedback can obscure.
+                      backgroundColor: WidgetStateProperty.resolveWith((
+                        states,
+                      ) {
+                        if (selected) {
+                          return highContrast
+                              ? selectedSurface
+                              : AppPalette.clearOf(selectedSurface);
+                        }
+                        if (states.contains(WidgetState.pressed)) {
+                          return p.selected;
+                        }
+                        if (states.contains(WidgetState.hovered)) {
+                          return p.navigationHover;
+                        }
+                        return AppPalette.clearOf(p.sidebar);
+                      }),
+                      overlayColor: const WidgetStatePropertyAll(
+                        Colors.transparent,
+                      ),
+                      side: WidgetStateProperty.resolveWith(
+                        (states) => BorderSide(
+                          color: states.contains(WidgetState.focused)
+                              ? p.focus
+                              : AppPalette.clearOf(p.focus),
+                        ),
                       ),
                     ),
-                  ),
-              child: Row(
-                children: [
-                  _NavigationIcon(
-                    icon: selected
-                        ? destination.selectedIcon
-                        : destination.icon,
-                    size: 22,
-                    color: selected ? p.navigationAccent : p.muted,
-                    hasUpdate: false,
-                    hint: hint,
-                    dotSize: 4,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      destination.desktopLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: selected
-                            ? FontWeight.w600
-                            : FontWeight.w400,
+                child: Row(
+                  children: [
+                    _NavigationIcon(
+                      icon: selected
+                          ? destination.selectedIcon
+                          : destination.icon,
+                      size: 22,
+                      color: selected ? p.navigationAccent : p.muted,
+                      hasUpdate: false,
+                      hint: hint,
+                      dotSize: 4,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        destination.desktopLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 10),
-                  SizedBox(
-                    width: 7,
-                    height: 7,
-                    child: hasUpdate || hasPendingPlace
-                        ? Container(
-                            key: ValueKey('desktop-notice-${destination.id}'),
-                            decoration: BoxDecoration(
-                              color: p.primary,
-                              shape: BoxShape.circle,
-                            ),
-                          )
-                        : null,
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      width: 7,
+                      height: 7,
+                      child: hasUpdate || hasPendingPlace
+                          ? Container(
+                              key: ValueKey('desktop-notice-${destination.id}'),
+                              decoration: BoxDecoration(
+                                color: p.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            )
+                          : null,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

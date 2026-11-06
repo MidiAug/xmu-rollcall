@@ -35,7 +35,7 @@ class HomeworkListRow extends StatelessWidget {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const AppIconSurface(child: Icon(AppIcons.document)),
+              AppIconSurface(child: Icon(AppIcons.document, color: p.muted)),
               SizedBox(width: AppDensity.rowInnerGap(context)),
               Expanded(
                 child: Column(
