@@ -240,24 +240,12 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                             if (_range == GradeRange.recent &&
                                 terms.isNotEmpty) ...[
                               const SizedBox(height: 12),
-                              AppShellSelect<int>(
+                              _RecentTermCount(
                                 key: const ValueKey('grade-recent'),
-                                plain: true,
-                                compact: true,
-                                semanticLabel: '最近学期数量',
-                                width: 164,
                                 value: recentCount,
-                                items: [
-                                  for (var n = 1; n <= terms.length; n++) n,
-                                ],
-                                labelOf: (n) => '近 $n 个学期',
+                                maximum: terms.length,
                                 onChanged: (n) =>
                                     setState(() => _recentCount = n),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                '按有成绩的学期倒序选取，含夏季及短学期',
-                                style: Theme.of(context).textTheme.bodySmall,
                               ),
                             ],
                             if (_range == GradeRange.term &&
@@ -607,6 +595,89 @@ class _GpaPageState extends ConsumerState<GpaPage> {
 
   String _termLabel(String term) =>
       GradeTerm.parse(term)?.label ?? (term.isEmpty ? '未标注学期' : term);
+}
+
+/// A count is adjusted in place so the result stays visible during comparison.
+class _RecentTermCount extends StatelessWidget {
+  const _RecentTermCount({
+    super.key,
+    required this.value,
+    required this.maximum,
+    required this.onChanged,
+  });
+
+  final int value;
+  final int maximum;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Wrap(
+      spacing: 16,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('最近'),
+            const SizedBox(width: 10),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: p.sidebar,
+                borderRadius: BorderRadius.circular(AppRadii.button),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AppIconButton(
+                    key: const ValueKey('grade-recent-less'),
+                    tooltip: '减少学期',
+                    hoverOutline: false,
+                    icon: const Icon(AppIcons.subtract, size: 16),
+                    onPressed: value > 1 ? () => onChanged(value - 1) : null,
+                  ),
+                  Semantics(
+                    label: '最近学期数量',
+                    value: '$value 个学期',
+                    liveRegion: true,
+                    child: ExcludeSemantics(
+                      child: SizedBox(
+                        width: 36,
+                        child: Text(
+                          '$value',
+                          key: const ValueKey('grade-recent-value'),
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                  ),
+                  AppIconButton(
+                    key: const ValueKey('grade-recent-more'),
+                    tooltip: '增加学期',
+                    hoverOutline: false,
+                    icon: const Icon(AppIcons.add, size: 16),
+                    onPressed: value < maximum
+                        ? () => onChanged(value + 1)
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text('个学期'),
+          ],
+        ),
+        Text(
+          '按有成绩的学期倒序选取，含夏季及短学期',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
 }
 
 /// A zero-based comparison of the selected courses in each visible semester.

@@ -24,6 +24,7 @@ abstract final class AppIcons {
   static const battery = CupertinoIcons.battery_0;
   static const error = CupertinoIcons.exclamationmark_circle;
   static const add = CupertinoIcons.plus;
+  static const subtract = CupertinoIcons.minus;
   static const remove = CupertinoIcons.minus_circle;
   static const lock = CupertinoIcons.lock;
   static const visible = CupertinoIcons.eye;

@@ -143,6 +143,113 @@ void main() {
   );
   for (final dark in [false, true]) {
     testWidgets(
+      'recent count adjusts in place with bounds, feedback and keyboard dark=$dark',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 1100);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final capture = GlobalKey();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authControllerProvider.overrideWith((ref) => Auth()),
+              gradeSnapshotProvider.overrideWith(ManyGrades.new),
+            ],
+            child: MaterialApp(
+              theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
+                platform: TargetPlatform.windows,
+              ),
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(1.5)),
+                child: child!,
+              ),
+              home: RepaintBoundary(key: capture, child: const GpaPage()),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('近学期'));
+        await tester.pumpAndSettle();
+        final more = find.byKey(const ValueKey('grade-recent-more'));
+        final less = find.byKey(const ValueKey('grade-recent-less'));
+        String count() => tester
+            .widget<Text>(find.byKey(const ValueKey('grade-recent-value')))
+            .data!;
+        VoidCallback? action(Finder control) => tester
+            .widget<IconButton>(
+              find.descendant(of: control, matching: find.byType(IconButton)),
+            )
+            .onPressed;
+        final point = tester.getTopLeft(more) + const Offset(8, 8);
+        Future<Color> pixel() async => (await tester.runAsync(() async {
+          final image =
+              await (capture.currentContext!.findRenderObject()!
+                      as RenderRepaintBoundary)
+                  .toImage();
+          try {
+            final data = (await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            ))!.buffer.asUint8List();
+            final at = (point.dy.floor() * image.width + point.dx.floor()) * 4;
+            return Color.fromARGB(255, data[at], data[at + 1], data[at + 2]);
+          } finally {
+            image.dispose();
+          }
+        }))!;
+        expect(count(), '2');
+        final idle = await pixel();
+        final mouse = await tester.createGesture(
+          kind: ui.PointerDeviceKind.mouse,
+        );
+        await mouse.addPointer();
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(point);
+        await tester.pumpAndSettle();
+        expect(
+          RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+          SystemMouseCursors.basic,
+        );
+        final hover = await pixel();
+        expect(hover, isNot(idle));
+        await mouse.down(point);
+        await tester.pumpAndSettle();
+        expect(count(), '2');
+        expect(await pixel(), isNot(hover));
+        await mouse.up();
+        await tester.pumpAndSettle();
+        expect(count(), '3');
+        await mouse.moveTo(Offset.zero);
+        await tester.pumpAndSettle();
+        expect(await pixel(), idle);
+        for (var i = 0; i < 4; i++) {
+          await tester.tap(more);
+          await tester.pumpAndSettle();
+        }
+        expect(count(), '7');
+        expect(action(more), isNull);
+        for (var i = 0; i < 6; i++) {
+          await tester.tap(less);
+          await tester.pumpAndSettle();
+        }
+        expect(count(), '1');
+        expect(action(less), isNull);
+        Focus.of(
+          tester.element(
+            find.descendant(of: more, matching: find.byType(Icon)),
+          ),
+        ).requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.space);
+        await tester.pumpAndSettle();
+        expect(count(), '2');
+        expect(find.text('最近 2 个有成绩的学期'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+    testWidgets(
       'GPA course hover paints feedback and keeps the native arrow dark=$dark',
       (tester) async {
         tester.view.physicalSize = const Size(960, 1100);
@@ -392,10 +499,7 @@ void main() {
           await tester.tap(find.text('近学期'));
           await tester.pumpAndSettle();
           expect(find.text('3.33'), findsOneWidget);
-          await tester.tap(find.byKey(const ValueKey('grade-recent')));
-          await tester.pumpAndSettle();
-          expect(find.text('近 3 个学期'), findsNothing);
-          await tester.tap(find.text('近 1 个学期').last);
+          await tester.tap(find.byKey(const ValueKey('grade-recent-less')));
           await tester.pumpAndSettle();
           expect(find.text('4.00'), findsOneWidget);
           await capture('gpa-recent');
