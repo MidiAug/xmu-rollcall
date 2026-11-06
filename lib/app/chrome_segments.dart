@@ -123,6 +123,70 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
                       2 -
                   1) *
               (rtl ? -1 : 1);
+    if (widget.expanded && widget.segments.isNotEmpty) {
+      return LayoutBuilder(
+        builder: (context, bounds) {
+          if (bounds.maxWidth.isFinite &&
+              bounds.maxWidth < segmentWidth * widget.segments.length + 6) {
+            // Keep the complete range names at large text sizes. Balance the
+            // rows while retaining one focus group and its original key order.
+            final available = (bounds.maxWidth - 6).clamp(0.0, double.infinity);
+            final maxColumns = ((available + 4) / (segmentWidth + 4))
+                .floor()
+                .clamp(1, widget.segments.length);
+            final rows = (widget.segments.length / maxColumns).ceil();
+            final columns = (widget.segments.length / rows).ceil();
+            final width = (available - (columns - 1) * 4) / columns;
+            return Focus(
+              canRequestFocus: false,
+              includeSemantics: false,
+              onKeyEvent: _handleKey,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: p.content,
+                  borderRadius: BorderRadius.circular(AppRadii.input),
+                ),
+                child: Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: [
+                    for (var i = 0; i < widget.segments.length; i++)
+                      SizedBox(
+                        width: width,
+                        child: DecoratedBox(
+                          key: i == selected
+                              ? const ValueKey('segment-selection')
+                              : null,
+                          decoration: BoxDecoration(
+                            color: i == selected ? p.surface : null,
+                            borderRadius: BorderRadius.circular(
+                              AppRadii.control,
+                            ),
+                          ),
+                          child: _segment(i),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          }
+          return _track(context, p, touch, selected, x, segmentWidth);
+        },
+      );
+    }
+    return _track(context, p, touch, selected, x, segmentWidth);
+  }
+
+  Widget _track(
+    BuildContext context,
+    AppPalette p,
+    bool touch,
+    int selected,
+    double x,
+    double segmentWidth,
+  ) {
     if (touch) {
       return Focus(
         canRequestFocus: false,

@@ -129,10 +129,13 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                           24,
                         ),
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
+                      Panel(
+                        key: const ValueKey('grade-calculation'),
+                        padding: EdgeInsets.all(
+                          AppDensity.isTouch(context) ? 16 : 24,
+                        ),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             LayoutBuilder(
                               builder: (context, bounds) {
@@ -199,42 +202,50 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                             if (_range == GradeRange.year) ...[
                               const SizedBox(height: 12),
                               Text(
-                                '选择实际学年，可多选',
+                                '选择学年，可多选',
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
                               const SizedBox(height: 6),
                               LayoutBuilder(
-                                builder: (context, bounds) => Wrap(
-                                  spacing: 8,
-                                  runSpacing: 6,
-                                  children: [
-                                    for (final y in years)
-                                      SizedBox(
-                                        width: bounds.maxWidth < 224
-                                            ? bounds.maxWidth
-                                            : 224,
-                                        child: AppCheckboxRow(
-                                          key: ValueKey('grade-year-$y'),
-                                          label: '$y—${y + 1}学年',
-                                          value: selectedYears.contains(y),
-                                          onChanged: (v) => setState(
-                                            () => v
-                                                ? _years.add(y)
-                                                : _years.remove(y),
+                                builder: (context, bounds) {
+                                  final itemWidth =
+                                      184 *
+                                      MediaQuery.textScalerOf(
+                                        context,
+                                      ).scale(14) /
+                                      14;
+                                  return Wrap(
+                                    spacing: 8,
+                                    runSpacing: 6,
+                                    children: [
+                                      for (final y in years)
+                                        SizedBox(
+                                          width: bounds.maxWidth < itemWidth
+                                              ? bounds.maxWidth
+                                              : itemWidth,
+                                          child: AppCheckboxRow(
+                                            key: ValueKey('grade-year-$y'),
+                                            label: '$y—${y + 1}学年',
+                                            value: selectedYears.contains(y),
+                                            onChanged: (v) => setState(
+                                              () => v
+                                                  ? _years.add(y)
+                                                  : _years.remove(y),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    if (years.isEmpty)
-                                      Text(
-                                        snapshot.records.isEmpty
-                                            ? '成绩发布后显示可选学年'
-                                            : '暂无可识别的学年',
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall,
-                                      ),
-                                  ],
-                                ),
+                                      if (years.isEmpty)
+                                        Text(
+                                          snapshot.records.isEmpty
+                                              ? '成绩发布后显示可选学年'
+                                              : '暂无可识别的学年',
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
+                                        ),
+                                    ],
+                                  );
+                                },
                               ),
                             ],
                             if (_range == GradeRange.recent &&
@@ -263,36 +274,38 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                                 onChanged: (t) => setState(() => _term = t),
                               ),
                             ],
+                            const SizedBox(height: 20),
+                            Divider(height: 1, color: p.border),
+                            const SizedBox(height: 20),
+                            _summaryContent(
+                              context,
+                              summary,
+                              scopeLabel,
+                              visible,
+                              included,
+                              snapshot.at,
+                            ),
+                            if (_error != null ||
+                                ref
+                                        .read(gradeSnapshotProvider.notifier)
+                                        .warning !=
+                                    null) ...[
+                              const SizedBox(height: 12),
+                              Text(
+                                _error ??
+                                    ref
+                                        .read(gradeSnapshotProvider.notifier)
+                                        .warning!,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: p.danger),
+                              ),
+                            ],
                           ],
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      _summaryPanel(
-                        context,
-                        summary,
-                        scopeLabel,
-                        visible,
-                        included,
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        '更新于 ${snapshot.at.toLocal().toString().substring(0, 16)}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      if (_error != null ||
-                          ref.read(gradeSnapshotProvider.notifier).warning !=
-                              null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          _error ??
-                              ref.read(gradeSnapshotProvider.notifier).warning!,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodySmall?.copyWith(color: p.danger),
-                        ),
-                      ],
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 24),
                       Wrap(
+                        key: const ValueKey('grade-course-heading'),
                         alignment: WrapAlignment.spaceBetween,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         spacing: 12,
@@ -301,7 +314,10 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                           Text(
                             '课程明细',
                             style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(fontWeight: FontWeight.w600),
+                                ?.copyWith(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
                           ),
                           Text(
                             '已选 ${included.length} 门 / 可计 ${visible.where((r) => r.eligible).length} 门',
@@ -317,7 +333,6 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                             ),
                         ],
                       ),
-                      const SizedBox(height: 8),
                       if (visible.isEmpty)
                         Padding(
                           padding: const EdgeInsets.all(32),
@@ -342,6 +357,7 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                         ]) ...[
                           const SizedBox(height: 12),
                           Panel(
+                            key: ValueKey('grade-term-group-$term'),
                             padding: EdgeInsets.zero,
                             child: Column(
                               children: [
@@ -431,12 +447,7 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                             ),
                           ),
                         ],
-                      const SizedBox(height: 16),
-                      Text(
-                        '两级制及 N/A 不计入；0 绩点和每次修读成绩按教务规则计入。',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 24),
                       _rules(
                         context,
                         graduate: snapshot.education == 'graduate',
@@ -449,26 +460,20 @@ class _GpaPageState extends ConsumerState<GpaPage> {
     );
   }
 
-  Widget _summaryPanel(
+  Widget _summaryContent(
     BuildContext context,
     ({double credits, double? gpa, double? average}) summary,
     String scope,
     List<GradeRecord> visible,
     List<GradeRecord> included,
+    DateTime updatedAt,
   ) {
     final p = AppPalette.of(context);
-    final primary = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(scope, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 12),
-        AppMetric(
-          value: summary.gpa?.toStringAsFixed(2) ?? '—',
-          label: '加权 GPA',
-          valueSize: 56,
-          valueColor: p.dataAccent,
-        ),
-      ],
+    final primary = AppMetric(
+      value: summary.gpa?.toStringAsFixed(2) ?? '—',
+      label: '加权 GPA',
+      valueSize: 56,
+      valueColor: summary.gpa == null ? p.muted : p.dataAccent,
     );
     final secondary = Row(
       children: [
@@ -486,47 +491,70 @@ class _GpaPageState extends ConsumerState<GpaPage> {
         ),
       ],
     );
-    return Panel(
+    return Column(
       key: const ValueKey('grade-summary'),
-      padding: const EdgeInsets.all(24),
-      child: LayoutBuilder(
-        builder: (context, bounds) => bounds.maxWidth >= 560
-            ? Row(
-                children: [
-                  Expanded(flex: 3, child: primary),
-                  const SizedBox(width: 32),
-                  Expanded(
-                    flex: 4,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        secondary,
-                        if (gradeTerms(
-                              visible,
-                            ).where((t) => GradeTerm.parse(t) != null).length >
-                            1) ...[
-                          const SizedBox(height: 24),
-                          _SemesterGpaChart(
-                            visible: visible,
-                            included: included,
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  primary,
-                  const SizedBox(height: 20),
-                  Divider(height: 1, color: p.border),
-                  const SizedBox(height: 20),
-                  secondary,
-                ],
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 16,
+          runSpacing: 4,
+          children: [
+            Text(
+              scope,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: p.ink,
+                fontWeight: FontWeight.w500,
               ),
-      ),
+            ),
+            Text(
+              '成绩更新于 ${updatedAt.toLocal().toString().substring(0, 16)}',
+              key: const ValueKey('grade-updated-at'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        LayoutBuilder(
+          builder: (context, bounds) => bounds.maxWidth >= 560
+              ? Row(
+                  children: [
+                    Expanded(flex: 3, child: primary),
+                    const SizedBox(width: 32),
+                    Expanded(
+                      flex: 4,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          secondary,
+                          if (gradeTerms(visible)
+                                  .where((t) => GradeTerm.parse(t) != null)
+                                  .length >
+                              1) ...[
+                            const SizedBox(height: 24),
+                            _SemesterGpaChart(
+                              visible: visible,
+                              included: included,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    primary,
+                    const SizedBox(height: 20),
+                    Divider(height: 1, color: p.border),
+                    const SizedBox(height: 20),
+                    secondary,
+                  ],
+                ),
+        ),
+      ],
     );
   }
 
@@ -544,7 +572,11 @@ class _GpaPageState extends ConsumerState<GpaPage> {
           '计算规则与来源',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 13),
         ),
-        tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+        subtitle: Text(
+          '两级制及 N/A 不计入；0 绩点和每次修读成绩按教务规则计入。',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
         expandedCrossAxisAlignment: CrossAxisAlignment.start,
         children: [

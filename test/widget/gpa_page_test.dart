@@ -65,6 +65,26 @@ class GraduateEmptyGrades extends GradeNotifier {
   );
 }
 
+class FourYearGrades extends GradeNotifier {
+  @override
+  Future<GradeSnapshot> build() async => GradeSnapshot(
+    at: DateTime(2026, 10, 31, 0, 11),
+    term: '20261',
+    records: [
+      for (var year = 2026; year >= 2023; year--)
+        GradeRecord({
+          'WID': 'academic-course-$year',
+          'KCM': year == 2026 ? '新时代中国特色社会主义劳动教育' : '学年课程$year',
+          'XNXQDM': '$year-${year + 1}-1',
+          'XF': 2,
+          'JDF': year == 2026 ? 'N/A' : 4,
+          'ZCJ': year == 2026 ? 'P' : 95,
+          if (year == 2026) 'XSZCJMC': '合格',
+        }),
+    ],
+  );
+}
+
 class ManyGrades extends GradeNotifier {
   @override
   Future<GradeSnapshot> build() async => GradeSnapshot(
@@ -113,6 +133,111 @@ void main() {
     }
   });
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  for (final width in [320.0, 960.0]) {
+    for (final dark in [false, true]) {
+      testWidgets(
+        'GPA groups four-year filters and update metadata $width $dark',
+        (tester) async {
+          tester.view.physicalSize = Size(width, 1100);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          final capture = GlobalKey();
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [
+                authControllerProvider.overrideWith((ref) => Auth()),
+                gradeSnapshotProvider.overrideWith(FourYearGrades.new),
+              ],
+              child: MaterialApp(
+                theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
+                  platform: width < 600
+                      ? TargetPlatform.android
+                      : TargetPlatform.windows,
+                ),
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    textScaler: TextScaler.linear(width < 600 ? 1.5 : 1),
+                  ),
+                  child: child!,
+                ),
+                home: RepaintBoundary(key: capture, child: const GpaPage()),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('学年'));
+          await tester.pumpAndSettle();
+          final calculation = find.byKey(const ValueKey('grade-calculation'));
+          final updated = find.byKey(const ValueKey('grade-updated-at'));
+          expect(
+            find.descendant(of: calculation, matching: updated),
+            findsOneWidget,
+          );
+          expect(find.text('成绩更新于 2026-10-31 00:11'), findsOneWidget);
+          expect(find.text('已选 0 门 / 可计 0 门'), findsOneWidget);
+          for (final label in ['总绩点', '学年', '近学期', '学期']) {
+            expect(
+              tester
+                  .renderObject<RenderParagraph>(find.text(label))
+                  .didExceedMaxLines,
+              isFalse,
+              reason: 'range labels must remain complete at large text sizes',
+            );
+          }
+          if (width >= 960) {
+            final firstYear = tester.getTopLeft(
+              find.byKey(const ValueKey('grade-year-2026')),
+            );
+            final lastYear = tester.getTopLeft(
+              find.byKey(const ValueKey('grade-year-2023')),
+            );
+            expect(lastYear.dy, firstYear.dy);
+            final heading = tester.getRect(
+              find.byKey(const ValueKey('grade-course-heading')),
+            );
+            expect(
+              heading.top - tester.getRect(calculation).bottom,
+              closeTo(24, .1),
+            );
+            expect(
+              tester
+                      .getRect(
+                        find.byKey(
+                          const ValueKey('grade-term-group-2026-2027-1'),
+                        ),
+                      )
+                      .top -
+                  heading.bottom,
+              closeTo(12, .1),
+            );
+          }
+          expect(tester.takeException(), isNull);
+          if (Platform.environment['CAPTURE_GPA_UI'] == '1') {
+            await tester.runAsync(() async {
+              final im =
+                  await (capture.currentContext!.findRenderObject()!
+                          as RenderRepaintBoundary)
+                      .toImage();
+              final data = await im.toByteData(format: ui.ImageByteFormat.png);
+              await Directory('build/gpa-ui-review').create(recursive: true);
+              await File(
+                'build/gpa-ui-review/gpa-four-years-$width-$dark.png',
+              ).writeAsBytes(data!.buffer.asUint8List());
+              im.dispose();
+            });
+          }
+          Focus.of(tester.element(find.text('学年'))).requestFocus();
+          await tester.pumpAndSettle();
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.pumpAndSettle();
+          expect(find.byKey(const ValueKey('grade-recent')), findsOneWidget);
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+      );
+    }
+  }
   testWidgets(
     'GPA handles six semesters, zero points, N/A and an unknown semester',
     (tester) async {
