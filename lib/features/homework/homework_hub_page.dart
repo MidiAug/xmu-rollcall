@@ -161,6 +161,14 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
     AppPageRoutes.push(context, HomeworkDetailPage(seed: item));
   }
 
+  void _changeFilter(_TaskFilter filter) {
+    if (filter == _filter) return;
+    // A new result scope starts at its first item. Detail navigation keeps the
+    // same scroll position because it does not pass through this action.
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+    setState(() => _filter = filter);
+  }
+
   @override
   Widget build(BuildContext context) {
     final signedIn = ref.watch(authControllerProvider).isSignedIn;
@@ -187,7 +195,7 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
                       (Theme.of(context).platform != TargetPlatform.android &&
                           Theme.of(context).platform != TargetPlatform.iOS),
                   filter: _filter,
-                  onFilterChanged: (v) => setState(() => _filter = v),
+                  onFilterChanged: _changeFilter,
                 )
               : const SizedBox.shrink(),
         ),
@@ -264,6 +272,7 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
           skipLoadingOnRefresh: true,
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => ListView(
+            primary: true,
             physics: const AlwaysScrollableScrollPhysics(),
             padding: contentInsets + EdgeInsets.all(pageX),
             children: [
@@ -307,6 +316,7 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
                 return const Center(child: CircularProgressIndicator());
               }
               return CustomScrollView(
+                primary: true,
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: const [
                   SliverFillRemaining(
@@ -391,6 +401,10 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
               ],
             ];
             return ListView.builder(
+              // Desktop ScrollViews do not inherit a primary controller by
+              // default; bind it explicitly so filters and tab re-taps use
+              // the same live position as the visible list.
+              primary: true,
               physics: const AlwaysScrollableScrollPhysics(),
               padding:
                   contentInsets +

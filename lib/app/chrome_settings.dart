@@ -133,14 +133,43 @@ class SettingsRow extends StatelessWidget {
   final double subtitleSpacing;
 
   @override
-  Widget build(BuildContext context) => _AppSurfaceInteraction(
-    onTap: onTap,
-    builder: (context, states) =>
-        _buildRow(context, states.contains(WidgetState.focused)),
-  );
+  Widget build(BuildContext context) =>
+      _AppSurfaceInteraction(onTap: onTap, builder: _buildRow);
 
-  Widget _buildRow(BuildContext context, bool focused) {
+  Widget _buildRow(BuildContext context, Set<WidgetState> states) {
     final p = AppPalette.of(context);
+    final focused = states.contains(WidgetState.focused);
+    final pressed = states.contains(WidgetState.pressed);
+    final hovered = states.contains(WidgetState.hovered);
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : AppMotion.fast;
+    final trailing = this.trailing;
+    // Navigation feedback belongs to its indicator, not the whole settings
+    // surface. Passive rows leave embedded controls' own states untouched.
+    final Widget? indicator;
+    if (onTap != null && trailing is Icon && trailing.icon == AppIcons.right) {
+      final color = pressed || focused
+          ? p.primary
+          : hovered
+          ? p.ink
+          : p.muted;
+      indicator = TweenAnimationBuilder<Color?>(
+        tween: ColorTween(begin: color, end: color),
+        duration: duration,
+        curve: AppMotion.fastCurve,
+        builder: (context, color, _) => Icon(
+          trailing.icon,
+          key: trailing.key,
+          size: trailing.size,
+          color: color,
+          semanticLabel: trailing.semanticLabel,
+          textDirection: trailing.textDirection,
+        ),
+      );
+    } else {
+      indicator = trailing;
+    }
     final h = minHeight ?? AppDensity.rowHeight(context);
     final gap = AppDensity.rowInnerGap(context);
     final subtitle = this.subtitle == null
@@ -152,9 +181,7 @@ class SettingsRow extends StatelessWidget {
             style: Theme.of(context).textTheme.bodySmall,
           );
     Widget buildContent(bool below) => AnimatedContainer(
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : AppMotion.fast,
+      duration: duration,
       curve: AppMotion.fastCurve,
       foregroundDecoration: BoxDecoration(
         border: Border.all(
@@ -211,7 +238,7 @@ class SettingsRow extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (trailing != null) ...[SizedBox(width: gap), trailing!],
+                if (indicator != null) ...[SizedBox(width: gap), indicator],
               ],
             ),
           ),

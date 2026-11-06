@@ -216,7 +216,159 @@ void main() {
       );
     }
   }
+  for (final reduced in [false, true]) {
+    testWidgets(
+      'menu opens from its trigger edge without layout motion reduced=$reduced',
+      (tester) async {
+        tester.view.physicalSize = const Size(960, 700);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: desktopCaptureTheme(
+              AppTheme.light(),
+            ).copyWith(platform: TargetPlatform.windows),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context).copyWith(disableAnimations: reduced),
+              child: RepaintBoundary(
+                key: const ValueKey('desktop-ui-capture'),
+                child: child!,
+              ),
+            ),
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.bottomRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: AppShellSelect<int>(
+                    value: 0,
+                    items: const [0, 1, 2],
+                    labelOf: (value) => '选项 $value',
+                    menuWidth: 200,
+                    alignMenuEnd: true,
+                    onChanged: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.byType(AppSelectTrigger));
+        await tester.pump();
+        final last = find.byKey(const ValueKey('shell-select-option-2'));
+        final opening = tester.getRect(last);
+        final fade = find.ancestor(of: last, matching: find.byType(Opacity));
+        expect(tester.widget<Opacity>(fade).opacity, reduced ? 1 : 0);
+        await tester.pump(const Duration(milliseconds: 50));
+        if (!reduced) {
+          expect(tester.widget<Opacity>(fade).opacity, greaterThan(0));
+          expect(tester.widget<Opacity>(fade).opacity, lessThan(1));
+          await captureDesktopUi(tester, 'select-opening-anchor');
+        }
+        await tester.pumpAndSettle();
+        final settled = tester.getRect(last);
+        // The bottom-right anchor stays at the trigger edge; only the small
+        // paint scale changes, not menu layout or a translated popup position.
+        expect(
+          (opening.bottomRight - settled.bottomRight).distance,
+          lessThan(.3),
+        );
+        expect(
+          opening.width,
+          reduced ? settled.width : lessThan(settled.width),
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pump();
+        expect(find.byType(AppMenuOption), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
+  }
   for (final dark in [false, true]) {
+    testWidgets(
+      'long wrapped select reveals its current value and follows keyboard traversal dark=$dark',
+      (tester) async {
+        tester.view.physicalSize = const Size(960, 700);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final pageScroll = ScrollController(initialScrollOffset: 120);
+        addTearDown(pageScroll.dispose);
+        var value = 35;
+        var changes = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (context, child) => RepaintBoundary(
+              key: const ValueKey('desktop-ui-capture'),
+              child: child!,
+            ),
+            theme: desktopCaptureTheme(
+              dark ? AppTheme.dark() : AppTheme.light(),
+            ).copyWith(platform: TargetPlatform.windows),
+            home: Scaffold(
+              body: ListView(
+                controller: pageScroll,
+                padding: const EdgeInsets.all(24),
+                children: [
+                  const SizedBox(height: 200),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: StatefulBuilder(
+                      builder: (context, setState) => AppShellSelect<int>(
+                        value: value,
+                        items: List.generate(60, (index) => index),
+                        labelOf: (item) => item % 3 == 0
+                            ? '学期 $item 一段用于验证换行后选中项定位的较长名称'
+                            : '学期 $item',
+                        wrapMenuLabels: true,
+                        width: 168,
+                        menuWidth: 240,
+                        onChanged: (next) => setState(() {
+                          value = next;
+                          changes++;
+                        }),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 1000),
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final pageOffset = pageScroll.offset;
+        await tester.tap(find.byType(AppSelectTrigger));
+        await tester.pumpAndSettle();
+        void expectVisible(int index) {
+          final row = tester.getRect(
+            find.byKey(ValueKey('shell-select-option-$index')),
+          );
+          final viewport = tester.getRect(find.byType(SingleChildScrollView));
+          expect(row.top, greaterThanOrEqualTo(viewport.top - .1));
+          expect(row.bottom, lessThanOrEqualTo(viewport.bottom + .1));
+        }
+
+        expectVisible(35);
+        await captureDesktopUi(tester, 'long-select-current-$dark');
+        for (var i = 36; i <= 43; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+          await tester.pumpAndSettle();
+          expectVisible(i);
+        }
+        expect(pageScroll.offset, pageOffset);
+        await captureDesktopUi(tester, 'long-select-keyboard-$dark');
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(value, 43);
+        expect(changes, 1);
+        expect(find.byType(AppMenuOption), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
     testWidgets(
       'plain compact select blends into its host and keeps pointer and keyboard feedback dark=$dark',
       (tester) async {

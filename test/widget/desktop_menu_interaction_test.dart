@@ -9,71 +9,103 @@ import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
 void main() {
   testWidgets(
-    'window buttons respond across their whole area without hover',
+    'closing a menu blocks a second activation before the next frame',
     (tester) async {
-      final calls = <String>[];
-      const channel = MethodChannel('window_manager');
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
-        call,
-      ) async {
-        calls.add(call.method);
-        return null;
-      });
-      addTearDown(
-        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-          channel,
-          null,
-        ),
-      );
+      var calls = 0;
       await tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.light(),
+          theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
           home: Scaffold(
-            body: Column(
-              children: [
-                const AppTitleBar(title: 'Test'),
-                Expanded(
-                  child: Navigator(
-                    onGenerateRoute: (_) => MaterialPageRoute<void>(
-                      builder: (_) => Align(
-                        alignment: Alignment.topRight,
-                        child: AppShellSelect<int>(
-                          value: 0,
-                          items: const [0, 1],
-                          labelOf: (v) => 'Option $v',
-                          onChanged: (_) {},
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            body: Center(
+              child: AppShellSelect<int>(
+                value: 0,
+                items: const [0, 1],
+                labelOf: (value) => '选项 $value',
+                onChanged: (_) => calls++,
+              ),
             ),
           ),
         ),
       );
-      final minimize = tester.getRect(find.byTooltip('最小化'));
-      await tester.tapAt(minimize.topLeft + const Offset(4, 4));
-      await tester.pump();
-      expect(calls, contains('minimize'));
-      final close = tester.getRect(find.byTooltip('关闭窗口'));
-      await tester.tapAt(close.bottomRight - const Offset(4, 4));
-      await tester.pump();
-      expect(calls, contains('close'));
-      Focus.of(tester.element(find.byIcon(Icons.remove))).requestFocus();
-      await tester.pump();
-      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-      await tester.pump();
-      expect(calls.where((call) => call == 'minimize'), hasLength(2));
       await tester.tap(find.byType(AppSelectTrigger));
       await tester.pumpAndSettle();
-      await tester.tapAt(minimize.topLeft + const Offset(4, 4));
+      final point = tester.getCenter(
+        find.byKey(const ValueKey('shell-select-option-1')),
+      );
+      // Both taps hit the old render tree: closing must reject its second action
+      // immediately rather than wait for overlay removal on the next frame.
+      await tester.tapAt(point);
+      await tester.tapAt(point);
+      expect(calls, 1);
       await tester.pumpAndSettle();
-      expect(calls.where((call) => call == 'minimize'), hasLength(3));
       expect(find.byType(AppMenuOption), findsNothing);
+      expect(tester.takeException(), isNull);
     },
-    skip: !PlatformHooks.isDesktop,
   );
+  testWidgets('window buttons respond across their whole area without hover', (
+    tester,
+  ) async {
+    final calls = <String>[];
+    const channel = MethodChannel('window_manager');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (
+      call,
+    ) async {
+      calls.add(call.method);
+      return null;
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        null,
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: Column(
+            children: [
+              const AppTitleBar(title: 'Test'),
+              Expanded(
+                child: Navigator(
+                  onGenerateRoute: (_) => MaterialPageRoute<void>(
+                    builder: (_) => Align(
+                      alignment: Alignment.topRight,
+                      child: AppShellSelect<int>(
+                        value: 0,
+                        items: const [0, 1],
+                        labelOf: (v) => 'Option $v',
+                        onChanged: (_) {},
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    final minimize = tester.getRect(find.byTooltip('最小化'));
+    await tester.tapAt(minimize.topLeft + const Offset(4, 4));
+    await tester.pump();
+    expect(calls, contains('minimize'));
+    final close = tester.getRect(find.byTooltip('关闭窗口'));
+    await tester.tapAt(close.bottomRight - const Offset(4, 4));
+    await tester.pump();
+    expect(calls, contains('close'));
+    Focus.of(tester.element(find.byIcon(Icons.remove))).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(calls.where((call) => call == 'minimize'), hasLength(2));
+    await tester.tap(find.byType(AppSelectTrigger));
+    await tester.pumpAndSettle();
+    await tester.tapAt(minimize.topLeft + const Offset(4, 4));
+    await tester.pumpAndSettle();
+    expect(calls.where((call) => call == 'minimize'), hasLength(3));
+    expect(find.byType(AppMenuOption), findsNothing);
+  }, skip: !PlatformHooks.isDesktop);
 
   testWidgets('an open menu does not swallow the next control click', (
     tester,

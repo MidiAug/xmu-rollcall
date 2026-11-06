@@ -214,14 +214,9 @@ void main() {
           final exam = tester.getSize(find.byKey(const ValueKey('tool-exams')));
           expect(map, exam);
           if (width >= 760) {
-            for (final id in ['gpa', 'calendar']) {
+            for (final id in ['gpa', 'calendar', 'ta-grading']) {
               expect(tester.getSize(find.byKey(ValueKey('tool-$id'))), map);
             }
-            final grading = tester.getSize(
-              find.byKey(const ValueKey('tool-ta-grading')),
-            );
-            expect(grading.width, closeTo(map.width * 2 + AppSpace.md, .01));
-            expect(grading.height, lessThan(map.height));
           }
           await captureDesktopUi(tester, 'tools-directory-$width-$dark');
           await tester.ensureVisible(find.text('邮箱'));
@@ -294,8 +289,7 @@ void main() {
       final grading = tester.getRect(
         find.byKey(const ValueKey('tool-ta-grading')),
       );
-      expect(grading.width, closeTo(map.width * 2 + AppSpace.md, .01));
-      expect(grading.height, lessThan(map.height));
+      expect(grading.size, map.size);
       expect(grading.bottom, lessThan(771));
       await captureDesktopUi(tester, 'gray-directory-shell-$dark');
       expect(tester.takeException(), isNull);

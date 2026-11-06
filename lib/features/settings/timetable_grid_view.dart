@@ -86,6 +86,8 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
     final rows = buildTimetableAxisRows(widget.courses);
     final seqIndex = sequenceToRowIndex(rows);
     final blocks = placeTimetableBlocks(widget.courses);
+    final stacks = timetableStacks(blocks);
+    final hasStack = stacks.any((variants) => variants.length > 1);
     final columns = timetableColumns(blocks);
     final maxColumns = columns.values.fold(1, (n, v) => math.max(n, v.count));
     final axisW = (touch ? 56.0 : 60.0) * scale;
@@ -112,7 +114,13 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
         }
         final gridW = math.max(
           w,
-          axisW + days.length * (touch ? 56 : 108) * scale * maxColumns,
+          // A stacked cell must fit the 44px touch action and a readable title.
+          // Keep horizontal scrolling rather than shrinking either target.
+          axisW +
+              days.length *
+                  (touch && !hasStack ? 56 : 108) *
+                  scale *
+                  maxColumns,
         );
         final dayW = (gridW - axisW) / days.length;
         final breakCount = rows.where((r) => r.isBreak).length;
@@ -120,7 +128,7 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
         final breakH = (touch ? 18.0 : 22.0) * scale;
         final available = (h - headerH - breakCount * breakH) / periodCount;
         final periodH = math.max(
-          (touch ? 44.0 : 56.0) * scale,
+          (touch ? (hasStack ? 48.0 : 44.0) : 56.0) * scale,
           math.min(96.0 * scale, available),
         );
         final bodyH = periodH * periodCount + breakH * breakCount;
@@ -134,7 +142,7 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
         }
 
         final blockWidgets = <Widget>[];
-        for (final variants in timetableStacks(blocks)) {
+        for (final variants in stacks) {
           final block = variants.first;
           final start = seqIndex[block.block.startSequence];
           final end = seqIndex[block.block.endSequence];
@@ -798,6 +806,7 @@ class _TimetableStackState extends State<_TimetableStack> {
     final block = all[index % all.length];
     final multiple = all.length > 1;
     final p = AppPalette.of(context);
+    final controlExtent = AppDensity.isTouch(context) ? 44.0 : 32.0;
     return Stack(
       children: [
         if (multiple)
@@ -823,7 +832,7 @@ class _TimetableStackState extends State<_TimetableStack> {
               'course-${block.course.id}-${block.weekday}-${block.block.id}${block.weekLabel == null ? '' : '-${block.weekLabel}-$index'}',
             ),
             block: block,
-            controlInset: multiple ? 20 : 0,
+            controlInset: multiple ? controlExtent : 0,
             tint: timetableTintForCourseId(
               block.course.id,
               brightness: Theme.of(context).brightness,
@@ -833,23 +842,16 @@ class _TimetableStackState extends State<_TimetableStack> {
         ),
         if (multiple)
           Positioned(
-            top: 1,
-            right: 8,
-            child: SizedBox(
-              width: 25,
-              height: 25,
-              child: IconButton(
-                tooltip: '切换课次（${index + 1}/${all.length}）',
-                style: IconButton.styleFrom(
-                  backgroundColor: p.surface.withValues(alpha: .9),
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(24, 24),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                onPressed: () =>
-                    setState(() => _selected = (index + 1) % all.length),
-                icon: Icon(AppIcons.swap, size: 15, color: p.primary),
-              ),
+            top: 0,
+            right: 0,
+            child: AppIconButton(
+              tooltip: '切换课次（${index + 1}/${all.length}）',
+              extent: controlExtent,
+              hoverOutline: false,
+              padding: EdgeInsets.zero,
+              onPressed: () =>
+                  setState(() => _selected = (index + 1) % all.length),
+              icon: Icon(AppIcons.swap, size: 15, color: p.primary),
             ),
           ),
       ],
@@ -912,8 +914,7 @@ class _CourseBlockChip extends StatelessWidget {
           child: Padding(
             padding: EdgeInsets.fromLTRB(
               touch ? 6 : 10,
-              (compact ? (touch ? 2 : 4) : (touch ? 6 : 8)) +
-                  (touch && controlInset > 0 ? 24 : 0),
+              compact ? (touch ? 2 : 4) : (touch ? 6 : 8),
               touch ? 6 : 10,
               compact ? (touch ? 2 : 4) : (touch ? 6 : 8),
             ),
@@ -937,9 +938,7 @@ class _CourseBlockChip extends StatelessWidget {
                         children: [
                           Flexible(
                             child: Padding(
-                              padding: EdgeInsets.only(
-                                right: touch ? 0 : controlInset,
-                              ),
+                              padding: EdgeInsets.only(right: controlInset),
                               child: AppTruncatedText(
                                 c.title.trim().isEmpty ? '未命名课程' : c.title,
                                 style: titleStyle,

@@ -3,6 +3,7 @@ import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import '../fixtures/preview_fonts.dart';
 import '../fixtures/desktop_ui_capture.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,6 +15,7 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
+import 'package:xmu_rollcall/features/homework/homework_list_row.dart';
 import 'package:xmu_rollcall/features/homework/homework_overview.dart';
 import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_submission.dart';
@@ -77,12 +79,143 @@ class _Overview extends HomeworkOverviewNotifier {
   ]);
 }
 
+class _LongOverview extends HomeworkOverviewNotifier {
+  @override
+  Future<HomeworkOverview> build() async => HomeworkOverview([
+    for (var i = 0; i < 80; i++)
+      HomeworkItem(
+        id: 100 + i,
+        title: '${i < 40 ? '进行中' : '已截止'}作业 $i',
+        courseName: '示例课程',
+        courseId: 2,
+        closed: i >= 40,
+      ),
+  ]);
+}
+
 void main() {
   initializeDesktopUiCapture();
   setUpAll(() async {
     await loadDesktopPreviewFonts();
     await loadDesktopUiCaptureFonts();
   });
+  testWidgets('truncated assignment names reveal the full title after hover', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(440, 300);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    const title = '软件工程导论实验报告：需求分析、接口设计与完整验证记录';
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light(),
+        home: Scaffold(
+          body: HomeworkListRow(
+            item: const HomeworkItem(id: 1, title: title),
+            subtitle: '',
+            trailing: const Text('11/12 23:59'),
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+    final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await pointer.addPointer(location: Offset.zero);
+    await pointer.moveTo(tester.getCenter(find.text(title)));
+    await tester.pump(const Duration(milliseconds: 499));
+    expect(find.text(title), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.text(title), findsNWidgets(2));
+    await pointer.moveTo(const Offset(430, 290));
+    await tester.pumpAndSettle();
+    expect(find.text(title), findsOneWidget);
+    await pointer.removePointer();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'changing a deep result filter starts at the top; detail returns in place',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(960, 720);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authControllerProvider.overrideWith((ref) => _Auth()),
+            assistControllerProvider.overrideWith(
+              (ref) => AssistController(
+                ref,
+                bootstrap: false,
+                initial: const AssistUiState(ready: true),
+              ),
+            ),
+            homeworkTodosProvider.overrideWith(_Todos.new),
+            homeworkOverviewProvider.overrideWith(_LongOverview.new),
+            currentTeachingCoursesProvider.overrideWith((ref) async => []),
+            homeworkSubmissionProvider.overrideWith(
+              (ref, key) async => const HomeworkSubmissionState(
+                submission: HomeworkSubmission.unsubmitted,
+              ),
+            ),
+            homeworkDetailProvider.overrideWith((ref, key) async => key.seed!),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
+            builder: (context, child) => RepaintBoundary(
+              key: const ValueKey('desktop-ui-capture'),
+              child: child!,
+            ),
+            home: const Scaffold(body: HomeworkHubPage()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final position = Scrollable.of(
+        tester.element(find.byType(HomeworkListRow).first),
+      ).position;
+      position.jumpTo(position.maxScrollExtent - 100);
+      await tester.pumpAndSettle();
+      expect(position.pixels, greaterThan(1000));
+      await captureDesktopUi(tester, 'homework-deep-before-filter');
+      final ongoingFilter = find.text('进行中 40');
+      expect(ongoingFilter.hitTestable(), findsOneWidget);
+      await tester.tap(ongoingFilter);
+      await tester.pumpAndSettle();
+      expect(position.pixels, 0);
+      expect(find.text('进行中作业 0').hitTestable(), findsOneWidget);
+      expect(find.text('已截止作业 79'), findsNothing);
+      await captureDesktopUi(tester, 'homework-filter-first-result');
+
+      position.jumpTo(400);
+      await tester.pumpAndSettle();
+      final target = find.text('进行中作业 7');
+      await tester.ensureVisible(target);
+      final beforeDetail = position.pixels;
+      expect(beforeDetail, greaterThan(0));
+      await tester.tap(target);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      await captureDesktopUi(tester, 'homework-detail-entering');
+      await tester.pumpAndSettle();
+      expect(find.byType(HomeworkDetailPage), findsOneWidget);
+      await captureDesktopUi(tester, 'homework-detail-ready');
+      await tester.tap(find.byTooltip('返回'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      await captureDesktopUi(tester, 'homework-detail-returning');
+      await tester.pumpAndSettle();
+      expect(position.pixels, beforeDetail);
+      expect(target.hitTestable(), findsOneWidget);
+      await captureDesktopUi(tester, 'homework-detail-restored-position');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final (width, scale, dark) in const [
     (320.0, 1.0, false),
     (384.0, 1.0, false),
@@ -240,7 +373,6 @@ void main() {
         );
         final title = tester.widget<Text>(find.textContaining('已批改的历史作业标题'));
         expect(title.maxLines, 1);
-        expect(title.softWrap, isFalse);
         expect(title.overflow, TextOverflow.ellipsis);
         if (width >= 600) {
           final filters = find.byWidgetPredicate(

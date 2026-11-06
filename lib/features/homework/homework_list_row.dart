@@ -41,11 +41,8 @@ class HomeworkListRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    AppTruncatedText(
                       item.title.isEmpty ? '未命名作业' : item.title,
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.ellipsis,
                       style: AppTypography.body.copyWith(
                         fontWeight: FontWeight.w600,
                         color: p.ink,

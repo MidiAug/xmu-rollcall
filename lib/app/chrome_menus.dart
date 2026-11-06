@@ -94,6 +94,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
   final _triggerFocus = FocusNode();
   bool _pointerActivation = false;
   final _tapGroup = Object();
+  final _selectedOption = GlobalKey();
   final _menuFocus = FocusScopeNode(
     traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
   );
@@ -282,6 +283,16 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
           final above = origin.dy - screen.padding.top - 20;
           final openAbove = below < 150 && above > below;
           final maxHeight = (openAbove ? above : below).clamp(48.0, 320.0);
+          final selectedIndex = widget.items.indexOf(widget.value);
+          final initialIndex = selectedIndex < 0 ? 0 : selectedIndex;
+          final rowHeight = (screen.textScaler.scale(14) * 22 / 14 + 16).clamp(
+            40.0,
+            double.infinity,
+          );
+          final initialOffset =
+              (initialIndex * (rowHeight + 4) -
+                      (maxHeight - AppMenuStyle.inset * 2 - rowHeight) / 2)
+                  .clamp(0.0, double.infinity);
           return TapRegion(
             groupId: _tapGroup,
             onTapOutside: (event) {
@@ -307,8 +318,12 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                     curve: AppMotion.fastCurve,
                     builder: (context, value, child) => Opacity(
                       opacity: value,
-                      child: Transform.translate(
-                        offset: Offset(0, (openAbove ? -4 : 4) * (1 - value)),
+                      child: Transform.scale(
+                        alignment: Alignment(
+                          widget.alignMenuEnd ? 1 : -1,
+                          openAbove ? 1 : -1,
+                        ),
+                        scale: .985 + .015 * value,
                         child: child,
                       ),
                     ),
@@ -368,7 +383,9 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                               },
                               child: Listener(
                                 onPointerDown: (_) => _pointerActivation = true,
-                                child: SingleChildScrollView(
+                                child: _SelectMenuViewport(
+                                  selectedAnchor: _selectedOption,
+                                  initialOffset: initialOffset,
                                   child: Column(
                                     mainAxisSize: MainAxisSize.min,
                                     crossAxisAlignment:
@@ -380,38 +397,48 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                                         i++
                                       ) ...[
                                         if (i > 0) const SizedBox(height: 4),
-                                        AppMenuOption(
-                                          pointerAutofocus: _pointerActivation,
-                                          key: ValueKey(
-                                            'shell-select-option-$i',
-                                          ),
-                                          showCheck: true,
-                                          leadingIcon: widget.iconOf?.call(
-                                            widget.items[i],
-                                          ),
-                                          label:
-                                              (widget.menuLabelOf ??
-                                              widget.labelOf)(widget.items[i]),
-                                          trailing:
-                                              widget.menuTrailingOf?.call(
-                                                widget.items[i],
-                                              ) ??
-                                              '',
-                                          wrap: widget.wrapMenuLabels,
-                                          selected:
-                                              widget.items[i] == widget.value,
-                                          autofocus:
-                                              widget.items[i] == widget.value ||
-                                              (i == 0 &&
-                                                  !widget.items.contains(
-                                                    widget.value,
-                                                  )),
-                                          onTap: () {
-                                            _hide();
-                                            widget.onChanged?.call(
+                                        KeyedSubtree(
+                                          key: i == initialIndex
+                                              ? _selectedOption
+                                              : null,
+                                          child: AppMenuOption(
+                                            pointerAutofocus:
+                                                _pointerActivation,
+                                            key: ValueKey(
+                                              'shell-select-option-$i',
+                                            ),
+                                            showCheck: true,
+                                            leadingIcon: widget.iconOf?.call(
                                               widget.items[i],
-                                            );
-                                          },
+                                            ),
+                                            label:
+                                                (widget.menuLabelOf ??
+                                                widget.labelOf)(
+                                                  widget.items[i],
+                                                ),
+                                            trailing:
+                                                widget.menuTrailingOf?.call(
+                                                  widget.items[i],
+                                                ) ??
+                                                '',
+                                            wrap: widget.wrapMenuLabels,
+                                            selected:
+                                                widget.items[i] == widget.value,
+                                            autofocus:
+                                                widget.items[i] ==
+                                                    widget.value ||
+                                                (i == 0 &&
+                                                    !widget.items.contains(
+                                                      widget.value,
+                                                    )),
+                                            onTap: () {
+                                              if (!_portal.isShowing) return;
+                                              _hide();
+                                              widget.onChanged?.call(
+                                                widget.items[i],
+                                              );
+                                            },
+                                          ),
                                         ),
                                       ],
                                     ],
@@ -488,6 +515,52 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
       ),
     );
   }
+}
+
+/// Opening reveals the current value. Keep subsequent scroll position through
+/// viewport changes; resizing must not animate or chase the selected row.
+class _SelectMenuViewport extends StatefulWidget {
+  const _SelectMenuViewport({
+    required this.selectedAnchor,
+    required this.initialOffset,
+    required this.child,
+  });
+  final GlobalKey selectedAnchor;
+  final double initialOffset;
+  final Widget child;
+
+  @override
+  State<_SelectMenuViewport> createState() => _SelectMenuViewportState();
+}
+
+class _SelectMenuViewportState extends State<_SelectMenuViewport> {
+  late final _scroll = ScrollController(
+    initialScrollOffset: widget.initialOffset,
+    keepScrollOffset: false,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      final target = widget.selectedAnchor.currentContext?.findRenderObject();
+      if (target == null || !target.attached) return;
+      // Wrapped labels can exceed the initial single-line estimate. Reveal only
+      // this menu's viewport, never a settings list behind the overlay.
+      _scroll.position.ensureVisible(target, alignment: .5);
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      SingleChildScrollView(controller: _scroll, child: widget.child);
 }
 
 /// Shared inset option for filter and identity menus.

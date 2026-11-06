@@ -18,7 +18,7 @@ class AppServiceTile extends StatelessWidget {
   final IconData icon;
   final VoidCallback onPressed;
 
-  /// Horizontal layout for a narrow viewport or a single full-width entry.
+  /// Horizontal layout for a narrow viewport.
   final bool compact;
 
   @override

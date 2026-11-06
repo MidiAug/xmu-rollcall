@@ -1021,3 +1021,28 @@ final result: passed
 ## 边界
 
 无待处理P0/P1/P2界面问题。系统读屏、Android/iOS真机、真人对美感的最终评价和原生Profile性能未由这些截图/组件测试证明。Debug运行结果另记实施记录，不将其当作性能验收。
+
+## 2026-11-06 银白界面交互完善
+
+final result: passed
+
+范围：本聊天U19“修改作业不要占满行”和继续完善交互，沿DESIGN当前图一方向；签到内容布局保留。结果只涵盖以下操作链，不代表用户已认可最终美感或全站真机验收。
+
+| 步骤 | 实际操作与结果 | 证据 |
+| --- | --- | --- |
+| 1 | 工具五项同规格，修改作业半宽，进入子页仍可返回 | build/desktop-ui-review/gray-directory-shell-false.png、同目录dark截图；campus_tools_directory |
+| 2 | 设置导航hover加深尾箭头、press/键盘强调；取消不执行，整行背景/尺寸不变 | build/interaction-ui/settings-{idle,hover,pressed,keyboard}-false-false.png及浅深/减少动效组合；hover_surface |
+| 3 | 长菜单首次打开选中35/60完整可见；方向键到43仍可见，背后页面offset不动 | build/desktop-ui-review/long-select-{current,keyboard}-false.png及true；app_select |
+| 4 | 菜单沿触发边短展开，Esc/切页立即关闭；同帧重复激活仅一次回调 | select-opening-anchor.png；desktop_menu_interaction；原生箭头与无选项描边保留 |
+| 5 | 作业深处换筛选从首项开始；桌面列表已绑定页面控制器 | homework-deep-before-filter.png、homework-filter-first-result.png；80项长列表回归 |
+| 6 | 进入真实作业详情、点击返回，回到原滚动位置；中间帧文字不重叠 | homework-detail-{entering,ready,returning,restored-position}.png；teaching_homework |
+| 7 | 触屏叠课44目标可点，标题可读，教师/地点对应所选课程；横滚可到周五 | .tools/academic-stacks/touch-single-double-{before,after}.png、touch-minimum-height.png；320×420及320×240 |
+| 8 | 960/1920与RTL短位移，快速反向连续；减少动效无过渡等待，原输入保留 | app_page_routes六项实际点击回归；returned_focus相关回归 |
+
+五项画面核对：字体沿平台中文与现有字级；布局仅用户指定工具宽度与有证据的叠课命中区取舍；共享配色不再更换；校园水彩/同族符号不变；常驻文案不新增功能枚举，截断提示使用既有时序。主要取舍见docs/design/INTERACTION-REFINEMENT-2026-11-06.md。
+
+[P2，已修] 桌面整页淡入在60ms中间帧透出背后作业列表，造成两页文字重影。桌面内容改不透明，保留固定背景与16逻辑像素方向位移；手机沿原表现。原始960×720截图、同一60ms状态的局部并排比较已实看：.tools/interaction-review/detail-entering-comparison.png和detail-returning-comparison.png，原尺寸裁剪，不拉伸；修正后无待处理P0/P1/P2。
+
+本轮静态检查通过；完整回归1297通过、2跳过，最终桌面不透明绘制修正后另52项页面/返回/菜单回归通过，最终单文件分析无问题。日志分别为build/interaction-final-full-tests.log、interaction-opaque-page-recheck.log、interaction-opaque-page-analyze.log。Windows Debug热重载70/3763库成功（3316ms），未重启用户状态。
+
+边界：组件渲染与实际事件已核；未重新测原生Profile性能、系统读屏或Android/iOS真机。不以测试代替用户对体验和美感的评价。
