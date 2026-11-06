@@ -73,6 +73,10 @@ class AppPalette {
 
   /// Focus follows the active theme accent; it is not a separate blue palette.
   Color get focus => primary;
+
+  /// Teaching dates and academic data share an accent, separate from chrome.
+  Color get dataAccent =>
+      isDark ? const Color(0xFF8AB4FF) : const Color(0xFF0066CC);
   Color get warning =>
       isDark ? const Color(0xFFE6BD7C) : const Color(0xFF9B6B26);
 

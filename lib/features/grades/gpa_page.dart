@@ -271,7 +271,13 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      _summaryPanel(context, summary, scopeLabel),
+                      _summaryPanel(
+                        context,
+                        summary,
+                        scopeLabel,
+                        visible,
+                        included,
+                      ),
                       const SizedBox(height: 10),
                       Text(
                         '更新于 ${snapshot.at.toLocal().toString().substring(0, 16)}',
@@ -357,17 +363,35 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                                           _termLabel(term),
                                           style: TextStyle(
                                             fontSize: 13,
-                                            color: p.muted,
-                                            fontWeight: FontWeight.w500,
+                                            color: p.ink,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                       ),
-                                      Text(
-                                        '${visible.where((r) => r.term == term).length} 门',
-                                        style: TextStyle(
-                                          color: p.muted,
-                                          fontSize: 12,
-                                        ),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            'GPA ${calculateGpa(included.where((r) => r.term == term)).gpa?.toStringAsFixed(2) ?? '—'}',
+                                            style: TextStyle(
+                                              color: p.dataAccent,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              fontFeatures: const [
+                                                FontFeature.tabularFigures(),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${visible.where((r) => r.term == term).length} 门',
+                                            style: TextStyle(
+                                              color: p.muted,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
@@ -433,23 +457,21 @@ class _GpaPageState extends ConsumerState<GpaPage> {
     BuildContext context,
     ({double credits, double? gpa, double? average}) summary,
     String scope,
+    List<GradeRecord> visible,
+    List<GradeRecord> included,
   ) {
     final p = AppPalette.of(context);
     final primary = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('加权 GPA', style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 6),
-        Text(
-          summary.gpa?.toStringAsFixed(2) ?? '—',
-          style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-            fontSize: 42,
-            color: p.primary,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 4),
         Text(scope, style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 12),
+        AppMetric(
+          value: summary.gpa?.toStringAsFixed(2) ?? '—',
+          label: '加权 GPA',
+          valueSize: 56,
+          valueColor: p.dataAccent,
+        ),
       ],
     );
     final secondary = Row(
@@ -468,20 +490,34 @@ class _GpaPageState extends ConsumerState<GpaPage> {
         ),
       ],
     );
-    return AppGlassSurface(
+    return Panel(
       key: const ValueKey('grade-summary'),
-      blur: 0,
-      opacity: 1,
-      borderRadius: BorderRadius.circular(AppRadii.card),
       padding: const EdgeInsets.all(24),
       child: LayoutBuilder(
         builder: (context, bounds) => bounds.maxWidth >= 560
             ? Row(
                 children: [
-                  Expanded(child: primary),
-                  Container(width: 1, height: 60, color: p.border),
+                  Expanded(flex: 3, child: primary),
                   const SizedBox(width: 32),
-                  Expanded(child: secondary),
+                  Expanded(
+                    flex: 4,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        secondary,
+                        if (gradeTerms(
+                              visible,
+                            ).where((t) => GradeTerm.parse(t) != null).length >
+                            1) ...[
+                          const SizedBox(height: 24),
+                          _SemesterGpaChart(
+                            visible: visible,
+                            included: included,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ],
               )
             : Column(
@@ -565,6 +601,85 @@ class _GpaPageState extends ConsumerState<GpaPage> {
       GradeTerm.parse(term)?.label ?? (term.isEmpty ? '未标注学期' : term);
 }
 
+/// A zero-based comparison of the selected courses in each visible semester.
+/// No fixed maximum GPA is assumed across undergraduate/graduate scales.
+class _SemesterGpaChart extends StatelessWidget {
+  const _SemesterGpaChart({required this.visible, required this.included});
+  final List<GradeRecord> visible, included;
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final available = gradeTerms(
+      visible,
+    ).where((t) => GradeTerm.parse(t) != null).toList();
+    final terms = available.take(6).toList().reversed.toList();
+    final periods = terms.map((t) => GradeTerm.parse(t)!).toList();
+    final values = [
+      for (final term in terms)
+        calculateGpa(included.where((r) => r.term == term)).gpa,
+    ];
+    final maximum = values.fold<double>(
+      1,
+      (v, n) => n != null && n > v ? n : v,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          available.length > 6 ? '最近6学期 GPA' : '学期 GPA',
+          style: TextStyle(color: p.muted, fontSize: 12),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            for (var i = 0; i < terms.length; i++)
+              Expanded(
+                child: Tooltip(
+                  message:
+                      '${GradeTerm.parse(terms[i])?.label ?? terms[i]}  ${values[i]?.toStringAsFixed(2) ?? '未计入'}',
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        height: 56,
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: Container(
+                            width: 24,
+                            height: (values[i] ?? 0) / maximum * 56,
+                            decoration: BoxDecoration(
+                              color: i == terms.length - 1
+                                  ? p.dataAccent
+                                  : p.dataAccent.withValues(alpha: .7),
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(4),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${(periods[i].part == 1 ? periods[i].year : periods[i].year + 1).toString().substring(2)}${switch (periods[i].part) {
+                          1 => '秋',
+                          2 => '春',
+                          3 => '夏',
+                          _ => '短',
+                        }}',
+                        style: TextStyle(color: p.muted, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _GradeCourseRow extends StatelessWidget {
   const _GradeCourseRow({
     super.key,
@@ -581,11 +696,12 @@ class _GradeCourseRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return InkWell(
+      mouseCursor: SystemMouseCursors.basic,
       canRequestFocus: false,
       excludeFromSemantics: true,
       onTap: onChanged == null ? null : () => onChanged!(!selected),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(6, 12, 16, 16),
+        padding: const EdgeInsets.fromLTRB(6, 12, 16, 12),
         child: Row(
           children: [
             TooltipVisibility(

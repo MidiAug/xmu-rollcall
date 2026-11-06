@@ -139,10 +139,10 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
-  for (final mobile in [true, false]) {
+  for (final (mobile, scale) in [(true, 1.0), (false, 1.0), (true, 1.5)]) {
     for (final dark in [false, true]) {
       testWidgets(
-        'exam groups and cache on ${mobile ? 'phone' : 'desktop'} ${dark ? 'dark' : 'light'}',
+        'exam groups and cache on ${mobile ? 'phone' : 'desktop'} ${dark ? 'dark' : 'light'} scale=$scale',
         (tester) async {
           final now = DateTime(2026, 11, 10, 9);
           final snapshot = ExamSnapshot(
@@ -198,7 +198,7 @@ void main() {
                 final folder = Directory('build/exam-ui-review');
                 await folder.create(recursive: true);
                 await File(
-                  '${folder.path}/${page == 'tools' ? 'tools-' : ''}${mobile ? 'phone' : 'desktop'}-${dark ? 'dark' : 'light'}.png',
+                  '${folder.path}/${page == 'tools' ? 'tools-' : ''}${mobile ? 'phone' : 'desktop'}-${dark ? 'dark' : 'light'}${scale == 1 ? '' : '-scale$scale'}.png',
                 ).writeAsBytes(bytes!.buffer.asUint8List());
                 image.dispose();
               });
@@ -224,6 +224,12 @@ void main() {
                 ),
               ],
               child: MaterialApp(
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.linear(scale)),
+                  child: child!,
+                ),
                 theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
                   platform: mobile
                       ? TargetPlatform.android
@@ -241,6 +247,15 @@ void main() {
           expect(find.textContaining('正在考试'), findsNothing);
           expect(find.text('文宣楼（4号楼）B404'), findsOneWidget);
           expect(find.text('座位 25'), findsOneWidget);
+          final primaryTime = find.descendant(
+            of: find.byKey(const ValueKey('exam-a')),
+            matching: find.text('08:00—10:00'),
+          );
+          final time = tester.renderObject<RenderParagraph>(
+            find.descendant(of: primaryTime, matching: find.byType(RichText)),
+          );
+          expect(time.size.height, lessThanOrEqualTo(22 * scale * 1.4 + 1));
+          if (scale > 1) expect(find.text('11月10日  周二'), findsOneWidget);
           expect(
             find.byWidgetPredicate(
               (w) => w is Tooltip && w.message == '软件工程与面向对象程序设计课程综合实践',
@@ -266,6 +281,12 @@ void main() {
           await tester.pumpWidget(const SizedBox.shrink());
           await tester.pumpWidget(
             MaterialApp(
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
+                child: child!,
+              ),
               theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
                 platform: mobile
                     ? TargetPlatform.android

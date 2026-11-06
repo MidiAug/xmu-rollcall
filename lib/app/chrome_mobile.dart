@@ -29,6 +29,7 @@ Future<_ChoiceResult<T>?> _showChoiceSheet<T>(
   IconData Function(T)? iconOf,
   required ValueChanged<BuildContext> onPresented,
   required ValueChanged<bool> onPointerMode,
+  bool pointerAutofocus = false,
 }) {
   final selectedAnchor = GlobalKey();
   return showModalBottomSheet<_ChoiceResult<T>>(
@@ -122,6 +123,7 @@ Future<_ChoiceResult<T>?> _showChoiceSheet<T>(
                                         ? selectedAnchor
                                         : null,
                                     child: AppMenuOption(
+                                      pointerAutofocus: pointerAutofocus,
                                       key: ValueKey('shell-select-option-$i'),
                                       label: labelOf(items[i]),
                                       trailing:

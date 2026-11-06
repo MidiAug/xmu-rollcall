@@ -171,11 +171,13 @@ class _AppSurfaceInteraction extends StatefulWidget {
     required this.builder,
     this.focusNode,
     this.autofocus = false,
+    this.pointerAutofocus = false,
   });
   final VoidCallback? onTap;
   final Widget Function(BuildContext, Set<WidgetState>) builder;
   final FocusNode? focusNode;
   final bool autofocus;
+  final bool pointerAutofocus;
 
   @override
   State<_AppSurfaceInteraction> createState() => _AppSurfaceInteractionState();
@@ -183,7 +185,7 @@ class _AppSurfaceInteraction extends StatefulWidget {
 
 class _AppSurfaceInteractionState extends State<_AppSurfaceInteraction> {
   bool _hover = false, _pressed = false, _focus = false;
-  bool _pointerFocus = false;
+  late bool _pointerFocus = widget.autofocus && widget.pointerAutofocus;
   final _focusNode = FocusNode();
 
   @override

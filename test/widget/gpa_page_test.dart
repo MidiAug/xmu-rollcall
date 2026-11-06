@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/app/app_checkbox.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
@@ -63,6 +65,41 @@ class GraduateEmptyGrades extends GradeNotifier {
   );
 }
 
+class ManyGrades extends GradeNotifier {
+  @override
+  Future<GradeSnapshot> build() async => GradeSnapshot(
+    at: DateTime(2026, 10, 28),
+    term: '20261',
+    records: [
+      for (var term = 0; term < 6; term++)
+        for (var course = 0; course < 8; course++)
+          GradeRecord({
+            'WID': '$term-$course',
+            'KCM': course == 5
+                ? '跨学科课程名称很长时也必须保持单行截断并且能够通过悬停查看完整课程名称'
+                : '学期${term + 1}课程${course + 1}',
+            'XNXQDM':
+                '${2026 - (term + 1) ~/ 2}-${2027 - (term + 1) ~/ 2}-${term.isEven ? 1 : 2}',
+            'XF': course % 3 + 1,
+            'JDF': course == 7
+                ? 'N/A'
+                : course == 0
+                ? 0
+                : 4 - (course % 3) * .5,
+            'ZCJ': course == 0 ? 50 : 95 - course,
+          }),
+      GradeRecord({
+        'WID': 'legacy',
+        'KCM': '未识别学期的课程',
+        'XNXQDM': 'legacy',
+        'XF': 1,
+        'JDF': 3,
+        'ZCJ': 80,
+      }),
+    ],
+  );
+}
+
 void main() {
   setUpAll(() async {
     await loadDesktopPreviewFonts();
@@ -76,6 +113,114 @@ void main() {
     }
   });
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  testWidgets(
+    'GPA handles six semesters, zero points, N/A and an unknown semester',
+    (tester) async {
+      tester.view.physicalSize = const Size(1100, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authControllerProvider.overrideWith((ref) => Auth()),
+            gradeSnapshotProvider.overrideWith(ManyGrades.new),
+          ],
+          child: MaterialApp(theme: AppTheme.light(), home: const GpaPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('学期 GPA'), findsOneWidget);
+      expect(find.text('26秋'), findsOneWidget);
+      expect(find.text('24春'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('grade-legacy')),
+        500,
+      );
+      expect(find.text('未识别学期的课程'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+  for (final dark in [false, true]) {
+    testWidgets(
+      'GPA course hover paints feedback and keeps the native arrow dark=$dark',
+      (tester) async {
+        tester.view.physicalSize = const Size(960, 1100);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final capture = GlobalKey();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authControllerProvider.overrideWith((ref) => Auth()),
+              gradeSnapshotProvider.overrideWith(Grades.new),
+            ],
+            child: MaterialApp(
+              theme: dark ? AppTheme.dark() : AppTheme.light(),
+              home: RepaintBoundary(key: capture, child: const GpaPage()),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final row = find.byKey(const ValueKey('grade-b'));
+        await tester.ensureVisible(row);
+        await tester.pumpAndSettle();
+        final point = tester.getTopRight(row) + const Offset(-4, 5);
+        Future<Color> pixel() async => (await tester.runAsync(() async {
+          final image =
+              await (capture.currentContext!.findRenderObject()!
+                      as RenderRepaintBoundary)
+                  .toImage();
+          try {
+            final data = (await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            ))!.buffer.asUint8List();
+            final at = (point.dy.floor() * image.width + point.dx.floor()) * 4;
+            return Color.fromARGB(255, data[at], data[at + 1], data[at + 2]);
+          } finally {
+            image.dispose();
+          }
+        }))!;
+        final idle = await pixel();
+        final mouse = await tester.createGesture(
+          kind: ui.PointerDeviceKind.mouse,
+        );
+        await mouse.addPointer();
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(point);
+        await tester.pumpAndSettle();
+        expect(
+          RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+          SystemMouseCursors.basic,
+        );
+        expect(await pixel(), isNot(idle));
+        final checkbox = find.descendant(
+          of: row,
+          matching: find.byType(AppCheckbox),
+        );
+        expect(tester.widget<AppCheckbox>(checkbox).value, isTrue);
+        await mouse.down(point);
+        await tester.pumpAndSettle();
+        expect(tester.widget<AppCheckbox>(checkbox).value, isTrue);
+        await mouse.up();
+        await tester.pumpAndSettle();
+        expect(tester.widget<AppCheckbox>(checkbox).value, isFalse);
+        expect(find.text('4.00'), findsOneWidget);
+        await mouse.moveTo(Offset.zero);
+        await tester.pumpAndSettle();
+        expect(await pixel(), idle);
+        final p = AppPalette.of(tester.element(row));
+        final light = p.dataAccent.computeLuminance(),
+            darkSurface = p.surface.computeLuminance();
+        final contrast = light > darkSurface
+            ? (light + .05) / (darkSurface + .05)
+            : (darkSurface + .05) / (light + .05);
+        expect(contrast, greaterThanOrEqualTo(4.5));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   testWidgets(
     'graduate unpublished grades are a normal empty state with separate rules',
     (tester) async {

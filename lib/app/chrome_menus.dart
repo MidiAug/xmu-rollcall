@@ -178,6 +178,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
       trailingOf: widget.menuTrailingOf,
       iconOf: widget.iconOf,
       onPointerMode: (value) => _pointerActivation = value,
+      pointerAutofocus: _pointerActivation,
       onPresented: (context) {
         if (_sheetOpen) {
           _sheetRoute = ModalRoute.of(context);
@@ -380,6 +381,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                                       ) ...[
                                         if (i > 0) const SizedBox(height: 4),
                                         AppMenuOption(
+                                          pointerAutofocus: _pointerActivation,
                                           key: ValueKey(
                                             'shell-select-option-$i',
                                           ),
@@ -501,6 +503,7 @@ class AppMenuOption extends StatelessWidget {
     this.leadingIcon,
     this.danger = false,
     this.autofocus = false,
+    this.pointerAutofocus = false,
   });
 
   final String label;
@@ -512,18 +515,23 @@ class AppMenuOption extends StatelessWidget {
   final IconData? leadingIcon;
   final bool danger;
   final bool autofocus;
+  /// Mouse-opened menus autofocus for navigation, without a keyboard highlight.
+  final bool pointerAutofocus;
 
   @override
   Widget build(BuildContext context) => _AppSurfaceInteraction(
     onTap: onTap,
     autofocus: autofocus,
+    pointerAutofocus: pointerAutofocus,
     builder: (context, states) {
       final p = AppPalette.of(context);
       final active =
           states.contains(WidgetState.hovered) ||
           states.contains(WidgetState.focused);
       final bg = selected
-          ? p.selected
+          ? states.contains(WidgetState.focused)
+                ? Color.alphaBlend(p.focus.withValues(alpha: .12), p.selected)
+                : p.selected
           : active
           ? p.hover
           : AppPalette.clearOf(p.hover);

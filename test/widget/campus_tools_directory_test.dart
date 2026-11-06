@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:xmu_rollcall/app/app_service_tile.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/campus/campus_tools_page.dart';
 import 'package:xmu_rollcall/features/campus/campus_calendar_page.dart';
 import '../fixtures/desktop_ui_capture.dart';
@@ -225,7 +227,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.byType(CampusCalendarPage), findsOneWidget);
           expect(find.text('第一学期'), findsOneWidget);
-          expect(find.text('短学期'), findsOneWidget);
+          expect(find.text('短学期'), findsNWidgets(2));
           await captureDesktopUi(tester, 'calendar-$width-$dark');
           await tester.tap(find.byTooltip('返回'));
           await tester.pumpAndSettle();
@@ -329,6 +331,176 @@ void main() {
         await captureDesktopUi(tester, 'calendar-dates-$width-$scale');
       });
     }
+  }
+  testWidgets(
+    'calendar month navigation follows published term boundaries and keyboard selection',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 1100);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final semantics = tester.ensureSemantics();
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light(),
+            home: CampusCalendarPage(today: DateTime(2026, 11, 4)),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('2026年11月'), findsOneWidget);
+        String day(int year, int month, int date) => tester
+            .getSemantics(
+              find.byKey(ValueKey('calendar-day-$year-$month-$date')),
+            )
+            .label;
+        expect(day(2026, 11, 4), contains('第9教学周 今天'));
+        final grid = find.byKey(const ValueKey('calendar-month-grid'));
+        final gridSize = tester.getSize(grid);
+        await tester.tap(find.byKey(const ValueKey('calendar-next')));
+        await tester.pumpAndSettle();
+        expect(tester.getSize(grid), gridSize);
+        expect(day(2026, 12, 31), contains('第17教学周'));
+        await tester.tap(find.byKey(const ValueKey('calendar-next')));
+        await tester.pumpAndSettle();
+        expect(day(2027, 1, 9), contains('第18教学周'));
+        expect(day(2027, 1, 10), contains('学期外'));
+        expect(
+          tester
+              .widget<AppIconButton>(
+                find.byKey(const ValueKey('calendar-next')),
+              )
+              .onPressed,
+          isNull,
+        );
+        await tester.tap(find.text('秋季'));
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+        await tester.pumpAndSettle();
+        expect(find.text('2027年2月'), findsOneWidget);
+        expect(day(2027, 2, 14), contains('学期外'));
+        expect(day(2027, 2, 15), contains('第1教学周'));
+        expect(
+          tester
+              .widget<AppIconButton>(
+                find.byKey(const ValueKey('calendar-previous')),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(tester.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
+  for (final dark in [false, true]) {
+    testWidgets(
+      'calendar selection retains hover press and arrow cursor dark=$dark',
+      (tester) async {
+        tester.view.physicalSize = const Size(900, 1200);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: desktopCaptureTheme(
+              dark ? AppTheme.dark() : AppTheme.light(),
+            ),
+            builder: (context, child) => RepaintBoundary(
+              key: const ValueKey('desktop-ui-capture'),
+              child: child!,
+            ),
+            home: CampusCalendarPage(today: DateTime(2026, 11, 4)),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final selected = find.byKey(const ValueKey('calendar-term-row-20261'));
+        final other = find.byKey(const ValueKey('calendar-term-row-20262'));
+        await tester.ensureVisible(selected);
+        final p = AppPalette.of(tester.element(selected));
+        Color? fill(Finder row) =>
+            (tester
+                        .widget<AnimatedContainer>(
+                          find.descendant(
+                            of: row,
+                            matching: find.byType(AnimatedContainer),
+                          ),
+                        )
+                        .decoration!
+                    as BoxDecoration)
+                .color;
+        Future<Color> pixel(Finder row, {Offset? spot}) async {
+          final point = spot ?? tester.getTopRight(row) + const Offset(-8, 28);
+          return (await tester.runAsync(() async {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(
+              find.byKey(const ValueKey('desktop-ui-capture')),
+            );
+            final image = await boundary.toImage();
+            try {
+              final data = (await image.toByteData(
+                format: ui.ImageByteFormat.rawRgba,
+              ))!.buffer.asUint8List();
+              final at =
+                  (point.dy.floor() * image.width + point.dx.floor()) * 4;
+              return Color.fromARGB(255, data[at], data[at + 1], data[at + 2]);
+            } finally {
+              image.dispose();
+            }
+          }))!;
+        }
+
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer();
+        addTearDown(mouse.removePointer);
+        final next = find.byKey(const ValueKey('calendar-next'));
+        final edge =
+            tester.getCenter(next) -
+            Offset(tester.getSize(next).width / 2 - .5, 0);
+        final idleEdge = await pixel(next, spot: edge);
+        await mouse.moveTo(tester.getCenter(next));
+        await tester.pumpAndSettle();
+        expect(await pixel(next, spot: edge), isNot(idleEdge));
+        await mouse.down(tester.getCenter(next));
+        await mouse.up();
+        await mouse.moveTo(Offset.zero);
+        await tester.pumpAndSettle();
+        expect(
+          await pixel(next, spot: edge),
+          idleEdge,
+          reason:
+              'pointer month navigation must not leave a keyboard focus border',
+        );
+        await mouse.moveTo(tester.getCenter(selected));
+        await tester.pumpAndSettle();
+        expect(
+          RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+          SystemMouseCursors.basic,
+        );
+        expect(fill(selected), p.selected);
+        final selectedPixel = await pixel(selected);
+        await mouse.down(tester.getCenter(selected));
+        await tester.pumpAndSettle();
+        expect(fill(selected), p.selected);
+        expect(await pixel(selected), selectedPixel);
+        await mouse.up();
+        await tester.pumpAndSettle();
+        await mouse.moveTo(Offset.zero);
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(other);
+        await tester.pumpAndSettle();
+        final idlePixel = await pixel(other);
+        await mouse.moveTo(tester.getCenter(other));
+        await tester.pumpAndSettle();
+        expect(fill(other), p.hover);
+        expect(await pixel(other), isNot(idlePixel));
+        expect(fill(selected), p.selected);
+        await captureDesktopUi(tester, 'calendar-hover-$dark');
+        await mouse.moveTo(Offset.zero);
+        await tester.pumpAndSettle();
+        expect(fill(other), p.surface);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
   for (final date in [
     DateTime(2026, 11, 4),
