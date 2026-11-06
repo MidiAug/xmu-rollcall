@@ -18,12 +18,17 @@ class AppSegmentedControl<T> extends StatefulWidget {
     required this.value,
     required this.onChanged,
     this.expanded = false,
+    this.compact = false,
   });
 
   final List<AppSegment<T>> segments;
   final T value;
   final ValueChanged<T> onChanged;
   final bool expanded;
+
+  /// Embedded desktop choices use a 32px target without the raised 44px track.
+  /// Touch targets retain the app's 48px minimum regardless of this preference.
+  final bool compact;
 
   @override
   State<AppSegmentedControl<T>> createState() => _AppSegmentedControlState<T>();
@@ -94,7 +99,9 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final style = Theme.of(context).textTheme.labelLarge!;
+    final style = Theme.of(context).textTheme.labelLarge!.copyWith(
+      fontWeight: widget.compact ? FontWeight.w600 : null,
+    );
     final painter = TextPainter(
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
@@ -193,7 +200,7 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
         includeSemantics: false,
         onKeyEvent: _handleKey,
         child: SizedBox(
-          height: AppMobileUi.target,
+          height: widget.compact ? null : AppMobileUi.target,
           child: Stack(
             children: [
               if (selected >= 0)
@@ -239,12 +246,24 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
       includeSemantics: false,
       onKeyEvent: _handleKey,
       child: Container(
-        padding: const EdgeInsets.all(3),
+        padding: widget.compact
+            ? const EdgeInsets.symmetric(horizontal: 2)
+            : const EdgeInsets.all(3),
         decoration: BoxDecoration(
           color: p.content,
-          border: Border.all(color: p.borderStrong),
+          border: widget.compact ? null : Border.all(color: p.borderStrong),
           borderRadius: BorderRadius.circular(AppRadii.input),
         ),
+        foregroundDecoration: widget.compact
+            ? BoxDecoration(
+                border: Border.all(
+                  color: MediaQuery.highContrastOf(context)
+                      ? p.muted
+                      : p.border,
+                ),
+                borderRadius: BorderRadius.circular(AppRadii.input),
+              )
+            : null,
         child: Stack(
           children: [
             if (selected >= 0)
@@ -259,19 +278,35 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
                   child: FractionallySizedBox(
                     widthFactor: 1 / widget.segments.length,
                     heightFactor: 1,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: p.surface,
-                        borderRadius: BorderRadius.circular(AppRadii.control),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(
-                              alpha: p.isDark ? .18 : .07,
-                            ),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        vertical: widget.compact ? 2 : 0,
+                      ),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: p.surface,
+                          borderRadius: BorderRadius.circular(
+                            widget.compact
+                                ? AppRadii.control - 2
+                                : AppRadii.control,
                           ),
-                        ],
+                          border:
+                              widget.compact &&
+                                  MediaQuery.highContrastOf(context)
+                              ? Border.all(color: p.primary)
+                              : null,
+                          boxShadow: widget.compact
+                              ? null
+                              : [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(
+                                      alpha: p.isDark ? .18 : .07,
+                                    ),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 1),
+                                  ),
+                                ],
+                        ),
                       ),
                     ),
                   ),
@@ -304,6 +339,7 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
       selected: s.value == widget.value,
       focusNode: _nodes[index],
       onTap: () => _select(index),
+      compact: widget.compact,
     );
   }
 }
@@ -316,6 +352,7 @@ class _SegmentButton extends StatelessWidget {
     required this.selected,
     required this.focusNode,
     required this.onTap,
+    required this.compact,
   });
 
   final String label;
@@ -323,6 +360,7 @@ class _SegmentButton extends StatelessWidget {
   final bool selected;
   final FocusNode focusNode;
   final VoidCallback onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -358,7 +396,9 @@ class _SegmentButton extends StatelessWidget {
             states.contains(WidgetState.hovered) ||
             states.contains(WidgetState.pressed);
         final focused = states.contains(WidgetState.focused);
-        final radius = BorderRadius.circular(AppRadii.control);
+        final radius = BorderRadius.circular(
+          compact ? AppRadii.control - 2 : AppRadii.control,
+        );
         return Semantics(
           button: true,
           selected: selected,
@@ -373,11 +413,13 @@ class _SegmentButton extends StatelessWidget {
               constraints: BoxConstraints(
                 minHeight: AppMobileUi.useTouchChrome(context)
                     ? AppMobileUi.target
+                    : compact
+                    ? 32
                     : 36,
               ),
               padding: EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: AppMobileUi.useTouchChrome(context) ? 8 : 4,
+                horizontal: compact ? 6 : 8,
+                vertical: compact ? 2 : 4,
               ),
               decoration: BoxDecoration(
                 color: p.primary.withValues(alpha: active ? .04 : 0),
@@ -399,9 +441,12 @@ class _SegmentButton extends StatelessWidget {
                       label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.labelLarge?.copyWith(color: foreground),
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: foreground,
+                        fontWeight: compact && selected
+                            ? FontWeight.w600
+                            : null,
+                      ),
                     ),
                   ),
                 ],

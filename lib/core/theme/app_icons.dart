@@ -1,13 +1,13 @@
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
 
 /// One Cupertino symbol family for navigation, controls and task states.
-/// Service destinations have their own matching illustrated marks.
+/// Filled service symbols keep the directory legible at small display sizes.
 abstract final class AppIcons {
-  static const serviceMap = CupertinoIcons.map;
-  static const serviceExams = CupertinoIcons.calendar;
-  static const serviceGpa = CupertinoIcons.chart_bar_square;
-  static const serviceCalendar = CupertinoIcons.calendar_today;
-  static const serviceGrading = CupertinoIcons.doc_checkmark;
+  static const serviceMap = CupertinoIcons.map_fill;
+  static const serviceExams = CupertinoIcons.doc_text_fill;
+  static const serviceGpa = CupertinoIcons.chart_bar_alt_fill;
+  static const serviceCalendar = CupertinoIcons.calendar;
+  static const serviceGrading = CupertinoIcons.doc_checkmark_fill;
   static const upload = CupertinoIcons.arrow_up_doc;
   static const externalLink = CupertinoIcons.arrow_up_right;
   static const archive = CupertinoIcons.archivebox;

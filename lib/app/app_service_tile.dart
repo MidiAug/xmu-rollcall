@@ -28,7 +28,7 @@ class AppServiceTile extends StatelessWidget {
     final symbol = AppServiceSymbol(
       key: const ValueKey('service-symbol'),
       icon: icon,
-      size: compact ? 36 : 44,
+      size: compact ? 36 : 40,
     );
     final label = AppTruncatedText(
       title,
@@ -84,13 +84,13 @@ class AppServiceTile extends StatelessWidget {
                   ],
                 )
               : ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 116),
+                  constraints: const BoxConstraints(minHeight: 94),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Row(children: [symbol, const Spacer(), arrow]),
-                      const SizedBox(height: AppSpace.md),
+                      const SizedBox(height: AppSpace.sm),
                       label,
                       const SizedBox(height: AppSpace.xxs),
                       detail,

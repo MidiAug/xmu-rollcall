@@ -183,6 +183,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
             title: '外观',
             trailing: desktop
                 ? AppSegmentedControl<ThemePreference>(
+                    compact: true,
                     segments: const [
                       AppSegment(value: ThemePreference.light, label: '浅色'),
                       AppSegment(value: ThemePreference.dark, label: '暗色'),
@@ -313,24 +314,34 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
       ),
     ];
 
-    return PageScaffold(
-      title: PlatformHooks.isDesktop && !AppDensity.isTouch(context)
-          ? '设置'
-          : '我的',
-      showHeader: false,
-      child: AppPageViewport(
-        maxWidth: 808,
-        builder: (context, contentInsets) => ListView(
-          controller: _scroll,
-          padding:
-              contentInsets +
-              EdgeInsets.fromLTRB(
-                AppSpace.pageXOf(context),
-                AppSpace.xl,
-                AppSpace.pageXOf(context),
-                AppSpace.xl,
-              ),
-          children: sections,
+    final theme = Theme.of(context);
+    return Theme(
+      data: theme.copyWith(
+        textTheme: theme.textTheme.copyWith(
+          titleMedium: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+      child: PageScaffold(
+        title: PlatformHooks.isDesktop && !AppDensity.isTouch(context)
+            ? '设置'
+            : '我的',
+        showHeader: false,
+        child: AppPageViewport(
+          maxWidth: 808,
+          builder: (context, contentInsets) => ListView(
+            controller: _scroll,
+            padding:
+                contentInsets +
+                EdgeInsets.fromLTRB(
+                  AppSpace.pageXOf(context),
+                  AppSpace.xl,
+                  AppSpace.pageXOf(context),
+                  AppSpace.xl,
+                ),
+            children: sections,
+          ),
         ),
       ),
     );

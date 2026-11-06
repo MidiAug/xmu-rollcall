@@ -139,7 +139,14 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
-  for (final (mobile, scale) in [(true, 1.0), (false, 1.0), (true, 1.5)]) {
+  for (final (width, scale) in [
+    (390.0, 1.0),
+    (1100.0, 1.0),
+    (390.0, 1.5),
+    (320.0, 2.0),
+    (320.0, 2.5),
+  ]) {
+    final mobile = width < 600;
     for (final dark in [false, true]) {
       testWidgets(
         'exam groups and cache on ${mobile ? 'phone' : 'desktop'} ${dark ? 'dark' : 'light'} scale=$scale',
@@ -178,9 +185,7 @@ void main() {
           SharedPreferences.setMockInitialValues({
             examCacheKey(1, 1, '20261'): jsonEncode(snapshot.toJson()),
           });
-          tester.view.physicalSize = mobile
-              ? const Size(390, 844)
-              : const Size(1100, 850);
+          tester.view.physicalSize = Size(width, mobile ? 844 : 850);
           tester.view.devicePixelRatio = 1;
           addTearDown(tester.view.resetPhysicalSize);
           addTearDown(tester.view.resetDevicePixelRatio);
@@ -244,6 +249,16 @@ void main() {
           expect(find.text('2场'), findsOneWidget);
           expect(find.text('1场'), findsOneWidget);
           expect(find.textContaining('上次核对 2026-11-10 09:00'), findsOneWidget);
+          final metadata = tester.getRect(
+            find.byKey(const ValueKey('exam-metadata')),
+          );
+          if (!mobile) {
+            expect(metadata.height, lessThan(80));
+            expect(
+              tester.getTopLeft(find.byKey(const ValueKey('exam-a'))).dy,
+              lessThan(280),
+            );
+          }
           expect(find.textContaining('正在考试'), findsNothing);
           expect(find.text('文宣楼（4号楼）B404'), findsOneWidget);
           expect(find.text('座位 25'), findsOneWidget);
@@ -254,7 +269,24 @@ void main() {
           final time = tester.renderObject<RenderParagraph>(
             find.descendant(of: primaryTime, matching: find.byType(RichText)),
           );
-          expect(time.size.height, lessThanOrEqualTo(22 * scale * 1.4 + 1));
+          if (scale <= 1.5) {
+            expect(time.size.height, lessThanOrEqualTo(22 * scale * 1.4 + 1));
+          } else {
+            // At 320px and large text the interval may use two lines; each
+            // complete time must remain readable rather than split its digits.
+            expect(
+              time.size.height,
+              lessThanOrEqualTo(22 * scale * 1.4 * 2 + 1),
+            );
+            for (final selection in const [
+              TextSelection(baseOffset: 0, extentOffset: 5),
+              TextSelection(baseOffset: 6, extentOffset: 11),
+            ]) {
+              final boxes = time.getBoxesForSelection(selection);
+              expect(boxes, isNotEmpty);
+              expect(boxes.map((box) => box.top).toSet(), hasLength(1));
+            }
+          }
           if (scale > 1) expect(find.text('11月10日  周二'), findsOneWidget);
           expect(
             find.byWidgetPredicate(
@@ -264,7 +296,7 @@ void main() {
           );
           expect(
             find.byWidgetPredicate((w) => w is Tooltip && w.message == '计算机网络'),
-            findsNothing,
+            scale >= 2.5 ? findsOneWidget : findsNothing,
           );
           expect(
             tester
@@ -275,6 +307,23 @@ void main() {
           );
           expect(tester.takeException(), isNull);
           await capture('exams');
+          if (scale >= 2.5) {
+            final primaryTitle = find.descendant(
+              of: find.byKey(const ValueKey('exam-a')),
+              matching: find.text('计算机网络'),
+            );
+            expect(
+              tester
+                  .renderObject<RenderParagraph>(primaryTitle)
+                  .didExceedMaxLines,
+              isTrue,
+            );
+            await tester.longPress(primaryTitle);
+            await tester.pumpAndSettle();
+            expect(find.text('计算机网络'), findsNWidgets(2));
+            Tooltip.dismissAllToolTips();
+            await tester.pumpAndSettle();
+          }
           await tester.scrollUntilVisible(find.text('数学分析'), 200);
           expect(find.text('按公布的结束时间归类'), findsOneWidget);
           expect(tester.takeException(), isNull);

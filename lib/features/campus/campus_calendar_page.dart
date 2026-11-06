@@ -76,29 +76,54 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
                   32,
                 ),
             children: [
-              Wrap(
-                spacing: 16,
-                runSpacing: 12,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  AppShellSelect<int>(
-                    semanticLabel: '选择学年',
-                    value: _year,
-                    items: _years.reversed.toList(),
-                    labelOf: (v) => '$v—${v + 1}学年',
-                    width: 210,
-                    menuWidth: 220,
-                    onChanged: (v) => setState(() {
-                      _year = v;
-                      _termCode = _initialTerm.term;
-                      _month = _initialMonth(_term);
-                    }),
-                  ),
-                  if (active)
-                    AppStatusBadge(
-                      '当前第 ${_today.difference(_term.monday).inDays ~/ 7 + 1} 周',
+              LayoutBuilder(
+                builder: (context, bounds) => Wrap(
+                  key: const ValueKey('calendar-range'),
+                  spacing: AppSpace.md,
+                  runSpacing: AppSpace.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    AppShellSelect<int>(
+                      key: const ValueKey('calendar-year'),
+                      semanticLabel: '选择学年',
+                      value: _year,
+                      items: _years.reversed.toList(),
+                      labelOf: (v) => '$v—${v + 1}学年',
+                      width: (210 * MediaQuery.textScalerOf(context).scale(1))
+                          .clamp(0.0, bounds.maxWidth),
+                      menuWidth: 220,
+                      onChanged: (v) => setState(() {
+                        _year = v;
+                        _termCode = _initialTerm.term;
+                        _month = _initialMonth(_term);
+                      }),
                     ),
-                ],
+                    SizedBox(
+                      width: bounds.maxWidth.clamp(0.0, 360.0),
+                      child: AppSegmentedControl<String>(
+                        key: const ValueKey('calendar-term'),
+                        expanded: true,
+                        value: _termCode,
+                        segments: [
+                          for (final t in _terms)
+                            AppSegment(
+                              value: t.term,
+                              label: switch (t.term[4]) {
+                                '1' => '秋季',
+                                '2' => '春季',
+                                _ => '短学期',
+                              },
+                            ),
+                        ],
+                        onChanged: _selectTerm,
+                      ),
+                    ),
+                    if (active)
+                      AppStatusBadge(
+                        '当前第 ${_today.difference(_term.monday).inDays ~/ 7 + 1} 周',
+                      ),
+                  ],
+                ),
               ),
               if (!_years.contains(_requestedYear)) ...[
                 const SizedBox(height: 12),
@@ -113,32 +138,6 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    LayoutBuilder(
-                      builder: (context, bounds) => Align(
-                        alignment: Alignment.centerLeft,
-                        child: SizedBox(
-                          width: bounds.maxWidth.clamp(0.0, 360.0),
-                          child: AppSegmentedControl<String>(
-                            key: const ValueKey('calendar-term'),
-                            expanded: true,
-                            value: _termCode,
-                            segments: [
-                              for (final t in _terms)
-                                AppSegment(
-                                  value: t.term,
-                                  label: switch (t.term[4]) {
-                                    '1' => '秋季',
-                                    '2' => '春季',
-                                    _ => '短学期',
-                                  },
-                                ),
-                            ],
-                            onChanged: _selectTerm,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
                     Row(
                       children: [
                         Expanded(

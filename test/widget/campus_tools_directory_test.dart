@@ -326,6 +326,33 @@ void main() {
         expect(end.right, lessThanOrEqualTo(width - 16));
         if (width == 320) expect(end.top, greaterThan(start.bottom));
         expect(find.text('当前第 9 周'), findsOneWidget);
+        final range = tester.getRect(
+          find.byKey(const ValueKey('calendar-range')),
+        );
+        final year = tester.getRect(
+          find.byKey(const ValueKey('calendar-year')),
+        );
+        final term = tester.getRect(
+          find.byKey(const ValueKey('calendar-term')),
+        );
+        final grid = tester.getRect(
+          find.byKey(const ValueKey('calendar-month-grid')),
+        );
+        expect(year.left, greaterThanOrEqualTo(range.left));
+        expect(term.right, lessThanOrEqualTo(range.right));
+        expect(grid.top, greaterThan(range.bottom));
+        expect(
+          find.ancestor(
+            of: find.byKey(const ValueKey('calendar-term')),
+            matching: find.byType(Panel),
+          ),
+          findsNothing,
+        );
+        if (width == 1104) {
+          expect((year.center.dy - term.center.dy).abs(), lessThan(1));
+        } else {
+          expect(term.top, greaterThanOrEqualTo(year.bottom));
+        }
         expect(find.byType(BackdropFilter), findsNothing);
         expect(tester.takeException(), isNull);
         await captureDesktopUi(tester, 'calendar-dates-$width-$scale');

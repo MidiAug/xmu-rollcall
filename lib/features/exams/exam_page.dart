@@ -252,45 +252,65 @@ class _ExamOverview extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      key: const ValueKey('exam-metadata'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Wrap(
-          spacing: 10,
-          runSpacing: 8,
+          alignment: WrapAlignment.spaceBetween,
+          spacing: AppSpace.md,
+          runSpacing: AppSpace.xs,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text(
-              '${snapshot.term.substring(0, 4)}—${int.parse(snapshot.term.substring(0, 4)) + 1}学年',
-              style: TextStyle(
-                color: p.ink,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
+            Wrap(
+              spacing: AppSpace.xs,
+              runSpacing: AppSpace.xxs,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  '${snapshot.term.substring(0, 4)}—${int.parse(snapshot.term.substring(0, 4)) + 1}学年',
+                  style: AppTypography.body.copyWith(
+                    color: p.ink,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                AppStatusBadge('第${snapshot.term[4]}学期'),
+              ],
             ),
-            AppStatusBadge('第${snapshot.term[4]}学期'),
+            Text(
+              '上次核对 ${snapshot.at.toLocal().toString().substring(0, 16)}',
+              style: AppTypography.caption.copyWith(color: p.muted),
+            ),
           ],
         ),
-        const SizedBox(height: 18),
-        Row(
+        const SizedBox(height: AppSpace.xs),
+        Wrap(
+          spacing: AppSpace.xl,
+          runSpacing: AppSpace.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             for (final status in [
               ExamStatus.upcoming,
               ExamStatus.unarranged,
               ExamStatus.finished,
             ])
-              Expanded(
-                child: AppMetric(
-                  value:
-                      '${groups[status]!.length}${status == ExamStatus.unarranged ? '门' : '场'}',
-                  label: _label(status),
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _label(status),
+                    style: AppTypography.caption.copyWith(color: p.muted),
+                  ),
+                  const SizedBox(width: AppSpace.xs),
+                  Text(
+                    '${groups[status]!.length}${status == ExamStatus.unarranged ? '门' : '场'}',
+                    style: AppTypography.control.copyWith(
+                      color: p.ink,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
               ),
           ],
-        ),
-        const SizedBox(height: 12),
-        Text(
-          '上次核对 ${snapshot.at.toLocal().toString().substring(0, 16)}',
-          style: TextStyle(color: p.muted, fontSize: 12),
         ),
         if (updating) ...[
           const SizedBox(height: 12),
