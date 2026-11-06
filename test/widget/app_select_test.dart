@@ -5,8 +5,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
+import '../fixtures/desktop_ui_capture.dart';
+import '../fixtures/preview_fonts.dart';
 
 void main() {
+  initializeDesktopUiCapture();
+  setUpAll(() async {
+    await loadDesktopPreviewFonts();
+    await loadDesktopUiCaptureFonts();
+  });
   for (final width in [320.0, 960.0]) {
     for (final dark in [false, true]) {
       testWidgets(
@@ -19,7 +26,13 @@ void main() {
           var value = 0;
           await tester.pumpWidget(
             MaterialApp(
-              theme: dark ? AppTheme.dark() : AppTheme.light(),
+              builder: (context, child) => RepaintBoundary(
+                key: const ValueKey('desktop-ui-capture'),
+                child: child!,
+              ),
+              theme: desktopCaptureTheme(
+                dark ? AppTheme.dark() : AppTheme.light(),
+              ),
               home: Scaffold(
                 body: Align(
                   alignment: Alignment.bottomRight,
@@ -67,6 +80,8 @@ void main() {
               matching: find.byType(AnimatedContainer),
             ),
           );
+          expect(selectedPaint.foregroundDecoration, isNull);
+          await captureDesktopUi(tester, 'select-selected-$width-$dark');
           expect(
             (selectedPaint.decoration as BoxDecoration).color,
             selectedPalette.selected,
@@ -95,6 +110,18 @@ void main() {
           await mouse.removePointer();
           await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
           await tester.pumpAndSettle();
+          final focusedPaint = tester.widget<AnimatedContainer>(
+            find.descendant(
+              of: option,
+              matching: find.byType(AnimatedContainer),
+            ),
+          );
+          expect(focusedPaint.foregroundDecoration, isNull);
+          expect(
+            (focusedPaint.decoration as BoxDecoration).color,
+            selectedPalette.hover,
+          );
+          await captureDesktopUi(tester, 'select-keyboard-$width-$dark');
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           await tester.pumpAndSettle();
           expect(value, 1);

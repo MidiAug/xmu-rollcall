@@ -83,14 +83,18 @@ void main() {
     await loadDesktopPreviewFonts();
     await loadDesktopUiCaptureFonts();
   });
-  for (final (width, scale) in const [
-    (320.0, 1.0),
-    (384.0, 1.0),
-    (960.0, 1.0),
-    (320.0, 1.5),
+  for (final (width, scale, dark) in const [
+    (320.0, 1.0, false),
+    (384.0, 1.0, false),
+    (960.0, 1.0, false),
+    (320.0, 1.5, false),
+    (760.0, 1.0, false),
+    (1920.0, 1.0, false),
+    (760.0, 1.0, true),
+    (1920.0, 1.0, true),
   ]) {
     testWidgets(
-      'compact aligned homework rows fit $width scale=$scale and details still link all four',
+      'compact aligned homework rows fit $width scale=$scale dark=$dark and details still link all four',
       (tester) async {
         SharedPreferences.setMockInitialValues({});
         tester.view.physicalSize = Size(width, 1100);
@@ -149,7 +153,7 @@ void main() {
                   ).copyWith(textScaler: TextScaler.linear(scale)),
                   child: child!,
                 ),
-                theme: AppTheme.light().copyWith(
+                theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
                   platform: width < 600
                       ? TargetPlatform.android
                       : TargetPlatform.windows,
@@ -239,6 +243,17 @@ void main() {
         expect(title.softWrap, isFalse);
         expect(title.overflow, TextOverflow.ellipsis);
         if (width >= 600) {
+          final filters = find.byWidgetPredicate(
+            (w) => w is AppSegmentedControl,
+          );
+          expect(
+            tester.getRect(filters).left,
+            tester.getRect(teachingPanel).left,
+          );
+          expect(
+            tester.getRect(find.byType(AppRefreshButton).first).right,
+            tester.getRect(teachingPanel).right,
+          );
           final filter = find.text('全部 3');
           expect(filter, findsOneWidget);
           expect(
@@ -251,11 +266,21 @@ void main() {
             tester.getTopRight(filter).dx,
             lessThan(tester.getTopLeft(find.byType(AppRefreshButton).first).dx),
           );
+          await tester.tap(find.text('进行中 1'));
+          await tester.pumpAndSettle();
+          expect(find.text('我需提交的作业'), findsOneWidget);
+          expect(find.text('尚未公布成绩的作业'), findsNothing);
+          await tester.tap(find.text('已截止 2'));
+          await tester.pumpAndSettle();
+          expect(find.text('我需提交的作业'), findsNothing);
+          expect(find.text('尚未公布成绩的作业'), findsOneWidget);
+          await tester.tap(filter);
+          await tester.pumpAndSettle();
         }
 
         await captureDesktopUi(
           tester,
-          'homework-hub-${width.toInt()}${scale == 1 ? '' : '-scale$scale'}',
+          'homework-hub-${width.toInt()}${dark ? '-dark' : ''}${scale == 1 ? '' : '-scale$scale'}',
         );
         await tester.tap(find.text('助教作业4'));
         await tester.pumpAndSettle();

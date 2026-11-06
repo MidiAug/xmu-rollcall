@@ -555,14 +555,6 @@ class AppMenuOption extends StatelessWidget {
               color: bg,
               borderRadius: BorderRadius.circular(AppRadii.control),
             ),
-            foregroundDecoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppRadii.control),
-              border: Border.all(
-                color: states.contains(WidgetState.focused)
-                    ? p.focus
-                    : AppPalette.clearOf(p.focus),
-              ),
-            ),
             child: Row(
               children: [
                 if (leadingIcon != null) ...[

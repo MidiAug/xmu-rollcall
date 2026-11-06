@@ -171,28 +171,7 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
     final hostActions = PlatformHooks.isDesktop && !AppDensity.isTouch(context);
     return PageScaffold(
       title: '作业',
-      showHeader: signedIn && hostActions,
-      headerLeading: signedIn && hostActions
-          ? _HomeworkFilters(
-              value: _filter,
-              onChanged: (v) => setState(() => _filter = v),
-            )
-          : null,
-      trailing: signedIn && hostActions
-          ? SizedBox(
-              height: 44,
-              width: 44,
-              child: Center(
-                child: KeyedSubtree(
-                  key: ValueKey((
-                    ref.watch(authControllerProvider).profile?.id,
-                    ref.watch(selectedRollcallAccountProvider),
-                  )),
-                  child: const _HomeworkRefreshAction(),
-                ),
-              ),
-            )
-          : null,
+      showHeader: false,
       child: AppPageViewport(
         maxWidth: 960,
         builder: (context, contentInsets) => PrimaryScrollController(
@@ -204,10 +183,11 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
                   contentInsets: contentInsets,
                   onOpen: _openDetail,
                   showToolbar:
-                      !hostActions &&
-                      Theme.of(context).platform != TargetPlatform.android &&
-                      Theme.of(context).platform != TargetPlatform.iOS,
+                      hostActions ||
+                      (Theme.of(context).platform != TargetPlatform.android &&
+                          Theme.of(context).platform != TargetPlatform.iOS),
                   filter: _filter,
+                  onFilterChanged: (v) => setState(() => _filter = v),
                 )
               : const SizedBox.shrink(),
         ),
@@ -244,8 +224,10 @@ class _TodosBody extends ConsumerStatefulWidget {
     this.contentInsets = EdgeInsets.zero,
     required this.showToolbar,
     required this.filter,
+    required this.onFilterChanged,
   });
   final _TaskFilter filter;
+  final ValueChanged<_TaskFilter> onFilterChanged;
   final EdgeInsets contentInsets;
   final bool showToolbar;
   final ValueChanged<HomeworkItem> onOpen;
@@ -259,6 +241,7 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final pageX = AppSpace.pageXOf(context);
+    final desktop = PlatformHooks.isDesktop && !AppDensity.isTouch(context);
     final contentInsets = widget.contentInsets;
     final async = ref.watch(homeworkTodosProvider);
     final teaching = ref.watch(currentTeachingCoursesProvider);
@@ -343,8 +326,6 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
             final overdue = studentItems
                 .where((e) => e.isOverdue)
                 .toList(growable: false);
-            final desktop =
-                PlatformHooks.isDesktop && !AppDensity.isTouch(context);
             final rows = <Widget>[
               if (desktop &&
                   ((_filter == _TaskFilter.upcoming && upcoming.isEmpty) ||
@@ -425,10 +406,21 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
     return Column(
       children: [
         Padding(
-          padding: contentInsets + EdgeInsets.fromLTRB(pageX, 4, pageX, 4),
+          padding:
+              contentInsets +
+              EdgeInsets.symmetric(
+                horizontal: pageX,
+                vertical: desktop ? AppSpace.md : 4,
+              ),
           child: Row(
             children: [
-              if (MediaQuery.sizeOf(context).width >=
+              if (desktop) ...[
+                _HomeworkFilters(
+                  value: widget.filter,
+                  onChanged: widget.onFilterChanged,
+                ),
+                const Spacer(),
+              ] else if (MediaQuery.sizeOf(context).width >=
                       AppLayout.shellBreakpoint &&
                   ShellTabScope.maybeOf(context) != null)
                 const Spacer()
@@ -446,7 +438,13 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
                   ),
                 ),
               ],
-              const _HomeworkRefreshAction(),
+              KeyedSubtree(
+                key: ValueKey((
+                  ref.watch(authControllerProvider).profile?.id,
+                  ref.watch(selectedRollcallAccountProvider),
+                )),
+                child: const _HomeworkRefreshAction(),
+              ),
             ],
           ),
         ),

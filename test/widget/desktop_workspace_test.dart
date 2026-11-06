@@ -1,6 +1,7 @@
 import 'package:xmu_rollcall/features/rollcall/attendance_count_row.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
+import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
 import 'package:xmu_rollcall/features/history/history_page.dart';
 import '../fixtures/preview_fonts.dart';
 import 'dart:io';
@@ -683,7 +684,7 @@ void main() {
             ),
             findsOneWidget,
           );
-          final hasHeader = label == '作业' || label == '课表';
+          final hasHeader = label == '课表';
           expect(
             find.byType(DesktopPageHeader),
             hasHeader ? findsOneWidget : findsNothing,
@@ -697,11 +698,11 @@ void main() {
           );
           if (label == '作业') {
             final filters = find.descendant(
-              of: find.byType(DesktopPageHeader),
+              of: find.byType(HomeworkHubPage),
               matching: find.byWidgetPredicate((w) => w is AppSegmentedControl),
             );
             final refresh = find.descendant(
-              of: find.byType(DesktopPageHeader),
+              of: find.byType(HomeworkHubPage),
               matching: find.byType(AppRefreshButton),
             );
             expect(
