@@ -1275,8 +1275,6 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _studentToolbar(blocked),
-                    const SizedBox(height: 14),
                     if (_building || _zipMessage != null)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -1310,53 +1308,69 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                       ),
                     Expanded(
                       child: Card(
-                        child: LayoutBuilder(
-                          builder: (context, bounds) {
-                            final table = Column(
-                              children: [
-                                _studentTableRow(
-                                  null,
-                                  visible,
-                                  heading: true,
-                                  blocked: blocked,
-                                ),
-                                Expanded(
-                                  child: ListView.builder(
-                                    key: const ValueKey('ta-assignment-scroll'),
-                                    // Rows are single-line. Known extents avoid
-                                    // measuring preceding rows during scrolling.
-                                    // Grow with accessibility text, not row data.
-                                    itemExtent:
-                                        48 *
-                                        (MediaQuery.textScalerOf(
-                                                  context,
-                                                ).scale(14) /
-                                                14)
-                                            .clamp(1.0, double.infinity),
-                                    itemCount: visible.length,
-                                    itemBuilder: (_, i) => _studentTableRow(
-                                      visible[i],
-                                      visible,
-                                      blocked: blocked,
+                        key: const ValueKey('ta-roster-workspace'),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: _studentToolbar(blocked),
+                            ),
+                            Divider(height: 1, color: p.border),
+                            Expanded(
+                              child: LayoutBuilder(
+                                builder: (context, bounds) {
+                                  final table = Column(
+                                    children: [
+                                      _studentTableRow(
+                                        null,
+                                        visible,
+                                        heading: true,
+                                        blocked: blocked,
+                                      ),
+                                      Expanded(
+                                        child: ListView.builder(
+                                          key: const ValueKey(
+                                            'ta-assignment-scroll',
+                                          ),
+                                          // Rows are single-line. Known extents avoid
+                                          // measuring preceding rows during scrolling.
+                                          // Grow with accessibility text, not row data.
+                                          itemExtent:
+                                              48 *
+                                              (MediaQuery.textScalerOf(
+                                                        context,
+                                                      ).scale(14) /
+                                                      14)
+                                                  .clamp(1.0, double.infinity),
+                                          itemCount: visible.length,
+                                          itemBuilder: (_, i) =>
+                                              _studentTableRow(
+                                                visible[i],
+                                                visible,
+                                                blocked: blocked,
+                                              ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                  if (bounds.maxWidth >= 760) {
+                                    return table;
+                                  }
+                                  // Desktop ScrollView already provides a themed scrollbar
+                                  // attached to its own horizontal position.
+                                  return SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: SizedBox(
+                                      width: 760,
+                                      height: bounds.maxHeight,
+                                      child: table,
                                     ),
-                                  ),
-                                ),
-                              ],
-                            );
-                            if (bounds.maxWidth >= 760) {
-                              return table;
-                            }
-                            // Desktop ScrollView already provides a themed scrollbar
-                            // attached to its own horizontal position.
-                            return SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: SizedBox(
-                                width: 760,
-                                height: bounds.maxHeight,
-                                child: table,
+                                  );
+                                },
                               ),
-                            );
-                          },
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -1383,6 +1397,19 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
       _downloadMatchesSelection = false;
       if (_building) _packSelectionChanged = true;
     });
+  }
+
+  Future<void> _downloadPackage() async {
+    try {
+      if (!await launchUrl(
+        _zip!.download!,
+        mode: LaunchMode.externalApplication,
+      )) {
+        _message('无法打开下载链接');
+      }
+    } catch (_) {
+      _message('无法打开下载链接');
+    }
   }
 
   Widget _studentToolbar(bool blocked) {
@@ -1455,33 +1482,35 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
             : _openCsvReview,
       ),
       if (_zip?.download != null && !_building) ...[
-        AppButton(
-          compact: true,
-          kind: AppButtonKind.secondary,
-          onPressed: () async {
-            try {
-              if (!await launchUrl(
-                _zip!.download!,
-                mode: LaunchMode.externalApplication,
-              )) {
-                _message('无法打开下载链接');
-              }
-            } catch (_) {
-              _message('无法打开下载链接');
-            }
-          },
-          icon: AppIcons.download,
-          label: _downloadMatchesSelection ? '下载打包' : '下载上次打包',
-        ),
+        if (_downloadMatchesSelection)
+          AppButton(
+            compact: true,
+            kind: AppButtonKind.secondary,
+            onPressed: _downloadPackage,
+            icon: AppIcons.download,
+            label: '下载打包',
+          ),
         AppActionMenu<String>(
           tooltip: '下载选项',
           framed: false,
-          actions: const [AppMenuAction('copy', '复制下载链接', icon: AppIcons.copy)],
-          onSelected: (_) async {
-            await Clipboard.setData(
-              ClipboardData(text: _zip!.download.toString()),
-            );
-            _message('下载链接已复制');
+          actions: [
+            if (!_downloadMatchesSelection)
+              const AppMenuAction(
+                'download',
+                '下载上次打包',
+                icon: AppIcons.download,
+              ),
+            const AppMenuAction('copy', '复制下载链接', icon: AppIcons.copy),
+          ],
+          onSelected: (action) async {
+            if (action == 'download') {
+              await _downloadPackage();
+            } else {
+              await Clipboard.setData(
+                ClipboardData(text: _zip!.download.toString()),
+              );
+              _message('下载链接已复制');
+            }
           },
         ),
       ],
@@ -1489,7 +1518,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
     final normal = LayoutBuilder(
       builder: (context, bounds) {
         if (bounds.maxWidth >=
-            (760 + (actions.length > 2 ? 220 : 0)) *
+            (800 + (actions.length > 3 ? 120 : 0)) *
                 (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(
                   1,
                   1.5,
@@ -1500,9 +1529,10 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
               const SizedBox(width: 12),
               filter,
               const SizedBox(width: 8),
-              select,
+              actions.first,
               const Spacer(),
-              for (final action in actions)
+              select,
+              for (final action in actions.skip(1))
                 Padding(padding: const EdgeInsets.only(left: 8), child: action),
             ],
           );
@@ -1517,23 +1547,15 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
               children: [
                 SizedBox(width: bounds.maxWidth.clamp(0, 230), child: search),
                 filter,
+                actions.first,
               ],
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                select,
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Wrap(
-                    alignment: WrapAlignment.end,
-                    spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: actions,
-                  ),
-                ),
-              ],
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [select, ...actions.skip(1)],
             ),
           ],
         );
@@ -1542,7 +1564,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
     // Both modes participate in layout so selecting never shifts the table.
     return IndexedStack(
       index: _selected.isEmpty ? 0 : 1,
-      alignment: Alignment.centerLeft,
+      alignment: Alignment.topLeft,
       children: [
         normal,
         Wrap(

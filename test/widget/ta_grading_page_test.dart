@@ -217,8 +217,7 @@ void main() {
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
-        final f = TaHttpFixture(studentCount: 111, submittedCount: 47)
-          ..zip = null;
+        final f = TaHttpFixture(studentCount: 111, submittedCount: 47);
         final repo = await f.repository();
         addTearDown(repo.dispose);
         await tester.pumpWidget(
@@ -272,6 +271,14 @@ void main() {
         }
         expect(visible, greaterThanOrEqualTo(8));
         await captureDesktopUi(tester, 'ta-task-table-111-$dark');
+        expect(find.text('下载上次打包'), findsNothing);
+        await tester.tap(find.byTooltip('下载选项'));
+        await tester.pumpAndSettle();
+        expect(find.text('下载上次打包'), findsOneWidget);
+        expect(find.text('复制下载链接'), findsOneWidget);
+        await captureDesktopUi(tester, 'ta-previous-package-menu-$dark');
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
         final headerY = tester.getTopLeft(find.text('姓名')).dy;
         final firstRowY = tester.getTopLeft(find.text('示例学生1')).dy;
         final selectAll = find.byKey(const ValueKey('ta-select-all'));

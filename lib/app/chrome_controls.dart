@@ -186,10 +186,40 @@ class _AppSurfaceInteraction extends StatefulWidget {
 class _AppSurfaceInteractionState extends State<_AppSurfaceInteraction> {
   bool _hover = false, _pressed = false, _focus = false;
   late bool _pointerFocus = widget.autofocus && widget.pointerAutofocus;
+  bool _watchingKeyboard = false;
   final _focusNode = FocusNode();
 
   @override
+  void initState() {
+    super.initState();
+    if (_pointerFocus) _watchKeyboard();
+  }
+
+  void _watchKeyboard() {
+    if (_watchingKeyboard) return;
+    _watchingKeyboard = true;
+    HardwareKeyboard.instance.addHandler(_onKeyboardInput);
+  }
+
+  bool _onKeyboardInput(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    _useKeyboardFocus();
+    return false;
+  }
+
+  void _useKeyboardFocus() {
+    if (_watchingKeyboard) {
+      HardwareKeyboard.instance.removeHandler(_onKeyboardInput);
+      _watchingKeyboard = false;
+    }
+    if (_pointerFocus) setState(() => _pointerFocus = false);
+  }
+
+  @override
   void dispose() {
+    if (_watchingKeyboard) {
+      HardwareKeyboard.instance.removeHandler(_onKeyboardInput);
+    }
     _focusNode.dispose();
     super.dispose();
   }
@@ -213,7 +243,7 @@ class _AppSurfaceInteractionState extends State<_AppSurfaceInteraction> {
         includeSemantics: false,
         onKeyEvent: (_, event) {
           if (event is KeyDownEvent && _pointerFocus) {
-            setState(() => _pointerFocus = false);
+            _useKeyboardFocus();
           }
           return KeyEventResult.ignored;
         },
@@ -222,6 +252,7 @@ class _AppSurfaceInteractionState extends State<_AppSurfaceInteraction> {
             // Desktop traditional highlight mode includes mouse input. Keep
             // actual focus for navigation, but draw its ring only for keys.
             setState(() => _pointerFocus = true);
+            _watchKeyboard();
             (widget.focusNode ?? _focusNode).requestFocus();
           },
           child: FocusableActionDetector(
@@ -229,11 +260,9 @@ class _AppSurfaceInteractionState extends State<_AppSurfaceInteraction> {
             focusNode: widget.focusNode ?? _focusNode,
             autofocus: widget.autofocus,
             mouseCursor: WidgetStateMouseCursor.adaptiveClickable,
-            onFocusChange: (focused) {
-              if (!focused && _pointerFocus) {
-                setState(() => _pointerFocus = false);
-              }
-            },
+            // Losing focus to a route or popup doesn't change input modality.
+            // A one-shot key observer also catches Tab coming from another
+            // control, before this node regains focus.
             onShowFocusHighlight: (value) => setState(() => _focus = value),
             shortcuts: const {
               SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
@@ -242,7 +271,7 @@ class _AppSurfaceInteractionState extends State<_AppSurfaceInteraction> {
             actions: {
               ActivateIntent: CallbackAction<ActivateIntent>(
                 onInvoke: (_) {
-                  if (_pointerFocus) setState(() => _pointerFocus = false);
+                  _useKeyboardFocus();
                   widget.onTap?.call();
                   return null;
                 },
