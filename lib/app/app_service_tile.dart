@@ -4,7 +4,7 @@ import 'package:xmu_rollcall/app/chrome.dart';
 import 'app_service_symbol.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
-/// Equal-weight service controls on translucent surfaces, without per-tile blur.
+/// Equal-weight directory controls. Static surfaces avoid per-entry blur.
 class AppServiceTile extends StatelessWidget {
   const AppServiceTile({
     super.key,
@@ -17,6 +17,8 @@ class AppServiceTile extends StatelessWidget {
   final String title, description;
   final IconData icon;
   final VoidCallback onPressed;
+
+  /// Horizontal layout for a narrow viewport or a single full-width entry.
   final bool compact;
 
   @override
@@ -26,14 +28,12 @@ class AppServiceTile extends StatelessWidget {
     final symbol = AppServiceSymbol(
       key: const ValueKey('service-symbol'),
       icon: icon,
-      size: compact ? 50 : 60,
+      size: compact ? 36 : 32,
     );
-    final label = Text(
+    final label = AppTruncatedText(
       title,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-        fontSize: compact ? 15 : 16,
+        fontSize: 15,
         fontWeight: FontWeight.w600,
         color: p.ink,
       ),
@@ -43,12 +43,12 @@ class AppServiceTile extends StatelessWidget {
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        fontSize: 13,
+        fontSize: 12,
         color: p.muted,
-        height: 1.5,
+        height: 1.45,
       ),
     );
-    final arrow = Icon(AppIcons.right, size: 14, color: p.muted);
+    final arrow = Icon(AppIcons.right, size: 13, color: p.muted);
     return Semantics(
       button: true,
       child: AppGlassSurface(
@@ -61,41 +61,38 @@ class AppServiceTile extends StatelessWidget {
           outlined: false,
           backgroundColor: Colors.transparent,
           borderRadius: radius,
-          padding: EdgeInsets.all(compact ? 18 : 24),
+          padding: const EdgeInsets.all(AppSpace.lg),
           onTap: onPressed,
           child: compact
               ? Row(
                   children: [
                     symbol,
-                    const SizedBox(width: 16),
+                    const SizedBox(width: AppSpace.md),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
-                        children: [label, const SizedBox(height: 6), detail],
+                        children: [
+                          label,
+                          const SizedBox(height: AppSpace.xxs),
+                          detail,
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppSpace.sm),
                     arrow,
                   ],
                 )
-              : ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 80),
-                  child: Row(
-                    children: [
-                      symbol,
-                      const SizedBox(width: 22),
-                      Expanded(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [label, const SizedBox(height: 8), detail],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      arrow,
-                    ],
-                  ),
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(children: [symbol, const Spacer(), arrow]),
+                    const SizedBox(height: AppSpace.sm),
+                    label,
+                    const SizedBox(height: AppSpace.xxs),
+                    detail,
+                  ],
                 ),
         ),
       ),

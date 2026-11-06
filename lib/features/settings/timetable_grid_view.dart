@@ -29,9 +29,11 @@ class TimetableGridView extends StatelessWidget {
     required this.courses,
     this.assistUserId,
     this.referenceDate,
+    this.showDates = false,
   });
   final int? assistUserId;
   final DateTime? referenceDate;
+  final bool showDates;
 
   final List<CatalogCourse> courses;
 
@@ -40,6 +42,7 @@ class TimetableGridView extends StatelessWidget {
     courses: courses,
     assistUserId: assistUserId,
     referenceDate: referenceDate,
+    showDates: showDates,
   );
 }
 
@@ -48,10 +51,12 @@ class _ScrollableTimetableGrid extends StatefulWidget {
     required this.courses,
     this.assistUserId,
     this.referenceDate,
+    required this.showDates,
   });
   final int? assistUserId;
   final List<CatalogCourse> courses;
   final DateTime? referenceDate;
+  final bool showDates;
 
   @override
   State<_ScrollableTimetableGrid> createState() =>
@@ -84,7 +89,19 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
     final columns = timetableColumns(blocks);
     final maxColumns = columns.values.fold(1, (n, v) => math.max(n, v.count));
     final axisW = (touch ? 56.0 : 60.0) * scale;
-    final headerH = (touch ? 36.0 : 44.0) * scale;
+    final headerH =
+        (widget.showDates ? (touch ? 48.0 : 60.0) : (touch ? 36.0 : 44.0)) *
+        scale;
+    final reference = widget.referenceDate ?? DateTime.now();
+    final monday = DateTime(
+      reference.year,
+      reference.month,
+      reference.day - reference.weekday + 1,
+    );
+    final today = TimetableSlot.dateKey(DateTime.now());
+    DateTime dateOf(int day) => monday.add(Duration(days: day - 1));
+    bool isToday(int day) =>
+        widget.showDates && TimetableSlot.dateKey(dateOf(day)) == today;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -139,7 +156,7 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
                   'stack-${block.weekday}-${block.block.id}-${variants.map((b) => b.course.id).join('-')}',
                 ),
                 variants: variants,
-                at: widget.referenceDate ?? DateTime.now(),
+                at: reference,
                 onOpen: (b) => _showBlockDetail(context, b),
               ),
             ),
@@ -174,11 +191,14 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
               ),
               Row(
                 children: [
-                  for (final _ in days)
+                  for (final day in days)
                     Expanded(
                       child: Container(
                         height: bodyH,
                         decoration: BoxDecoration(
+                          color: isToday(day)
+                              ? p.dataAccent.withValues(alpha: .025)
+                              : null,
                           border: Border(
                             left: BorderSide(color: p.border, width: .5),
                           ),
@@ -229,12 +249,41 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
             children: [
               for (final day in days)
                 Expanded(
-                  child: Center(
-                    child: Text(
-                      weekdayLabel(day),
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        fontSize: touch ? 12 : 13,
-                        color: day >= 6 ? p.primary : p.ink,
+                  child: DecoratedBox(
+                    key: ValueKey('timetable-day-$day'),
+                    decoration: BoxDecoration(
+                      color: isToday(day)
+                          ? p.dataAccent.withValues(alpha: .10)
+                          : null,
+                    ),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            weekdayLabel(day),
+                            style: AppTypography.control.copyWith(
+                              fontSize: touch ? 12 : 13,
+                              fontWeight: isToday(day)
+                                  ? FontWeight.w600
+                                  : FontWeight.w500,
+                              color: isToday(day) ? p.dataAccent : p.ink,
+                            ),
+                          ),
+                          if (widget.showDates) ...[
+                            const SizedBox(height: AppSpace.xxs),
+                            Text(
+                              '${dateOf(day).month}/${dateOf(day).day}',
+                              key: ValueKey('timetable-date-$day'),
+                              style: AppTypography.caption.copyWith(
+                                color: isToday(day) ? p.dataAccent : p.muted,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),
@@ -830,6 +879,7 @@ class _CourseBlockChip extends StatelessWidget {
     final titleStyle = Theme.of(context).textTheme.titleSmall!.copyWith(
       fontSize: touch ? 11 : 13,
       fontWeight: FontWeight.w600,
+      color: p.ink,
       height: 1.4,
       letterSpacing: 0,
     );
@@ -851,94 +901,80 @@ class _CourseBlockChip extends StatelessWidget {
           '${timetableCourseTitle(c)}，${weekdayLabel(block.weekday)}，'
           '${block.block.sectionLabel}，${c.instructorsLabel}'
           '${c.location == null ? '' : '，${c.location}'}',
-      child: Material(
-        color: tint.fill,
+      child: AppHoverSurface(
+        backgroundColor: tint.fill,
+        hoverColor: Color.lerp(tint.fill, p.primary, .06),
+        pressedColor: Color.lerp(tint.fill, p.primary, .12),
         borderRadius: BorderRadius.circular(AppRadii.control),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          hoverColor: p.hoverOverlay,
-          focusColor: p.primary.withValues(alpha: .14),
-          highlightColor: Colors.transparent,
-          splashFactory: NoSplash.splashFactory,
-          child: ExcludeSemantics(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(
-                touch ? 6 : 10,
-                (compact ? (touch ? 2 : 4) : (touch ? 6 : 8)) +
-                    (touch && controlInset > 0 ? 24 : 0),
-                touch ? 6 : 10,
-                compact ? (touch ? 2 : 4) : (touch ? 6 : 8),
-              ),
-              child: LayoutBuilder(
-                builder: (context, bounds) {
-                  final showFooter =
-                      footer.isNotEmpty &&
-                      bounds.maxHeight >= titleH + metaH + (compact ? 0 : 6);
-                  final showClass =
-                      _separateClassLabel(c) != null &&
-                      bounds.maxHeight >=
-                          titleH * 2 + metaH * (showFooter ? 2 : 1) + 12;
-                  final showWeeks =
-                      week != null &&
-                      bounds.maxHeight >= titleH + metaH * 2 + 14;
-                  final reserve =
-                      (showWeeks ? metaH + 4 : 0) +
-                      (showFooter ? metaH + footerGap : 0) +
-                      (showClass ? metaH + 4 : 0);
-                  final titleLines = ((bounds.maxHeight - reserve) / titleH)
-                      .floor()
-                      .clamp(1, 4);
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Flexible(
-                              child: Padding(
-                                padding: EdgeInsets.only(
-                                  right: touch ? 0 : controlInset,
-                                ),
-                                child: Text(
-                                  c.title.trim().isEmpty ? '未命名课程' : c.title,
-                                  maxLines: titleLines,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: titleStyle,
-                                ),
+        outlined: false,
+        onTap: onTap,
+        child: ExcludeSemantics(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              touch ? 6 : 10,
+              (compact ? (touch ? 2 : 4) : (touch ? 6 : 8)) +
+                  (touch && controlInset > 0 ? 24 : 0),
+              touch ? 6 : 10,
+              compact ? (touch ? 2 : 4) : (touch ? 6 : 8),
+            ),
+            child: LayoutBuilder(
+              builder: (context, bounds) {
+                final showFooter =
+                    footer.isNotEmpty &&
+                    bounds.maxHeight >= titleH + metaH + (compact ? 0 : 6);
+                final showClass =
+                    _separateClassLabel(c) != null &&
+                    bounds.maxHeight >=
+                        titleH * 2 + metaH * (showFooter ? 2 : 1) + 12;
+                final showWeeks =
+                    week != null && bounds.maxHeight >= titleH + metaH * 2 + 14;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Flexible(
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                right: touch ? 0 : controlInset,
+                              ),
+                              child: AppTruncatedText(
+                                c.title.trim().isEmpty ? '未命名课程' : c.title,
+                                style: titleStyle,
                               ),
                             ),
-                            if (showClass) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                _separateClassLabel(c)!,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: metaStyle,
-                              ),
-                            ],
+                          ),
+                          if (showClass) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              _separateClassLabel(c)!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: metaStyle,
+                            ),
                           ],
-                        ),
+                        ],
                       ),
-                      if (showWeeks) ...[
-                        const SizedBox(height: 4),
-                        AppTruncatedText(week, style: metaStyle),
-                      ],
-                      if (showFooter) ...[
-                        SizedBox(height: footerGap),
-                        Text(
-                          footer,
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.ellipsis,
-                          style: metaStyle,
-                        ),
-                      ],
+                    ),
+                    if (showWeeks) ...[
+                      const SizedBox(height: 4),
+                      AppTruncatedText(week, style: metaStyle),
                     ],
-                  );
-                },
-              ),
+                    if (showFooter) ...[
+                      SizedBox(height: footerGap),
+                      Text(
+                        footer,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: metaStyle,
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
           ),
         ),

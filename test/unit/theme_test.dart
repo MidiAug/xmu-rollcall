@@ -16,7 +16,13 @@ void main() {
       final p = theme.brightness == Brightness.dark
           ? AppPalette.darkPalette
           : AppPalette.lightPalette;
-      for (final background in [p.canvas, p.surface, p.content, p.selected]) {
+      for (final background in [
+        p.canvas,
+        p.surface,
+        p.content,
+        p.selected,
+        p.sidebar,
+      ]) {
         expect(contrast(p.ink, background), greaterThanOrEqualTo(4.5));
         expect(contrast(p.muted, background), greaterThanOrEqualTo(4.5));
         expect(contrast(p.focus, background), greaterThanOrEqualTo(3));
@@ -25,10 +31,27 @@ void main() {
         contrast(theme.colorScheme.onPrimary, p.primary),
         greaterThanOrEqualTo(4.5),
       );
+      for (final action in [p.primaryHover, p.primaryPressed]) {
+        expect(
+          contrast(theme.colorScheme.onPrimary, action),
+          greaterThanOrEqualTo(4.5),
+        );
+      }
+      expect(
+        contrast(p.navigationAccent, p.isDark ? p.selected : p.surface),
+        greaterThanOrEqualTo(4.5),
+      );
+      for (final menuSelection in [
+        p.selected,
+        Color.alphaBlend(p.focus.withValues(alpha: .12), p.selected),
+      ]) {
+        expect(contrast(p.ink, menuSelection), greaterThanOrEqualTo(4.5));
+        expect(contrast(p.primary, menuSelection), greaterThanOrEqualTo(3));
+      }
     }
   });
 
-  test('dark theme uses muted steel primary not Material purple', () {
+  test('dark theme uses the shared action accent, not Material purple', () {
     final theme = AppTheme.dark();
     expect(theme.colorScheme.primary, AppPalette.darkPalette.primary);
     expect(theme.colorScheme.primary, isNot(const Color(0xFF6750A4)));

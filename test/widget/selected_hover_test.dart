@@ -173,6 +173,13 @@ void main() {
           Focus.of(tester.element(label)).requestFocus();
           await tester.pumpAndSettle();
           await check('focus');
+          await mouse.moveTo(rect.center);
+          await tester.pumpAndSettle();
+          await check('focus-hover');
+          await mouse.down(rect.center);
+          await tester.pumpAndSettle();
+          await check('focus-pressed');
+          await mouse.up();
           await mouse.removePointer();
           await tester.pumpWidget(const SizedBox.shrink());
         },

@@ -23,7 +23,10 @@ class HomeworkListRow extends StatelessWidget {
       onTap: onTap,
       outlined: false,
       borderRadius: BorderRadius.zero,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.md,
+        vertical: AppSpace.md,
+      ),
       child: LayoutBuilder(
         builder: (context, bounds) {
           final scale = MediaQuery.textScalerOf(context).scale(1);
@@ -44,7 +47,7 @@ class HomeworkListRow extends StatelessWidget {
                       softWrap: false,
                       overflow: TextOverflow.ellipsis,
                       style: AppTypography.body.copyWith(
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                         color: p.ink,
                       ),
                     ),
@@ -60,11 +63,11 @@ class HomeworkListRow extends StatelessWidget {
                 ),
               ),
               if (wide) ...[
-                const SizedBox(width: 20),
-                SizedBox(width: 280 * scale, child: metadata),
+                const SizedBox(width: AppSpace.xl),
+                SizedBox(width: 264 * scale, child: metadata),
               ],
-              const SizedBox(width: 12),
-              Icon(AppIcons.right, size: 16, color: p.muted),
+              const SizedBox(width: AppSpace.md),
+              Icon(AppIcons.right, size: 14, color: p.muted),
             ],
           );
         },

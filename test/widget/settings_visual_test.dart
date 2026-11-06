@@ -460,8 +460,9 @@ void main() {
           expect(find.text(removed), findsNothing);
         }
         expect(find.text('关闭窗口时'), desktop ? findsOneWidget : findsNothing);
-        expect(find.byType(AppSegmentedControl<ThemePreference>), findsNothing);
-        final appearance = find.byType(AppShellSelect<ThemePreference>);
+        final appearance = desktop
+            ? find.byType(AppSegmentedControl<ThemePreference>)
+            : find.byType(AppShellSelect<ThemePreference>);
         if (desktop) {
           final group = find.ancestor(
             of: appearance,
@@ -478,7 +479,9 @@ void main() {
         if (desktop) {
           final close = find.byType(AppShellSelect<CloseMode>);
           expect(tester.getRect(appearance).right, tester.getRect(close).right);
-          expect(tester.getSize(appearance).width, tester.getSize(close).width);
+          expect(find.text('浅色'), findsOneWidget);
+          expect(find.text('暗色'), findsOneWidget);
+          expect(find.text('跟随系统'), findsOneWidget);
         }
         await capture(
           tester,
@@ -694,7 +697,7 @@ void main() {
 
   for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
     testWidgets(
-      'appearance menu supports pointer, keyboard and persistence on $platform',
+      'appearance choices support pointer, keyboard and persistence on $platform',
       (tester) async {
         SharedPreferences.setMockInitialValues({
           'theme_preference': ThemePreference.light.index,
@@ -708,21 +711,21 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
         await tester.pumpWidget(_app(platform: platform));
         await tester.pumpAndSettle();
+        final desktop = platform == TargetPlatform.windows;
         final menu = find.byType(AppShellSelect<ThemePreference>);
-        await tester.tap(menu);
-        await tester.pumpAndSettle();
+        if (!desktop) {
+          await tester.tap(menu);
+          await tester.pumpAndSettle();
+        }
         expect(find.text('跟随系统'), findsOneWidget);
         await tester.tap(find.text('暗色'));
         await tester.pumpAndSettle();
         final page = tester.element(find.byType(SettingsPage));
         expect(Theme.of(page).brightness, Brightness.dark);
         expect(find.byType(AppMenuOption), findsNothing);
-        final trigger = find.descendant(
-          of: menu,
-          matching: find.byType(AppSelectTrigger),
-        );
-        if (platform == TargetPlatform.windows) {
-          tester.widget<AppSelectTrigger>(trigger).focusNode!.requestFocus();
+        if (desktop) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+          await tester.pumpAndSettle();
         } else {
           tester
               .widget<TextButton>(
@@ -732,19 +735,21 @@ void main() {
               )
               .focusNode!
               .requestFocus();
+          await tester.pumpAndSettle();
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+          await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+          await tester.pumpAndSettle();
         }
-        await tester.pumpAndSettle();
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-        await tester.pumpAndSettle();
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-        await tester.pumpAndSettle();
         expect(
           ProviderScope.containerOf(page).read(themePreferenceProvider),
           ThemePreference.system,
         );
-        await tester.tap(menu);
-        await tester.pumpAndSettle();
+        if (!desktop) {
+          await tester.tap(menu);
+          await tester.pumpAndSettle();
+        }
         await tester.tap(find.text('暗色'));
         await tester.pumpAndSettle();
         expect(

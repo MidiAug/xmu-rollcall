@@ -515,6 +515,7 @@ class AppMenuOption extends StatelessWidget {
   final IconData? leadingIcon;
   final bool danger;
   final bool autofocus;
+
   /// Mouse-opened menus autofocus for navigation, without a keyboard highlight.
   final bool pointerAutofocus;
 
@@ -539,11 +540,9 @@ class AppMenuOption extends StatelessWidget {
         fontSize: 14,
         height: 22 / 14,
         fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-        color: danger
-            ? p.danger
-            : selected
-            ? p.primary
-            : p.ink,
+        // The selection surface and check carry the accent. Small text keeps
+        // its contrast when the keyboard-focus tint is layered onto selection.
+        color: danger ? p.danger : p.ink,
       );
       return Semantics(
         selected: selected,
@@ -590,7 +589,7 @@ class AppMenuOption extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 12,
                       height: 22 / 12,
-                      color: selected ? p.primary : p.muted,
+                      color: selected ? p.ink : p.muted,
                     ),
                   ),
                 ],

@@ -139,7 +139,7 @@ class _DesktopNavItem extends StatelessWidget {
               style:
                   TextButton.styleFrom(
                     alignment: Alignment.centerLeft,
-                    foregroundColor: p.ink,
+                    foregroundColor: selected ? p.navigationAccent : p.ink,
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(AppRadii.nav),
@@ -169,9 +169,7 @@ class _DesktopNavItem extends StatelessWidget {
                       (states) => BorderSide(
                         color: states.contains(WidgetState.focused)
                             ? p.focus
-                            : selected
-                            ? p.border
-                            : AppPalette.clearOf(p.border),
+                            : AppPalette.clearOf(p.focus),
                       ),
                     ),
                   ),

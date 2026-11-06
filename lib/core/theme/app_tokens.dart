@@ -44,7 +44,7 @@ class AppPalette {
   bool get isDark =>
       ThemeData.estimateBrightnessForColor(canvas) == Brightness.dark;
   Color get sidebar =>
-      isDark ? const Color(0xFF1D2027) : const Color(0xFFEBEDF1);
+      isDark ? const Color(0xFF1D2027) : const Color(0xFFEEF0F4);
   Color get window =>
       isDark ? const Color(0xFF1C1F26) : const Color(0xFFF0F2F5);
   Color get success =>
@@ -53,10 +53,10 @@ class AppPalette {
       isDark ? const Color(0xFF49DB92) : const Color(0xFF00B66A);
   Color get successSurface =>
       isDark ? const Color(0xFF173D30) : const Color(0xFFE4FAED);
-  Color get navigationAccent => ink;
+  Color get navigationAccent => primary;
   // Sidebar gray is darker than the content canvas; generic hover nearly
   // disappears on it. Keep navigation feedback distinct from white selection.
-  Color get navigationHover => isDark ? hover : const Color(0xFFDBDFE7);
+  Color get navigationHover => isDark ? hover : const Color(0xFFDFE5EE);
 
   /// Ink paints over the existing surface. An opaque surface token would erase
   /// a selected background while leaving its contrasting text unchanged.
@@ -67,7 +67,7 @@ class AppPalette {
   /// Action surfaces stay distinct from the canvas even under the pointer.
   Color get controlHover => isDark ? const Color(0xFF353D4C) : surface;
   Color get controlPressed =>
-      isDark ? const Color(0xFF3D485C) : const Color(0xFFEDF2FA);
+      isDark ? const Color(0xFF3D485C) : const Color(0xFFE6ECF6);
   Color get controlOutlineHover =>
       isDark ? const Color(0xFF74839C) : const Color(0xFFAAB8CE);
 
@@ -113,7 +113,7 @@ class AppPalette {
     content: Color(0xFF20232B),
     ink: Color(0xFFECEEF4),
     muted: Color(0xFFA6ADBC),
-    primary: Color(0xFFB8C5E0),
+    primary: Color(0xFFA6C5FF),
     danger: Color(0xFFD97777),
     border: Color(0x14FFFFFF),
     borderStrong: Color(0x22FFFFFF),
@@ -123,20 +123,22 @@ class AppPalette {
   );
 
   static const lightPalette = AppPalette(
-    canvas: Color(0xFFF5F6F8),
+    canvas: Color(0xFFFAFBFD),
     surface: Color(0xFFFFFFFF),
-    surfaceHigh: Color(0xFFEAEDF2),
-    content: Color(0xFFEDF0F4),
-    ink: Color(0xFF222731),
-    muted: Color(0xFF5F6876),
-    primary: Color(0xFF34435C),
+    surfaceHigh: Color(0xFFEEF0F4),
+    content: Color(0xFFF0F2F6),
+    ink: Color(0xFF23262D),
+    muted: Color(0xFF626B79),
+    // The reference blue is deepened to keep small labels and white actions
+    // readable; navigation and actions still share one semantic accent.
+    primary: Color(0xFF2166DB),
     danger: Color(0xFFC04444),
-    border: Color(0xFFE4E7ED),
-    borderStrong: Color(0xFFD1D7E1),
+    border: Color(0xFFE5E9F0),
+    borderStrong: Color(0xFFD4DBE5),
     // Solid, with no dark overlay on the light canvas.
-    hover: Color(0xFFEAEDF2),
+    hover: Color(0xFFE9EDF3),
     cardHover: Color(0xFFF8FAFE),
-    selected: Color(0xFFE6EAF1),
+    selected: Color(0xFFE7EDF7),
   );
 }
 
@@ -183,17 +185,17 @@ abstract final class AppSpace {
       AppDensity.isTouch(context) ? settingsGroupTopCompact : settingsGroupTop;
 }
 
-/// Concentric radius ladder (Quiet Utility).
+/// Controls, grouped content and overlays have distinct corner scales.
 abstract final class AppRadii {
   static const island = 26.0;
-  static const service = 22.0;
+  static const service = 16.0;
   static const control = 10.0;
-  static const input = 12.0;
-  static const button = 12.0;
-  static const nav = 12.0;
-  static const card = 18.0;
-  static const group = 18.0;
-  static const dialog = 24.0;
+  static const input = 10.0;
+  static const button = 10.0;
+  static const nav = 10.0;
+  static const card = 16.0;
+  static const group = 16.0;
+  static const dialog = 20.0;
 }
 
 /// Shares the density breakpoint while layout keeps following live constraints.

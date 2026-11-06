@@ -129,7 +129,9 @@ class _CampusMapState extends State<CampusMap> {
           ),
           child: InkWell(
             onTap: onTap,
-            focusColor: selected ? foreground.withValues(alpha: .12) : null,
+            // Lift toward theme ink: white over a blue selection would lower
+            // white-label contrast, while dark-theme ink lifts the pale accent.
+            focusColor: selected ? p.ink.withValues(alpha: .12) : null,
             borderRadius: BorderRadius.circular(18),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 9),

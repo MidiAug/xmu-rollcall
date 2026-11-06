@@ -434,6 +434,24 @@ void main() {
           ),
         );
         final boundary = GlobalKey();
+        Future<void> capture(String mode) async {
+          if (Platform.environment['CAPTURE_ACADEMIC_UI'] != '1') return;
+          await tester.runAsync(() async {
+            final image =
+                await (boundary.currentContext!.findRenderObject()
+                        as RenderRepaintBoundary)
+                    .toImage();
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            await Directory('.tools/academic-ui').create(recursive: true);
+            await File(
+              '.tools/academic-ui/$mode-${width.toInt()}.png',
+            ).writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+
         var theme = AppTheme.light();
         if (Platform.environment['SETTINGS_UI_FONT'] != null) {
           theme = theme.copyWith(
@@ -500,8 +518,16 @@ void main() {
         expect(find.byType(PopupMenuButton<String>), findsNothing);
         expect(find.text('补全安排'), findsNothing);
         expect(find.text('关联课程'), findsNothing);
+        expect(
+          tester
+              .widget<Text>(find.byKey(const ValueKey('timetable-date-1')))
+              .data,
+          '${monday.month}/${monday.day}',
+        );
+        await capture('week');
         await tester.tap(find.text('学期'));
         await tester.pumpAndSettle();
+        expect(find.byKey(const ValueKey('timetable-date-1')), findsNothing);
         expect(
           tester
               .widget<TimetableGridView>(find.byType(TimetableGridView))
@@ -512,22 +538,7 @@ void main() {
         expect(find.text('助教课程不得显示'), findsNothing);
         expect(find.text('教师课程不得显示'), findsNothing);
         expect(tester.takeException(), isNull);
-        if (Platform.environment['CAPTURE_ACADEMIC_UI'] == '1') {
-          await tester.runAsync(() async {
-            final image =
-                await (boundary.currentContext!.findRenderObject()
-                        as RenderRepaintBoundary)
-                    .toImage();
-            final bytes = await image.toByteData(
-              format: ui.ImageByteFormat.png,
-            );
-            await Directory('.tools/academic-ui').create(recursive: true);
-            await File(
-              '.tools/academic-ui/term-${width.toInt()}.png',
-            ).writeAsBytes(bytes!.buffer.asUint8List());
-            image.dispose();
-          });
-        }
+        await capture('term');
       },
     );
   }

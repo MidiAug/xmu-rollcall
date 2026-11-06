@@ -537,10 +537,8 @@ class _TeachingCourseCard extends ConsumerWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
+                  child: AppTruncatedText(
                     course.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,

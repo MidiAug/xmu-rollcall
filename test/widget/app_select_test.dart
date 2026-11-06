@@ -1,5 +1,7 @@
 import 'package:flutter/gestures.dart';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
@@ -89,7 +91,7 @@ void main() {
           final selectedLabel = tester.widget<Text>(
             find.descendant(of: selected, matching: find.byType(Text)).first,
           );
-          expect(selectedLabel.style!.color, selectedPalette.primary);
+          expect(selectedLabel.style!.color, selectedPalette.ink);
           expect(selectedLabel.style!.fontWeight, FontWeight.w600);
           final mouse = await tester.createGesture(
             kind: PointerDeviceKind.mouse,
@@ -151,6 +153,50 @@ void main() {
           await tester.sendKeyEvent(LogicalKeyboardKey.enter);
           await tester.pumpAndSettle();
           expect(find.byType(AppMenuOption), findsNWidgets(3));
+          final keyboardSelected = find.byKey(
+            const ValueKey('shell-select-option-1'),
+          );
+          final keyboardSelectionPaint = tester.widget<AnimatedContainer>(
+            find.descendant(
+              of: keyboardSelected,
+              matching: find.byType(AnimatedContainer),
+            ),
+          );
+          final keyboardSelectionColor =
+              (keyboardSelectionPaint.decoration as BoxDecoration).color!;
+          expect(
+            keyboardSelectionColor,
+            Color.alphaBlend(
+              palette.focus.withValues(alpha: .12),
+              palette.selected,
+            ),
+          );
+          double contrast(Color foreground) {
+            final first = foreground.computeLuminance();
+            final second = keyboardSelectionColor.computeLuminance();
+            return ((first > second ? first : second) + .05) /
+                ((first > second ? second : first) + .05);
+          }
+
+          final keyboardSelectionLabel = tester.widget<Text>(
+            find
+                .descendant(of: keyboardSelected, matching: find.byType(Text))
+                .first,
+          );
+          final keyboardSelectionCheck = tester.widget<Icon>(
+            find.descendant(
+              of: keyboardSelected,
+              matching: find.byIcon(AppIcons.check),
+            ),
+          );
+          expect(
+            contrast(keyboardSelectionLabel.style!.color!),
+            greaterThanOrEqualTo(4.5),
+          );
+          expect(
+            contrast(keyboardSelectionCheck.color!),
+            greaterThanOrEqualTo(3),
+          );
           expect(
             triggerDecoration().color,
             width < AppLayout.shellBreakpoint
@@ -169,6 +215,102 @@ void main() {
         },
       );
     }
+  }
+  for (final dark in [false, true]) {
+    testWidgets(
+      'plain compact select blends into its host and keeps pointer and keyboard feedback dark=$dark',
+      (tester) async {
+        tester.view.physicalSize = const Size(960, 700);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final p = dark ? AppPalette.darkPalette : AppPalette.lightPalette;
+        var value = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
+              platform: TargetPlatform.windows,
+            ),
+            home: RepaintBoundary(
+              key: const ValueKey('plain-select-capture'),
+              child: Scaffold(
+                backgroundColor: p.surface,
+                body: Center(
+                  child: StatefulBuilder(
+                    builder: (context, setState) => AppShellSelect<int>(
+                      plain: true,
+                      compact: true,
+                      width: 168,
+                      value: value,
+                      items: const [0, 1],
+                      labelOf: (item) => item == 0 ? '最小化到托盘' : '退出程序',
+                      onChanged: (next) => setState(() => value = next),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final trigger = find.byType(AppSelectTrigger);
+        final rect = tester.getRect(trigger);
+        final bodyPoint = Offset(rect.center.dx, rect.top + 4);
+        final edgePoint = Offset(rect.left, rect.center.dy);
+        Future<Color> pixel(Offset point) async => (await tester.runAsync(
+          () async {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(
+              find.byKey(const ValueKey('plain-select-capture')),
+            );
+            final image = await boundary.toImage();
+            final data = await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            );
+            final bytes = data!.buffer.asUint8List();
+            final at = (point.dy.floor() * image.width + point.dx.floor()) * 4;
+            final color = Color.fromARGB(
+              bytes[at + 3],
+              bytes[at],
+              bytes[at + 1],
+              bytes[at + 2],
+            );
+            image.dispose();
+            return color;
+          },
+        ))!;
+        expect(await pixel(bodyPoint), p.surface);
+        expect(await pixel(edgePoint), p.surface);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await mouse.addPointer(location: Offset.zero);
+        await mouse.moveTo(rect.center);
+        await tester.pumpAndSettle();
+        expect(await pixel(bodyPoint), p.controlHover);
+        expect(await pixel(edgePoint), isNot(p.surface));
+        await mouse.down(rect.center);
+        await tester.pumpAndSettle();
+        expect(await pixel(bodyPoint), p.controlPressed);
+        await mouse.up();
+        await tester.pumpAndSettle();
+        expect(find.byType(AppMenuOption), findsNWidgets(2));
+        await mouse.removePointer();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.byType(AppMenuOption), findsNothing);
+        expect(await pixel(bodyPoint), p.surface);
+        expect(await pixel(edgePoint), p.focus);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(find.byType(AppMenuOption), findsNWidgets(2));
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(value, 1);
+        expect(find.byType(AppMenuOption), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
   }
   testWidgets('disabled select cannot open or change a value', (tester) async {
     await tester.pumpWidget(

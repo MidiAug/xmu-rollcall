@@ -1168,18 +1168,16 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
             colors: [
               p.surface,
               Color.alphaBlend(
-                p.primary.withValues(alpha: p.isDark ? .035 : .025),
+                p.ink.withValues(alpha: p.isDark ? .02 : .008),
                 p.surface,
               ),
             ],
           ),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: p.primary.withValues(alpha: _hover ? .25 : .13),
-          ),
+          border: Border.all(color: _hover ? p.borderStrong : p.border),
           boxShadow: [
             BoxShadow(
-              color: p.primary.withValues(alpha: p.isDark ? .02 : .045),
+              color: Colors.black.withValues(alpha: p.isDark ? .10 : .045),
               blurRadius: 12,
               offset: const Offset(0, 3),
             ),
@@ -1199,8 +1197,8 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                           begin: Alignment.bottomLeft,
                           end: Alignment.topRight,
                           colors: [
-                            Colors.transparent,
-                            p.primary.withValues(alpha: p.isDark ? .06 : .055),
+                            AppPalette.clearOf(p.surfaceHigh),
+                            p.surfaceHigh.withValues(alpha: .3),
                           ],
                         ),
                       ),
@@ -1245,12 +1243,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                   ),
                 ],
               ),
-              Divider(
-                color: p.primary.withValues(alpha: .08),
-                height: 1,
-                indent: 28,
-                endIndent: 28,
-              ),
+              Divider(color: p.border, height: 1, indent: 28, endIndent: 28),
               Padding(
                 padding: const EdgeInsets.all(28),
                 child: _desktopTaskStrip(p, item),

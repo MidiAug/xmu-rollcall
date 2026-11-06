@@ -117,56 +117,60 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                 child: LayoutBuilder(
                   builder: (context, bounds) {
                     final compact = bounds.maxWidth < 580;
-                    final gap = compact ? 12.0 : 16.0;
+                    final gap = compact ? AppSpace.sm : AppSpace.md;
                     final columns = compact ? 1 : 2;
                     final tileWidth =
                         (bounds.maxWidth - gap * (columns - 1)) / columns;
-                    Widget group(String title, Iterable<CampusTool> entries) =>
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                    Widget group(
+                      String title,
+                      Iterable<CampusTool> entries,
+                    ) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpace.sm),
+                          child: Text(
+                            title,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: p.muted,
+                                ),
+                          ),
+                        ),
+                        Wrap(
+                          spacing: gap,
+                          runSpacing: gap,
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 14),
-                              child: Text(
-                                title,
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: p.muted,
-                                    ),
-                              ),
-                            ),
-                            Wrap(
-                              spacing: gap,
-                              runSpacing: gap,
-                              children: [
-                                for (final tool in entries)
-                                  SizedBox(
-                                    width: tileWidth,
-                                    child: AppServiceTile(
-                                      key: ValueKey('tool-${tool.id}'),
-                                      title:
-                                          tool.id == 'ta-grading' &&
-                                              taIsMobile(context)
-                                          ? '助教作业'
-                                          : tool.title,
-                                      description: tool.id == 'ta-grading'
-                                          ? taIsMobile(context)
-                                                ? '提交情况与批改进度'
-                                                : '作业打包下载与批量评分'
-                                          : tool.description,
-                                      icon: tool.icon,
-                                      compact: compact,
-                                      onPressed: () => AppPageRoutes.push(
-                                        context,
-                                        tool.page(context),
-                                      ),
-                                    ),
+                            for (final tool in entries)
+                              SizedBox(
+                                width: tool.id == 'ta-grading'
+                                    ? bounds.maxWidth
+                                    : tileWidth,
+                                child: AppServiceTile(
+                                  key: ValueKey('tool-${tool.id}'),
+                                  title:
+                                      tool.id == 'ta-grading' &&
+                                          taIsMobile(context)
+                                      ? '助教作业'
+                                      : tool.title,
+                                  description: tool.id == 'ta-grading'
+                                      ? taIsMobile(context)
+                                            ? '提交情况与批改进度'
+                                            : '作业打包下载与批量评分'
+                                      : tool.description,
+                                  icon: tool.icon,
+                                  compact: compact || tool.id == 'ta-grading',
+                                  onPressed: () => AppPageRoutes.push(
+                                    context,
+                                    tool.page(context),
                                   ),
-                              ],
-                            ),
+                                ),
+                              ),
                           ],
-                        );
+                        ),
+                      ],
+                    );
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -178,7 +182,7 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                               '常用工具',
                               tools.where((t) => t.id != 'ta-grading'),
                             ),
-                            const SizedBox(height: 28),
+                            const SizedBox(height: AppSpace.xl),
                             group(
                               '研究生',
                               tools.where((t) => t.id == 'ta-grading'),
@@ -190,7 +194,7 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Divider(color: p.borderStrong, height: 1),
+                              Divider(color: p.border, height: 1),
                               const SizedBox(height: 12),
                               SingleChildScrollView(
                                 key: const ValueKey('campus-websites-row'),

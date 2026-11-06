@@ -371,6 +371,8 @@ class _TimetableBody extends StatelessWidget {
             child: TimetableGridView(
               courses: withSlots,
               assistUserId: assistUserId,
+              referenceDate: now,
+              showDates: !semester,
             ),
           ),
         ],

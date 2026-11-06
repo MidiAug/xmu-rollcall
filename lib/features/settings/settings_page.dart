@@ -132,7 +132,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           padTop: false,
           children: [
             SettingsRow(
-              leading: const BrandMark(size: 36),
+              leading: const Icon(AppIcons.person, size: 28),
               title: auth.isSignedIn ? (auth.profile?.name ?? '已登录') : '未登录',
               subtitle: accountSubtitle,
               trailing: auth.isSignedIn
@@ -152,6 +152,84 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           ],
         ),
       SettingsSection(
+        header: desktop ? '外观与窗口' : '应用',
+        children: [
+          SettingsRow(
+            leading: const Icon(AppIcons.theme),
+            title: '外观',
+            trailing: desktop
+                ? AppSegmentedControl<ThemePreference>(
+                    segments: const [
+                      AppSegment(value: ThemePreference.light, label: '浅色'),
+                      AppSegment(value: ThemePreference.dark, label: '暗色'),
+                      AppSegment(value: ThemePreference.system, label: '跟随系统'),
+                    ],
+                    value: themePref,
+                    onChanged: (value) =>
+                        ref.read(themePreferenceProvider.notifier).set(value),
+                  )
+                : AppShellSelect<ThemePreference>(
+                    semanticLabel: '外观模式',
+                    value: themePref,
+                    items: const [
+                      ThemePreference.light,
+                      ThemePreference.dark,
+                      ThemePreference.system,
+                    ],
+                    labelOf: (value) => switch (value) {
+                      ThemePreference.light => '浅色',
+                      ThemePreference.dark => '暗色',
+                      ThemePreference.system => '跟随系统',
+                    },
+                    iconOf: (value) => switch (value) {
+                      ThemePreference.light => AppIcons.sun,
+                      ThemePreference.dark => AppIcons.moon,
+                      ThemePreference.system =>
+                        PlatformHooks.systemAppearanceIcon(context),
+                    },
+                    width: 148,
+                    onChanged: (v) {
+                      ref.read(themePreferenceProvider.notifier).set(v);
+                    },
+                  ),
+          ),
+          if (platform == TargetPlatform.windows)
+            SettingsRow(
+              leading: const Icon(AppIcons.externalLink),
+              title: '常用网站打开方式',
+              trailing: AppShellSelect<WebsiteOpenMode>(
+                semanticLabel: '常用网站打开方式',
+                value: ref.watch(websiteOpenModeProvider),
+                plain: true,
+                compact: true,
+                items: WebsiteOpenMode.values,
+                labelOf: (mode) => mode.label,
+                width: 148,
+                menuWidth: 200,
+                onChanged: (mode) =>
+                    ref.read(websiteOpenModeProvider.notifier).set(mode),
+              ),
+            ),
+          if (desktop)
+            SettingsRow(
+              leading: const Icon(AppIcons.desktop),
+              title: '关闭窗口时',
+              trailing: AppShellSelect<CloseMode>(
+                semanticLabel: '关闭窗口时',
+                plain: true,
+                compact: true,
+                value: ref.watch(closePrefsProvider).mode,
+                items: CloseMode.values,
+                labelOf: (m) => m.label,
+                width: 148,
+                onChanged: (m) {
+                  ref.read(closePrefsProvider.notifier).setMode(m);
+                },
+              ),
+            ),
+        ],
+      ),
+      SettingsSection(
         header: '常用',
         children: [
           if (!desktop)
@@ -167,7 +245,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           SettingsRow(
             leading: const Icon(AppIcons.location),
             title: '地点管理',
-            subtitle: '为课表地点绑定坐标、校正定位错误',
             trailing: Icon(AppIcons.right, color: p.muted, size: 18),
             onTap: () =>
                 AppPageRoutes.push(context, const SavedLocationsPage()),
@@ -177,75 +254,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
             title: '协助同学',
             subtitle: assist.ready && assist.identities.isNotEmpty
                 ? '已导入 ${assist.identities.length} 人'
-                : '导出或导入协助身份',
+                : null,
             trailing: Icon(AppIcons.right, color: p.muted, size: 18),
             onTap: () =>
                 AppPageRoutes.push(context, const SettingsAssistPage()),
           ),
-        ],
-      ),
-      SettingsSection(
-        header: desktop ? '外观与窗口' : '应用',
-        children: [
-          SettingsRow(
-            leading: const Icon(AppIcons.theme),
-            title: '外观',
-            trailing: AppShellSelect<ThemePreference>(
-              semanticLabel: '外观模式',
-              value: themePref,
-              items: const [
-                ThemePreference.light,
-                ThemePreference.dark,
-                ThemePreference.system,
-              ],
-              labelOf: (value) => switch (value) {
-                ThemePreference.light => '浅色',
-                ThemePreference.dark => '暗色',
-                ThemePreference.system => '跟随系统',
-              },
-              iconOf: (value) => switch (value) {
-                ThemePreference.light => AppIcons.sun,
-                ThemePreference.dark => AppIcons.moon,
-                ThemePreference.system => PlatformHooks.systemAppearanceIcon(
-                  context,
-                ),
-              },
-              width: 148,
-              onChanged: (v) {
-                ref.read(themePreferenceProvider.notifier).set(v);
-              },
-            ),
-          ),
-          if (platform == TargetPlatform.windows)
-            SettingsRow(
-              leading: const Icon(AppIcons.externalLink),
-              title: '常用网站打开方式',
-              trailing: AppShellSelect<WebsiteOpenMode>(
-                semanticLabel: '常用网站打开方式',
-                value: ref.watch(websiteOpenModeProvider),
-                items: WebsiteOpenMode.values,
-                labelOf: (mode) => mode.label,
-                width: 148,
-                menuWidth: 200,
-                onChanged: (mode) =>
-                    ref.read(websiteOpenModeProvider.notifier).set(mode),
-              ),
-            ),
-          if (desktop)
-            SettingsRow(
-              leading: const Icon(AppIcons.desktop),
-              title: '关闭窗口时',
-              subtitle: '询问 / 托盘 / 退出',
-              trailing: AppShellSelect<CloseMode>(
-                value: ref.watch(closePrefsProvider).mode,
-                items: CloseMode.values,
-                labelOf: (m) => m.label,
-                width: 148,
-                onChanged: (m) {
-                  ref.read(closePrefsProvider.notifier).setMode(m);
-                },
-              ),
-            ),
         ],
       ),
       if (desktop) const StartupSettings(),
@@ -256,7 +269,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
             SettingsRow(
               leading: const Icon(AppIcons.notification),
               title: desktop ? '桌面提醒' : '后台提醒',
-              subtitle: desktop ? '测试系统通知与后台提醒' : '自动检查，一次确认锁屏提醒',
+              subtitle: desktop ? null : '自动检查，一次确认锁屏提醒',
               trailing: Icon(AppIcons.right, color: p.muted, size: 18),
               onTap: () => AppPageRoutes.push(
                 context,
@@ -268,7 +281,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           SettingsRow(
             leading: const Icon(AppIcons.data),
             title: '数据与诊断',
-            subtitle: '清除课程数据、本机标识与日志',
             trailing: Icon(AppIcons.right, color: p.muted, size: 18),
             onTap: () => AppPageRoutes.push(context, const SettingsDataPage()),
           ),

@@ -173,7 +173,13 @@ class SettingsRow extends StatelessWidget {
               children: [
                 if (leading != null) ...[
                   if (leading is Icon)
-                    AppIconSurface(child: leading!)
+                    SizedBox.square(
+                      dimension: 36,
+                      child: IconTheme.merge(
+                        data: IconThemeData(size: 20, color: p.muted),
+                        child: leading!,
+                      ),
+                    )
                   else
                     SizedBox.square(
                       dimension: 36,

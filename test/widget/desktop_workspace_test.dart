@@ -4,6 +4,7 @@ import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
 import 'package:xmu_rollcall/features/history/history_page.dart';
 import '../fixtures/preview_fonts.dart';
+import '../fixtures/desktop_ui_capture.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
@@ -203,6 +204,7 @@ class _Catalog extends CourseCatalogNotifier {
 }
 
 void main() {
+  initializeDesktopUiCapture();
   setUp(() => SharedPreferences.setMockInitialValues({}));
   setUpAll(() async {
     await loadDesktopPreviewFonts();

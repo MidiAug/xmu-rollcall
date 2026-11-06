@@ -184,6 +184,50 @@ void main() {
         .load();
   });
 
+  testWidgets('week header dates cross a year boundary without marking today', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(960, 720);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    // A different week also guards against applying today's weekday highlight to
+    // the same column in a different displayed week.
+    final reference = DateTime(2009, 12, 31);
+    final monday = DateTime(
+      reference.year,
+      reference.month,
+      reference.day - reference.weekday + 1,
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: TimetableGridView(
+              courses: _courses(false),
+              referenceDate: reference,
+              showDates: true,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    for (var day = 1; day <= 5; day++) {
+      final date = monday.add(Duration(days: day - 1));
+      expect(
+        tester.widget<Text>(find.byKey(ValueKey('timetable-date-$day'))).data,
+        '${date.month}/${date.day}',
+      );
+      final header = tester.widget<DecoratedBox>(
+        find.byKey(ValueKey('timetable-day-$day')),
+      );
+      expect((header.decoration as BoxDecoration).color, isNull);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   for (final scenario in [
     (
       name: 'desktop-light',

@@ -75,7 +75,7 @@ class AppSelectTrigger extends StatelessWidget {
                   : hovering
                   ? p.controlHover
                   : plain
-                  ? p.sidebar
+                  ? AppPalette.clearOf(p.controlHover)
                   : AppMobileUi.useTouchChrome(context)
                   ? p.controlSurface
                   : p.surface,
