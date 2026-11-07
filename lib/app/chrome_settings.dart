@@ -32,9 +32,13 @@ class SettingsSection extends StatelessWidget {
     final p = AppPalette.of(context);
     final touch = AppMobileUi.useTouchChrome(context);
     final rowPad = rowPadding ?? AppDensity.rowPadding(context);
+    final leadingExtent = touch
+        ? AppDensity.settingsTouchLeading
+        : AppDensity.settingsLeading;
     const captionInset = 12.0;
     final dividerIndent =
-        rowPad.left + (hasLeading ? 36 + AppDensity.rowInnerGap(context) : 0);
+        rowPad.left +
+        (hasLeading ? leadingExtent + AppDensity.settingsInnerGap : 0);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -128,6 +132,8 @@ class SettingsRow extends StatelessWidget {
   final bool stackSubtitleOnNarrow;
   final Widget? trailing;
   final VoidCallback? onTap;
+
+  /// Minimum total row height on desktop, including its content padding.
   final double? minHeight;
   final EdgeInsetsGeometry? contentPadding;
   final double subtitleSpacing;
@@ -167,11 +173,47 @@ class SettingsRow extends StatelessWidget {
           textDirection: trailing.textDirection,
         ),
       );
+    } else if (onTap != null && trailing != null) {
+      // Composite navigation accessories (for example an update badge beside
+      // a disclosure) inherit the same feedback without tinting the whole row.
+      final color = pressed || focused
+          ? p.primary
+          : hovered
+          ? p.ink
+          : p.muted;
+      indicator = TweenAnimationBuilder<Color?>(
+        tween: ColorTween(begin: color, end: color),
+        duration: duration,
+        curve: AppMotion.fastCurve,
+        child: trailing,
+        builder: (context, color, child) => IconTheme.merge(
+          data: IconThemeData(color: color),
+          child: child!,
+        ),
+      );
     } else {
       indicator = trailing;
     }
-    final h = minHeight ?? AppDensity.rowHeight(context);
-    final gap = AppDensity.rowInnerGap(context);
+    final touch = AppMobileUi.useTouchChrome(context);
+    final h =
+        minHeight ??
+        (touch
+            ? AppDensity.rowHeight(context)
+            : AppDensity.settingsRowMinHeight);
+    final gap = AppDensity.settingsInnerGap;
+    final leadingExtent = touch
+        ? AppDensity.settingsTouchLeading
+        : AppDensity.settingsLeading;
+    final hasSupporting = this.subtitle != null || subtitleWidget != null;
+    final padding =
+        (contentPadding ??
+                (touch
+                    ? AppDensity.rowPadding(context)
+                    : EdgeInsets.symmetric(
+                        horizontal: AppDensity.desktopRowPadH,
+                        vertical: hasSupporting ? AppSpace.xs : AppSpace.xxs,
+                      )))
+            .resolve(Directionality.of(context));
     final subtitle = this.subtitle == null
         ? null
         : Text(
@@ -189,19 +231,23 @@ class SettingsRow extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(AppRadii.control),
       ),
-      padding: contentPadding ?? AppDensity.rowPadding(context),
+      padding: padding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ConstrainedBox(
-            constraints: BoxConstraints(minHeight: h),
+            constraints: BoxConstraints(
+              minHeight: touch
+                  ? h
+                  : (h - padding.vertical).clamp(0.0, double.infinity),
+            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 if (leading != null) ...[
                   if (leading is Icon)
                     SizedBox.square(
-                      dimension: 36,
+                      dimension: leadingExtent,
                       child: IconTheme.merge(
                         data: IconThemeData(size: 20, color: p.muted),
                         child: leading!,
@@ -209,7 +255,7 @@ class SettingsRow extends StatelessWidget {
                     )
                   else
                     SizedBox.square(
-                      dimension: 36,
+                      dimension: leadingExtent,
                       child: Center(child: leading!),
                     ),
                   SizedBox(width: gap),
@@ -221,7 +267,8 @@ class SettingsRow extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w500),
                       ),
                       if (subtitleWidget != null) ...[
                         const SizedBox(height: AppSpace.xs),

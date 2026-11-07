@@ -129,7 +129,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
         )
       else
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpace.xxs,
+            0,
+            AppSpace.md,
+            AppSpace.md,
+          ),
           child: Row(
             children: [
               CircleAvatar(
@@ -177,6 +182,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
         ),
       SettingsSection(
         header: desktop ? null : '应用',
+        padTop: false,
         children: [
           SettingsRow(
             leading: const Icon(AppIcons.theme),
@@ -226,6 +232,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 semanticLabel: '常用网站打开方式',
                 value: ref.watch(websiteOpenModeProvider),
                 plain: true,
+                alignValueEnd: true,
                 compact: true,
                 items: WebsiteOpenMode.values,
                 labelOf: (mode) => mode.label,
@@ -242,6 +249,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               trailing: AppShellSelect<CloseMode>(
                 semanticLabel: '关闭窗口时',
                 plain: true,
+                alignValueEnd: true,
                 compact: true,
                 value: ref.watch(closePrefsProvider).mode,
                 items: CloseMode.values,
@@ -314,34 +322,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
       ),
     ];
 
-    final theme = Theme.of(context);
-    return Theme(
-      data: theme.copyWith(
-        textTheme: theme.textTheme.copyWith(
-          titleMedium: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
-      child: PageScaffold(
-        title: PlatformHooks.isDesktop && !AppDensity.isTouch(context)
-            ? '设置'
-            : '我的',
-        showHeader: false,
-        child: AppPageViewport(
-          maxWidth: 808,
-          builder: (context, contentInsets) => ListView(
-            controller: _scroll,
-            padding:
-                contentInsets +
-                EdgeInsets.fromLTRB(
-                  AppSpace.pageXOf(context),
-                  AppSpace.xl,
-                  AppSpace.pageXOf(context),
-                  AppSpace.xl,
-                ),
-            children: sections,
-          ),
+    return PageScaffold(
+      title: PlatformHooks.isDesktop && !AppDensity.isTouch(context)
+          ? '设置'
+          : '我的',
+      showHeader: false,
+      child: AppPageViewport(
+        builder: (context, contentInsets) => ListView(
+          controller: _scroll,
+          padding:
+              contentInsets +
+              EdgeInsets.fromLTRB(
+                AppSpace.pageXOf(context),
+                AppSpace.xl,
+                AppSpace.pageXOf(context),
+                AppSpace.xl,
+              ),
+          children: sections,
         ),
       ),
     );

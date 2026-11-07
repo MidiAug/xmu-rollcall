@@ -17,6 +17,7 @@ import 'package:xmu_rollcall/features/settings/desktop_notification_settings_pag
 import 'package:xmu_rollcall/platform/desktop_notifications.dart';
 import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
 import 'package:xmu_rollcall/platform/android_monitor_shell.dart';
+import '../fixtures/preview_fonts.dart';
 
 ThemeData _theme({bool dark = false}) {
   final theme = dark ? AppTheme.dark() : AppTheme.light();
@@ -89,6 +90,7 @@ class _DesktopFrame extends StatelessWidget {
 
 void main() {
   setUpAll(() async {
+    await loadDesktopPreviewFonts();
     final font = Platform.environment['MONITOR_UI_FONT'];
     if (font != null) {
       final bytes = await File(font).readAsBytes();
@@ -141,7 +143,8 @@ void main() {
         if (Platform.environment['CAPTURE_MONITOR_UI'] != '1') return;
         await tester.runAsync(() async {
           final directory = await Directory(
-            '.tools/notification-polish',
+            Platform.environment['NOTIFICATION_UI_DIR'] ??
+                '.tools/notification-polish',
           ).create(recursive: true);
           final image =
               await (boundary.currentContext!.findRenderObject()!
@@ -193,20 +196,41 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('收到刚才的通知了吗？'), findsOneWidget);
       expect(find.text('已确认收到测试通知'), findsNothing);
+      final textColumn = tester.getTopLeft(find.text('测试系统通知')).dx;
+      expect(
+        tester.getTopLeft(find.text('收到刚才的通知了吗？')).dx,
+        closeTo(textColumn, .01),
+      );
+      expect(
+        tester.getTopLeft(find.widgetWithText(OutlinedButton, '已收到')).dx,
+        closeTo(textColumn, .01),
+      );
       await capture('02-sent');
       await tester.tap(find.text('没有收到'));
       await tester.pumpAndSettle();
       expect(find.text(helpTitle), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text(helpTitle)).dx,
+        closeTo(textColumn, .01),
+      );
       await capture('03-help');
       await tester.tap(find.text('已收到'));
       await tester.pumpAndSettle();
       expect(find.text('已确认收到测试通知'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('已确认收到测试通知')).dx,
+        closeTo(textColumn, .01),
+      );
       expect(find.text(helpTitle), findsNothing);
       await capture('04-confirmed');
       failSend = true;
       await tester.tap(find.text('重新发送'));
       await tester.pumpAndSettle();
       expect(find.text('未能发送通知'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('未能发送通知')).dx,
+        closeTo(textColumn, .01),
+      );
       expect(find.text('已确认收到测试通知'), findsNothing);
       expect(find.text('已收到'), findsNothing);
       await capture('05-failed');

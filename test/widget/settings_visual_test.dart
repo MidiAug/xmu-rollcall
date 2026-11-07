@@ -294,7 +294,10 @@ void main() {
       expect(viewport.right, 1440);
       final group = find.byType(SettingsSection).first;
       final content = tester.getRect(group);
-      expect(content.width, closeTo(808 - 2 * AppSpace.pageX, .1));
+      expect(
+        content.width,
+        closeTo(AppLayout.contentMaxWidth - 2 * AppSpace.pageX, .1),
+      );
       expect(content.center.dx, closeTo(viewport.center.dx, .1));
       final scrollbar = find.descendant(
         of: list,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -445,6 +446,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
   late TaAssignment _summary;
   List<TaStudent> _students = [];
   final _selected = <int>{};
+  final _searchController = TextEditingController();
   String _search = '';
   int _submissionFilter = 0;
   final _scoreDrafts = <int, String>{};
@@ -452,7 +454,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
   int? _savingStudent;
   bool _rosterReady = false, _refreshingRoster = false;
   TaZip? _zip, _oldZip;
-  bool _downloadMatchesSelection = false, _packSelectionChanged = false;
+  Set<int>? _requestedStudentIds, _packedStudentIds;
   bool _building = false, _zipBusy = false, _importing = false;
   String? _zipMessage;
   Timer? _poll;
@@ -464,6 +466,19 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
   String? _csvError;
   bool _overwrite = false, _allowUnsubmitted = false;
   final _batch = TaGradeBatch();
+
+  List<int> get _packTargets => [
+    for (final student in _students)
+      if (student.submitted &&
+          (_selected.isEmpty || _selected.contains(student.id)))
+        student.id,
+  ];
+
+  bool get _downloadMatchesScope =>
+      _zip?.download != null &&
+      !_building &&
+      _packedStudentIds != null &&
+      setEquals(_packedStudentIds, _packTargets.toSet());
   @override
   void initState() {
     super.initState();
@@ -542,6 +557,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
     _poll?.cancel();
     _zipCooldown?.cancel();
     _batch.stop();
+    _searchController.dispose();
     _repository.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
@@ -592,9 +608,12 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
       final fresh =
           _oldZip == null || zip.id != _oldZip!.id || zip.key != _oldZip!.key;
       if (!_building || fresh && zip.download != null) {
+        if (!_building && (_zip?.id != zip.id || _zip?.key != zip.key)) {
+          _packedStudentIds = null;
+        }
         _zip = zip;
         if (_building && zip.download != null) {
-          _downloadMatchesSelection = !_packSelectionChanged;
+          _packedStudentIds = _requestedStudentIds;
         }
         if (zip.download != null) {
           _building = false;
@@ -618,15 +637,23 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
   }
 
   Future<void> _pack() async {
-    if (_zipBusy || _batch.running || !_repository.active) {
+    if (_zipBusy || _building || _batch.running || !_repository.active) {
+      return;
+    }
+    // Search and submission filters are only a view. Capture the complete
+    // assignment scope before awaiting the previous package status.
+    final targets = _packTargets;
+    final all = _students.map((s) => s.id).toList();
+    if (targets.isEmpty) {
+      _message('当前范围没有已提交的学生');
       return;
     }
     _poll?.cancel();
     setState(() {
       _zipBusy = true;
       _zipMessage = null;
-      _packSelectionChanged = false;
-      _downloadMatchesSelection = false;
+      _requestedStudentIds = targets.toSet();
+      _packedStudentIds = null;
     });
     try {
       // Obtain a baseline immediately before re-packaging; stale ready packages
@@ -640,11 +667,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
         _building = true;
         _checks = 0;
       });
-      await _repository.startZip(
-        widget.assignment.id,
-        _selected.toList(),
-        _students.map((s) => s.id).toList(),
-      );
+      await _repository.startZip(widget.assignment.id, targets, all);
       if (mounted) _zipMessage = '服务器正在打包，请稍候';
     } catch (error) {
       if (mounted) {
@@ -1394,8 +1417,6 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
   void _changeSelection(VoidCallback change) {
     setState(() {
       change();
-      _downloadMatchesSelection = false;
-      if (_building) _packSelectionChanged = true;
     });
   }
 
@@ -1413,190 +1434,217 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
   }
 
   Widget _studentToolbar(bool blocked) {
-    final search = SizedBox(
-      width: 230,
-      child: AppSearchField(
-        compact: true,
-        hintText: '搜索姓名或学号',
-        onChanged: (v) => setState(() => _search = v),
-      ),
-    );
-    final filter = AppShellSelect<int>(
-      key: const ValueKey('ta-submission-filter'),
-      semanticLabel: '筛选提交状态',
-      value: _submissionFilter,
-      items: const [0, 1, 2],
-      labelOf: (v) => ['全部学生', '已提交', '未提交'][v],
-      width: 112,
-      menuWidth: 160,
+    final p = AppPalette.of(context);
+    final selected = _selected.isNotEmpty;
+    final targets = _packTargets;
+    final style =
+        Theme.of(context).textTheme.labelLarge ?? AppTypography.control;
+    final digits = List.filled(_students.length.toString().length, '8').join();
+    double labelWidth(String label) {
+      final painter = TextPainter(
+        text: TextSpan(text: label, style: style),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      final width = painter.width.ceilToDouble();
+      painter.dispose();
+      return width;
+    }
+
+    // Reserve the largest count in this roster so selecting, clearing and
+    // changing the eligible subset do not move the table header.
+    final packLabelWidth = labelWidth('打包全部已提交 $digits');
+    final downloadLabelWidth = labelWidth('下载打包');
+    final packWidth =
+        (packLabelWidth > downloadLabelWidth
+            ? packLabelWidth
+            : downloadLabelWidth) +
+        48;
+    final importWidth = labelWidth('导入成绩') + 48;
+    final selectionWidth = labelWidth('已选 $digits 人') + AppSpace.xs + 32;
+    final extent = AppDensity.controlHeight(context);
+    final hasDownload = _zip?.download != null && !_building;
+    final pack = AppButton(
+      key: const ValueKey('ta-pack'),
       compact: true,
-      onChanged: (v) => setState(() => _submissionFilter = v),
-    );
-    final select = AppButton(
-      compact: true,
-      kind: AppButtonKind.quiet,
-      label: '选择已提交学生',
-      onPressed: blocked
+      kind: selected ? AppButtonKind.primary : AppButtonKind.secondary,
+      label: _downloadMatchesScope
+          ? '下载打包'
+          : '${selected ? '打包所选已提交' : '打包全部已提交'} ${targets.length}',
+      icon: _downloadMatchesScope ? AppIcons.download : AppIcons.archive,
+      onPressed: _downloadMatchesScope
+          ? _downloadPackage
+          : blocked || _building || targets.isEmpty
           ? null
-          : () => _changeSelection(
-              () => _selected.addAll(
-                _students
-                    .where(
-                      (s) =>
-                          s.submitted &&
-                          '${s.number} ${s.name}'.contains(_search) &&
-                          _submissionFilter != 2,
-                    )
-                    .map((s) => s.id),
-              ),
-            ),
+          : _pack,
     );
-    final actions = <Widget>[
-      AppRefreshButton(
-        extent: AppDensity.controlHeight(context),
-        tooltip: '更新名单和成绩',
-        busy: _refreshingRoster || _savingStudent != null,
-        onRefresh: () async {
-          if (_batch.running || _refreshingRoster || _savingStudent != null) {
-            return;
-          }
-          final pending = _load(refreshSummary: true);
-          setState(() {
-            _loading = pending;
-          });
-          await pending;
-        },
-      ),
-      AppButton(
-        compact: true,
-        label: '导入成绩',
-        kind: _selected.isEmpty
-            ? AppButtonKind.primary
-            : AppButtonKind.secondary,
-        icon: AppIcons.upload,
-        onPressed:
-            _detail?.canGrade != true ||
-                _batch.running ||
-                _savingStudent != null
-            ? null
-            : _openCsvReview,
-      ),
-      if (_zip?.download != null && !_building) ...[
-        if (_downloadMatchesSelection)
-          AppButton(
-            compact: true,
-            kind: AppButtonKind.secondary,
-            onPressed: _downloadPackage,
-            icon: AppIcons.download,
-            label: '下载打包',
-          ),
-        AppActionMenu<String>(
-          tooltip: '下载选项',
-          framed: false,
-          actions: [
-            if (!_downloadMatchesSelection)
-              const AppMenuAction(
-                'download',
-                '下载上次打包',
-                icon: AppIcons.download,
-              ),
-            const AppMenuAction('copy', '复制下载链接', icon: AppIcons.copy),
-          ],
-          onSelected: (action) async {
-            if (action == 'download') {
-              await _downloadPackage();
-            } else {
-              await Clipboard.setData(
-                ClipboardData(text: _zip!.download.toString()),
-              );
-              _message('下载链接已复制');
-            }
-          },
-        ),
-      ],
-    ];
-    final normal = LayoutBuilder(
-      builder: (context, bounds) {
-        if (bounds.maxWidth >=
-            (800 + (actions.length > 3 ? 120 : 0)) *
-                (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(
-                  1,
-                  1.5,
-                )) {
-          return Row(
-            children: [
-              search,
-              const SizedBox(width: 12),
-              filter,
-              const SizedBox(width: 8),
-              actions.first,
-              const Spacer(),
-              select,
-              for (final action in actions.skip(1))
-                Padding(padding: const EdgeInsets.only(left: 8), child: action),
-            ],
-          );
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Wrap(
-              spacing: 12,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
+    final importAction = AppButton(
+      compact: true,
+      label: '导入成绩',
+      kind: selected ? AppButtonKind.secondary : AppButtonKind.primary,
+      icon: AppIcons.upload,
+      onPressed:
+          _detail?.canGrade != true || _batch.running || _savingStudent != null
+          ? null
+          : _openCsvReview,
+    );
+    final selection = SizedBox(
+      width: selectionWidth,
+      height: extent,
+      child: selected
+          ? Row(
               children: [
-                SizedBox(width: bounds.maxWidth.clamp(0, 230), child: search),
-                filter,
-                actions.first,
+                Expanded(
+                  child: Text(
+                    '已选 ${_selected.length} 人',
+                    style: style.copyWith(color: p.ink),
+                  ),
+                ),
+                const SizedBox(width: AppSpace.xs),
+                AppIconButton(
+                  tooltip: '取消选择',
+                  extent: 32,
+                  hoverOutline: false,
+                  icon: const Icon(AppIcons.close, size: 15),
+                  onPressed: blocked
+                      ? null
+                      : () => _changeSelection(() => _selected.clear()),
+                ),
               ],
+            )
+          : null,
+    );
+    final menu = SizedBox(
+      width: extent,
+      child: hasDownload
+          ? AppActionMenu<String>(
+              tooltip: '下载选项',
+              framed: false,
+              enabled: !blocked && !_building,
+              actions: [
+                if (_downloadMatchesScope)
+                  const AppMenuAction(
+                    'repack',
+                    '重新打包当前范围',
+                    icon: AppIcons.archive,
+                  ),
+                if (!_downloadMatchesScope)
+                  const AppMenuAction(
+                    'download',
+                    '下载上次打包',
+                    icon: AppIcons.download,
+                  ),
+                const AppMenuAction('copy', '复制下载链接', icon: AppIcons.copy),
+              ],
+              onSelected: (action) async {
+                if (action == 'repack') {
+                  if (!blocked && !_building && targets.isNotEmpty) {
+                    await _pack();
+                  }
+                } else if (action == 'download') {
+                  await _downloadPackage();
+                } else {
+                  await Clipboard.setData(
+                    ClipboardData(text: _zip!.download.toString()),
+                  );
+                  _message('下载链接已复制');
+                }
+              },
+            )
+          : null,
+    );
+    return LayoutBuilder(
+      builder: (context, bounds) {
+        final filterWidth = (112 * MediaQuery.textScalerOf(context).scale(1))
+            .clamp(0.0, bounds.maxWidth);
+        final controlsWidth = 230 + filterWidth + extent * 2 + AppSpace.xs * 3;
+        final operationsWidth =
+            packWidth + importWidth + selectionWidth + AppSpace.xs * 2;
+        return Wrap(
+          key: const ValueKey('ta-roster-toolbar'),
+          spacing: AppSpace.md,
+          runSpacing: AppSpace.xs,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: controlsWidth.clamp(0.0, bounds.maxWidth),
+              child: Wrap(
+                spacing: AppSpace.xs,
+                runSpacing: AppSpace.xs,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  SizedBox(
+                    width: bounds.maxWidth.clamp(0.0, 230.0),
+                    child: AppSearchField(
+                      controller: _searchController,
+                      compact: true,
+                      hintText: '搜索姓名或学号',
+                      onChanged: (v) => setState(() => _search = v),
+                    ),
+                  ),
+                  AppShellSelect<int>(
+                    key: const ValueKey('ta-submission-filter'),
+                    semanticLabel: '筛选提交状态',
+                    value: _submissionFilter,
+                    items: const [0, 1, 2],
+                    labelOf: (v) => ['全部学生', '已提交', '未提交'][v],
+                    width: filterWidth,
+                    menuWidth: 160,
+                    compact: true,
+                    onChanged: (v) => setState(() => _submissionFilter = v),
+                  ),
+                  AppRefreshButton(
+                    extent: extent,
+                    tooltip: '更新名单和成绩',
+                    busy: _refreshingRoster || _savingStudent != null,
+                    onRefresh: () async {
+                      if (_batch.running ||
+                          _refreshingRoster ||
+                          _savingStudent != null) {
+                        return;
+                      }
+                      final pending = _load(refreshSummary: true);
+                      setState(() {
+                        _loading = pending;
+                      });
+                      await pending;
+                    },
+                  ),
+                  menu,
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [select, ...actions.skip(1)],
+            SizedBox(
+              width:
+                  controlsWidth + operationsWidth + AppSpace.md >
+                      bounds.maxWidth
+                  ? bounds.maxWidth
+                  : operationsWidth,
+              child: Wrap(
+                spacing: AppSpace.xs,
+                runSpacing: AppSpace.xs,
+                alignment: operationsWidth <= bounds.maxWidth
+                    ? WrapAlignment.end
+                    : WrapAlignment.start,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (operationsWidth <= bounds.maxWidth) selection,
+                  SizedBox(
+                    width: packWidth.clamp(0.0, bounds.maxWidth),
+                    child: pack,
+                  ),
+                  SizedBox(
+                    width: importWidth.clamp(0.0, bounds.maxWidth),
+                    child: importAction,
+                  ),
+                  if (operationsWidth > bounds.maxWidth) selection,
+                ],
+              ),
             ),
           ],
         );
       },
-    );
-    // Both modes participate in layout so selecting never shifts the table.
-    return IndexedStack(
-      index: _selected.isEmpty ? 0 : 1,
-      alignment: Alignment.topLeft,
-      children: [
-        normal,
-        Wrap(
-          spacing: AppSpace.md,
-          runSpacing: AppSpace.xs,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(
-              '已选 ${_selected.length} 人',
-              style: Theme.of(
-                context,
-              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            AppButton(
-              compact: true,
-              kind: AppButtonKind.quiet,
-              onPressed: blocked
-                  ? null
-                  : () => _changeSelection(() => _selected.clear()),
-              label: '取消选择',
-            ),
-            AppButton(
-              compact: true,
-              onPressed: blocked || _building ? null : _pack,
-              icon: AppIcons.archive,
-              label: '打包所选',
-            ),
-            actions[1],
-            if (_downloadMatchesSelection) ...actions.skip(2),
-          ],
-        ),
-      ],
     );
   }
 
@@ -1738,6 +1786,13 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                                 _detail?.canGrade == true &&
                                 student.submitted,
                             saving: _savingStudent == student.id,
+                            readOnlyReason: !student.submitted
+                                ? '未提交'
+                                : _detail == null
+                                ? '正在核对评分权限'
+                                : !_detail!.canGrade
+                                ? '本作业只读'
+                                : null,
                             onChanged: (v) => _scoreDrafts[student.id] = v,
                             onSubmitted: (v) => _saveInline(student, v),
                           ),

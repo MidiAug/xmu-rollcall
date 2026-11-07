@@ -92,34 +92,16 @@ class _DesktopNotificationSettingsPageState
                         subtitle: '请检查系统设置后重新发送。',
                       )
                     else if (sent)
-                      Padding(
-                        padding: AppDensity.rowPadding(context),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                if (confirmed) ...[
-                                  Icon(
-                                    AppIcons.checkCircle,
-                                    size: 18,
-                                    color: p.muted,
-                                  ),
-                                  const SizedBox(width: 8),
-                                ],
-                                Expanded(
-                                  child: Text(
-                                    confirmed ? '已确认收到测试通知' : '收到刚才的通知了吗？',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.bodyMedium,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (!confirmed) ...[
-                              const SizedBox(height: 12),
-                              Wrap(
+                      SettingsRow(
+                        // Keep the shared text column while response actions
+                        // wrap below it; only completion needs a status mark.
+                        leading: confirmed
+                            ? Icon(AppIcons.checkCircle, color: p.muted)
+                            : const SizedBox.shrink(),
+                        title: confirmed ? '已确认收到测试通知' : '收到刚才的通知了吗？',
+                        subtitleWidget: confirmed
+                            ? null
+                            : Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: [
@@ -141,9 +123,6 @@ class _DesktopNotificationSettingsPageState
                                   ),
                                 ],
                               ),
-                            ],
-                          ],
-                        ),
                       ),
                     if (_showHelp)
                       SettingsRow(

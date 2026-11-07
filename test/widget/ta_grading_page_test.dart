@@ -69,7 +69,8 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text('示例学生1'), findsOneWidget);
           final headerY = tester.getTopLeft(find.text('姓名')).dy;
-          await tester.tap(find.text('选择已提交学生'));
+          await tester.tap(find.byKey(const ValueKey('ta-select-1')));
+          await tester.tap(find.byKey(const ValueKey('ta-select-2')));
           await tester.pumpAndSettle();
           expect(find.text('已选 2 人'), findsOneWidget);
           expect(tester.getTopLeft(find.text('姓名')).dy, headerY);
@@ -129,6 +130,23 @@ void main() {
   testWidgets(
     'repack hides previous ready URL until a new server package is ready',
     (tester) async {
+      const launchChannel = MethodChannel('plugins.flutter.io/url_launcher');
+      final launched = <String>[];
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        launchChannel,
+        (call) async {
+          if (call.method == 'launch') {
+            launched.add((call.arguments as Map)['url'] as String);
+          }
+          return true;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          launchChannel,
+          null,
+        ),
+      );
       final f = TaHttpFixture();
       final repo = await f.repository();
       addTearDown(repo.dispose);
@@ -149,9 +167,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text(TaHttpFixture.title));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('选择已提交学生'));
-      await tester.pump();
-      await tester.tap(find.text('打包所选'));
+      final actionRect = tester.getRect(find.byKey(const ValueKey('ta-pack')));
+      await tester.tap(find.byKey(const ValueKey('ta-pack')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       expect(f.packed, isTrue);
@@ -165,13 +182,127 @@ void main() {
         find.widgetWithText(OutlinedButton, '下载打包'),
       );
       expect(download.onPressed, isNotNull);
+      expect(tester.getRect(find.byKey(const ValueKey('ta-pack'))), actionRect);
+      await tester.tap(find.text('下载打包'));
+      await tester.pumpAndSettle();
+      expect(launched, [
+        'https://c-media.xmu.edu.cn/download/file/${'b' * 40}',
+      ]);
+      expect(f.requests.where((r) => r.method == 'POST'), hasLength(1));
+      await tester.tap(find.byTooltip('下载选项'));
+      await tester.pumpAndSettle();
+      expect(find.text('重新打包当前范围'), findsOneWidget);
+      await tester.tap(find.text('重新打包当前范围'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(f.requests.where((r) => r.method == 'POST'), hasLength(2));
+      expect(find.text('下载打包'), findsNothing);
+      expect(
+        tester
+            .widget<AppButton>(find.byKey(const ValueKey('ta-pack')))
+            .onPressed,
+        isNull,
+      );
+      f.zip = {'id': 73, 'status': 'ready', 'key': 'c' * 40};
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(find.text('下载打包'), findsOneWidget);
+      expect(tester.getRect(find.byKey(const ValueKey('ta-pack'))), actionRect);
       await tester.tap(find.byKey(const ValueKey('ta-select-3')));
       await tester.pumpAndSettle();
       expect(find.text('下载打包'), findsNothing);
+      expect(
+        tester
+            .widget<AppButton>(find.byKey(const ValueKey('ta-pack')))
+            .onPressed,
+        isNull,
+      );
+      expect(f.requests.where((r) => r.method == 'POST'), hasLength(2));
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
     },
   );
+  for (final manuallySelected in [false, true]) {
+    testWidgets(
+      'pack scope ignores search and filters, explicit selection=$manuallySelected',
+      (tester) async {
+        final f = TaHttpFixture();
+        final repo = await f.repository();
+        addTearDown(repo.dispose);
+        tester.view.physicalSize = const Size(1100, 850);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              taRepositoryProvider.overrideWith((ref) async => repo),
+              currentTeachingCoursesProvider.overrideWith(
+                (ref) async => const [CatalogCourse(id: '91', title: '测试课程')],
+              ),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.light().copyWith(
+                platform: TargetPlatform.windows,
+              ),
+              home: const Scaffold(body: TaGradingPage()),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(TaHttpFixture.title));
+        await tester.pumpAndSettle();
+        final search = find.descendant(
+          of: find.byType(AppSearchField),
+          matching: find.byType(TextField),
+        );
+        final headerY = tester.getTopLeft(find.text('姓名')).dy;
+        if (manuallySelected) {
+          await tester.tap(find.byKey(const ValueKey('ta-select-1')));
+          await tester.pumpAndSettle();
+          expect(tester.getTopLeft(find.text('姓名')).dy, headerY);
+          await tester.enterText(search, '示例学生3');
+          await tester.pumpAndSettle();
+          expect(find.text('已选 1 人'), findsOneWidget);
+          await tester.tap(find.byKey(const ValueKey('ta-select-all')));
+          await tester.pumpAndSettle();
+          expect(find.text('已选 2 人'), findsOneWidget);
+        } else {
+          await tester.enterText(search, '示例学生3');
+          await tester.pumpAndSettle();
+        }
+        await tester.tap(find.byKey(const ValueKey('ta-submission-filter')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('shell-select-option-2')));
+        await tester.pumpAndSettle();
+        expect(find.text('显示 1 人'), findsOneWidget);
+        expect(tester.widget<TextField>(search).controller!.text, '示例学生3');
+        expect(tester.getTopLeft(find.text('姓名')).dy, headerY);
+        final readsBeforePack = f.requests.length;
+        await tester.tap(find.byKey(const ValueKey('ta-pack')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        final post = f.requests.singleWhere((r) => r.method == 'POST');
+        expect((post.data as Map)['ids'], manuallySelected ? [1] : [1, 2]);
+        expect((post.data as Map)['all_ids'], [1, 2, 3]);
+        expect(
+          f.requests
+              .skip(readsBeforePack)
+              .where((r) => r.uri.path.endsWith('/score-records')),
+          isEmpty,
+        );
+        final postCount = f.requests.where((r) => r.method == 'POST').length;
+        await tester.tap(find.byKey(const ValueKey('ta-pack')));
+        await tester.pump();
+        expect(f.requests.where((r) => r.method == 'POST').length, postCount);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        final requestsAfterClose = f.requests.length;
+        await tester.pump(const Duration(seconds: 10));
+        expect(f.requests.length, requestsAfterClose);
+      },
+    );
+  }
   testWidgets(
     'identity provider replacement hides old roster and cancels page session',
     (tester) async {
@@ -247,13 +378,28 @@ void main() {
         expect(find.text(TaHttpFixture.title), findsOneWidget);
         expect(find.text('提交进度'), findsNothing);
         expect(find.text('CSV 批量评分'), findsNothing);
-        expect(find.text('打包所选'), findsNothing);
+        expect(find.text('打包全部已提交 47'), findsOneWidget);
         expect(find.text('下载打包'), findsNothing);
         final searchRect = tester.getRect(find.byType(AppSearchField));
+        final importRect = tester.getRect(
+          find.widgetWithText(AppButton, '导入成绩'),
+        );
+        final packRect = tester.getRect(find.byKey(const ValueKey('ta-pack')));
+        expect(packRect.center.dy, searchRect.center.dy);
+        expect(importRect.center.dy, searchRect.center.dy);
+        expect(
+          tester
+              .getRect(find.byKey(const ValueKey('ta-roster-toolbar')))
+              .height,
+          searchRect.height,
+        );
+        expect(
+          importRect.right,
+          tester.getRect(find.byKey(const ValueKey('ta-roster-toolbar'))).right,
+        );
+
         for (final control in [
           find.byKey(const ValueKey('ta-submission-filter')),
-          find.widgetWithText(AppButton, '选择已提交学生'),
-          find.widgetWithText(AppButton, '导入成绩'),
           find.byTooltip('更新名单和成绩'),
         ]) {
           final rect = tester.getRect(control);
@@ -286,6 +432,12 @@ void main() {
         await tester.tap(selectAll);
         await tester.pumpAndSettle();
         expect(find.text('已选 111 人'), findsOneWidget);
+        expect(
+          tester.getRect(find.widgetWithText(AppButton, '导入成绩')),
+          importRect,
+        );
+        expect(tester.getRect(find.byKey(const ValueKey('ta-pack'))), packRect);
+
         expect(tester.widget<AppCheckbox>(selectAll).value, isTrue);
         expect(tester.getTopLeft(find.text('姓名')).dy, headerY);
         expect(tester.getTopLeft(find.text('示例学生1')).dy, firstRowY);
@@ -310,14 +462,14 @@ void main() {
         await tester.tap(find.byKey(const ValueKey('shell-select-option-1')));
         await tester.pumpAndSettle();
         expect(find.text('显示 47 人'), findsOneWidget);
-        await tester.tap(find.text('选择已提交学生'));
+        await tester.tap(selectAll);
         await tester.pumpAndSettle();
         expect(find.text('已选 47 人'), findsOneWidget);
-        expect(find.text('打包所选'), findsOneWidget);
+        expect(find.text('打包所选已提交 47'), findsOneWidget);
         await captureDesktopUi(tester, 'ta-task-table-selected-$dark');
-        await tester.tap(find.text('取消选择'));
+        await tester.tap(find.byTooltip('取消选择'));
         await tester.pumpAndSettle();
-        expect(find.text('打包所选'), findsNothing);
+        expect(find.text('打包全部已提交 47'), findsOneWidget);
         await tester.enterText(
           find.descendant(
             of: find.byType(AppSearchField),

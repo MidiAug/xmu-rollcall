@@ -50,7 +50,7 @@ class AboutSettingsRow extends ConsumerWidget {
             ),
             const SizedBox(width: 8),
           ],
-          Icon(AppIcons.right, color: p.muted, size: 18),
+          const Icon(AppIcons.right, size: 18),
         ],
       ),
       onTap: () => AppPageRoutes.push(context, const AboutPage()),

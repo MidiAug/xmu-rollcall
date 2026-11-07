@@ -1,9 +1,10 @@
 part of 'chrome.dart';
 
 class AppTruncatedText extends StatelessWidget {
-  const AppTruncatedText(this.text, {super.key, this.style});
+  const AppTruncatedText(this.text, {super.key, this.style, this.textAlign});
   final String text;
   final TextStyle? style;
+  final TextAlign? textAlign;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -24,6 +25,7 @@ class AppTruncatedText extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: style,
+        textAlign: textAlign,
       );
       return truncated ? Tooltip(message: text, child: child) : child;
     },

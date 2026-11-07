@@ -180,11 +180,49 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
     expect(f.scores[1], 0);
-    expect(tester.widget<TextField>(scoreField(3)).readOnly, isTrue);
+    expect(scoreField(3), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('ta-score-3')),
+        matching: find.text('未提交'),
+      ),
+      findsOneWidget,
+    );
     AppToast.dismiss();
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
   });
+  testWidgets(
+    'unsupported grading is a readable result rather than an editor',
+    (tester) async {
+      final f = TaHttpFixture()..group = true;
+      f.scores[1] = 0;
+      final repo = await f.repository();
+      addTearDown(repo.dispose);
+      await open(tester, repo);
+      expect(scoreField(1), findsNothing);
+      expect(scoreField(2), findsNothing);
+      final cell = find.byKey(const ValueKey('ta-score-1'));
+      expect(
+        find.descendant(of: cell, matching: find.text('0')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: cell, matching: find.text('本作业只读')),
+        findsOneWidget,
+      );
+      final semantics = tester.ensureSemantics();
+      final node = tester.getSemantics(cell);
+      expect(node.hint, '本作业只读');
+      expect(node.value, '0');
+      expect(node.hint, isNot(contains('回车')));
+      semantics.dispose();
+      expect(f.requests.where((r) => r.method == 'PUT'), isEmpty);
+      await captureDesktopUi(tester, 'ta-readonly-grades');
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+  );
   testWidgets(
     'failed PUT retains draft, cache and server value without retry',
     (tester) async {
@@ -230,7 +268,9 @@ void main() {
       };
       await open(tester, repo, settleDetail: false);
       expect(find.text('缓存学生'), findsOneWidget);
-      expect(tester.widget<TextField>(scoreField(1)).controller!.text, '54');
+      expect(scoreField(1), findsNothing);
+      expect(find.text('54'), findsOneWidget);
+      expect(find.text('正在核对评分权限'), findsOneWidget);
       gate.complete();
       await tester.pumpAndSettle();
       expect(find.text('缓存学生'), findsNothing);

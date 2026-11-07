@@ -89,11 +89,11 @@ class HomeworkDetailPage extends ConsumerWidget {
                       '以下为列表缓存摘要',
                       style: TextStyle(fontSize: 12, color: p.muted),
                     ),
-                    const SizedBox(height: 8),
-                    _DetailBody(item: seed),
                   ],
                 ),
               ),
+              const SizedBox(height: AppSpace.md),
+              _DetailBody(item: seed),
             ],
           ),
           data: (item) => ListView(
@@ -105,7 +105,7 @@ class HomeworkDetailPage extends ConsumerWidget {
               if (courseId == null || courseId <= 0) ...[
                 const SizedBox(height: AppSpace.md),
                 Text(
-                  '该待办缺少课程 id，无法打开「该课全部」。',
+                  '未提供课程信息，暂时无法查看该课全部作业。',
                   style: TextStyle(fontSize: 12, color: p.muted),
                 ),
               ],
@@ -125,50 +125,91 @@ class _DetailBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final description = homeworkDescriptionText(item.description);
+    final hasReadingContent =
+        description.isNotEmpty || item.attachments.isNotEmpty;
     return Panel(
       child: Column(
+        key: ValueKey('homework-detail-content-${item.id}'),
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AppIconSurface(child: Icon(AppIcons.homework)),
-          const SizedBox(height: 16),
-          Text(
-            item.title.isEmpty ? '未命名作业' : item.title,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w600,
-              color: p.ink,
+          Column(
+            key: ValueKey('homework-detail-summary-${item.id}'),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AppIconSurface(
+                    child: Icon(AppIcons.homework, color: p.muted),
+                  ),
+                  const SizedBox(width: AppSpace.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          item.title.isEmpty ? '未命名作业' : item.title,
+                          style: AppTypography.cardTitle.copyWith(color: p.ink),
+                        ),
+                        const SizedBox(height: AppSpace.xxs),
+                        AppTruncatedText(
+                          item.courseName.isEmpty ? '课程未提供' : item.courseName,
+                          style: AppTypography.caption.copyWith(color: p.muted),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpace.sm),
+              Wrap(
+                spacing: AppSpace.md,
+                runSpacing: AppSpace.xs,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    item.dueAt == null ? item.dueLabel : '截止 ${item.dueLabel}',
+                    style: AppTypography.caption.copyWith(color: p.muted),
+                  ),
+                  HomeworkStatusBadges(item: item),
+                  if (item.type.isNotEmpty && !item.isHomework)
+                    Text(
+                      '课程活动',
+                      style: AppTypography.caption.copyWith(color: p.muted),
+                    ),
+                ],
+              ),
+            ],
+          ),
+          if (!hasReadingContent) ...[
+            const SizedBox(height: AppSpace.sm),
+            Text(
+              '暂无作业说明和附件',
+              style: AppTypography.caption.copyWith(color: p.muted),
             ),
-          ),
-          const SizedBox(height: AppSpace.sm),
-          _kv('课程', item.courseName.isEmpty ? '—' : item.courseName, p),
-          _kv('截止', item.dueLabel, p),
-          if (item.type.isNotEmpty)
-            _kv('类型', item.isHomework ? '课程作业' : '课程活动', p),
-          const SizedBox(height: 16),
-          Divider(color: p.border),
-          const SizedBox(height: 12),
-          Text(
-            '作业说明',
-            style: TextStyle(fontWeight: FontWeight.w600, color: p.ink),
-          ),
-          const SizedBox(height: 12),
-          SelectableText(
-            item.description.trim().isEmpty
-                ? '老师暂未提供作业说明'
-                : homeworkDescriptionText(item.description),
-            style: TextStyle(
-              color: item.description.trim().isEmpty ? p.muted : p.ink,
-              height: 1.7,
+          ] else ...[
+            const SizedBox(height: AppSpace.lg),
+            Divider(color: p.border, height: 1),
+            const SizedBox(height: AppSpace.md),
+          ],
+          if (description.isNotEmpty) ...[
+            Text('作业说明', style: AppTypography.control.copyWith(color: p.ink)),
+            const SizedBox(height: AppSpace.xs),
+            SelectableText(
+              description,
+              key: ValueKey('homework-description-${item.id}'),
+              style: AppTypography.body.copyWith(color: p.ink, height: 1.7),
             ),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            '附件${item.attachments.isEmpty ? '' : '（${item.attachments.length}）'}',
-            style: TextStyle(fontWeight: FontWeight.w600, color: p.ink),
-          ),
-          const SizedBox(height: 8),
-          if (item.attachments.isEmpty)
-            Text('暂无附件', style: TextStyle(color: p.muted)),
+          ],
+          if (item.attachments.isNotEmpty) ...[
+            if (description.isNotEmpty) const SizedBox(height: AppSpace.lg),
+            Text(
+              '附件（${item.attachments.length}）',
+              style: AppTypography.control.copyWith(color: p.ink),
+            ),
+            const SizedBox(height: AppSpace.xs),
+          ],
           for (final file in item.attachments)
             Container(
               margin: const EdgeInsets.only(bottom: 8),
@@ -201,7 +242,7 @@ class _DetailBody extends StatelessWidget {
                     ),
                   ),
                   if (file.url != null)
-                    IconButton(
+                    AppIconButton(
                       tooltip: '下载附件',
                       icon: const Icon(AppIcons.download, size: 20),
                       onPressed: () async {
@@ -223,27 +264,6 @@ class _DetailBody extends StatelessWidget {
                 ],
               ),
             ),
-          const SizedBox(height: 16),
-          const SizedBox(height: AppSpace.xs),
-          HomeworkStatusBadges(item: item),
-        ],
-      ),
-    );
-  }
-
-  Widget _kv(String k, String v, AppPalette p) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 48,
-            child: Text(k, style: TextStyle(fontSize: 13, color: p.muted)),
-          ),
-          Expanded(
-            child: Text(v, style: TextStyle(fontSize: 13, color: p.ink)),
-          ),
         ],
       ),
     );

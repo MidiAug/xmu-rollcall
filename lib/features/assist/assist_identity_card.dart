@@ -15,8 +15,8 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
 import 'package:xmu_rollcall/features/assist/assist_shared_course_chip.dart';
 import 'package:xmu_rollcall/features/settings/courses_page.dart';
 
-/// Assist roster person card — whole card opens the rollcall hub.
-class AssistIdentityCard extends ConsumerWidget {
+/// The identity and its overflow menu are separate keyboard/pointer targets.
+class AssistIdentityCard extends ConsumerStatefulWidget {
   const AssistIdentityCard({super.key, required this.identity});
 
   final AssistIdentity identity;
@@ -42,43 +42,59 @@ class AssistIdentityCard extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AssistIdentityCard> createState() => _AssistIdentityCardState();
+}
+
+class _AssistIdentityCardState extends ConsumerState<AssistIdentityCard> {
+  bool _opening = false;
+  AssistIdentity get identity => widget.identity;
+
+  Future<void> _openIdentity() async {
+    if (_opening) return;
+    final target = identity;
+    setState(() => _opening = true);
+    try {
+      final service = await ref.read(assistServiceProvider.future);
+      await service.ensureSession(target);
+      if (!mounted || identity.userId != target.userId) return;
+      ref.read(selectedRollcallAccountProvider.notifier).state = target.userId;
+      if (ShellTabScope.maybeOf(context) != null) {
+        ShellNavigation.instance.openRollcall();
+      } else {
+        AppPageRoutes.push(context, const Scaffold(body: RollcallHubPage()));
+      }
+    } catch (error) {
+      if (mounted && identity.userId == target.userId) {
+        AppToast.show(context, '无法切换账号：$error', error: true);
+      }
+    } finally {
+      if (mounted) setState(() => _opening = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final assist = ref.watch(assistControllerProvider);
-    final accent = avatarColor(identity.userId);
+    final accent = AssistIdentityCard.avatarColor(identity.userId);
 
     return AppHoverSurface(
-      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      padding: EdgeInsets.zero,
       child: Row(
         children: [
           Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () async {
-                try {
-                  final service = await ref.read(assistServiceProvider.future);
-                  await service.ensureSession(identity);
-                  if (!context.mounted) return;
-                  ref.read(selectedRollcallAccountProvider.notifier).state =
-                      identity.userId;
-                  if (ShellTabScope.maybeOf(context) != null) {
-                    ShellNavigation.instance.openRollcall();
-                  } else {
-                    AppPageRoutes.push(
-                      context,
-                      const Scaffold(body: RollcallHubPage()),
-                    );
-                  }
-                } catch (error) {
-                  if (context.mounted) {
-                    AppToast.show(context, '无法切换账号：$error', error: true);
-                  }
-                }
-              },
+            child: AppHoverSurface(
+              key: ValueKey('assist-open-${identity.userId}'),
+              outlined: false,
+              backgroundColor: Colors.transparent,
+              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+              // Retain the focused target while connecting. Removing it could
+              // send a repeated Enter to the previous window control instead.
+              onTap: _openIdentity,
               child: Row(
                 children: [
                   _Avatar(
-                    initial: initialOf(identity.displayName),
+                    initial: AssistIdentityCard.initialOf(identity.displayName),
                     color: accent,
                   ),
                   const SizedBox(width: 12),
@@ -99,7 +115,12 @@ class AssistIdentityCard extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        _KindBadge(label: identity.kind.labelZh),
+                        Semantics(
+                          liveRegion: _opening,
+                          child: _KindBadge(
+                            label: _opening ? '正在连接…' : identity.kind.labelZh,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -107,9 +128,12 @@ class AssistIdentityCard extends ConsumerWidget {
               ),
             ),
           ),
-          _MoreButton(
-            enabled: !assist.busy,
-            onSelected: (action) => _onMenuAction(context, ref, action),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _MoreButton(
+              enabled: !assist.busy,
+              onSelected: (action) => _onMenuAction(context, ref, action),
+            ),
           ),
         ],
       ),
@@ -221,17 +245,17 @@ Future<_RosterAction?> _showAssistRosterMenu(BuildContext buttonContext) {
     items: [
       AppPopupMenuItem<_RosterAction>(
         value: _RosterAction.timetable,
-        icon: Icons.calendar_view_week_outlined,
+        icon: AppIcons.week,
         label: '查看课表',
       ),
       AppPopupMenuItem<_RosterAction>(
         value: _RosterAction.viewCourses,
-        icon: Icons.menu_book_outlined,
+        icon: AppIcons.homework,
         label: '查看同课',
       ),
       AppPopupMenuItem<_RosterAction>(
         value: _RosterAction.refreshCourses,
-        icon: Icons.sync_rounded,
+        icon: AppIcons.refresh,
         label: '刷新同课',
       ),
       PopupMenuItem<_RosterAction>(
@@ -245,7 +269,7 @@ Future<_RosterAction?> _showAssistRosterMenu(BuildContext buttonContext) {
       ),
       AppPopupMenuItem<_RosterAction>(
         value: _RosterAction.remove,
-        icon: Icons.delete_outline_rounded,
+        icon: AppIcons.remove,
         label: '删除',
         danger: true,
       ),

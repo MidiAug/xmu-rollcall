@@ -242,6 +242,10 @@ abstract final class AppDensity {
   static const desktopRowPadV = AppSpace.xxs;
   static const touchRowPadH = AppSpace.sm;
   static const touchRowPadV = AppSpace.xs;
+  static const settingsRowMinHeight = 48.0;
+  static const settingsLeading = 24.0;
+  static const settingsTouchLeading = 36.0;
+  static const settingsInnerGap = AppSpace.sm;
 
   static bool isTouch(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_AppDensityData>()?.touch ??
