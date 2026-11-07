@@ -8,6 +8,8 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'package:xmu_rollcall/features/homework/homework_models.dart';
+import 'package:xmu_rollcall/features/homework/homework_submission.dart';
+import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
 
 final campusNowProvider = Provider<DateTime Function()>((ref) => DateTime.now);
 
@@ -49,6 +51,7 @@ final campusCachedDataProvider = FutureProvider.autoDispose<CampusCachedData>((
 ) async {
   ref.watch(academicRevisionProvider);
   ref.watch(homeworkCacheRevisionProvider);
+  ref.watch(homeworkSubmissionRevisionProvider);
   final auth = ref.watch(authControllerProvider);
   final scope = ref.watch(selectedRollcallAccountProvider);
   final uid = scope ?? auth.profile?.id;
@@ -59,13 +62,23 @@ final campusCachedDataProvider = FutureProvider.autoDispose<CampusCachedData>((
       ? null
       : projectAcademicCatalog(rawCatalog, schedule);
   final homework = await readCachedHomework(uid, catalog);
+  final pending = <HomeworkItem>[];
+  for (final item in homework.items) {
+    if (!item.isHomework || item.closed == true || item.isSubmitted) continue;
+    final submission = await JsonDiskCache.readList(
+      'homework_submission_${uid}_${item.id}',
+    );
+    if (submission != null &&
+        submission.items.isNotEmpty &&
+        HomeworkSubmissionState.fromJson(submission.items.first).submission ==
+            HomeworkSubmission.submitted) {
+      continue;
+    }
+    pending.add(item);
+  }
   return CampusCachedData(
     schedule: schedule,
-    homework: homework.items
-        .where(
-          (item) => item.isHomework && item.closed != true && !item.isSubmitted,
-        )
-        .toList(),
+    homework: pending,
     hasHomeworkCache: homework.hasCache,
   );
 });

@@ -199,6 +199,15 @@ void main() {
         matching: find.byType(TextButton),
       );
       final rect = tester.getRect(selected);
+      final firstItem = find.ancestor(
+        of: find.text('签到'),
+        matching: find.byType(TextButton),
+      );
+      expect(
+        tester.getTopLeft(firstItem).dy -
+            tester.getTopLeft(find.byType(AppSidebar)).dy,
+        AppSpace.xs,
+      );
       final sample = Offset(rect.right - 20, rect.center.dy);
       final idle = await pixel(tester, capture, sample);
       final selectedTop = await pixel(

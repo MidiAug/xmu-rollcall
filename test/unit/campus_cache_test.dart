@@ -33,6 +33,71 @@ class _Auth extends AuthController {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   test(
+    'summary and badge follow scoped cached submissions without network',
+    () async {
+      for (final uid in [1, 2]) {
+        await JsonDiskCache.writeList('homework_todos_$uid', [
+          {'id': 1, 'title': '尚未提交', 'due_at': '2099-01-01T00:00:00'},
+          {'id': 2, 'title': '提交记录已完成', 'due_at': '2099-01-01T00:00:00'},
+          {'id': 3, 'title': '仅保存草稿', 'due_at': '2099-01-01T00:00:00'},
+          {'id': 4, 'title': '状态未知', 'due_at': '2099-01-01T00:00:00'},
+          {'id': 5, 'title': '列表已批改', 'status': 'graded'},
+        ]);
+        await JsonDiskCache.writeList('homework_submission_${uid}_3', [
+          {'submission': 'draft', 'grading': 'unknown'},
+        ]);
+      }
+      await JsonDiskCache.writeList('homework_submission_1_2', [
+        {'submission': 'submitted', 'grading': 'unpublished'},
+      ]);
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          assistControllerProvider.overrideWith(
+            (ref) => AssistController(
+              ref,
+              bootstrap: false,
+              initial: const AssistUiState(ready: true),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final sub = container.listen(homeworkBadgeCountProvider, (_, _) {});
+      addTearDown(sub.close);
+      expect(await container.read(homeworkBadgeCountProvider.future), 3);
+      expect(
+        (await container.read(
+          campusCachedDataProvider.future,
+        )).homework.map((item) => item.id),
+        [1, 3, 4],
+      );
+
+      await JsonDiskCache.writeList('homework_submission_1_1', [
+        {'submission': 'submitted', 'grading': 'pending'},
+      ]);
+      container.read(homeworkSubmissionRevisionProvider.notifier).state++;
+      expect(await container.read(homeworkBadgeCountProvider.future), 2);
+      expect(
+        (await container.read(
+          campusCachedDataProvider.future,
+        )).homework.map((item) => item.id),
+        [3, 4],
+      );
+
+      container.read(selectedRollcallAccountProvider.notifier).state = 2;
+      expect(await container.read(homeworkBadgeCountProvider.future), 4);
+      expect(
+        (await container.read(
+          campusCachedDataProvider.future,
+        )).homework.map((item) => item.id),
+        [1, 2, 3, 4],
+      );
+      expect(container.exists(homeworkOverviewProvider), isFalse);
+      expect(container.exists(homeworkTodosProvider), isFalse);
+    },
+  );
+  test(
     'course-only homework reaches real summary and badge without network',
     () async {
       for (final uid in [1, 2]) {

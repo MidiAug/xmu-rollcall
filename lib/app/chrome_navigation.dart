@@ -54,7 +54,7 @@ class AppSidebar extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 24, 10, 14),
+              padding: const EdgeInsets.fromLTRB(10, AppSpace.xs, 10, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [

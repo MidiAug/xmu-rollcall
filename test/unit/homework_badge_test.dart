@@ -83,6 +83,14 @@ void main() {
   test(
     'badge is disk only, scoped, deduplicated and reacts to submission',
     () async {
+      await JsonDiskCache.writeList('homework_todos_1', [
+        const HomeworkItem(id: 1, title: '主账号作业').toJson(),
+        const HomeworkItem(id: 1, title: '重复').toJson(),
+        const HomeworkItem(id: 2, title: '已经提交').toJson(),
+      ]);
+      await JsonDiskCache.writeList('homework_todos_2', [
+        const HomeworkItem(id: 3, title: '协助作业').toJson(),
+      ]);
       await JsonDiskCache.writeList('homework_submission_1_2', [
         {'submission': 'submitted'},
       ]);
@@ -90,18 +98,6 @@ void main() {
         overrides: [
           authControllerProvider.overrideWith((ref) => _Auth()),
           campusNowProvider.overrideWithValue(() => DateTime(2026, 10, 29)),
-          campusCachedDataProvider.overrideWith((ref) async {
-            final scope = ref.watch(selectedRollcallAccountProvider);
-            return CampusCachedData(
-              homework: scope == 2
-                  ? [const HomeworkItem(id: 3, title: '协助作业')]
-                  : [
-                      const HomeworkItem(id: 1, title: '主账号作业'),
-                      const HomeworkItem(id: 1, title: '重复'),
-                      const HomeworkItem(id: 2, title: '已经提交'),
-                    ],
-            );
-          }),
         ],
       );
       addTearDown(container.dispose);

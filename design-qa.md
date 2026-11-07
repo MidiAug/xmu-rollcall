@@ -1276,3 +1276,12 @@ U30要求默认/hover/selected/disabled及其他适用状态一起检查，重�
 助教CSV视图及草稿与页面刷新回调值得在相关需求中分离，现未复现必须大拆的故障；地图编辑有真实共享生命周期，GPA/课表已分开计算/网格，保留现有边界。本轮未为行数或假设性能重构。
 
 最终全量1410通过、2跳过（build/state-audit-full-final.log，2m40s）；新增状态测试覆盖三种按钮/有无图标/浅深busy几何，菜单选中与非选中按住/取消，减少动效，以及禁用按钮hover/Tab/点击。新鲜截图已实看设置协助、菜单、busy、GPA宽窄、作业大字、工具/校历、考试宽窄和111人助教。系统读屏、原生拖动性能、移动真机与真实提交均未冒称通过。首次分析发现新增测试旧语义查询接口的4条info，改用当前flagsCollection后相关27项再测通过。当前Windows Debug PID49276经核对后热重载Success；最终完整flutter analyze无问题（state-audit-analyze-clean.log，167.6s）。本轮docs本机记录按仓库既有忽略规则保留，根设计/变更/验收回执与代码一起提交。
+
+
+## 侧边栏留白与待办完成状态（2026-11-07）
+
+U31来自用户两张截图：侧边栏标题栏下方留白过多，右侧待办不应显示已完成。任务为紧凑导航/未完成任务投影，保留原底部账号/设置、导航hover/selected/focus与实际任务入口，不新增文案或网络请求。复用AppSidebar/AppSpace.xs、campusCachedDataProvider与既有HomeworkSubmissionState。顶部24改8（P）；原摘要只检查HomeworkItem.status，角标另读个人提交缓存，导致已交作业仍在摘要。现在摘要统一按当前uid读取已有个人提交镜像，正式提交（包括待批改/成绩未公布）排除、草稿/未知保留；修订信号移到既有core/cache/cache_revisions，原badge导出名兼容，避免环依赖。角标直接使用未完成投影，去掉重复读提交缓存。摘要仍为本地缓存，不挂载课程扫描/提交Provider，不改变过期窗口或请求节流。
+
+新增真实缓存回归覆盖主/协助账号、正式提交/草稿/未知、状态更新后摘要和角标同步、不挂载网络Provider。原badge测试此前覆盖了被替换的假摘要，改为真实JsonDiskCache/生产摘要以验证新职责，未在测试复制过滤逻辑。首轮53通过/1失败为该旧边界替身断言；修正后缓存/角标/生产桌面任务链18项通过（build/sidebar-pending-final-tests.log），其余侧栏/待办/作业回归首轮通过。最终flutter analyze无问题（sidebar-pending-analyze-final.log，14.9s）。
+
+实际查看本轮.tools/desktop-workspace/rollcall-1120-light-1.0-dpr1.0.png与rollcall-1440-dark-1.0-dpr2.0.png：导航首项在标题栏下8，底部账号/设置位置稳定，待办卡几何及入口不变；精确上间距由浅深侧栏像素/指针回归同时断言，提交排除由生产缓存Provider验证，截图不冒充真实账号远端完成核验。现有Debug PID49276经核对后reloadSources返回Success；AdaptiveShell.reassemble沿原逻辑失效并重读摘要缓存，使本轮规则在当前实例生效。手机真机与读屏未验。

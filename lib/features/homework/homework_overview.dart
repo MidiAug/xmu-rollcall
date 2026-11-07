@@ -10,7 +10,6 @@ import 'package:xmu_rollcall/features/homework/homework_models.dart';
 import 'package:xmu_rollcall/features/homework/homework_candidates.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/homework/homework_submission.dart';
-import 'package:xmu_rollcall/features/homework/homework_badge.dart';
 import 'package:xmu_rollcall/features/homework/homework_cache.dart';
 import 'package:xmu_rollcall/core/cache/cache_revisions.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
