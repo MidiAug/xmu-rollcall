@@ -544,7 +544,6 @@ class _CourseDetailFlowState extends ConsumerState<_CourseDetailFlow> {
             child: Row(
               children: [
                 AppIconButton(
-                  hoverOutline: false,
                   tooltip: '返回课程',
                   onPressed: () => setState(() => _map = false),
                   icon: const Icon(AppIcons.back),
@@ -858,7 +857,6 @@ class _TimetableStackState extends State<_TimetableStack> {
             child: AppIconButton(
               tooltip: '切换课次（${index + 1}/${all.length}）',
               extent: controlExtent,
-              hoverOutline: false,
               padding: EdgeInsets.zero,
               onPressed: () =>
                   setState(() => _selected = (index + 1) % all.length),

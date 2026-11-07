@@ -71,7 +71,6 @@ class AppTitleBar extends StatelessWidget {
                 if (onBack != null)
                   AppIconButton(
                     tooltip: '返回软件',
-                    hoverOutline: false,
                     extent: AppLayout.titleBarHeight,
                     padding: const EdgeInsets.all(6),
                     icon: const Icon(AppIcons.back, size: 16),

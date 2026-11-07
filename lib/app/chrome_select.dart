@@ -85,8 +85,6 @@ class AppSelectTrigger extends StatelessWidget {
               border: Border.all(
                 color: outlined
                     ? p.focus
-                    : hovering
-                    ? p.controlOutlineHover
                     : plain
                     ? p.borderStrong
                     : AppMobileUi.useTouchChrome(context)

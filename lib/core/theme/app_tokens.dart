@@ -65,11 +65,9 @@ class AppPalette {
   Color get primaryPressed => Color.lerp(primary, ink, .2)!;
 
   /// Action surfaces stay distinct from the canvas even under the pointer.
-  Color get controlHover => isDark ? const Color(0xFF353D4C) : surface;
+  Color get controlHover => isDark ? const Color(0xFF353D4C) : hover;
   Color get controlPressed =>
       isDark ? const Color(0xFF3D485C) : const Color(0xFFE6ECF6);
-  Color get controlOutlineHover =>
-      isDark ? const Color(0xFF74839C) : const Color(0xFFAAB8CE);
 
   /// Focus follows the active theme accent; it is not a separate blue palette.
   Color get focus => primary;

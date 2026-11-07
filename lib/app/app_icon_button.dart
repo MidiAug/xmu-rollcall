@@ -13,7 +13,6 @@ class AppIconButton extends StatelessWidget {
     this.focusNode,
     this.extent = 44,
     this.framed = false,
-    this.hoverOutline = true,
     this.active = false,
     this.visualDensity,
     this.alignment = Alignment.center,
@@ -25,8 +24,6 @@ class AppIconButton extends StatelessWidget {
   final FocusNode? focusNode;
   final double extent;
   final bool framed;
-  /// Pointer outline is optional; keyboard focus keeps its own visible border.
-  final bool hoverOutline;
   final bool active;
   final VisualDensity? visualDensity;
   final AlignmentGeometry alignment;
@@ -66,11 +63,9 @@ class AppIconButton extends StatelessWidget {
                 (states) => BorderSide(
                   color: states.contains(WidgetState.focused)
                       ? p.focus
-                      : states.contains(WidgetState.hovered) && hoverOutline
-                      ? p.controlOutlineHover
                       : framed
                       ? p.border
-                      : AppPalette.clearOf(p.controlOutlineHover),
+                      : AppPalette.clearOf(p.focus),
                 ),
               ),
             ),

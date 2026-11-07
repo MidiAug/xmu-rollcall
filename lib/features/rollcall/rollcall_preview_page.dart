@@ -441,7 +441,6 @@ class _RollcallPreviewContentState
               child: Row(
                 children: [
                   AppIconButton(
-                    hoverOutline: false,
                     tooltip: '退出预览',
                     onPressed: widget.onBack,
                     icon: const Icon(AppIcons.back),

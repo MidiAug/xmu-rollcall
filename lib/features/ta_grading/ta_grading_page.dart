@@ -1506,7 +1506,6 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                 AppIconButton(
                   tooltip: '取消选择',
                   extent: 32,
-                  hoverOutline: false,
                   icon: const Icon(AppIcons.close, size: 15),
                   onPressed: blocked
                       ? null

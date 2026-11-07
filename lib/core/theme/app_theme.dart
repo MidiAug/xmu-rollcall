@@ -124,8 +124,6 @@ abstract final class AppTheme {
                       ? p.border
                       : s.contains(WidgetState.focused)
                       ? p.focus
-                      : s.contains(WidgetState.hovered)
-                      ? p.controlOutlineHover
                       : p.borderStrong,
                 ),
               ),
@@ -155,9 +153,7 @@ abstract final class AppTheme {
                 (s) => BorderSide(
                   color: s.contains(WidgetState.focused)
                       ? p.focus
-                      : s.contains(WidgetState.hovered)
-                      ? p.controlOutlineHover
-                      : AppPalette.clearOf(p.controlOutlineHover),
+                      : AppPalette.clearOf(p.focus),
                 ),
               ),
             ),
@@ -281,9 +277,7 @@ abstract final class AppTheme {
                 (s) => BorderSide(
                   color: s.contains(WidgetState.focused)
                       ? p.focus
-                      : s.contains(WidgetState.hovered)
-                      ? p.controlOutlineHover
-                      : AppPalette.clearOf(p.controlOutlineHover),
+                      : AppPalette.clearOf(p.focus),
                 ),
               ),
             ),

@@ -666,7 +666,6 @@ class _RecentTermCount extends StatelessWidget {
                   AppIconButton(
                     key: const ValueKey('grade-recent-less'),
                     tooltip: '减少学期',
-                    hoverOutline: false,
                     icon: const Icon(AppIcons.subtract, size: 16),
                     onPressed: value > 1 ? () => onChanged(value - 1) : null,
                   ),
@@ -690,7 +689,6 @@ class _RecentTermCount extends StatelessWidget {
                   AppIconButton(
                     key: const ValueKey('grade-recent-more'),
                     tooltip: '增加学期',
-                    hoverOutline: false,
                     icon: const Icon(AppIcons.add, size: 16),
                     onPressed: value < maximum
                         ? () => onChanged(value + 1)

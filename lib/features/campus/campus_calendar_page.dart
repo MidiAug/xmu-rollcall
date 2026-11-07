@@ -157,7 +157,6 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
                         AppIconButton(
                           key: const ValueKey('calendar-previous'),
                           tooltip: '上个月',
-                          hoverOutline: true,
                           extent: AppMobileUi.useTouchChrome(context) ? 44 : 36,
                           onPressed: _month.isAfter(firstMonth)
                               ? () => setState(
@@ -172,7 +171,6 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
                         AppIconButton(
                           key: const ValueKey('calendar-next'),
                           tooltip: '下个月',
-                          hoverOutline: true,
                           extent: AppMobileUi.useTouchChrome(context) ? 44 : 36,
                           onPressed: _month.isBefore(lastMonth)
                               ? () => setState(

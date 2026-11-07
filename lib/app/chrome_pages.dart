@@ -75,7 +75,6 @@ class SubpageScaffold extends StatelessWidget {
                         if (onBack != null || navigator.canPop())
                           AppIconButton(
                             tooltip: '返回',
-                            hoverOutline: false,
                             extent: 48,
                             onPressed: back,
                             icon: const Icon(AppIcons.back),
