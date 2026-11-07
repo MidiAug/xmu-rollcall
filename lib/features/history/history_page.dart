@@ -719,9 +719,11 @@ class _CourseTile extends StatelessWidget {
 
   Color _statusColor(AppPalette p) {
     if (record.isPlaceholder) return p.muted;
-    if (record.signedStatus.contains('已')) return p.primary;
-    if (record.signedStatus.contains('未签')) return p.danger;
-    return p.muted;
+    return switch (historyAttendance(record)) {
+      HistoryAttendance.signed => p.success,
+      HistoryAttendance.unsigned => p.danger,
+      HistoryAttendance.other => p.muted,
+    };
   }
 
   @override

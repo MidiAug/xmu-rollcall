@@ -180,7 +180,7 @@ class _CampusSearchPageState extends ConsumerState<CampusSearchPage> {
             ],
           );
     Widget entry(CampusSearchEntry e) => ListTile(
-      leading: Icon(e.icon, color: p.primary, size: 22),
+      leading: Icon(e.icon, color: p.muted, size: 22),
       title: Text(e.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       subtitle: Text(e.description, maxLines: 2),
       trailing: const Icon(AppIcons.right, size: 16),
@@ -228,7 +228,7 @@ class _CampusSearchPageState extends ConsumerState<CampusSearchPage> {
                   section('当前账号的作业', [
                     for (final item in homework.take(20))
                       ListTile(
-                        leading: Icon(AppIcons.homework, color: p.primary),
+                        leading: Icon(AppIcons.homework, color: p.muted),
                         title: Text(
                           item.title,
                           maxLines: 1,
@@ -249,7 +249,7 @@ class _CampusSearchPageState extends ConsumerState<CampusSearchPage> {
                   section('当前账号的课程', [
                     for (final name in courses.take(20))
                       ListTile(
-                        leading: Icon(AppIcons.calendar, color: p.primary),
+                        leading: Icon(AppIcons.calendar, color: p.muted),
                         title: Text(
                           name,
                           maxLines: 1,

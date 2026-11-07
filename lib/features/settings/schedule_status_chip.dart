@@ -10,13 +10,13 @@ class ScheduleStatusChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: p.primary.withValues(alpha: .09),
+        color: p.warning.withValues(alpha: .09),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         '待完善',
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: p.primary,
+          color: p.warning,
           fontWeight: FontWeight.w600,
         ),
       ),

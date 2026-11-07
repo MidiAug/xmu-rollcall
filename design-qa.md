@@ -1228,3 +1228,33 @@ U26用户截图指出设置中两个下拉无底色、与行背景融合；文�
 before/after新捕自当前生产根设置，同1120×780、DPR1、文字1.0和账号/状态，见build/select-surface-fix-2026-11-07/{before,after}.png。实看完整after和comparison.png（等像素局部并列），底色和边界清楚，值仍靠起始边；没有按缩略图猜测或拉伸源图。GPA同类调用通过实际页面范围切换回归，未另改其页面布局。
 
 app_select、settings_layout_contract、gpa_page、desktop_menu_interaction共40通过，加生产桌面整链1项通过；像素回归在浅深色真实取样idle填色/边缘与父表面不同，hover/press/键盘/Esc/选值仍可用。静态分析与格式检查通过（analyze-final.log）；未重复上一轮全部1384项，也不冒称本轮全量。Windows Debug热重载72/3764库成功，2183ms；没有操作实际设置值。原生人工视觉、移动真机和用户审美仍分别报告。
+
+
+## 下拉高度与签到中性色修正（2026-11-07）
+
+U27以用户两张圈选截图为依据：设置下拉过高，暂停值守及日常等待提示不宜使用主题色。任务为保留既有设置/签到布局，明确暂停是次操作、等待为普通状态；不新增常驻文案。复用AppSelectTrigger、AppPalette和MonitorStatusLine/MonitorQuickControl；桌面compact从40改为32，触屏至少44，大字仍按内容增长，非compact桌面36不变。左对齐、填色/边界及原菜单交互保留。暂停/停止正文色、日常状态次要文字色为P，待签到、错误与结束后的完成状态保留原语义色。
+
+94项相关回归通过：app_select、settings_layout_contract、settings_visual、monitor_status_line、desktop_menu_interaction、rollcall_identity_qr、mobile_campus_design。包含鼠标/键盘打开选值/Esc、浅深色与窄窗/手机大字、倒计时/等待/处理中/失败/完成和暂停后回到开始入口；新增桌面32几何及普通状态/重试色断言。实际查看.tools/settings-polish/960-{light,dark}.png、320-light.png与build/desktop-ui-review/monitor-status-no-class-today-{light,dark}.png，下拉和外观切换同高，文字未裁切，等待与暂停为中性且可辨。签到状态图为生产组件组合，页头为测试夹具，不代表真实根页布局变化。未操作用户日常实例，原生窗口、移动真机与系统读屏未验。
+
+本轮完整flutter analyze通过（67.4s）；docs为仓库既有本地忽略范围，来源表、组件/状态/验收和本记录仅本机同步，根DESIGN与CHANGELOG随代码提交。
+
+
+## 主题色按职责收敛（2026-11-07）
+
+U28来自本聊天“重新完整思考很多地方ui主题色？”；本轮不以蓝色出现本身判错。任务简报：用户浏览设置/搜索/作业/地点、处理签到和助教名单时，应能区分主要动作、普通入口、当前选择与结果状态；沿原页结构、真实名单及空/错/忙碌契约，主要操作数量不变，无新增常驻文案。复用AppTheme、AppIconSurface、AppPalette和现有业务控件。颜色角色分配为P，已写回根DESIGN，不宣称用户逐项指定。
+
+逐处检查primary调用及SDK主题继承：
+
+| 类别 | 处理 |
+| --- | --- |
+| 主要动作与持续选择 | 保留FilledButton、开始检测、选中导航/分段/菜单、复选/开关、地图选中/定位和键盘/输入焦点的主题色 |
+| 共享次动作 | TextButton/quiet、tonal次按钮、移动普通图标动作改为中性；AppIconSurface普通列表符号改muted，保留原hover/pressed/focus与禁用继承 |
+| 普通内容与入口 | 手机设置/关于、搜索结果、作业附件、课程地点入口、地点详情标题/未选列表、助教空态/未选课程符号与成绩资料、共同课程数量采用中性；地点及助教选中项仍显主题色 |
+| 状态 | 二维码提交成功及历史已签到用success；待完善用warning；失败保持danger；手机检测倒计时/值守设置/协助检测中采用muted |
+| 保留用途 | 工具同族服务图形、品牌及身份标记、更新提示/显式链接、教学日期/GPA数据、地图位置、进度及历史时间图形沿现有语义，不作全局替换 |
+
+共享状态矩阵补验实际渲染文字：主按钮保留onPrimary，取消和文字次动作使用ink；原鼠标/键盘/hover/pressed/selected回归继续运行。全量首次运行1382通过、2跳过、2失败（build/theme-role-tests.log，2m08s）；两处失败均为助教工具栏仍断言compact下拉与40高搜索等高。更新为下拉32且中心对齐，保留刷新/工具栏40与选择前后表头稳定断言。历史成功配色复用现有historyAttendance分类，避免把其他“已…”状态误染为成功。最终助教/历史25项复测全部通过（theme-role-focused-tests.log），没有重复无相关变更的其余全量项；最终完整analyze无问题（theme-role-analyze-final.log，15.0s）。
+
+实看本轮生成的build/desktop-ui-review/controls-idle-{false,true}.png、history-four-filters-960-light.png、homework-detail-attachments-960.png、ta-students-1100.0-{false,true}.png及ta-task-table-111-{false,true}.png，和.tools/settings-polish/320-{light,dark}.png。次操作为中性、主操作及选择清楚，状态色和文字可读，紧凑下拉在整班工具栏居中，未改页头/表格几何。截图为测试生产组件组合，非原生人工逐页验收。Windows现有Debug VM通过Flutter Tools reloadSources返回Success，未启动新实例或修改实际设置；移动真机、系统读屏和用户审美评价仍未验。
+
+根DESIGN/CHANGELOG与本回执随代码提交；docs目录继续沿既有规则仅本机维护来源、组件和功能/验收状态。上轮相关下拉验收回执随本轮阶段合并，不新增单独记录提交。

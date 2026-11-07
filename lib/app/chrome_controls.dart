@@ -8,7 +8,7 @@ abstract final class AppControlStyle {
       minimumSize: const Size(AppMobileUi.target, AppMobileUi.target),
       visualDensity: VisualDensity.standard,
       backgroundColor: p.controlSurface,
-      foregroundColor: p.primary,
+      foregroundColor: p.ink,
       side: BorderSide(color: p.mobileOutline),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       padding: const EdgeInsets.all(10),

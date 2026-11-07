@@ -221,7 +221,7 @@ class _DetailBody extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(AppIcons.document, color: p.primary, size: 22),
+                  Icon(AppIcons.document, color: p.muted, size: 22),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(

@@ -19,7 +19,7 @@ class AboutSettingsRow extends ConsumerWidget {
       leading: compact
           ? SizedBox(
               width: 24,
-              child: Icon(AppIcons.info, size: 23, color: p.primary),
+              child: Icon(AppIcons.info, size: 23, color: p.muted),
             )
           : const Icon(AppIcons.info),
       title: '关于',

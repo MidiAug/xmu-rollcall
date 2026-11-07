@@ -243,7 +243,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
 
     if (masthead) {
       if (statusOnly) {
-        final color = failed && !paused ? p.danger : p.primary;
+        final color = failed && !paused ? p.danger : p.muted;
         return Row(
           children: [
             Container(

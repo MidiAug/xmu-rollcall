@@ -529,11 +529,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                                     ? p.danger.withValues(
                                                         alpha: .1,
                                                       )
-                                                    : isPending
-                                                    ? p.surfaceHigh
-                                                    : p.primary.withValues(
-                                                        alpha: .08,
-                                                      ),
+                                                    : rowSelected
+                                                    ? p.selected
+                                                    : p.surfaceHigh,
                                                 borderRadius:
                                                     BorderRadius.circular(8),
                                               ),
@@ -545,9 +543,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                                 size: 17,
                                                 color: invalid
                                                     ? p.danger
-                                                    : isPending
-                                                    ? p.muted
-                                                    : p.primary,
+                                                    : rowSelected
+                                                    ? p.primary
+                                                    : p.muted,
                                               ),
                                             ),
                                             title: AppTruncatedText(
@@ -730,10 +728,8 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                           key: const ValueKey('map-back-to-list'),
                           style: FilledButton.styleFrom(
                             backgroundColor: p.surface,
-                            foregroundColor: p.primary,
-                            side: BorderSide(
-                              color: p.primary.withValues(alpha: .45),
-                            ),
+                            foregroundColor: p.ink,
+                            side: BorderSide(color: p.borderStrong),
                             elevation: 3,
                             shadowColor: Colors.black.withValues(alpha: .18),
                             shape: RoundedRectangleBorder(
@@ -878,7 +874,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
           children: [
             Row(
               children: [
-                Icon(AppIcons.building, color: p.primary, size: 18),
+                Icon(AppIcons.building, color: p.muted, size: 18),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -1018,7 +1014,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
         children: [
           Row(
             children: [
-              Icon(AppIcons.location, size: 20, color: p.primary),
+              Icon(AppIcons.location, size: 20, color: p.muted),
               const SizedBox(width: 8),
               Expanded(
                 child: Wrap(

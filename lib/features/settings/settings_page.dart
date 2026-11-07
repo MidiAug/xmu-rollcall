@@ -368,10 +368,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
       VoidCallback onTap, {
       Widget? trailing,
     }) => SettingsRow(
-      leading: SizedBox(
-        width: 24,
-        child: Icon(icon, color: p.primary, size: 23),
-      ),
+      leading: SizedBox(width: 24, child: Icon(icon, color: p.muted, size: 23)),
       title: title,
       minHeight: android ? 48 : 52,
       contentPadding: EdgeInsets.symmetric(vertical: android ? 4 : 6),
@@ -442,7 +439,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           children: [
             SizedBox(
               width: 24,
-              child: Icon(AppIcons.theme, size: 23, color: p.primary),
+              child: Icon(AppIcons.theme, size: 23, color: p.muted),
             ),
             const SizedBox(width: 12),
             const Expanded(child: Text('外观', style: TextStyle(fontSize: 14))),

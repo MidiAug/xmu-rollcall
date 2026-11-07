@@ -14,7 +14,7 @@ class TaTag extends StatelessWidget {
   final Color? color;
   @override
   Widget build(BuildContext context) {
-    final tone = color ?? AppPalette.of(context).primary;
+    final tone = color ?? AppPalette.of(context).muted;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
@@ -144,7 +144,7 @@ class TaStudentRow extends StatelessWidget {
                       student.submitted ? '已提交' : '未提交',
                       color: student.submitted ? p.success : p.muted,
                     ),
-                    TaTag(grade, color: score != null ? p.primary : p.muted),
+                    TaTag(grade, color: score != null ? p.ink : p.muted),
                   ],
                 ),
               ],

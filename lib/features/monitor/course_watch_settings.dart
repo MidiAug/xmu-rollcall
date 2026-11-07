@@ -141,7 +141,7 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
                       color: p.accentSurface,
                       borderRadius: BorderRadius.circular(13),
                     ),
-                    child: Icon(AppIcons.guard, color: p.primary, size: 23),
+                    child: Icon(AppIcons.guard, color: p.muted, size: 23),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -159,10 +159,7 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
                         const SizedBox(height: 4),
                         Text(
                           status,
-                          style: TextStyle(
-                            color: state.running ? p.primary : p.muted,
-                            fontSize: 13,
-                          ),
+                          style: TextStyle(color: p.muted, fontSize: 13),
                         ),
                       ],
                     ),

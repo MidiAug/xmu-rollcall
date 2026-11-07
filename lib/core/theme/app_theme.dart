@@ -18,8 +18,8 @@ abstract final class AppTheme {
       onPrimary: brightness == Brightness.dark ? p.canvas : Colors.white,
       secondary: p.muted,
       onSecondary: p.ink,
-      secondaryContainer: p.selected,
-      onSecondaryContainer: p.primary,
+      secondaryContainer: p.surfaceHigh,
+      onSecondaryContainer: p.ink,
       error: p.danger,
       onError: Colors.white,
       surface: p.surface,
@@ -134,7 +134,7 @@ abstract final class AppTheme {
       textButtonTheme: TextButtonThemeData(
         style:
             TextButton.styleFrom(
-              foregroundColor: p.primary,
+              foregroundColor: p.ink,
               overlayColor: Colors.transparent,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               shape: RoundedRectangleBorder(

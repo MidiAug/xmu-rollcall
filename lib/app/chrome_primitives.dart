@@ -20,7 +20,7 @@ class AppIconSurface extends StatelessWidget {
         border: Border.all(color: p.border),
       ),
       child: IconTheme(
-        data: IconThemeData(color: p.primary, size: 19),
+        data: IconThemeData(color: p.muted, size: 19),
         child: child,
       ),
     );

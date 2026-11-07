@@ -66,7 +66,7 @@ void main() {
                                 Icon(
                                   AppIcons.guardPaused,
                                   size: 16,
-                                  color: p.primary,
+                                  color: p.ink,
                                 ),
                                 const SizedBox(width: 6),
                                 const Text('暂停值守'),
@@ -180,6 +180,18 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
+        for (final label in ['取消', '选择已提交学生']) {
+          expect(
+            DefaultTextStyle.of(tester.element(find.text(label))).style.color,
+            p.ink,
+            reason:
+                'secondary actions must not compete with the primary action',
+          );
+        }
+        expect(
+          DefaultTextStyle.of(tester.element(find.text('保存设置'))).style.color,
+          Theme.of(tester.element(find.text('保存设置'))).colorScheme.onPrimary,
+        );
         await captureDesktopUi(tester, 'controls-idle-$dark');
         final mouse = await tester.createGesture(
           kind: ui.PointerDeviceKind.mouse,

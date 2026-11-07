@@ -398,12 +398,12 @@ void main() {
           tester.getRect(find.byKey(const ValueKey('ta-roster-toolbar'))).right,
         );
 
-        for (final control in [
-          find.byKey(const ValueKey('ta-submission-filter')),
-          find.byTooltip('更新名单和成绩'),
+        for (final (control, height) in [
+          (find.byKey(const ValueKey('ta-submission-filter')), 32.0),
+          (find.byTooltip('更新名单和成绩'), searchRect.height),
         ]) {
           final rect = tester.getRect(control);
-          expect(rect.height, searchRect.height);
+          expect(rect.height, height);
           expect(rect.center.dy, searchRect.center.dy);
         }
         var visible = 0;

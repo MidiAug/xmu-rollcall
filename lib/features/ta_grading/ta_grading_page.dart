@@ -133,7 +133,7 @@ class _TaCoursesState extends State<_TaCourses> {
                   color: p.accentSurface,
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: Icon(AppIcons.people, size: 32, color: p.primary),
+                child: Icon(AppIcons.people, size: 32, color: p.muted),
               ),
               const SizedBox(height: 20),
               Text('还没有助教课程', style: Theme.of(context).textTheme.titleLarge),
@@ -279,7 +279,9 @@ class _TaCoursesState extends State<_TaCourses> {
                                               ? AppIcons.checkCircle
                                               : AppIcons.person,
                                           size: 16,
-                                          color: p.primary,
+                                          color: c.id == '$_course'
+                                              ? p.primary
+                                              : p.muted,
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(

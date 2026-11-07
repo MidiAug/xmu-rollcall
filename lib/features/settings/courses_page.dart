@@ -208,7 +208,7 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
                                 child: Icon(
                                   AppIcons.location,
                                   size: 16,
-                                  color: p.primary,
+                                  color: p.muted,
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -226,12 +226,12 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
                                 '打开地图',
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(
-                                      color: p.primary,
+                                      color: p.muted,
                                       fontWeight: FontWeight.w500,
                                     ),
                               ),
                               const SizedBox(width: 4),
-                              Icon(AppIcons.right, size: 14, color: p.primary),
+                              Icon(AppIcons.right, size: 14, color: p.muted),
                             ],
                           ),
                         ),

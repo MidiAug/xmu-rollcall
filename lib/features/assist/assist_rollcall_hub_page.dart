@@ -312,14 +312,14 @@ class _AssistPollQuickBarState extends State<_AssistPollQuickBar> {
         children: [
           AppQuietPill(
             onTap: m.pollNow,
-            background: p.selected,
+            background: p.surfaceHigh,
             child: Text(
               '检测中  ${secs}s',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 letterSpacing: -0.1,
-                color: p.primary,
+                color: p.muted,
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),

@@ -26,8 +26,8 @@ class AssistSharedCourseChip extends StatelessWidget {
       }(),
       AssistSharedCourseStatus.some => (
         '同课 ${identity.sharedCourses.length}',
-        p.primary,
-        p.selected,
+        p.ink,
+        p.surfaceHigh,
       ),
     };
 

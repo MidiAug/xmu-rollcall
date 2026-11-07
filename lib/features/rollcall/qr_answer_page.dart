@@ -869,7 +869,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
                     SettingsRow(
                       leading: Icon(
                         r.ok ? Icons.check_circle_outline : Icons.error_outline,
-                        color: r.ok ? p.primary : p.danger,
+                        color: r.ok ? p.success : p.danger,
                       ),
                       title: r.target.label,
                       subtitle: r.message ?? (r.ok ? '成功' : '失败'),
