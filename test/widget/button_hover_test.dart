@@ -5,10 +5,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import '../fixtures/desktop_ui_capture.dart';
+import '../fixtures/preview_fonts.dart';
 
 void main() {
   initializeDesktopUiCapture();
-  setUpAll(loadDesktopUiCaptureFonts);
+  setUpAll(() async {
+    await loadDesktopUiCaptureFonts();
+    await loadDesktopPreviewFonts();
+  });
   for (final dark in [false, true]) {
     testWidgets('actions highlight without hover outlines dark=$dark', (
       tester,
@@ -53,6 +57,7 @@ void main() {
                           child: Text('查看课程'),
                         ),
                       ),
+                      AppRefreshButton(tooltip: '刷新作业', onRefresh: () async {}),
                     ],
                   ),
                 ),
@@ -69,10 +74,11 @@ void main() {
       for (final (index, target) in [
         find.byType(TextButton),
         find.byType(OutlinedButton),
-        find.byType(AppIconButton),
+        find.byType(AppIconButton).first,
         find.widgetWithIcon(IconButton, Icons.add),
         find.byType(AppSelectTrigger),
         find.byType(AppHoverSurface),
+        find.byType(AppRefreshButton),
       ].indexed) {
         final materials = find.descendant(
           of: target,
@@ -94,6 +100,7 @@ void main() {
                       as BoxDecoration)
                   .color;
         final idleBorder = border();
+        if (index == 6) expect((idleBorder as BorderSide).color.a, 0);
         final idleFill = fill();
         final size = tester.getSize(target);
         await mouse.moveTo(tester.getCenter(target));

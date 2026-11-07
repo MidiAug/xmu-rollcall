@@ -133,7 +133,6 @@ class _AppRefreshButtonState extends State<AppRefreshButton>
     return AppIconButton(
       tooltip: widget.tooltip,
       extent: widget.extent ?? (AppMobileUi.useTouchChrome(context) ? 44 : 34),
-      framed: PlatformHooks.isDesktop && !AppMobileUi.useTouchChrome(context),
       visualDensity: widget.visualDensity,
       onPressed: _busy || widget.busy ? null : _handle,
       icon: RotationTransition(
