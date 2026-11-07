@@ -370,7 +370,7 @@ void main() {
       variant: TargetPlatformVariant.only(TargetPlatform.windows),
     );
     testWidgets(
-      'plain compact select blends into its host and keeps pointer and keyboard feedback dark=$dark',
+      'plain compact select stays distinct from its host and keeps pointer and keyboard feedback dark=$dark',
       (tester) async {
         tester.view.physicalSize = const Size(960, 700);
         tester.view.devicePixelRatio = 1;
@@ -430,8 +430,10 @@ void main() {
             return color;
           },
         ))!;
-        expect(await pixel(bodyPoint), p.surface);
-        expect(await pixel(edgePoint), p.surface);
+        expect(await pixel(bodyPoint), p.controlSurface);
+        expect(await pixel(bodyPoint), isNot(p.surface));
+        expect(await pixel(edgePoint), isNot(p.surface));
+        expect(await pixel(edgePoint), isNot(p.controlSurface));
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: Offset.zero);
         await mouse.moveTo(rect.center);
@@ -448,7 +450,7 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         expect(find.byType(AppMenuOption), findsNothing);
-        expect(await pixel(bodyPoint), p.surface);
+        expect(await pixel(bodyPoint), p.controlSurface);
         expect(await pixel(edgePoint), p.focus);
         await tester.sendKeyEvent(LogicalKeyboardKey.enter);
         await tester.pumpAndSettle();

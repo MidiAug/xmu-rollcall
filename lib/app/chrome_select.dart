@@ -36,6 +36,8 @@ class AppSelectTrigger extends StatelessWidget {
   final bool compact;
 
   final String? subtitle;
+
+  /// Low-emphasis controls keep a neutral fill inside their parent surface.
   final bool plain;
 
   @override
@@ -75,7 +77,7 @@ class AppSelectTrigger extends StatelessWidget {
                   : hovering
                   ? p.controlHover
                   : plain
-                  ? AppPalette.clearOf(p.controlHover)
+                  ? p.controlSurface
                   : AppMobileUi.useTouchChrome(context)
                   ? p.controlSurface
                   : p.surface,
@@ -86,7 +88,7 @@ class AppSelectTrigger extends StatelessWidget {
                     : hovering
                     ? p.controlOutlineHover
                     : plain
-                    ? AppPalette.clearOf(p.primary)
+                    ? p.borderStrong
                     : AppMobileUi.useTouchChrome(context)
                     ? p.mobileOutline
                     : p.border,

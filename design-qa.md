@@ -1215,3 +1215,16 @@ final result: passed
 最终完整回归1384通过、2跳过（build/overlay-review-2026-11-07/full-tests-final.log，2m40s）；lib/test完整分析无问题（analyze-final.log，48.0s）。首轮完整回归1378通过、6失败均来自desktop_workspace旧断言寻找最近Row，布局改Wrap后误取单个触发器；断言改为整组Wrap后重新跑完整套，继续核对居中和最右滚动条，没有放宽几何误差。静态首轮的弃用containsSemantics和冗余import已修，改用实际SemanticsFlags的selected/enabled断言；修改后11项相关回归再过。本轮UI源码和测试文件格式检查0改动，git diff --check通过。
 
 阶段检查包括根共享/焦点66项、协助/更新/禁用分段18项、历史25项及最终新增投影3项；评分历史/普通课程作业4项已查且保留页面。组数互有重叠，不加总作为全量。Windows Debug实际热重启成功（6834ms），保留原运行窗口、本机数据按原持久化恢复；新单例参数在下一次瓦片请求时懒初始化，旧缓存未批量删除或重写。验收采用隔离渲染/回归，开发交付沿现有Flutter进程完成热重启，没有执行真实业务提交。真实账号导入导出、更新安装、课堂评分/打包、原生Profile/系统读屏与Android/iOS真机另验，本轮不以截图或组件测试代替。
+
+
+## 2026-11-07 下拉触发框默认辨识
+
+final result: passed
+
+U26用户截图指出设置中两个下拉无底色、与行背景融合；文字仍遵守U24起始边对齐。实际原因是AppSelectTrigger.plain在idle同时透明填色和边框，只有hover/focus才显现；这属于被否定的P，不能归因于本次左对齐要求。任务为设置网站方式/关闭行为及同共享样式的GPA单学期提供默认可辨识控件，复用既有controlSurface/borderStrong，不改变尺寸、箭头、菜单布局或业务。
+
+修正只在共享触发器：idle中性填色+细边界，hover/press/open/键盘反馈沿原逻辑；弹出选项继续无描边高亮。三处真实plain调用均使用同一入口，不在页面硬写皮肤。原平台字体/颜色角色/圆角/必要文案保留，光标沿原箭头；没有新增功能或说明文案。
+
+before/after新捕自当前生产根设置，同1120×780、DPR1、文字1.0和账号/状态，见build/select-surface-fix-2026-11-07/{before,after}.png。实看完整after和comparison.png（等像素局部并列），底色和边界清楚，值仍靠起始边；没有按缩略图猜测或拉伸源图。GPA同类调用通过实际页面范围切换回归，未另改其页面布局。
+
+app_select、settings_layout_contract、gpa_page、desktop_menu_interaction共40通过，加生产桌面整链1项通过；像素回归在浅深色真实取样idle填色/边缘与父表面不同，hover/press/键盘/Esc/选值仍可用。静态分析与格式检查通过（analyze-final.log）；未重复上一轮全部1384项，也不冒称本轮全量。Windows Debug热重载72/3764库成功，2183ms；没有操作实际设置值。原生人工视觉、移动真机和用户审美仍分别报告。
