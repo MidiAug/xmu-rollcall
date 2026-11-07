@@ -231,12 +231,15 @@ void main() {
             tester.widget<Text>(find.text(scenario.text)).style!.color,
             scenario.id == 'retry' ? palette.danger : palette.muted,
           );
-          if (scenario.state.running) {
-            expect(
-              tester.widget<Text>(find.text('暂停值守')).style!.color,
-              palette.ink,
-            );
-          }
+          expect(
+            tester
+                .widget<Text>(
+                  find.text(scenario.state.running ? '暂停值守' : '开始值守'),
+                )
+                .style!
+                .color,
+            palette.ink,
+          );
           expect(
             find.text(scenario.state.running ? '暂停值守' : '开始值守'),
             findsOneWidget,

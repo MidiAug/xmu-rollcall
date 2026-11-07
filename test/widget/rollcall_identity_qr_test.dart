@@ -791,6 +791,12 @@ void main() {
               : tester.widget<AppQuietPill>(button).onTap,
           scenario.allowed ? isNotNull : isNull,
         );
+        if (scenario.allowed) {
+          expect(
+            tester.widget<Text>(find.text('开始检测')).style!.color,
+            AppPalette.of(tester.element(button)).ink,
+          );
+        }
         if (!scenario.allowed) {
           final label = tester.widget<Text>(find.text('开始检测'));
           expect(

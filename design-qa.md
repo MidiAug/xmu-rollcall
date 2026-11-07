@@ -1258,3 +1258,12 @@ U28来自本聊天“重新完整思考很多地方ui主题色？”；本轮不
 实看本轮生成的build/desktop-ui-review/controls-idle-{false,true}.png、history-four-filters-960-light.png、homework-detail-attachments-960.png、ta-students-1100.0-{false,true}.png及ta-task-table-111-{false,true}.png，和.tools/settings-polish/320-{light,dark}.png。次操作为中性、主操作及选择清楚，状态色和文字可读，紧凑下拉在整班工具栏居中，未改页头/表格几何。截图为测试生产组件组合，非原生人工逐页验收。Windows现有Debug VM通过Flutter Tools reloadSources返回Success，未启动新实例或修改实际设置；移动真机、系统读屏和用户审美评价仍未验。
 
 根DESIGN/CHANGELOG与本回执随代码提交；docs目录继续沿既有规则仅本机维护来源、组件和功能/验收状态。上轮相关下拉验收回执随本轮阶段合并，不新增单独记录提交。
+
+
+## 值守开始与暂停状态配对检查（2026-11-07）
+
+U29：用户继续指出值守开始/暂停的主题色，要求全面考虑。上一轮仅暂停/停止改中性，遗漏了普通开始态，且值守设置仍为FilledButton，属于实施不完整。任务是同一服务控制开始/暂停的层级和表现连续；数据/文字/安全确认/启动失败恢复/检测窗口不改，无新增文案。复用MonitorQuickControl、AppQuietPill与原OutlinedButton主题。P方案按位置而非running布尔值着色：toolbar/standard/quiet/masthead/设置/协助开始与暂停都为ink，中性表面；quiet两态均保持透明/无框。只有独立空态prominent的开始动作保留实心primary和onPrimary，暂停后续行为仍是普通控制。iOS同样不因masthead名称获得空态主按钮样式，Android检测状态继续独立显示。
+
+回归在现有桌面状态链覆盖idle开始与running暂停的ink；原检测窗口/登录/启动进行中禁用仍按muted和原回调门槛。monitor_status_line、monitor_settings_state、rollcall_identity_qr、mobile_campus_design、assist_hub、rollcall_preview_page共68项通过（build/monitor-pair-tests.log）；补齐协助开始图标后设置/协助12项复测通过（monitor-pair-settings-tests.log）。完整analyze无问题（21.2s），补改协助图标后单文件复核。实际查看本轮monitor-status-idle-{light,dark}.png和waiting-light.png，开始/暂停标签均为ink；查看.tools/monitor-typography/monitor-settings-960-{light,dark}-course-watch.png，设置开始为中性有边界按钮，开关仍表达配置选择。桌面开始/暂停尺寸稳定，原检测窗口禁用/取消/启动结果链通过。渲染为生产组件测试，未冒称iOS/Android真机或读屏验收。
+
+现有Windows Debug实例reloadSources返回Success；协助最终单文件分析无问题（10.4s）。本轮未启动新实例或操作实际值守开关。

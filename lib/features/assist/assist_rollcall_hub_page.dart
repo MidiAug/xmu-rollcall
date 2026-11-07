@@ -279,11 +279,11 @@ class _AssistPollQuickBarState extends State<_AssistPollQuickBar> {
         alignment: Alignment.centerLeft,
         child: AppQuietPill(
           onTap: m.start,
-          background: p.selected,
+          background: p.surfaceHigh,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.radar_outlined, size: 16, color: p.primary),
+              Icon(Icons.radar_outlined, size: 16, color: p.ink),
               const SizedBox(width: 6),
               Text(
                 '开始检测',
@@ -291,7 +291,7 @@ class _AssistPollQuickBarState extends State<_AssistPollQuickBar> {
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   letterSpacing: -0.1,
-                  color: p.primary,
+                  color: p.ink,
                 ),
               ),
             ],

@@ -231,7 +231,7 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    FilledButton.icon(
+                    OutlinedButton.icon(
                       key: const ValueKey('course-watch-run'),
                       onPressed: !ready || state.starting
                           ? null

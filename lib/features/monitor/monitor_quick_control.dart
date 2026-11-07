@@ -78,9 +78,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
     final quiet =
         style == MonitorControlStyle.quiet ||
         style == MonitorControlStyle.mastheadQuiet;
-    final prominent =
-        style == MonitorControlStyle.prominent ||
-        style == MonitorControlStyle.masthead;
+    final prominent = style == MonitorControlStyle.prominent;
     final masthead =
         (style == MonitorControlStyle.masthead ||
             style == MonitorControlStyle.mastheadQuiet ||
@@ -160,7 +158,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
             color: prominent && !masthead && enabled
                 ? (p.isDark ? p.canvas : Colors.white)
                 : enabled
-                ? p.primary
+                ? p.ink
                 : p.muted,
           ),
           const SizedBox(width: 6),
@@ -174,7 +172,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
               color: prominent && !masthead && enabled
                   ? (p.isDark ? p.canvas : Colors.white)
                   : enabled
-                  ? p.primary
+                  ? p.ink
                   : p.muted,
             ),
           ),
@@ -215,10 +213,8 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                   ? Colors.transparent
                   : prominent && enabled
                   ? p.primary
-                  : toolbar
-                  ? p.surface
                   : enabled
-                  ? p.selected
+                  ? p.surface
                   : p.surfaceHigh,
               child: content,
             ),
@@ -300,9 +296,9 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
       );
     }
     return AppQuietPill(
-      border: true,
+      border: !quiet,
       radius: toolbar ? 7 : 18,
-      background: p.surface,
+      background: quiet ? Colors.transparent : p.surface,
       onTap: ctrl.stop,
       child: Row(
         mainAxisSize: MainAxisSize.min,
