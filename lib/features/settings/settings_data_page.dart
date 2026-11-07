@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
+import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/app/session_lifecycle.dart';
@@ -266,25 +267,14 @@ class SettingsDataPage extends ConsumerWidget {
   }
 
   Future<void> _confirmClearCache(BuildContext context, WidgetRef ref) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('清除本机课程数据？'),
-        content: const Text(
+    final ok = await showAppConfirmDialog(
+      context,
+      title: '清除本机课程数据？',
+      message:
           '将删除已缓存的课表、成绩、作业与签到记录。'
           '手工课程安排、学期日期、地点与本机设置会保留。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('取消'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('清除'),
-          ),
-        ],
-      ),
+      confirmLabel: '清除',
+      destructive: true,
     );
     if (ok != true) return;
     await clearRemoteCourseData(ref);

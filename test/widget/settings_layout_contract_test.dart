@@ -98,7 +98,6 @@ void main() {
                               width: 148,
                               plain: true,
                               compact: true,
-                              alignValueEnd: true,
                             ),
                           ),
                           const SettingsRow(
@@ -152,11 +151,11 @@ void main() {
               .single
               .toRect();
           final glyphs = box.shift(value.localToGlobal(Offset.zero));
-          final arrow = tester.getRect(find.byIcon(AppIcons.down));
+          final trigger = tester.getRect(find.byType(AppSelectTrigger));
           final valueGap = direction == TextDirection.ltr
-              ? arrow.left - glyphs.right
-              : glyphs.left - arrow.right;
-          expect(valueGap, inInclusiveRange(0, 10));
+              ? glyphs.left - trigger.left
+              : trigger.right - glyphs.right;
+          expect(valueGap, inInclusiveRange(8, 11));
           expect(tester.takeException(), isNull);
         },
       );

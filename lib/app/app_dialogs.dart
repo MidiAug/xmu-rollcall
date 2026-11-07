@@ -64,9 +64,19 @@ class AppNoticeDialog extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: AppSpace.xs),
-          Text(message, style: Theme.of(context).textTheme.bodyMedium),
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(title, style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: AppSpace.xs),
+                  Text(message, style: Theme.of(context).textTheme.bodyMedium),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: AppSpace.lg),
           Align(
             alignment: Alignment.centerRight,
@@ -100,22 +110,36 @@ Future<bool> showAppConfirmDialog(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: -0.2,
-                  color: p.ink,
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2,
+                          color: p.ink,
+                        ),
+                      ),
+                      if (message != null && message.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          message,
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.4,
+                            color: p.muted,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
-              if (message != null && message.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  message,
-                  style: TextStyle(fontSize: 13, height: 1.4, color: p.muted),
-                ),
-              ],
               const SizedBox(height: 20),
               Row(
                 children: [
@@ -244,72 +268,67 @@ class _AppPromptDialogState extends State<_AppPromptDialog> {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return Dialog(
+    return AppDialogFrame(
+      maxWidth: 400,
       insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadii.dialog),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              widget.title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: p.ink,
+              ),
+            ),
+            if (widget.message != null && widget.message!.isNotEmpty) ...[
+              const SizedBox(height: 6),
               Text(
-                widget.title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: p.ink,
-                ),
-              ),
-              if (widget.message != null && widget.message!.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  widget.message!,
-                  style: TextStyle(fontSize: 13, color: p.muted),
-                ),
-              ],
-              const SizedBox(height: 14),
-              TextField(
-                controller: _ctrl,
-                autofocus: true,
-                textInputAction: TextInputAction.done,
-                keyboardType: widget.keyboardType,
-                decoration: InputDecoration(
-                  labelText: widget.labelText,
-                  hintText: widget.hintText,
-                  errorText: _error,
-                  errorMaxLines: 3,
-                ),
-                onChanged: (_) {
-                  if (_error != null) setState(() => _error = null);
-                },
-                onSubmitted: (_) => _submit(),
-              ),
-              const SizedBox(height: 18),
-              Row(
-                children: [
-                  Expanded(
-                    child: AppButton(
-                      kind: AppButtonKind.secondary,
-                      label: widget.cancelLabel,
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _submit,
-                      child: Text(widget.confirmLabel),
-                    ),
-                  ),
-                ],
+                widget.message!,
+                style: TextStyle(fontSize: 13, color: p.muted),
               ),
             ],
-          ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _ctrl,
+              autofocus: true,
+              textInputAction: TextInputAction.done,
+              keyboardType: widget.keyboardType,
+              decoration: InputDecoration(
+                labelText: widget.labelText,
+                hintText: widget.hintText,
+                errorText: _error,
+                errorMaxLines: 3,
+              ),
+              onChanged: (_) {
+                if (_error != null) setState(() => _error = null);
+              },
+              onSubmitted: (_) => _submit(),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: AppButton(
+                    kind: AppButtonKind.secondary,
+                    label: widget.cancelLabel,
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _submit,
+                    child: Text(widget.confirmLabel),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

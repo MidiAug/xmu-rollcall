@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:xmu_rollcall/features/exams/exam_models.dart';
 import 'package:xmu_rollcall/features/exams/exam_providers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -116,6 +117,25 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      await tester.tap(find.text('清除本机课程数据'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('取消'));
+      await tester.pumpAndSettle();
+      expect(
+        await AcademicScheduleStore.read(2, useUserStart: false),
+        isNotNull,
+      );
+      expect(await TaAssignmentStore(11).read(91), isNotNull);
+      expect(_RemoteLists.loads[2], 1);
+      await tester.tap(find.text('清除本机课程数据'));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(
+        await AcademicScheduleStore.read(2, useUserStart: false),
+        isNotNull,
+      );
+      expect(_RemoteLists.loads[2], 1);
       await tester.tap(find.text('清除本机课程数据'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('清除'));

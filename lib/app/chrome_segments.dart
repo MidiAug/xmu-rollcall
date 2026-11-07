@@ -19,6 +19,7 @@ class AppSegmentedControl<T> extends StatefulWidget {
     required this.onChanged,
     this.expanded = false,
     this.compact = false,
+    this.enabled = true,
   });
 
   final List<AppSegment<T>> segments;
@@ -29,6 +30,7 @@ class AppSegmentedControl<T> extends StatefulWidget {
   /// Embedded desktop choices use a 32px target without the raised 44px track.
   /// Touch targets retain the app's 48px minimum regardless of this preference.
   final bool compact;
+  final bool enabled;
 
   @override
   State<AppSegmentedControl<T>> createState() => _AppSegmentedControlState<T>();
@@ -67,7 +69,7 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent || widget.segments.isEmpty) {
+    if (!widget.enabled || event is! KeyDownEvent || widget.segments.isEmpty) {
       return KeyEventResult.ignored;
     }
     final key = event.logicalKey;
@@ -92,6 +94,7 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
   }
 
   void _select(int index) {
+    if (!widget.enabled) return;
     final next = widget.segments[index].value;
     if (next != widget.value) widget.onChanged(next);
   }
@@ -340,6 +343,7 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
       focusNode: _nodes[index],
       onTap: () => _select(index),
       compact: widget.compact,
+      enabled: widget.enabled,
     );
   }
 }
@@ -353,6 +357,7 @@ class _SegmentButton extends StatelessWidget {
     required this.focusNode,
     required this.onTap,
     required this.compact,
+    required this.enabled,
   });
 
   final String label;
@@ -361,18 +366,22 @@ class _SegmentButton extends StatelessWidget {
   final FocusNode focusNode;
   final VoidCallback onTap;
   final bool compact;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final foreground = selected ? p.primary : p.muted;
+    final foreground = (selected ? p.primary : p.muted).withValues(
+      alpha: enabled ? 1 : .55,
+    );
     if (AppMobileUi.useTouchChrome(context)) {
       return Semantics(
         selected: selected,
+        enabled: enabled,
         inMutuallyExclusiveGroup: true,
         child: TextButton(
           focusNode: focusNode,
-          onPressed: onTap,
+          onPressed: enabled ? onTap : null,
           style: TextButton.styleFrom(
             minimumSize: const Size(AppMobileUi.target, AppMobileUi.target),
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -389,7 +398,7 @@ class _SegmentButton extends StatelessWidget {
     }
 
     return _AppSurfaceInteraction(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       focusNode: focusNode,
       builder: (context, states) {
         final active =
@@ -402,6 +411,7 @@ class _SegmentButton extends StatelessWidget {
         return Semantics(
           button: true,
           selected: selected,
+          enabled: enabled,
           inMutuallyExclusiveGroup: true,
           child: ClipRRect(
             borderRadius: radius,

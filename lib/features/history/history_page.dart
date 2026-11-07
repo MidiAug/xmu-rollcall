@@ -247,6 +247,33 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
           .length;
     }
 
+    final labels = [
+      ...HistorySignedFilter.values.map((value) => value.label),
+      ...HistoryTypeFilter.values.map((value) => value.label),
+      '全部课程',
+      if (wide && auth.isSignedIn) '全部时间',
+    ];
+    final painter = TextPainter(
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    );
+    var labelWidth = 0.0;
+    for (final label in labels) {
+      painter.text = TextSpan(
+        text: label,
+        style: DefaultTextStyle.of(context).style.copyWith(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          height: 1.4,
+        ),
+      );
+      painter.layout();
+      if (painter.width > labelWidth) {
+        labelWidth = painter.width;
+      }
+    }
+    painter.dispose();
+
     return SubpageScaffold(
       title: '签到记录',
       actions: [
@@ -267,56 +294,73 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                 padding:
                     contentInsets +
                     EdgeInsets.fromLTRB(pageX, AppSpace.sm, pageX, AppSpace.xs),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _HistoryFilter<HistorySignedFilter>(
-                        title: '签到状态',
-                        key: const ValueKey('history-status-filter'),
-                        value: _signed,
-                        items: HistorySignedFilter.values,
-                        labelOf: (v) => v.label,
-                        countOf: statusCount,
-                        onChanged: (v) => setState(() => _signed = v),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpace.xs),
-                    Expanded(
-                      child: _HistoryFilter<HistoryTypeFilter>(
-                        title: '签到类型',
-                        key: const ValueKey('history-type-filter'),
-                        value: _type,
-                        items: HistoryTypeFilter.values,
-                        labelOf: (v) => v.label,
-                        countOf: typeCount,
-                        onChanged: (v) => setState(() => _type = v),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpace.xs),
-                    Expanded(
-                      child: _HistoryFilter<String>(
-                        title: '筛选课程',
-                        key: const ValueKey('history-course-filter'),
-                        value: courseId,
-                        items: courses.keys.toList(),
-                        labelOf: (id) => courses[id]!,
-                        countOf: courseCount,
-                        wideMenu: true,
-                        onChanged: (id) => setState(() => _courseId = id),
-                      ),
-                    ),
-                    if (wide && auth.isSignedIn) ...[
-                      const SizedBox(width: AppSpace.xs),
-                      Expanded(
-                        child: _HistoryDateFilter(
-                          value: _period,
-                          onSelected: _selectPeriod,
-                          countOf: periodCount,
-                          expand: true,
+                child: LayoutBuilder(
+                  builder: (context, bounds) {
+                    // Leave room for trigger insets and its disclosure. Long
+                    // selected course names still use their truncated tooltip.
+                    final count = wide && auth.isSignedIn ? 4 : 3;
+                    final columns =
+                        ((bounds.maxWidth + AppSpace.xs) /
+                                (labelWidth.ceilToDouble() + 40 + AppSpace.xs))
+                            .floor()
+                            .clamp(1, count);
+                    final fieldWidth =
+                        (bounds.maxWidth - (columns - 1) * AppSpace.xs) /
+                        columns;
+                    return Wrap(
+                      spacing: AppSpace.xs,
+                      runSpacing: AppSpace.xs,
+                      children: [
+                        SizedBox(
+                          width: fieldWidth,
+                          child: _HistoryFilter<HistorySignedFilter>(
+                            title: '签到状态',
+                            key: const ValueKey('history-status-filter'),
+                            value: _signed,
+                            items: HistorySignedFilter.values,
+                            labelOf: (v) => v.label,
+                            countOf: statusCount,
+                            onChanged: (v) => setState(() => _signed = v),
+                          ),
                         ),
-                      ),
-                    ],
-                  ],
+                        SizedBox(
+                          width: fieldWidth,
+                          child: _HistoryFilter<HistoryTypeFilter>(
+                            title: '签到类型',
+                            key: const ValueKey('history-type-filter'),
+                            value: _type,
+                            items: HistoryTypeFilter.values,
+                            labelOf: (v) => v.label,
+                            countOf: typeCount,
+                            onChanged: (v) => setState(() => _type = v),
+                          ),
+                        ),
+                        SizedBox(
+                          width: fieldWidth,
+                          child: _HistoryFilter<String>(
+                            title: '筛选课程',
+                            key: const ValueKey('history-course-filter'),
+                            value: courseId,
+                            items: courses.keys.toList(),
+                            labelOf: (id) => courses[id]!,
+                            countOf: courseCount,
+                            wideMenu: true,
+                            onChanged: (id) => setState(() => _courseId = id),
+                          ),
+                        ),
+                        if (wide && auth.isSignedIn)
+                          SizedBox(
+                            width: fieldWidth,
+                            child: _HistoryDateFilter(
+                              value: _period,
+                              onSelected: _selectPeriod,
+                              countOf: periodCount,
+                              expand: true,
+                            ),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
               Expanded(
@@ -460,7 +504,12 @@ class _CourseHistoryBody extends ConsumerWidget {
           ],
         ),
         data: (records) {
-          final filtered = _filter(records);
+          // Counts and rows describe the same course/rollcall observations in
+          // the current identity. Keep empty-course placeholders separate.
+          final filtered = _filter([
+            ...ref.watch(_orderedHistoryProvider),
+            ...records.where((record) => record.isPlaceholder),
+          ]);
           if (records.isEmpty) {
             return CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -506,10 +555,18 @@ class _CourseHistoryBody extends ConsumerWidget {
                 SizedBox(height: AppSpace.stackOf(context) * 0.55),
             itemBuilder: (context, i) {
               final r = filtered[i];
-              final date = r.rollcallTime?.toLocal();
-              final previous = i == 0
+              final date = r.isPlaceholder ? null : r.rollcallTime?.toLocal();
+              final previous = i == 0 || filtered[i - 1].isPlaceholder
                   ? null
                   : filtered[i - 1].rollcallTime?.toLocal();
+              final startsPlaceholders =
+                  r.isPlaceholder && (i == 0 || !filtered[i - 1].isPlaceholder);
+              final startsUndated =
+                  !r.isPlaceholder &&
+                  date == null &&
+                  (i == 0 ||
+                      filtered[i - 1].isPlaceholder ||
+                      filtered[i - 1].rollcallTime != null);
               final startsDay =
                   date != null &&
                   (previous == null ||
@@ -517,11 +574,15 @@ class _CourseHistoryBody extends ConsumerWidget {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (startsDay)
+                  if (startsDay || startsPlaceholders || startsUndated)
                     Padding(
                       padding: const EdgeInsets.only(top: 12, bottom: 8),
                       child: Text(
-                        _historyDayLabel(date),
+                        startsPlaceholders
+                            ? '暂无签到记录的课程'
+                            : startsUndated
+                            ? '时间未提供'
+                            : _historyDayLabel(date!),
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -694,7 +755,7 @@ class _CourseTile extends StatelessWidget {
                     children: [
                       Padding(
                         padding: EdgeInsets.zero,
-                        child: Text(
+                        child: AppTruncatedText(
                           title,
                           style: TextStyle(
                             fontSize: 14,
@@ -781,9 +842,8 @@ class _MetaColumns extends StatelessWidget {
   }
 }
 
-/// Fixed-width type chip so 二维码 / 数字 / 雷达 share one box.
-/// Two-glyph labels use edge-to-edge [Row] (not letterSpacing — that leaves a
-/// trailing gap and looks off-center).
+/// Standard types share a minimum optical width, with room for larger text or
+/// longer names from existing snapshots. The enclosing metadata row may wrap.
 class _TypeChip extends StatelessWidget {
   const _TypeChip({
     required this.label,
@@ -795,9 +855,6 @@ class _TypeChip extends StatelessWidget {
   final Color foreground;
   final Color background;
 
-  /// Three CJK glyphs at 11sp + horizontal padding (8×2).
-  static const _width = 11.0 * 3 + 16;
-
   @override
   Widget build(BuildContext context) {
     final style = TextStyle(
@@ -806,34 +863,22 @@ class _TypeChip extends StatelessWidget {
       height: 1.2,
       color: foreground,
     );
-    final Widget body;
-    if (label.length == 2) {
-      // 数    字  align with 二    码 edges inside the same content box.
-      body = Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label[0], style: style),
-          Text(label[1], style: style),
-        ],
-      );
-    } else {
-      body = Text(
+    return Container(
+      constraints: BoxConstraints(
+        minWidth: MediaQuery.textScalerOf(context).scale(11) * 3 + 16,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(AppRadii.control),
+      ),
+      child: Text(
         label,
         maxLines: 1,
         textAlign: TextAlign.center,
         overflow: TextOverflow.ellipsis,
         style: style,
-      );
-    }
-    return Container(
-      width: _width,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(AppRadii.control),
       ),
-      child: body,
     );
   }
 }

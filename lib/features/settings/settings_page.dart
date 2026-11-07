@@ -232,7 +232,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 semanticLabel: '常用网站打开方式',
                 value: ref.watch(websiteOpenModeProvider),
                 plain: true,
-                alignValueEnd: true,
                 compact: true,
                 items: WebsiteOpenMode.values,
                 labelOf: (mode) => mode.label,
@@ -249,7 +248,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               trailing: AppShellSelect<CloseMode>(
                 semanticLabel: '关闭窗口时',
                 plain: true,
-                alignValueEnd: true,
                 compact: true,
                 value: ref.watch(closePrefsProvider).mode,
                 items: CloseMode.values,

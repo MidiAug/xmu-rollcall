@@ -763,7 +763,7 @@ void main() {
         await capture('签到记录');
         final content = find.byKey(const ValueKey('history-course-filter'));
         final filters = find
-            .ancestor(of: content, matching: find.byType(Row))
+            .ancestor(of: content, matching: find.byType(Wrap))
             .first;
         final list = find.descendant(
           of: find.byType(HistoryPage),

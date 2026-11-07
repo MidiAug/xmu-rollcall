@@ -26,7 +26,6 @@ class AppSelectTrigger extends StatelessWidget {
     this.compact = false,
     this.subtitle,
     this.plain = false,
-    this.alignValueEnd = false,
   });
   final String label;
   final VoidCallback? onTap;
@@ -38,7 +37,6 @@ class AppSelectTrigger extends StatelessWidget {
 
   final String? subtitle;
   final bool plain;
-  final bool alignValueEnd;
 
   @override
   Widget build(BuildContext context) => _AppSurfaceInteraction(
@@ -105,7 +103,6 @@ class AppSelectTrigger extends StatelessWidget {
                     children: [
                       AppTruncatedText(
                         label,
-                        textAlign: alignValueEnd ? TextAlign.end : null,
                         style: TextStyle(
                           fontSize: compact ? 13 : 14,
                           height: 1.4,
@@ -116,7 +113,6 @@ class AppSelectTrigger extends StatelessWidget {
                       if (subtitle != null)
                         Text(
                           subtitle!,
-                          textAlign: alignValueEnd ? TextAlign.end : null,
                           style: TextStyle(fontSize: 11, color: p.muted),
                         ),
                     ],

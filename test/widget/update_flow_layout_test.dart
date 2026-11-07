@@ -154,17 +154,30 @@ void main() {
         final dialogRect = tester.getRect(dialogSurface);
         expect(routeRect.left, closeTo(dialogRect.left + 20, 1));
         final download = find.widgetWithText(FilledButton, '下载');
-        expect(tester.getRect(download).left, greaterThan(routeRect.right));
+        if (width == 320) {
+          expect(
+            tester.getRect(download).top,
+            greaterThanOrEqualTo(routeRect.bottom),
+          );
+        } else {
+          expect(tester.getRect(download).left, greaterThan(routeRect.right));
+        }
         expect(
           tester.getRect(download).right,
           closeTo(dialogRect.right - 20, 1),
         );
-        final button = tester.widget<FilledButton>(download);
-        expect(
-          button.style!.backgroundColor!.resolve({}),
-          AppPalette.of(tester.element(download)).primary,
+        final material = tester.widget<Material>(
+          find.descendant(of: download, matching: find.byType(Material)).first,
         );
-        expect(button.style!.foregroundColor!.resolve({}), Colors.white);
+        expect(material.color, AppPalette.of(tester.element(download)).primary);
+        expect(
+          DefaultTextStyle.of(
+            tester.element(
+              find.descendant(of: download, matching: find.text('下载')),
+            ),
+          ).style.color,
+          Theme.of(tester.element(download)).colorScheme.onPrimary,
+        );
         await capture('02-notes');
         await tester.tap(dialogRoute);
         await tester.pumpAndSettle();

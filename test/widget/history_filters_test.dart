@@ -118,12 +118,164 @@ class _PeriodHistory extends _History {
   }
 }
 
+class _ProjectionHistory extends _History {
+  _ProjectionHistory({this.includeUndated = false});
+
+  final bool includeUndated;
+
+  @override
+  Future<List<CourseRollcallRecord>> build() async {
+    final day = DateTime.now();
+    CourseRollcallRecord row(String course, String id, int hour, String type) =>
+        CourseRollcallRecord(
+          courseId: course,
+          courseTitle: course == 'a' ? _longTitle : '另一课程',
+          rollcallId: id,
+          rollcallTime: DateTime(day.year, day.month, day.day, hour),
+          typeLabel: type,
+          signedStatus: '已签到',
+          platformStatus: '',
+        );
+    final first = row('a', 'first', 8, '二维码');
+    return [
+      first,
+      first,
+      row('a', 'second', 10, '数字'),
+      row('b', 'first', 9, '雷达'),
+      if (includeUndated)
+        const CourseRollcallRecord(
+          courseId: 'd',
+          courseTitle: '缺少时间的记录',
+          rollcallId: 'undated',
+          rollcallTime: null,
+          typeLabel: '数字',
+          signedStatus: '未知',
+          platformStatus: '',
+        ),
+      CourseRollcallRecord(
+        courseId: 'c',
+        courseTitle: '尚无记录的课程',
+        rollcallId: '-',
+        // A placeholder's persisted date is not an observed attendance time.
+        rollcallTime: DateTime(2001, 1, 1),
+        typeLabel: '-',
+        signedStatus: '无签到',
+        platformStatus: '',
+      ),
+    ];
+  }
+}
+
 void main() {
   setUpAll(() async {
     await loadDesktopPreviewFonts();
     await loadDesktopUiCaptureFonts();
   });
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  for (final (width, scale, dark, undated) in [
+    (320.0, 1.3, true, false),
+    (960.0, 1.0, false, false),
+    (960.0, 1.0, false, true),
+  ]) {
+    testWidgets(
+      'history timeline uses event identities and readable labels at $width undated=$undated',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 1000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          RepaintBoundary(
+            key: const ValueKey('desktop-ui-capture'),
+            child: ProviderScope(
+              overrides: [
+                authControllerProvider.overrideWith((ref) => _Auth()),
+                courseHistoryProvider.overrideWith(
+                  () => _ProjectionHistory(includeUndated: undated),
+                ),
+              ],
+              child: MaterialApp(
+                theme: desktopCaptureTheme(
+                  dark ? AppTheme.dark() : AppTheme.light(),
+                ),
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.linear(scale)),
+                  child: child!,
+                ),
+                home: const HistoryPage(),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await captureDesktopUi(
+          tester,
+          'history-events-${width.toInt()}${undated ? '-undated' : ''}',
+        );
+        for (final label in ['全部状态', '全部类型', '全部课程']) {
+          final paragraph = tester.renderObject<RenderParagraph>(
+            find.text(label),
+          );
+          expect(
+            paragraph.didExceedMaxLines,
+            isFalse,
+            reason: 'each primary filter must keep its role readable',
+          );
+        }
+        final first = find.byKey(const ValueKey('a_first_已签到'));
+        final second = find.byKey(const ValueKey('a_second_已签到'));
+        final otherCourse = find.byKey(const ValueKey('b_first_已签到'));
+        expect(first, findsOneWidget);
+        expect(second, findsOneWidget);
+        expect(otherCourse, findsOneWidget);
+        expect(
+          tester.getTopLeft(second).dy,
+          lessThan(tester.getTopLeft(otherCourse).dy),
+        );
+        expect(
+          tester.getTopLeft(otherCourse).dy,
+          lessThan(tester.getTopLeft(first).dy),
+        );
+        expect(find.text('尚无记录的课程'), findsOneWidget);
+        expect(find.text('2001年1月1日 周一'), findsNothing);
+        if (undated) {
+          final header = find.text('时间未提供');
+          final row = find.byKey(const ValueKey('d_undated_未知'));
+          expect(header, findsOneWidget);
+          expect(row, findsOneWidget);
+          expect(
+            tester.getTopLeft(header).dy,
+            lessThan(tester.getTopLeft(row).dy),
+          );
+          expect(
+            tester.getTopLeft(row).dy,
+            lessThan(tester.getTopLeft(find.text('暂无签到记录的课程')).dy),
+          );
+        } else {
+          expect(find.text('时间未提供'), findsNothing);
+        }
+        final title = tester.widget<Text>(find.text(_longTitle).first);
+        expect(title.maxLines, 1);
+        final type = tester.renderObject<RenderParagraph>(
+          find.text('二维码').first,
+        );
+        expect(type.didExceedMaxLines, isFalse);
+        if (width < 600) {
+          final paragraph = tester.renderObject<RenderParagraph>(
+            find.text(_longTitle).first,
+          );
+          expect(paragraph.didExceedMaxLines, isTrue);
+          await tester.longPress(find.text(_longTitle).first);
+          await tester.pumpAndSettle();
+          expect(find.text(_longTitle), findsNWidgets(3));
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
   testWidgets('pulling filtered history requests only the selected course', (
     tester,
   ) async {
@@ -431,8 +583,22 @@ void main() {
           tester.getSize(status).width,
           closeTo(tester.getSize(course).width, .01),
         );
-        expect(tester.getTopLeft(status).dy, tester.getTopLeft(course).dy);
-        expect(tester.getTopLeft(type).dy, tester.getTopLeft(course).dy);
+        final fields = [status, type, course].map(tester.getRect).toList();
+        for (var i = 0; i < fields.length; i++) {
+          expect(fields[i].left, greaterThanOrEqualTo(16));
+          expect(fields[i].right, lessThanOrEqualTo(width - 16));
+          if (i == 0) continue;
+          expect(fields[i].top, greaterThanOrEqualTo(fields[i - 1].top));
+          expect(fields[i].overlaps(fields[i - 1]), isFalse);
+        }
+        for (final label in ['全部状态', '全部类型', '全部课程']) {
+          expect(
+            tester
+                .renderObject<RenderParagraph>(find.text(label))
+                .didExceedMaxLines,
+            isFalse,
+          );
+        }
 
         await tester.tap(course);
         await tester.pumpAndSettle();

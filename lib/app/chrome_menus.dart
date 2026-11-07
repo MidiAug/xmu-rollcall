@@ -24,7 +24,6 @@ class AppShellSelect<T> extends StatefulWidget {
     this.subtitle,
     this.plain = false,
     this.alignMenuEnd = false,
-    this.alignValueEnd = false,
     this.triggerBuilder,
   });
 
@@ -45,8 +44,6 @@ class AppShellSelect<T> extends StatefulWidget {
   final bool plain;
   final bool alignMenuEnd;
 
-  /// Current values in settings align to the disclosure without changing width.
-  final bool alignValueEnd;
   final Widget Function(BuildContext, bool, VoidCallback?, FocusNode)?
   triggerBuilder;
   final double width;
@@ -494,7 +491,6 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                         label: widget.labelOf(widget.value),
                         subtitle: widget.subtitle,
                         plain: widget.plain,
-                        alignValueEnd: widget.alignValueEnd,
                         leading:
                             widget.leading ??
                             (widget.iconOf == null
