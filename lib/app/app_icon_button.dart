@@ -12,7 +12,6 @@ class AppIconButton extends StatelessWidget {
     required this.onPressed,
     this.focusNode,
     this.extent = 44,
-    this.framed = false,
     this.active = false,
     this.visualDensity,
     this.alignment = Alignment.center,
@@ -23,7 +22,6 @@ class AppIconButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final FocusNode? focusNode;
   final double extent;
-  final bool framed;
   final bool active;
   final VisualDensity? visualDensity;
   final AlignmentGeometry alignment;
@@ -56,15 +54,12 @@ class AppIconButton extends StatelessWidget {
                 if (states.contains(WidgetState.hovered)) {
                   return p.controlHover;
                 }
-                if (framed) return p.surface;
                 return null;
               }),
               side: WidgetStateProperty.resolveWith(
                 (states) => BorderSide(
                   color: states.contains(WidgetState.focused)
                       ? p.focus
-                      : framed
-                      ? p.border
                       : AppPalette.clearOf(p.focus),
                 ),
               ),

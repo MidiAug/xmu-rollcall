@@ -1520,7 +1520,6 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
       child: hasDownload
           ? AppActionMenu<String>(
               tooltip: '下载选项',
-              framed: false,
               enabled: !blocked && !_building,
               actions: [
                 if (_downloadMatchesScope)

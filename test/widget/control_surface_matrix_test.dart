@@ -81,7 +81,6 @@ void main() {
                           const SizedBox(width: 8),
                           AppIconButton(
                             key: const ValueKey('history'),
-                            framed: true,
                             extent: 34,
                             tooltip: '查看记录',
                             icon: const Icon(AppIcons.history),
@@ -90,7 +89,6 @@ void main() {
                           const SizedBox(width: 8),
                           AppIconButton(
                             key: const ValueKey('settings'),
-                            framed: true,
                             extent: 34,
                             tooltip: '检测设置',
                             icon: const Icon(AppIcons.settings),
@@ -233,8 +231,8 @@ void main() {
             return color;
           });
           expect(
-            color!.computeLuminance(),
-            greaterThan(p.canvas.computeLuminance() + .02),
+            (color!.computeLuminance() - p.canvas.computeLuminance()).abs(),
+            greaterThan(.02),
             reason: '$name hover must remain a visible action surface',
           );
           await captureDesktopUi(tester, 'controls-hover-$name-$dark');

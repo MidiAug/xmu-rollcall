@@ -222,7 +222,6 @@ void main() {
         final control = switch (kind) {
           'shared-icon' => const AppIconButton(
             tooltip: '下载附件',
-            framed: true,
             icon: Icon(AppIcons.download),
             onPressed: null,
           ),

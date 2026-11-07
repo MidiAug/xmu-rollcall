@@ -700,12 +700,11 @@ class AppActionMenu<T> extends StatelessWidget {
     required this.actions,
     required this.onSelected,
     this.enabled = true,
-    this.framed = true,
   });
   final String tooltip;
   final List<AppMenuAction<T>> actions;
   final ValueChanged<T> onSelected;
-  final bool enabled, framed;
+  final bool enabled;
   @override
   Widget build(BuildContext context) {
     return AppShellSelect<T?>(
@@ -729,7 +728,6 @@ class AppActionMenu<T> extends StatelessWidget {
         icon: const Icon(AppIcons.more, size: 20),
         extent: AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 32,
         active: open && !AppMobileUi.useTouchChrome(context),
-        framed: framed && !AppMobileUi.useTouchChrome(context),
       ),
     );
   }

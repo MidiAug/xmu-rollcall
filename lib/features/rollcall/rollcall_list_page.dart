@@ -1137,7 +1137,6 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
 
   Widget _courseMenu(AppPalette p, RollcallItem item) => AppActionMenu<String>(
     tooltip: '课程操作',
-    framed: false,
     enabled: !_submitting && !item.isExpired,
     onSelected: (value) {
       if (value == 'manual') {
