@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/desktop/desktop_workspace.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
@@ -223,6 +224,19 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.text(scenario.text), findsOneWidget);
+          final palette = AppPalette.of(
+            tester.element(find.text(scenario.text)),
+          );
+          expect(
+            tester.widget<Text>(find.text(scenario.text)).style!.color,
+            scenario.id == 'retry' ? palette.danger : palette.muted,
+          );
+          if (scenario.state.running) {
+            expect(
+              tester.widget<Text>(find.text('暂停值守')).style!.color,
+              palette.ink,
+            );
+          }
           expect(
             find.text(scenario.state.running ? '暂停值守' : '开始值守'),
             findsOneWidget,

@@ -152,6 +152,7 @@ void main() {
               .toRect();
           final glyphs = box.shift(value.localToGlobal(Offset.zero));
           final trigger = tester.getRect(find.byType(AppSelectTrigger));
+          expect(trigger.height, 32);
           final valueGap = direction == TextDirection.ltr
               ? glyphs.left - trigger.left
               : trigger.right - glyphs.right;

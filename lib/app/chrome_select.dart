@@ -61,15 +61,15 @@ class AppSelectTrigger extends StatelessWidget {
                 ? Duration.zero
                 : AppMotion.fast,
             constraints: BoxConstraints(
-              minHeight: compact
-                  ? AppDensity.controlHeight(context)
-                  : AppMobileUi.useTouchChrome(context)
-                  ? AppMobileUi.target
+              minHeight: AppMobileUi.useTouchChrome(context)
+                  ? (compact ? 44 : AppMobileUi.target)
+                  : compact
+                  ? 32
                   : 36,
             ),
             padding: EdgeInsets.symmetric(
               horizontal: compact ? 8 : 10,
-              vertical: 6,
+              vertical: compact && !AppMobileUi.useTouchChrome(context) ? 4 : 6,
             ),
             decoration: BoxDecoration(
               color: pressed && enabled

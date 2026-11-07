@@ -179,8 +179,10 @@ class _MonitorStatusLineState extends ConsumerState<MonitorStatusLine> {
                 !monitor.waitingForWindow &&
                 monitor.consecutiveFailures > 0)
         ? p.danger
-        : monitor.running || widget.pendingCount > 0
+        : widget.pendingCount > 0
         ? p.primary
+        : monitor.running
+        ? p.muted
         : widget.completedCount > 0
         ? p.successAccent
         : p.muted;

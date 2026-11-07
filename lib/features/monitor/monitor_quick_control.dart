@@ -282,7 +282,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
             Icon(
               monitor.courseWatch ? AppIcons.guardPaused : AppIcons.stopSolid,
               size: 16,
-              color: p.primary,
+              color: p.ink,
             ),
             const SizedBox(width: 6),
             Text(
@@ -292,7 +292,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
                 height: 1.4,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0,
-                color: p.primary,
+                color: p.ink,
               ),
             ),
           ],
@@ -310,7 +310,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
           Icon(
             monitor.courseWatch ? AppIcons.guardPaused : AppIcons.stopSolid,
             size: 16,
-            color: p.primary,
+            color: p.ink,
           ),
           const SizedBox(width: 6),
           Text(
@@ -320,7 +320,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
               height: 1.4,
               fontWeight: FontWeight.w600,
               letterSpacing: 0,
-              color: p.primary,
+              color: p.ink,
             ),
           ),
         ],
