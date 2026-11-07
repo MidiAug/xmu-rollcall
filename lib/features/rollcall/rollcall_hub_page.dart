@@ -457,39 +457,26 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
               ownerName: auth.profile?.name ?? '我',
               onChanged: _selectIdentity,
             ),
-          const MonitorQuickControl(style: MonitorControlStyle.toolbar),
+          const Padding(
+            padding: EdgeInsetsDirectional.only(end: 8),
+            child: MonitorQuickControl(style: MonitorControlStyle.toolbar),
+          ),
           AppRefreshButton(
             key: ValueKey((auth.profile?.id, scope)),
             iconSize: 20,
             onRefresh: _refreshManually,
           ),
-          IconButton(
+          AppIconButton(
             tooltip: '签到记录',
-            style: IconButton.styleFrom(
-              minimumSize: const Size(34, 34),
-              padding: const EdgeInsets.all(7),
-              backgroundColor: p.surface,
-              side: BorderSide(color: p.border),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(7),
-              ),
-            ),
+            extent: 34,
             onPressed: () => _openHistory(context),
-            icon: const Icon(AppIcons.history, size: 20),
+            icon: Icon(AppIcons.history, size: 20, color: p.muted),
           ),
-          IconButton(
+          AppIconButton(
             tooltip: '签到设置',
-            style: IconButton.styleFrom(
-              minimumSize: const Size(34, 34),
-              padding: const EdgeInsets.all(7),
-              backgroundColor: p.surface,
-              side: BorderSide(color: p.border),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(7),
-              ),
-            ),
+            extent: 34,
             onPressed: () => _openSettings(context),
-            icon: const Icon(AppIcons.settings, size: 20),
+            icon: Icon(AppIcons.settings, size: 20, color: p.muted),
           ),
         ],
         contextPanel: hasContext || contextLoading

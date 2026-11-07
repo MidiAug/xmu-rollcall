@@ -569,6 +569,33 @@ void main() {
           (tester.getCenter(date).dy - tester.getCenter(refresh).dy).abs(),
           lessThan(4),
         );
+        for (final label in ['签到记录', '签到设置']) {
+          final trigger = find.descendant(
+            of: header,
+            matching: find.byTooltip(label),
+          );
+          final sharedAction = find.ancestor(
+            of: trigger,
+            matching: find.byType(AppIconButton),
+          );
+          expect(
+            sharedAction,
+            findsOneWidget,
+            reason: 'Actual toolbar actions must use the shared state owner',
+          );
+          final material = find.descendant(
+            of: sharedAction,
+            matching: find.byType(Material),
+          );
+          final side =
+              (tester.widget<Material>(material.first).shape as OutlinedBorder)
+                  .side;
+          expect(
+            side.color.a,
+            0,
+            reason: '$label must not restore a local static frame',
+          );
+        }
         expect(
           find.descendant(of: header, matching: find.text('签到')),
           findsNothing,

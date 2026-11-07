@@ -1285,3 +1285,13 @@ U31来自用户两张截图：侧边栏标题栏下方留白过多，右侧待�
 新增真实缓存回归覆盖主/协助账号、正式提交/草稿/未知、状态更新后摘要和角标同步、不挂载网络Provider。原badge测试此前覆盖了被替换的假摘要，改为真实JsonDiskCache/生产摘要以验证新职责，未在测试复制过滤逻辑。首轮53通过/1失败为该旧边界替身断言；修正后缓存/角标/生产桌面任务链18项通过（build/sidebar-pending-final-tests.log），其余侧栏/待办/作业回归首轮通过。最终flutter analyze无问题（sidebar-pending-analyze-final.log，14.9s）。
 
 实际查看本轮.tools/desktop-workspace/rollcall-1120-light-1.0-dpr1.0.png与rollcall-1440-dark-1.0-dpr2.0.png：导航首项在标题栏下8，底部账号/设置位置稳定，待办卡几何及入口不变；精确上间距由浅深侧栏像素/指针回归同时断言，提交排除由生产缓存Provider验证，截图不冒充真实账号远端完成核验。现有Debug PID49276经核对后reloadSources返回Success；AdaptiveShell.reassemble沿原逻辑失效并重读摘要缓存，使本轮规则在当前实例生效。手机真机与读屏未验。
+
+## 工具栏语义与跨页面状态复核（2026-11-07）
+
+U33/U34要求从根源检查同类状态，并联网研究Apple/macOS与大厂工具栏。先读取Engineering案例19、Apple HIG Toolbars/Buttons/Toggles、Fluent 2 Toolbar及CodeEdit固定IconButtonStyle源码，依据和采用边界见本机docs/design/TOOLBAR-AND-INTERACTION-AUDIT-2026-11-07.md。P方案将值守/检测的开始、暂停、停止用标准动作符号配原文字，桌面文字控制复用AppButton quiet，并与刷新/记录/设置图标组留额外间隔；移除签到页两段局部白底/边框/圆角，复用AppIconButton的34目标/20符号，实看后统一右侧三枚图标为muted。护盾仍可作为功能/身份标记，不作为开始/暂停命令。没有改签到卡几何、检测窗口、协议、确认或请求策略。
+
+同时修复AppIconButton active提前返回吞掉临时反馈、分段hover/pressed同强度、AppSwitch已开启时primary内焦点线融入轨道三类根因。active在selected底色上叠加轻/重反馈，disabled不参与；分段按住独立；开关按住有反馈，外焦点环与轨道间留背景间隔，尺寸不变，无hover光晕/拖动/减少动效/语义保留。新增真实鼠标down/cancel、像素恢复、选中开关焦点与生产DesktopWorkspace调用方回归。
+
+19个相关测试文件160项通过（build/interaction-audit/regression.log），真实桌面工作区12项最终复测通过（workspace-final.log），共172项；最终flutter analyze无问题（analyze.log）。实看组件浅深色、宽窄/大字、工具栏idle/hover/held、持久态press与focus截图。Computer Use实际查看签到/作业/课表/工具/设置五根页面、设置下拉展开与Esc取消、签到记录进入/返回、原生浅深色；当前真实课表为空，课程/名单规模仍由组件回归覆盖，不冒称所有子页和移动真机实测。
+
+当前Windows Debug实例完整失效源文件后reload 255库，必要热重启重建主题；实看后颜色微调再reload 1库。VM服务读取实际脚本确认分段新反馈已加载、签到页不含旧局部边框。有效原生截图位于build/interaction-audit，最终12-native-rollcall-final-light.png；遮挡/输入法浮层截图未纳入验收。原浅色偏好已恢复，留在签到页，未触发真实签到/开始值守。没有运行上游macOS、系统读屏或移动真机；不把组件和原生截图称为用户审美认可。

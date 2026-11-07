@@ -47,7 +47,22 @@ class AppIconButton extends StatelessWidget {
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ).copyWith(
               backgroundColor: WidgetStateProperty.resolveWith((states) {
-                if (active) return p.selected;
+                if (states.contains(WidgetState.disabled)) {
+                  return active ? p.selected : null;
+                }
+                if (active) {
+                  // An open menu remains selected while pointer feedback layers on it.
+                  return Color.alphaBlend(
+                    p.ink.withValues(
+                      alpha: states.contains(WidgetState.pressed)
+                          ? .10
+                          : states.contains(WidgetState.hovered)
+                          ? .05
+                          : 0,
+                    ),
+                    p.selected,
+                  );
+                }
                 if (states.contains(WidgetState.pressed)) {
                   return p.controlPressed;
                 }

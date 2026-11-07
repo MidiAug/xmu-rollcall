@@ -252,7 +252,7 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
                               }
                             },
                       icon: Icon(
-                        state.running ? AppIcons.guardPaused : AppIcons.guard,
+                        state.running ? AppIcons.pause : AppIcons.play,
                         size: 16,
                       ),
                       label: Text(state.running ? '暂停值守' : '开始值守'),

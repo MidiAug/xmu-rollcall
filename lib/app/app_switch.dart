@@ -21,7 +21,7 @@ class _AppSwitchState extends State<AppSwitch>
     duration: _duration,
     value: widget.value ? 1 : 0,
   );
-  bool _focused = false;
+  bool _focused = false, _pressed = false;
 
   void _settle() {
     final target = widget.value ? 1.0 : 0.0;
@@ -84,6 +84,9 @@ class _AppSwitchState extends State<AppSwitch>
           behavior: HitTestBehavior.opaque,
           excludeFromSemantics: true,
           onTap: enabled ? _toggle : null,
+          onTapDown: enabled ? (_) => setState(() => _pressed = true) : null,
+          onTapUp: enabled ? (_) => setState(() => _pressed = false) : null,
+          onTapCancel: enabled ? () => setState(() => _pressed = false) : null,
           onHorizontalDragStart: enabled ? (_) => _position.stop() : null,
           onHorizontalDragUpdate: enabled
               ? (details) {
@@ -92,6 +95,7 @@ class _AppSwitchState extends State<AppSwitch>
               : null,
           onHorizontalDragEnd: enabled
               ? (details) {
+                  setState(() => _pressed = false);
                   final velocity =
                       (details.primaryVelocity ?? 0) * (rtl ? -1 : 1);
                   final value = velocity.abs() > 100
@@ -101,7 +105,12 @@ class _AppSwitchState extends State<AppSwitch>
                   _settle();
                 }
               : null,
-          onHorizontalDragCancel: enabled ? _settle : null,
+          onHorizontalDragCancel: enabled
+              ? () {
+                  setState(() => _pressed = false);
+                  _settle();
+                }
+              : null,
           child: SizedBox(
             width: 54,
             height: 44,
@@ -118,22 +127,32 @@ class _AppSwitchState extends State<AppSwitch>
                       height: 28,
                       padding: const EdgeInsets.all(5),
                       decoration: BoxDecoration(
-                        color: Color.lerp(
-                          palette.surfaceHigh,
-                          palette.primary,
-                          progress,
+                        color: Color.alphaBlend(
+                          palette.ink.withValues(
+                            alpha: enabled && _pressed ? .10 : 0,
+                          ),
+                          Color.lerp(
+                            palette.surfaceHigh,
+                            palette.primary,
+                            progress,
+                          )!,
                         ),
                         borderRadius: BorderRadius.circular(14),
+                        // Draw focus outside the track: a primary-on-primary
+                        // inner border disappears when the switch is selected.
+                        boxShadow: _focused
+                            ? [
+                                BoxShadow(
+                                  color: palette.focus,
+                                  spreadRadius: 3.5,
+                                ),
+                                BoxShadow(
+                                  color: palette.canvas,
+                                  spreadRadius: 2,
+                                ),
+                              ]
+                            : null,
                       ),
-                      foregroundDecoration: _focused
-                          ? BoxDecoration(
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(
-                                color: palette.primary,
-                                width: 1.5,
-                              ),
-                            )
-                          : null,
                       child: Align(
                         alignment: Alignment(
                           (rtl ? -1 : 1) * (progress * 2 - 1),

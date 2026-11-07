@@ -153,7 +153,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            monitor.courseWatch ? AppIcons.guard : AppIcons.detect,
+            AppIcons.play,
             size: 16,
             color: prominent && !masthead && enabled
                 ? (p.isDark ? p.canvas : Colors.white)
@@ -178,6 +178,28 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
           ),
         ],
       );
+      if (toolbar) {
+        return AppTooltipAnchor(
+          child: Tooltip(
+            message: !signedIn
+                ? '请先登录'
+                : _outsideWindow && !monitor.courseWatch
+                ? todayDetectionRanges(
+                    window!,
+                    ref.read(activeRollcallClockProvider)(),
+                  )
+                : '',
+            child: AppButton(
+              label: monitor.courseWatch ? '开始值守' : '开始检测',
+              icon: AppIcons.play,
+              kind: AppButtonKind.quiet,
+              compact: true,
+              busy: monitor.starting,
+              onPressed: onStart,
+            ),
+          ),
+        );
+      }
       if (masthead) {
         return OutlinedButton(
           onPressed: onStart,
@@ -276,7 +298,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              monitor.courseWatch ? AppIcons.guardPaused : AppIcons.stopSolid,
+              monitor.courseWatch ? AppIcons.pause : AppIcons.stopSolid,
               size: 16,
               color: p.ink,
             ),
@@ -295,6 +317,15 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
         ),
       );
     }
+    if (toolbar) {
+      return AppButton(
+        label: monitor.courseWatch ? '暂停值守' : '停止检测',
+        icon: monitor.courseWatch ? AppIcons.pause : AppIcons.stopSolid,
+        kind: AppButtonKind.quiet,
+        compact: true,
+        onPressed: ctrl.stop,
+      );
+    }
     return AppQuietPill(
       border: !quiet,
       radius: toolbar ? 7 : 18,
@@ -304,7 +335,7 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            monitor.courseWatch ? AppIcons.guardPaused : AppIcons.stopSolid,
+            monitor.courseWatch ? AppIcons.pause : AppIcons.stopSolid,
             size: 16,
             color: p.ink,
           ),

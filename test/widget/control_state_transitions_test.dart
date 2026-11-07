@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/app_switch.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
@@ -30,6 +31,127 @@ void main() {
   });
 
   for (final dark in [false, true]) {
+    testWidgets(
+      'persistent states retain independent press and focus dark=$dark',
+      (tester) async {
+        final boundary = GlobalKey();
+        var calls = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: desktopCaptureTheme(
+              dark ? AppTheme.dark() : AppTheme.light(),
+            ),
+            home: Scaffold(
+              body: RepaintBoundary(
+                key: const ValueKey('desktop-ui-capture'),
+                child: RepaintBoundary(
+                  key: boundary,
+                  child: SizedBox(
+                    width: 420,
+                    height: 200,
+                    child: ColoredBox(
+                      color:
+                          (dark
+                                  ? AppPalette.darkPalette
+                                  : AppPalette.lightPalette)
+                              .canvas,
+                      child: Column(
+                        children: [
+                          AppIconButton(
+                            active: true,
+                            tooltip: '更多操作',
+                            icon: const Icon(AppIcons.more),
+                            onPressed: () => calls++,
+                          ),
+                          AppSwitch(value: true, onChanged: (_) => calls++),
+                          AppSegmentedControl<int>(
+                            segments: const [
+                              AppSegment(value: 0, label: '本周'),
+                              AppSegment(value: 1, label: '学期'),
+                            ],
+                            value: 0,
+                            onChanged: (_) => calls++,
+                            compact: true,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final mouse = await tester.createGesture(
+          kind: ui.PointerDeviceKind.mouse,
+        );
+        await mouse.addPointer(location: const Offset(700, 550));
+        addTearDown(mouse.removePointer);
+        for (final (name, target) in [
+          ('active-icon', find.byType(AppIconButton)),
+          ('switch', find.byType(AppSwitch)),
+          ('selected-segment', find.text('本周')),
+        ]) {
+          final idle = await _pixels(tester, boundary);
+          final rect = tester.getRect(target);
+          await mouse.moveTo(rect.center);
+          await tester.pumpAndSettle();
+          final hover = await _pixels(tester, boundary);
+          await mouse.down(rect.center);
+          await tester.pumpAndSettle();
+          final pressed = await _pixels(tester, boundary);
+          expect(
+            pressed,
+            isNot(hover),
+            reason: '$name needs independent press feedback',
+          );
+          expect(tester.getRect(target), rect);
+          await captureDesktopUi(tester, 'persistent-$name-pressed-$dark');
+          await mouse.cancel();
+          await mouse.moveTo(const Offset(700, 550));
+          await tester.pumpAndSettle();
+          expect(
+            await _pixels(tester, boundary),
+            idle,
+            reason: '$name cancel restores persistent state',
+          );
+          expect(calls, 0);
+        }
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        Focus.of(
+          tester.element(
+            find
+                .descendant(
+                  of: find.byType(AppSwitch),
+                  matching: find.byType(GestureDetector),
+                )
+                .first,
+          ),
+        ).requestFocus();
+        await tester.pumpAndSettle();
+        await captureDesktopUi(tester, 'persistent-switch-focus-$dark');
+        final switchTrack = tester
+            .widgetList<Container>(
+              find.descendant(
+                of: find.byType(AppSwitch),
+                matching: find.byType(Container),
+              ),
+            )
+            .where(
+              (w) =>
+                  w.decoration is BoxDecoration &&
+                  (w.decoration as BoxDecoration).boxShadow != null,
+            )
+            .single;
+        expect(
+          (switchTrack.decoration as BoxDecoration).boxShadow!.length,
+          2,
+          reason: 'Selected track needs a separate visible focus ring and gap',
+        );
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
     for (final scenario in [
       for (final kind in AppButtonKind.values)
         for (final icon in [null, AppIcons.upload]) (kind, icon),

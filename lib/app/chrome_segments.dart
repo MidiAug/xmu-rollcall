@@ -432,7 +432,13 @@ class _SegmentButton extends StatelessWidget {
                 vertical: compact ? 2 : 4,
               ),
               decoration: BoxDecoration(
-                color: p.primary.withValues(alpha: active ? .04 : 0),
+                color: p.primary.withValues(
+                  alpha: states.contains(WidgetState.pressed)
+                      ? .08
+                      : active
+                      ? .04
+                      : 0,
+                ),
                 borderRadius: radius,
                 border: Border.all(
                   color: focused ? p.primary : AppPalette.clearOf(p.primary),

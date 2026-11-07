@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,6 +22,8 @@ import '../fixtures/desktop_ui_capture.dart';
 import '../fixtures/preview_fonts.dart';
 
 class _Repository extends Fake implements AuthRepository {}
+
+void _noop() {}
 
 class _Auth extends AuthController {
   _Auth() : super(_Repository()) {
@@ -201,6 +204,18 @@ void main() {
                     subtitle: '10月30日  周五',
                     actions: const [
                       MonitorQuickControl(style: MonitorControlStyle.toolbar),
+                      AppIconButton(
+                        tooltip: '签到记录',
+                        extent: 34,
+                        onPressed: _noop,
+                        icon: Icon(AppIcons.history, size: 20),
+                      ),
+                      AppIconButton(
+                        tooltip: '签到设置',
+                        extent: 34,
+                        onPressed: _noop,
+                        icon: Icon(AppIcons.settings, size: 20),
+                      ),
                     ],
                     child: const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 24),
@@ -232,18 +247,44 @@ void main() {
             scenario.id == 'retry' ? palette.danger : palette.muted,
           );
           expect(
-            tester
-                .widget<Text>(
-                  find.text(scenario.state.running ? '暂停值守' : '开始值守'),
-                )
-                .style!
-                .color,
+            DefaultTextStyle.of(
+              tester.element(
+                find.text(scenario.state.running ? '暂停值守' : '开始值守'),
+              ),
+            ).style.color,
             palette.ink,
           );
           expect(
             find.text(scenario.state.running ? '暂停值守' : '开始值守'),
             findsOneWidget,
           );
+          expect(
+            find.byIcon(
+              scenario.state.running ? AppIcons.pause : AppIcons.play,
+            ),
+            findsOneWidget,
+          );
+          final action = tester.widget<AppButton>(find.byType(AppButton));
+          expect(action.kind, AppButtonKind.quiet);
+          final pointer = await tester.createGesture(
+            kind: PointerDeviceKind.mouse,
+          );
+          await pointer.addPointer(location: const Offset(900, 680));
+          await pointer.moveTo(tester.getCenter(find.byType(AppButton)));
+          await tester.pumpAndSettle();
+          await captureDesktopUi(
+            tester,
+            'monitor-action-hover-${scenario.id}-$dark',
+          );
+          await pointer.down(tester.getCenter(find.byType(AppButton)));
+          await tester.pumpAndSettle();
+          await captureDesktopUi(
+            tester,
+            'monitor-action-pressed-${scenario.id}-$dark',
+          );
+          await pointer.cancel();
+          await pointer.removePointer();
+          await tester.pumpAndSettle();
           expect(
             tester
                 .getTopLeft(find.byKey(const ValueKey('monitor-status-line')))
