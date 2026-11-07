@@ -42,50 +42,45 @@ class SettingsAssistPage extends ConsumerWidget {
                   title: '导出协助码',
                   subtitle: auth.isSignedIn ? '生成后复制给同学' : '请先登录',
                   trailing: Icon(AppIcons.right, color: p.muted, size: 18),
-                  onTap: !auth.isSignedIn || assist.busy
-                      ? null
-                      : () => showAssistExportDialog(
-                          context,
-                          export: (kind) => ref
-                              .read(assistControllerProvider.notifier)
-                              .exportOwner(kind: kind),
-                        ),
+                  enabled: auth.isSignedIn && !assist.busy,
+                  onTap: () => showAssistExportDialog(
+                    context,
+                    export: (kind) => ref
+                        .read(assistControllerProvider.notifier)
+                        .exportOwner(kind: kind),
+                  ),
                 ),
                 SettingsRow(
                   leading: const Icon(AppIcons.download),
                   title: '导入协助身份',
                   subtitle: '粘贴协助码或输入学号密码',
                   trailing: Icon(AppIcons.right, color: p.muted, size: 18),
-                  onTap: assist.busy
-                      ? null
-                      : () => showAssistImportDialog(
+                  enabled: !assist.busy,
+                  onTap: () => showAssistImportDialog(
+                    context,
+                    onImportToken: (token) async {
+                      final id = await ref
+                          .read(assistControllerProvider.notifier)
+                          .importToken(token);
+                      if (context.mounted) {
+                        AppToast.show(
                           context,
-                          onImportToken: (token) async {
-                            final id = await ref
-                                .read(assistControllerProvider.notifier)
-                                .importToken(token);
-                            if (context.mounted) {
-                              AppToast.show(
-                                context,
-                                '已导入 ${id.displayName}（${id.kind.labelZh}，同课 ${id.sharedCourses.length} 门）',
-                              );
-                            }
-                          },
-                          onImportPlain: (user, pass) async {
-                            final id = await ref
-                                .read(assistControllerProvider.notifier)
-                                .importPlainAccount(
-                                  username: user,
-                                  password: pass,
-                                );
-                            if (context.mounted) {
-                              AppToast.show(
-                                context,
-                                '已导入 ${id.displayName}（${id.kind.labelZh}，同课 ${id.sharedCourses.length} 门）',
-                              );
-                            }
-                          },
-                        ),
+                          '已导入 ${id.displayName}（${id.kind.labelZh}，同课 ${id.sharedCourses.length} 门）',
+                        );
+                      }
+                    },
+                    onImportPlain: (user, pass) async {
+                      final id = await ref
+                          .read(assistControllerProvider.notifier)
+                          .importPlainAccount(username: user, password: pass);
+                      if (context.mounted) {
+                        AppToast.show(
+                          context,
+                          '已导入 ${id.displayName}（${id.kind.labelZh}，同课 ${id.sharedCourses.length} 门）',
+                        );
+                      }
+                    },
+                  ),
                 ),
                 SettingsRow(
                   leading: const Icon(AppIcons.people),

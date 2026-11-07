@@ -39,18 +39,47 @@ class AppButton extends StatelessWidget {
     final content = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (busy || icon != null) ...[
-          if (busy)
-            const SizedBox.square(
-              dimension: 15,
-              child: CircularProgressIndicator(strokeWidth: 1.6),
-            )
-          else
-            Icon(icon, size: 16),
+        if (icon != null) ...[
+          SizedBox.square(
+            dimension: 16,
+            child: busy
+                ? CircularProgressIndicator(
+                    strokeWidth: 1.6,
+                    semanticsLabel: '$label，正在处理',
+                  )
+                : Icon(icon, size: 16),
+          ),
           const SizedBox(width: 8),
         ],
         Flexible(
-          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+          // A text-only action has no leading slot. Replace its label in place
+          // while busy rather than inserting an icon and moving its neighbours.
+          child: icon != null
+              ? Text(label, maxLines: 1, overflow: TextOverflow.ellipsis)
+              : Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Visibility(
+                      visible: !busy,
+                      maintainState: true,
+                      maintainAnimation: true,
+                      maintainSize: true,
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (busy)
+                      SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.6,
+                          semanticsLabel: '$label，正在处理',
+                        ),
+                      ),
+                  ],
+                ),
         ),
       ],
     );

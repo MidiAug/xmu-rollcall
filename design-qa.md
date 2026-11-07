@@ -1267,3 +1267,12 @@ U29：用户继续指出值守开始/暂停的主题色，要求全面考虑。�
 回归在现有桌面状态链覆盖idle开始与running暂停的ink；原检测窗口/登录/启动进行中禁用仍按muted和原回调门槛。monitor_status_line、monitor_settings_state、rollcall_identity_qr、mobile_campus_design、assist_hub、rollcall_preview_page共68项通过（build/monitor-pair-tests.log）；补齐协助开始图标后设置/协助12项复测通过（monitor-pair-settings-tests.log）。完整analyze无问题（21.2s），补改协助图标后单文件复核。实际查看本轮monitor-status-idle-{light,dark}.png和waiting-light.png，开始/暂停标签均为ink；查看.tools/monitor-typography/monitor-settings-960-{light,dark}-course-watch.png，设置开始为中性有边界按钮，开关仍表达配置选择。桌面开始/暂停尺寸稳定，原检测窗口禁用/取消/启动结果链通过。渲染为生产组件测试，未冒称iOS/Android真机或读屏验收。
 
 现有Windows Debug实例reloadSources返回Success；协助最终单文件分析无问题（10.4s）。本轮未启动新实例或操作实际值守开关。
+
+
+## 跨页面状态与重构检查（2026-11-07）
+
+U30要求默认/hover/selected/disabled及其他适用状态一起检查，重构依据实际问题。按Product Design audit的当前截图/任务链方法执行；原生Flutter用测试生产组件渲染和真实输入事件，无浏览器/电脑控制。范围和截图、疑点排除及重构判断见本机[完整记录](docs/design/STATE-AND-REFACTOR-REVIEW-2026-11-07.md)。菜单按住/减少动效、共享按钮busy几何、协助设置禁用动作语义均先复现再修正；禁用按钮hover疑点经真实事件/像素未复现，未加无效补丁。SettingsRow.enabled围绕协助设置真实调用区分禁用动作与普通展示行，子控件独立状态保留。
+
+助教CSV视图及草稿与页面刷新回调值得在相关需求中分离，现未复现必须大拆的故障；地图编辑有真实共享生命周期，GPA/课表已分开计算/网格，保留现有边界。本轮未为行数或假设性能重构。
+
+最终全量1410通过、2跳过（build/state-audit-full-final.log，2m40s）；新增状态测试覆盖三种按钮/有无图标/浅深busy几何，菜单选中与非选中按住/取消，减少动效，以及禁用按钮hover/Tab/点击。新鲜截图已实看设置协助、菜单、busy、GPA宽窄、作业大字、工具/校历、考试宽窄和111人助教。系统读屏、原生拖动性能、移动真机与真实提交均未冒称通过。首次分析发现新增测试旧语义查询接口的4条info，改用当前flagsCollection后相关27项再测通过。当前Windows Debug PID49276经核对后热重载Success；最终完整flutter analyze无问题（state-audit-analyze-clean.log，167.6s）。本轮docs本机记录按仓库既有忽略规则保留，根设计/变更/验收回执与代码一起提交。

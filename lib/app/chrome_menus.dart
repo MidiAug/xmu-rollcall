@@ -603,10 +603,15 @@ class AppMenuOption extends StatelessWidget {
       final active =
           states.contains(WidgetState.hovered) ||
           states.contains(WidgetState.focused);
+      final pressed = states.contains(WidgetState.pressed);
       final bg = selected
-          ? states.contains(WidgetState.focused)
+          ? pressed
+                ? Color.alphaBlend(p.focus.withValues(alpha: .20), p.selected)
+                : states.contains(WidgetState.focused)
                 ? Color.alphaBlend(p.focus.withValues(alpha: .12), p.selected)
                 : p.selected
+          : pressed
+          ? p.controlPressed
           : active
           ? p.hover
           : AppPalette.clearOf(p.hover);
@@ -624,7 +629,9 @@ class AppMenuOption extends StatelessWidget {
         child: ClipRRect(
           borderRadius: BorderRadius.circular(AppRadii.control),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 100),
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : AppMotion.instant,
             curve: Curves.easeOut,
             constraints: BoxConstraints(
               minHeight: AppMobileUi.useTouchChrome(context)

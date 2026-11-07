@@ -115,6 +115,7 @@ class SettingsRow extends StatelessWidget {
     this.stackSubtitleOnNarrow = false,
     this.trailing,
     this.onTap,
+    this.enabled = true,
     this.minHeight,
     this.contentPadding,
     this.subtitleSpacing = 4,
@@ -133,14 +134,24 @@ class SettingsRow extends StatelessWidget {
   final Widget? trailing;
   final VoidCallback? onTap;
 
+  /// A disabled action stays distinct from a passive row with child controls.
+  final bool enabled;
+
   /// Minimum total row height on desktop, including its content padding.
   final double? minHeight;
   final EdgeInsetsGeometry? contentPadding;
   final double subtitleSpacing;
 
   @override
-  Widget build(BuildContext context) =>
-      _AppSurfaceInteraction(onTap: onTap, builder: _buildRow);
+  Widget build(BuildContext context) {
+    final row = _AppSurfaceInteraction(
+      onTap: enabled ? onTap : null,
+      builder: _buildRow,
+    );
+    return onTap == null
+        ? row
+        : Semantics(button: true, enabled: enabled, child: row);
+  }
 
   Widget _buildRow(BuildContext context, Set<WidgetState> states) {
     final p = AppPalette.of(context);
@@ -154,7 +165,10 @@ class SettingsRow extends StatelessWidget {
     // Navigation feedback belongs to its indicator, not the whole settings
     // surface. Passive rows leave embedded controls' own states untouched.
     final Widget? indicator;
-    if (onTap != null && trailing is Icon && trailing.icon == AppIcons.right) {
+    if (enabled &&
+        onTap != null &&
+        trailing is Icon &&
+        trailing.icon == AppIcons.right) {
       final color = pressed || focused
           ? p.primary
           : hovered
@@ -173,7 +187,7 @@ class SettingsRow extends StatelessWidget {
           textDirection: trailing.textDirection,
         ),
       );
-    } else if (onTap != null && trailing != null) {
+    } else if (enabled && onTap != null && trailing != null) {
       // Composite navigation accessories (for example an update badge beside
       // a disclosure) inherit the same feedback without tinting the whole row.
       final color = pressed || focused
@@ -268,7 +282,10 @@ class SettingsRow extends StatelessWidget {
                       Text(
                         title,
                         style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w500),
+                            ?.copyWith(
+                              fontWeight: FontWeight.w500,
+                              color: !enabled && onTap != null ? p.muted : null,
+                            ),
                       ),
                       if (subtitleWidget != null) ...[
                         const SizedBox(height: AppSpace.xs),

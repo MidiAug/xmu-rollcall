@@ -71,7 +71,7 @@ void main() {
     expect(calls, 1);
     update(() => busy = true);
     await tester.pump();
-    await tester.tap(find.text('提交成绩'));
+    await tester.tap(find.byType(AppButton));
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
     expect(calls, 1);

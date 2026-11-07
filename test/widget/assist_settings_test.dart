@@ -1,3 +1,4 @@
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +21,8 @@ import 'package:xmu_rollcall/features/update/app_release.dart';
 import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 import 'package:xmu_rollcall/features/update/update_download_route_selector.dart';
 import '../fixtures/update_fakes.dart';
+import '../fixtures/desktop_ui_capture.dart';
+import '../fixtures/preview_fonts.dart';
 
 class _TestAuthController extends AuthController {
   _TestAuthController()
@@ -38,6 +41,7 @@ class _TestAuthController extends AuthController {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(loadDesktopPreviewFonts);
 
   testWidgets('assist section shows import export without master switch', (
     tester,
@@ -88,7 +92,14 @@ void main() {
             ),
           ),
         ],
-        child: MaterialApp(theme: AppTheme.dark(), home: const SettingsPage()),
+        child: MaterialApp(
+          builder: (context, child) => RepaintBoundary(
+            key: const ValueKey('desktop-ui-capture'),
+            child: child!,
+          ),
+          theme: AppTheme.dark(),
+          home: const SettingsPage(),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -128,5 +139,11 @@ void main() {
     expect(find.text('导出协助码'), findsOneWidget);
     expect(find.text('导入协助身份'), findsOneWidget);
     expect(find.byType(Switch), findsNothing);
+    await tester.binding.setSurfaceSize(const Size(400, 900));
+    await tester.pumpAndSettle();
+    await captureDesktopUi(tester, 'state-audit-assist-signed-out');
+    final export = tester.getSemantics(find.text('导出协助码'));
+    expect(export.flagsCollection.isEnabled, ui.Tristate.isFalse);
+    expect(export.flagsCollection.isButton, isTrue);
   });
 }
