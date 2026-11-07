@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/location/campus_tile_cache.dart';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -167,6 +168,7 @@ class _PointPreview extends StatelessWidget {
               ),
               children: [
                 TileLayer(
+                  tileProvider: CampusTileProvider(),
                   urlTemplate: kAmapTileUrlTemplate,
                   subdomains: kAmapTileSubdomains,
                   userAgentPackageName: 'com.xmu.rollcall',

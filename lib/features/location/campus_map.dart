@@ -1,3 +1,4 @@
+import 'campus_tile_cache.dart';
 import 'place_buildings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -257,6 +258,7 @@ class _CampusMapState extends State<CampusMap> {
             ),
             children: [
               TileLayer(
+                tileProvider: CampusTileProvider(),
                 key: ValueKey(_tileRevision),
                 maxNativeZoom: kAmapMaxNativeZoom,
                 minNativeZoom: 3,

@@ -1,3 +1,4 @@
+import 'campus_tile_cache.dart';
 import 'campus_map_config.dart';
 import 'location_models.dart';
 import 'campus_places.dart';
@@ -229,6 +230,7 @@ class MapPickPanelState extends State<MapPickPanel>
                       ),
                       children: [
                         TileLayer(
+                          tileProvider: CampusTileProvider(),
                           maxNativeZoom: kAmapMaxNativeZoom,
                           minNativeZoom: 3,
                           urlTemplate: kAmapTileUrlTemplate,
