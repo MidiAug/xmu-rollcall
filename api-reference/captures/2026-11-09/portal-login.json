@@ -1,0 +1,3243 @@
+{
+  "source_alias": "portal-login",
+  "source_filename": "登录信息门户.txt",
+  "sha256": "6bea6cebb01fa7d6f3c667121942a3ee0efd7442f11196af7cf948c988ca00a9",
+  "bytes": 2786958,
+  "source_mtime_utc8": "2026-11-05T14:07:55.643497+08:00",
+  "observed_server_date_range_utc8": [
+    "2026-11-05T14:07:30+08:00",
+    "2026-11-05T14:07:42+08:00"
+  ],
+  "archive_started_date_utc8": "2026-11-09",
+  "archive_date_utc8": "2026-11-10",
+  "verification": "offline-only; not replayed or checked against current server",
+  "all_export_requests": 82,
+  "included_requests": 48,
+  "excluded_requests": 34,
+  "endpoints": [
+    {
+      "method": "GET",
+      "host": "i.xmu.edu.cn",
+      "path": "/DTMP/",
+      "observations": 1,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "cache-control",
+        "connection",
+        "cookie",
+        "host",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "sec-fetch-user",
+        "upgrade-insecure-requests",
+        "user-agent"
+      ],
+      "response_headers": [
+        "accept-ranges",
+        "connection",
+        "content-type",
+        "date",
+        "etag",
+        "last-modified",
+        "strict-transport-security",
+        "transfer-encoding",
+        "vary"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "text/html"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {},
+      "response_formats": {
+        "html": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "i.xmu.edu.cn",
+      "path": "/DTMP/prod-api/content-front/site/site-list",
+      "observations": 2,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "authorization",
+        "connection",
+        "content-language",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "site-id",
+        "user-agent"
+      ],
+      "response_headers": [
+        "connection",
+        "content-type",
+        "date",
+        "strict-transport-security",
+        "transfer-encoding"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.code": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data": {
+          "types": [
+            "array"
+          ],
+          "observed_lengths": [
+            22
+          ]
+        },
+        "$.data[]": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.data[].deleteFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data[].id": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data[].mobileHeaderNavigationFlag": {
+          "types": [
+            "integer",
+            "null"
+          ]
+        },
+        "$.data[].mobilePersonalizationFlag": {
+          "types": [
+            "integer",
+            "null"
+          ]
+        },
+        "$.data[].parentId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data[].pcFooterNavigationFlag": {
+          "types": [
+            "integer",
+            "null"
+          ]
+        },
+        "$.data[].pcHeaderNavigationFlag": {
+          "types": [
+            "integer",
+            "null"
+          ]
+        },
+        "$.data[].pcPersonalizationFlag": {
+          "types": [
+            "integer",
+            "null"
+          ]
+        },
+        "$.data[].publishTime": {
+          "types": [
+            "null",
+            "string"
+          ]
+        },
+        "$.data[].siteCategoryCode": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data[].siteCategoryDesc": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data[].siteCategoryName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data[].siteCategoryStatus": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data[].siteCategoryType": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data[].siteCategoryUrl": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data[].sort": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data[].tenantId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.msg": {
+          "types": [
+            "string"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 2
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {
+        "code": [
+          "200"
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "host": "i.xmu.edu.cn",
+      "path": "/DTMP/prod-api/content-front/site/site-tree/detail",
+      "observations": 2,
+      "query_parameters": [
+        "siteCategoryId"
+      ],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "authorization",
+        "connection",
+        "content-language",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "site-id",
+        "user-agent"
+      ],
+      "response_headers": [
+        "connection",
+        "content-type",
+        "date",
+        "strict-transport-security",
+        "transfer-encoding"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.code": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.data.catalogInfo": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.createBy": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.createByName": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.createTime": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.id": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.data.pageInfo.authScope": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.checkLoginFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.digestAlgorithmKey": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.id": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.mobileHeaderNavigationFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.mobilePersonalizationFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.newSitePageCode": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.newSitePageCodeMobile": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.newSitePageHtml": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.newSitePageHtmlMobile": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.newSitePageSchema": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.newSitePageSchemaMobile": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.pageCatalogPath": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.pageCode": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.pageName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.pageShortName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.pageSuffix": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.pageType": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.pageUrl": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.pcFooterNavigationFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.pcHeaderNavigationFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.pcPersonalizationFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.publishStatus": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.publishTime": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.selectorInfos": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.pageInfo.seoDescriptions": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.pageInfo.seoKeywords": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.pageInfo.siteCategoryId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.siteInfoId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.siteInfoName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.sitePageCode": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.sitePageCodeMobile": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.sitePageComponent": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.sitePageHtml": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.sitePageHtmlMobile": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.sitePageSchema": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.sitePageSchemaMobile": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.suitableUserType": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.tenantId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.userAuthStatus": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.parentId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.publishTime": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteCategoryCode": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteCategoryDesc": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteCategoryName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteCategoryStatus": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.siteCategoryType": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.siteCategoryUrl": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.sort": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.tenantId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.updateTime": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.msg": {
+          "types": [
+            "string"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 2
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {
+        "code": [
+          "200"
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "host": "i.xmu.edu.cn",
+      "path": "/DTMP/prod-api/content-front/site/site-front/detail/{id}/{id}",
+      "observations": 2,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "authorization",
+        "connection",
+        "content-language",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "site-id",
+        "user-agent"
+      ],
+      "response_headers": [
+        "connection",
+        "content-type",
+        "date",
+        "strict-transport-security",
+        "transfer-encoding"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.code": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.data.catalogInfo": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.createBy": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.createByName": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.createTime": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.id": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.data.pageInfo.authScope": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.checkLoginFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.digestAlgorithmKey": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.id": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.mobileHeaderNavigationFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.mobilePersonalizationFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.newSitePageCode": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.pageInfo.newSitePageCodeMobile": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.pageInfo.newSitePageHtml": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.pageInfo.newSitePageHtmlMobile": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.pageInfo.newSitePageSchema": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.pageInfo.newSitePageSchemaMobile": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.pageInfo.pageCatalogPath": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.pageCode": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.pageName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.pageShortName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.pageSuffix": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.pageType": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.pageUrl": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.pcFooterNavigationFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.pcHeaderNavigationFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.pcPersonalizationFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.publishStatus": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.publishTime": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.selectorInfos": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.pageInfo.seoDescriptions": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.pageInfo.seoKeywords": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.pageInfo.siteCategoryId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.siteInfoId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.siteInfoName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.sitePageCode": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.sitePageCodeMobile": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.sitePageComponent": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.pageInfo.sitePageHtml": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.sitePageHtmlMobile": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.sitePageSchema": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.sitePageSchemaMobile": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.suitableUserType": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.tenantId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.pageInfo.userAuthStatus": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.parentId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.publishTime": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteCategoryCode": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteCategoryDesc": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteCategoryName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteCategoryStatus": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.siteCategoryType": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.siteCategoryUrl": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.data.siteInfo.childSiteFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.siteInfo.createBy": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.createByName": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.siteInfo.createTime": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.siteInfo.defaultFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.siteInfo.globalMessageFlag": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.siteInfo.icpRecordNumber": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.siteInfo.icpRecordNumberPrefix": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.siteInfo.icpRecordNumberUrl": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.siteInfo.id": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.parentSiteCategoryId": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.siteInfo.pcFooterNavigationScript": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.pcHeaderNavigationScript": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.protocolType": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.publicNavigationScript": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.siteAdmins": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.siteInfo.siteCatalogPath": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.siteCategoryId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.siteCode": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.siteDomain": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.siteIndexCode": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.siteInfo.siteLogo": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.siteName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.siteShortName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.siteSuffix": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.siteInfo.siteTemplateId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.siteTemplateName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.tenantId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.themeColorFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.siteInfo.themeColorValue": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.siteInfo.updateTime": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.siteInfo.wholeSiteFlag": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.sort": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.tenantId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.updateTime": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.msg": {
+          "types": [
+            "string"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 2
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {
+        "code": [
+          "200"
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "host": "i.xmu.edu.cn",
+      "path": "/DTMP/prod-api/content/monitor/site",
+      "observations": 2,
+      "query_parameters": [
+        "siteId"
+      ],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "authorization",
+        "connection",
+        "content-language",
+        "cookie",
+        "host",
+        "istoken",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "site-id",
+        "user-agent"
+      ],
+      "response_headers": [
+        "connection",
+        "content-type",
+        "date",
+        "strict-transport-security",
+        "transfer-encoding"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.code": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.msg": {
+          "types": [
+            "null"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 2
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {
+        "code": [
+          "200"
+        ]
+      }
+    },
+    {
+      "method": "POST",
+      "host": "i.xmu.edu.cn",
+      "path": "/DTMP/prod-api/content-front/data-set/api-result",
+      "observations": 17,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "authorization",
+        "connection",
+        "content-language",
+        "content-length",
+        "content-type",
+        "cookie",
+        "host",
+        "origin",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "site-id",
+        "user-agent"
+      ],
+      "response_headers": [
+        "connection",
+        "content-type",
+        "date",
+        "strict-transport-security",
+        "transfer-encoding"
+      ],
+      "request_content_types": [
+        "application/json"
+      ],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.dataSetLabel": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.params": {
+          "types": [
+            "array"
+          ],
+          "observed_lengths": [
+            0,
+            2
+          ]
+        },
+        "$.params[]": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.params[].key": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.params[].value": {
+          "types": [
+            "integer"
+          ]
+        }
+      },
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.code": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.data.dataResult": {
+          "types": [
+            "array"
+          ],
+          "observed_lengths": [
+            1,
+            10,
+            20
+          ]
+        },
+        "$.data.dataResult[]": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.data.dataResult[].author": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].code": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.dataResult[].data": {
+          "types": [
+            "array",
+            "integer",
+            "object"
+          ],
+          "observed_lengths": [
+            5,
+            10,
+            15
+          ]
+        },
+        "$.data.dataResult[].data.rows": {
+          "types": [
+            "array"
+          ],
+          "observed_lengths": [
+            5,
+            8
+          ]
+        },
+        "$.data.dataResult[].data.rows[]": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.data.dataResult[].data.rows[].createBy": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].data.rows[].createTime": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].data.rows[].dept": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].data.rows[].icon": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].data.rows[].id": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].data.rows[].isCollect": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.dataResult[].data.rows[].mobileUrl": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].data.rows[].name": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].data.rows[].pcUrl": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].data.rows[].title": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].data.rows[].type": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.dataResult[].data.total": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.dataResult[].data[]": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.data.dataResult[].data[].createTime": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].data[].favorFlag": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.data.dataResult[].data[].icon": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].data[].id": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data.dataResult[].data[].keyword": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].data[].serviceId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].data[].serviceName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].data[].visitsNum": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data.dataResult[].description": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].link": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].msg": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].pubDate": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataResult[].title": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataSetFields": {
+          "types": [
+            "array"
+          ],
+          "observed_lengths": [
+            0
+          ]
+        },
+        "$.data.dataSetId": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataSetLabel": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataSetName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.dataSetType": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.msg": {
+          "types": [
+            "string"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 17
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {
+        "code": [
+          "200"
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "host": "i.xmu.edu.cn",
+      "path": "/DTMP/prod-api/auth/sso/getConfig",
+      "observations": 1,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent"
+      ],
+      "response_headers": [
+        "connection",
+        "content-type",
+        "date",
+        "strict-transport-security",
+        "transfer-encoding"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.code": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.enabled": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.mobileEnabled": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.mobileRedirectUrl": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.msg": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.pcRedirectUrl": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.ssoLoginUrl": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.ssoLogoutUrl": {
+          "types": [
+            "string"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {
+        "code": [
+          "200"
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "host": "ids.xmu.edu.cn",
+      "path": "/authserver/login",
+      "observations": 2,
+      "query_parameters": [
+        "service",
+        "type"
+      ],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "sec-fetch-user",
+        "upgrade-insecure-requests",
+        "user-agent"
+      ],
+      "response_headers": [
+        "cache-control",
+        "connection",
+        "content-language",
+        "content-type",
+        "date",
+        "expires",
+        "pragma",
+        "set-cookie",
+        "transfer-encoding",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-xss-protection"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "text/html"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {},
+      "response_formats": {
+        "html": 2
+      },
+      "html_input_names": [
+        "_eventId",
+        "captcha",
+        "cllt",
+        "dllt",
+        "dynamicCode",
+        "execution",
+        "lt",
+        "password",
+        "passwordText",
+        "responseJson",
+        "rmShown",
+        "username",
+        "uuid"
+      ],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "POST",
+      "host": "ids.xmu.edu.cn",
+      "path": "/authserver/common/getLanguageTypes.htl",
+      "observations": 2,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "content-length",
+        "cookie",
+        "host",
+        "origin",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent",
+        "x-requested-with"
+      ],
+      "response_headers": [
+        "cache-control",
+        "connection",
+        "content-type",
+        "date",
+        "expires",
+        "pragma",
+        "set-cookie",
+        "transfer-encoding",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-xss-protection"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.languageTypeList": {
+          "types": [
+            "array"
+          ],
+          "observed_lengths": [
+            2
+          ]
+        },
+        "$.languageTypeList[]": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.languageTypeList[].isChoose": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.languageTypeList[].isDefault": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.languageTypeList[].isDelete": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.languageTypeList[].isUserLanguage": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.languageTypeList[].languageKey": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.languageTypeList[].languageName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.languageTypeList[].wid": {
+          "types": [
+            "string"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 2
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "ids.xmu.edu.cn",
+      "path": "/authserver/tenant/info",
+      "observations": 2,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent",
+        "x-requested-with"
+      ],
+      "response_headers": [
+        "cache-control",
+        "connection",
+        "content-type",
+        "date",
+        "expires",
+        "pragma",
+        "set-cookie",
+        "transfer-encoding",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-xss-protection"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.mobileFlay": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.schoolBgUrlMobile": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.schoolBgUrlPc": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.schoolLogoUrlMobile": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.schoolLogoUrlPc": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.themeColorMode": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.themeName": {
+          "types": [
+            "string"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 2
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "ids.xmu.edu.cn",
+      "path": "/authserver/qrCode/getToken",
+      "observations": 1,
+      "query_parameters": [
+        "ts"
+      ],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent",
+        "x-requested-with"
+      ],
+      "response_headers": [
+        "cache-control",
+        "connection",
+        "content-type",
+        "date",
+        "expires",
+        "pragma",
+        "set-cookie",
+        "transfer-encoding",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-xss-protection"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "text/plain"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {},
+      "response_formats": {
+        "non-json-body-not-retained": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "ids.xmu.edu.cn",
+      "path": "/authserver/bfp/info",
+      "observations": 2,
+      "query_parameters": [
+        "_",
+        "bfp"
+      ],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent",
+        "x-requested-with"
+      ],
+      "response_headers": [
+        "cache-control",
+        "connection",
+        "date",
+        "expires",
+        "pragma",
+        "set-cookie",
+        "transfer-encoding",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-xss-protection"
+      ],
+      "request_content_types": [],
+      "response_content_types": [],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {},
+      "response_formats": {
+        "empty": 2
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "ids.xmu.edu.cn",
+      "path": "/authserver/qrCode/getCode",
+      "observations": 1,
+      "query_parameters": [
+        "uuid"
+      ],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent"
+      ],
+      "response_headers": [
+        "cache-control",
+        "connection",
+        "content-type",
+        "date",
+        "expires",
+        "pragma",
+        "set-cookie",
+        "transfer-encoding",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-xss-protection"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "image/png"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {},
+      "response_formats": {
+        "non-json-body-not-retained": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "ids.xmu.edu.cn",
+      "path": "/authserver/qrCode/getStatus.htl",
+      "observations": 2,
+      "query_parameters": [
+        "ts",
+        "uuid"
+      ],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent",
+        "x-requested-with"
+      ],
+      "response_headers": [
+        "cache-control",
+        "connection",
+        "content-type",
+        "date",
+        "expires",
+        "pragma",
+        "set-cookie",
+        "transfer-encoding",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-xss-protection"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "text/plain"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {},
+      "response_formats": {
+        "non-json-body-not-retained": 2
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "ids.xmu.edu.cn",
+      "path": "/authserver/checkNeedCaptcha.htl",
+      "observations": 2,
+      "query_parameters": [
+        "_",
+        "username"
+      ],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent",
+        "x-requested-with"
+      ],
+      "response_headers": [
+        "cache-control",
+        "connection",
+        "content-type",
+        "date",
+        "expires",
+        "pragma",
+        "set-cookie",
+        "transfer-encoding",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-xss-protection"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.isNeed": {
+          "types": [
+            "boolean"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 2
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "POST",
+      "host": "ids.xmu.edu.cn",
+      "path": "/authserver/login",
+      "observations": 1,
+      "query_parameters": [
+        "service"
+      ],
+      "form_parameters": [
+        "_eventId",
+        "captcha",
+        "cllt",
+        "dllt",
+        "execution",
+        "lt",
+        "password",
+        "username"
+      ],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "cache-control",
+        "connection",
+        "content-length",
+        "content-type",
+        "cookie",
+        "host",
+        "origin",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "sec-fetch-user",
+        "upgrade-insecure-requests",
+        "user-agent"
+      ],
+      "response_headers": [
+        "cache-control",
+        "connection",
+        "date",
+        "expires",
+        "location",
+        "pragma",
+        "set-cookie",
+        "transfer-encoding",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-xss-protection"
+      ],
+      "request_content_types": [
+        "application/x-www-form-urlencoded"
+      ],
+      "response_content_types": [],
+      "http_statuses": [
+        302
+      ],
+      "request_json": {},
+      "response_json": {},
+      "response_formats": {
+        "empty": 1
+      },
+      "html_input_names": [],
+      "redirects": [
+        "i.xmu.edu.cn/DTMP/authLogin [query: ticket]"
+      ],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "i.xmu.edu.cn",
+      "path": "/DTMP/authLogin",
+      "observations": 1,
+      "query_parameters": [
+        "ticket"
+      ],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "cache-control",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "sec-fetch-user",
+        "upgrade-insecure-requests",
+        "user-agent"
+      ],
+      "response_headers": [
+        "connection",
+        "content-type",
+        "date",
+        "location",
+        "strict-transport-security",
+        "transfer-encoding"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "text/html"
+      ],
+      "http_statuses": [
+        301
+      ],
+      "request_json": {},
+      "response_json": {},
+      "response_formats": {
+        "html": 1
+      },
+      "html_input_names": [],
+      "redirects": [
+        "i.xmu.edu.cn/DTMP/authLogin/ [query: ticket]"
+      ],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "i.xmu.edu.cn",
+      "path": "/DTMP/authLogin/",
+      "observations": 1,
+      "query_parameters": [
+        "ticket"
+      ],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "cache-control",
+        "connection",
+        "cookie",
+        "host",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "sec-fetch-user",
+        "upgrade-insecure-requests",
+        "user-agent"
+      ],
+      "response_headers": [
+        "accept-ranges",
+        "connection",
+        "content-type",
+        "date",
+        "etag",
+        "last-modified",
+        "strict-transport-security",
+        "transfer-encoding",
+        "vary"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "text/html"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {},
+      "response_formats": {
+        "html": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "i.xmu.edu.cn",
+      "path": "/DTMP/prod-api/auth/sso/casLogin",
+      "observations": 1,
+      "query_parameters": [
+        "ticket"
+      ],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent"
+      ],
+      "response_headers": [
+        "connection",
+        "content-type",
+        "date",
+        "set-cookie",
+        "strict-transport-security",
+        "transfer-encoding"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.code": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.data.access_token": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data.expires_in": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.msg": {
+          "types": [
+            "string"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {
+        "code": [
+          "200"
+        ]
+      }
+    },
+    {
+      "method": "GET",
+      "host": "i.xmu.edu.cn",
+      "path": "/DTMP/prod-api/websocket/message",
+      "observations": 1,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept-encoding",
+        "accept-language",
+        "cache-control",
+        "connection",
+        "cookie",
+        "host",
+        "origin",
+        "pragma",
+        "sec-websocket-extensions",
+        "sec-websocket-key",
+        "sec-websocket-protocol",
+        "sec-websocket-version",
+        "upgrade",
+        "user-agent"
+      ],
+      "response_headers": [
+        "connection",
+        "date",
+        "sec-websocket-accept",
+        "sec-websocket-protocol",
+        "upgrade"
+      ],
+      "request_content_types": [],
+      "response_content_types": [],
+      "http_statuses": [
+        101
+      ],
+      "request_json": {},
+      "response_json": {},
+      "response_formats": {
+        "empty": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "i.xmu.edu.cn",
+      "path": "/DTMP/prod-api/system/user/getInfo",
+      "observations": 1,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "authorization",
+        "connection",
+        "content-language",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "site-id",
+        "user-agent"
+      ],
+      "response_headers": [
+        "connection",
+        "content-type",
+        "date",
+        "strict-transport-security",
+        "transfer-encoding"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.currentRole": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.currentRole.describe": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.currentRole.displayOrder": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.currentRole.id": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.currentRole.managePerms": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.currentRole.roleCode": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.currentRole.roleName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.currentRole.selectorNum": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.managePerms": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.permissions": {
+          "types": [
+            "array"
+          ],
+          "observed_lengths": [
+            0
+          ]
+        },
+        "$.user": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.user.email": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.user.gender": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.user.orgCode": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.user.orgName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.user.telephone": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.user.userCode": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.user.userName": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.user.userType": {
+          "types": [
+            "string"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "i.xmu.edu.cn",
+      "path": "/DTMP/prod-api/system/dict/data/type/sys_user_type",
+      "observations": 1,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "authorization",
+        "connection",
+        "content-language",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "site-id",
+        "user-agent"
+      ],
+      "response_headers": [
+        "connection",
+        "content-type",
+        "date",
+        "strict-transport-security",
+        "transfer-encoding"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.code": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data": {
+          "types": [
+            "array"
+          ],
+          "observed_lengths": [
+            2
+          ]
+        },
+        "$.data[]": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.data[].createBy": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data[].createTime": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data[].cssClass": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data[].dictCode": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data[].dictLabel": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data[].dictSort": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.data[].dictType": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data[].dictValue": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data[].isDefault": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data[].listClass": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data[].remark": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data[].searchValue": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data[].status": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.data[].updateBy": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.data[].updateTime": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.msg": {
+          "types": [
+            "string"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {
+        "code": [
+          "200"
+        ]
+      }
+    }
+  ],
+  "timeline": [
+    {
+      "export_request_index": 5,
+      "endpoint": "GET i.xmu.edu.cn/DTMP/",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:30+08:00",
+      "client_time_without_date": null,
+      "response_format": "html"
+    },
+    {
+      "export_request_index": 8,
+      "endpoint": "GET i.xmu.edu.cn/DTMP/prod-api/content-front/site/site-list",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:32+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 9,
+      "endpoint": "GET i.xmu.edu.cn/DTMP/prod-api/content-front/site/site-tree/detail",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:32+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 11,
+      "endpoint": "GET i.xmu.edu.cn/DTMP/prod-api/content-front/site/site-front/detail/{id}/{id}",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:32+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 12,
+      "endpoint": "GET i.xmu.edu.cn/DTMP/prod-api/content/monitor/site",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:32+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 13,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:33+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 14,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:33+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 16,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:33+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 20,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:33+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 21,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:33+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 22,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:33+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 23,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:33+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 24,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:33+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 27,
+      "endpoint": "GET i.xmu.edu.cn/DTMP/prod-api/auth/sso/getConfig",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:34+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 28,
+      "endpoint": "GET ids.xmu.edu.cn/authserver/login",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:34+08:00",
+      "client_time_without_date": null,
+      "response_format": "html"
+    },
+    {
+      "export_request_index": 30,
+      "endpoint": "POST ids.xmu.edu.cn/authserver/common/getLanguageTypes.htl",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:34+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 31,
+      "endpoint": "GET ids.xmu.edu.cn/authserver/tenant/info",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:34+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 33,
+      "endpoint": "GET ids.xmu.edu.cn/authserver/qrCode/getToken",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:34+08:00",
+      "client_time_without_date": null,
+      "response_format": "non-json-body-not-retained"
+    },
+    {
+      "export_request_index": 35,
+      "endpoint": "GET ids.xmu.edu.cn/authserver/bfp/info",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:34+08:00",
+      "client_time_without_date": null,
+      "response_format": "empty"
+    },
+    {
+      "export_request_index": 36,
+      "endpoint": "GET ids.xmu.edu.cn/authserver/qrCode/getCode",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:35+08:00",
+      "client_time_without_date": null,
+      "response_format": "non-json-body-not-retained"
+    },
+    {
+      "export_request_index": 39,
+      "endpoint": "GET ids.xmu.edu.cn/authserver/qrCode/getStatus.htl",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:36+08:00",
+      "client_time_without_date": null,
+      "response_format": "non-json-body-not-retained"
+    },
+    {
+      "export_request_index": 40,
+      "endpoint": "GET ids.xmu.edu.cn/authserver/checkNeedCaptcha.htl",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:36+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 42,
+      "endpoint": "GET ids.xmu.edu.cn/authserver/qrCode/getStatus.htl",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:37+08:00",
+      "client_time_without_date": null,
+      "response_format": "non-json-body-not-retained"
+    },
+    {
+      "export_request_index": 45,
+      "endpoint": "GET ids.xmu.edu.cn/authserver/login",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:37+08:00",
+      "client_time_without_date": null,
+      "response_format": "html"
+    },
+    {
+      "export_request_index": 48,
+      "endpoint": "POST ids.xmu.edu.cn/authserver/common/getLanguageTypes.htl",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:37+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 49,
+      "endpoint": "GET ids.xmu.edu.cn/authserver/tenant/info",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:37+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 50,
+      "endpoint": "GET ids.xmu.edu.cn/authserver/bfp/info",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:37+08:00",
+      "client_time_without_date": null,
+      "response_format": "empty"
+    },
+    {
+      "export_request_index": 52,
+      "endpoint": "GET ids.xmu.edu.cn/authserver/checkNeedCaptcha.htl",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:39+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 53,
+      "endpoint": "POST ids.xmu.edu.cn/authserver/login",
+      "status": 302,
+      "server_date_utc8": "2026-11-05T14:07:39+08:00",
+      "client_time_without_date": null,
+      "response_format": "empty"
+    },
+    {
+      "export_request_index": 55,
+      "endpoint": "GET i.xmu.edu.cn/DTMP/authLogin",
+      "status": 301,
+      "server_date_utc8": "2026-11-05T14:07:39+08:00",
+      "client_time_without_date": null,
+      "response_format": "html"
+    },
+    {
+      "export_request_index": 57,
+      "endpoint": "GET i.xmu.edu.cn/DTMP/authLogin/",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:39+08:00",
+      "client_time_without_date": null,
+      "response_format": "html"
+    },
+    {
+      "export_request_index": 58,
+      "endpoint": "GET i.xmu.edu.cn/DTMP/prod-api/auth/sso/casLogin",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:39+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 63,
+      "endpoint": "GET i.xmu.edu.cn/DTMP/prod-api/content-front/site/site-list",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:39+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 65,
+      "endpoint": "GET i.xmu.edu.cn/DTMP/prod-api/content-front/site/site-tree/detail",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:41+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 66,
+      "endpoint": "GET i.xmu.edu.cn/DTMP/prod-api/content-front/site/site-front/detail/{id}/{id}",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:41+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 68,
+      "endpoint": "GET i.xmu.edu.cn/DTMP/prod-api/content/monitor/site",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:41+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 70,
+      "endpoint": "GET i.xmu.edu.cn/DTMP/prod-api/websocket/message",
+      "status": 101,
+      "server_date_utc8": "2026-11-05T14:07:41+08:00",
+      "client_time_without_date": null,
+      "response_format": "empty"
+    },
+    {
+      "export_request_index": 71,
+      "endpoint": "GET i.xmu.edu.cn/DTMP/prod-api/system/user/getInfo",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:41+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 72,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:41+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 73,
+      "endpoint": "GET i.xmu.edu.cn/DTMP/prod-api/system/dict/data/type/sys_user_type",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:41+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 74,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:41+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 75,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:41+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 76,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:41+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 77,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:41+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 78,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:41+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 79,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:41+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 80,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:41+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 81,
+      "endpoint": "POST i.xmu.edu.cn/DTMP/prod-api/content-front/data-set/api-result",
+      "status": 200,
+      "server_date_utc8": "2026-11-05T14:07:42+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    }
+  ],
+  "source_disposal": {
+    "action": "moved-to-Windows-Recycle-Bin",
+    "date_utc8": "2026-11-10",
+    "sha256_checked_immediately_before_disposal": true,
+    "recycle_bin_emptied": false
+  }
+}

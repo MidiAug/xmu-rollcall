@@ -1,0 +1,1903 @@
+{
+  "source_alias": "course-permission",
+  "source_filename": "畅课问题1_Full.txt",
+  "sha256": "cab2c3127262da864598a6e63083ed23e3f1f4d2671e00a1002d7f0dd315d297",
+  "bytes": 9453996,
+  "source_mtime_utc8": "2026-11-04T17:18:16.361516+08:00",
+  "observed_server_date_range_utc8": [
+    "2026-11-04T17:17:46+08:00",
+    "2026-11-04T17:17:57+08:00"
+  ],
+  "archive_started_date_utc8": "2026-11-09",
+  "archive_date_utc8": "2026-11-10",
+  "verification": "offline-only; not replayed or checked against current server",
+  "all_export_requests": 152,
+  "included_requests": 13,
+  "excluded_requests": 139,
+  "endpoints": [
+    {
+      "method": "GET",
+      "host": "lnt.xmu.edu.cn",
+      "path": "/course/{courseId}/index",
+      "observations": 1,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "cache-control",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "sec-fetch-user",
+        "upgrade-insecure-requests",
+        "user-agent"
+      ],
+      "response_headers": [
+        "access-control-allow-headers",
+        "access-control-allow-origin",
+        "access-control-expose-headers",
+        "connection",
+        "content-security-policy",
+        "content-type",
+        "date",
+        "set-cookie",
+        "transfer-encoding",
+        "vary",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-session-id"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "text/html"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {},
+      "response_formats": {
+        "html": 1
+      },
+      "html_input_names": [
+        "activity_teaching_model",
+        "added-role",
+        "all_day",
+        "announceAnswer",
+        "announceAnswerStatus",
+        "announceAnswerType",
+        "announceScore",
+        "announceScoreType",
+        "client_required",
+        "completion_criterion_value",
+        "copy_item_unable",
+        "copy_to_courses",
+        "course-target-type-[[$index]]",
+        "days",
+        "default_options_layout",
+        "disableDevtool",
+        "disable_copy_paste",
+        "disable_right_click",
+        "eagle_eye",
+        "enable_anti_cheat",
+        "enable_exam_prerequisite",
+        "enable_invigilation",
+        "end_time",
+        "face_recognition",
+        "hasAlert",
+        "has_completion_criterion",
+        "instructor_score_percentage",
+        "inter_group_score_percentage",
+        "inter_review_incomplete_score_minus_percent",
+        "inter_score_end_time",
+        "inter_score_percentage",
+        "inter_score_start_time",
+        "intra_group_score_percentage",
+        "intra_review_incomplete_score_minus_percent",
+        "intra_rubric_visible_time",
+        "intra_score_end_time",
+        "intra_score_start_time",
+        "is_fullscreen_mode",
+        "is_leaving_window_constrained",
+        "is_leaving_window_timeout",
+        "leaving_window_limit",
+        "leaving_window_timeout",
+        "limit_answer_on_signle_client",
+        "limit_short_answer_upload",
+        "limit_time",
+        "location",
+        "lock_screen",
+        "monitor",
+        "name",
+        "never_expire",
+        "online_video_completeness_score_percentage",
+        "page",
+        "percentage",
+        "performance_score_percentage",
+        "pieces_cnt",
+        "repeat_end_date",
+        "repeat_frequency",
+        "rollcall_score_percentage",
+        "rubric_visible_time",
+        "scope",
+        "score",
+        "score_percentage",
+        "scored",
+        "select_subjects_randomly",
+        "sendNtf",
+        "send_alert_email",
+        "send_email",
+        "show_intra_rubric",
+        "show_rubric",
+        "shuffle_options_randomly",
+        "shuffle_subjects_randomly",
+        "startBulletinType",
+        "start_time",
+        "subject_index_type",
+        "submitTimes",
+        "submit_by_group",
+        "submit_times",
+        "target-type",
+        "title",
+        "using_phase"
+      ],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "POST",
+      "host": "lnt.xmu.edu.cn",
+      "path": "/api/course/{courseId}/entry/record",
+      "observations": 1,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "content-length",
+        "cookie",
+        "host",
+        "origin",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent"
+      ],
+      "response_headers": [
+        "access-control-allow-headers",
+        "access-control-allow-origin",
+        "access-control-expose-headers",
+        "connection",
+        "content-security-policy",
+        "content-type",
+        "date",
+        "set-cookie",
+        "transfer-encoding",
+        "vary",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-session-id"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "lnt.xmu.edu.cn",
+      "path": "/api/orgs/{orgId}/lang-settings",
+      "observations": 1,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent"
+      ],
+      "response_headers": [
+        "access-control-allow-headers",
+        "access-control-allow-origin",
+        "access-control-expose-headers",
+        "connection",
+        "content-security-policy",
+        "content-type",
+        "date",
+        "set-cookie",
+        "transfer-encoding",
+        "vary",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-session-id"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.lang_settings": {
+          "types": [
+            "array"
+          ],
+          "observed_lengths": [
+            5
+          ]
+        },
+        "$.lang_settings[]": {
+          "types": [
+            "string"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "lnt.xmu.edu.cn",
+      "path": "/api/courses/{courseId}/modules",
+      "observations": 1,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent"
+      ],
+      "response_headers": [
+        "access-control-allow-headers",
+        "access-control-allow-origin",
+        "access-control-expose-headers",
+        "connection",
+        "content-security-policy",
+        "content-type",
+        "date",
+        "set-cookie",
+        "transfer-encoding",
+        "vary",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-session-id"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.modules": {
+          "types": [
+            "array"
+          ],
+          "observed_lengths": [
+            11
+          ]
+        },
+        "$.modules[]": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.modules[].class_hours": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.modules[].id": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.modules[].imported_from": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.modules[].is_hidden": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.modules[].lecturer_id": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.modules[].lecturer_info": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.modules[].lesson_time_id": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.modules[].name": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.modules[].notice_before_days": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.modules[].sort": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.modules[].sticky_time": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.modules[].syllabuses": {
+          "types": [
+            "array"
+          ],
+          "observed_lengths": [
+            0,
+            1,
+            4
+          ]
+        },
+        "$.modules[].syllabuses[]": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.modules[].syllabuses[].comments": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.modules[].syllabuses[].date": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.modules[].syllabuses[].id": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.modules[].syllabuses[].imported_from": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.modules[].syllabuses[].module_id": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.modules[].syllabuses[].objective": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.modules[].syllabuses[].sort": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.modules[].syllabuses[].summary": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.modules[].syllabuses[].syllabus_id": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.modules[].syllabuses[].teaching_type": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.modules[].syllabuses[].teaching_week": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.modules[].teaching_week_ids": {
+          "types": [
+            "null"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "lnt.xmu.edu.cn",
+      "path": "/api/courses/{courseId}/outline",
+      "observations": 1,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent"
+      ],
+      "response_headers": [
+        "access-control-allow-headers",
+        "access-control-allow-origin",
+        "access-control-expose-headers",
+        "connection",
+        "content-security-policy",
+        "content-type",
+        "date",
+        "set-cookie",
+        "transfer-encoding",
+        "vary",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-session-id"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.comment_chinese": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.comment_chinese.description": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.comment_chinese.id": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.comment_chinese.key": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.comment_chinese.title": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.comment_chinese.uploads": {
+          "types": [
+            "array"
+          ],
+          "observed_lengths": [
+            0
+          ]
+        },
+        "$.common_fields": {
+          "types": [
+            "array"
+          ],
+          "observed_lengths": [
+            13
+          ]
+        },
+        "$.common_fields[]": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.common_fields[].description": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.common_fields[].id": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.common_fields[].key": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.common_fields[].title": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.custom_fields": {
+          "types": [
+            "array"
+          ],
+          "observed_lengths": [
+            0
+          ]
+        },
+        "$.end_date": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.external_url": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.id": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.is_closed": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.is_imported": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.status": {
+          "types": [
+            "string"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "lnt.xmu.edu.cn",
+      "path": "/api/courses/{courseId}/stats",
+      "observations": 1,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent"
+      ],
+      "response_headers": [
+        "access-control-allow-headers",
+        "access-control-allow-origin",
+        "access-control-expose-headers",
+        "connection",
+        "content-security-policy",
+        "content-type",
+        "date",
+        "set-cookie",
+        "transfer-encoding",
+        "vary",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-session-id"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.activity_count": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.knowledge_node_count": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.module_count": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.subject_lib_count": {
+          "types": [
+            "integer"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "lnt.xmu.edu.cn",
+      "path": "/api/courses/{courseId}/teaching-tasks",
+      "observations": 1,
+      "query_parameters": [
+        "conditions",
+        "page",
+        "page_size"
+      ],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent"
+      ],
+      "response_headers": [
+        "access-control-allow-headers",
+        "access-control-allow-origin",
+        "access-control-expose-headers",
+        "connection",
+        "content-security-policy",
+        "content-type",
+        "date",
+        "set-cookie",
+        "transfer-encoding",
+        "vary",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-session-id"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {
+        "$query.conditions": {
+          "types": [
+            "object"
+          ]
+        }
+      },
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.end": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.items": {
+          "types": [
+            "array"
+          ],
+          "observed_lengths": [
+            5
+          ]
+        },
+        "$.items[]": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.items[].end_time": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.items[].id": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.items[].module": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.items[].not_scored_num": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.items[].percentage": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.items[].scored_num": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.items[].start_time": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.items[].submitted_num": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.items[].title": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.items[].total_num": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.items[].type": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.page": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.page_size": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.pages": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.start": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.total": {
+          "types": [
+            "integer"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "lnt.xmu.edu.cn",
+      "path": "/course/{courseId}/learning-activity/full-screen",
+      "observations": 1,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "sec-fetch-user",
+        "upgrade-insecure-requests",
+        "user-agent"
+      ],
+      "response_headers": [
+        "access-control-allow-headers",
+        "access-control-allow-origin",
+        "access-control-expose-headers",
+        "connection",
+        "content-security-policy",
+        "content-type",
+        "date",
+        "set-cookie",
+        "transfer-encoding",
+        "vary",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-session-id"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "text/html"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {},
+      "response_formats": {
+        "html": 1
+      },
+      "html_input_names": [
+        "activity_teaching_model",
+        "allow_download",
+        "announceAnswer",
+        "announceAnswerStatus",
+        "announceAnswerType",
+        "announceScore",
+        "announceScoreType",
+        "announce_answer_time",
+        "announce_score_time",
+        "answer_limit",
+        "client_required",
+        "closed_time",
+        "completion_criterion_value",
+        "copy_item_unable",
+        "default_options_layout",
+        "disableDevtool",
+        "disable_copy_paste",
+        "disable_right_click",
+        "each_praise_score",
+        "each_reply_score",
+        "eagle_eye",
+        "enable_anti_cheat",
+        "enable_exam_prerequisite",
+        "enable_invigilation",
+        "end_date",
+        "end_time",
+        "face_recognition",
+        "has_completion_criterion",
+        "inputStatus",
+        "instructor_score_percentage",
+        "inter_group_score_percentage",
+        "inter_review_incomplete_score_minus_percent",
+        "inter_score_end_time",
+        "inter_score_percentage",
+        "inter_score_start_time",
+        "intra_group_score_percentage",
+        "intra_review_incomplete_score_minus_percent",
+        "intra_rubric_visible_time",
+        "intra_score_end_time",
+        "intra_score_start_time",
+        "is_anonymous",
+        "is_fullscreen_mode",
+        "is_leaving_window_constrained",
+        "is_leaving_window_timeout",
+        "keyword",
+        "learning_design_id",
+        "leaving_window_limit",
+        "leaving_window_timeout",
+        "limit_answer_on_signle_client",
+        "limit_short_answer_upload",
+        "limit_time",
+        "link",
+        "lock_screen",
+        "max_praise_score",
+        "max_reply_score",
+        "monitor",
+        "name",
+        "not-public-control",
+        "page",
+        "pauseWhenLeavingWindow",
+        "pieces_cnt",
+        "public-control",
+        "referrer_id",
+        "repeat_answer",
+        "rubric_visible_time",
+        "score",
+        "scored",
+        "select_subjects_randomly",
+        "set_praise_rulers",
+        "set_reply_rulers",
+        "show_intra_rubric",
+        "show_rubric",
+        "shuffle_options_randomly",
+        "shuffle_subjects_randomly",
+        "start_date",
+        "start_time",
+        "subject-by-subject-control",
+        "subject-layout",
+        "subject-option-sort",
+        "subject-sort",
+        "subject-type",
+        "subject_index_type",
+        "submitTimes",
+        "submit_by_group",
+        "submit_times",
+        "title",
+        "upload",
+        "use_rubric",
+        "using_phase",
+        "whole-control"
+      ],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "lnt.xmu.edu.cn",
+      "path": "/api/air-credit/user/courses/ai-ability",
+      "observations": 2,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent"
+      ],
+      "response_headers": [
+        "access-control-allow-headers",
+        "access-control-allow-origin",
+        "access-control-expose-headers",
+        "connection",
+        "content-security-policy",
+        "content-type",
+        "date",
+        "set-cookie",
+        "transfer-encoding",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-session-id"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.has_any_course_ai_ability": {
+          "types": [
+            "boolean"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 2
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "lnt.xmu.edu.cn",
+      "path": "/api/courses/{courseId}",
+      "observations": 1,
+      "query_parameters": [
+        "fields"
+      ],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent"
+      ],
+      "response_headers": [
+        "access-control-allow-headers",
+        "access-control-allow-origin",
+        "access-control-expose-headers",
+        "connection",
+        "content-security-policy",
+        "content-type",
+        "date",
+        "set-cookie",
+        "transfer-encoding",
+        "vary",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-session-id"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.academic_year": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.academic_year.code": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.academic_year.id": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.academic_year.name": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.academic_year.sort": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.allow_admin_update_basic_info": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.allow_edit_knowledge_base": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.allow_update_basic_info": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.allowed_to_invite_assistant": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.allowed_to_invite_student": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.allowed_to_join_course": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.archived": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.audit_status": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.auto_archive_course_date": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.classroom_schedule": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.compulsory": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.course_attributes": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.course_attributes.audience_type": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.course_attributes.data": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.course_attributes.data.course_outline": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.course_attributes.data.course_outline.KCDM": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.course_attributes.data.course_outline.KCKX": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.course_attributes.data.course_outline.KCZ": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.course_attributes.data.course_outline.LLJXXS": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.course_attributes.data.course_outline.SJJXXS": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.course_attributes.data.course_outline.SYJXXS": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.course_attributes.data.course_outline.SYZY": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.course_attributes.data.course_outline.XXKC": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.course_attributes.data.course_outline.YWLBDM": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.course_attributes.data.course_outline.ZXS": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.course_attributes.data.has_score_item_group": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.course_attributes.education_type": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.course_attributes.practice_hours": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.course_attributes.student_count": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.course_attributes.teaching_class_name": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.course_code": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.course_type": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.cover": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.credit": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.credit_state": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.credit_state.credit_remaining": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.credit_state.status": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.department": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.department.code": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.department.id": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.department.name": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.display_name": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.end_date": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.grade": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.has_ai_ability": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.id": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.imported_from": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.instructors": {
+          "types": [
+            "array"
+          ],
+          "observed_lengths": [
+            1
+          ]
+        },
+        "$.instructors[]": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.instructors[].avatar_big_url": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.instructors[].avatar_small_url": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.instructors[].email": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.instructors[].id": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.instructors[].name": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.instructors[].portfolio_url": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.instructors[].user_no": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.is_blocked": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.klass": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.knowledge_graph_publish_type": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.learning_mode": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.name": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.org": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.org.is_enterprise_or_organization": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.org.is_transfer_arrears": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.problem_graph_publish_type": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.public_scope": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.score_published": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.second_name": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.semester": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.semester.code": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.semester.id": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.semester.name": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.semester.real_name": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.semester.sort": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.show_archive_course_tips": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.start_date": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.students_count": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.subject_code": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.syllabus_enabled": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.teaching_mode": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.url": {
+          "types": [
+            "string"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "lnt.xmu.edu.cn",
+      "path": "/api/air-credit/user",
+      "observations": 1,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "user-agent"
+      ],
+      "response_headers": [
+        "access-control-allow-headers",
+        "access-control-allow-origin",
+        "access-control-expose-headers",
+        "connection",
+        "content-security-policy",
+        "content-type",
+        "date",
+        "set-cookie",
+        "transfer-encoding",
+        "vary",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-session-id"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "application/json"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {
+        "$": {
+          "types": [
+            "object"
+          ]
+        },
+        "$.credit_state": {
+          "types": [
+            "null"
+          ]
+        },
+        "$.is_low_air_credit": {
+          "types": [
+            "boolean"
+          ]
+        },
+        "$.user_id": {
+          "types": [
+            "integer"
+          ]
+        },
+        "$.user_name": {
+          "types": [
+            "string"
+          ]
+        },
+        "$.user_no": {
+          "types": [
+            "string"
+          ]
+        }
+      },
+      "response_formats": {
+        "json": 1
+      },
+      "html_input_names": [],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    },
+    {
+      "method": "GET",
+      "host": "lnt.xmu.edu.cn",
+      "path": "/errors/no_permission",
+      "observations": 1,
+      "query_parameters": [],
+      "form_parameters": [],
+      "request_headers": [
+        "accept",
+        "accept-encoding",
+        "accept-language",
+        "connection",
+        "cookie",
+        "host",
+        "referer",
+        "sec-ch-ua",
+        "sec-ch-ua-mobile",
+        "sec-ch-ua-platform",
+        "sec-fetch-dest",
+        "sec-fetch-mode",
+        "sec-fetch-site",
+        "upgrade-insecure-requests",
+        "user-agent"
+      ],
+      "response_headers": [
+        "access-control-allow-headers",
+        "access-control-allow-origin",
+        "access-control-expose-headers",
+        "connection",
+        "content-security-policy",
+        "content-type",
+        "date",
+        "set-cookie",
+        "transfer-encoding",
+        "vary",
+        "x-content-type-options",
+        "x-frame-options",
+        "x-session-id"
+      ],
+      "request_content_types": [],
+      "response_content_types": [
+        "text/html"
+      ],
+      "http_statuses": [
+        200
+      ],
+      "request_json": {},
+      "response_json": {},
+      "response_formats": {
+        "html": 1
+      },
+      "html_input_names": [
+        "all_day",
+        "days",
+        "end_time",
+        "hasAlert",
+        "location",
+        "repeat_end_date",
+        "repeat_frequency",
+        "scope",
+        "score",
+        "sendNtf",
+        "send_alert_email",
+        "start_time",
+        "title"
+      ],
+      "redirects": [],
+      "response_xml_paths": [],
+      "response_ini_keys": [],
+      "root_protocol_markers": {}
+    }
+  ],
+  "timeline": [
+    {
+      "export_request_index": 20,
+      "endpoint": "GET lnt.xmu.edu.cn/course/{courseId}/index",
+      "status": 200,
+      "server_date_utc8": "2026-11-04T17:17:46+08:00",
+      "client_time_without_date": null,
+      "response_format": "html"
+    },
+    {
+      "export_request_index": 30,
+      "endpoint": "POST lnt.xmu.edu.cn/api/course/{courseId}/entry/record",
+      "status": 200,
+      "server_date_utc8": "2026-11-04T17:17:48+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 36,
+      "endpoint": "GET lnt.xmu.edu.cn/api/orgs/{orgId}/lang-settings",
+      "status": 200,
+      "server_date_utc8": "2026-11-04T17:17:49+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 43,
+      "endpoint": "GET lnt.xmu.edu.cn/api/courses/{courseId}/modules",
+      "status": 200,
+      "server_date_utc8": "2026-11-04T17:17:49+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 48,
+      "endpoint": "GET lnt.xmu.edu.cn/api/courses/{courseId}/outline",
+      "status": 200,
+      "server_date_utc8": "2026-11-04T17:17:49+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 55,
+      "endpoint": "GET lnt.xmu.edu.cn/api/courses/{courseId}/stats",
+      "status": 200,
+      "server_date_utc8": "2026-11-04T17:17:49+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 59,
+      "endpoint": "GET lnt.xmu.edu.cn/api/courses/{courseId}/teaching-tasks",
+      "status": 200,
+      "server_date_utc8": "2026-11-04T17:17:49+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 72,
+      "endpoint": "GET lnt.xmu.edu.cn/course/{courseId}/learning-activity/full-screen",
+      "status": 200,
+      "server_date_utc8": "2026-11-04T17:17:53+08:00",
+      "client_time_without_date": null,
+      "response_format": "html"
+    },
+    {
+      "export_request_index": 85,
+      "endpoint": "GET lnt.xmu.edu.cn/api/air-credit/user/courses/ai-ability",
+      "status": 200,
+      "server_date_utc8": "2026-11-04T17:17:54+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 90,
+      "endpoint": "GET lnt.xmu.edu.cn/api/courses/{courseId}",
+      "status": 200,
+      "server_date_utc8": "2026-11-04T17:17:55+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 103,
+      "endpoint": "GET lnt.xmu.edu.cn/api/air-credit/user",
+      "status": 200,
+      "server_date_utc8": "2026-11-04T17:17:55+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    },
+    {
+      "export_request_index": 106,
+      "endpoint": "GET lnt.xmu.edu.cn/errors/no_permission",
+      "status": 200,
+      "server_date_utc8": "2026-11-04T17:17:56+08:00",
+      "client_time_without_date": null,
+      "response_format": "html"
+    },
+    {
+      "export_request_index": 127,
+      "endpoint": "GET lnt.xmu.edu.cn/api/air-credit/user/courses/ai-ability",
+      "status": 200,
+      "server_date_utc8": "2026-11-04T17:17:57+08:00",
+      "client_time_without_date": null,
+      "response_format": "json"
+    }
+  ],
+  "source_disposal": {
+    "action": "moved-to-Windows-Recycle-Bin",
+    "date_utc8": "2026-11-10",
+    "sha256_checked_immediately_before_disposal": true,
+    "recycle_bin_emptied": false
+  }
+}
