@@ -20,6 +20,9 @@ Desktop.ini
 # Independent local location-maintenance tool; keep its implementation and maintenance outside App history.
 /tools/location_picker/
 
+# Independent homework review skill/toolkit; its own Git history and distributions.
+/tools/homework_grader/
+
 # ── Secrets ──
 .env
 .env.*
