@@ -2,6 +2,8 @@ import 'package:xmu_rollcall/features/schedule/academic_calendar.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
+import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
+import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -77,6 +79,79 @@ void main() {
       60,
     );
   });
+
+  test(
+    'complete probe replans a waiting watch immediately without out-of-window requests',
+    () async {
+      final now = DateTime.now();
+      final day = DateTime(now.year, now.month, now.day + 1);
+      final monday = DateTime(day.year, day.month, day.day - day.weekday + 1);
+      final term = currentSemester(now);
+      await SemesterPreferences.save(1, term, monday);
+      await CourseCatalogStore.write(
+        1,
+        CourseCatalogSnapshot(
+          fetchedAt: now,
+          courses: const [CatalogCourse(id: 'watch', title: '值守测试课')],
+        ),
+      );
+      await AcademicScheduleStore.write(
+        1,
+        AcademicSchedule(
+          term: term,
+          monday: monday,
+          fetchedAt: now,
+          rows: [
+            AcademicCourseRow(
+              courseId: 'watch',
+              courseName: '值守测试课',
+              weekday: day.weekday,
+              firstPeriod: 1,
+              lastPeriod: 1,
+              startMinute: 480,
+              endMinute: 525,
+              weeks: const {1},
+            ),
+          ],
+        ),
+      );
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('course_watch_success_v1_1_1', [
+        '${TimetableSlot.dateKey(day)}/watch/1',
+      ]);
+      final ctrl = container.read(monitorControllerProvider.notifier);
+      while (container.read(monitorControllerProvider).loadingSettings) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      ctrl.setCourseWatch(true);
+      Future<void> waitForPlan(DateTime expected) async {
+        for (var i = 0; i < 100; i++) {
+          final next = container.read(monitorControllerProvider).nextPollAt;
+          if (next != null &&
+              next.difference(expected).abs() < const Duration(seconds: 1)) {
+            return;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        expect(container.read(monitorControllerProvider).nextPollAt, expected);
+      }
+
+      expect(await ctrl.startAsync(), StartMonitorResult.started);
+      await waitForPlan(day);
+      ctrl.setCompleteProbe(true);
+      await waitForPlan(DateTime(day.year, day.month, day.day, 7, 50));
+      ctrl.setCompleteProbe(false);
+      await waitForPlan(day);
+      expect(repo.calls, 0);
+      expect(container.read(monitorControllerProvider).running, isTrue);
+      ctrl.stop();
+      ctrl.setCompleteProbe(true);
+      await Future<void>.delayed(Duration.zero);
+      expect(container.read(monitorControllerProvider).running, isFalse);
+      expect(container.read(monitorControllerProvider).nextPollAt, isNull);
+      expect(repo.calls, 0);
+    },
+  );
 
   test(
     'explicit main-account launch preference resumes desktop watch without discovery outside windows',

@@ -86,11 +86,16 @@ class MonitorEngine {
   }
 
   void updateConfig(MonitorConfig config) {
+    final replanWatch =
+        config.courseWatch && _config.completeProbe != config.completeProbe;
     _config = config;
     _automaticTimer?.cancel();
     _lastAutomaticAt = null;
     if (!_busy) _scheduleAutomatic();
-    if (_running && !_busy) _schedule(_nextDelay());
+    if (_running && !_busy) {
+      // Rebuild lesson windows before publishing a new discovery time.
+      _schedule(replanWatch ? Duration.zero : _nextDelay());
+    }
   }
 
   bool get _waitsForAttendance =>
