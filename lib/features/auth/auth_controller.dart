@@ -142,7 +142,7 @@ final authControllerProvider = StateNotifierProvider<AuthController, AuthState>(
       ref.watch(authRepositoryProvider),
       beforeSignOut: () => ref
           .read(monitorControllerProvider.notifier)
-          .stopAsync(reason: 'sign_out'),
+          .stopAllAsync(reason: 'sign_out'),
     );
   },
 );

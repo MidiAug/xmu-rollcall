@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/core/cache/cache_policy.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
@@ -40,6 +42,7 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
   final int? assistUserId;
   int? _boundUserId;
   Future<CourseCatalogSnapshot>? _inFlight;
+  DateTime? _lastAttempt;
 
   @override
   Future<CourseCatalogSnapshot?> build() async {
@@ -54,18 +57,21 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
     final userId = assistUserId ?? profile.id;
     _boundUserId = userId;
     final disk = await CourseCatalogStore.read(userId);
-    if (disk != null && disk.rolesResolved) return _withSchedules(userId, disk);
     if (disk != null) {
-      try {
-        return await _fetchAndPersist(userId);
-      } catch (_) {
-        return _withSchedules(userId, disk);
+      final effective = await _withSchedules(userId, disk);
+      if (!disk.isFresh) {
+        unawaited(
+          Future<void>.delayed(Duration.zero, () async {
+            if (_boundUserId == userId) await ensureFresh();
+          }),
+        );
       }
+      return effective;
     }
     return _fetchAndPersist(userId);
   }
 
-  /// Appear does **not** hit the network when disk exists (R-35 Sticky).
+  /// Revalidate stale/legacy catalogs, with a short cooldown after any attempt.
   Future<void> ensureFresh({
     EnsureFreshReason reason = EnsureFreshReason.appear,
   }) async {
@@ -75,8 +81,14 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
         ref.read(authControllerProvider).profile?.id;
     if (uid == null || uid == 0) return;
     if (reason == EnsureFreshReason.appear) {
+      if (state.valueOrNull != null &&
+          _lastAttempt != null &&
+          DateTime.now().difference(_lastAttempt!) <
+              const Duration(minutes: 5)) {
+        return;
+      }
       final disk = await CourseCatalogStore.read(uid);
-      if (disk != null) {
+      if (disk != null && disk.isFresh) {
         final effective = await _withSchedules(uid, disk);
         if (_boundUserId == uid) state = AsyncData(effective);
         return;
@@ -110,6 +122,7 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
     final existing = _inFlight;
     if (existing != null) return existing;
     final future = () async {
+      _lastAttempt = DateTime.now();
       if (assistUserId != null) {
         final identity = ref
             .read(assistControllerProvider)
@@ -151,6 +164,7 @@ class CourseCatalogNotifier extends AsyncNotifier<CourseCatalogSnapshot?> {
       semesterId: snap.semesterId,
       academicYearId: snap.academicYearId,
       rolesResolved: snap.rolesResolved,
+      termResolved: snap.termResolved,
     );
   }
 

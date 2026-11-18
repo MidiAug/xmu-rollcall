@@ -73,7 +73,7 @@ void main() {
       final delivery = AndroidMonitorNotifications();
       await delivery.showResult(runId: 'r', courseTitle: 'course', ok: true);
       final args = system.single.arguments as Map;
-      expect(args['id'], 2602);
+      expect(args['id'], AndroidMonitorNotifications.notificationId('r'));
       expect((args['platformSpecifics'] as Map)['silent'], true);
       await expectLater(
         delivery.discovered(

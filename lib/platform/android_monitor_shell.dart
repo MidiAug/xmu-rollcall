@@ -115,7 +115,9 @@ class AndroidMonitorShell {
 
   Future<void> _showForegroundNotice(Map data) async {
     try {
-      final run = await AndroidMonitorStore.readRun();
+      final run = await AndroidMonitorStore.readRun(
+        runId: data['runId'] as String?,
+      );
       if (run == null || run.id != data['runId']) return;
       final owner = await _secure.read(SecureStore.keyUserId);
       if (owner != '${run.ownerUserId}') return;
@@ -162,7 +164,7 @@ class AndroidMonitorShell {
     required String runId,
   }) => _serial(() async {
     await init();
-    await _stopRun('replaced');
+    final existing = await AndroidMonitorStore.readRuns();
     final run = AndroidMonitorRun(
       id: runId,
       userId: userId,
@@ -174,6 +176,16 @@ class AndroidMonitorShell {
       run.credentialKey,
       jsonEncode({'userId': userId, 'cookies': cookies, 'deviceId': deviceId}),
     );
+    // Publish the replacement before revoking the old grant, so the service
+    // never observes a temporary empty roster and exits during replacement.
+    await AndroidMonitorStore.writeRun(run);
+    for (final previous in existing) {
+      if (previous.ownerUserId != run.ownerUserId ||
+          previous.diagnosticOnly ||
+          previous.assistUserId == assistUserId) {
+        await _stopAccountRun(previous, 'replaced');
+      }
+    }
     return await _startRun(run) ? run.id : null;
   });
 
@@ -184,6 +196,10 @@ class AndroidMonitorShell {
     try {
       await AndroidMonitorStore.writeRun(run);
       if (diagnosticDelay != null) await _writeDiagnostic(run, diagnosticDelay);
+      if (await FlutterForegroundTask.isRunningService) {
+        FlutterForegroundTask.sendDataToTask({'action': 'runs_changed'});
+        return true;
+      }
       final result = await FlutterForegroundTask.startService(
         serviceId: 2601,
         serviceTypes: const [ForegroundServiceTypes.dataSync],
@@ -201,7 +217,7 @@ class AndroidMonitorShell {
         stackTrace: stack,
         source: 'android_fgs_start',
       );
-      await _stopRun('start_failed');
+      await _stopAccountRun(run, 'start_failed');
       await _secure.delete(run.credentialKey);
       return false;
     }
@@ -211,58 +227,86 @@ class AndroidMonitorShell {
       _serial(() => _stopRun(reason));
 
   Future<void> _stopRun(String reason) async {
-    final run = await AndroidMonitorStore.readRun();
-    // Revoke durable authorization before stopping the service.
-    await AndroidMonitorStore.clearRun();
-    if (run != null) {
-      await AndroidMonitorStore.writeSnapshot({
-        'action': 'snapshot',
-        'runId': run.id,
-        'userId': run.userId,
-        'ownerUserId': run.ownerUserId,
-        'assistUserId': run.assistUserId,
-        'running': false,
-        'diagnosticOnly': run.diagnosticOnly,
-        'autoAnswer': run.config.autoAnswer,
-        'answerWaitMode': run.config.answerWaitMode.index,
-        'answerWaitCount': run.config.answerWaitCount,
-        'answerWaitPercent': run.config.answerWaitPercent,
-        'reason': reason,
-        'message': '检测已停止',
-        'nextPollAtMs': null,
-        'updatedAtMs': DateTime.now().millisecondsSinceEpoch,
-      });
-      await _secure.delete(run.credentialKey);
+    for (final run in await AndroidMonitorStore.readRuns()) {
+      await _stopAccountRun(run, reason);
     }
+    await AndroidMonitorStore.clearRun();
     if (await FlutterForegroundTask.isRunningService) {
       final result = await FlutterForegroundTask.stopService();
       if (result is ServiceRequestFailure) throw result.error;
     }
-    if (run != null) {
-      AppLog.event(
-        'shell.android_fgs_stop',
-        fields: {'runId': run.id, 'reason': reason},
-      );
-    }
   }
 
-  Future<void> updateConfig(MonitorConfig config) => _serial(() async {
-    final run = await AndroidMonitorStore.readRun();
-    if (run == null || run.diagnosticOnly) return;
-    await AndroidMonitorStore.writeRun(
-      AndroidMonitorRun(
-        id: run.id,
-        userId: run.userId,
-        ownerUserId: run.ownerUserId,
-        assistUserId: run.assistUserId,
-        config: config,
-      ),
-    );
-    FlutterForegroundTask.sendDataToTask({'action': 'config', 'runId': run.id});
-  });
+  Future<void> stopAccount({int? assistUserId, String reason = 'user_stop'}) =>
+      _serial(() async {
+        for (final run in await AndroidMonitorStore.readRuns()) {
+          if (run.assistUserId == assistUserId && !run.diagnosticOnly) {
+            await _stopAccountRun(run, reason);
+          }
+        }
+        if ((await AndroidMonitorStore.readRuns()).isEmpty) {
+          if (await FlutterForegroundTask.isRunningService) {
+            final result = await FlutterForegroundTask.stopService();
+            if (result is ServiceRequestFailure) throw result.error;
+          }
+        } else {
+          FlutterForegroundTask.sendDataToTask({'action': 'runs_changed'});
+        }
+      });
 
-  Future<void> pollNow() async {
-    final run = await AndroidMonitorStore.readRun();
+  Future<void> _stopAccountRun(AndroidMonitorRun run, String reason) async {
+    // Revoke this account before stopping its worker.
+    await AndroidMonitorStore.clearRun(runId: run.id);
+    await AndroidMonitorStore.writeSnapshot({
+      'action': 'snapshot',
+      'runId': run.id,
+      'userId': run.userId,
+      'ownerUserId': run.ownerUserId,
+      'assistUserId': run.assistUserId,
+      'running': false,
+      'diagnosticOnly': run.diagnosticOnly,
+      'autoAnswer': run.config.autoAnswer,
+      'answerWaitMode': run.config.answerWaitMode.index,
+      'answerWaitCount': run.config.answerWaitCount,
+      'answerWaitPercent': run.config.answerWaitPercent,
+      'reason': reason,
+      'message': '检测已停止',
+      'nextPollAtMs': null,
+      'updatedAtMs': DateTime.now().millisecondsSinceEpoch,
+    });
+    await _secure.delete(run.credentialKey);
+    AppLog.event(
+      'shell.android_fgs_stop',
+      fields: {'runId': run.id, 'reason': reason},
+    );
+  }
+
+  Future<AndroidMonitorRun?> _accountRun(int? assistUserId) async =>
+      (await AndroidMonitorStore.readRuns())
+          .where((r) => r.assistUserId == assistUserId && !r.diagnosticOnly)
+          .firstOrNull;
+
+  Future<void> updateConfig(MonitorConfig config, {int? assistUserId}) =>
+      _serial(() async {
+        final run = await _accountRun(assistUserId);
+        if (run == null || run.diagnosticOnly) return;
+        await AndroidMonitorStore.writeRun(
+          AndroidMonitorRun(
+            id: run.id,
+            userId: run.userId,
+            ownerUserId: run.ownerUserId,
+            assistUserId: run.assistUserId,
+            config: config,
+          ),
+        );
+        FlutterForegroundTask.sendDataToTask({
+          'action': 'config',
+          'runId': run.id,
+        });
+      });
+
+  Future<void> pollNow({int? assistUserId}) async {
+    final run = await _accountRun(assistUserId);
     if (run != null) {
       FlutterForegroundTask.sendDataToTask({
         'action': 'poll_now',
@@ -271,10 +315,20 @@ class AndroidMonitorShell {
     }
   }
 
-  Future<Map<String, dynamic>?> readStatus() async {
+  Future<Map<String, dynamic>?> readStatus({int? assistUserId}) async {
     await init();
-    final snapshot = await AndroidMonitorStore.readSnapshot();
-    final run = await AndroidMonitorStore.readRun();
+    final run = await _accountRun(assistUserId);
+    final ownerId = int.tryParse(
+      await _secure.read(SecureStore.keyUserId) ?? '',
+    );
+    final snapshot = run == null
+        ? (ownerId == null
+              ? null
+              : await AndroidMonitorStore.readAccountSnapshot(
+                  ownerId,
+                  assistUserId,
+                ))
+        : await AndroidMonitorStore.readSnapshot(runId: run.id);
     if (run != null && await FlutterForegroundTask.isRunningService) {
       FlutterForegroundTask.sendDataToTask({'action': 'sync', 'runId': run.id});
       return {
@@ -308,8 +362,13 @@ class AndroidMonitorShell {
 
   Future<void> _restoreStatus() async {
     try {
-      final status = await readStatus();
-      if (status != null) _onTaskData(status);
+      final ownerStatus = await readStatus();
+      if (ownerStatus != null) _onTaskData(ownerStatus);
+      for (final run in await AndroidMonitorStore.readRuns()) {
+        if (run.assistUserId == null) continue;
+        final status = await readStatus(assistUserId: run.assistUserId);
+        if (status != null) _onTaskData(status);
+      }
     } catch (error, stack) {
       AppLog.logAppError(
         error: error,

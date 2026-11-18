@@ -78,8 +78,97 @@ final monitorControllerProvider =
       (ref) => MonitorController(ref),
     );
 
+/// The page follows selection; each account's worker lives independently.
 class MonitorController extends StateNotifier<MonitorState> {
   MonitorController(this._ref)
+    : super(
+        const MonitorState(config: MonitorConfig(), loadingSettings: true),
+      ) {
+    _ref.listen(selectedRollcallAccountProvider, (_, next) => _select(next));
+    _select(_ref.read(selectedRollcallAccountProvider));
+  }
+
+  final Ref _ref;
+  final _observed = <int?>{};
+  AccountMonitorController get _selected => _ref.read(
+    accountMonitorControllerProvider(
+      _ref.read(selectedRollcallAccountProvider),
+    ).notifier,
+  );
+
+  void _select(int? scope) {
+    final provider = accountMonitorControllerProvider(scope);
+    if (_observed.add(scope)) {
+      _ref.listen(provider, (_, next) {
+        if (mounted && _ref.read(selectedRollcallAccountProvider) == scope) {
+          state = next;
+        }
+      });
+    }
+    state = _ref.read(provider);
+  }
+
+  void commitPersist() => _selected.commitPersist();
+  void setPreset(MonitorPreset value) => _selected.setPreset(value);
+  void setIntervalSeconds(int value) => _selected.setIntervalSeconds(value);
+  void setJitterRatio(double value) => _selected.setJitterRatio(value);
+  void setAttendanceIntervalSeconds(int value) =>
+      _selected.setAttendanceIntervalSeconds(value);
+  void setAutomaticAnswer(bool value) => _selected.setAutomaticAnswer(value);
+  void setAnswerWaitMode(AnswerWaitMode value) =>
+      _selected.setAnswerWaitMode(value);
+  void setAnswerWaitValue(int value) => _selected.setAnswerWaitValue(value);
+  void start() => _selected.start();
+  Future<StartMonitorResult> startAsync() => _selected.startAsync();
+  void stop({String reason = 'user_stop'}) => _selected.stop(reason: reason);
+  void stopAll({String reason = 'user_stop'}) =>
+      unawaited(stopAllAsync(reason: reason));
+  Future<void> stopAllAsync({String reason = 'user_stop'}) async {
+    final scopes = <int?>{
+      null,
+      ..._observed,
+      ..._ref.read(assistControllerProvider).identities.map((a) => a.userId),
+    };
+    await Future.wait([
+      for (final scope in scopes)
+        _ref
+            .read(accountMonitorControllerProvider(scope).notifier)
+            .stopAsync(reason: reason),
+    ]);
+    if (PlatformHooks.isAndroid) {
+      await AndroidMonitorShell.instance.stopOngoing(reason: reason);
+    }
+  }
+
+  Future<void> stopAsync({String reason = 'user_stop'}) =>
+      _selected.stopAsync(reason: reason);
+  void pollNow() => _selected.pollNow();
+  void debugArmRunning() => _selected.debugArmRunning();
+  void debugScheduleDiscovery({
+    Duration delay = const Duration(seconds: 10),
+    int count = 1,
+  }) => _selected.debugScheduleDiscovery(delay: delay, count: count);
+  void debugCancelScheduledDiscovery() =>
+      _selected.debugCancelScheduledDiscovery();
+}
+
+final accountMonitorControllerProvider =
+    StateNotifierProvider.family<AccountMonitorController, MonitorState, int?>(
+      (ref, scope) => AccountMonitorController(ref, scope),
+    );
+
+final anyMonitorRunningProvider = Provider<bool>((ref) {
+  final owner = ref.watch(accountMonitorControllerProvider(null));
+  var running = owner.running || owner.starting;
+  for (final account in ref.watch(assistControllerProvider).identities) {
+    final state = ref.watch(accountMonitorControllerProvider(account.userId));
+    running = running || state.running || state.starting;
+  }
+  return running;
+});
+
+class AccountMonitorController extends StateNotifier<MonitorState> {
+  AccountMonitorController(this._ref, this.assistUserId)
     : super(
         const MonitorState(config: MonitorConfig(), loadingSettings: true),
       ) {
@@ -90,31 +179,25 @@ class MonitorController extends StateNotifier<MonitorState> {
     _ref.listen(detectionWindowProvider, (previous, next) {
       if (previous == null || next == null || !state.running) return;
       if (PlatformHooks.isAndroid) {
-        unawaited(AndroidMonitorShell.instance.pollNow());
+        unawaited(
+          AndroidMonitorShell.instance.pollNow(assistUserId: assistUserId),
+        );
       } else {
         unawaited(_engine?.pollNow());
       }
     });
-    _ref.listen(selectedRollcallAccountProvider, (previous, next) {
-      if (previous == next) return;
-      _changeSelectedAccount(
-        preserveBackgroundRun:
-            _restoringAccountSelection ||
-            _ref.read(selectedRollcallAccountProvider.notifier).restoring,
-      );
-    });
     _ref.listen(assistControllerProvider, (previous, next) {
-      final scope = _ref.read(selectedRollcallAccountProvider);
+      final scope = assistUserId;
       if (scope != null &&
           next.ready &&
           !next.identities.any((a) => a.userId == scope)) {
-        _ref.read(selectedRollcallAccountProvider.notifier).state = null;
+        stop(reason: 'account_removed');
       }
     });
     _ref.listen(authControllerProvider, (previous, next) {
       if (previous?.isSignedIn == true &&
           (!next.isSignedIn || previous?.profile?.id != next.profile?.id)) {
-        _changeSelectedAccount();
+        _changeOwnerAccount();
       } else if (next.isSignedIn && previous?.isSignedIn != true) {
         // A restored login is not a user-requested task stop. The persisted
         // Android run still validates the workspace login before each request.
@@ -129,6 +212,7 @@ class MonitorController extends StateNotifier<MonitorState> {
     });
   }
   final Ref _ref;
+  final int? assistUserId;
   late Future<void> _loaded;
   String? _configKey;
   int _configRevision = 0;
@@ -140,23 +224,16 @@ class MonitorController extends StateNotifier<MonitorState> {
   String? _runId;
   int _generation = 0;
   bool _restoring = false;
-  bool _canRestoreAccountSelection = true;
-  bool _restoringAccountSelection = false;
   int? _lastSnapshotPoll;
   int _lastSnapshotStamp = -1;
 
-  void _changeSelectedAccount({bool preserveBackgroundRun = false}) {
+  void _changeOwnerAccount() {
     final config = state.config;
     final key = _configKey;
     _persistDebounce?.cancel();
     if (key != null) unawaited(_persistConfig(config, key));
     _configKey = null;
-    if (preserveBackgroundRun) {
-      _generation++;
-    } else {
-      _canRestoreAccountSelection = false;
-      stop(reason: 'selected_account_changed');
-    }
+    stop(reason: 'owner_account_changed');
     _startFuture = null;
     _lastSnapshotPoll = null;
     _lastSnapshotStamp = -1;
@@ -166,7 +243,7 @@ class MonitorController extends StateNotifier<MonitorState> {
 
   Future<void> _load() async {
     final revision = ++_configRevision;
-    final scope = _ref.read(selectedRollcallAccountProvider);
+    final scope = assistUserId;
     final ownerId = _ref.read(authControllerProvider).profile?.id ?? 0;
     final key = 'monitor_account_${ownerId}_${scope ?? ownerId}';
     final prefs = await SharedPreferences.getInstance();
@@ -217,41 +294,15 @@ class MonitorController extends StateNotifier<MonitorState> {
   Future<void> _restore() async {
     final auth = _ref.read(authControllerProvider);
     if (!auth.isSignedIn) return;
-    final canRestoreSelection = _canRestoreAccountSelection;
-    _canRestoreAccountSelection = false;
     final generation = _generation;
     try {
-      final snapshot = await AndroidMonitorShell.instance.readStatus();
+      final snapshot = await AndroidMonitorShell.instance.readStatus(
+        assistUserId: assistUserId,
+      );
       if (!mounted ||
           generation != _generation ||
           state.starting ||
           snapshot == null) {
-        return;
-      }
-      final restoredScope = snapshot['assistUserId'];
-      if (canRestoreSelection &&
-          snapshot['running'] == true &&
-          (snapshot['ownerUserId'] ?? snapshot['userId']) == auth.profile?.id &&
-          _ref.read(selectedRollcallAccountProvider) == null &&
-          restoredScope is int) {
-        final service = await _ref.read(assistServiceProvider.future);
-        final accounts = await service.listIdentities();
-        if (!mounted || generation != _generation || state.starting) return;
-        if (!accounts.any((a) => a.userId == restoredScope)) {
-          await AndroidMonitorShell.instance.stopOngoing(
-            reason: 'account_removed',
-          );
-          return;
-        }
-        // Hydrate the selected account without revoking its existing worker.
-        // Explicit user switches always take the stopping path above.
-        _restoringAccountSelection = true;
-        try {
-          _ref.read(selectedRollcallAccountProvider.notifier).state =
-              restoredScope;
-        } finally {
-          _restoringAccountSelection = false;
-        }
         return;
       }
       _restoring = true;
@@ -270,7 +321,7 @@ class MonitorController extends StateNotifier<MonitorState> {
   void _onSnapshot(Map<String, dynamic> data) {
     if (!mounted || data['diagnosticOnly'] == true) return;
     final auth = _ref.read(authControllerProvider);
-    final scope = _ref.read(selectedRollcallAccountProvider);
+    final scope = assistUserId;
     if (!auth.isSignedIn ||
         (data['ownerUserId'] ?? data['userId']) != auth.profile?.id ||
         data['assistUserId'] != scope) {
@@ -337,11 +388,7 @@ class MonitorController extends StateNotifier<MonitorState> {
           )
           .toList();
       _ref
-          .read(
-            activeRollcallsProvider(
-              _ref.read(selectedRollcallAccountProvider),
-            ).notifier,
-          )
+          .read(activeRollcallsProvider(assistUserId).notifier)
           .applyMonitorItems(
             items,
             fetchedAt: successMs == null
@@ -397,7 +444,10 @@ class MonitorController extends StateNotifier<MonitorState> {
       if (!mounted || generation != _generation || key != _configKey) return;
       _engine?.updateConfig(config);
       if (PlatformHooks.isAndroid && state.running) {
-        await AndroidMonitorShell.instance.updateConfig(config);
+        await AndroidMonitorShell.instance.updateConfig(
+          config,
+          assistUserId: assistUserId,
+        );
       }
       if (key != null) await _persistConfig(config, key);
     } catch (error, stack) {
@@ -505,7 +555,7 @@ class MonitorController extends StateNotifier<MonitorState> {
       if (!auth.isSignedIn || userId == null || userId == 0) {
         return StartMonitorResult.notSignedIn;
       }
-      final scope = _ref.read(selectedRollcallAccountProvider);
+      final scope = assistUserId;
       if (scope != null) {
         final account = _ref
             .read(assistControllerProvider)
@@ -564,7 +614,9 @@ class MonitorController extends StateNotifier<MonitorState> {
           );
           return StartMonitorResult.fgsFailed;
         }
-        final status = await AndroidMonitorShell.instance.readStatus();
+        final status = await AndroidMonitorShell.instance.readStatus(
+          assistUserId: scope,
+        );
         if (!current()) return StartMonitorResult.cancelled;
         if (status != null && status['runId'] == id) _onSnapshot(status);
         return state.running
@@ -590,10 +642,7 @@ class MonitorController extends StateNotifier<MonitorState> {
         ),
         requireCurrent: () async {
           final auth = _ref.read(authControllerProvider);
-          if (!current() ||
-              !auth.isSignedIn ||
-              auth.profile?.id != userId ||
-              _ref.read(selectedRollcallAccountProvider) != scope) {
+          if (!current() || !auth.isSignedIn || auth.profile?.id != userId) {
             throw StateError('Account changed');
           }
         },
@@ -691,11 +740,7 @@ class MonitorController extends StateNotifier<MonitorState> {
           );
           if (update.items != null) {
             _ref
-                .read(
-                  activeRollcallsProvider(
-                    _ref.read(selectedRollcallAccountProvider),
-                  ).notifier,
-                )
+                .read(activeRollcallsProvider(scope).notifier)
                 .applyMonitorItems(update.items!, fetchedAt: update.lastPollAt);
           }
         },
@@ -742,7 +787,7 @@ class MonitorController extends StateNotifier<MonitorState> {
     AppLog.event('monitor.stop.request', fields: {'reason': reason});
     if (PlatformHooks.isAndroid) {
       _stopping = AndroidMonitorShell.instance
-          .stopOngoing(reason: reason)
+          .stopAccount(assistUserId: assistUserId, reason: reason)
           .catchError((Object error, StackTrace stack) {
             AppLog.logAppError(
               error: error,
@@ -756,7 +801,9 @@ class MonitorController extends StateNotifier<MonitorState> {
   void pollNow() {
     if (!state.running) return;
     if (PlatformHooks.isAndroid) {
-      unawaited(AndroidMonitorShell.instance.pollNow());
+      unawaited(
+        AndroidMonitorShell.instance.pollNow(assistUserId: assistUserId),
+      );
     } else {
       unawaited(_engine?.pollNow() ?? Future.value());
     }

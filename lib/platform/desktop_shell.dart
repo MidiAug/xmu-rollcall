@@ -396,9 +396,9 @@ class _DesktopShellBinderState extends ConsumerState<DesktopShellBinder> {
   void _wire() {
     final shell = DesktopShell.instance;
     shell.navigatorKey = widget.navigatorKey;
-    shell.isMonitorRunning = () => ref.read(monitorControllerProvider).running;
+    shell.isMonitorRunning = () => ref.read(anyMonitorRunningProvider);
     shell.stopMonitor = () =>
-        ref.read(monitorControllerProvider.notifier).stop();
+        ref.read(monitorControllerProvider.notifier).stopAll();
     shell.readPrefs = () => ref.read(closePrefsProvider);
     shell.applyAskChoice = ({required toTray, required remember}) {
       return ref
@@ -411,8 +411,8 @@ class _DesktopShellBinderState extends ConsumerState<DesktopShellBinder> {
   Widget build(BuildContext context) {
     // Keep prefs / monitor identity warm so close handler sees latest.
     ref.watch(closePrefsProvider);
-    ref.watch(monitorControllerProvider.select((s) => s.running));
-    ref.listen(monitorControllerProvider.select((s) => s.running), (_, _) {
+    ref.watch(anyMonitorRunningProvider);
+    ref.listen(anyMonitorRunningProvider, (_, _) {
       if (DesktopShell.instance.trayAvailable.value) {
         DesktopShell.instance._run(DesktopShell.instance.updateTrayMenu());
       }

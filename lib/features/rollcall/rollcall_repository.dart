@@ -245,14 +245,39 @@ class RollcallRepository {
   /// Sticky CourseCatalog: courses + timetables (+ optional semester ids).
   Future<CourseCatalogSnapshot> fetchCourseCatalog() async {
     await http.init();
+    String? semesterId;
+    String? academicYearId;
+    try {
+      final response = await http.getUri<dynamic>(
+        Uri.parse('${TronEndpoints.baseUrl}/api/current-semester-info'),
+        priority: RequestPriority.background,
+      );
+      final payload = response.data;
+      if (payload is Map) {
+        final info = Map<String, dynamic>.from(
+          payload['data'] is Map ? payload['data'] as Map : payload,
+        );
+        semesterId = _nestedId(info, const ['semester_id', 'semester']);
+        academicYearId = _nestedId(info, const [
+          'academic_year_id',
+          'academic_year',
+        ]);
+      }
+    } catch (_) {
+      // Retain the existing course-list path when term metadata is unavailable.
+    }
     try {
       final res = await http.postUri<dynamic>(
         TronEndpoints.myCourses(),
         options: Options(extra: const {'retrySafe': true}),
         priority: RequestPriority.background,
-        data: const {
+        data: {
           'fields': _catalogFields,
+          'page': 1,
+          'page_size': 1000,
           'conditions': {
+            if (semesterId != null) 'semester_id': [semesterId],
+            if (academicYearId != null) 'academic_year_id': [academicYearId],
             'classify_type': 'recently_started',
             'role': [
               'student',
@@ -260,16 +285,37 @@ class RollcallRepository {
               'instructor',
               'instructor_assistant',
             ],
-            'status': ['ongoing', 'not_started'],
+            if (semesterId == null || academicYearId == null)
+              'status': ['ongoing', 'not_started'],
           },
         },
       );
-      final parsed = _catalogFromPayload(res.data);
-      if (parsed.courses.isNotEmpty) return _resolveCatalogRoles(parsed);
+      final parsed = _catalogFromPayload(
+        res.data,
+        semesterId: semesterId,
+        academicYearId: academicYearId,
+      );
+      if (_isCoursePayload(res.data)) return _resolveCatalogRoles(parsed);
     } catch (_) {
       // fall through
     }
-    return _resolveCatalogRoles(await _catalogFromGetProbe());
+    return _resolveCatalogRoles(
+      await _catalogFromGetProbe(
+        semesterId: semesterId,
+        academicYearId: academicYearId,
+      ),
+    );
+  }
+
+  bool _isCoursePayload(dynamic data) {
+    if (data is List) return true;
+    if (data is! Map) return false;
+    if (data.isEmpty) return true;
+    return const ['courses', 'data', 'items', 'list', 'results'].any(
+      (key) =>
+          data[key] is List ||
+          (data[key] is Map && _isCoursePayload(data[key])),
+    );
   }
 
   Future<CourseCatalogSnapshot> _resolveCatalogRoles(
@@ -283,10 +329,16 @@ class RollcallRepository {
           priority: RequestPriority.background,
           data: {
             'fields': _catalogFields,
+            'page': 1,
+            'page_size': 1000,
             'conditions': {
+              if (catalog.semesterId != null)
+                'semester_id': [catalog.semesterId],
+              if (catalog.academicYearId != null)
+                'academic_year_id': [catalog.academicYearId],
               'classify_type': 'recently_started',
               'role': roles,
-              'status': ['ongoing', 'not_started'],
+              if (!catalog.termResolved) 'status': ['ongoing', 'not_started'],
             },
           },
         );
@@ -360,6 +412,7 @@ class RollcallRepository {
         semesterId: catalog.semesterId,
         academicYearId: catalog.academicYearId,
         rolesResolved: true,
+        termResolved: catalog.termResolved,
       );
     } catch (error) {
       AppLog.event(
@@ -378,7 +431,12 @@ class RollcallRepository {
     return snap.timetablesByCourse;
   }
 
-  CourseCatalogSnapshot _catalogFromPayload(dynamic data) {
+  CourseCatalogSnapshot _catalogFromPayload(
+    dynamic data, {
+    String? semesterId,
+    String? academicYearId,
+    bool requireTerm = false,
+  }) {
     final list = _unwrapList(data, const [
       'courses',
       'data',
@@ -387,11 +445,21 @@ class RollcallRepository {
       'results',
     ]);
     final courses = <CatalogCourse>[];
-    String? semesterId;
-    String? academicYearId;
     for (final item in list) {
       if (item is! Map) continue;
       final m = Map<String, dynamic>.from(item);
+      final rowSemester = _nestedId(m, const ['semester_id', 'semester']);
+      final rowYear = _nestedId(m, const ['academic_year_id', 'academic_year']);
+      if (semesterId != null &&
+          ((rowSemester != null && rowSemester != semesterId) ||
+              (requireTerm && rowSemester == null))) {
+        continue;
+      }
+      if (academicYearId != null &&
+          ((rowYear != null && rowYear != academicYearId) ||
+              (requireTerm && rowYear == null))) {
+        continue;
+      }
       final id = _first(m, const ['id', 'course_id', 'courseId', 'cid']);
       final title = _first(m, const [
         'name',
@@ -412,34 +480,41 @@ class RollcallRepository {
           roles: parseCourseRoles(m['roles'] ?? m['course_role'] ?? m['role']),
         ),
       );
-      semesterId ??= _nestedId(m, const ['semester_id', 'semester']);
-      academicYearId ??= _nestedId(m, const [
-        'academic_year_id',
-        'academic_year',
-      ]);
     }
     return CourseCatalogSnapshot(
       fetchedAt: DateTime.now(),
       courses: courses,
       semesterId: semesterId,
       academicYearId: academicYearId,
+      termResolved: semesterId != null && academicYearId != null,
     );
   }
 
-  Future<CourseCatalogSnapshot> _catalogFromGetProbe() async {
+  Future<CourseCatalogSnapshot> _catalogFromGetProbe({
+    String? semesterId,
+    String? academicYearId,
+  }) async {
     final courses = <CatalogCourse>[];
     for (final path in TronEndpoints.courseListPaths) {
       try {
         final uri = Uri.parse('${TronEndpoints.baseUrl}$path');
         final res = await http.getUri<dynamic>(uri);
         if ((res.statusCode ?? 0) != 200) continue;
-        final parsed = _catalogFromPayload(res.data);
+        final parsed = _catalogFromPayload(
+          res.data,
+          semesterId: semesterId,
+          academicYearId: academicYearId,
+          requireTerm: semesterId != null || academicYearId != null,
+        );
         if (parsed.courses.isNotEmpty) return parsed;
       } catch (_) {
         // try next
       }
     }
     if (courses.isEmpty) {
+      if (semesterId != null || academicYearId != null) {
+        throw const FormatException('无法确认本学期课程，请稍后刷新');
+      }
       // Last resort: id/title only via legacy probe.
       final probed = await _probeCourses();
       return CourseCatalogSnapshot(

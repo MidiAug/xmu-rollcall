@@ -36,6 +36,115 @@ void androidMonitorTaskCallback() {
 
 /// Owns polling, alerts and status independently of the UI engine.
 class AndroidMonitorTaskHandler extends TaskHandler {
+  final _workers = <String, _AndroidAccountMonitorTask>{};
+  bool _busy = false;
+  bool _destroyed = false;
+
+  @override
+  Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
+    DartPluginRegistrant.ensureInitialized();
+    final support = await getApplicationSupportDirectory();
+    await AppLog.bootstrap(
+      sink: NdjsonFileSink(logsDir: Directory('${support.path}/monitor-logs')),
+    );
+    await _sync(timestamp, starter);
+  }
+
+  Future<void> _sync(DateTime timestamp, [TaskStarter? starter]) async {
+    if (_busy || _destroyed) return;
+    _busy = true;
+    try {
+      final runs = await AndroidMonitorStore.readRuns();
+      final ids = runs.map((r) => r.id).toSet();
+      for (final id in _workers.keys.toList()) {
+        if (!ids.contains(id)) {
+          await _workers.remove(id)!.onDestroy(timestamp, false);
+        }
+      }
+      for (final run in runs) {
+        if (_destroyed) return;
+        if (!_workers.containsKey(run.id)) {
+          final worker = _AndroidAccountMonitorTask(run.id);
+          _workers[run.id] = worker;
+          await worker.onStart(timestamp, starter ?? TaskStarter.developer);
+        } else {
+          _workers[run.id]!.onRepeatEvent(timestamp);
+        }
+      }
+      final current = await AndroidMonitorStore.readRuns();
+      if (current.isEmpty) {
+        await FlutterForegroundTask.stopService();
+      } else if (current.length > 1) {
+        await AndroidMonitorPlatform.updateCountdown(
+          title: '厦大签到检测中',
+          text: '${current.length} 个账号独立检测，发现签到后另发提醒',
+          deadlineMs: null,
+        );
+      }
+    } catch (error, stack) {
+      AppLog.logAppError(
+        error: error,
+        stackTrace: stack,
+        source: 'monitor_account_roster',
+      );
+    } finally {
+      _busy = false;
+    }
+  }
+
+  @override
+  void onRepeatEvent(DateTime timestamp) => unawaited(_sync(timestamp));
+
+  @override
+  void onReceiveData(Object data) {
+    if (data is! Map) return;
+    if (data['action'] == 'runs_changed') {
+      unawaited(_sync(DateTime.now()));
+      return;
+    }
+    _workers[data['runId']]?.onReceiveData(data);
+  }
+
+  @override
+  Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
+    _destroyed = true;
+    for (final worker in _workers.values.toList()) {
+      await worker.onDestroy(timestamp, isTimeout);
+    }
+    await AppLog.flush();
+  }
+
+  @override
+  void onNotificationButtonPressed(String id) {
+    if (id != 'stop') return;
+    unawaited(() async {
+      final runs = await AndroidMonitorStore.readRuns();
+      await AndroidMonitorStore.clearRun();
+      for (final run in runs) {
+        await SecureStore().delete(run.credentialKey);
+      }
+      for (final worker in _workers.values.toList()) {
+        await worker._shutdown('user_stop', '检测已停止');
+      }
+      if ((await AndroidMonitorStore.readRuns()).isEmpty &&
+          await FlutterForegroundTask.isRunningService) {
+        await FlutterForegroundTask.stopService();
+      }
+    }());
+  }
+
+  @override
+  void onNotificationPressed() => FlutterForegroundTask.launchApp('/');
+
+  @override
+  void onNotificationDismissed() {
+    if (!_destroyed) unawaited(FlutterForegroundTask.updateService());
+  }
+}
+
+class _AndroidAccountMonitorTask extends TaskHandler {
+  _AndroidAccountMonitorTask(this.runId);
+  final String runId;
   final _notifications = AndroidMonitorNotifications();
   final _secure = SecureStore();
   AndroidMonitorRun? _run;
@@ -51,20 +160,13 @@ class AndroidMonitorTaskHandler extends TaskHandler {
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
     DartPluginRegistrant.ensureInitialized();
     try {
-      final support = await getApplicationSupportDirectory();
-      await AppLog.bootstrap(
-        sink: NdjsonFileSink(
-          logsDir: Directory('${support.path}/monitor-logs'),
-        ),
-      );
-      _run = await AndroidMonitorStore.readRun();
+      _run = await AndroidMonitorStore.readRun(runId: runId);
       final run = _run;
       if (run == null) {
-        await FlutterForegroundTask.stopService();
         return;
       }
       await _notifications.init();
-      final previous = await AndroidMonitorStore.readSnapshot();
+      final previous = await AndroidMonitorStore.readSnapshot(runId: runId);
       final notified = previous?['runId'] == run.id
           ? (previous?['notifiedIds'] as List? ?? []).whereType<int>().toSet()
           : <int>{};
@@ -142,7 +244,7 @@ class AndroidMonitorTaskHandler extends TaskHandler {
           },
           requireCurrent: () async {
             await _requireCurrentAccount();
-            final current = await AndroidMonitorStore.readRun();
+            final current = await AndroidMonitorStore.readRun(runId: runId);
             if (current?.config.autoAnswer != true) {
               throw StateError('Automatic answering disabled');
             }
@@ -209,7 +311,7 @@ class AndroidMonitorTaskHandler extends TaskHandler {
 
   Future<void> _requireCurrentAccount() async {
     if (_destroyed || _shuttingDown) throw StateError('Monitor has stopped');
-    final current = await AndroidMonitorStore.readRun();
+    final current = await AndroidMonitorStore.readRun(runId: runId);
     final owner = await _secure.read(SecureStore.keyUserId);
     if (_destroyed ||
         current?.id != _run?.id ||
@@ -268,8 +370,8 @@ class AndroidMonitorTaskHandler extends TaskHandler {
     final data = Map<String, dynamic>.from(_snapshot);
     _writes = _writes
         .then((_) async {
-          final current = await AndroidMonitorStore.readRun();
-          if (current != null && current.id != data['runId']) return;
+          final current = await AndroidMonitorStore.readRun(runId: runId);
+          if (data['running'] == true && current?.id != data['runId']) return;
           await AndroidMonitorStore.writeSnapshot(data);
           FlutterForegroundTask.sendDataToMain(data);
         })
@@ -289,7 +391,7 @@ class AndroidMonitorTaskHandler extends TaskHandler {
     if (_cycleBusy || _destroyed || _shuttingDown) return;
     _cycleBusy = true;
     try {
-      final run = await AndroidMonitorStore.readRun();
+      final run = await AndroidMonitorStore.readRun(runId: runId);
       if (run == null || run.id != _run?.id) {
         await _shutdown('cancelled', '检测已停止');
         return;
@@ -345,11 +447,13 @@ class AndroidMonitorTaskHandler extends TaskHandler {
           : failures > 0
           ? '检测失败 $failures 次，等待重试'
           : '下次检测倒计时  发现签到后另发提醒';
-      await AndroidMonitorPlatform.updateCountdown(
-        title: run.diagnosticOnly ? '厦大签到  后台测试' : '厦大签到检测中',
-        text: text,
-        deadlineMs: run.diagnosticOnly ? (diagnostic?['atMs'] as int?) : ms,
-      );
+      if ((await AndroidMonitorStore.readRuns()).length <= 1) {
+        await AndroidMonitorPlatform.updateCountdown(
+          title: run.diagnosticOnly ? '厦大签到  后台测试' : '厦大签到检测中',
+          text: text,
+          deadlineMs: run.diagnosticOnly ? (diagnostic?['atMs'] as int?) : ms,
+        );
+      }
     } catch (error, stack) {
       AppLog.logAppError(
         error: error,
@@ -374,8 +478,8 @@ class AndroidMonitorTaskHandler extends TaskHandler {
     });
     _publish();
     await _writes;
-    if ((await AndroidMonitorStore.readRun())?.id == _run?.id) {
-      await AndroidMonitorStore.clearRun();
+    if ((await AndroidMonitorStore.readRun(runId: runId))?.id == _run?.id) {
+      await AndroidMonitorStore.clearRun(runId: runId);
       final run = _run;
       if (run != null) await _secure.delete(run.credentialKey);
     }
@@ -384,9 +488,9 @@ class AndroidMonitorTaskHandler extends TaskHandler {
       fields: {'runId': _run?.id, 'reason': reason},
     );
     await AppLog.flush();
-    final current = await AndroidMonitorStore.readRun();
-    if (current != null && current.id != _run?.id) return;
-    await FlutterForegroundTask.stopService();
+    if ((await AndroidMonitorStore.readRuns()).isEmpty) {
+      await FlutterForegroundTask.stopService();
+    }
   }
 
   @override
@@ -404,8 +508,9 @@ class AndroidMonitorTaskHandler extends TaskHandler {
       _publish();
       await _writes;
       final run = _run;
-      if (run != null && (await AndroidMonitorStore.readRun())?.id == run.id) {
-        await AndroidMonitorStore.clearRun();
+      if (run != null &&
+          (await AndroidMonitorStore.readRun(runId: runId))?.id == run.id) {
+        await AndroidMonitorStore.clearRun(runId: runId);
         await _secure.delete(run.credentialKey);
       }
     }
@@ -448,7 +553,9 @@ class AndroidMonitorTaskHandler extends TaskHandler {
 
   Future<void> _restoreNotification() async {
     if (_destroyed || _shuttingDown) return;
-    if ((await AndroidMonitorStore.readRun())?.id != _run?.id) return;
+    if ((await AndroidMonitorStore.readRun(runId: runId))?.id != _run?.id) {
+      return;
+    }
     final result = await FlutterForegroundTask.updateService();
     if (result is ServiceRequestFailure) {
       AppLog.logAppError(

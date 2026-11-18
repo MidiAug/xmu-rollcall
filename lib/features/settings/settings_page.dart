@@ -12,7 +12,6 @@ import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
 import 'package:xmu_rollcall/features/settings/close_prefs_controller.dart';
 import 'package:xmu_rollcall/features/settings/courses_page.dart';
-import 'package:xmu_rollcall/features/settings/course_schedule_editor.dart';
 import 'package:xmu_rollcall/features/settings/schedule_status_chip.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
@@ -152,12 +151,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   ),
                   onTap: !auth.isSignedIn
                       ? () => showLoginDialog(context)
-                      : () => AppPageRoutes.push(
-                          context,
-                          ref.read(hasIncompleteCourseScheduleProvider)
-                              ? const CourseSchedulesPage()
-                              : const CoursesPage(),
-                        ),
+                      : () => AppPageRoutes.push(context, const CoursesPage()),
                 ),
                 SettingsRow(
                   leading: const Icon(Icons.place_outlined),

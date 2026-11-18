@@ -25,7 +25,7 @@ class AndroidMonitorNotifications {
       });
       return;
     }
-    await show(count: count, courseTitle: courseTitle);
+    await show(count: count, courseTitle: courseTitle, runId: runId);
   }
 
   Future<void> showResult({
@@ -45,7 +45,7 @@ class AndroidMonitorNotifications {
       });
       return;
     }
-    await show(count: 1, body: body, quiet: true);
+    await show(count: 1, body: body, quiet: true, runId: runId);
   }
 
   Future<void> init({void Function(NotificationResponse)? onResponse}) async {
@@ -76,9 +76,10 @@ class AndroidMonitorNotifications {
     String? courseTitle,
     String? body,
     bool quiet = false,
+    String? runId,
   }) async {
     await plugin.show(
-      id: diagnostic ? 2699 : 2602,
+      id: diagnostic ? 2699 : notificationId(runId),
       title: diagnostic ? '厦大签到  通知测试' : kAppDisplayName,
       body:
           body ??
@@ -103,4 +104,12 @@ class AndroidMonitorNotifications {
       payload: discoveryPayload,
     );
   }
+
+  static int notificationId(String? runId) => runId == null
+      ? 2602
+      : 2700 +
+            runId.codeUnits.fold<int>(
+              0,
+              (hash, unit) => (hash * 31 + unit) & 0x3fffffff,
+            );
 }

@@ -270,19 +270,22 @@ void main() {
       await capture(tester, key, 'schedule-chip-${width.toInt()}');
       await tester.tap(chip);
       await tester.pumpAndSettle();
+      expect(find.byType(CoursesPage), findsOneWidget);
+      await tester.tap(find.text('补全安排'));
+      await tester.pumpAndSettle();
       expect(find.byType(CourseSchedulesPage), findsOneWidget);
-      expect(find.byType(CoursesPage), findsNothing);
+      await tester.tap(find.byTooltip('返回'));
+      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('本学期课表'));
       await tester.pumpAndSettle();
-      expect(find.byType(CourseSchedulesPage), findsOneWidget);
-      expect(find.byType(CoursesPage), findsNothing);
+      expect(find.byType(CoursesPage), findsOneWidget);
       await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
       await tester.tap(arrow);
       await tester.pumpAndSettle();
-      expect(find.byType(CourseSchedulesPage), findsOneWidget);
+      expect(find.byType(CoursesPage), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }

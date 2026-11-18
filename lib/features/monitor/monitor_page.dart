@@ -11,6 +11,8 @@ import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
 import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
 import 'package:xmu_rollcall/features/settings/desktop_notification_settings_page.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
+import 'package:xmu_rollcall/features/settings/course_locations_page.dart';
 
 class MonitorSettingsPage extends ConsumerStatefulWidget {
   const MonitorSettingsPage({super.key});
@@ -89,6 +91,22 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                           )
                         : null,
                     children: [
+                      SettingsRow(
+                        contentPadding: rowPadding,
+                        title: '课程签到地点',
+                        subtitle: '为当前账号按课程配置雷达自动提交位置',
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: ready
+                            ? () => AppPageRoutes.push(
+                                context,
+                                CourseLocationsPage(
+                                  assistUserId: ref.read(
+                                    selectedRollcallAccountProvider,
+                                  ),
+                                ),
+                              )
+                            : null,
+                      ),
                       SettingsRow(
                         contentPadding: rowPadding,
                         subtitleSpacing: 6,
