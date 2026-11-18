@@ -191,11 +191,14 @@ class _AccountHomework extends HomeworkOverviewNotifier {
 }
 
 class _RunningMonitor extends MonitorController {
-  _RunningMonitor(super.ref) {
+  _RunningMonitor(super.ref);
+  void finish() => stop();
+}
+
+class _RunningAccount extends AccountMonitorController {
+  _RunningAccount(Ref ref) : super(ref, null) {
     state = state.copyWith(running: true, loadingSettings: false);
   }
-  void finish() =>
-      state = state.copyWith(running: false, loadingSettings: false);
 }
 
 class _History extends CourseHistoryNotifier {
@@ -297,6 +300,10 @@ void main() {
             )
           else if (visibleTab)
             monitorControllerProvider.overrideWith(_RunningMonitor.new),
+          if (startResult == null && visibleTab)
+            accountMonitorControllerProvider(
+              null,
+            ).overrideWith(_RunningAccount.new),
         ],
         child: RepaintBoundary(
           key: const ValueKey('desktop-ui-capture'),

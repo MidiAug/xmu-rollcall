@@ -118,10 +118,10 @@ class _AndroidMonitorBinder extends ConsumerStatefulWidget {
 class _AndroidMonitorBinderState extends ConsumerState<_AndroidMonitorBinder> {
   @override
   Widget build(BuildContext context) {
-    ref.watch(monitorControllerProvider.select((s) => s.running));
+    ref.watch(anyMonitorRunningProvider);
     return AndroidMonitorShellBinder(
       stopMonitor: () {
-        ref.read(monitorControllerProvider.notifier).stop();
+        ref.read(monitorControllerProvider.notifier).stopAll();
       },
       onUserMessage: (message) {
         final ctx = widget.navigatorKey.currentContext;

@@ -162,6 +162,7 @@ class CourseCatalogSnapshot {
     this.semesterId,
     this.academicYearId,
     this.rolesResolved = false,
+    this.termResolved = false,
   });
 
   final DateTime fetchedAt;
@@ -169,6 +170,12 @@ class CourseCatalogSnapshot {
   final String? semesterId;
   final String? academicYearId;
   final bool rolesResolved;
+  final bool termResolved;
+
+  bool get isFresh =>
+      rolesResolved &&
+      termResolved &&
+      DateTime.now().difference(fetchedAt) < const Duration(hours: 12);
 
   /// Same course set rendered by the current timetable page.
   List<CatalogCourse> get timetableCourses =>
@@ -202,6 +209,7 @@ class CourseCatalogSnapshot {
     'fetchedAt': fetchedAt.toIso8601String(),
     'courses': [for (final c in courses) c.toJson()],
     'rolesResolved': rolesResolved,
+    'termResolved': termResolved,
     if (semesterId != null) 'semesterId': semesterId,
     if (academicYearId != null) 'academicYearId': academicYearId,
   };
@@ -224,6 +232,7 @@ class CourseCatalogSnapshot {
       semesterId: j['semesterId'] as String?,
       academicYearId: j['academicYearId'] as String?,
       rolesResolved: j['rolesResolved'] == true,
+      termResolved: j['termResolved'] == true,
     );
   }
 }

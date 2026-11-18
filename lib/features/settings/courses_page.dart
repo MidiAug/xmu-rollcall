@@ -12,13 +12,36 @@ import 'package:xmu_rollcall/features/settings/course_schedule_editor.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
 
 /// 我的 → 本学期课表：周×节网格（Sticky Catalog）。
-class CoursesPage extends ConsumerWidget {
+class CoursesPage extends ConsumerStatefulWidget {
   const CoursesPage({super.key, this.assistUserId, this.accountName});
   final int? assistUserId;
   final String? accountName;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CoursesPage> createState() => _CoursesPageState();
+}
+
+class _CoursesPageState extends ConsumerState<CoursesPage> {
+  int? get assistUserId => widget.assistUserId;
+  String? get accountName => widget.accountName;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final catalog = ref.read(scopedCourseCatalogProvider(assistUserId));
+      try {
+        await ref.read(catalog.future);
+        if (mounted) await ref.read(catalog.notifier).ensureFresh();
+      } catch (_) {
+        // The page exposes the retry action and any existing offline snapshot.
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
     final catalog = ref.watch(scopedCourseCatalogProvider(assistUserId));
     final async = ref.watch(catalog);
@@ -117,7 +140,7 @@ class _TimetableBody extends StatelessWidget {
     final fetched = snap?.fetchedAt;
     final meta = fetched == null
         ? null
-        : '更新于 ${fetched.toLocal().toString().substring(0, 19)}';
+        : '${snap?.termResolved == true ? '本学期课程' : '学期信息未确认，请刷新'} · 更新于 ${fetched.toLocal().toString().substring(0, 19)}';
     return Padding(
       padding: EdgeInsets.fromLTRB(
         AppSpace.pageXOf(context),

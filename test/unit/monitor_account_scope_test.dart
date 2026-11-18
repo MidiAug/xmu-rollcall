@@ -240,7 +240,7 @@ void main() {
   );
 
   test(
-    'switch cancels a pending automatic submission and starts the selected repository',
+    'switch keeps the first automatic task running and starts an independent task',
     () async {
       a.code = Completer<String?>();
       final ctrl = container.read(monitorControllerProvider.notifier);
@@ -253,15 +253,36 @@ void main() {
       expect(await ctrl.startAsync(), StartMonitorResult.started);
       await b.entered.future;
       await Future<void>.delayed(Duration.zero);
-      expect(a.puts, 0);
+      expect(a.puts, 1);
       expect(b.puts, 0);
       expect(service.sessions, [2]);
       expect(container.read(monitorControllerProvider).running, isTrue);
+      expect(
+        container.read(accountMonitorControllerProvider(null)).running,
+        isTrue,
+      );
+      ctrl.stop();
+      expect(
+        container.read(accountMonitorControllerProvider(2)).running,
+        isFalse,
+      );
+      expect(
+        container.read(accountMonitorControllerProvider(null)).running,
+        isTrue,
+      );
+      select(null);
+      expect(container.read(monitorControllerProvider).running, isTrue);
+      await ctrl.stopAllAsync();
+      expect(
+        container.read(accountMonitorControllerProvider(null)).running,
+        isFalse,
+      );
     },
   );
 
   test('expired imported session stops only that task', () async {
     final ctrl = container.read(monitorControllerProvider.notifier);
+    await ctrl.startAsync();
     select(2);
     b.expired = true;
     await ctrl.startAsync();
@@ -269,7 +290,44 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(container.read(monitorControllerProvider).running, isFalse);
     expect(container.read(authControllerProvider).isSignedIn, isTrue);
+    expect(
+      container.read(accountMonitorControllerProvider(null)).running,
+      isTrue,
+    );
   });
+
+  test(
+    'both accounts can automatically submit with their own repositories',
+    () async {
+      a.code = Completer<String?>();
+      final ctrl = container.read(monitorControllerProvider.notifier);
+      await ctrl.startAsync();
+      await a.entered.future;
+      select(2);
+      await loaded();
+      ctrl.setAutomaticAnswer(true);
+      ctrl.setAnswerWaitMode(AnswerWaitMode.none);
+      await ctrl.startAsync();
+      await b.entered.future;
+      for (var i = 0; i < 20 && b.puts == 0; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(b.puts, 1);
+      a.code!.complete('1234');
+      for (var i = 0; i < 20 && a.puts == 0; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(a.puts, 1);
+      expect(
+        container.read(accountMonitorControllerProvider(null)).running,
+        isTrue,
+      );
+      expect(
+        container.read(accountMonitorControllerProvider(2)).running,
+        isTrue,
+      );
+    },
+  );
 
   for (final entry in {
     5: 10,
