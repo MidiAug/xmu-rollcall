@@ -1267,21 +1267,24 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
             Expanded(flex: 2, child: _attendance(item, compact: true)),
           ],
         );
-        if (constraints.maxWidth < 520 * scale) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              information,
-              const SizedBox(height: 20),
-              Align(alignment: Alignment.centerRight, child: action),
-            ],
-          );
-        }
-        return Row(
+        final stacked = constraints.maxWidth < 520 * scale;
+        // Keep the same element path when the action moves below the metadata.
+        // Replacing Column with Row remounts the count and restarts its request.
+        return Flex(
+          direction: stacked ? Axis.vertical : Axis.horizontal,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: stacked
+              ? CrossAxisAlignment.stretch
+              : CrossAxisAlignment.center,
           children: [
-            Expanded(child: information),
-            const SizedBox(width: 20),
-            action,
+            Flexible(child: information),
+            SizedBox(width: stacked ? 0 : 20, height: stacked ? 20 : 0),
+            Align(
+              alignment: Alignment.centerRight,
+              widthFactor: 1,
+              heightFactor: 1,
+              child: action,
+            ),
           ],
         );
       },

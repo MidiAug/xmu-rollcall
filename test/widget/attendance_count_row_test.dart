@@ -19,6 +19,7 @@ import 'package:xmu_rollcall/features/rollcall/attendance_count.dart';
 import 'package:xmu_rollcall/features/rollcall/attendance_count_row.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_list_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/session_prior_panel.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
@@ -56,6 +57,102 @@ class _Catalog extends CourseCatalogNotifier {
 }
 
 void main() {
+  for (final completed in [false, true]) {
+    testWidgets(
+      'task card resize retains pending count and refresh cadence completed=$completed',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        tester.view.physicalSize = const Size(1100, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final repo = _Repo()..pending = Completer<AttendanceCount>();
+        final width = ValueNotifier(760.0);
+        addTearDown(width.dispose);
+        final container = ProviderContainer(
+          overrides: [
+            attendanceCountClockProvider.overrideWithValue(
+              tester.binding.clock.now,
+            ),
+            authControllerProvider.overrideWith((ref) => _Auth()),
+            assistControllerProvider.overrideWith(
+              (ref) => AssistController(ref, bootstrap: false),
+            ),
+            rollcallRepositoryForProvider(null).overrideWithValue(repo),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: MaterialApp(
+              theme: AppTheme.light().copyWith(
+                platform: TargetPlatform.windows,
+              ),
+              home: Scaffold(
+                body: Center(
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: width,
+                    builder: (context, value, _) => SizedBox(
+                      width: value,
+                      child: RollcallTaskCard(
+                        item: RollcallItem(
+                          rollcallId: 1,
+                          courseTitle: '测试课程',
+                          createdByName: '老师',
+                          type: RollcallType.number,
+                          status: completed ? 'on_call_fine' : 'on_call',
+                          rollcallStatus: 'on_call',
+                          isExpired: false,
+                          scored: false,
+                          numberCode: '1234',
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 1));
+        expect(repo.calls, 1);
+        final state = tester.state(find.byType(AttendanceCountRow));
+        width.value = 480;
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 1));
+        expect(
+          repo.calls,
+          1,
+          reason: 'reflow must not issue a second in-flight request',
+        );
+        expect(tester.state(find.byType(AttendanceCountRow)), same(state));
+        repo.pending!.complete(const AttendanceCount(30, 40));
+        await tester.pumpAndSettle();
+        expect(find.text('30 / 40 人'), findsOneWidget);
+        for (final value in [760.0, 480.0, 800.0, 500.0]) {
+          width.value = value;
+          await tester.pumpAndSettle();
+          expect(find.text('查询中…'), findsNothing);
+          expect(find.text('30 / 40 人'), findsOneWidget);
+          expect(repo.calls, 1);
+        }
+        repo.pending = null;
+        final interval = container
+            .read(monitorControllerProvider)
+            .config
+            .effectiveAttendanceIntervalSeconds;
+        await tester.pump(Duration(seconds: interval + 1));
+        await tester.pump();
+        expect(repo.calls, completed ? 1 : 2);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
+  }
+
   testWidgets(
     'compact tooltip centers on visible count and pause stays separate',
     (tester) async {
