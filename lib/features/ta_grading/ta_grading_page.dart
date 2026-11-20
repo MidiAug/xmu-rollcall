@@ -1735,50 +1735,51 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
             ),
           ),
           SizedBox(
-            width: 148,
+            width: 108,
             child: heading
                 ? Text('成绩', style: TextStyle(color: p.muted, fontSize: 12))
                 : Padding(
-                    padding: const EdgeInsets.only(right: 8, top: 5, bottom: 5),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TaScoreField(
-                            key: ValueKey('ta-score-${student!.id}'),
-                            name: student.name,
-                            value: _scoreDrafts[student.id] ?? score,
-                            hint: !student.submitted
-                                ? '未提交'
-                                : student.scoreChecked
-                                ? '未评分'
-                                : '—',
-                            enabled:
-                                !blocked &&
-                                _detail?.canGrade == true &&
-                                student.submitted,
-                            saving: _savingStudent == student.id,
-                            readOnlyReason: !student.submitted
-                                ? '未提交'
-                                : _detail == null
-                                ? '正在核对评分权限'
-                                : !_detail!.canGrade
-                                ? '本作业只读'
-                                : null,
-                            onChanged: (v) => _scoreDrafts[student.id] = v,
-                            onSubmitted: (v) => _saveInline(student, v),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        AppIconButton(
-                          key: ValueKey('ta-score-history-${student.id}'),
-                          tooltip: '查看评分记录',
-                          extent: 32,
-                          icon: const Icon(AppIcons.history, size: 16),
-                          onPressed: _savingStudent != null || _batch.running
-                              ? null
-                              : () => _openScoreHistory(student),
-                        ),
-                      ],
+                    padding: const EdgeInsets.only(right: 4, top: 5, bottom: 5),
+                    child: TaScoreField(
+                      key: ValueKey('ta-score-${student!.id}'),
+                      name: student.name,
+                      value: _scoreDrafts[student.id] ?? score,
+                      hint: !student.submitted
+                          ? '未提交'
+                          : student.scoreChecked
+                          ? '未评分'
+                          : '—',
+                      enabled:
+                          !blocked &&
+                          _detail?.canGrade == true &&
+                          student.submitted,
+                      saving: _savingStudent == student.id,
+                      readOnlyReason: !student.submitted
+                          ? '未提交'
+                          : _detail == null
+                          ? '正在核对评分权限'
+                          : !_detail!.canGrade
+                          ? '本作业只读'
+                          : null,
+                      onChanged: (v) => _scoreDrafts[student.id] = v,
+                      onSubmitted: (v) => _saveInline(student, v),
+                    ),
+                  ),
+          ),
+          SizedBox(
+            width: 40,
+            child: heading
+                ? Text('操作', style: TextStyle(color: p.muted, fontSize: 12))
+                : Align(
+                    alignment: Alignment.centerLeft,
+                    child: AppIconButton(
+                      key: ValueKey('ta-score-history-${student!.id}'),
+                      tooltip: '查看评分记录',
+                      extent: 32,
+                      icon: const Icon(AppIcons.history, size: 18),
+                      onPressed: _savingStudent != null || _batch.running
+                          ? null
+                          : () => _openScoreHistory(student),
                     ),
                   ),
           ),

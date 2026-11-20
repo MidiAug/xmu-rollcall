@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import 'package:flutter/material.dart' show Icons;
 
-/// One Cupertino symbol family for navigation, controls and task states.
+/// Shared semantic symbols, primarily from the Cupertino family.
 /// Filled service symbols keep the directory legible at small display sizes.
 abstract final class AppIcons {
   static const serviceMap = CupertinoIcons.map_fill;
@@ -57,7 +58,7 @@ abstract final class AppIcons {
   static const location = CupertinoIcons.location;
   static const check = CupertinoIcons.checkmark;
   static const checkCircle = CupertinoIcons.checkmark_circle;
-  static const history = CupertinoIcons.arrow_counterclockwise;
+  static const history = Icons.history_rounded;
   static const todoDocument = CupertinoIcons.doc_text_fill;
   static const document = CupertinoIcons.doc_text;
   static const play = CupertinoIcons.play_fill;

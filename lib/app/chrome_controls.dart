@@ -197,29 +197,36 @@ class AppHoverSurface extends StatelessWidget {
 
 /// Draw inside the row, clear of its parent group's clip and dividers.
 class _AppFocusOutline extends StatelessWidget {
-  const _AppFocusOutline({required this.focused, required this.child});
+  const _AppFocusOutline({
+    required this.focused,
+    required this.child,
+    this.inset = 4.5,
+    this.radius = AppRadii.control,
+  });
   final bool focused;
   final Widget child;
+  final double inset, radius;
 
   @override
   Widget build(BuildContext context) => CustomPaint(
     foregroundPainter: focused
-        ? _AppFocusOutlinePainter(AppPalette.of(context).focus)
+        ? _AppFocusOutlinePainter(AppPalette.of(context).focus, inset, radius)
         : null,
     child: child,
   );
 }
 
 class _AppFocusOutlinePainter extends CustomPainter {
-  const _AppFocusOutlinePainter(this.color);
+  const _AppFocusOutlinePainter(this.color, this.inset, this.radius);
   final Color color;
+  final double inset, radius;
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        (Offset.zero & size).deflate(4.5),
-        const Radius.circular(AppRadii.control),
+        (Offset.zero & size).deflate(inset),
+        Radius.circular(radius),
       ),
       Paint()
         ..color = color
@@ -230,7 +237,9 @@ class _AppFocusOutlinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_AppFocusOutlinePainter oldDelegate) =>
-      oldDelegate.color != color;
+      oldDelegate.color != color ||
+      oldDelegate.inset != inset ||
+      oldDelegate.radius != radius;
 }
 
 /// Owns input only. Each surface decides how its states should be painted.

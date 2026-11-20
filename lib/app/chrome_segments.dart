@@ -293,9 +293,7 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
         ),
         foregroundDecoration: widget.compact
             ? BoxDecoration(
-                border: Border.all(
-                  color: highContrast ? p.muted : p.border,
-                ),
+                border: Border.all(color: highContrast ? p.muted : p.border),
                 borderRadius: BorderRadius.circular(AppRadii.input),
               )
             : null,
@@ -438,45 +436,50 @@ class _SegmentButton extends StatelessWidget {
           selected: selected,
           enabled: enabled,
           inMutuallyExclusiveGroup: true,
-          child: ClipRRect(
-            borderRadius: radius,
-            child: AnimatedContainer(
-              duration: MediaQuery.disableAnimationsOf(context)
-                  ? Duration.zero
-                  : AppMotion.instant,
-              curve: AppMotion.instantCurve,
-              constraints: BoxConstraints(minHeight: compact ? 32 : 36),
-              padding: EdgeInsets.symmetric(
-                horizontal: compact ? 6 : 8,
-                vertical: compact ? 2 : 4,
-              ),
-              decoration: BoxDecoration(
-                color: overlayBase.withValues(alpha: overlayAlpha),
-                borderRadius: radius,
-                border: Border.all(
-                  color: focused ? p.focus : AppPalette.clearOf(p.focus),
+          child: _AppFocusOutline(
+            focused: focused,
+            inset: 2.5,
+            radius: compact ? AppRadii.input - 4 : AppRadii.input - 5,
+            child: ClipRRect(
+              borderRadius: radius,
+              child: AnimatedContainer(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : AppMotion.instant,
+                curve: AppMotion.instantCurve,
+                constraints: BoxConstraints(minHeight: compact ? 32 : 36),
+                padding: EdgeInsets.symmetric(
+                  horizontal: compact ? 6 : 8,
+                  vertical: compact ? 2 : 4,
                 ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (icon != null) ...[
-                    Icon(icon, size: 18, color: foreground),
-                    const SizedBox(width: 6),
-                  ],
-                  Flexible(
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: foreground,
-                        fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                decoration: BoxDecoration(
+                  color: overlayBase.withValues(alpha: overlayAlpha),
+                  borderRadius: radius,
+                  border: Border.all(color: AppPalette.clearOf(p.focus)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, size: 18, color: foreground),
+                      const SizedBox(width: 6),
+                    ],
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                          color: foreground,
+                          fontWeight: selected
+                              ? FontWeight.w600
+                              : FontWeight.w500,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

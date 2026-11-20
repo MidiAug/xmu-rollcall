@@ -418,6 +418,20 @@ void main() {
                     ],
             })
           : null;
+      expect(find.text('操作'), findsOneWidget);
+      final historyAction = find.byKey(const ValueKey('ta-score-history-1'));
+      expect(
+        find.descendant(
+          of: historyAction,
+          matching: find.byIcon(AppIcons.history),
+        ),
+        findsOneWidget,
+      );
+      expect(AppIcons.history, isNot(AppIcons.refresh));
+      expect(
+        tester.getRect(find.text('操作')).left,
+        closeTo(tester.getRect(historyAction).left, 1),
+      );
       await tester.tap(find.byKey(const ValueKey('ta-score-history-1')));
       await tester.pumpAndSettle();
       expect(find.text('评分记录'), findsOneWidget);

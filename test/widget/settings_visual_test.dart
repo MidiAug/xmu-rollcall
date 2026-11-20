@@ -690,6 +690,105 @@ void main() {
     },
   );
 
+  for (final dark in [false, true]) {
+    testWidgets(
+      'production appearance segments show complete keyboard rings dark=$dark',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({
+          'theme_preference':
+              (dark ? ThemePreference.dark : ThemePreference.light).index,
+        });
+        tester.view.physicalSize = const Size(960, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final key = GlobalKey();
+        await tester.pumpWidget(
+          RepaintBoundary(
+            key: key,
+            child: _app(platform: TargetPlatform.windows),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final initialRender =
+            key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+        final baseline = (await tester.runAsync(() async {
+          final image = await initialRender.toImage();
+          try {
+            return (await image.toByteData(
+              format: ui.ImageByteFormat.rawRgba,
+            ))!.buffer.asUint8List();
+          } finally {
+            image.dispose();
+          }
+        }))!;
+        for (final preference in ThemePreference.values) {
+          final segment = find.byKey(ValueKey(preference));
+          final node = tester
+              .widget<FocusableActionDetector>(
+                find.descendant(
+                  of: segment,
+                  matching: find.byType(FocusableActionDetector),
+                ),
+              )
+              .focusNode!;
+          for (var i = 0; i < 30 && !node.hasFocus; i++) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+            await tester.pumpAndSettle();
+          }
+          expect(node.hasFocus, isTrue);
+          final rect = tester.getRect(segment);
+          final render =
+              key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+          final offset = render.globalToLocal(rect.topLeft);
+          await tester.runAsync(() async {
+            final image = await render.toImage();
+            try {
+              final rgba = (await image.toByteData(
+                format: ui.ImageByteFormat.rawRgba,
+              ))!.buffer.asUint8List();
+              for (final point in [
+                Offset(2, rect.height / 2),
+                Offset(rect.width - 3, rect.height / 2),
+                Offset(rect.width / 2, 2),
+                Offset(rect.width / 2, rect.height - 3),
+              ]) {
+                final spot = offset + point;
+                final index =
+                    (spot.dy.floor() * image.width + spot.dx.floor()) * 4;
+                expect(
+                  Color.fromARGB(
+                    rgba[index + 3],
+                    rgba[index],
+                    rgba[index + 1],
+                    rgba[index + 2],
+                  ),
+                  isNot(
+                    Color.fromARGB(
+                      baseline[index + 3],
+                      baseline[index],
+                      baseline[index + 1],
+                      baseline[index + 2],
+                    ),
+                  ),
+                  reason: '$preference must paint a full edge at $point',
+                );
+              }
+            } finally {
+              image.dispose();
+            }
+          });
+          await capture(
+            tester,
+            key,
+            'appearance-focus-${preference.name}-$dark',
+          );
+        }
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
+  }
   for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
     testWidgets(
       'appearance choices support pointer, keyboard and persistence on $platform',
