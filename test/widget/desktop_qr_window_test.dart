@@ -119,7 +119,7 @@ void main() {
       'courseId': course,
     });
     var completed = false;
-    pending.then((_) => completed = true);
+    unawaited(pending.then((_) => completed = true));
     for (var i = 0; i < 10 && !completed; i++) {
       await tester.pump(const Duration(milliseconds: 16));
     }

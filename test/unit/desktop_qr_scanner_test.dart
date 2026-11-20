@@ -84,7 +84,7 @@ void main() {
       await started.future;
       await expectLater(DesktopQrScanner.open(preview: true), throwsStateError);
       var completed = false;
-      reopened.then((_) => completed = true);
+      unawaited(reopened.then((_) => completed = true));
       // A late result from the canceled session must not close the new one.
       await fromChild('qr_complete', {
         'sessionId': session! - 1,

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:xmu_rollcall/core/identity/device_identity.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'dart:convert';
@@ -372,7 +373,7 @@ class AssistService {
       await work;
     } finally {
       if (identical(_sessionChecks[identity.userId], work)) {
-        _sessionChecks.remove(identity.userId);
+        unawaited(_sessionChecks.remove(identity.userId));
       }
     }
   }

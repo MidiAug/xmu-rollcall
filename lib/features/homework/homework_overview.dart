@@ -74,9 +74,11 @@ class HomeworkOverviewNotifier
       revision: revision,
       cacheOnly: true,
     );
-    Future<void>(() async {
-      if (_revision == revision) await ensureFresh();
-    });
+    unawaited(
+      Future<void>(() async {
+        if (_revision == revision) await ensureFresh();
+      }),
+    );
     return cached;
   }
 
@@ -368,10 +370,12 @@ final homeworkSubmissionProvider = FutureProvider.autoDispose
       if (cached == null) return refresh();
       // Restore the last known status before waiting for the network. The
       // deferred response may update only this still-mounted account scope.
-      Future<void>(() async {
-        if (!isCurrent()) return;
-        final result = await refresh();
-        if (isCurrent()) ref.state = AsyncData(result);
-      });
+      unawaited(
+        Future<void>(() async {
+          if (!isCurrent()) return;
+          final result = await refresh();
+          if (isCurrent()) ref.state = AsyncData(result);
+        }),
+      );
       return cached;
     });

@@ -783,26 +783,32 @@ void main() {
             width < 600;
         final button = find.ancestor(
           of: find.text('开始检测'),
-          matching: find.byType(android ? OutlinedButton : AppQuietPill),
+          matching: find.byType(android ? OutlinedButton : AppButton),
         );
         expect(
           android
               ? tester.widget<OutlinedButton>(button).onPressed
-              : tester.widget<AppQuietPill>(button).onTap,
+              : tester.widget<AppButton>(button).onPressed,
           scenario.allowed ? isNotNull : isNull,
         );
-        if (scenario.allowed) {
-          expect(
-            tester.widget<Text>(find.text('开始检测')).style!.color,
-            AppPalette.of(tester.element(button)).ink,
-          );
-        }
+        final label = tester.widget<RichText>(
+          find.descendant(
+            of: find.text('开始检测'),
+            matching: find.byType(RichText),
+          ),
+        );
+        expect(
+          label.text.style!.color,
+          scenario.allowed
+              ? AppPalette.of(tester.element(button)).ink
+              : android
+              ? AppPalette.of(tester.element(button)).muted
+              : Theme.of(tester.element(button))
+                    .colorScheme
+                    .onSurface
+                    .withAlpha((255 * .38).round()),
+        );
         if (!scenario.allowed) {
-          final label = tester.widget<Text>(find.text('开始检测'));
-          expect(
-            label.style!.color,
-            AppPalette.of(tester.element(button)).muted,
-          );
           final mouse = await tester.createGesture(
             kind: PointerDeviceKind.mouse,
           );
@@ -846,13 +852,13 @@ void main() {
     final settings = container.read(detectionWindowProvider.notifier);
     await settings.save(const DetectionWindow(enabled: true));
     await tester.pumpAndSettle();
-    AppQuietPill button() => tester.widget<AppQuietPill>(
-      find.ancestor(of: find.text('开始检测'), matching: find.byType(AppQuietPill)),
+    AppButton button() => tester.widget<AppButton>(
+      find.ancestor(of: find.text('开始检测'), matching: find.byType(AppButton)),
     );
-    expect(button().onTap, isNull);
+    expect(button().onPressed, isNull);
     now = DateTime(2026, 10, 24, 7, 30);
     await tester.pump(const Duration(seconds: 1));
-    expect(button().onTap, isNotNull);
+    expect(button().onPressed, isNotNull);
     now = DateTime(2026, 10, 24, 22);
     // An already-rendered callback must also reject a click over the boundary.
     await tester.tap(find.text('开始检测'));
@@ -863,10 +869,10 @@ void main() {
       0,
     );
     await tester.pump(const Duration(seconds: 1));
-    expect(button().onTap, isNull);
+    expect(button().onPressed, isNull);
     await settings.save(const DetectionWindow());
     await tester.pumpAndSettle();
-    expect(button().onTap, isNotNull);
+    expect(button().onPressed, isNotNull);
     await tester.tap(find.text('开始检测'));
     await tester.pumpAndSettle();
     expect(
@@ -973,16 +979,13 @@ void main() {
       final c = ProviderScope.containerOf(
         tester.element(find.byType(RollcallHubPage)),
       );
-      AppQuietPill button() => tester.widget<AppQuietPill>(
-        find.ancestor(
-          of: find.text('开始检测'),
-          matching: find.byType(AppQuietPill),
-        ),
+      AppButton button() => tester.widget<AppButton>(
+        find.ancestor(of: find.text('开始检测'), matching: find.byType(AppButton)),
       );
-      expect(button().onTap, isNotNull);
+      expect(button().onPressed, isNotNull);
       c.read(selectedRollcallAccountProvider.notifier).state = 2;
       await tester.pumpAndSettle();
-      expect(button().onTap, isNull);
+      expect(button().onPressed, isNull);
       expect(find.text('今日无课'), findsWidgets);
       await tester.pumpWidget(const SizedBox());
     },

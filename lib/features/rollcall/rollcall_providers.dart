@@ -129,9 +129,11 @@ class ActiveRollcallsNotifier
     _lastAppearCheckAt = now;
     if (cached.isNotEmpty) {
       lastUpdatedAt = disk!.fetchedAt;
-      Future<void>(() async {
-        if (revision == _revision) await refresh(manual: false);
-      });
+      unawaited(
+        Future<void>(() async {
+          if (revision == _revision) await refresh(manual: false);
+        }),
+      );
       return _retainNumberCodes(cached);
     }
     final token = _requestToken = CancelToken();

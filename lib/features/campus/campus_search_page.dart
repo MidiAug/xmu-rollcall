@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'campus_search_index.dart';
 import 'package:flutter/material.dart';
@@ -43,9 +44,11 @@ class _CampusSearchPageState extends ConsumerState<CampusSearchPage> {
         if (mounted) AppToast.show(context, '无法打开官方页面');
       }
     } else if (entry.page != null) {
-      AppPageRoutes.push(
-        context,
-        help ? _FeatureHelpPage(entry: entry) : entry.page!(context),
+      unawaited(
+        AppPageRoutes.push(
+          context,
+          help ? _FeatureHelpPage(entry: entry) : entry.page!(context),
+        ),
       );
     }
   }

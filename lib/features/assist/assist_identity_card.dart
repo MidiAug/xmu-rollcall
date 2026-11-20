@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
@@ -61,7 +62,9 @@ class _AssistIdentityCardState extends ConsumerState<AssistIdentityCard> {
       if (ShellTabScope.maybeOf(context) != null) {
         ShellNavigation.instance.openRollcall();
       } else {
-        AppPageRoutes.push(context, const Scaffold(body: RollcallHubPage()));
+        unawaited(
+          AppPageRoutes.push(context, const Scaffold(body: RollcallHubPage())),
+        );
       }
     } catch (error) {
       if (mounted && identity.userId == target.userId) {

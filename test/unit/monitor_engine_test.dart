@@ -36,7 +36,7 @@ void main() {
         courseMeetingBlocks(slots).single,
         slots,
       );
-      var clock = at(9, 44);
+      var clock = DateTime(2026, 10, 30, 9, 42, 29);
       var requests = 0;
       final updates = <MonitorEngineUpdate>[];
       engine = MonitorEngine(
@@ -54,19 +54,25 @@ void main() {
         notify: (_) async => true,
         onUpdate: updates.add,
       );
+      addTearDown(engine.stop);
       engine.start();
       await engine.pollNow();
       expect(requests, 0);
-      expect(updates.last.nextPollAt, at(9, 45));
-      for (final time in [at(9, 45), at(9, 59), at(10, 14)]) {
+      expect(updates.last.nextPollAt, DateTime(2026, 10, 30, 9, 42, 30));
+      // The break window includes the existing 150-second lead and tail.
+      for (final time in [
+        DateTime(2026, 10, 30, 9, 42, 30),
+        at(9, 59),
+        DateTime(2026, 10, 30, 10, 17, 29),
+      ]) {
         clock = time;
         await engine.pollNow();
       }
       expect(requests, 3);
-      clock = at(10, 15);
+      clock = DateTime(2026, 10, 30, 10, 17, 30);
       await engine.pollNow();
       expect(requests, 3);
-      expect(updates.last.nextPollAt, at(11, 0));
+      expect(updates.last.nextPollAt, at(10, 55));
       engine.stop();
     },
   );

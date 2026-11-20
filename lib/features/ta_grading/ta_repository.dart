@@ -136,7 +136,7 @@ class TaGradingRepository {
         _assignmentCache[courseId] = cached;
       }
     } finally {
-      _diskReads.remove(courseId);
+      unawaited(_diskReads.remove(courseId));
     }
   }
 
@@ -185,7 +185,7 @@ class TaGradingRepository {
       _staleCourses.remove(courseId);
       return items;
     } finally {
-      _assignmentRequests.remove(courseId);
+      unawaited(_assignmentRequests.remove(courseId));
     }
   }
 
