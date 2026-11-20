@@ -325,7 +325,7 @@ void main() {
         expect(start.overlaps(end), isFalse);
         expect(end.right, lessThanOrEqualTo(width - 16));
         if (width == 320) expect(end.top, greaterThan(start.bottom));
-        expect(find.text('当前第 9 周'), findsOneWidget);
+        expect(find.text('第 9 教学周'), findsOneWidget);
         final range = tester.getRect(
           find.byKey(const ValueKey('calendar-range')),
         );
@@ -340,13 +340,13 @@ void main() {
         );
         expect(year.left, greaterThanOrEqualTo(range.left));
         expect(term.right, lessThanOrEqualTo(range.right));
-        expect(grid.top, greaterThan(range.bottom));
+        expect(grid.top, lessThan(range.top));
         expect(
           find.ancestor(
             of: find.byKey(const ValueKey('calendar-term')),
             matching: find.byType(Panel),
           ),
-          findsNothing,
+          findsOneWidget,
         );
         if (width == 1104) {
           expect((year.center.dy - term.center.dy).abs(), lessThan(1));
@@ -562,7 +562,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       if (date.year == 2026) {
-        expect(find.text('当前第 9 周'), findsOneWidget);
+        expect(find.text('第 9 教学周'), findsOneWidget);
         await tester.tap(find.byType(AppShellSelect<int>));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('shell-select-option-1')));

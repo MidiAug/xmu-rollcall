@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -43,12 +42,10 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
         package: widget.package == null ? null : () => widget.package!,
         target: widget.target,
       );
-  UpdateService get _service => _controller.service;
   late final UpdateInstaller _installer =
       widget.installer ?? AppUpdateInstaller();
   UpdateTarget? get _target => _controller.target;
   _UpdatePhase _phase = _UpdatePhase.available;
-  CancelToken _cancel = CancelToken();
   ReleaseUpdate? _downloadUpdate;
   ReleaseUpdate? get _update => _downloadUpdate ?? _controller.update;
   File? _file;
@@ -70,7 +67,9 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
   @override
   void initState() {
     super.initState();
+    _controller.visibleUpdatePages++;
     _controller.addListener(_refresh);
+    _syncDownload();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _controller.check();
     });
@@ -78,14 +77,41 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
 
   @override
   void dispose() {
-    _cancel.cancel();
+    _controller.visibleUpdatePages--;
     _controller.removeListener(_refresh);
     if (widget.controller == null) _controller.dispose();
     super.dispose();
   }
 
   void _refresh() {
-    if (mounted) setState(() {});
+    if (mounted) setState(_syncDownload);
+  }
+
+  void _syncDownload() {
+    if (_phase == _UpdatePhase.installing) return;
+    if (_controller.downloadStatus == UpdateDownloadStatus.downloading) {
+      _phase = _UpdatePhase.downloading;
+      _downloadUpdate = _controller.downloadedUpdate;
+      _downloadClock = _controller.downloadClock;
+      _received = _controller.receivedBytes;
+      _total = _controller.totalBytes;
+      _progress = _total > 0 ? _received / _total : null;
+      _message = _received == _total
+          ? '正在校验安装包…'
+          : '正在下载 ${(_received / _total * 100).floor()}%';
+    } else if (_controller.downloadedFile != null) {
+      _downloadUpdate = _controller.downloadedUpdate;
+      _file = _controller.downloadedFile;
+      _phase = _UpdatePhase.ready;
+      _message = '下载完成，安装包校验通过';
+    } else if (_phase == _UpdatePhase.downloading &&
+        _controller.downloadStatus == UpdateDownloadStatus.idle) {
+      _phase = _UpdatePhase.available;
+      _message = '下载已取消，可重新下载';
+    } else if (_controller.downloadStatus == UpdateDownloadStatus.failed) {
+      _phase = _UpdatePhase.failed;
+      _message = _controller.downloadError ?? '下载失败，可重新下载';
+    }
   }
 
   void _fail(Object error, {bool installing = false}) {
@@ -134,7 +160,6 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
   Future<void> _runDownload() async {
     final update = _update;
     if (_busy || update == null) return;
-    _cancel = CancelToken();
     setState(() {
       _downloadUpdate = update;
       _phase = _UpdatePhase.downloading;
@@ -145,18 +170,8 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
       _message = '正在下载安装包…';
     });
     try {
-      final file = await _service.download(update, _cancel, (received, total) {
-        if (!mounted) return;
-        setState(() {
-          _received = received;
-          _total = total;
-          _progress = received / total;
-          _message = received == total
-              ? '正在校验安装包…'
-              : '正在下载 ${(received / total * 100).floor()}%';
-        });
-      });
-      if (!mounted) return;
+      final file = await _controller.download();
+      if (!mounted || file == null) return;
       setState(() {
         _file = file;
         _phase = _UpdatePhase.ready;
@@ -164,7 +179,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
       });
     } catch (error) {
       if (!mounted) return;
-      if (_cancel.isCancelled) {
+      if (_controller.downloadStatus == UpdateDownloadStatus.idle) {
         setState(() {
           _phase = _UpdatePhase.available;
           _message = '下载已取消，可重新下载';
@@ -193,12 +208,8 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
       _phase = _UpdatePhase.installing;
       _message = '正在打开安装器…';
     });
-    var verified = false;
     try {
-      await _service.verify(_file!, _update!);
-      verified = true;
-      if (!mounted) return;
-      final result = await _installer.install(_file!, _target!);
+      final result = await _controller.installReady(_installer);
       if (!mounted) return;
       setState(() {
         _phase = _UpdatePhase.ready;
@@ -207,8 +218,8 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
             : '已打开系统安装器，请按系统提示完成安装';
       });
     } catch (error) {
-      if (!verified) _file = null;
-      _fail(error, installing: verified);
+      if (_controller.downloadedFile == null) _file = null;
+      _fail(error, installing: _file != null);
     }
   }
 
@@ -253,7 +264,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
 
   Future<void> _downloadRouteChanged() async {
     if (_phase != _UpdatePhase.downloading) return;
-    _cancel.cancel('切换下载线路');
+    await _controller.cancelDownload();
     await _downloadTask;
     if (mounted) unawaited(_download());
   }
@@ -294,7 +305,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
       _UpdatePhase.downloading => (
         '取消下载',
         Icons.close_rounded,
-        () => _cancel.cancel(),
+        () => _controller.cancelDownload(),
       ),
       _UpdatePhase.ready => (
         _target == UpdateTarget.windows ? '退出并安装' : '安装更新',

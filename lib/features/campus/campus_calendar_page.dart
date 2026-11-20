@@ -76,55 +76,6 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
                   32,
                 ),
             children: [
-              LayoutBuilder(
-                builder: (context, bounds) => Wrap(
-                  key: const ValueKey('calendar-range'),
-                  spacing: AppSpace.md,
-                  runSpacing: AppSpace.sm,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    AppShellSelect<int>(
-                      key: const ValueKey('calendar-year'),
-                      semanticLabel: '选择学年',
-                      value: _year,
-                      items: _years.reversed.toList(),
-                      labelOf: (v) => '$v—${v + 1}学年',
-                      width: (210 * MediaQuery.textScalerOf(context).scale(1))
-                          .clamp(0.0, bounds.maxWidth),
-                      menuWidth: 220,
-                      onChanged: (v) => setState(() {
-                        _year = v;
-                        _termCode = _initialTerm.term;
-                        _month = _initialMonth(_term);
-                      }),
-                    ),
-                    SizedBox(
-                      width: bounds.maxWidth.clamp(0.0, 360.0),
-                      child: AppSegmentedControl<String>(
-                        key: const ValueKey('calendar-term'),
-                        expanded: true,
-                        value: _termCode,
-                        segments: [
-                          for (final t in _terms)
-                            AppSegment(
-                              value: t.term,
-                              label: switch (t.term[4]) {
-                                '1' => '秋季',
-                                '2' => '春季',
-                                _ => '短学期',
-                              },
-                            ),
-                        ],
-                        onChanged: _selectTerm,
-                      ),
-                    ),
-                    if (active)
-                      AppStatusBadge(
-                        '当前第 ${_today.difference(_term.monday).inDays ~/ 7 + 1} 周',
-                      ),
-                  ],
-                ),
-              ),
               if (!_years.contains(_requestedYear)) ...[
                 const SizedBox(height: 12),
                 Text('当前学年校历尚未维护，显示已收录学年。', style: TextStyle(color: p.muted)),
@@ -138,6 +89,69 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    LayoutBuilder(
+                      builder: (context, bounds) => Wrap(
+                        key: const ValueKey('calendar-range'),
+                        spacing: AppSpace.md,
+                        runSpacing: AppSpace.sm,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          AppShellSelect<int>(
+                            plain: true,
+                            compact: true,
+                            key: const ValueKey('calendar-year'),
+                            semanticLabel: '选择学年',
+                            value: _year,
+                            items: _years.reversed.toList(),
+                            labelOf: (v) => '$v—${v + 1}学年',
+                            width:
+                                (188 *
+                                        MediaQuery.textScalerOf(
+                                          context,
+                                        ).scale(1))
+                                    .clamp(0.0, bounds.maxWidth),
+                            menuWidth: 220,
+                            onChanged: (v) => setState(() {
+                              _year = v;
+                              _termCode = _initialTerm.term;
+                              _month = _initialMonth(_term);
+                            }),
+                          ),
+                          SizedBox(
+                            width: bounds.maxWidth.clamp(0.0, 288.0),
+                            child: AppSegmentedControl<String>(
+                              key: const ValueKey('calendar-term'),
+                              compact: true,
+                              expanded: true,
+                              value: _termCode,
+                              segments: [
+                                for (final t in _terms)
+                                  AppSegment(
+                                    value: t.term,
+                                    label: switch (t.term[4]) {
+                                      '1' => '秋季',
+                                      '2' => '春季',
+                                      _ => '短学期',
+                                    },
+                                  ),
+                              ],
+                              onChanged: _selectTerm,
+                            ),
+                          ),
+                          if (active)
+                            Text(
+                              '第 ${_today.difference(_term.monday).inDays ~/ 7 + 1} 教学周',
+                              style: AppTypography.body.copyWith(
+                                color: p.dataAccent,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Divider(height: 1, color: p.border),
+                    const SizedBox(height: 20),
                     Row(
                       children: [
                         Expanded(
@@ -369,15 +383,33 @@ class _TeachingMonth extends StatelessWidget {
                 child: Text(
                   label,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: p.muted, fontSize: 12),
+                  style: TextStyle(
+                    color: ['六', '日'].contains(label) ? p.dataAccent : p.muted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
           ],
         ),
         const SizedBox(height: 10),
         for (var row = 0; row < rows; row++)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5),
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 3),
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            decoration: BoxDecoration(
+              color:
+                  DateUtils.dateOnly(
+                        today,
+                      ).isBefore(DateUtils.addDaysToDate(first, row * 7)) ||
+                      !DateUtils.dateOnly(today).isBefore(
+                        DateUtils.addDaysToDate(first, (row + 1) * 7),
+                      ) ||
+                      today.month != month.month
+                  ? null
+                  : p.dataAccent.withValues(alpha: p.isDark ? .10 : .055),
+              borderRadius: BorderRadius.circular(AppRadii.control),
+            ),
             child: Row(
               children: [
                 SizedBox(
@@ -431,8 +463,14 @@ class _TeachingMonth extends StatelessWidget {
                               width: 38,
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
-                                color: isToday ? p.dataAccent : null,
-                                shape: BoxShape.circle,
+                                color: isToday
+                                    ? p.dataAccent
+                                    : day.weekday >= 6
+                                    ? p.content
+                                    : null,
+                                borderRadius: BorderRadius.circular(
+                                  AppRadii.control,
+                                ),
                               ),
                               child: Text(
                                 '${day.day}',

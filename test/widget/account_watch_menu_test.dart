@@ -30,6 +30,41 @@ class _Auth extends AuthController {
 }
 
 void main() {
+  testWidgets(
+    'single owner sidebar is a static identity without a disclosure',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: RollcallAccountMenu(
+              value: 0,
+              identities: const [],
+              ownerName: '主账号',
+              sidebar: true,
+              watchingAccounts: const {0},
+              onChanged: (_) => fail('no alternate identity'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byIcon(AppIcons.down), findsNothing);
+      expect(find.byIcon(AppIcons.guard), findsOneWidget);
+      expect(
+        tester.widget<TextButton>(find.byType(TextButton)).onPressed,
+        isNull,
+      );
+      expect(
+        tester.widget<TextButton>(find.byType(TextButton)).focusNode,
+        isNotNull,
+      );
+      await tester.tap(find.text('主账号').first);
+      await tester.pumpAndSettle();
+      expect(find.text('切换签到账号'), findsNothing);
+    },
+  );
+
   setUpAll(loadDesktopPreviewFonts);
   for (final dark in [false, true]) {
     testWidgets(

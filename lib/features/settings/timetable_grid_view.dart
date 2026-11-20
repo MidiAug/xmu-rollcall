@@ -265,7 +265,10 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
                           : null,
                     ),
                     child: Center(
-                      child: Column(
+                      child: Flex(
+                        direction: dayW >= 116 * scale
+                            ? Axis.horizontal
+                            : Axis.vertical,
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
@@ -279,7 +282,10 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
                             ),
                           ),
                           if (widget.showDates) ...[
-                            const SizedBox(height: AppSpace.xxs),
+                            SizedBox(
+                              width: dayW >= 116 * scale ? 8 : 0,
+                              height: dayW >= 116 * scale ? 0 : AppSpace.xxs,
+                            ),
                             Text(
                               '${dateOf(day).month}/${dateOf(day).day}',
                               key: ValueKey('timetable-date-$day'),

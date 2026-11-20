@@ -147,6 +147,7 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                   SettingsRow(
                     title: '何时签到',
                     trailing: AppShellSelect<AnswerWaitMode>(
+                      plain: true,
                       semanticLabel: '何时签到',
                       value: c.answerWaitMode,
                       items: AnswerWaitMode.values,
@@ -331,7 +332,7 @@ class _NumberControl extends StatelessWidget {
         height: target,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: p.content,
+            color: p.controlSurface,
             borderRadius: BorderRadius.circular(AppRadii.control),
             border: Border.all(color: p.border),
           ),

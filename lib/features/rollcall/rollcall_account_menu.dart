@@ -43,7 +43,7 @@ class RollcallAccountMenu extends StatelessWidget {
               watching: watchingAccounts.contains(value),
               open: open,
               focusNode: focus,
-              onPressed: toggle,
+              onPressed: identities.isEmpty ? null : toggle,
             )
           : masthead && Theme.of(context).platform == TargetPlatform.android
           ? (context, open, toggle, focus) {
@@ -244,14 +244,16 @@ class _SidebarAccountTrigger extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 6),
-          AnimatedRotation(
-            turns: open ? .5 : 0,
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : AppMotion.fast,
-            child: Icon(AppIcons.down, size: 12, color: p.muted),
-          ),
+          if (onPressed != null) ...[
+            const SizedBox(width: 6),
+            AnimatedRotation(
+              turns: open ? .5 : 0,
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : AppMotion.fast,
+              child: Icon(AppIcons.down, size: 12, color: p.muted),
+            ),
+          ],
         ],
       ),
     );

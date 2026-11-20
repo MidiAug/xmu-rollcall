@@ -4,14 +4,17 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:xmu_rollcall/platform/app_update_installer.dart';
 import 'package:xmu_rollcall/features/update/app_release.dart';
 import 'package:xmu_rollcall/features/update/github_update_service.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 
+enum UpdateDownloadStatus { idle, downloading, ready, failed }
+
 enum UpdateCheckStatus { idle, checking, current, available, failed }
 
 final appUpdateControllerProvider = ChangeNotifierProvider<AppUpdateController>(
-  (ref) => AppUpdateController(),
+  (ref) => AppUpdateController(automaticDownload: Platform.isWindows),
 );
 
 /// One app-scoped check supplies both the About page and its menu badge.
@@ -21,6 +24,7 @@ class AppUpdateController extends ChangeNotifier {
     Future<PackageInfo> Function()? package,
     UpdateTarget? target,
     DateTime Function()? now,
+    this.automaticDownload = false,
     this.checkTimeout = const Duration(seconds: 25),
   }) : service = service ?? GithubUpdateService(),
        _package = package ?? PackageInfo.fromPlatform,
@@ -46,8 +50,111 @@ class AppUpdateController extends ChangeNotifier {
   Future<void>? _pending;
   bool _disposed = false;
 
+  final bool automaticDownload;
+  UpdateDownloadStatus downloadStatus = UpdateDownloadStatus.idle;
+  File? downloadedFile;
+  ReleaseUpdate? downloadedUpdate;
+  int receivedBytes = 0, totalBytes = 0;
+  String? downloadError;
+  CancelToken? _downloadCancel;
+  Future<File?>? _downloadPending;
+  Stopwatch? downloadClock;
+  bool installing = false;
+  int visibleUpdatePages = 0;
+
+  Future<File?> download() {
+    if (_disposed || update == null) return Future.value();
+    if (_downloadPending != null) return _downloadPending!;
+    if (downloadStatus == UpdateDownloadStatus.ready) {
+      return Future.value(downloadedFile);
+    }
+    return _downloadPending = Future<File?>.microtask(
+      _download,
+    ).whenComplete(() => _downloadPending = null);
+  }
+
+  Future<File?> _download() async {
+    final candidate = update!;
+    final cancel = _downloadCancel = CancelToken();
+    downloadStatus = UpdateDownloadStatus.downloading;
+    downloadedUpdate = candidate;
+    downloadedFile = null;
+    downloadError = null;
+    downloadClock = Stopwatch()..start();
+    receivedBytes = 0;
+    totalBytes = candidate.size;
+    notifyListeners();
+    try {
+      // UpdateService.download returns only after its size/SHA256 checks pass.
+      final file = await service.download(candidate, cancel, (received, total) {
+        if (_disposed || cancel.isCancelled) return;
+        receivedBytes = received;
+        totalBytes = total;
+        notifyListeners();
+      });
+      if (_disposed || cancel.isCancelled) return null;
+      downloadedFile = file;
+      downloadStatus = UpdateDownloadStatus.ready;
+      notifyListeners();
+      return file;
+    } catch (failure) {
+      if (_disposed) return null;
+      downloadStatus = cancel.isCancelled
+          ? UpdateDownloadStatus.idle
+          : UpdateDownloadStatus.failed;
+      downloadError = cancel.isCancelled
+          ? null
+          : failure is UpdateException
+          ? failure.message
+          : '下载失败，可在关于中重试';
+      notifyListeners();
+      rethrow;
+    }
+  }
+
+  Future<void> cancelDownload() async {
+    _downloadCancel?.cancel('取消更新下载');
+    try {
+      await _downloadPending;
+    } catch (_) {
+      /* Cancellation is shown by the caller. */
+    }
+  }
+
+  void discardDownloadedFile() {
+    downloadedFile = null;
+    downloadStatus = UpdateDownloadStatus.idle;
+  }
+
+  Future<InstallLaunch?> installReady(UpdateInstaller installer) async {
+    final file = downloadedFile;
+    final candidate = downloadedUpdate;
+    if (_disposed || installing || file == null || candidate == null) {
+      return null;
+    }
+    installing = true;
+    notifyListeners();
+    var verified = false;
+    try {
+      await service.verify(file, candidate);
+      verified = true;
+      if (!_disposed) return await installer.install(file, candidate.target);
+      return null;
+    } catch (_) {
+      if (!verified) discardDownloadedFile();
+      rethrow;
+    } finally {
+      installing = false;
+      if (!_disposed) notifyListeners();
+    }
+  }
+
   Future<void> check({bool force = false}) {
-    if (_disposed) return Future.value();
+    if (_disposed ||
+        downloadStatus == UpdateDownloadStatus.downloading ||
+        installing) {
+      return Future.value();
+    }
     if (_pending != null) return _pending!;
     final attempted = _lastAttemptAt;
     final interval = error == null
@@ -93,12 +200,21 @@ class AppUpdateController extends ChangeNotifier {
             },
           );
       if (_disposed) return;
+      if (result?.version.full != update?.version.full) {
+        discardDownloadedFile();
+        downloadedUpdate = null;
+      }
       update = result;
       lastCheckedAt = _now();
       error = null;
       status = result == null
           ? UpdateCheckStatus.current
           : UpdateCheckStatus.available;
+      if (automaticDownload &&
+          result != null &&
+          downloadStatus == UpdateDownloadStatus.idle) {
+        unawaited(download().catchError((Object _) => null));
+      }
       AppLog.event(
         'update.ui_check.result',
         opId: opId,
@@ -148,6 +264,7 @@ class AppUpdateController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _downloadCancel?.cancel();
     _attemptCancel?.cancel();
     service.close();
     super.dispose();

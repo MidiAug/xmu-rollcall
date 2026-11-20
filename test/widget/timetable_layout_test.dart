@@ -220,6 +220,16 @@ void main() {
         tester.widget<Text>(find.byKey(ValueKey('timetable-date-$day'))).data,
         '${date.month}/${date.day}',
       );
+      final dateLabel = find.byKey(ValueKey('timetable-date-$day'));
+      final weekday = find.text(weekdayLabel(day));
+      expect(
+        tester.getCenter(dateLabel).dy,
+        closeTo(tester.getCenter(weekday).dy, 2),
+      );
+      expect(
+        tester.getRect(dateLabel).left,
+        greaterThan(tester.getRect(weekday).right),
+      );
       final header = tester.widget<DecoratedBox>(
         find.byKey(ValueKey('timetable-day-$day')),
       );

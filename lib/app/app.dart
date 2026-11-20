@@ -16,6 +16,7 @@ import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/settings/settings_page.dart';
 import 'package:xmu_rollcall/features/update/app_update_controller.dart';
+import 'package:xmu_rollcall/features/update/app_update_foreground_prompt.dart';
 import 'package:xmu_rollcall/platform/android_monitor_shell.dart';
 import 'package:xmu_rollcall/platform/desktop_shell.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
@@ -91,6 +92,11 @@ class _XmuRollcallAppState extends ConsumerState<XmuRollcallApp>
         error: (e, _) => Scaffold(body: Center(child: Text('启动失败：$e'))),
         data: (_) => const _BootstrapAuth(),
       ),
+    );
+
+    app = AppUpdateForegroundPrompt(
+      navigatorKey: _rootNavigatorKey,
+      child: app,
     );
 
     if (PlatformHooks.isDesktop) {
