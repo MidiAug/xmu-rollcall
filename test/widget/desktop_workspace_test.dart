@@ -1,5 +1,6 @@
 import 'package:xmu_rollcall/features/rollcall/attendance_count_row.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_hub_page.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_list_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
 import 'package:xmu_rollcall/features/history/history_page.dart';
@@ -501,7 +502,7 @@ void main() {
         final card = find
             .ancestor(
               of: find.text('6428'),
-              matching: find.byType(AnimatedContainer),
+              matching: find.byType(RollcallTaskCard),
             )
             .first;
         expect(

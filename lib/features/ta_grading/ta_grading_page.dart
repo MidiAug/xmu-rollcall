@@ -249,47 +249,41 @@ class _TaCoursesState extends State<_TaCourses> {
                           for (final c in widget.courses)
                             SizedBox(
                               width: 220,
-                              child: Material(
-                                color: c.id == '$_course'
+                              child: AppHoverSurface(
+                                backgroundColor: c.id == '$_course'
                                     ? p.selected
                                     : p.surface,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  side: BorderSide(color: p.borderStrong),
+                                hoverColor: c.id == '$_course'
+                                    ? p.selected
+                                    : p.cardHover,
+                                pressedColor: c.id == '$_course'
+                                    ? p.selected
+                                    : p.controlPressed,
+                                borderColor: p.borderStrong,
+                                borderRadius: BorderRadius.circular(
+                                  AppRadii.control,
                                 ),
-                                clipBehavior: Clip.antiAlias,
-                                child: InkWell(
-                                  hoverColor: c.id == '$_course'
-                                      ? Colors.transparent
-                                      : p.hoverOverlay,
-                                  highlightColor: Colors.transparent,
-                                  focusColor: p.primary.withValues(alpha: .12),
-                                  onTap: () {
-                                    final id = int.tryParse(c.id);
-                                    if (id != null && id != _course) {
-                                      _select(id);
-                                    }
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          c.id == '$_course'
-                                              ? AppIcons.checkCircle
-                                              : AppIcons.person,
-                                          size: 16,
-                                          color: c.id == '$_course'
-                                              ? p.primary
-                                              : p.muted,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: AppTruncatedText(c.title),
-                                        ),
-                                      ],
+                                padding: const EdgeInsets.all(12),
+                                onTap: () {
+                                  final id = int.tryParse(c.id);
+                                  if (id != null && id != _course) {
+                                    _select(id);
+                                  }
+                                },
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      c.id == '$_course'
+                                          ? AppIcons.checkCircle
+                                          : AppIcons.person,
+                                      size: 16,
+                                      color: c.id == '$_course'
+                                          ? p.primary
+                                          : p.muted,
                                     ),
-                                  ),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: AppTruncatedText(c.title)),
+                                  ],
                                 ),
                               ),
                             ),

@@ -160,7 +160,6 @@ class CourseSchedulesPage extends ConsumerWidget {
               const EmptyHint(
                 icon: AppIcons.rollcall,
                 title: '课程安排已完整',
-                detail: '所有课程都已有上课安排',
               ),
           ],
         ),

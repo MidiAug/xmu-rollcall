@@ -305,6 +305,14 @@ abstract final class AppTheme {
           borderRadius: BorderRadius.circular(AppRadii.card),
         ),
       ),
+      checkboxTheme: CheckboxThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+        overlayColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.focused)
+              ? p.primary.withValues(alpha: .12)
+              : Colors.transparent,
+        ),
+      ),
       iconTheme: IconThemeData(color: p.muted, size: 20),
     );
   }

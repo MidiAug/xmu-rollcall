@@ -459,43 +459,45 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Divider(color: p.borderStrong, height: 1),
-                              Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: onHistory,
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 16,
+                              AppHoverSurface(
+                                outlined: false,
+                                backgroundColor: Colors.transparent,
+                                hoverColor: p.cardHover,
+                                pressedColor: p.hover,
+                                borderRadius: BorderRadius.circular(
+                                  AppRadii.control,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                onTap: onHistory,
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      AppIcons.history,
+                                      size: 18,
+                                      color: p.muted,
                                     ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          AppIcons.history,
-                                          size: 18,
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        '上次签到  $historyText',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
                                           color: p.muted,
+                                          fontSize: 12,
+                                          height: 1.5,
                                         ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            '上次签到  $historyText',
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: p.muted,
-                                              fontSize: 12,
-                                              height: 1.5,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Icon(
-                                          AppIcons.right,
-                                          size: 16,
-                                          color: p.muted,
-                                        ),
-                                      ],
+                                      ),
                                     ),
-                                  ),
+                                    const SizedBox(width: 8),
+                                    Icon(
+                                      AppIcons.right,
+                                      size: 16,
+                                      color: p.muted,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],

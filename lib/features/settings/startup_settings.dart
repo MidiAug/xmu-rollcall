@@ -66,9 +66,7 @@ class _StartupSettingsState extends ConsumerState<StartupSettings> {
         SettingsRow(
           leading: widget.showHeader ? null : const Icon(AppIcons.desktop),
           title: '开机启动',
-          subtitle:
-              _error ??
-              (startup.supported ? '登录 Windows 后自动打开应用' : 'Windows 正式版中可设置'),
+          subtitle: _error ?? (startup.supported ? null : 'Windows 正式版中可设置'),
           stackSubtitleOnNarrow: true,
           trailing: AppSwitch(
             key: const ValueKey('monitor-startup'),

@@ -136,7 +136,7 @@ class CampusContextView extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: p.content,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(AppRadii.card),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -235,7 +235,7 @@ class _CampusSummarySkeleton extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           border: Border.all(color: p.border),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -399,27 +399,31 @@ class _MobileTodoRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final blue = p.isDark ? const Color(0xFF79B8FF) : const Color(0xFF168AF0);
     final parts = deadline.split(' ');
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Row(
-            children: [
-              Container(
-                key: const ValueKey('mobile-todo-mark'),
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: blue.withValues(alpha: .09),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(AppIcons.todoDocument, size: 27, color: blue),
-              ),
+    return AppHoverSurface(
+      outlined: false,
+      backgroundColor: Colors.transparent,
+      hoverColor: p.cardHover,
+      pressedColor: p.hover,
+      borderRadius: BorderRadius.circular(12),
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            key: const ValueKey('mobile-todo-mark'),
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: p.documentSurface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              AppIcons.todoDocument,
+              size: 27,
+              color: p.documentAccent,
+            ),
+          ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -487,8 +491,6 @@ class _MobileTodoRow extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
     );
   }
 }
@@ -508,113 +510,99 @@ class _TodoPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return Material(
-      color: p.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: p.border),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        hoverColor: p.hoverOverlay,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return AppHoverSurface(
+      backgroundColor: p.surface,
+      hoverColor: p.cardHover,
+      pressedColor: p.hover,
+      borderRadius: BorderRadius.circular(12),
+      padding: const EdgeInsets.all(12),
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      item.courseName.trim().isEmpty ? '课程作业' : item.courseName,
-                      key: const ValueKey('todo-course-name'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 1.5,
-                        fontWeight: FontWeight.w500,
-                        color: p.muted,
-                      ),
-                    ),
+              Expanded(
+                child: Text(
+                  item.courseName.trim().isEmpty ? '课程作业' : item.courseName,
+                  key: const ValueKey('todo-course-name'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.5,
+                    fontWeight: FontWeight.w500,
+                    color: p.muted,
                   ),
-                  const SizedBox(width: 8),
-                  Container(
-                    key: const ValueKey('todo-deadline'),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: overdue
-                          ? p.danger.withValues(alpha: .08)
-                          : p.surfaceHigh,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          AppIcons.clock,
-                          size: 12,
-                          color: overdue ? p.danger : p.muted,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          deadline,
-                          style: TextStyle(
-                            fontSize: 11,
-                            height: 1.5,
-                            color: overdue ? p.danger : p.muted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                ),
               ),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Container(
-                    key: const ValueKey('todo-document-mark'),
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: p.isDark
-                          ? const Color(0xFF163D57)
-                          : const Color(0xFFE7F4FF),
-                      borderRadius: BorderRadius.circular(9),
+              const SizedBox(width: 8),
+              Container(
+                key: const ValueKey('todo-deadline'),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: overdue
+                      ? p.danger.withValues(alpha: .08)
+                      : p.surfaceHigh,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      AppIcons.clock,
+                      size: 12,
+                      color: overdue ? p.danger : p.muted,
                     ),
-                    child: Icon(
-                      AppIcons.todoDocument,
-                      size: 32,
-                      color: p.isDark
-                          ? const Color(0xFF70BEFF)
-                          : const Color(0xFF087CE5),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      item.title,
-                      key: const ValueKey('todo-homework-title'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    const SizedBox(width: 4),
+                    Text(
+                      deadline,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: 11,
                         height: 1.5,
-                        fontWeight: FontWeight.w600,
-                        color: p.ink,
+                        color: overdue ? p.danger : p.muted,
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Container(
+                key: const ValueKey('todo-document-mark'),
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: p.documentSurface,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Icon(
+                  AppIcons.todoDocument,
+                  size: 32,
+                  color: p.documentAccent,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  item.title,
+                  key: const ValueKey('todo-homework-title'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.5,
+                    fontWeight: FontWeight.w600,
+                    color: p.ink,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -706,7 +694,7 @@ class _MeetingRow extends StatelessWidget {
                         ? p.primary.withValues(alpha: .25)
                         : p.border,
                   ),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

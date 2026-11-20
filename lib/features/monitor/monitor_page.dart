@@ -43,282 +43,224 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
     final intervalDescription = shortest == longest
         ? '每 $shortest 秒检查一次'
         : '约 $shortest–$longest 秒检查一次';
-    final rowPadding = EdgeInsets.symmetric(horizontal: 16, vertical: 16);
-    final theme = Theme.of(context);
+    final controlPadding = EdgeInsets.symmetric(
+      horizontal: AppDensity.isTouch(context)
+          ? AppDensity.touchRowPadH
+          : AppDensity.desktopRowPadH,
+      vertical: AppSpace.sm,
+    );
     final desktop = {
       TargetPlatform.windows,
       TargetPlatform.macOS,
       TargetPlatform.linux,
-    }.contains(theme.platform);
+    }.contains(Theme.of(context).platform);
     final ownerId = ref.watch(authControllerProvider).profile?.id ?? 0;
     final scope = ref.watch(selectedRollcallAccountProvider);
 
-    return Theme(
-      data: theme.copyWith(
-        textTheme: theme.textTheme.copyWith(
-          titleMedium: theme.textTheme.titleMedium?.copyWith(height: 1.4),
-          titleSmall: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            height: 1.4,
-          ),
-          bodyMedium: theme.textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.w500,
-            height: 1.4,
-          ),
-          bodySmall: theme.textTheme.bodySmall?.copyWith(
-            fontSize: 13,
-            height: 1.5,
-          ),
-        ),
-      ),
-      child: Builder(
-        builder: (context) {
-          return SubpageScaffold(
-            title: '签到设置',
-            body: AppPageViewport(
-              builder: (context, contentInsets) => ListView(
-                scrollCacheExtent: const ScrollCacheExtent.pixels(3000),
-                padding:
-                    contentInsets +
-                    EdgeInsets.fromLTRB(
-                      AppSpace.pageXOf(context),
-                      AppSpace.md,
-                      AppSpace.pageXOf(context),
-                      AppSpace.xl,
-                    ),
-                children: [
-                  if (desktop) ...[
-                    CourseWatchSettings(
-                      key: ValueKey((ownerId, scope)),
-                      ownerId: ownerId,
-                      targetId: scope ?? ownerId,
-                    ),
-                    const SizedBox(height: 20),
-                  ],
-                  SettingsSection(
-                    header: '检测频率与范围',
-                    hasLeading: false,
-                    rowPadding: rowPadding,
-                    children: [
-                      DetectionWindowSetting(
-                        enabled: ready,
-                        padding: rowPadding,
-                        watchMode: desktop && c.courseWatch,
+    return SubpageScaffold(
+      title: '签到设置',
+      body: AppPageViewport(
+        builder: (context, contentInsets) => ListView(
+          scrollCacheExtent: const ScrollCacheExtent.pixels(3000),
+          padding:
+              contentInsets +
+              EdgeInsets.fromLTRB(
+                AppSpace.pageXOf(context),
+                AppSpace.md,
+                AppSpace.pageXOf(context),
+                AppSpace.xl,
+              ),
+          children: [
+            if (desktop) ...[
+              CourseWatchSettings(
+                key: ValueKey((ownerId, scope)),
+                ownerId: ownerId,
+                targetId: scope ?? ownerId,
+              ),
+              const SizedBox(height: 20),
+            ],
+            SettingsSection(
+              header: '检测频率与范围',
+              hasLeading: false,
+              children: [
+                DetectionWindowSetting(
+                  enabled: ready,
+                  padding: controlPadding,
+                  watchMode: desktop && c.courseWatch,
+                ),
+                _SliderSetting(
+                  padding: controlPadding,
+                  title: '检测间隔',
+                  sliderKey: const ValueKey('monitor-interval'),
+                  value: c.effectiveIntervalSeconds.toDouble(),
+                  valueLabel: '${c.effectiveIntervalSeconds} 秒',
+                  min: MonitorConfig.minIntervalSeconds.toDouble(),
+                  max: MonitorConfig.maxIntervalSeconds.toDouble(),
+                  divisions:
+                      (MonitorConfig.maxIntervalSeconds -
+                          MonitorConfig.minIntervalSeconds) ~/
+                      MonitorConfig.intervalStepSeconds,
+                  formatValue: (value) => '${value.round()} 秒',
+                  onChanged: ready
+                      ? (value) => ctrl.setIntervalSeconds(value.round())
+                      : null,
+                  onChangeEnd: ready ? (_) => ctrl.commitPersist() : null,
+                ),
+                _SliderSetting(
+                  padding: controlPadding,
+                  title: '时间浮动',
+                  sliderKey: const ValueKey('monitor-jitter'),
+                  value: c.jitterRatio,
+                  valueLabel: '±${(c.jitterRatio * 100).round()}%',
+                  min: 0,
+                  max: 0.5,
+                  divisions: 10,
+                  formatValue: (value) => '上下浮动百分之${(value * 100).round()}',
+                  onChanged: ready ? ctrl.setJitterRatio : null,
+                  onChangeEnd: ready ? (_) => ctrl.commitPersist() : null,
+                  description: '$intervalDescription，连接失败后稍后重试',
+                ),
+              ],
+            ),
+            SettingsSection(
+              header: '发现签到后',
+              hasLeading: false,
+              children: [
+                SettingsRow(
+                  subtitleSpacing: 6,
+                  title: '自动签到',
+                  stackSubtitleOnNarrow: true,
+                  subtitle: !c.autoAnswer
+                      ? '发现签到时提醒我'
+                      : state.running
+                      ? '按下方设置自动签到'
+                      : '已开启，开始检测后生效；缺码或位置时提醒补充',
+                  trailing: SizedBox(
+                    width: 148,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: AppSwitch(
+                        key: const ValueKey('monitor-auto-answer'),
+                        value: c.autoAnswer,
+                        onChanged: ready ? ctrl.setAutomaticAnswer : null,
                       ),
-                      _SliderSetting(
-                        padding: rowPadding,
-                        title: '检测间隔',
-                        sliderKey: const ValueKey('monitor-interval'),
-                        value: c.effectiveIntervalSeconds.toDouble(),
-                        valueLabel: '${c.effectiveIntervalSeconds} 秒',
-                        min: MonitorConfig.minIntervalSeconds.toDouble(),
-                        max: MonitorConfig.maxIntervalSeconds.toDouble(),
-                        divisions:
-                            (MonitorConfig.maxIntervalSeconds -
-                                MonitorConfig.minIntervalSeconds) ~/
-                            MonitorConfig.intervalStepSeconds,
-                        formatValue: (value) => '${value.round()} 秒',
+                    ),
+                  ),
+                ),
+                if (c.autoAnswer) ...[
+                  SettingsRow(
+                    title: '何时签到',
+                    trailing: AppShellSelect<AnswerWaitMode>(
+                      semanticLabel: '何时签到',
+                      value: c.answerWaitMode,
+                      items: AnswerWaitMode.values,
+                      labelOf: (mode) => switch (mode) {
+                        AnswerWaitMode.none => '立即签到',
+                        AnswerWaitMode.count => '等待人数',
+                        AnswerWaitMode.percent => '等待比例',
+                      },
+                      width: 148,
+                      onChanged: ready ? ctrl.setAnswerWaitMode : null,
+                    ),
+                  ),
+                  if (c.answerWaitMode != AnswerWaitMode.none)
+                    SettingsRow(
+                      title: c.answerWaitMode == AnswerWaitMode.count
+                          ? '已签到人数'
+                          : '已签到比例',
+                      trailing: _NumberControl(
+                        key: const ValueKey('monitor-answer-control'),
+                        label: c.answerWaitMode == AnswerWaitMode.count
+                            ? '已签到人数'
+                            : '已签到比例',
+                        value: c.answerWaitMode == AnswerWaitMode.count
+                            ? c.answerWaitCount
+                            : c.answerWaitPercent,
+                        unit: c.answerWaitMode == AnswerWaitMode.count
+                            ? '人'
+                            : '%',
+                        min: 1,
+                        max: c.answerWaitMode == AnswerWaitMode.count
+                            ? 200
+                            : 100,
                         onChanged: ready
-                            ? (value) => ctrl.setIntervalSeconds(value.round())
+                            ? (value) {
+                                ctrl.setAnswerWaitValue(value);
+                                ctrl.commitPersist();
+                              }
                             : null,
-                        onChangeEnd: ready ? (_) => ctrl.commitPersist() : null,
                       ),
-                      _SliderSetting(
-                        padding: rowPadding,
-                        title: '时间浮动',
-                        sliderKey: const ValueKey('monitor-jitter'),
-                        value: c.jitterRatio,
-                        valueLabel: '±${(c.jitterRatio * 100).round()}%',
-                        min: 0,
-                        max: 0.5,
-                        divisions: 10,
-                        formatValue: (value) =>
-                            '上下浮动百分之${(value * 100).round()}',
-                        onChanged: ready ? ctrl.setJitterRatio : null,
-                        onChangeEnd: ready ? (_) => ctrl.commitPersist() : null,
-                        description: '$intervalDescription，连接失败后稍后重试',
-                      ),
-                    ],
-                  ),
-                  SettingsSection(
-                    header: '发现签到后',
-                    hasLeading: false,
-                    rowPadding: rowPadding,
-                    children: [
-                      SettingsRow(
-                        contentPadding: rowPadding,
-                        subtitleSpacing: 6,
-                        minHeight: 40,
-                        title: '自动签到',
-                        stackSubtitleOnNarrow: true,
-                        subtitle: !c.autoAnswer
-                            ? '发现签到时提醒我'
-                            : state.running
-                            ? '按下方设置自动签到'
-                            : '已开启，开始检测后生效；缺码或位置时提醒补充',
-                        trailing: SizedBox(
-                          width: 148,
-                          child: Align(
-                            alignment: Alignment.centerRight,
-                            child: AppSwitch(
-                              key: const ValueKey('monitor-auto-answer'),
-                              value: c.autoAnswer,
-                              onChanged: ready ? ctrl.setAutomaticAnswer : null,
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (c.autoAnswer) ...[
-                        SettingsRow(
-                          contentPadding: rowPadding,
-                          minHeight: 40,
-                          title: '何时签到',
-                          trailing: AppShellSelect<AnswerWaitMode>(
-                            semanticLabel: '何时签到',
-                            value: c.answerWaitMode,
-                            items: AnswerWaitMode.values,
-                            labelOf: (mode) => switch (mode) {
-                              AnswerWaitMode.none => '立即签到',
-                              AnswerWaitMode.count => '等待人数',
-                              AnswerWaitMode.percent => '等待比例',
-                            },
-                            width: 148,
-                            onChanged: ready ? ctrl.setAnswerWaitMode : null,
-                          ),
-                        ),
-                        if (c.answerWaitMode != AnswerWaitMode.none)
-                          SettingsRow(
-                            contentPadding: rowPadding,
-                            subtitleSpacing: 6,
-                            minHeight: 40,
-                            title: c.answerWaitMode == AnswerWaitMode.count
-                                ? '已签到人数'
-                                : '已签到比例',
-                            stackSubtitleOnNarrow: true,
-                            subtitle: c.answerWaitMode == AnswerWaitMode.percent
-                                ? '未达到设定比例不提交'
-                                : '未达到设定人数不提交',
-                            trailing: _NumberControl(
-                              key: const ValueKey('monitor-answer-control'),
-                              label: c.answerWaitMode == AnswerWaitMode.count
-                                  ? '已签到人数'
-                                  : '已签到比例',
-                              value: c.answerWaitMode == AnswerWaitMode.count
-                                  ? c.answerWaitCount
-                                  : c.answerWaitPercent,
-                              unit: c.answerWaitMode == AnswerWaitMode.count
-                                  ? '人'
-                                  : '%',
-                              min: 1,
-                              max: c.answerWaitMode == AnswerWaitMode.count
-                                  ? 200
-                                  : 100,
-                              onChanged: ready
-                                  ? (value) {
-                                      ctrl.setAnswerWaitValue(value);
-                                      ctrl.commitPersist();
-                                    }
-                                  : null,
-                            ),
-                          ),
-                      ],
-                    ],
-                  ),
-                  SettingsSection(
-                    header: '显示与提醒',
-                    hasLeading: false,
-                    rowPadding: rowPadding,
-                    children: [
-                      SettingsRow(
-                        contentPadding: rowPadding,
-                        subtitleSpacing: 6,
-                        minHeight: 40,
-                        title: '人数刷新',
-                        stackSubtitleOnNarrow: true,
-                        subtitle: '卡片与自动签到共用刷新间隔',
-                        trailing: _NumberControl(
-                          key: const ValueKey('monitor-attendance-control'),
-                          label: '人数刷新间隔',
-                          value: c.effectiveAttendanceIntervalSeconds,
-                          unit: '秒',
-                          min: 15,
-                          max: 120,
-                          step: 5,
-                          onChanged: ready
-                              ? ctrl.setAttendanceIntervalSeconds
-                              : null,
-                        ),
-                      ),
-                      if (PlatformHooks.isAndroid || PlatformHooks.isDesktop)
-                        SettingsRow(
-                          contentPadding: rowPadding,
-                          minHeight: 40,
-                          title: '提醒与后台运行',
-                          trailing: Icon(
-                            Icons.chevron_right,
-                            color: p.muted,
-                            size: 18,
-                          ),
-                          onTap: () => AppPageRoutes.push(
-                            context,
-                            PlatformHooks.isAndroid
-                                ? const NotificationSettingsPage()
-                                : const DesktopNotificationSettingsPage(),
-                          ),
-                        ),
-                    ],
-                  ),
-                  if (state.logs.isNotEmpty)
-                    SettingsSection(
-                      header: '运行记录',
-                      hasLeading: false,
-                      rowPadding: rowPadding,
-                      children: [
-                        if (state.logs.isNotEmpty) ...[
-                          SettingsRow(
-                            contentPadding: rowPadding,
-                            subtitleSpacing: 6,
-                            minHeight: 40,
-                            key: const ValueKey('monitor-logs'),
-                            title: '最近运行',
-                            subtitle: _showLogs ? null : '查看最近的检测记录',
-                            trailing: _DisclosureIcon(expanded: _showLogs),
-                            onTap: () => setState(() => _showLogs = !_showLogs),
-                          ),
-                          if (_showLogs)
-                            for (final log in state.logs.take(5))
-                              Padding(
-                                padding: rowPadding,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _formatTime(log.at),
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall,
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      log.message,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium
-                                          ?.copyWith(
-                                            color: log.ok ? p.ink : p.danger,
-                                          ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                        ],
-                      ],
                     ),
                 ],
-              ),
+              ],
             ),
-          );
-        },
+            SettingsSection(
+              header: '显示与提醒',
+              hasLeading: false,
+              children: [
+                SettingsRow(
+                  title: '人数刷新',
+                  trailing: _NumberControl(
+                    key: const ValueKey('monitor-attendance-control'),
+                    label: '人数刷新间隔',
+                    value: c.effectiveAttendanceIntervalSeconds,
+                    unit: '秒',
+                    min: 15,
+                    max: 120,
+                    step: 5,
+                    onChanged: ready ? ctrl.setAttendanceIntervalSeconds : null,
+                  ),
+                ),
+                if (PlatformHooks.isAndroid || PlatformHooks.isDesktop)
+                  SettingsRow(
+                    title: '提醒与后台运行',
+                    trailing: Icon(AppIcons.right, color: p.muted, size: 18),
+                    onTap: () => AppPageRoutes.push(
+                      context,
+                      PlatformHooks.isAndroid
+                          ? const NotificationSettingsPage()
+                          : const DesktopNotificationSettingsPage(),
+                    ),
+                  ),
+              ],
+            ),
+            if (state.logs.isNotEmpty)
+              SettingsSection(
+                header: '运行记录',
+                hasLeading: false,
+                children: [
+                  if (state.logs.isNotEmpty) ...[
+                    SettingsRow(
+                      key: const ValueKey('monitor-logs'),
+                      title: '最近运行',
+                      trailing: _DisclosureIcon(expanded: _showLogs),
+                      onTap: () => setState(() => _showLogs = !_showLogs),
+                    ),
+                    if (_showLogs)
+                      for (final log in state.logs.take(5))
+                        Padding(
+                          padding: controlPadding,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _formatTime(log.at),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                log.message,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: log.ok ? p.ink : p.danger),
+                              ),
+                            ],
+                          ),
+                        ),
+                  ],
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -100,6 +100,8 @@ class AppHoverSurface extends StatelessWidget {
     this.borderRadius,
     this.onTap,
     this.outlined = true,
+    this.borderColor,
+    this.focusable = true,
     this.backgroundColor,
     this.hoverColor,
     this.pressedColor,
@@ -110,12 +112,15 @@ class AppHoverSurface extends StatelessWidget {
   final BorderRadius? borderRadius;
   final VoidCallback? onTap;
   final bool outlined;
+  final Color? borderColor;
+  final bool focusable;
   final Color? backgroundColor;
   final Color? hoverColor, pressedColor;
 
   @override
   Widget build(BuildContext context) => _AppSurfaceInteraction(
     onTap: onTap,
+    focusable: focusable,
     builder: (context, states) => _buildSurface(context, states),
   );
 
@@ -151,7 +156,7 @@ class AppHoverSurface extends StatelessWidget {
           color: focused
               ? focus
               : outlined
-              ? p.border
+              ? (borderColor ?? p.border)
               : AppPalette.clearOf(p.focus),
         ),
       ),
@@ -171,12 +176,14 @@ class _AppSurfaceInteraction extends StatefulWidget {
     this.focusNode,
     this.autofocus = false,
     this.pointerAutofocus = false,
+    this.focusable = true,
   });
   final VoidCallback? onTap;
   final Widget Function(BuildContext, Set<WidgetState>) builder;
   final FocusNode? focusNode;
   final bool autofocus;
   final bool pointerAutofocus;
+  final bool focusable;
 
   @override
   State<_AppSurfaceInteraction> createState() => _AppSurfaceInteractionState();
@@ -191,7 +198,7 @@ class _AppSurfaceInteractionState extends State<_AppSurfaceInteraction> {
   @override
   void initState() {
     super.initState();
-    if (_pointerFocus) _watchKeyboard();
+    if (widget.focusable && _pointerFocus) _watchKeyboard();
   }
 
   void _watchKeyboard() {
@@ -232,8 +239,24 @@ class _AppSurfaceInteractionState extends State<_AppSurfaceInteraction> {
     final body = widget.builder(context, {
       if (enabled && _hover) WidgetState.hovered,
       if (enabled && _pressed) WidgetState.pressed,
-      if (enabled && _focus && !_pointerFocus) WidgetState.focused,
+      if (enabled && widget.focusable && _focus && !_pointerFocus)
+        WidgetState.focused,
     });
+    if (!widget.focusable) {
+      return MouseRegion(
+        onEnter: (_) => setState(() => _hover = true),
+        onExit: (_) => setState(() => _hover = false),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          excludeFromSemantics: true,
+          onTap: widget.onTap,
+          onTapDown: (_) => setState(() => _pressed = true),
+          onTapUp: (_) => setState(() => _pressed = false),
+          onTapCancel: () => setState(() => _pressed = false),
+          child: body,
+        ),
+      );
+    }
     return MouseRegion(
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),

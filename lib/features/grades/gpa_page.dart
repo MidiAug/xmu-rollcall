@@ -804,15 +804,17 @@ class _GradeCourseRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return InkWell(
-      mouseCursor: SystemMouseCursors.basic,
-      canRequestFocus: false,
-      excludeFromSemantics: true,
+    return AppHoverSurface(
+      outlined: false,
+      focusable: false,
+      borderRadius: BorderRadius.zero,
+      backgroundColor: Colors.transparent,
+      hoverColor: p.cardHover,
+      pressedColor: p.hover,
+      padding: const EdgeInsets.fromLTRB(6, 12, 16, 12),
       onTap: onChanged == null ? null : () => onChanged!(!selected),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(6, 12, 16, 12),
-        child: Row(
-          children: [
+      child: Row(
+        children: [
             TooltipVisibility(
               visible: false,
               child: AppCheckbox(
@@ -883,7 +885,6 @@ class _GradeCourseRow extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }

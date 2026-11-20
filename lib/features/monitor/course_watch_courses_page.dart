@@ -97,81 +97,50 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
       title: '值守课程',
       body: AppPageViewport(
         maxWidth: 1040,
-        builder: (context, contentInsets) => Theme(
-          data: Theme.of(context).copyWith(
-            splashFactory: NoSplash.splashFactory,
-            highlightColor: Colors.transparent,
-            hoverColor: p.hoverOverlay,
-            checkboxTheme: CheckboxThemeData(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(5),
-              ),
-              overlayColor: WidgetStateProperty.resolveWith(
-                (states) => states.contains(WidgetState.focused)
-                    ? p.primary.withValues(alpha: .12)
-                    : Colors.transparent,
-              ),
-            ),
-          ),
-          child: LayoutBuilder(
-            builder: (context, bounds) => ListView(
-              padding: contentInsets + const EdgeInsets.all(24),
-              children: [
-                Text(
-                  '只照看你需要的课',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w600,
-                    color: p.ink,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '默认包含全部课程。关闭整门课程，或只取消每周某一次上课安排；修改自动保存。顶部数量来自已缓存的历史签到。',
-                  style: TextStyle(color: p.muted, height: 1.6),
-                ),
-                const SizedBox(height: 20),
-                if (_error != null) ...[
-                  Text(_error!, style: TextStyle(color: p.danger)),
-                  TextButton(onPressed: _load, child: const Text('重新读取')),
-                ],
-                if (_courses == null && _error == null)
-                  const Center(child: CircularProgressIndicator()),
-                if (_courses?.isEmpty == true)
-                  Text(
-                    '暂无可关联的课程，请先获取课表并查看一次畅课课程。',
-                    style: TextStyle(color: p.muted),
-                  ),
-                if (bounds.maxWidth - contentInsets.horizontal >= 728)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (var column = 0; column < 2; column++) ...[
-                        if (column != 0) const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            children: [
-                              for (
-                                var i = column;
-                                i < (_courses?.length ?? 0);
-                                i += 2
-                              ) ...[
-                                _courseCard(_courses![i], p),
-                                const SizedBox(height: 12),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  )
-                else
-                  for (final course in _courses ?? <CatalogCourse>[]) ...[
-                    _courseCard(course, p),
-                    const SizedBox(height: 12),
-                  ],
+        builder: (context, contentInsets) => LayoutBuilder(
+          builder: (context, bounds) => ListView(
+            padding: contentInsets + const EdgeInsets.all(24),
+            children: [
+              if (_error != null) ...[
+                Text(_error!, style: TextStyle(color: p.danger)),
+                TextButton(onPressed: _load, child: const Text('重新读取')),
               ],
-            ),
+              if (_courses == null && _error == null)
+                const Center(child: CircularProgressIndicator()),
+              if (_courses?.isEmpty == true)
+                Text(
+                  '暂无可关联的课程，请先获取课表并查看一次畅课课程。',
+                  style: TextStyle(color: p.muted),
+                ),
+              if (bounds.maxWidth - contentInsets.horizontal >= 728)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (var column = 0; column < 2; column++) ...[
+                      if (column != 0) const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            for (
+                              var i = column;
+                              i < (_courses?.length ?? 0);
+                              i += 2
+                            ) ...[
+                              _courseCard(_courses![i], p),
+                              const SizedBox(height: 12),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                )
+              else
+                for (final course in _courses ?? <CatalogCourse>[]) ...[
+                  _courseCard(course, p),
+                  const SizedBox(height: 12),
+                ],
+            ],
           ),
         ),
       ),
@@ -182,7 +151,7 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
     key: ValueKey('watch-course-card-${course.id}'),
     color: p.surface,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(AppRadii.card),
       side: BorderSide(color: p.border),
     ),
     clipBehavior: Clip.antiAlias,
@@ -196,10 +165,8 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
           ),
           tristate: true,
           value: _scope.selectionFor(course),
-          title: Text(
+          title: AppTruncatedText(
             course.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
             style: AppTypography.body.copyWith(
               fontWeight: FontWeight.w600,
               color: p.ink,
@@ -208,15 +175,14 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                course.needsSchedule
-                    ? '暂无可用的上课安排'
-                    : _scope.excludedCourses.contains(course.id)
-                    ? '本课程不参与值守'
-                    : '勾选的上课安排参与值守',
-                style: AppTypography.caption.copyWith(color: p.muted),
-              ),
-              const SizedBox(height: 6),
+              if (course.needsSchedule ||
+                  _scope.excludedCourses.contains(course.id)) ...[
+                Text(
+                  course.needsSchedule ? '暂无可用的上课安排' : '本课程不参与值守',
+                  style: AppTypography.caption.copyWith(color: p.muted),
+                ),
+                const SizedBox(height: 6),
+              ],
               _historyTypes(course.id, p),
             ],
           ),

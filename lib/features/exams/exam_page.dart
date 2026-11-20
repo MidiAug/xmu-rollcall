@@ -112,7 +112,6 @@ class _ExamPageState extends ConsumerState<ExamPage>
                   return EmptyHint(
                     icon: AppIcons.calendar,
                     title: '已进入新学期',
-                    detail: '更新以查看本学期考试安排',
                     action: FilledButton(
                       onPressed: _refresh,
                       child: const Text('读取本学期'),
@@ -156,7 +155,6 @@ class _ExamPageState extends ConsumerState<ExamPage>
                           child: EmptyHint(
                             icon: AppIcons.calendar,
                             title: '本学期暂无考试安排',
-                            detail: '教务发布后会在这里显示，可随时手动更新',
                           ),
                         ),
                       for (final status in [

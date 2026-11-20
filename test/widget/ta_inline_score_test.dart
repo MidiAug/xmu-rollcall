@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_grading_page.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_models.dart';
@@ -542,10 +544,16 @@ void main() {
             CatalogCourse(id: '92', title: '课程乙'),
           ],
         );
+        final p = dark ? AppPalette.darkPalette : AppPalette.lightPalette;
         final chip = find
-            .ancestor(of: find.text('课程甲').last, matching: find.byType(InkWell))
+            .ancestor(
+              of: find.text('课程甲').last,
+              matching: find.byType(AppHoverSurface),
+            )
             .first;
-        expect(tester.widget<InkWell>(chip).hoverColor, Colors.transparent);
+        final surface = tester.widget<AppHoverSurface>(chip);
+        expect(surface.backgroundColor, p.selected);
+        expect(surface.hoverColor, p.selected);
         final before = tester.getRect(chip);
         final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: Offset.zero);

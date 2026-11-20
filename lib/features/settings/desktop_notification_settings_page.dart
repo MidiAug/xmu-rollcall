@@ -69,11 +69,31 @@ class _DesktopNotificationSettingsPageState
                 SettingsSection(
                   padTop: false,
                   header: '通知测试',
+                  footer: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        shell.trayAvailable.value
+                            ? '前台显示应用内提醒，后台或托盘时发送系统通知；退出或睡眠时不检测。'
+                            : '前台显示应用内提醒，后台时发送系统通知；退出或睡眠时不检测。',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.copyWith(color: p.muted),
+                      ),
+                      if (PlatformHooks.isWindows) ...[
+                        const SizedBox(height: AppSpace.xs),
+                        TextButton(
+                          onPressed: _openSettings,
+                          child: const Text('Windows 通知设置'),
+                        ),
+                      ],
+                    ],
+                  ),
                   children: [
                     SettingsRow(
                       leading: const Icon(AppIcons.notification),
                       title: '测试系统通知',
-                      subtitle: '使用示例课程测试通知，不会提交签到。',
+                      subtitle: '仅发送示例提醒，不会提交签到',
                       trailing: FilledButton(
                         onPressed: _busy ? null : _test,
                         child: Text(
@@ -133,32 +153,6 @@ class _DesktopNotificationSettingsPageState
                         subtitle: '允许厦大签到发送通知，并检查勿扰模式；修改后重新发送测试。',
                         onTap: PlatformHooks.isWindows ? _openSettings : null,
                       ),
-                  ],
-                ),
-                SettingsSection(
-                  header: '提醒方式',
-                  footer: PlatformHooks.isWindows
-                      ? Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton(
-                            onPressed: _openSettings,
-                            child: const Text('Windows 通知设置'),
-                          ),
-                        )
-                      : null,
-                  children: [
-                    const SettingsRow(
-                      leading: Icon(AppIcons.checkCircle),
-                      title: '发现签到时',
-                      subtitle: '在前台时显示应用内提醒，切到后台后发送系统通知。',
-                    ),
-                    SettingsRow(
-                      leading: const Icon(AppIcons.desktop),
-                      title: '托盘运行',
-                      subtitle: shell.trayAvailable.value
-                          ? '关闭到托盘后继续检测。退出应用或电脑睡眠时不会检测。'
-                          : '托盘暂不可用，请保留应用运行。退出应用或电脑睡眠时不会检测。',
-                    ),
                   ],
                 ),
               ],

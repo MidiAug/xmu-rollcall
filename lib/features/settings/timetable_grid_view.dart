@@ -691,40 +691,37 @@ class _CourseDetail extends StatelessWidget {
               meetings: courseMeetingLabels(c),
             ),
           ],
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              key: const ValueKey('course-location-map-link'),
-              onTap: c.location?.isNotEmpty == true ? onMap : null,
-              borderRadius: BorderRadius.circular(AppRadii.control),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
-                child: Row(
-                  children: [
-                    Icon(
-                      AppIcons.location,
-                      size: 18,
-                      color: AppPalette.of(context).primary,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        c.location?.isNotEmpty == true
-                            ? c.location!
-                            : '教务未提供教室',
-                        style: text.bodyMedium?.copyWith(
-                          color: AppPalette.of(context).primary,
-                        ),
-                      ),
-                    ),
-                    Icon(
-                      AppIcons.right,
-                      size: 16,
-                      color: AppPalette.of(context).primary,
-                    ),
-                  ],
+          AppHoverSurface(
+            key: const ValueKey('course-location-map-link'),
+            outlined: false,
+            backgroundColor: Colors.transparent,
+            hoverColor: AppPalette.of(context).hover,
+            pressedColor: AppPalette.of(context).controlPressed,
+            borderRadius: BorderRadius.circular(AppRadii.control),
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            onTap: c.location?.isNotEmpty == true ? onMap : null,
+            child: Row(
+              children: [
+                Icon(
+                  AppIcons.location,
+                  size: 18,
+                  color: AppPalette.of(context).primary,
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    c.location?.isNotEmpty == true ? c.location! : '教务未提供教室',
+                    style: text.bodyMedium?.copyWith(
+                      color: AppPalette.of(context).primary,
+                    ),
+                  ),
+                ),
+                Icon(
+                  AppIcons.right,
+                  size: 16,
+                  color: AppPalette.of(context).primary,
+                ),
+              ],
             ),
           ),
         ],
@@ -914,8 +911,8 @@ class _CourseBlockChip extends StatelessWidget {
           '${c.location == null ? '' : '，${c.location}'}',
       child: AppHoverSurface(
         backgroundColor: tint.fill,
-        hoverColor: Color.lerp(tint.fill, p.primary, .06),
-        pressedColor: Color.lerp(tint.fill, p.primary, .12),
+        hoverColor: Color.alphaBlend(p.hoverOverlay, tint.fill),
+        pressedColor: Color.lerp(tint.fill, p.ink, p.isDark ? .10 : .08),
         borderRadius: BorderRadius.circular(AppRadii.control),
         outlined: false,
         onTap: onTap,

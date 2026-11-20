@@ -3,11 +3,13 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xmu_rollcall/core/theme/app_icons.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/campus/campus_context_panel.dart';
 import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
 import 'package:xmu_rollcall/features/homework/homework_models.dart';
+import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import '../fixtures/preview_fonts.dart';
 
 void main() {
@@ -129,5 +131,164 @@ void main() {
         },
       );
     }
+  }
+
+  for (final dark in [false, true]) {
+    testWidgets(
+      'todo card uses neutral hover/press surfaces and preserves layout dark=$dark',
+      (tester) async {
+        tester.view.physicalSize = const Size(360, 680);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final palette = dark
+            ? AppPalette.darkPalette
+            : AppPalette.lightPalette;
+        final boundary = GlobalKey();
+        await tester.pumpWidget(
+          MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
+              platform: TargetPlatform.windows,
+            ),
+            home: Scaffold(
+              backgroundColor: palette.canvas,
+              body: SingleChildScrollView(
+                child: Center(
+                  child: SizedBox(
+                    width: 300,
+                    child: RepaintBoundary(
+                      key: boundary,
+                      child: CampusContextView(
+                      data: CampusCachedData(
+                        schedule: AcademicSchedule(
+                          term: '20261',
+                          monday: DateTime(2026, 9, 7),
+                          fetchedAt: DateTime(2026, 11, 20),
+                          rows: const [
+                            AcademicCourseRow(
+                              courseId: 'c1',
+                              courseName: '中国式现代化的理论与实践研究',
+                              room: '坤銮楼（2号楼）A206',
+                              weekday: 5,
+                              firstPeriod: 7,
+                              lastPeriod: 8,
+                              startMinute: 16 * 60 + 40,
+                              endMinute: 18 * 60 + 20,
+                              weeks: {11},
+                            ),
+                            AcademicCourseRow(
+                              courseId: 'c2',
+                              courseName: '高级人工智能',
+                              room: '学武楼（1号楼）C201',
+                              weekday: 5,
+                              firstPeriod: 9,
+                              lastPeriod: 11,
+                              startMinute: 19 * 60 + 10,
+                              endMinute: 21 * 60 + 45,
+                              weeks: {11},
+                            ),
+                          ],
+                        ),
+                        homework: [
+                          HomeworkItem(
+                            id: 1,
+                            title: '第四次作业',
+                            courseName: '科技论文写作',
+                            dueAt: DateTime(2026, 11, 22, 23, 59),
+                          ),
+                        ],
+                      ),
+                      now: DateTime(2026, 11, 20, 13, 0),
+                      onTimetable: () {},
+                      onHomework: () {},
+                      onOpenHomework: (_) {},
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+        await tester.pumpAndSettle();
+
+        final surface = find.descendant(
+          of: find.byType(CampusContextView),
+          matching: find.byType(AppHoverSurface),
+        );
+        expect(surface, findsOneWidget);
+        final cardRect = tester.getRect(surface);
+        final panelRect = tester.getRect(find.byKey(boundary));
+        final samplePoint = Offset(
+          cardRect.right - panelRect.left - 6,
+          cardRect.bottom - panelRect.top - 6,
+        );
+
+        Future<int> samplePixel([String? captureName]) async =>
+            (await tester.runAsync(() async {
+              final renderObject =
+                  boundary.currentContext!.findRenderObject()!
+                      as RenderRepaintBoundary;
+              final image = await renderObject.toImage(pixelRatio: 1);
+              try {
+                if (captureName != null &&
+                    Platform.environment['CAPTURE_TODO_UI'] == '1') {
+                  final png = await image.toByteData(
+                    format: ui.ImageByteFormat.png,
+                  );
+                  await Directory(
+                    'build/todo-ui-review',
+                  ).create(recursive: true);
+                  await File(
+                    'build/todo-ui-review/$captureName.png',
+                  ).writeAsBytes(png!.buffer.asUint8List());
+                }
+                final rgba = (await image.toByteData(
+                  format: ui.ImageByteFormat.rawRgba,
+                ))!.buffer.asUint8List();
+                final at =
+                    (samplePoint.dy.floor() * image.width +
+                        samplePoint.dx.floor()) *
+                    4;
+                return (rgba[at + 3] << 24) |
+                    (rgba[at] << 16) |
+                    (rgba[at + 1] << 8) |
+                    rgba[at + 2];
+              } finally {
+                image.dispose();
+              }
+            }))!;
+
+        expect(await samplePixel('todo-panel-idle-$dark'), palette.surface.toARGB32());
+
+        final mouse = await tester.createGesture(
+          kind: ui.PointerDeviceKind.mouse,
+        );
+        await mouse.addPointer(location: Offset.zero);
+        addTearDown(mouse.removePointer);
+        await mouse.moveTo(cardRect.center);
+        await tester.pumpAndSettle();
+        expect(
+          RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+          SystemMouseCursors.basic,
+        );
+        final hovered = await samplePixel('todo-panel-hover-$dark');
+        expect(hovered, palette.cardHover.toARGB32());
+        expect(hovered, isNot(palette.selected.toARGB32()));
+
+        await mouse.down(cardRect.center);
+        await tester.pumpAndSettle();
+        expect(await samplePixel(), palette.hover.toARGB32());
+
+        await mouse.up();
+        await mouse.moveTo(Offset.zero);
+        await tester.pumpAndSettle();
+        expect(await samplePixel(), palette.surface.toARGB32());
+        expect(tester.getRect(surface), cardRect);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
   }
 }

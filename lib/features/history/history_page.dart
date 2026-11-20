@@ -519,7 +519,6 @@ class _CourseHistoryBody extends ConsumerWidget {
                   child: EmptyHint(
                     icon: Icons.school_outlined,
                     title: '暂无课程签到',
-                    detail: '下拉刷新，或确认账号已选课',
                   ),
                 ),
               ],
@@ -534,7 +533,6 @@ class _CourseHistoryBody extends ConsumerWidget {
                   child: EmptyHint(
                     icon: Icons.filter_alt_outlined,
                     title: '无匹配记录',
-                    detail: '试试放宽状态、类型、课程或时间范围',
                   ),
                 ),
               ],

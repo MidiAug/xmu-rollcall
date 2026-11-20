@@ -82,7 +82,7 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
           ),
           decoration: BoxDecoration(
             color: p.content,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(AppRadii.control),
           ),
           child: compact
               ? Row(
@@ -125,7 +125,7 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
         Container(
           decoration: BoxDecoration(
             color: p.surface,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(AppRadii.group),
             border: Border.all(color: p.border),
           ),
           padding: const EdgeInsets.all(20),
@@ -139,7 +139,7 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
                     height: 44,
                     decoration: BoxDecoration(
                       color: p.accentSurface,
-                      borderRadius: BorderRadius.circular(13),
+                      borderRadius: BorderRadius.circular(AppRadii.control),
                     ),
                     child: Icon(AppIcons.guard, color: p.muted, size: 23),
                   ),

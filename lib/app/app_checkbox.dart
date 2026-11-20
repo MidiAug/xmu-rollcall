@@ -124,8 +124,12 @@ class _AppCheckboxState extends State<AppCheckbox> {
                       height: 28,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        color: enabled && (_hovered || _pressed)
-                            ? p.selected
+                        color: !enabled
+                            ? null
+                            : _pressed
+                            ? p.controlPressed
+                            : _hovered
+                            ? p.controlHover
                             : null,
                         borderRadius: BorderRadius.circular(7),
                         border: _focused ? Border.all(color: p.primary) : null,

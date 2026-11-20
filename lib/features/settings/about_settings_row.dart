@@ -23,7 +23,6 @@ class AboutSettingsRow extends ConsumerWidget {
             )
           : const Icon(AppIcons.info),
       title: '关于',
-      subtitle: compact ? null : '版本与应用信息',
       minHeight: compact ? 52 : null,
       contentPadding: compact ? const EdgeInsets.symmetric(vertical: 6) : null,
       trailing: Row(

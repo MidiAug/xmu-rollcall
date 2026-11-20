@@ -267,7 +267,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
             SettingsRow(
               leading: const Icon(AppIcons.week),
               title: '本学期课表',
-              subtitle: auth.isSignedIn ? '查看本周上课安排' : '请先登录',
+              subtitle: auth.isSignedIn ? null : '请先登录',
               trailing: Icon(AppIcons.right, color: p.muted, size: 18),
               onTap: !auth.isSignedIn
                   ? () => showLoginDialog(context)
@@ -300,7 +300,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
             SettingsRow(
               leading: const Icon(AppIcons.notification),
               title: desktop ? '桌面提醒' : '后台提醒',
-              subtitle: desktop ? null : '自动检查，一次确认锁屏提醒',
               trailing: Icon(AppIcons.right, color: p.muted, size: 18),
               onTap: () => AppPageRoutes.push(
                 context,
@@ -733,8 +732,13 @@ class _AndroidProfileHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Flexible(
-              child: InkWell(
+              child: AppHoverSurface(
                 key: const ValueKey('android-profile-summary'),
+                outlined: false,
+                backgroundColor: Colors.transparent,
+                hoverColor: p.hover,
+                pressedColor: p.controlPressed,
+                borderRadius: BorderRadius.circular(AppRadii.control),
                 onTap: onTap,
                 child: Text(
                   name,

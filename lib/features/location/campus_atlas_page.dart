@@ -699,61 +699,64 @@ class _AtlasDirectoryState extends State<_AtlasDirectory> {
                           Padding(
                             key: _buildingKeys.putIfAbsent(b.id, GlobalKey.new),
                             padding: const EdgeInsets.only(bottom: 4),
-                            child: Material(
-                              color: active
+                            child: AppHoverSurface(
+                              key: ValueKey('atlas-building-${b.id}'),
+                              outlined: false,
+                              backgroundColor: active
                                   ? p.accentSurface
                                   : Colors.transparent,
-                              borderRadius: BorderRadius.circular(10),
-                              child: InkWell(
-                                key: ValueKey('atlas-building-${b.id}'),
-                                borderRadius: BorderRadius.circular(10),
-                                onTap: () => widget.onBuilding(b),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 13,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            AppTruncatedText(
-                                              b.name,
-                                              style: TextStyle(
-                                                color: active
-                                                    ? p.primary
-                                                    : p.ink,
-                                                fontWeight: FontWeight.w600,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 5),
-                                            Text(
-                                              b.point?.usable == true
-                                                  ? b.regions.isEmpty
-                                                        ? '楼宇定位'
-                                                        : '${b.regions.length} 个分区'
-                                                  : '定位待补充',
-                                              style: TextStyle(
-                                                color: p.muted,
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                          ],
+                              hoverColor: active
+                                  ? Color.alphaBlend(
+                                      p.hoverOverlay,
+                                      p.accentSurface,
+                                    )
+                                  : p.hover,
+                              pressedColor: p.controlPressed,
+                              borderRadius: BorderRadius.circular(
+                                AppRadii.control,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 13,
+                              ),
+                              onTap: () => widget.onBuilding(b),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        AppTruncatedText(
+                                          b.name,
+                                          style: TextStyle(
+                                            color: active ? p.primary : p.ink,
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Icon(
-                                        AppIcons.right,
-                                        color: p.muted,
-                                        size: 15,
-                                      ),
-                                    ],
+                                        const SizedBox(height: 5),
+                                        Text(
+                                          b.point?.usable == true
+                                              ? b.regions.isEmpty
+                                                    ? '楼宇定位'
+                                                    : '${b.regions.length} 个分区'
+                                              : '定位待补充',
+                                          style: TextStyle(
+                                            color: p.muted,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(width: 8),
+                                  Icon(
+                                    AppIcons.right,
+                                    color: p.muted,
+                                    size: 15,
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -764,53 +767,56 @@ class _AtlasDirectoryState extends State<_AtlasDirectory> {
                                   left: 16,
                                   bottom: 2,
                                 ),
-                                child: Material(
-                                  color: widget.regionId == r.id
+                                child: AppHoverSurface(
+                                  key: ValueKey('atlas-region-${r.id}'),
+                                  outlined: false,
+                                  backgroundColor: widget.regionId == r.id
                                       ? p.accentSurface
                                       : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: InkWell(
-                                    key: ValueKey('atlas-region-${r.id}'),
-                                    onTap: () => widget.onRegion(b, r),
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 10,
+                                  hoverColor: widget.regionId == r.id
+                                      ? Color.alphaBlend(
+                                          p.hoverOverlay,
+                                          p.accentSurface,
+                                        )
+                                      : p.hover,
+                                  pressedColor: p.controlPressed,
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadii.control,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  onTap: () => widget.onRegion(b, r),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 2,
+                                        height: 18,
+                                        color: p.primary.withValues(alpha: .2),
                                       ),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            width: 2,
-                                            height: 18,
-                                            color: p.primary.withValues(
-                                              alpha: .2,
-                                            ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: AppTruncatedText(
+                                          _regionLabel(r),
+                                          style: TextStyle(
+                                            color: p.ink,
+                                            fontSize: 13,
                                           ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: AppTruncatedText(
-                                              _regionLabel(r),
-                                              style: TextStyle(
-                                                color: p.ink,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ),
-                                          Text(
-                                            r.point?.source == 'region'
-                                                ? '独立定位'
-                                                : r.point?.usable == true
-                                                ? '沿用定位'
-                                                : '未定位',
-                                            style: TextStyle(
-                                              color: p.muted,
-                                              fontSize: 10,
-                                            ),
-                                          ),
-                                        ],
+                                        ),
                                       ),
-                                    ),
+                                      Text(
+                                        r.point?.source == 'region'
+                                            ? '独立定位'
+                                            : r.point?.usable == true
+                                            ? '沿用定位'
+                                            : '未定位',
+                                        style: TextStyle(
+                                          color: p.muted,
+                                          fontSize: 10,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -873,47 +879,40 @@ class _AtlasDirectoryState extends State<_AtlasDirectory> {
                   padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
                   children: [
                     for (final s in sections)
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          key: ValueKey(
-                            'atlas-group-${s.id == '_all' ? 'all' : s.id}',
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                          onTap: () => selectGroup(s.id),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 13,
+                      AppHoverSurface(
+                        key: ValueKey(
+                          'atlas-group-${s.id == '_all' ? 'all' : s.id}',
+                        ),
+                        outlined: false,
+                        backgroundColor: Colors.transparent,
+                        hoverColor: p.hover,
+                        pressedColor: p.controlPressed,
+                        borderRadius: BorderRadius.circular(AppRadii.control),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 13,
+                        ),
+                        onTap: () => selectGroup(s.id),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: AppTruncatedText(
+                                s.name,
+                                style: TextStyle(fontSize: 13, color: p.ink),
+                              ),
                             ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: AppTruncatedText(
-                                    s.name,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: p.ink,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                  width: 24,
-                                  child: Text(
-                                    '${s.count}',
-                                    textAlign: TextAlign.right,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: p.muted,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(AppIcons.right, size: 15, color: p.muted),
-                              ],
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              width: 24,
+                              child: Text(
+                                '${s.count}',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(fontSize: 11, color: p.muted),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 8),
+                            Icon(AppIcons.right, size: 15, color: p.muted),
+                          ],
                         ),
                       ),
                   ],

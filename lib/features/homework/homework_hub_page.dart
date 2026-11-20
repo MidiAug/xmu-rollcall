@@ -324,7 +324,6 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
                     child: EmptyHint(
                       icon: Icons.assignment_turned_in_outlined,
                       title: '暂无作业',
-                      detail: '下拉刷新即可',
                     ),
                   ),
                 ],

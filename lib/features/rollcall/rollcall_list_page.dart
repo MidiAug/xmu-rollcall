@@ -147,7 +147,6 @@ class RollcallListPage extends ConsumerWidget {
                         child: EmptyHint(
                           icon: Icons.inbox_outlined,
                           title: '暂无进行中的签到',
-                          detail: '可手动刷新，发现的签到会显示在这里',
                         ),
                       ),
                       if (footer != null)
@@ -1408,9 +1407,16 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     );
     return Tooltip(
       message: '点击复制',
-      child: InkWell(
+      child: AppHoverSurface(
+        outlined: false,
+        backgroundColor: Colors.transparent,
+        hoverColor: palette.hover,
+        pressedColor: palette.controlPressed,
+        borderRadius: BorderRadius.circular(AppRadii.control),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         onTap: () => _copyCode(code),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Flexible(child: text),
             if (!_desktop &&

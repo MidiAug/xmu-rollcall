@@ -348,7 +348,7 @@ class _TimetableBody extends StatelessWidget {
       return EmptyHint(
         icon: AppIcons.week,
         title: all.isNotEmpty && !semester ? '本周没有课程安排' : '暂无课表安排',
-        detail: all.isNotEmpty && !semester ? '切换到学期查看全部课程' : '教务暂无课程安排',
+        detail: all.isNotEmpty && !semester ? '切换到学期查看全部课程' : null,
       );
     }
 

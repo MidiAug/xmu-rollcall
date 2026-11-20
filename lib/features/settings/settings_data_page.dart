@@ -140,7 +140,6 @@ class SettingsDataPage extends ConsumerWidget {
                 SettingsRow(
                   leading: const Icon(AppIcons.document),
                   title: '最近日志',
-                  subtitle: '本机诊断事件，可按关键词搜索',
                   trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: () =>
                       AppPageRoutes.push(context, const RecentLogsPage()),

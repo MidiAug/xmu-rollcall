@@ -60,14 +60,22 @@ class AppPalette {
 
   /// Ink paints over the existing surface. An opaque surface token would erase
   /// a selected background while leaving its contrasting text unchanged.
-  Color get hoverOverlay => primary.withValues(alpha: .08);
+  Color get hoverOverlay => isDark
+      ? Colors.white.withValues(alpha: .06)
+      : ink.withValues(alpha: .045);
   Color get primaryHover => Color.lerp(primary, ink, .12)!;
   Color get primaryPressed => Color.lerp(primary, ink, .2)!;
 
   /// Action surfaces stay distinct from the canvas even under the pointer.
   Color get controlHover => isDark ? const Color(0xFF353D4C) : hover;
   Color get controlPressed =>
-      isDark ? const Color(0xFF3D485C) : const Color(0xFFE6ECF6);
+      isDark ? const Color(0xFF3D485C) : const Color(0xFFE0E5ED);
+
+  /// Document / assignment icon badge tokens shared across summary cards.
+  Color get documentSurface =>
+      isDark ? const Color(0xFF163D57) : const Color(0xFFE7F4FF);
+  Color get documentAccent =>
+      isDark ? const Color(0xFF70BEFF) : const Color(0xFF087CE5);
 
   /// Focus follows the active theme accent; it is not a separate blue palette.
   Color get focus => primary;
@@ -135,7 +143,7 @@ class AppPalette {
     borderStrong: Color(0xFFD4DBE5),
     // Solid, with no dark overlay on the light canvas.
     hover: Color(0xFFE9EDF3),
-    cardHover: Color(0xFFF8FAFE),
+    cardHover: Color(0xFFF5F6F8),
     selected: Color(0xFFE7EDF7),
   );
 }

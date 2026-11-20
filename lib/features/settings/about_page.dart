@@ -82,13 +82,7 @@ class _AboutPageState extends State<AboutPage> {
                 style: TextStyle(fontSize: 12, height: 1.5, color: p.muted),
               ),
             ),
-            const SizedBox(height: 16),
-            Text(
-              '为厦大畅课准备的轻量客户端。\n课堂签到、作业与课表，集中在这里。',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, height: 1.8, color: p.muted),
-            ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
             if (widget.updateController != null)
               AppUpdateSection(controller: widget.updateController)
             else if (widget.updateService != null)

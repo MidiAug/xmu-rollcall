@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/app/app_checkbox.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 enum CloseAskAction { tray, quit }
@@ -92,39 +93,12 @@ class _CloseAskDialogState extends State<_CloseAskDialog> {
                 ),
                 if (!widget.busy) ...[
                   const SizedBox(height: 14),
-                  Material(
-                    type: MaterialType.transparency,
-                    borderRadius: BorderRadius.circular(AppRadii.control),
-                    clipBehavior: Clip.antiAlias,
-                    child: InkWell(
-                      onTap: _busyFlag
-                          ? null
-                          : () => setState(() => _remember = !_remember),
-                      borderRadius: BorderRadius.circular(AppRadii.control),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: Checkbox(
-                              value: _remember,
-                              onChanged: _busyFlag
-                                  ? null
-                                  : (v) =>
-                                        setState(() => _remember = v ?? false),
-                              materialTapTargetSize:
-                                  MaterialTapTargetSize.shrinkWrap,
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            '记住我的选择',
-                            style: TextStyle(fontSize: 13, color: p.ink),
-                          ),
-                        ],
-                      ),
-                    ),
+                  AppCheckboxRow(
+                    label: '记住我的选择',
+                    value: _remember,
+                    onChanged: _busyFlag
+                        ? null
+                        : (v) => setState(() => _remember = v),
                   ),
                 ],
                 const SizedBox(height: 20),

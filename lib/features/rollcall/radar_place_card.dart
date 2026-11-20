@@ -255,19 +255,16 @@ Future<RadarLocationAction?> showRadarLocationSheet(BuildContext context) {
               _SheetAction(
                 icon: Icons.my_location_outlined,
                 title: '使用当前定位',
-                subtitle: '读取这台设备现在的位置',
                 onTap: () => Navigator.pop(ctx, RadarLocationAction.device),
               ),
               _SheetAction(
                 icon: Icons.map_outlined,
                 title: '在地图上选择',
-                subtitle: '在地图上点一个位置',
                 onTap: () => Navigator.pop(ctx, RadarLocationAction.map),
               ),
               _SheetAction(
                 icon: Icons.bookmark_outline,
                 title: '已保存的地点',
-                subtitle: '使用已保存的地点',
                 onTap: () => Navigator.pop(ctx, RadarLocationAction.preset),
               ),
             ],
@@ -282,13 +279,11 @@ class _SheetAction extends StatelessWidget {
   const _SheetAction({
     required this.icon,
     required this.title,
-    required this.subtitle,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
-  final String subtitle;
   final VoidCallback onTap;
 
   @override
@@ -310,28 +305,14 @@ class _SheetAction extends StatelessWidget {
             Icon(icon, size: 20, color: p.muted),
             const SizedBox(width: AppSpace.sm),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.15,
-                      color: p.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      height: 1.35,
-                      color: p.muted,
-                    ),
-                  ),
-                ],
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: -0.15,
+                  color: p.ink,
+                ),
               ),
             ),
             Icon(Icons.chevron_right_rounded, size: 18, color: p.muted),

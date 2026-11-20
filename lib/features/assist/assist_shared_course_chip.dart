@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
@@ -18,12 +19,11 @@ class AssistSharedCourseChip extends StatelessWidget {
     final status = identity.sharedCourseStatus;
     final (label, fg, bg) = switch (status) {
       AssistSharedCourseStatus.neverSynced => ('未同步', p.muted, p.surfaceHigh),
-      AssistSharedCourseStatus.none => () {
-        final warn = Theme.of(context).brightness == Brightness.dark
-            ? const Color(0xFFFBBF24)
-            : const Color(0xFFB45309);
-        return ('无同课', warn, warn.withValues(alpha: 0.12));
-      }(),
+      AssistSharedCourseStatus.none => (
+        '无同课',
+        p.warning,
+        p.warning.withValues(alpha: 0.12),
+      ),
       AssistSharedCourseStatus.some => (
         '同课 ${identity.sharedCourses.length}',
         p.ink,
@@ -31,28 +31,21 @@ class AssistSharedCourseChip extends StatelessWidget {
       ),
     };
 
-    return Material(
-      color: Colors.transparent,
+    return AppHoverSurface(
+      outlined: false,
+      backgroundColor: bg,
+      hoverColor: Color.alphaBlend(p.hoverOverlay, bg),
+      pressedColor: p.controlPressed,
       borderRadius: BorderRadius.circular(AppRadii.control),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadii.control),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(AppRadii.control),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.1,
-              color: fg,
-            ),
-          ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      onTap: onTap,
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.1,
+          color: fg,
         ),
       ),
     );

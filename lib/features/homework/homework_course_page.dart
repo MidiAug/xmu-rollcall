@@ -200,7 +200,6 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
                           title: items.isEmpty
                               ? '本课暂无作业'
                               : '当前没有${_filter.label}的作业',
-                          detail: '切换筛选或下拉刷新',
                         ),
                       ),
                     ],

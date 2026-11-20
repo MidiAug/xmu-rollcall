@@ -224,7 +224,7 @@ Select下拉选项使用背景高亮和选中勾选，不绘制选项描边（U1
 
 打开态图标动作在保留选中表面的基础上叠加悬停/按下反馈；分段的按下强于悬停，取消恢复原选中。开关不增加悬停光晕，但按住须可见，键盘焦点画在轨道之外并留间隔，不能用主题色内描边盖在已开启的同色轨道上。
 
-不透明hover/cardHover/controlHover是完整表面填充，hoverOverlay是叠加墨水颜色，二者不得互换。Flutter InkWell/InkResponse未传覆盖色时会回退ThemeData.hoverColor；全局主题只传hoverOverlay，业务不得再传不透明p.hover。AppHoverSurface自行处理填色并禁用SDK第二层墨水，默认强色反馈保留强色族。已有局部状态解析也必须验证组合，不以主题改动代称全站验收。
+不透明hover/cardHover/controlHover是完整表面填充，hoverOverlay是叠加墨水颜色，二者不得互换。hoverOverlay 与浅色 cardHover、controlPressed 保持纯中性无色相偏移，浅色 cardHover 须明于 content/surfaceHigh；悬停反馈不得染入主题蓝而与选中态混淆。Flutter InkWell/InkResponse未传覆盖色时会回退ThemeData.hoverColor；全局主题只传中性hoverOverlay，业务页面点击表面统一复用 `AppHoverSurface`（或共享勾选行/按钮），不再新增裸 `InkWell`，并禁用SDK第二层墨水，默认强色反馈保留强色族。已有局部状态解析也必须验证组合，不以主题改动代称全站验收。
 
 交付检查必须覆盖selected+hover、selected+pressed、selected+focus及移出恢复，浅深色都检查动画中间帧和最终像素。截图/属性测试不能互相代替；组件层普通文字对比目标4.5:1，系统无障碍仍单独验证。
 
