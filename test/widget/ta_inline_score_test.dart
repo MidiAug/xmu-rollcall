@@ -182,7 +182,18 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pumpAndSettle();
     expect(f.scores[1], 0);
-    expect(scoreField(3), findsNothing);
+    final unavailable = tester.widget<TextField>(scoreField(3));
+    expect(unavailable.enabled, isFalse);
+    expect(unavailable.readOnly, isTrue);
+    expect(unavailable.onChanged, isNull);
+    expect(unavailable.onSubmitted, isNull);
+    expect(
+      tester.getRect(scoreField(3)).size,
+      tester.getRect(scoreField(1)).size,
+    );
+    final nameHeading = tester.getRect(find.text('姓名'));
+    final numberHeading = tester.getRect(find.text('学号'));
+    expect(numberHeading.left - nameHeading.left, inInclusiveRange(120, 180));
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('ta-score-3')),

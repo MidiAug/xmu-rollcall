@@ -11,11 +11,13 @@ class TaScoreField extends StatefulWidget {
     required this.enabled,
     required this.saving,
     this.readOnlyReason,
+    this.showDisabledField = false,
     required this.onChanged,
     required this.onSubmitted,
   });
   final String value, hint, name;
   final bool enabled, saving;
+  final bool showDisabledField;
   final String? readOnlyReason;
   final ValueChanged<String> onChanged, onSubmitted;
 
@@ -48,7 +50,7 @@ class _TaScoreFieldState extends State<TaScoreField> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final reason = widget.readOnlyReason;
-    if (reason != null && !widget.saving) {
+    if (reason != null && !widget.saving && !widget.showDisabledField) {
       final display = widget.value.isEmpty ? widget.hint : widget.value;
       return Semantics(
         label: '${widget.name}的成绩',
@@ -78,18 +80,18 @@ class _TaScoreFieldState extends State<TaScoreField> {
       label: '${widget.name}的成绩',
       hint: widget.saving
           ? '正在保存'
-          : widget.enabled
-          ? '输入后按回车保存'
-          : '暂时不可编辑',
+          : reason ?? (widget.enabled ? '输入后按回车保存' : '暂时不可编辑'),
       child: TextField(
         controller: _controller,
         focusNode: _focus,
+        enabled: reason == null || widget.saving,
         readOnly: !widget.enabled || widget.saving,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         textInputAction: TextInputAction.done,
         style: TextStyle(fontSize: 13, color: AppPalette.of(context).ink),
         decoration: InputDecoration(
           hintText: widget.hint,
+          fillColor: reason != null && !widget.saving ? p.controlSurface : null,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 10,
             vertical: 8,
@@ -105,7 +107,7 @@ class _TaScoreFieldState extends State<TaScoreField> {
                 )
               : null,
         ),
-        onChanged: widget.onChanged,
+        onChanged: widget.enabled && !widget.saving ? widget.onChanged : null,
         // Retain the editor's focus after Enter, including validation failures.
         onEditingComplete: () {},
         onSubmitted: widget.enabled && !widget.saving

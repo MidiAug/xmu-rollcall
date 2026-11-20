@@ -138,6 +138,21 @@ void main() {
     expect(find.text('启用协助'), findsNothing);
     expect(find.text('导出协助码'), findsOneWidget);
     expect(find.text('导入协助身份'), findsOneWidget);
+    final importedRow = find.ancestor(
+      of: find.text('已导入名单'),
+      matching: find.byType(SettingsRow),
+    );
+    expect(tester.widget<SettingsRow>(importedRow).subtitle, isNull);
+    final count = find.descendant(of: importedRow, matching: find.text('0 人'));
+    expect(count, findsOneWidget);
+    expect(
+      tester.getRect(count).left,
+      greaterThan(tester.getRect(find.text('已导入名单')).right),
+    );
+    expect(
+      tester.getCenter(count).dy,
+      closeTo(tester.getCenter(find.text('已导入名单')).dy, 1),
+    );
     expect(find.byType(Switch), findsNothing);
     await tester.binding.setSurfaceSize(const Size(400, 900));
     await tester.pumpAndSettle();

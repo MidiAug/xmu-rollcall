@@ -91,9 +91,9 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
     final columns = timetableColumns(blocks);
     final maxColumns = columns.values.fold(1, (n, v) => math.max(n, v.count));
     final axisW = (touch ? 56.0 : 60.0) * scale;
-    final headerH =
-        (widget.showDates ? (touch ? 48.0 : 60.0) : (touch ? 36.0 : 44.0)) *
-        scale;
+    // Switching the displayed range must not shift the timetable's first row.
+    // Reserve the date line even when semester mode omits specific dates.
+    final headerH = (touch ? 48.0 : 52.0) * scale;
     final reference = widget.referenceDate ?? DateTime.now();
     final monday = DateTime(
       reference.year,

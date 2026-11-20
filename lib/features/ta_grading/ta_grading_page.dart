@@ -1680,8 +1680,8 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                     }),
             ),
           ),
-          Expanded(
-            flex: 3,
+          SizedBox(
+            width: 148,
             child: AppTruncatedText(
               heading ? '姓名' : student!.name,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -1743,6 +1743,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                     child: TaScoreField(
                       key: ValueKey('ta-score-${student!.id}'),
                       name: student.name,
+                      showDisabledField: !student.submitted,
                       value: _scoreDrafts[student.id] ?? score,
                       hint: !student.submitted
                           ? '未提交'

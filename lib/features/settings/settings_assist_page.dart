@@ -83,10 +83,17 @@ class SettingsAssistPage extends ConsumerWidget {
                 SettingsRow(
                   leading: const Icon(AppIcons.people),
                   title: '已导入名单',
-                  subtitle: assist.ready
-                      ? '${assist.identities.length} 人'
-                      : '…',
-                  trailing: Icon(AppIcons.right, color: p.muted, size: 18),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        assist.ready ? '${assist.identities.length} 人' : '…',
+                        style: AppTypography.control.copyWith(color: p.muted),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(AppIcons.right, size: 18),
+                    ],
+                  ),
                   onTap: () =>
                       AppPageRoutes.push(context, const AssistIdentitiesPage()),
                 ),

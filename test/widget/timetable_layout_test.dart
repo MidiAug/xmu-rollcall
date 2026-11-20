@@ -184,6 +184,54 @@ void main() {
         .load();
   });
 
+  for (final (width, scale) in [(960.0, 1.0), (320.0, 1.5)]) {
+    testWidgets(
+      'week and semester keep header and first course aligned at $width',
+      (tester) async {
+        tester.view.physicalSize = Size(width, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        Future<void> show(bool dates) async {
+          await tester.pumpWidget(
+            ProviderScope(
+              child: MaterialApp(
+                theme: AppTheme.light(),
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.linear(scale)),
+                  child: child!,
+                ),
+                home: Scaffold(
+                  body: TimetableGridView(
+                    courses: _courses(false),
+                    showDates: dates,
+                    referenceDate: DateTime(2026, 11, 20),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        await show(true);
+        final weekly = tester.getRect(
+          find.byKey(const ValueKey('timetable-weekdays')),
+        );
+        final courseTop = tester.getTopLeft(find.text('专题研讨')).dy;
+        await show(false);
+        expect(
+          tester.getRect(find.byKey(const ValueKey('timetable-weekdays'))),
+          weekly,
+        );
+        expect(tester.getTopLeft(find.text('专题研讨')).dy, closeTo(courseTop, .1));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('week header dates cross a year boundary without marking today', (
     tester,
   ) async {

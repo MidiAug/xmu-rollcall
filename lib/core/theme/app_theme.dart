@@ -241,6 +241,10 @@ abstract final class AppTheme {
           borderRadius: BorderRadius.circular(AppRadii.input),
           borderSide: BorderSide(color: p.border),
         ),
+        disabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.input),
+          borderSide: BorderSide(color: p.border),
+        ),
         focusedBorder: _AppFocusRingInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
           borderSide: BorderSide(color: p.focus, width: 1.2),
