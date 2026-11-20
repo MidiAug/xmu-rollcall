@@ -155,12 +155,14 @@ class _AcademicMappingPageState extends ConsumerState<AcademicMappingPage> {
                 if (matched.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 16),
-                    child: ExpansionTile(
-                      title: Text('已关联（${matched.length}）'),
+                    child: AppDisclosure(
+                      title: '已关联（${matched.length}）',
+                      contentPadding: EdgeInsets.zero,
                       children: [
                         for (final c in matched)
-                          ListTile(
-                            title: Text(c.title),
+                          SettingsRow(
+                            title: c.title,
+                            truncateTitle: true,
                             trailing: TextButton(
                               onPressed: () =>
                                   setState(() => _editing.add(c.id)),

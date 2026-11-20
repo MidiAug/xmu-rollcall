@@ -200,3 +200,41 @@ class AppTextLink extends StatelessWidget {
     ),
   );
 }
+
+/// The same identity keeps its letter and color across account surfaces.
+class AppIdentityAvatar extends StatelessWidget {
+  const AppIdentityAvatar({super.key, this.name, this.size = 40});
+  final String? name;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final initial = name?.trim().characters.firstOrNull;
+    return ExcludeSemantics(
+      child: Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: initial == null
+              ? p.surfaceHigh
+              : p.primary.withValues(alpha: p.isDark ? .18 : .11),
+        ),
+        child: initial == null
+            ? Icon(AppIcons.person, color: p.muted, size: size * .55)
+            : Text(
+                initial,
+                textScaler: TextScaler.noScaling,
+                style: TextStyle(
+                  fontSize: size * .43,
+                  height: 1,
+                  fontWeight: FontWeight.w600,
+                  color: p.primary,
+                ),
+              ),
+      ),
+    );
+  }
+}

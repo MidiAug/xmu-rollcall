@@ -97,7 +97,7 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
     return SubpageScaffold(
       title: '值守课程',
       body: AppPageViewport(
-        maxWidth: 1040,
+        maxWidth: AppLayout.workspaceMaxWidth,
         builder: (context, contentInsets) => LayoutBuilder(
           builder: (context, bounds) => ListView(
             padding: contentInsets + const EdgeInsets.all(24),

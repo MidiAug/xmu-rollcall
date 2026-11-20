@@ -117,7 +117,7 @@ class _RouteSelectorState extends State<UpdateDownloadRouteSelector> {
                 compact: true,
                 leading: bounds.maxWidth < 164
                     ? null
-                    : Icon(Icons.alt_route_rounded, size: 16, color: p.muted),
+                    : Icon(AppIcons.downloadRoute, size: 16, color: p.muted),
                 width: bounds.maxWidth.clamp(0.0, widget.width),
                 menuWidth: 260,
                 onChanged: !_ready || _saving || !widget.enabled

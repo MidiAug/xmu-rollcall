@@ -68,7 +68,6 @@ class _DesktopNotificationSettingsPageState
               children: [
                 SettingsSection(
                   padTop: false,
-                  header: '通知测试',
                   footer: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -92,7 +91,7 @@ class _DesktopNotificationSettingsPageState
                   children: [
                     SettingsRow(
                       leading: const Icon(AppIcons.notification),
-                      title: '测试系统通知',
+                      title: '系统通知',
                       subtitle: '仅发送示例提醒，不会提交签到',
                       trailing: FilledButton(
                         onPressed: _busy ? null : _test,

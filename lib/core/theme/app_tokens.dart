@@ -347,9 +347,11 @@ abstract final class AppLayout {
   /// Wide enough for「清空」TextButton; empty tabs keep the same slot.
   static const pageHeaderTrailingWidth = 72.0;
 
-  /// Desktop list / settings column max width (includes call-site [AppSpace.pageX]).
-  /// Touch layouts ignore this and stay full-bleed.
-  static const contentMaxWidth = 720.0;
+  /// Reading/form and data-workspace widths include the page insets.
+  /// Touch layouts ignore these limits and stay full-bleed.
+  static const readingMaxWidth = 720.0;
+  static const workspaceMaxWidth = 960.0;
+  static const contentMaxWidth = readingMaxWidth;
 
   /// Initial desktop size; native resize is bounded by [minimumWindowSize].
   static const Size windowSize = Size(1120, 780);

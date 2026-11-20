@@ -132,7 +132,7 @@ class _ExamPageState extends ConsumerState<ExamPage>
                           ),
                 };
                 return AppPageViewport(
-                  maxWidth: 900,
+                  maxWidth: AppLayout.workspaceMaxWidth,
                   builder: (context, contentInsets) => ListView(
                     padding:
                         contentInsets +

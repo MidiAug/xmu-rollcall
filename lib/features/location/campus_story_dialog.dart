@@ -85,43 +85,56 @@ class CampusStoryDialog extends StatelessWidget {
                               ),
                         ],
                         if (sources.isNotEmpty)
-                          _StoryDisclosure(
-                            title: '参考资料',
-                            children: [
-                              for (final entry in sources.indexed)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 6,
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      SizedBox(
-                                        width: 24,
-                                        child: Text(
-                                          '${entry.$1 + 1}',
-                                          style: AppTypography.caption.copyWith(
-                                            color: p.muted,
+                          Padding(
+                            padding: const EdgeInsets.only(top: 22),
+                            child: AppDisclosure(
+                              title: '参考资料',
+                              bodyKey: const ValueKey(
+                                'story-disclosure-body-参考资料',
+                              ),
+                              headerPadding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                              ),
+                              contentPadding: const EdgeInsets.only(
+                                top: 4,
+                                bottom: 10,
+                              ),
+                              children: [
+                                for (final entry in sources.indexed)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 6,
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        SizedBox(
+                                          width: 24,
+                                          child: Text(
+                                            '${entry.$1 + 1}',
+                                            style: AppTypography.caption
+                                                .copyWith(color: p.muted),
                                           ),
                                         ),
-                                      ),
-                                      Expanded(
-                                        child: SelectableText(
-                                          campusStorySources[entry.$2] ??
-                                              (photo == null
-                                                  ? '厦门大学公开资料'
-                                                  : '${photo.credit}《${photo.caption}》'),
-                                          style: AppTypography.caption.copyWith(
-                                            color: p.muted,
-                                            height: 1.7,
+                                        Expanded(
+                                          child: SelectableText(
+                                            campusStorySources[entry.$2] ??
+                                                (photo == null
+                                                    ? '厦门大学公开资料'
+                                                    : '${photo.credit}《${photo.caption}》'),
+                                            style: AppTypography.caption
+                                                .copyWith(
+                                                  color: p.muted,
+                                                  height: 1.7,
+                                                ),
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                            ],
+                              ],
+                            ),
                           ),
                       ],
                     ),
@@ -336,95 +349,4 @@ class _StorySection extends StatelessWidget {
       ),
     ],
   );
-}
-
-class _StoryDisclosure extends StatefulWidget {
-  const _StoryDisclosure({required this.title, required this.children});
-  final String title;
-  final List<Widget> children;
-  @override
-  State<_StoryDisclosure> createState() => _StoryDisclosureState();
-}
-
-class _StoryDisclosureState extends State<_StoryDisclosure> {
-  var _expanded = false;
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final duration = MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : AppMotion.enter;
-    return Padding(
-      padding: const EdgeInsets.only(top: 22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Divider(color: p.border, height: 1),
-          Semantics(
-            expanded: _expanded,
-            button: true,
-            child: AppHoverSurface(
-              quiet: true,
-              outlined: false,
-              backgroundColor: Colors.transparent,
-              hoverColor: Colors.transparent,
-              pressedColor: Colors.transparent,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              onTap: () => setState(() => _expanded = !_expanded),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      widget.title,
-                      style: AppTypography.control.copyWith(color: p.muted),
-                    ),
-                  ),
-                  AnimatedRotation(
-                    turns: _expanded ? .5 : 0,
-                    duration: duration,
-                    curve: AppMotion.enterCurve,
-                    child: const Icon(AppIcons.down, size: 18),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: _expanded ? 1 : 0),
-            duration: duration,
-            curve: AppMotion.enterCurve,
-            builder: (context, value, child) => value == 0
-                ? SizedBox.shrink(
-                    key: ValueKey('story-disclosure-body-${widget.title}'),
-                  )
-                : ClipRect(
-                    key: ValueKey('story-disclosure-body-${widget.title}'),
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      heightFactor: value,
-                      child: Opacity(
-                        opacity: value,
-                        child: IgnorePointer(
-                          ignoring: !_expanded,
-                          child: ExcludeSemantics(
-                            excluding: !_expanded,
-                            child: child!,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 4),
-                ...widget.children,
-                const SizedBox(height: 10),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

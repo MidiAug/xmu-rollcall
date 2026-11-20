@@ -259,7 +259,7 @@ void main() {
           find.byKey(const ValueKey('monitor-course-watch')),
         );
         await capture('off');
-        expect(find.text('前后各延 2.5 分钟'), findsOneWidget);
+        expect(find.text('前后各延 2.5 分钟'), findsNothing);
         expect(find.text('最多 10 分钟'), findsNothing);
         await tester.tap(find.byKey(const ValueKey('monitor-course-watch')));
         await tester.pumpAndSettle();
@@ -279,6 +279,7 @@ void main() {
             .position
             .jumpTo(0);
         await tester.pumpAndSettle();
+        expect(find.text('前后各延 2.5 分钟'), findsOneWidget);
         await capture('course-watch');
         await _reveal(
           tester,

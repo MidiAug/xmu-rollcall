@@ -184,18 +184,7 @@ class _SidebarAccountTrigger extends StatelessWidget {
           ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 14,
-            backgroundColor: p.primary.withValues(alpha: p.isDark ? .18 : .11),
-            child: Text(
-              name.characters.firstOrNull ?? '我',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: p.primary,
-              ),
-            ),
-          ),
+          AppIdentityAvatar(name: name, size: 28),
           const SizedBox(width: 8),
           Expanded(
             child: Column(

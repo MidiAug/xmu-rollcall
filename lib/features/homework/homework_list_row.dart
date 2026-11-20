@@ -13,9 +13,8 @@ class HomeworkListRow extends StatelessWidget {
     required this.onTap,
   });
 
-  /// Includes the surface border, row padding and the list icon column.
-  static double titleInset(BuildContext context) =>
-      1 + AppSpace.md + 36 + AppDensity.rowInnerGap(context);
+  /// Align dividers with the title rather than a repeated decorative icon.
+  static double titleInset(BuildContext context) => 1 + AppSpace.md;
 
   final HomeworkItem item;
   final String subtitle;
@@ -41,8 +40,6 @@ class HomeworkListRow extends StatelessWidget {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              AppIconSurface(child: Icon(AppIcons.document, color: p.muted)),
-              SizedBox(width: AppDensity.rowInnerGap(context)),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

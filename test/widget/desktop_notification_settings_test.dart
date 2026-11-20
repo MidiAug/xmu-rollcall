@@ -196,7 +196,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('收到刚才的通知了吗？'), findsOneWidget);
       expect(find.text('已确认收到测试通知'), findsNothing);
-      final textColumn = tester.getTopLeft(find.text('测试系统通知')).dx;
+      final textColumn = tester.getTopLeft(find.text('系统通知')).dx;
       expect(
         tester.getTopLeft(find.text('收到刚才的通知了吗？')).dx,
         closeTo(textColumn, .01),

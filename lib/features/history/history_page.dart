@@ -456,12 +456,12 @@ class _CourseHistoryBody extends ConsumerWidget {
     final p = AppPalette.of(context);
     if (!signedIn) {
       return EmptyHint(
-        icon: Icons.lock_outline,
+        icon: AppIcons.lock,
         title: '尚未登录',
         detail: '登录后可查看课程签到历史',
         action: FilledButton.icon(
           onPressed: () => showLoginDialog(context),
-          icon: const Icon(Icons.login, size: 18),
+          icon: const Icon(AppIcons.login, size: 18),
           label: const Text('登录'),
         ),
       );
@@ -517,7 +517,7 @@ class _CourseHistoryBody extends ConsumerWidget {
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: EmptyHint(
-                    icon: Icons.school_outlined,
+                    icon: AppIcons.homework,
                     title: '暂无课程签到',
                   ),
                 ),
@@ -531,7 +531,7 @@ class _CourseHistoryBody extends ConsumerWidget {
                 SliverFillRemaining(
                   hasScrollBody: false,
                   child: EmptyHint(
-                    icon: Icons.filter_alt_outlined,
+                    icon: AppIcons.filter,
                     title: '无匹配记录',
                   ),
                 ),
@@ -549,8 +549,7 @@ class _CourseHistoryBody extends ConsumerWidget {
                   AppSpace.xl,
                 ),
             itemCount: filtered.length,
-            separatorBuilder: (_, _) =>
-                SizedBox(height: AppSpace.stackOf(context) * 0.55),
+            separatorBuilder: (_, _) => const SizedBox.shrink(),
             itemBuilder: (context, i) {
               final r = filtered[i];
               final date = r.isPlaceholder ? null : r.rollcallTime?.toLocal();
@@ -569,12 +568,24 @@ class _CourseHistoryBody extends ConsumerWidget {
                   date != null &&
                   (previous == null ||
                       DateUtils.dateOnly(date) != DateUtils.dateOnly(previous));
+              final next = i + 1 < filtered.length ? filtered[i + 1] : null;
+              final endsGroup =
+                  next == null ||
+                  r.isPlaceholder != next.isPlaceholder ||
+                  (!r.isPlaceholder &&
+                      (date == null
+                          ? next.rollcallTime != null
+                          : next.rollcallTime == null ||
+                                DateUtils.dateOnly(date) !=
+                                    DateUtils.dateOnly(
+                                      next.rollcallTime!.toLocal(),
+                                    )));
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (startsDay || startsPlaceholders || startsUndated)
                     Padding(
-                      padding: const EdgeInsets.only(top: 12, bottom: 8),
+                      padding: const EdgeInsets.only(top: 20, bottom: 8),
                       child: Text(
                         startsPlaceholders
                             ? '暂无签到记录的课程'
@@ -593,6 +604,8 @@ class _CourseHistoryBody extends ConsumerWidget {
                       '${r.courseId}_${r.rollcallId}_${r.signedStatus}',
                     ),
                     record: r,
+                    first: startsDay || startsPlaceholders || startsUndated,
+                    last: endsGroup,
                   ),
                 ],
               );
@@ -711,209 +724,101 @@ class _HistoryDateFilter extends StatelessWidget {
 }
 
 class _CourseTile extends StatelessWidget {
-  const _CourseTile({super.key, required this.record});
-
+  const _CourseTile({
+    super.key,
+    required this.record,
+    required this.first,
+    required this.last,
+  });
   final CourseRollcallRecord record;
-
-  Color _statusColor(AppPalette p) {
-    if (record.isPlaceholder) return p.muted;
-    return switch (historyAttendance(record)) {
-      HistoryAttendance.signed => p.success,
-      HistoryAttendance.unsigned => p.danger,
-      HistoryAttendance.other => p.muted,
-    };
-  }
+  final bool first, last;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final statusColor = _statusColor(p);
     final title = record.courseTitle.trim().isEmpty
         ? '未命名课程'
         : record.courseTitle;
-    return Panel(
-      outlined: true,
-      padding: EdgeInsets.zero,
-      child: Stack(
+    final time = record.rollcallTime?.toLocal();
+    final tone = switch (historyAttendance(record)) {
+      HistoryAttendance.signed => AppStatusTone.success,
+      HistoryAttendance.unsigned => AppStatusTone.danger,
+      HistoryAttendance.other => AppStatusTone.neutral,
+    };
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: p.surface,
+        borderRadius: BorderRadius.vertical(
+          top: first ? const Radius.circular(AppRadii.group) : Radius.zero,
+          bottom: last ? const Radius.circular(AppRadii.group) : Radius.zero,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
             padding: const EdgeInsets.all(AppSpace.md),
-            child: Row(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  margin: const EdgeInsets.only(top: 6),
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    shape: BoxShape.circle,
+                AppTruncatedText(
+                  title,
+                  style: AppTypography.body.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: p.ink,
                   ),
                 ),
-                const SizedBox(width: AppSpace.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 8),
+                if (record.isPlaceholder)
+                  Text(
+                    '本课暂无签到记录',
+                    style: AppTypography.caption.copyWith(color: p.muted),
+                  )
+                else
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Padding(
-                        padding: EdgeInsets.zero,
-                        child: AppTruncatedText(
-                          title,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.2,
-                            height: 1.3,
-                            color: p.ink,
-                          ),
-                        ),
+                      AppStatusBadge(record.signedStatus, tone: tone),
+                      Text(
+                        record.typeLabel,
+                        style: AppTypography.caption.copyWith(color: p.muted),
                       ),
-                      const SizedBox(height: AppSpace.xs),
-                      if (record.isPlaceholder)
-                        Text(
-                          '本课暂无签到记录',
-                          style: TextStyle(fontSize: 12, color: p.muted),
-                        )
-                      else
-                        _MetaColumns(
-                          type: record.typeLabel,
-                          status: record.signedStatus,
-                          time: record.timeLabel,
-                          statusColor: statusColor,
-                        ),
-                      if (!record.isPlaceholder &&
-                          record.detail.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Text(
-                          record.detail,
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.35,
-                            color: p.muted,
+                      if (time != null)
+                        Tooltip(
+                          message: record.timeLabel,
+                          child: Text(
+                            '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+                            style: AppTypography.caption.copyWith(
+                              color: p.muted,
+                            ),
                           ),
                         ),
-                      ],
                     ],
                   ),
-                ),
+                if (!record.isPlaceholder && record.detail.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    record.detail,
+                    style: AppTypography.caption.copyWith(
+                      color: p.muted,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
+          if (!last)
+            Divider(
+              height: 1,
+              thickness: 1,
+              indent: 16,
+              endIndent: 16,
+              color: p.border,
+            ),
         ],
-      ),
-    );
-  }
-}
-
-/// Compact meta — type / status chips + time.
-class _MetaColumns extends StatelessWidget {
-  const _MetaColumns({
-    required this.type,
-    required this.status,
-    required this.time,
-    required this.statusColor,
-  });
-
-  final String type;
-  final String status;
-  final String time;
-  final Color statusColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return Wrap(
-      spacing: AppSpace.xs,
-      runSpacing: AppSpace.xxs,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        _TypeChip(label: type, foreground: p.ink, background: p.surfaceHigh),
-        _Chip(
-          label: status,
-          foreground: statusColor,
-          background: statusColor.withValues(alpha: 0.12),
-        ),
-        Text(
-          time,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(fontSize: 12, height: 1.25, color: p.muted),
-        ),
-      ],
-    );
-  }
-}
-
-/// Standard types share a minimum optical width, with room for larger text or
-/// longer names from existing snapshots. The enclosing metadata row may wrap.
-class _TypeChip extends StatelessWidget {
-  const _TypeChip({
-    required this.label,
-    required this.foreground,
-    required this.background,
-  });
-
-  final String label;
-  final Color foreground;
-  final Color background;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = TextStyle(
-      fontSize: 11,
-      fontWeight: FontWeight.w600,
-      height: 1.2,
-      color: foreground,
-    );
-    return Container(
-      constraints: BoxConstraints(
-        minWidth: MediaQuery.textScalerOf(context).scale(11) * 3 + 16,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(AppRadii.control),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        textAlign: TextAlign.center,
-        overflow: TextOverflow.ellipsis,
-        style: style,
-      ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  const _Chip({
-    required this.label,
-    required this.foreground,
-    required this.background,
-  });
-
-  final String label;
-  final Color foreground;
-  final Color background;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(AppRadii.control),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          height: 1.2,
-          color: foreground,
-        ),
       ),
     );
   }

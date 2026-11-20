@@ -47,7 +47,7 @@ class _AboutPageState extends State<AboutPage> {
     return SubpageScaffold(
       title: '关于',
       body: AppPageViewport(
-        maxWidth: 600,
+        maxWidth: AppLayout.readingMaxWidth,
         builder: (context, contentInsets) => ListView(
           padding:
               contentInsets +

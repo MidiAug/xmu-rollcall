@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -170,7 +171,7 @@ void main() {
         monitor.debugArmRunning();
         await tester.pumpAndSettle();
         expect(find.byTooltip('值守中'), findsOneWidget);
-        expect(find.byType(CircleAvatar), findsOneWidget);
+        expect(find.byType(AppIdentityAvatar), findsOneWidget);
         await tester.tap(find.text('值守同学'));
         await tester.pumpAndSettle();
         expect(find.text('值守中'), findsOneWidget);

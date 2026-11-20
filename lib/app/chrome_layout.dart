@@ -292,7 +292,7 @@ class Panel extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
 
-  /// Rare: floating / overlay surfaces that need a hairline edge.
+  /// Content groups use a quiet edge; floating surfaces own their elevation.
   final bool outlined;
 
   @override
@@ -307,10 +307,14 @@ class Panel extends StatelessWidget {
               ? AppMobileUi.panelRadius
               : AppRadii.card,
         ),
-        side: AppMobileUi.useTouchChrome(context)
-            ? BorderSide(color: p.mobileOutline)
-            : outlined
-            ? BorderSide(color: p.borderStrong)
+        side: AppMobileUi.useTouchChrome(context) || outlined
+            ? BorderSide(
+                color: MediaQuery.highContrastOf(context)
+                    ? p.muted
+                    : AppMobileUi.useTouchChrome(context)
+                    ? p.mobileOutline
+                    : p.surfaceBorder,
+              )
             : BorderSide.none,
       ),
       clipBehavior: Clip.antiAlias,

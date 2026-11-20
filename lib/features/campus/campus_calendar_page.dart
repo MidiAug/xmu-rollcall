@@ -65,7 +65,7 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
       child: Material(
         color: p.canvas,
         child: AppPageViewport(
-          maxWidth: 960,
+          maxWidth: AppLayout.workspaceMaxWidth,
           builder: (context, insets) => ListView(
             padding:
                 insets +

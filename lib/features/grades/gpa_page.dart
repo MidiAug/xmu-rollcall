@@ -118,7 +118,7 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                     .toList();
                 final summary = calculateGpa(included);
                 return AppPageViewport(
-                  maxWidth: 960,
+                  maxWidth: AppLayout.workspaceMaxWidth,
                   builder: (context, contentInsets) => ListView(
                     padding:
                         contentInsets +
@@ -560,68 +560,59 @@ class _GpaPageState extends ConsumerState<GpaPage> {
 
   Widget _rules(BuildContext context, {bool graduate = false}) {
     final p = AppPalette.of(context);
-    return Material(
-      color: p.surface,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(color: p.border),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: ExpansionTile(
-        title: Text(
-          '计算规则与来源',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 13),
+    return SettingsSection(
+      padTop: false,
+      hasLeading: false,
+      children: [
+        AppDisclosure(
+          title: '计算规则与来源',
+          subtitle: graduate
+              ? '按教务绩点与学分加权，缺少有效绩点的课程不计入'
+              : '两级制及 N/A 不计入；0 绩点和每次修读成绩按教务规则计入',
+          children: [
+            Text(
+              graduate
+                  ? '研究生成绩使用独立教务应用，GPA 按教务返回的绩点值（JDZ）与学分加权；不使用本科分数或字母等级换算表。缺少有效绩点的课程不计入 GPA。\n刚入学、成绩尚未发布时，成功查询可以返回空列表，出分后可手动刷新。当前结果是本机试算，正式成绩及认定以研究生教务为准。'
+                  : '依据厦大教〔2022〕8号本科生成绩管理办法：GPA = Σ（课程绩点 × 学分）÷ Σ计入学分。优先使用教务绩点，荣誉课程保留教务值，不自行用分数推算。每次修读均计入，不只取最高分。\n'
+                        '两级制 P/NP、免修 EX、缓考 DF、退课 W 和教务标记 N/A 不计入；百分制或等级制的 F/0 绩点计入。\n'
+                        '通识课程不按名称一概排除：有有效教务绩点时默认计入，N/A 自动排除；未获认定的任意选修课不计入。学院评奖等另有口径时，可用“排除通识课程”或逐门勾选调整。\n'
+                        '加权均分使用数值成绩；字母等级按校方表2的对应分数计算。当前结果为本机试算，正式排名以教务及学院认定为准。',
+              style: TextStyle(fontSize: 12, color: p.muted, height: 1.7),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              children: [
+                if (graduate)
+                  AppTextLink(
+                    '研究生成绩管理文件',
+                    onPressed: () => launchUrl(
+                      Uri.parse('https://med.xmu.edu.cn/info/1167/5734.htm'),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                  ),
+                if (!graduate)
+                  AppTextLink(
+                    '本科生成绩管理办法',
+                    onPressed: () => launchUrl(
+                      Uri.parse('https://gk.xmu.edu.cn/info/1065/25331.htm'),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                  ),
+                if (!graduate)
+                  AppTextLink(
+                    '学分认定与转换办法',
+                    onPressed: () => launchUrl(
+                      Uri.parse('https://life.xmu.edu.cn/info/1058/1030.htm'),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                  ),
+              ],
+            ),
+          ],
         ),
-        subtitle: Text(
-          '两级制及 N/A 不计入；0 绩点和每次修读成绩按教务规则计入。',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
-        tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-        expandedCrossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            graduate
-                ? '研究生成绩使用独立教务应用，GPA 按教务返回的绩点值（JDZ）与学分加权；不使用本科分数或字母等级换算表。缺少有效绩点的课程不计入 GPA。\n刚入学、成绩尚未发布时，成功查询可以返回空列表，出分后可手动刷新。当前结果是本机试算，正式成绩及认定以研究生教务为准。'
-                : '依据厦大教〔2022〕8号本科生成绩管理办法：GPA = Σ（课程绩点 × 学分）÷ Σ计入学分。优先使用教务绩点，荣誉课程保留教务值，不自行用分数推算。每次修读均计入，不只取最高分。\n'
-                      '两级制 P/NP、免修 EX、缓考 DF、退课 W 和教务标记 N/A 不计入；百分制或等级制的 F/0 绩点计入。\n'
-                      '通识课程不按名称一概排除：有有效教务绩点时默认计入，N/A 自动排除；未获认定的任意选修课不计入。学院评奖等另有口径时，可用“排除通识课程”或逐门勾选调整。\n'
-                      '加权均分使用数值成绩；字母等级按校方表2的对应分数计算。当前结果为本机试算，正式排名以教务及学院认定为准。',
-            style: TextStyle(fontSize: 12, color: p.muted, height: 1.7),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 16,
-            runSpacing: 8,
-            children: [
-              if (graduate)
-                AppTextLink(
-                  '研究生成绩管理文件',
-                  onPressed: () => launchUrl(
-                    Uri.parse('https://med.xmu.edu.cn/info/1167/5734.htm'),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                ),
-              if (!graduate)
-                AppTextLink(
-                  '本科生成绩管理办法',
-                  onPressed: () => launchUrl(
-                    Uri.parse('https://gk.xmu.edu.cn/info/1065/25331.htm'),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                ),
-              if (!graduate)
-                AppTextLink(
-                  '学分认定与转换办法',
-                  onPressed: () => launchUrl(
-                    Uri.parse('https://life.xmu.edu.cn/info/1058/1030.htm'),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
+      ],
     );
   }
 

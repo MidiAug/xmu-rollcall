@@ -359,59 +359,73 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                 ),
               ],
             ),
-          ExpansionTile(
-            title: const Text('更多选项与排查'),
+          SettingsSection(
+            hasLeading: false,
             children: [
-              SettingsRow(
-                title: '发现通知设置',
-                subtitle: '声音可按个人习惯选择；锁屏内容也在这里设置',
-                onTap: () => _open(
-                  AndroidMonitorShell
-                      .instance
-                      .openDiscoveryNotificationSettings,
-                ),
-              ),
-              SettingsRow(
-                title: '后台运行设置',
-                subtitle: xiaomi ? '省电策略 → 无限制；仅在锁屏检测延迟时需要' : '仅在锁屏后检测延迟时调整',
-                onTap: () => _open(
-                  AndroidMonitorShell.instance.openAppBackgroundSettings,
-                ),
-              ),
-              if (status?.background['batteryExempt'] == false)
-                SettingsRow(
-                  title: '系统电池优化',
-                  subtitle: '如果应用省电策略调整后仍有延迟，可允许忽略优化',
-                  onTap: () => _open(
-                    AndroidMonitorShell
-                        .instance
-                        .openBatteryOptimizationSettings,
+              AppDisclosure(
+                title: '更多选项与排查',
+                contentPadding: EdgeInsets.zero,
+                children: [
+                  SettingsRow(
+                    title: '发现通知设置',
+                    subtitle: '声音可按个人习惯选择；锁屏内容也在这里设置',
+                    onTap: () => _open(
+                      AndroidMonitorShell
+                          .instance
+                          .openDiscoveryNotificationSettings,
+                    ),
                   ),
-                ),
-              SettingsRow(
-                title: '常驻倒计时设置',
-                subtitle: '默认安静，不需要开启声音、震动或悬浮',
-                onTap: () => _open(
-                  AndroidMonitorShell.instance.openOngoingNotificationSettings,
-                ),
+                  SettingsRow(
+                    title: '后台运行设置',
+                    subtitle: xiaomi
+                        ? '省电策略 → 无限制；仅在锁屏检测延迟时需要'
+                        : '仅在锁屏后检测延迟时调整',
+                    onTap: () => _open(
+                      AndroidMonitorShell.instance.openAppBackgroundSettings,
+                    ),
+                  ),
+                  if (status?.background['batteryExempt'] == false)
+                    SettingsRow(
+                      title: '系统电池优化',
+                      subtitle: '如果应用省电策略调整后仍有延迟，可允许忽略优化',
+                      onTap: () => _open(
+                        AndroidMonitorShell
+                            .instance
+                            .openBatteryOptimizationSettings,
+                      ),
+                    ),
+                  SettingsRow(
+                    title: '常驻倒计时设置',
+                    subtitle: '默认安静，不需要开启声音、震动或悬浮',
+                    onTap: () => _open(
+                      AndroidMonitorShell
+                          .instance
+                          .openOngoingNotificationSettings,
+                    ),
+                  ),
+                  Padding(
+                    padding: AppDensity.rowPadding(context),
+                    child: Text(
+                      '需要显示课程内容时，将锁屏规则设为「显示通知及其内容」。'
+                      '需要通知时亮屏，可在手机的锁屏或通知光效设置中选择亮屏；这是可选的全局设置。'
+                      '\n\n系统检查不能读取所有厂商开关，请以实际测试为准。',
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 1.5,
+                        color: p.muted,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               Padding(
-                padding: AppDensity.rowPadding(context),
+                padding: const EdgeInsets.only(top: AppSpace.md),
                 child: Text(
-                  '需要显示课程内容时，将锁屏规则设为「显示通知及其内容」。'
-                  '需要通知时亮屏，可在手机的锁屏或通知光效设置中选择亮屏；这是可选的全局设置。'
-                  '\n\n系统检查不能读取所有厂商开关，请以实际测试为准。',
-                  style: TextStyle(fontSize: 13, height: 1.5, color: p.muted),
+                  '开始检测 → 发现签到 → 提醒或按规则自动提交。检测倒计时保持安静，自动提交结果更新原提醒。退出账号、手动停止或达到系统后台时限后停止检测。',
+                  style: TextStyle(fontSize: 12, height: 1.5, color: p.muted),
                 ),
               ),
             ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: AppSpace.md),
-            child: Text(
-              '开始检测 → 发现签到 → 提醒或按规则自动提交。检测倒计时保持安静，自动提交结果更新原提醒。退出账号、手动停止或达到系统后台时限后停止检测。',
-              style: TextStyle(fontSize: 12, height: 1.5, color: p.muted),
-            ),
           ),
         ],
       ),

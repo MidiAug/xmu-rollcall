@@ -181,7 +181,7 @@ class _PointPreview extends StatelessWidget {
                       height: 36,
                       alignment: Alignment.topCenter,
                       child: Icon(
-                        Icons.location_on,
+                        AppIcons.location,
                         color: p.primary,
                         size: 36,
                       ),
@@ -253,17 +253,17 @@ Future<RadarLocationAction?> showRadarLocationSheet(BuildContext context) {
                 ),
               ),
               _SheetAction(
-                icon: Icons.my_location_outlined,
+                icon: AppIcons.locate,
                 title: '使用当前定位',
                 onTap: () => Navigator.pop(ctx, RadarLocationAction.device),
               ),
               _SheetAction(
-                icon: Icons.map_outlined,
+                icon: AppIcons.map,
                 title: '在地图上选择',
                 onTap: () => Navigator.pop(ctx, RadarLocationAction.map),
               ),
               _SheetAction(
-                icon: Icons.bookmark_outline,
+                icon: AppIcons.bookmark,
                 title: '已保存的地点',
                 onTap: () => Navigator.pop(ctx, RadarLocationAction.preset),
               ),
@@ -315,7 +315,7 @@ class _SheetAction extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(Icons.chevron_right_rounded, size: 18, color: p.muted),
+            Icon(AppIcons.right, size: 18, color: p.muted),
           ],
         ),
       ),

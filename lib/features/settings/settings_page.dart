@@ -137,10 +137,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           ),
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: p.surfaceHigh,
-                child: Icon(AppIcons.person, size: 28, color: p.muted),
+              AppIdentityAvatar(
+                name: auth.isSignedIn ? auth.profile?.name : null,
+                size: 48,
               ),
               const SizedBox(width: AppSpace.md),
               Expanded(
@@ -481,14 +480,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                       )
                     : Row(
                         children: [
-                          CircleAvatar(
-                            radius: 30,
-                            backgroundColor: p.accentSurface,
-                            child: Icon(
-                              AppIcons.person,
-                              color: p.primary,
-                              size: 32,
-                            ),
+                          AppIdentityAvatar(
+                            name: auth.isSignedIn ? auth.profile?.name : null,
+                            size: 60,
                           ),
                           const SizedBox(width: 16),
                           Expanded(

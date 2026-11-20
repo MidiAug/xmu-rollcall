@@ -2,6 +2,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/schedule/academic_calendar.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
@@ -140,7 +141,7 @@ class _SemesterSettingsPageState extends ConsumerState<SemesterSettingsPage> {
       title: '学期设置',
       isBusy: () => _busy,
       body: AppPageViewport(
-        maxWidth: 600,
+        maxWidth: AppLayout.readingMaxWidth,
         builder: (context, contentInsets) => ListView(
           padding: contentInsets + const EdgeInsets.all(20),
           children: [

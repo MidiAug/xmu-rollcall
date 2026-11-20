@@ -750,7 +750,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
                 header: '为谁签到',
                 children: [
                   SettingsRow(
-                    leading: const Icon(Icons.person_outline),
+                    leading: const Icon(AppIcons.person),
                     title: primary?.displayName ?? '我',
                     subtitle: _primaryDone ? '已签到或已结束' : '当前账号',
                     onTap: _submitting || _loadingEligible || _primaryDone
@@ -774,7 +774,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
                   for (final row in _rows)
                     SettingsRow(
                       leading: Icon(
-                        Icons.handshake_outlined,
+                        AppIcons.assist,
                         color: row.canSelect ? null : p.muted,
                       ),
                       title: row.identity.displayName,
@@ -817,7 +817,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
                   onPressed: _submitting ? null : _pasteClipboard,
-                  icon: const Icon(Icons.paste, size: 16),
+                  icon: const Icon(AppIcons.paste, size: 16),
                   label: const Text('从剪贴板粘贴'),
                 ),
               ),
@@ -830,7 +830,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
               icon: Icon(
                 _cameraSupported || _desktopSupported
                     ? Icons.qr_code_scanner
-                    : Icons.done_all,
+                    : AppIcons.submit,
                 size: 18,
               ),
               label: Text(
@@ -868,7 +868,7 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
                   for (final r in _results)
                     SettingsRow(
                       leading: Icon(
-                        r.ok ? Icons.check_circle_outline : Icons.error_outline,
+                        r.ok ? AppIcons.checkCircle : AppIcons.error,
                         color: r.ok ? p.success : p.danger,
                       ),
                       title: r.target.label,

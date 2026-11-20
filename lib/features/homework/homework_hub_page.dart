@@ -181,7 +181,7 @@ class _HomeworkHubPageState extends ConsumerState<HomeworkHubPage>
       title: '作业',
       showHeader: false,
       child: AppPageViewport(
-        maxWidth: 960,
+        maxWidth: AppLayout.workspaceMaxWidth,
         builder: (context, contentInsets) => PrimaryScrollController(
           controller: _scroll,
           child: !signedIn
@@ -217,7 +217,7 @@ class _SignedOutHint extends StatelessWidget {
       detail: '登录后可查看待办作业',
       action: FilledButton.icon(
         onPressed: onLogin,
-        icon: const Icon(Icons.login, size: 18),
+        icon: const Icon(AppIcons.login, size: 18),
         label: const Text('登录'),
       ),
     );

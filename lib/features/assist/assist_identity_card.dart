@@ -22,26 +22,6 @@ class AssistIdentityCard extends ConsumerStatefulWidget {
 
   final AssistIdentity identity;
 
-  static const _avatarPalette = <Color>[
-    Color(0xFF3D5AFE),
-    Color(0xFF4F46E5),
-    Color(0xFF0D9488),
-    Color(0xFF2563EB),
-    Color(0xFF7C3AED),
-    Color(0xFF0891B2),
-    Color(0xFF4338CA),
-    Color(0xFF0F766E),
-  ];
-
-  static Color avatarColor(int userId) =>
-      _avatarPalette[userId.abs() % _avatarPalette.length];
-
-  static String initialOf(String name) {
-    final t = name.trim();
-    if (t.isEmpty) return '?';
-    return String.fromCharCodes(t.runes.take(1));
-  }
-
   @override
   ConsumerState<AssistIdentityCard> createState() => _AssistIdentityCardState();
 }
@@ -79,7 +59,6 @@ class _AssistIdentityCardState extends ConsumerState<AssistIdentityCard> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final assist = ref.watch(assistControllerProvider);
-    final accent = AssistIdentityCard.avatarColor(identity.userId);
 
     return Panel(
       outlined: true,
@@ -98,10 +77,7 @@ class _AssistIdentityCardState extends ConsumerState<AssistIdentityCard> {
               onTap: _openIdentity,
               child: Row(
                 children: [
-                  _Avatar(
-                    initial: AssistIdentityCard.initialOf(identity.displayName),
-                    color: accent,
-                  ),
+                  AppIdentityAvatar(name: identity.displayName, size: 42),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -306,43 +282,6 @@ class _KindBadge extends StatelessWidget {
           letterSpacing: -0.1,
           height: 1.2,
           color: p.muted,
-        ),
-      ),
-    );
-  }
-}
-
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.initial, required this.color});
-
-  final String initial;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 42,
-      height: 42,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            color.withValues(alpha: 0.92),
-            color.withValues(alpha: 0.72),
-          ],
-        ),
-      ),
-      child: Text(
-        initial,
-        style: const TextStyle(
-          fontSize: 17,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.3,
-          height: 1,
-          color: Colors.white,
         ),
       ),
     );

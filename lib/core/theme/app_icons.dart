@@ -59,6 +59,16 @@ abstract final class AppIcons {
   static const check = CupertinoIcons.checkmark;
   static const checkCircle = CupertinoIcons.checkmark_circle;
   static const history = Icons.history_rounded;
+  static const locate = Icons.my_location_outlined;
+  static const paste = CupertinoIcons.doc_on_clipboard;
+  static const submit = CupertinoIcons.paperplane;
+  static const login = CupertinoIcons.square_arrow_right;
+  static const filter = CupertinoIcons.slider_horizontal_3;
+  static const update = CupertinoIcons.arrow_down_circle;
+  static const downloadRoute = Icons.alt_route_rounded;
+  // OS installation actions retain their recognizable platform symbols.
+  static const installDesktop = Icons.install_desktop_rounded;
+  static const installMobile = Icons.install_mobile_rounded;
   static const todoDocument = CupertinoIcons.doc_text_fill;
   static const document = CupertinoIcons.doc_text;
   static const play = CupertinoIcons.play_fill;

@@ -24,8 +24,6 @@ class MonitorSettingsPage extends ConsumerStatefulWidget {
 }
 
 class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
-  bool _showLogs = false;
-
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
@@ -77,7 +75,6 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                 ownerId: ownerId,
                 targetId: scope ?? ownerId,
               ),
-              const SizedBox(height: 20),
             ],
             SettingsSection(
               header: '检测频率与范围',
@@ -223,17 +220,13 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
             ),
             if (state.logs.isNotEmpty)
               SettingsSection(
-                header: '运行记录',
                 hasLeading: false,
                 children: [
-                  if (state.logs.isNotEmpty) ...[
-                    SettingsRow(
-                      key: const ValueKey('monitor-logs'),
-                      title: '最近运行',
-                      trailing: _DisclosureIcon(expanded: _showLogs),
-                      onTap: () => setState(() => _showLogs = !_showLogs),
-                    ),
-                    if (_showLogs)
+                  AppDisclosure(
+                    headerKey: const ValueKey('monitor-logs'),
+                    title: '最近运行',
+                    contentPadding: EdgeInsets.zero,
+                    children: [
                       for (final log in state.logs.take(5))
                         Padding(
                           padding: controlPadding,
@@ -255,7 +248,8 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                             ],
                           ),
                         ),
-                  ],
+                    ],
+                  ),
                 ],
               ),
           ],
@@ -269,18 +263,6 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
     String two(int value) => value.toString().padLeft(2, '0');
     return '${local.month}月${local.day}日 ${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
   }
-}
-
-class _DisclosureIcon extends StatelessWidget {
-  const _DisclosureIcon({required this.expanded});
-  final bool expanded;
-
-  @override
-  Widget build(BuildContext context) => AnimatedRotation(
-    turns: expanded ? 0.25 : 0,
-    duration: AppMotion.fast,
-    child: Icon(AppIcons.right, size: 18, color: AppPalette.of(context).muted),
-  );
 }
 
 class _NumberControl extends StatelessWidget {

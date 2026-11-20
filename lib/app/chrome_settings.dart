@@ -51,14 +51,9 @@ class SettingsSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (header != null) ...[AppSectionHeading(child: Text(header!))],
-          Material(
-            color: p.surface,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadii.group),
-              side: BorderSide(color: touch ? p.mobileOutline : p.border),
-            ),
-            clipBehavior: Clip.antiAlias,
+          Panel(
+            outlined: true,
+            padding: EdgeInsets.zero,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

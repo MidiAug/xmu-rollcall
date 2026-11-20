@@ -23,6 +23,7 @@ import 'package:xmu_rollcall/platform/platform_hooks.dart';
 
 part 'chrome_controls.dart';
 part 'chrome_settings.dart';
+part 'chrome_disclosure.dart';
 part 'chrome_select.dart';
 
 part 'chrome_primitives.dart';

@@ -304,24 +304,24 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
     final (label, icon, callback) = switch (_phase) {
       _UpdatePhase.downloading => (
         '取消下载',
-        Icons.close_rounded,
+        AppIcons.close,
         () => _controller.cancelDownload(),
       ),
       _UpdatePhase.ready => (
         _target == UpdateTarget.windows ? '退出并安装' : '安装更新',
         _target == UpdateTarget.windows
-            ? Icons.install_desktop_rounded
-            : Icons.install_mobile_rounded,
+            ? AppIcons.installDesktop
+            : AppIcons.installMobile,
         _install,
       ),
       _ =>
         update != null
             ? (
                 _phase == _UpdatePhase.failed ? '重新下载' : '下载更新',
-                Icons.download_rounded,
+                AppIcons.download,
                 _download,
               )
-            : ('检查更新', Icons.refresh_rounded, _check),
+            : ('检查更新', AppIcons.refresh, _check),
     };
     final waiting = checking || _phase == _UpdatePhase.installing;
     final row = Semantics(
@@ -335,7 +335,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
                   strokeWidth: 2,
                 ),
               )
-            : const Icon(Icons.system_update_alt_rounded),
+            : const Icon(AppIcons.update),
         title: _phase == _UpdatePhase.downloading ? _message : '检查更新',
         subtitleMaxLines: 1,
         subtitle: _phase == _UpdatePhase.downloading
@@ -376,7 +376,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
       children: [
         row,
         SettingsRow(
-          leading: const Icon(Icons.alt_route_rounded),
+          leading: const Icon(AppIcons.downloadRoute),
           title: '下载线路',
           trailing: UpdateDownloadRouteSelector(
             width: AppDensity.isTouch(context) ? 128 : 164,

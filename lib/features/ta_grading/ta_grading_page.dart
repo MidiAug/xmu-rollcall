@@ -132,7 +132,7 @@ class _TaCoursesState extends State<_TaCourses> {
       orElse: () => widget.courses.first,
     );
     return AppPageViewport(
-      maxWidth: 1000,
+      maxWidth: AppLayout.workspaceMaxWidth,
       builder: (context, contentInsets) => FutureBuilder<List<TaAssignment>>(
         key: ValueKey((_course, _assignments)),
         future: _assignments,

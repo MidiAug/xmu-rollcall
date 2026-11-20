@@ -230,6 +230,18 @@ void main() {
         expect(first, findsOneWidget);
         expect(second, findsOneWidget);
         expect(otherCourse, findsOneWidget);
+        expect(find.text('08:00'), findsOneWidget);
+        expect(find.text('09:00'), findsOneWidget);
+        expect(find.text('10:00'), findsOneWidget);
+        final now = DateTime.now();
+        final exactTime = DateTime(
+          now.year,
+          now.month,
+          now.day,
+          8,
+        ).toString().substring(0, 19);
+        expect(find.text(exactTime), findsNothing);
+        expect(find.byTooltip(exactTime), findsOneWidget);
         expect(
           tester.getTopLeft(second).dy,
           lessThan(tester.getTopLeft(otherCourse).dy),

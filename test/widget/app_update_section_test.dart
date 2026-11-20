@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/features/update/app_release.dart';
 import 'package:xmu_rollcall/features/update/app_update_section.dart';
@@ -125,7 +126,7 @@ void main() {
         );
         final initial = tester.getRect(statusRow);
         expect(find.text('已是最新版本'), findsOneWidget);
-        expect(find.byIcon(Icons.refresh_rounded), findsOneWidget);
+        expect(find.byIcon(AppIcons.refresh), findsOneWidget);
         service.pendingCheck = Completer<ReleaseUpdate?>();
         await tester.tap(find.byTooltip('检查更新'));
         await tester.pump();
@@ -135,7 +136,7 @@ void main() {
         service.pendingCheck!.complete(update(UpdateTarget.windows));
         await tester.pumpAndSettle();
         expect(find.text('有更新  v0.2.0'), findsOneWidget);
-        expect(find.byIcon(Icons.refresh_rounded), findsNothing);
+        expect(find.byIcon(AppIcons.refresh), findsNothing);
         expect(find.byTooltip('下载更新'), findsOneWidget);
         expect(statusRow, findsOneWidget);
         expect(find.textContaining('A synthetic change'), findsNothing);

@@ -95,7 +95,7 @@ class _CampusToolsPageState extends State<CampusToolsPage>
       child: ColoredBox(
         color: p.pageBackground(context),
         child: AppPageViewport(
-          maxWidth: 840,
+          maxWidth: AppLayout.workspaceMaxWidth,
           builder: (context, contentInsets) => LayoutBuilder(
             builder: (context, viewport) => SingleChildScrollView(
               controller: _scroll,

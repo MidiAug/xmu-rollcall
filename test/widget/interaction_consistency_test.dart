@@ -144,7 +144,7 @@ void main() {
           final point =
               rect.centerLeft -
               tester.getTopLeft(find.byKey(capture)) +
-              const Offset(.5, 0);
+              Offset(segment ? 2.5 : .5, 0);
           final idle = await _pixel(tester, capture, point);
           final mouse = await tester.createGesture(
             kind: ui.PointerDeviceKind.mouse,
