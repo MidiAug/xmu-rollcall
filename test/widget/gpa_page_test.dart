@@ -375,7 +375,7 @@ void main() {
       },
     );
     testWidgets(
-      'GPA course hover paints feedback and keeps the native arrow dark=$dark',
+      'GPA course keeps quiet fill and the checkbox owns feedback dark=$dark',
       (tester) async {
         tester.view.physicalSize = const Size(960, 1100);
         tester.view.devicePixelRatio = 1;
@@ -426,7 +426,7 @@ void main() {
           RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
           SystemMouseCursors.basic,
         );
-        expect(await pixel(), isNot(idle));
+        expect(await pixel(), idle);
         final checkbox = find.descendant(
           of: row,
           matching: find.byType(AppCheckbox),
@@ -435,6 +435,11 @@ void main() {
         await mouse.down(point);
         await tester.pumpAndSettle();
         expect(tester.widget<AppCheckbox>(checkbox).value, isTrue);
+        expect(await pixel(), idle);
+        await mouse.cancel();
+        await tester.pumpAndSettle();
+        expect(tester.widget<AppCheckbox>(checkbox).value, isTrue);
+        await mouse.down(point);
         await mouse.up();
         await tester.pumpAndSettle();
         expect(tester.widget<AppCheckbox>(checkbox).value, isFalse);

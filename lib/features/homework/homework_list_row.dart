@@ -12,6 +12,11 @@ class HomeworkListRow extends StatelessWidget {
     required this.trailing,
     required this.onTap,
   });
+
+  /// Includes the surface border, row padding and the list icon column.
+  static double titleInset(BuildContext context) =>
+      1 + AppSpace.md + 36 + AppDensity.rowInnerGap(context);
+
   final HomeworkItem item;
   final String subtitle;
   final Widget trailing;
@@ -22,6 +27,7 @@ class HomeworkListRow extends StatelessWidget {
     return AppHoverSurface(
       onTap: onTap,
       outlined: false,
+      quiet: true,
       borderRadius: BorderRadius.zero,
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpace.md,
@@ -64,7 +70,7 @@ class HomeworkListRow extends StatelessWidget {
                 SizedBox(width: 264 * scale, child: metadata),
               ],
               const SizedBox(width: AppSpace.md),
-              Icon(AppIcons.right, size: 14, color: p.muted),
+              const Icon(AppIcons.right),
             ],
           );
         },

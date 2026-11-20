@@ -69,8 +69,8 @@ class HomeworkStatusBadges extends ConsumerWidget {
           : AppStatusTone.neutral,
     );
     return Wrap(
-      spacing: 6,
-      runSpacing: 4,
+      spacing: 8,
+      runSpacing: 6,
       children: [
         chip(
           state.submissionLabel,
@@ -149,15 +149,7 @@ class _HomeworkMetadataRow extends StatelessWidget {
     }
 
     final timeWidth = textWidth('00/00 00:00', timeStyle);
-    final statusWidth =
-        textWidth(
-          '未提交',
-          AppTypography.caption.copyWith(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ) +
-        16;
+    final statusWidth = AppStatusBadge.widthOf(context, '未提交');
     return Wrap(
       spacing: 8,
       runSpacing: 6,

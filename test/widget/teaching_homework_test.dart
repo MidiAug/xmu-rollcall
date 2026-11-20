@@ -323,6 +323,8 @@ void main() {
     (320.0, 1.0, false),
     (384.0, 1.0, false),
     (960.0, 1.0, false),
+    (960.0, 1.5, false),
+    (960.0, 2.0, true),
     (320.0, 1.5, false),
     (760.0, 1.0, false),
     (1920.0, 1.0, false),
@@ -432,6 +434,24 @@ void main() {
         expect(find.text('已批改 0 分'), findsOneWidget);
         expect(find.textContaining(RegExp(r'^已截止\s*2$')), findsOneWidget);
         expect(find.text('成绩未公布'), findsOneWidget);
+        // Finding a Text is insufficient: clipped labels remain in the tree.
+        for (final label in ['已提交', '未提交', '成绩未公布', '已批改 0 分']) {
+          for (final element in find.text(label).evaluate()) {
+            final paragraph = element.renderObject! as RenderParagraph;
+            expect(paragraph.didExceedMaxLines, isFalse, reason: label);
+            final painter = TextPainter(
+              text: paragraph.text,
+              textDirection: paragraph.textDirection,
+              textScaler: paragraph.textScaler,
+            )..layout();
+            expect(
+              paragraph.size.width,
+              greaterThanOrEqualTo(painter.width),
+              reason: label,
+            );
+            painter.dispose();
+          }
+        }
         final deadline9 = find.byKey(const ValueKey('homework-deadline-9'));
         final deadline10 = find.byKey(const ValueKey('homework-deadline-10'));
         final submission9 = find.byKey(const ValueKey('homework-submission-9'));

@@ -81,7 +81,8 @@ class _AssistIdentityCardState extends ConsumerState<AssistIdentityCard> {
     final assist = ref.watch(assistControllerProvider);
     final accent = AssistIdentityCard.avatarColor(identity.userId);
 
-    return AppHoverSurface(
+    return Panel(
+      outlined: true,
       padding: EdgeInsets.zero,
       child: Row(
         children: [

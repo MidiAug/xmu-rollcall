@@ -100,6 +100,7 @@ class AppHoverSurface extends StatelessWidget {
     this.borderRadius,
     this.onTap,
     this.outlined = true,
+    this.quiet = false,
     this.borderColor,
     this.focusable = true,
     this.backgroundColor,
@@ -112,6 +113,10 @@ class AppHoverSurface extends StatelessWidget {
   final BorderRadius? borderRadius;
   final VoidCallback? onTap;
   final bool outlined;
+
+  /// Grouped rows keep their surface still; uncolored indicator icons respond.
+  /// Embedded controls continue to own their input states.
+  final bool quiet;
   final Color? borderColor;
   final bool focusable;
   final Color? backgroundColor;
@@ -147,7 +152,9 @@ class AppHoverSurface extends StatelessWidget {
       curve: AppMotion.fastCurve,
       padding: padding,
       decoration: BoxDecoration(
-        color: pressed
+        color: quiet
+            ? idle
+            : pressed
             ? pressedColor ?? (strong ? p.primaryPressed : p.content)
             : (lift ? hover : idle),
         borderRadius: radius,
@@ -160,7 +167,25 @@ class AppHoverSurface extends StatelessWidget {
               : AppPalette.clearOf(p.focus),
         ),
       ),
-      child: child,
+      child: quiet
+          ? TweenAnimationBuilder<Color?>(
+              tween: ColorTween(
+                end: pressed || focused
+                    ? p.primary
+                    : hovered && onTap != null
+                    ? p.ink
+                    : p.muted,
+              ),
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : AppMotion.fast,
+              child: child,
+              builder: (context, color, child) => IconTheme.merge(
+                data: IconThemeData(size: 18, color: color),
+                child: child!,
+              ),
+            )
+          : child,
     );
 
     return ClipRRect(borderRadius: radius, child: body);

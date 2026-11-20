@@ -121,33 +121,10 @@ class _TaCoursesState extends State<_TaCourses> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     if (widget.courses.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  color: p.accentSurface,
-                  borderRadius: BorderRadius.circular(24),
-                ),
-                child: Icon(AppIcons.people, size: 32, color: p.muted),
-              ),
-              const SizedBox(height: 20),
-              Text('还没有助教课程', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 8),
-              Text(
-                '获得课程的教师或助教权限后，作业会显示在这里。',
-                textAlign: TextAlign.center,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: p.muted),
-              ),
-            ],
-          ),
-        ),
+      return const EmptyHint(
+        icon: AppIcons.people,
+        title: '还没有助教课程',
+        detail: '获得课程的教师或助教权限后，作业会显示在这里。',
       );
     }
     final course = widget.courses.firstWhere(

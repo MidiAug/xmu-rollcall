@@ -809,82 +809,81 @@ class _GradeCourseRow extends StatelessWidget {
       focusable: false,
       borderRadius: BorderRadius.zero,
       backgroundColor: Colors.transparent,
-      hoverColor: p.cardHover,
-      pressedColor: p.hover,
+      quiet: true,
       padding: const EdgeInsets.fromLTRB(6, 12, 16, 12),
       onTap: onChanged == null ? null : () => onChanged!(!selected),
       child: Row(
         children: [
-            TooltipVisibility(
-              visible: false,
-              child: AppCheckbox(
-                value: selected,
-                label: '${row.title}，${row.score}，计入 GPA',
-                onChanged: onChanged,
-              ),
+          TooltipVisibility(
+            visible: false,
+            child: AppCheckbox(
+              value: selected,
+              label: '${row.title}，${row.score}，计入 GPA',
+              onChanged: onChanged,
             ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AppTruncatedText(
-                    row.title,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: p.ink,
-                    ),
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppTruncatedText(
+                  row.title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: p.ink,
                   ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 4,
-                    children: [
-                      Text(
-                        '${row.credits} 学分',
-                        style: TextStyle(fontSize: 12, color: p.muted),
-                      ),
-                      if (row.category.isNotEmpty)
-                        Text(
-                          row.category,
-                          style: TextStyle(fontSize: 12, color: p.muted),
-                        ),
-                    ],
-                  ),
-                  if (row.exclusionReason != null || excludedGeneral) ...[
-                    const SizedBox(height: 4),
+                ),
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 4,
+                  children: [
                     Text(
-                      row.exclusionReason ?? '已按自选口径排除通识课程',
+                      '${row.credits} 学分',
                       style: TextStyle(fontSize: 12, color: p.muted),
                     ),
+                    if (row.category.isNotEmpty)
+                      Text(
+                        row.category,
+                        style: TextStyle(fontSize: 12, color: p.muted),
+                      ),
                   ],
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  row.score,
-                  style: TextStyle(
-                    color: p.ink,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
+                ),
+                if (row.exclusionReason != null || excludedGeneral) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    row.exclusionReason ?? '已按自选口径排除通识课程',
+                    style: TextStyle(fontSize: 12, color: p.muted),
                   ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  row.points == null
-                      ? '无绩点'
-                      : '绩点 ${row.points!.toStringAsFixed(2)}',
-                  style: TextStyle(color: p.muted, fontSize: 11),
-                ),
+                ],
               ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                row.score,
+                style: TextStyle(
+                  color: p.ink,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                row.points == null
+                    ? '无绩点'
+                    : '绩点 ${row.points!.toStringAsFixed(2)}',
+                style: TextStyle(color: p.muted, fontSize: 11),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

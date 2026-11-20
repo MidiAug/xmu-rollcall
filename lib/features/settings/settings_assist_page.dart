@@ -35,7 +35,6 @@ class SettingsAssistPage extends ConsumerWidget {
           children: [
             SettingsSection(
               padTop: false,
-              header: '协助',
               children: [
                 SettingsRow(
                   leading: const Icon(AppIcons.upload),

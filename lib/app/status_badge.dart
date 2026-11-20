@@ -9,6 +9,30 @@ class AppStatusBadge extends StatelessWidget {
     super.key,
     this.tone = AppStatusTone.neutral,
   });
+  static const _padding = EdgeInsets.symmetric(horizontal: 8, vertical: 3);
+  static const _borderWidth = 1.0;
+  static final _textStyle = AppTypography.caption.copyWith(
+    fontSize: 12,
+    fontWeight: FontWeight.w500,
+    height: 1.3,
+  );
+
+  /// Column owners measure the same typography, padding and border we paint.
+  static double widthOf(BuildContext context, String label) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: DefaultTextStyle.of(context).style.merge(_textStyle),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final width =
+        painter.width.ceilToDouble() + _padding.horizontal + 2 * _borderWidth;
+    painter.dispose();
+    return width;
+  }
+
   final String label;
   final AppStatusTone tone;
   @override
@@ -21,22 +45,16 @@ class AppStatusBadge extends StatelessWidget {
       AppStatusTone.neutral => p.muted,
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: _padding,
       decoration: BoxDecoration(
         color: color.withValues(alpha: p.isDark ? .14 : .09),
         borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: color.withValues(alpha: p.isDark ? .22 : .14)),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        style: AppTypography.caption.copyWith(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          height: 1.3,
-          color: color,
+        border: Border.all(
+          width: _borderWidth,
+          color: color.withValues(alpha: p.isDark ? .22 : .14),
         ),
       ),
+      child: Text(label, maxLines: 1, style: _textStyle.copyWith(color: color)),
     );
   }
 }

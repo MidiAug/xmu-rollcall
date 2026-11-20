@@ -422,7 +422,7 @@ void main() {
   );
   for (final dark in [false, true]) {
     testWidgets(
-      'calendar selection retains hover press and arrow cursor dark=$dark',
+      'calendar selection keeps quiet fill and arrow feedback dark=$dark',
       (tester) async {
         tester.view.physicalSize = const Size(900, 1200);
         tester.view.devicePixelRatio = 1;
@@ -503,7 +503,7 @@ void main() {
           RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
           SystemMouseCursors.basic,
         );
-        expect(fill(selected), p.hover);
+        expect(fill(selected), p.surface);
         expect(
           tester
               .widget<Text>(
@@ -516,19 +516,26 @@ void main() {
         final selectedPixel = await pixel(selected);
         await mouse.down(tester.getCenter(selected));
         await tester.pumpAndSettle();
-        expect(fill(selected), p.controlPressed);
-        expect(await pixel(selected), isNot(selectedPixel));
+        expect(fill(selected), p.surface);
+        expect(await pixel(selected), selectedPixel);
         await mouse.up();
         await tester.pumpAndSettle();
         await mouse.moveTo(Offset.zero);
         await tester.pumpAndSettle();
         await tester.ensureVisible(other);
         await tester.pumpAndSettle();
+        Color? disclosureColor() => IconTheme.of(
+          tester.element(
+            find.descendant(of: other, matching: find.byIcon(AppIcons.right)),
+          ),
+        ).color;
         final idlePixel = await pixel(other);
+        expect(disclosureColor(), p.muted);
         await mouse.moveTo(tester.getCenter(other));
         await tester.pumpAndSettle();
-        expect(fill(other), p.hover);
-        expect(await pixel(other), isNot(idlePixel));
+        expect(fill(other), p.surface);
+        expect(disclosureColor(), p.ink);
+        expect(await pixel(other), idlePixel);
         expect(fill(selected), p.surface);
         await captureDesktopUi(tester, 'calendar-hover-$dark');
         await mouse.moveTo(Offset.zero);

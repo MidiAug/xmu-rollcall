@@ -14,6 +14,7 @@ class SettingsSection extends StatelessWidget {
     this.padTop = true,
     this.hasLeading = true,
     this.rowPadding,
+    this.dividerIndent,
   });
 
   final String? header;
@@ -26,6 +27,7 @@ class SettingsSection extends StatelessWidget {
   /// When rows have leading icons, indent dividers to the title column.
   final bool hasLeading;
   final EdgeInsets? rowPadding;
+  final double? dividerIndent;
 
   @override
   Widget build(BuildContext context) {
@@ -37,8 +39,9 @@ class SettingsSection extends StatelessWidget {
         : AppDensity.settingsLeading;
     const captionInset = 12.0;
     final dividerIndent =
+        this.dividerIndent ??
         rowPad.left +
-        (hasLeading ? leadingExtent + AppDensity.settingsInnerGap : 0);
+            (hasLeading ? leadingExtent + AppDensity.settingsInnerGap : 0);
 
     return Padding(
       padding: EdgeInsets.only(
@@ -47,24 +50,7 @@ class SettingsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (header != null) ...[
-            Padding(
-              // Caption aligns to card inset — same for every group (not past icons).
-              padding: EdgeInsets.fromLTRB(
-                captionInset,
-                0,
-                captionInset,
-                AppSpace.sectionGap,
-              ),
-              child: Text(
-                header!,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: p.muted,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
+          if (header != null) ...[AppSectionHeading(child: Text(header!))],
           Material(
             color: p.surface,
             elevation: 0,
@@ -101,6 +87,24 @@ class SettingsSection extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Shared caption grid for grouped cards, including composite course headings.
+class AppSectionHeading extends StatelessWidget {
+  const AppSectionHeading({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(12, 0, 12, AppSpace.sectionGap),
+    child: DefaultTextStyle.merge(
+      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+        color: AppPalette.of(context).muted,
+        fontWeight: FontWeight.w600,
+      ),
+      child: child,
+    ),
+  );
 }
 
 /// One inset row inside [SettingsSection]. Height / padding follow [AppDensity].

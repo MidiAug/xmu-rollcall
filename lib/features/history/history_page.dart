@@ -731,7 +731,9 @@ class _CourseTile extends StatelessWidget {
     final title = record.courseTitle.trim().isEmpty
         ? '未命名课程'
         : record.courseTitle;
-    return AppHoverSurface(
+    return Panel(
+      outlined: true,
+      padding: EdgeInsets.zero,
       child: Stack(
         children: [
           Padding(

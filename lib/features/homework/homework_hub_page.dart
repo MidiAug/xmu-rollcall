@@ -366,6 +366,7 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
                 if (desktop)
                   SettingsSection(
                     header: '进行中',
+                    dividerIndent: HomeworkListRow.titleInset(context),
                     padTop: false,
                     children: [
                       for (final item in upcoming)
@@ -385,6 +386,7 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
                 if (desktop)
                   SettingsSection(
                     header: '已截止',
+                    dividerIndent: HomeworkListRow.titleInset(context),
                     padTop: false,
                     children: [
                       for (final item in overdue.reversed)
@@ -543,27 +545,22 @@ class _TeachingCourseCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Padding(
+          AppSectionHeading(
             key: noOpenItems ? ValueKey('teaching-empty-$id') : null,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpace.sm,
-              vertical: 10,
-            ),
             child: LayoutBuilder(
               builder: (context, bounds) {
                 final scale = MediaQuery.textScalerOf(context).scale(1);
                 final wrapStatus = bounds.maxWidth < 400 * scale;
                 final heading = Row(
                   children: [
-                    Text(
-                      course.isInstructor ? '教学课程' : '助教课程',
-                      style: AppTypography.caption.copyWith(color: p.muted),
-                    ),
+                    Text(course.isInstructor ? '教学课程' : '助教课程'),
                     const SizedBox(width: AppSpace.sm),
                     Expanded(
                       child: AppTruncatedText(
                         course.title,
-                        style: AppTypography.control.copyWith(color: p.ink),
+                        style: DefaultTextStyle.of(
+                          context,
+                        ).style.copyWith(color: p.ink),
                       ),
                     ),
                     if (noOpenItems && !wrapStatus) ...[
@@ -637,7 +634,7 @@ class _TeachingCourseCard extends ConsumerWidget {
                             Divider(
                               height: 1,
                               color: p.border,
-                              indent: 16,
+                              indent: HomeworkListRow.titleInset(context),
                               endIndent: 16,
                             ),
                           _TeachingAssignmentRow(
@@ -677,18 +674,14 @@ class _TeachingAssignmentRow extends StatelessWidget {
         item: item,
         subtitle: '',
         onTap: onTap,
-        trailing: Text(
-          dueLabel,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: AppTypography.caption.copyWith(color: p.muted),
-        ),
+        trailing: HomeworkStatusBadges(item: item, withDeadline: true),
       );
     }
     return AppHoverSurface(
       onTap: onTap,
       borderRadius: BorderRadius.zero,
       outlined: false,
+      quiet: true,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
@@ -713,7 +706,7 @@ class _TeachingAssignmentRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Icon(AppIcons.right, size: 18, color: p.muted),
+          const Icon(AppIcons.right),
         ],
       ),
     );

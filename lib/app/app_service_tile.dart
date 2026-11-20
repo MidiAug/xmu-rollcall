@@ -48,7 +48,7 @@ class AppServiceTile extends StatelessWidget {
         height: 1.45,
       ),
     );
-    final arrow = Icon(AppIcons.right, size: 13, color: p.muted);
+    final arrow = Icon(AppIcons.right, size: 18, color: p.muted);
     return Semantics(
       button: true,
       child: AppGlassSurface(
