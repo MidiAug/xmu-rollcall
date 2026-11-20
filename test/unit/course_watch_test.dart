@@ -89,10 +89,10 @@ void main() {
         merged,
       );
       expect(lesson.ranges, [
-        (start: at(7, 50), end: at(8, 0)),
-        (start: at(8, 45), end: at(8, 55)),
-        (start: at(9, 40), end: at(10, 10)),
-        (start: at(10, 55), end: at(11, 5)),
+        (start: at(7, 50), end: at(8, 5)),
+        (start: DateTime(2026, 10, 30, 8, 42, 30), end: DateTime(2026, 10, 30, 8, 57, 30)),
+        (start: DateTime(2026, 10, 30, 9, 37, 30), end: DateTime(2026, 10, 30, 10, 12, 30)),
+        (start: at(10, 50), end: at(11, 5)),
       ]);
     },
   );
@@ -112,11 +112,11 @@ void main() {
         periods,
       );
       expect(lesson.ranges, [
-        (start: at(8, 50), end: at(9, 0)),
-        (start: at(9, 45), end: at(10, 15)),
-        (start: at(11, 0), end: at(11, 5)),
-        (start: at(11, 50), end: at(12, 2)),
-        (start: at(12, 47), end: at(12, 57)),
+        (start: at(8, 50), end: at(9, 5)),
+        (start: DateTime(2026, 10, 30, 9, 42, 30), end: DateTime(2026, 10, 30, 10, 17, 30)),
+        (start: DateTime(2026, 10, 30, 10, 57, 30), end: DateTime(2026, 10, 30, 11, 7, 30)),
+        (start: DateTime(2026, 10, 30, 11, 47, 30), end: DateTime(2026, 10, 30, 12, 4, 30)),
+        (start: at(12, 42), end: at(12, 57)),
       ]);
       for (final range in lesson.ranges) {
         expect(lesson.active(range.start), isTrue);
@@ -164,9 +164,13 @@ void main() {
       final watch = CourseWatch(9401, 9401);
       final window = await watch.window(completeProbe: false, at: at(9, 59));
       expect(window.allows(at(9, 59)), isTrue);
-      expect(window.allows(at(10, 9)), isTrue);
-      expect(window.allows(at(10, 10)), isFalse);
-      expect(window.nextStart(at(10, 10)), at(10, 55));
+      expect(window.allows(at(10, 12)), isTrue);
+      final afterBreak = DateTime(2026, 10, 30, 10, 12, 30);
+      expect(window.allows(afterBreak), isFalse);
+      expect(
+        window.nextStart(afterBreak),
+        DateTime(2026, 10, 30, 10, 52, 30),
+      );
       expect(watch.select([activity(401)], at: at(10, 9)), hasLength(1));
       await watch.succeeded(activity(401));
       expect(
@@ -361,14 +365,29 @@ void main() {
       slots,
     );
     expect(lesson.ranges, [
-      (start: at(7, 50), end: at(8, 0)),
-      (start: at(8, 45), end: at(8, 55)),
-      (start: at(9, 40), end: at(9, 50)),
+      (start: at(7, 50), end: at(8, 5)),
+      (start: DateTime(2026, 10, 30, 8, 42, 30), end: DateTime(2026, 10, 30, 8, 57, 30)),
+      (start: at(9, 35), end: at(9, 50)),
     ]);
-    for (final time in [at(7, 50), at(8, 45), at(9, 40)]) {
+    for (final time in [
+      at(7, 50),
+      at(8, 4),
+      DateTime(2026, 10, 30, 8, 42, 30),
+      at(8, 45),
+      at(8, 57),
+      at(9, 35),
+      at(9, 40),
+    ]) {
       expect(lesson.active(time), isTrue);
     }
-    for (final time in [at(7, 49), at(8, 0), at(8, 30), at(8, 55), at(9, 50)]) {
+    for (final time in [
+      at(7, 49),
+      at(8, 5),
+      at(8, 30),
+      DateTime(2026, 10, 30, 8, 57, 30),
+      at(9, 34),
+      at(9, 50),
+    ]) {
       expect(lesson.active(time), isFalse);
     }
   });
@@ -387,7 +406,10 @@ void main() {
       courseMeetingBlocks(merged).single,
       merged,
     );
-    expect(lesson.ranges[1], (start: at(8, 45), end: at(8, 55)));
+    expect(lesson.ranges[1], (
+      start: DateTime(2026, 10, 30, 8, 42, 30),
+      end: DateTime(2026, 10, 30, 8, 57, 30),
+    ));
   });
   test(
     'successful lesson survives restart, with full-probe and account isolation',

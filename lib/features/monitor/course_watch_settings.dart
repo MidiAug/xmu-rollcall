@@ -190,11 +190,11 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
                   if (bounds.maxWidth < 360) {
                     return Column(
                       children: [
-                        phase('课前', '10 分钟', compact: true),
+                        phase('上课', '前 10 至后 5 分钟', compact: true),
                         const SizedBox(height: 6),
-                        phase('每次课间', '按课表时间', compact: true),
+                        phase('课间', '前后各延 2.5 分钟', compact: true),
                         const SizedBox(height: 6),
-                        phase('课后', '10 分钟', compact: true),
+                        phase('下课', '前 5 至后 10 分钟', compact: true),
                       ],
                     );
                   }
@@ -202,11 +202,11 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(child: phase('课前', '10 分钟')),
+                        Expanded(child: phase('上课', '前 10 至后 5 分钟')),
                         const SizedBox(width: 8),
-                        Expanded(child: phase('每次课间', '按课表时间')),
+                        Expanded(child: phase('课间', '前后各延 2.5 分钟')),
                         const SizedBox(width: 8),
-                        Expanded(child: phase('课后', '10 分钟')),
+                        Expanded(child: phase('下课', '前 5 至后 10 分钟')),
                       ],
                     ),
                   );

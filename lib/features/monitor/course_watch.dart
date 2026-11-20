@@ -117,7 +117,10 @@ class WatchedLesson {
     DateTime onDay(DateTime t) =>
         DateTime(day.year, day.month, day.day, t.hour, t.minute);
     final start = onDay(block.coreStart), end = onDay(block.coreEnd);
-    ranges = [(start: start.subtract(const Duration(minutes: 10)), end: start)];
+    const beforeLead = Duration(minutes: 10);
+    const classEdge = Duration(minutes: 5);
+    const breakPad = Duration(seconds: 150);
+    ranges = [(start: start.subtract(beforeLead), end: start.add(classEdge))];
     final periods = <({DateTime start, DateTime end})>[];
     for (final slot in slots) {
       if (slot.sequence < block.startSequence ||
@@ -143,10 +146,13 @@ class WatchedLesson {
     for (var i = 1; i < periods.length; i++) {
       final a = periods[i - 1].end, b = periods[i].start;
       if (b.isAfter(a)) {
-        ranges.add((start: a, end: b));
+        ranges.add((start: a.subtract(breakPad), end: b.add(breakPad)));
       }
     }
-    ranges.add((start: end, end: end.add(const Duration(minutes: 10))));
+    ranges.add((
+      start: end.subtract(classEdge),
+      end: end.add(beforeLead),
+    ));
   }
   final String courseId;
   final DateTime day;
