@@ -160,7 +160,7 @@ class AppHoverSurface extends StatelessWidget {
         borderRadius: radius,
         // Keep one border's space in every state so keyboard focus never jumps.
         border: Border.all(
-          color: focused
+          color: focused && !quiet
               ? focus
               : outlined
               ? (borderColor ?? p.border)
@@ -188,8 +188,49 @@ class AppHoverSurface extends StatelessWidget {
           : child,
     );
 
-    return ClipRRect(borderRadius: radius, child: body);
+    return ClipRRect(
+      borderRadius: radius,
+      child: quiet ? _AppFocusOutline(focused: focused, child: body) : body,
+    );
   }
+}
+
+/// Draw inside the row, clear of its parent group's clip and dividers.
+class _AppFocusOutline extends StatelessWidget {
+  const _AppFocusOutline({required this.focused, required this.child});
+  final bool focused;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+    foregroundPainter: focused
+        ? _AppFocusOutlinePainter(AppPalette.of(context).focus)
+        : null,
+    child: child,
+  );
+}
+
+class _AppFocusOutlinePainter extends CustomPainter {
+  const _AppFocusOutlinePainter(this.color);
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        (Offset.zero & size).deflate(4.5),
+        const Radius.circular(AppRadii.control),
+      ),
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_AppFocusOutlinePainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 /// Owns input only. Each surface decides how its states should be painted.
@@ -233,10 +274,30 @@ class _AppSurfaceInteractionState extends State<_AppSurfaceInteraction> {
   }
 
   bool _onKeyboardInput(KeyEvent event) {
-    if (event is! KeyDownEvent) return false;
+    if (!_isNavigationKey(event)) return false;
     _useKeyboardFocus();
     return false;
   }
+
+  bool _isNavigationKey(KeyEvent event) =>
+      event is KeyDownEvent &&
+      !HardwareKeyboard.instance.isAltPressed &&
+      !HardwareKeyboard.instance.isMetaPressed &&
+      !HardwareKeyboard.instance.isControlPressed &&
+      const [
+        LogicalKeyboardKey.tab,
+        LogicalKeyboardKey.escape,
+        LogicalKeyboardKey.arrowUp,
+        LogicalKeyboardKey.arrowDown,
+        LogicalKeyboardKey.arrowLeft,
+        LogicalKeyboardKey.arrowRight,
+        LogicalKeyboardKey.home,
+        LogicalKeyboardKey.end,
+        LogicalKeyboardKey.pageUp,
+        LogicalKeyboardKey.pageDown,
+        LogicalKeyboardKey.enter,
+        LogicalKeyboardKey.space,
+      ].contains(event.logicalKey);
 
   void _useKeyboardFocus() {
     if (_watchingKeyboard) {
@@ -289,7 +350,7 @@ class _AppSurfaceInteractionState extends State<_AppSurfaceInteraction> {
         canRequestFocus: false,
         includeSemantics: false,
         onKeyEvent: (_, event) {
-          if (event is KeyDownEvent && _pointerFocus) {
+          if (_isNavigationKey(event) && _pointerFocus) {
             _useKeyboardFocus();
           }
           return KeyEventResult.ignored;

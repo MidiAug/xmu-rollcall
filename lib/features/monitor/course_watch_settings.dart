@@ -296,9 +296,7 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
               ),
               SettingsRow(
                 title: '完整探查',
-                subtitle: c.completeProbe
-                    ? '已签到后仍检查后续课间与课后'
-                    : '成功签到一次后，本次课不再探查',
+                subtitle: '签到成功后，继续检查本次课后续的课间与课后签到',
                 stackSubtitleOnNarrow: true,
                 trailing: AppSwitch(
                   key: const ValueKey('monitor-complete-probe'),

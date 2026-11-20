@@ -130,11 +130,7 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                   subtitleSpacing: 6,
                   title: '自动签到',
                   stackSubtitleOnNarrow: true,
-                  subtitle: !c.autoAnswer
-                      ? '发现签到时提醒我'
-                      : state.running
-                      ? '按下方设置自动签到'
-                      : '已开启，开始检测后生效；缺码或位置时提醒补充',
+                  subtitle: '按下方条件自动签到，缺少签到码或位置时提醒补充',
                   trailing: SizedBox(
                     width: 148,
                     child: Align(
@@ -251,7 +247,9 @@ class _MonitorSettingsPageState extends ConsumerState<MonitorSettingsPage> {
                               Text(
                                 log.message,
                                 style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(color: log.ok ? p.ink : p.danger),
+                                    ?.copyWith(
+                                      color: log.ok ? p.ink : p.danger,
+                                    ),
                               ),
                             ],
                           ),

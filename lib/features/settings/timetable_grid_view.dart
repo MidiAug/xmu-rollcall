@@ -693,6 +693,7 @@ class _CourseDetail extends StatelessWidget {
           ],
           AppHoverSurface(
             key: const ValueKey('course-location-map-link'),
+            quiet: true,
             outlined: false,
             backgroundColor: Colors.transparent,
             hoverColor: AppPalette.of(context).hover,
@@ -716,11 +717,7 @@ class _CourseDetail extends StatelessWidget {
                     ),
                   ),
                 ),
-                Icon(
-                  AppIcons.right,
-                  size: 16,
-                  color: AppPalette.of(context).primary,
-                ),
+                const Icon(AppIcons.right),
               ],
             ),
           ),

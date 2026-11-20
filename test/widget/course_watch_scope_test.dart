@@ -3,6 +3,7 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/app/app_checkbox.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -188,7 +189,7 @@ void main() {
         expect(find.text('尚无历史缓存'), findsOneWidget);
         expect(
           tester
-              .widget<CheckboxListTile>(
+              .widget<AppCheckboxRow>(
                 find.byKey(const ValueKey('watch-course-fourth')),
               )
               .value,
@@ -204,7 +205,7 @@ void main() {
         expect(scope.allows('course', 1, '1-2'), isFalse);
         expect(scope.allows('course', 5, '1-2'), isTrue);
         final course = find.byKey(const ValueKey('watch-course-course'));
-        expect(tester.widget<CheckboxListTile>(course).value, isNull);
+        expect(tester.widget<AppCheckboxRow>(course).value, isNull);
         await tester.tap(course);
         await tester.pumpAndSettle();
         scope = CourseWatchScope.fromPrefs(prefs, 9301, 9301);
@@ -216,10 +217,10 @@ void main() {
         );
         await tester.tap(course);
         await tester.pumpAndSettle();
-        expect(tester.widget<CheckboxListTile>(monday).value, isFalse);
+        expect(tester.widget<AppCheckboxRow>(monday).value, isFalse);
         expect(
           tester
-              .widget<CheckboxListTile>(
+              .widget<AppCheckboxRow>(
                 find.byKey(const ValueKey('watch-meeting-course/5/1-2')),
               )
               .value,
@@ -228,20 +229,20 @@ void main() {
         final friday = find.byKey(const ValueKey('watch-meeting-course/5/1-2'));
         await tester.tap(friday);
         await tester.pumpAndSettle();
-        expect(tester.widget<CheckboxListTile>(course).value, isFalse);
+        expect(tester.widget<AppCheckboxRow>(course).value, isFalse);
         await tester.tap(course);
         await tester.pumpAndSettle();
-        expect(tester.widget<CheckboxListTile>(course).value, isTrue);
-        expect(tester.widget<CheckboxListTile>(monday).value, isTrue);
-        expect(tester.widget<CheckboxListTile>(friday).value, isTrue);
+        expect(tester.widget<AppCheckboxRow>(course).value, isTrue);
+        expect(tester.widget<AppCheckboxRow>(monday).value, isTrue);
+        expect(tester.widget<AppCheckboxRow>(friday).value, isTrue);
         await tester.tap(monday);
         await tester.pumpAndSettle();
-        expect(tester.widget<CheckboxListTile>(course).value, isNull);
+        expect(tester.widget<AppCheckboxRow>(course).value, isNull);
         final mouse = await tester.createGesture(
           kind: ui.PointerDeviceKind.mouse,
         );
         await mouse.addPointer(
-          location: tester.getCenter(find.byType(Checkbox).first),
+          location: tester.getCenter(find.byType(AppCheckbox).first),
         );
         await tester.pump(const Duration(milliseconds: 250));
         addTearDown(mouse.removePointer);

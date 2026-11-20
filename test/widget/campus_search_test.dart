@@ -89,6 +89,9 @@ void main() {
                 as RenderRepaintBoundary;
         final rendered = await boundary.toImage(pixelRatio: 1);
         final bytes = await rendered.toByteData(format: ui.ImageByteFormat.png);
+        await Directory(
+          'build/android-masthead-polish',
+        ).create(recursive: true);
         await File(
           'build/android-masthead-polish/search.png',
         ).writeAsBytes(bytes!.buffer.asUint8List());

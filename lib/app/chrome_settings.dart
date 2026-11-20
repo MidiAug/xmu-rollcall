@@ -113,6 +113,7 @@ class SettingsRow extends StatelessWidget {
     super.key,
     this.leading,
     required this.title,
+    this.truncateTitle = false,
     this.subtitle,
     this.subtitleMaxLines,
     this.subtitleWidget,
@@ -127,6 +128,7 @@ class SettingsRow extends StatelessWidget {
 
   final Widget? leading;
   final String title;
+  final bool truncateTitle;
   final String? subtitle;
   final int? subtitleMaxLines;
 
@@ -243,12 +245,6 @@ class SettingsRow extends StatelessWidget {
     Widget buildContent(bool below) => AnimatedContainer(
       duration: duration,
       curve: AppMotion.fastCurve,
-      foregroundDecoration: BoxDecoration(
-        border: Border.all(
-          color: focused ? p.focus : AppPalette.clearOf(p.focus),
-        ),
-        borderRadius: BorderRadius.circular(AppRadii.control),
-      ),
       padding: padding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -283,14 +279,28 @@ class SettingsRow extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(
-                              fontWeight: FontWeight.w500,
-                              color: !enabled && onTap != null ? p.muted : null,
-                            ),
-                      ),
+                      if (truncateTitle)
+                        AppTruncatedText(
+                          title,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w500,
+                                color: !enabled && onTap != null
+                                    ? p.muted
+                                    : null,
+                              ),
+                        )
+                      else
+                        Text(
+                          title,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w500,
+                                color: !enabled && onTap != null
+                                    ? p.muted
+                                    : null,
+                              ),
+                        ),
                       if (subtitleWidget != null) ...[
                         const SizedBox(height: AppSpace.xs),
                         subtitleWidget!,
@@ -324,7 +334,7 @@ class SettingsRow extends StatelessWidget {
           )
         : buildContent(false);
 
-    return content;
+    return _AppFocusOutline(focused: focused, child: content);
   }
 }
 

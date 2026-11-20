@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/app_checkbox.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
@@ -114,10 +115,8 @@ class _CourseLocationSettingState extends ConsumerState<CourseLocationSetting> {
                           child: Column(
                             children: [
                               for (final entry in widget.meetings.entries)
-                                CheckboxListTile(
-                                  dense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                  title: Text(entry.value),
+                                AppCheckboxRow(
+                                  label: entry.value,
                                   value: targets.contains(entry.key),
                                   onChanged: entry.key == widget.meetingKey
                                       ? null
@@ -215,6 +214,7 @@ class _CourseLocationSettingState extends ConsumerState<CourseLocationSetting> {
           padding: const EdgeInsets.only(bottom: 12),
           child: AppHoverSurface(
             key: const ValueKey('course-location-picker'),
+            quiet: true,
             outlined: false,
             padding: const EdgeInsets.symmetric(vertical: 4),
             onTap:
@@ -238,7 +238,7 @@ class _CourseLocationSettingState extends ConsumerState<CourseLocationSetting> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(AppIcons.right, size: 14, color: p.muted),
+                const Icon(AppIcons.right),
               ],
             ),
           ),

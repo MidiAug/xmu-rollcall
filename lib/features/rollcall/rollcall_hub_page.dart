@@ -364,32 +364,10 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                                       fontSize: 12,
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
-                                  Container(
-                                    width: 32,
-                                    height: 32,
-                                    decoration: BoxDecoration(
-                                      color: latestSigned
-                                          ? p.successSurface
-                                          : p.surfaceHigh,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: Icon(
-                                      latestSigned
-                                          ? AppIcons.check
-                                          : AppIcons.history,
-                                      size: 20,
-                                      color: latestSigned
-                                          ? p.successAccent
-                                          : p.muted,
-                                    ),
-                                  ),
                                   const SizedBox(width: 12),
                                   Flexible(
-                                    child: Text(
+                                    child: AppTruncatedText(
                                       latest.courseTitle,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
                                       style: AppTypography.control.copyWith(
                                         color: p.ink,
                                       ),

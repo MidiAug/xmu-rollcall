@@ -8,6 +8,7 @@ import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import '../fixtures/preview_fonts.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/features/homework/homework_list_row.dart';
 import 'package:xmu_rollcall/features/homework/homework_models.dart';
 
@@ -161,6 +162,22 @@ void main() {
             await mouse.moveTo(Offset.zero);
             await tester.pumpAndSettle();
             expect(arrowColor(), palette.muted);
+            // Window-switch shortcuts are not keyboard navigation within the app.
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+            await tester.sendKeyDownEvent(LogicalKeyboardKey.tab);
+            tester.binding.handleAppLifecycleStateChanged(
+              AppLifecycleState.inactive,
+            );
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.tab);
+            await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+            tester.binding.handleAppLifecycleStateChanged(
+              AppLifecycleState.resumed,
+            );
+            await tester.sendKeyEvent(LogicalKeyboardKey.shiftLeft);
+            await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+            await tester.pumpAndSettle();
+            expect(arrowColor(), palette.muted);
+            expect(await backgroundPixel('app-return'), idlePixel);
             // Verify keyboard traversal from an actual neighbouring target,
             // independently of where the cancelled pointer left actual focus.
             nextFocus.requestFocus();
@@ -195,6 +212,209 @@ void main() {
         );
       }
     }
+    testWidgets(
+      'mouse navigation and app return stay quiet then Tab restores focus dark=$dark',
+      (tester) async {
+        final previous = FocusNode();
+        addTearDown(previous.dispose);
+        final capture = GlobalKey();
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
+              platform: TargetPlatform.windows,
+            ),
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => Center(
+                  child: SizedBox(
+                    width: 360,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextButton(
+                          focusNode: previous,
+                          onPressed: () {},
+                          child: const Text('前一个操作'),
+                        ),
+                        RepaintBoundary(
+                          key: capture,
+                          child: SettingsSection(
+                            padTop: false,
+                            children: [
+                              SettingsRow(
+                                title: '协助同学',
+                                trailing: const Icon(AppIcons.right),
+                                onTap: () => AppPageRoutes.push(
+                                  context,
+                                  const SubpageScaffold(
+                                    title: '协助同学',
+                                    body: SizedBox.shrink(),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('协助同学'));
+        await tester.pumpAndSettle();
+        expect(find.byType(SubpageScaffold), findsOneWidget);
+        await tester.tap(find.byTooltip('返回').first);
+        await tester.pumpAndSettle();
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.tab);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.tab);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpAndSettle();
+        final p = AppPalette.of(tester.element(find.byType(SettingsRow)));
+        expect(tester.widget<Icon>(find.byIcon(AppIcons.right)).color, p.muted);
+        previous.requestFocus();
+        await tester.pumpAndSettle();
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<Icon>(find.byIcon(AppIcons.right)).color,
+          p.primary,
+        );
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(find.byType(SubpageScaffold), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
+    testWidgets(
+      'settings group paints all four focus edges inside first middle and last rows dark=$dark',
+      (tester) async {
+        tester.view.physicalSize = const Size(600, 700);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final capture = GlobalKey();
+        final beforeFocus = FocusNode();
+        addTearDown(beforeFocus.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
+              platform: TargetPlatform.windows,
+            ),
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 360,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextButton(
+                        focusNode: beforeFocus,
+                        onPressed: () {},
+                        child: const Text('前一个操作'),
+                      ),
+                      RepaintBoundary(
+                        key: capture,
+                        child: SettingsSection(
+                          padTop: false,
+                          children: [
+                            for (var i = 0; i < 3; i++)
+                              SettingsRow(
+                                key: ValueKey('focus-row-$i'),
+                                title: '跳转入口 $i',
+                                trailing: const Icon(AppIcons.right),
+                                onTap: () {},
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        beforeFocus.requestFocus();
+        await tester.pumpAndSettle();
+        for (var i = 0; i < 3; i++) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pumpAndSettle();
+          final row = find.byKey(ValueKey('focus-row-$i'));
+          expect(
+            tester
+                .widget<FocusableActionDetector>(
+                  find.descendant(
+                    of: row,
+                    matching: find.byType(FocusableActionDetector),
+                  ),
+                )
+                .focusNode!
+                .hasFocus,
+            isTrue,
+          );
+          final rect = tester.getRect(row);
+          final render =
+              capture.currentContext!.findRenderObject()!
+                  as RenderRepaintBoundary;
+          final offset = render.globalToLocal(rect.topLeft);
+          final color = AppPalette.of(tester.element(row)).focus;
+          await tester.runAsync(() async {
+            final image = await render.toImage();
+            try {
+              final bytes = (await image.toByteData(
+                format: ui.ImageByteFormat.rawRgba,
+              ))!.buffer.asUint8List();
+              for (final point in [
+                Offset(4, rect.height / 2),
+                Offset(rect.width - 5, rect.height / 2),
+                Offset(rect.width / 2, 4),
+                Offset(rect.width / 2, rect.height - 5),
+              ]) {
+                final spot = offset + point;
+                final at =
+                    (spot.dy.floor() * image.width + spot.dx.floor()) * 4;
+                expect(
+                  Color.fromARGB(
+                    bytes[at + 3],
+                    bytes[at],
+                    bytes[at + 1],
+                    bytes[at + 2],
+                  ),
+                  color,
+                  reason: 'row $i focus edge $point',
+                );
+              }
+              if (Platform.environment['CAPTURE_DESKTOP_UI'] == '1') {
+                final png = await image.toByteData(
+                  format: ui.ImageByteFormat.png,
+                );
+                await Directory('build/interaction-ui').create(recursive: true);
+                await File(
+                  'build/interaction-ui/group-focus-$i-$dark.png',
+                ).writeAsBytes(png!.buffer.asUint8List());
+              }
+            } finally {
+              image.dispose();
+            }
+          });
+        }
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.windows),
+    );
     for (final kind in ['card', 'grouped', 'pill', 'strong-pill']) {
       testWidgets('$kind hover fills its surface and stays clipped ($dark)', (
         tester,

@@ -89,6 +89,7 @@ class _AssistIdentityCardState extends ConsumerState<AssistIdentityCard> {
           Expanded(
             child: AppHoverSurface(
               key: ValueKey('assist-open-${identity.userId}'),
+              quiet: true,
               outlined: false,
               backgroundColor: Colors.transparent,
               padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
@@ -128,6 +129,8 @@ class _AssistIdentityCardState extends ConsumerState<AssistIdentityCard> {
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  const Icon(AppIcons.right),
                 ],
               ),
             ),

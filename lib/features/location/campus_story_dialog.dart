@@ -364,6 +364,7 @@ class _StoryDisclosureState extends State<_StoryDisclosure> {
             expanded: _expanded,
             button: true,
             child: AppHoverSurface(
+              quiet: true,
               outlined: false,
               backgroundColor: Colors.transparent,
               hoverColor: Colors.transparent,
@@ -382,7 +383,7 @@ class _StoryDisclosureState extends State<_StoryDisclosure> {
                     turns: _expanded ? .5 : 0,
                     duration: duration,
                     curve: AppMotion.enterCurve,
-                    child: Icon(AppIcons.down, size: 14, color: p.muted),
+                    child: const Icon(AppIcons.down, size: 18),
                   ),
                 ],
               ),

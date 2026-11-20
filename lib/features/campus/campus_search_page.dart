@@ -182,11 +182,13 @@ class _CampusSearchPageState extends ConsumerState<CampusSearchPage> {
               ),
             ],
           );
-    Widget entry(CampusSearchEntry e) => ListTile(
-      leading: Icon(e.icon, color: p.muted, size: 22),
-      title: Text(e.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(e.description, maxLines: 2),
-      trailing: const Icon(AppIcons.right, size: 16),
+    Widget entry(CampusSearchEntry e) => SettingsRow(
+      truncateTitle: true,
+      leading: Icon(e.icon, color: p.muted),
+      title: e.title,
+      subtitle: e.description,
+      subtitleMaxLines: 2,
+      trailing: const Icon(AppIcons.right, size: 18),
       onTap: () => _open(e, help: wantsHelp && e.help.isNotEmpty),
     );
     return SubpageScaffold(
@@ -230,18 +232,13 @@ class _CampusSearchPageState extends ConsumerState<CampusSearchPage> {
                   ),
                   section('当前账号的作业', [
                     for (final item in homework.take(20))
-                      ListTile(
+                      SettingsRow(
+                        truncateTitle: true,
                         leading: Icon(AppIcons.homework, color: p.muted),
-                        title: Text(
-                          item.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          item.courseName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                        title: item.title,
+                        subtitle: item.courseName,
+                        subtitleMaxLines: 1,
+                        trailing: const Icon(AppIcons.right, size: 18),
                         onTap: () => _openPersonal(
                           HomeworkDetailPage(seed: item),
                           owner,
@@ -251,14 +248,12 @@ class _CampusSearchPageState extends ConsumerState<CampusSearchPage> {
                   ]),
                   section('当前账号的课程', [
                     for (final name in courses.take(20))
-                      ListTile(
+                      SettingsRow(
+                        truncateTitle: true,
                         leading: Icon(AppIcons.calendar, color: p.muted),
-                        title: Text(
-                          name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: const Text('在课表中查看'),
+                        title: name,
+                        subtitle: '在课表中查看',
+                        trailing: const Icon(AppIcons.right, size: 18),
                         onTap: () => _openPersonal(
                           CoursesPage(assistUserId: scope),
                           owner,

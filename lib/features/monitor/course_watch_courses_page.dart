@@ -3,6 +3,7 @@ import 'package:xmu_rollcall/features/history/history_summary.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/app_checkbox.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
@@ -157,13 +158,10 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
     clipBehavior: Clip.antiAlias,
     child: Column(
       children: [
-        CheckboxListTile(
+        AppCheckboxRow(
           key: ValueKey('watch-course-${course.id}'),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 8,
-          ),
-          tristate: true,
+          label: course.title,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           value: _scope.selectionFor(course),
           title: AppTruncatedText(
             course.title,
@@ -221,12 +219,12 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
             for (final block in courseWatchWeeklyBlocks(
               course.timetables[day]!,
             ))
-              CheckboxListTile(
+              AppCheckboxRow(
                 key: ValueKey(
                   'watch-meeting-${CourseWatchScope.meetingKey(course.id, day, block.id)}',
                 ),
-                contentPadding: const EdgeInsets.only(left: 32, right: 16),
-                dense: true,
+                padding: const EdgeInsets.only(left: 32, right: 16),
+                label: '每${weekdayLabel(day)}  ${block.sectionLabel}',
                 value: _scope.allows(course.id, day, block.id),
                 title: Text(
                   '每${weekdayLabel(day)}  ${block.sectionLabel}',

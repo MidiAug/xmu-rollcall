@@ -375,7 +375,6 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
   }
 
   bool get _desktop => PlatformHooks.isDesktop && !AppDensity.isTouch(context);
-  bool _hover = false;
   bool _submitting = false;
   bool _openingRadar = false;
   (int?, int?, int)? _submittedFor;
@@ -1153,82 +1152,78 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
   );
 
   Widget _desktopCard(AppPalette p, RollcallItem item, String title) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: AnimatedContainer(
-        duration: AppMotion.fast,
-        curve: AppMotion.fastCurve,
-        decoration: BoxDecoration(
-          color: p.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: p.border),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: p.isDark ? .22 : .05),
-              blurRadius: _hover ? 18 : 12,
-              offset: Offset(0, _hover ? 4 : 3),
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: p.isDark ? .12 : .025),
-              blurRadius: 3,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(11),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Stack(
-                children: [
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    width: 340,
-                    height: 145,
-                    child: IgnorePointer(
-                      child: Opacity(
-                        opacity: p.isDark ? .20 : .45,
-                        child: CampusArtworkTreatment(
-                          child: Image.asset(
-                            'assets/illustrations/campus_mist.png',
-                            cacheWidth: 768,
-                            fit: BoxFit.contain,
-                            alignment: Alignment.bottomRight,
-                          ),
+    return AnimatedContainer(
+      duration: AppMotion.fast,
+      curve: AppMotion.fastCurve,
+      decoration: BoxDecoration(
+        color: p.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: p.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: p.isDark ? .22 : .05),
+            blurRadius: 12,
+            offset: const Offset(0, 3),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: p.isDark ? .12 : .025),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(11),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Stack(
+              children: [
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  width: 340,
+                  height: 145,
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: p.isDark ? .20 : .45,
+                      child: CampusArtworkTreatment(
+                        child: Image.asset(
+                          'assets/illustrations/campus_mist.png',
+                          cacheWidth: 768,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.bottomRight,
                         ),
                       ),
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(28, 30, 20, 30),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        AppTruncatedText(title, style: _titleStyle(p)),
-                        if (item.createdByName.trim().isNotEmpty) ...[
-                          const SizedBox(height: 10),
-                          Text(
-                            item.createdByName.trim(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 14, color: p.muted),
-                          ),
-                        ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(28, 30, 20, 30),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      AppTruncatedText(title, style: _titleStyle(p)),
+                      if (item.createdByName.trim().isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Text(
+                          item.createdByName.trim(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 14, color: p.muted),
+                        ),
                       ],
-                    ),
+                    ],
                   ),
-                ],
-              ),
-              Divider(color: p.border, height: 1, indent: 28, endIndent: 28),
-              Padding(
-                padding: const EdgeInsets.all(28),
-                child: _desktopTaskStrip(p, item),
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+            Divider(color: p.border, height: 1, indent: 28, endIndent: 28),
+            Padding(
+              padding: const EdgeInsets.all(28),
+              child: _desktopTaskStrip(p, item),
+            ),
+          ],
         ),
       ),
     );

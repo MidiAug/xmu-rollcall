@@ -11,42 +11,67 @@ class AppCheckboxRow extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.title,
+    this.subtitle,
+    this.padding = EdgeInsets.zero,
   });
   final String label;
-  final bool value;
+  final bool? value;
   final ValueChanged<bool>? onChanged;
+  final Widget? title;
+  final Widget? subtitle;
+  final EdgeInsetsGeometry padding;
 
   @override
-  Widget build(BuildContext context) => MergeSemantics(
-    child: Row(
-      children: [
-        TooltipVisibility(
-          visible: false,
-          child: AppCheckbox(value: value, label: label, onChanged: onChanged),
-        ),
-        const SizedBox(width: 2),
-        Expanded(
-          child: GestureDetector(
-            excludeFromSemantics: true,
-            behavior: HitTestBehavior.opaque,
-            onTap: onChanged == null ? null : () => onChanged!(!value),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 44),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  label,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: onChanged == null
-                        ? AppPalette.of(context).muted
-                        : null,
+  Widget build(BuildContext context) => Padding(
+    padding: padding,
+    child: MergeSemantics(
+      child: Row(
+        children: [
+          TooltipVisibility(
+            visible: false,
+            child: AppCheckbox(
+              value: value,
+              label: label,
+              onChanged: onChanged,
+            ),
+          ),
+          const SizedBox(width: 2),
+          Expanded(
+            child: GestureDetector(
+              excludeFromSemantics: true,
+              behavior: HitTestBehavior.opaque,
+              onTap: onChanged == null ? null : () => onChanged!(value != true),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 44),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      title ??
+                          Text(
+                            label,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: onChanged == null
+                                      ? AppPalette.of(context).muted
+                                      : null,
+                                ),
+                          ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 4),
+                        subtitle!,
+                      ],
+                    ],
                   ),
                 ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }

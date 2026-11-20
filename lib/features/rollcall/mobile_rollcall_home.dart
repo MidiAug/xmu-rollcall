@@ -460,6 +460,7 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
                             children: [
                               Divider(color: p.borderStrong, height: 1),
                               AppHoverSurface(
+                                quiet: true,
                                 outlined: false,
                                 backgroundColor: Colors.transparent,
                                 hoverColor: p.cardHover,
@@ -492,11 +493,7 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
                                       ),
                                     ),
                                     const SizedBox(width: 8),
-                                    Icon(
-                                      AppIcons.right,
-                                      size: 16,
-                                      color: p.muted,
-                                    ),
+                                    const Icon(AppIcons.right),
                                   ],
                                 ),
                               ),

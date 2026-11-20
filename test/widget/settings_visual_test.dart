@@ -228,12 +228,6 @@ void main() {
   setUpAll(() async {
     if (Platform.environment['CAPTURE_SETTINGS_UI'] == '1') {
       await loadDesktopPreviewFonts();
-      await (FontLoader('MaterialIcons')..addFont(
-            File(
-              'D:/Dev/Flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
-            ).readAsBytes().then(ByteData.sublistView),
-          ))
-          .load();
     }
     final font = Platform.environment['SETTINGS_UI_FONT'];
     if (font == null) return;

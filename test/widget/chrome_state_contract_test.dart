@@ -434,7 +434,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(calls, 2);
         expect(
-          await pixel(tester, capture, const Offset(0, 28)),
+          await pixel(tester, capture, const Offset(4, 28)),
           dark ? AppPalette.darkPalette.focus : AppPalette.lightPalette.focus,
         );
         await tester.sendKeyEvent(LogicalKeyboardKey.space);

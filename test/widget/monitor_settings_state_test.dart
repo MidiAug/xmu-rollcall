@@ -244,11 +244,9 @@ void main() {
         );
         await tester.pumpAndSettle();
         final ctrl = container.read(monitorControllerProvider.notifier);
-        const off = '发现签到时提醒我';
-        const idle = '已开启，开始检测后生效；缺码或位置时提醒补充';
-        const active = '按下方设置自动签到';
-        await _reveal(tester, find.text(off));
-        expect(find.text(off), findsOneWidget);
+        const description = '按下方条件自动签到，缺少签到码或位置时提醒补充';
+        await _reveal(tester, find.text(description));
+        expect(find.text(description), findsOneWidget);
         expect(find.textContaining('雷达使用本课'), findsNothing);
         expect(find.text('最近运行'), findsNothing);
         expect(find.byKey(const ValueKey('monitor-jitter')), findsOneWidget);
@@ -274,6 +272,8 @@ void main() {
           isFalse,
         );
         expect(find.text('完整探查'), findsOneWidget);
+        const probeDescription = '签到成功后，继续检查本次课后续的课间与课后签到';
+        expect(find.text(probeDescription), findsOneWidget);
         tester
             .state<ScrollableState>(find.byType(Scrollable).first)
             .position
@@ -290,6 +290,7 @@ void main() {
           container.read(monitorControllerProvider).config.completeProbe,
           isTrue,
         );
+        expect(find.text(probeDescription), findsOneWidget);
         final restoredWatch = ProviderContainer(
           overrides: [authControllerProvider.overrideWith((ref) => _Auth())],
         );
@@ -319,8 +320,8 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('monitor-auto-answer')));
         await tester.pumpAndSettle();
-        expect(find.text(idle), findsOneWidget);
-        expect(find.text(off), findsNothing);
+        expect(find.text(description), findsOneWidget);
+
         expect(find.textContaining('雷达使用本课'), findsNothing);
         expect(container.read(monitorControllerProvider).running, isFalse);
         final select = tester.getRect(
@@ -340,7 +341,7 @@ void main() {
         await capture('enabled-idle');
         ctrl.debugArmRunning();
         await tester.pumpAndSettle();
-        expect(find.text(active), findsOneWidget);
+        expect(find.text(description), findsOneWidget);
         await capture('enabled-running');
         expect(find.text('人数刷新'), findsOneWidget);
         await _reveal(tester, find.byKey(const ValueKey('monitor-jitter')));
@@ -376,8 +377,8 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('monitor-auto-answer')));
         await tester.pumpAndSettle();
-        expect(find.text(off), findsOneWidget);
-        expect(find.text(active), findsNothing);
+        expect(find.text(description), findsOneWidget);
+
         expect(container.read(monitorControllerProvider).running, isTrue);
         expect(
           container.read(monitorControllerProvider).config.autoAnswer,

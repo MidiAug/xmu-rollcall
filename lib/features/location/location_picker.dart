@@ -270,6 +270,7 @@ class _LocationPickerState extends ConsumerState<LocationPickerContent> {
                   if (locations.isNotEmpty)
                     Divider(height: 16, color: p.border),
                   AppHoverSurface(
+                    quiet: true,
                     outlined: false,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     onTap: () => setState(() => _editing = true),
@@ -278,11 +279,7 @@ class _LocationPickerState extends ConsumerState<LocationPickerContent> {
                         Icon(Icons.add_rounded, size: 18, color: p.muted),
                         const SizedBox(width: 12),
                         Expanded(child: Text('添加地点', style: text.bodyMedium)),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          size: 18,
-                          color: p.muted,
-                        ),
+                        const Icon(AppIcons.right),
                       ],
                     ),
                   ),
