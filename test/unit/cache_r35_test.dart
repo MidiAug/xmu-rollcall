@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
@@ -102,6 +104,47 @@ void main() {
       expect(back.semesterId, 's1');
     });
   });
+
+  test(
+    'catalog rejects malformed envelopes and rows but retains valid empty',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final key = JsonDiskCache.key(CourseCatalogStore.suffix(42));
+      final base = {
+        'fetchedAt': '2026-11-20T00:00:00Z',
+        'rolesResolved': true,
+        'startDatesResolved': true,
+      };
+      for (final payload in [
+        base,
+        {
+          ...base,
+          'courses': [42],
+        },
+        {
+          ...base,
+          'courses': [
+            {'id': 'ok'},
+            {},
+          ],
+        },
+        {
+          ...base,
+          'courses': [
+            {'id': ''},
+          ],
+        },
+        {...base, 'courses': [], 'fetchedAt': 'invalid'},
+      ]) {
+        await prefs.setString(key, jsonEncode(payload));
+        expect(await CourseCatalogStore.read(42), isNull);
+      }
+      await prefs.setInt(key, 42);
+      expect(await CourseCatalogStore.read(42), isNull);
+      await prefs.setString(key, jsonEncode({...base, 'courses': []}));
+      expect((await CourseCatalogStore.read(42))!.courses, isEmpty);
+    },
+  );
 
   group('historyNeedsFullScan', () {
     test('true when empty or all never-checked', () {

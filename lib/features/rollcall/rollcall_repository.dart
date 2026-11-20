@@ -288,9 +288,11 @@ class RollcallRepository {
         },
       );
       final parsed = _catalogFromPayload(res.data);
-      if (parsed.courses.isNotEmpty) return await _resolveCatalogRoles(parsed);
-    } catch (_) {
-      // fall through
+      return await _resolveCatalogRoles(parsed);
+    } on DioException catch (error) {
+      // Only unsupported endpoints justify compatibility probes. Authentication,
+      // cancellation, transport and malformed-data failures stay failures.
+      if (!const [404, 405].contains(error.response?.statusCode)) rethrow;
     }
     return _resolveCatalogRoles(await _catalogFromGetProbe());
   }
@@ -298,6 +300,15 @@ class RollcallRepository {
   Future<CourseCatalogSnapshot> _resolveCatalogRoles(
     CourseCatalogSnapshot catalog,
   ) async {
+    if (catalog.courses.isEmpty) {
+      return CourseCatalogSnapshot(
+        fetchedAt: catalog.fetchedAt,
+        courses: const [],
+        semesterId: catalog.semesterId,
+        academicYearId: catalog.academicYearId,
+        rolesResolved: true,
+      );
+    }
     try {
       Future<Set<String>> memberships(List<String> roles) async {
         final response = await http.postUri<dynamic>(
@@ -313,41 +324,11 @@ class RollcallRepository {
             },
           },
         );
-        Object? payload = response.data;
-        if (payload is Map && payload['data'] is Map) payload = payload['data'];
-        final supported =
-            payload is List ||
-            (payload is Map &&
-                (payload.isEmpty ||
-                    const [
-                      'courses',
-                      'data',
-                      'items',
-                      'list',
-                      'results',
-                    ].any((key) => (payload as Map)[key] is List)));
-        AppLog.event(
-          'course_catalog.role_response',
-          fields: {
-            'roles': roles,
-            'status': response.statusCode,
-            'dataType': response.data.runtimeType.toString(),
-            if (payload is Map) 'topKeys': payload.keys.toList(),
-          },
-        );
-        if (response.statusCode != 200 || !supported) {
+        if (response.statusCode != 200) {
           throw const FormatException('课程身份暂不可用');
         }
-        final rows = _unwrapList(payload, const [
-          'courses',
-          'data',
-          'items',
-          'list',
-          'results',
-        ]);
         return {
-          for (final row in rows)
-            if (row is Map && row['id'] != null) '${row['id']}',
+          for (final row in _catalogRows(response.data)) _catalogCourseId(row),
         };
       }
 
@@ -385,6 +366,9 @@ class RollcallRepository {
         rolesResolved: true,
       );
     } catch (error) {
+      if (error is DioException && error.type == DioExceptionType.cancel) {
+        rethrow;
+      }
       AppLog.event(
         'course_catalog.roles.failed',
         level: 'W',
@@ -402,20 +386,13 @@ class RollcallRepository {
   }
 
   CourseCatalogSnapshot _catalogFromPayload(dynamic data) {
-    final list = _unwrapList(data, const [
-      'courses',
-      'data',
-      'items',
-      'list',
-      'results',
-    ]);
+    final list = _catalogRows(data);
     final courses = <CatalogCourse>[];
     String? semesterId;
     String? academicYearId;
     for (final item in list) {
-      if (item is! Map) continue;
-      final m = Map<String, dynamic>.from(item);
-      final id = _first(m, const ['id', 'course_id', 'courseId', 'cid']);
+      final id = _catalogCourseId(item);
+      final m = Map<String, dynamic>.from(item as Map);
       final title = _first(m, const [
         'name',
         'title',
@@ -423,7 +400,6 @@ class RollcallRepository {
         'course_name',
         'display_name',
       ]);
-      if (id == null) continue;
       courses.add(
         CatalogCourse(
           id: id,
@@ -452,30 +428,42 @@ class RollcallRepository {
   }
 
   Future<CourseCatalogSnapshot> _catalogFromGetProbe() async {
-    final courses = <CatalogCourse>[];
     for (final path in TronEndpoints.courseListPaths) {
       try {
-        final uri = Uri.parse('${TronEndpoints.baseUrl}$path');
-        final res = await http.getUri<dynamic>(uri);
-        if ((res.statusCode ?? 0) != 200) continue;
-        final parsed = _catalogFromPayload(res.data);
-        if (parsed.courses.isNotEmpty) return parsed;
-      } catch (_) {
-        // try next
+        final res = await http.getUri<dynamic>(
+          Uri.parse('${TronEndpoints.baseUrl}$path'),
+        );
+        return _catalogFromPayload(res.data);
+      } on DioException catch (error) {
+        if (!const [404, 405].contains(error.response?.statusCode)) rethrow;
       }
     }
-    if (courses.isEmpty) {
-      // Last resort: id/title only via legacy probe.
-      final probed = await _probeCourses();
-      return CourseCatalogSnapshot(
-        fetchedAt: DateTime.now(),
-        courses: [
-          for (final e in probed)
-            CatalogCourse(id: e['id']!, title: e['title'] ?? ''),
-        ],
-      );
+    throw StateError('课程列表接口暂不可用');
+  }
+
+  // Preserve empty lists. Bad rows must not become a smaller successful
+  // catalog that replaces the complete disk snapshot.
+  List<dynamic> _catalogRows(Object? payload) {
+    if (payload is List) return payload;
+    if (payload is Map) {
+      if (payload.isEmpty) return const [];
+      for (final key in const ['courses', 'data', 'items', 'list', 'results']) {
+        if (payload.containsKey(key)) return _catalogRows(payload[key]);
+      }
     }
-    return CourseCatalogSnapshot(fetchedAt: DateTime.now(), courses: courses);
+    throw const FormatException('课程列表格式不完整');
+  }
+
+  String _catalogCourseId(Object? row) {
+    if (row is Map) {
+      for (final key in const ['id', 'course_id', 'courseId', 'cid']) {
+        final value = row[key];
+        if (value is int || value is String && value.trim().isNotEmpty) {
+          return '$value'.trim();
+        }
+      }
+    }
+    throw const FormatException('课程列表缺少课程标识');
   }
 
   String? _nestedId(Map<String, dynamic> m, List<String> keys) {

@@ -279,18 +279,21 @@ class CourseCatalogSnapshot {
 
   factory CourseCatalogSnapshot.fromJson(Map<String, dynamic> j) {
     final raw = j['courses'];
+    final at = DateTime.tryParse(j['fetchedAt'] as String? ?? '');
+    if (raw is! List || at == null) {
+      throw const FormatException('课程缓存不完整');
+    }
     final courses = <CatalogCourse>[];
-    if (raw is List) {
-      for (final e in raw) {
-        if (e is Map) {
-          courses.add(CatalogCourse.fromJson(Map<String, dynamic>.from(e)));
-        }
+    for (final row in raw) {
+      if (row is! Map) throw const FormatException('课程缓存包含损坏记录');
+      final id = row['id'];
+      if (!(id is int || id is String && id.trim().isNotEmpty)) {
+        throw const FormatException('课程缓存缺少课程标识');
       }
+      courses.add(CatalogCourse.fromJson(Map<String, dynamic>.from(row)));
     }
     return CourseCatalogSnapshot(
-      fetchedAt:
-          DateTime.tryParse(j['fetchedAt'] as String? ?? '') ??
-          DateTime.fromMillisecondsSinceEpoch(0),
+      fetchedAt: at,
       courses: courses,
       semesterId: j['semesterId'] as String?,
       academicYearId: j['academicYearId'] as String?,
@@ -306,9 +309,9 @@ abstract final class CourseCatalogStore {
 
   static Future<CourseCatalogSnapshot?> read(int userId) async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(JsonDiskCache.key(suffix(userId)));
-    if (raw == null || raw.isEmpty) return null;
     try {
+      final raw = prefs.getString(JsonDiskCache.key(suffix(userId)));
+      if (raw == null || raw.isEmpty) return null;
       return CourseCatalogSnapshot.fromJson(
         Map<String, dynamic>.from(jsonDecode(raw) as Map),
       );
@@ -319,10 +322,12 @@ abstract final class CourseCatalogStore {
 
   static Future<void> write(int userId, CourseCatalogSnapshot snap) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
+    if (!await prefs.setString(
       JsonDiskCache.key(suffix(userId)),
       jsonEncode(snap.toJson()),
-    );
+    )) {
+      throw StateError('Cannot persist course catalog');
+    }
   }
 }
 

@@ -206,4 +206,32 @@ void main() {
       'after-clear',
     );
   });
+  test(
+    'failed refresh preserves catalog data and successful timestamp',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final previous = _catalog('cached');
+      await CourseCatalogStore.write(1, previous);
+      final repo = _Repository()
+        ..onFetch = () =>
+            Future.error(const FormatException('incomplete catalog'));
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          academicSyncProvider.overrideWithValue(_Sync()),
+          rollcallRepositoryProvider.overrideWithValue(repo),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(courseCatalogProvider.future);
+      await container.read(courseCatalogProvider.notifier).refresh();
+      expect(
+        container.read(courseCatalogProvider).value!.courses.single.id,
+        'cached',
+      );
+      final disk = (await CourseCatalogStore.read(1))!;
+      expect(disk.courses.single.id, 'cached');
+      expect(disk.fetchedAt, previous.fetchedAt);
+    },
+  );
 }
