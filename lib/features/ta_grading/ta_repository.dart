@@ -58,6 +58,8 @@ class TaGradingRepository {
   final _diskReads = <int, Future<void>>{};
   final _diskLoaded = <int>{};
   final _cancel = CancelToken();
+  final _children = <TaGradingRepository>{};
+  TaGradingRepository? _parent;
   bool get active =>
       !_cancel.isCancelled && http.sessionRevision == _session.revision;
 
@@ -69,12 +71,23 @@ class TaGradingRepository {
       _disk,
       _rosterDisk,
     );
-    if (!active) child.dispose();
-    unawaited(_cancel.whenCancel.then((_) => child.dispose()));
+    if (!active) {
+      child.dispose();
+    } else {
+      child._parent = this;
+      _children.add(child);
+    }
     return child;
   }
 
   void dispose() {
+    if (_cancel.isCancelled) return;
+    _parent?._children.remove(this);
+    _parent = null;
+    for (final child in _children.toList()) {
+      child.dispose();
+    }
+    _children.clear();
     _assignmentCache.clear();
     _cancel.cancel('评分页面或账号已变更');
   }

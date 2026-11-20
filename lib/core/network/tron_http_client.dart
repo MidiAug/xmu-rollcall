@@ -275,9 +275,11 @@ class TronHttpClient {
   }) async {
     final token = CancelToken();
     if (cancelToken?.isCancelled == true) throw cancelToken!.cancelError!;
-    if (cancelToken != null) {
-      unawaited(cancelToken.whenCancel.then((error) => token.cancel(error)));
-    }
+    // Cancel the subscription after completion so a shared page token cannot
+    // retain completed requests and their response/options graphs.
+    final cancellation = cancelToken?.whenCancel.asStream().listen(
+      token.cancel,
+    );
     _sessionRequests.add(token);
     final queuedAt = DateTime.now();
     final requestId = AppLog.newOpId();
@@ -322,6 +324,7 @@ class TronHttpClient {
       rethrow;
     } finally {
       _sessionRequests.remove(token);
+      unawaited(cancellation?.cancel());
     }
   }
 }

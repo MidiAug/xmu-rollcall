@@ -45,17 +45,15 @@ class RateLimiter {
         if (!result.isCompleted) result.completeError(error, stack);
       }
     });
-    if (cancelToken != null) {
-      unawaited(
-        cancelToken.whenCancel.then((error) {
-          _pending.remove(request);
-          if (!result.isCompleted) result.completeError(error);
-        }),
-      );
-    }
+    final cancellation = cancelToken?.whenCancel.asStream().listen((error) {
+      _pending.remove(request);
+      if (!result.isCompleted) result.completeError(error);
+    });
     _pending.add(request);
     _drain();
-    return result.future;
+    return result.future.whenComplete(() {
+      unawaited(cancellation?.cancel());
+    });
   }
 
   void _drain() {

@@ -124,4 +124,24 @@ void main() {
       expect((await TaAssignmentStore(11).read(91))!.items.single.graded, 0);
     },
   );
+  test(
+    'closing a detail releases its subtree without cancelling siblings',
+    () async {
+      final root = await TaHttpFixture().repository();
+      addTearDown(root.dispose);
+      final first = root.fork(), second = root.fork();
+      final nested = first.fork();
+      first.dispose();
+      first.dispose();
+      expect(first.active, isFalse);
+      expect(nested.active, isFalse);
+      expect(first.fork().active, isFalse);
+      expect(root.active, isTrue);
+      expect(second.active, isTrue);
+      await second.assignments(91);
+      root.dispose();
+      expect(second.active, isFalse);
+      expect(root.fork().active, isFalse);
+    },
+  );
 }
