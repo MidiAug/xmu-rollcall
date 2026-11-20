@@ -37,6 +37,8 @@ class TronHttpClient {
   int get sessionRevision => _sessionRevision;
   Future<void>? _initializing;
   final Set<CancelToken> _sessionRequests = {};
+  String? _persistedCookies;
+  Future<void> _cookiePersistence = Future<void>.value();
 
   Dio get dio => _dio;
   CookieJar? get cookieJar => _jar;
@@ -97,20 +99,41 @@ class TronHttpClient {
 
   Future<void> _restoreCookiesFromSecureStore() async {
     final raw = await store.read(sessionKey.secureCookieKey);
+    _persistedCookies = raw;
     if (raw == null || raw.isEmpty || _jar == null) return;
     final cookies = decodeCookies(raw);
     if (cookies.isEmpty) return;
     await _jar!.saveFromResponse(Uri.parse(TronEndpoints.baseUrl), cookies);
   }
 
-  Future<void> persistCookies() async {
+  Future<void> persistCookies() {
+    final revision = _sessionRevision;
+    return _queueCookiePersistence(() async {
+      if (revision != _sessionRevision) return;
+      await _persistCookies();
+    });
+  }
+
+  // Keep writes ordered with imports and deletion. A failed write is retried
+  // next time and must not poison the queue or advance the remembered value.
+  Future<void> _queueCookiePersistence(Future<void> Function() action) {
+    final next = _cookiePersistence.then((_) => action());
+    _cookiePersistence = next.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return next;
+  }
+
+  Future<void> _persistCookies() async {
     if (_jar == null) return;
     final cookies = await _jar!.loadForRequest(
       Uri.parse(TronEndpoints.baseUrl),
     );
     final encoded = encodeCookies(cookies);
-    if (await store.read(sessionKey.secureCookieKey) != encoded) {
+    if (_persistedCookies != encoded) {
       await store.write(sessionKey.secureCookieKey, encoded);
+      _persistedCookies = encoded;
     }
   }
 
@@ -118,8 +141,10 @@ class TronHttpClient {
     await init();
     _cancelSessionRequests();
     final cookies = parseCookieHeader(cookieHeader, domain: 'lnt.xmu.edu.cn');
-    await _jar!.saveFromResponse(Uri.parse(TronEndpoints.baseUrl), cookies);
-    await persistCookies();
+    await _queueCookiePersistence(() async {
+      await _jar!.saveFromResponse(Uri.parse(TronEndpoints.baseUrl), cookies);
+      await _persistCookies();
+    });
   }
 
   /// Replace jar cookies from a JSON blob (assist import path).
@@ -127,11 +152,13 @@ class TronHttpClient {
     await init();
     _cancelSessionRequests();
     final cookies = decodeCookies(raw);
-    await _jar!.deleteAll();
-    if (cookies.isNotEmpty) {
-      await _jar!.saveFromResponse(Uri.parse(TronEndpoints.baseUrl), cookies);
-    }
-    await persistCookies();
+    await _queueCookiePersistence(() async {
+      await _jar!.deleteAll();
+      if (cookies.isNotEmpty) {
+        await _jar!.saveFromResponse(Uri.parse(TronEndpoints.baseUrl), cookies);
+      }
+      await _persistCookies();
+    });
   }
 
   Future<String?> exportCookiesJson() async {
@@ -146,12 +173,15 @@ class TronHttpClient {
   Future<void> clearSession() async {
     await init();
     _cancelSessionRequests();
-    await _jar!.deleteAll();
-    final keys = <String>[sessionKey.secureCookieKey];
-    if (sessionKey.isOwner) {
-      keys.addAll([SecureStore.keyUserDisplayName, SecureStore.keyUserId]);
-    }
-    await store.deleteAll(keys);
+    await _queueCookiePersistence(() async {
+      await _jar!.deleteAll();
+      final keys = <String>[sessionKey.secureCookieKey];
+      if (sessionKey.isOwner) {
+        keys.addAll([SecureStore.keyUserDisplayName, SecureStore.keyUserId]);
+      }
+      await store.deleteAll(keys);
+      _persistedCookies = null;
+    });
   }
 
   Future<Response<T>> getUri<T>(
