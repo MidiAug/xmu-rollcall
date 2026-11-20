@@ -220,11 +220,12 @@ void main() {
         capture,
         Offset(rect.right - 20, rect.bottom - 5),
       );
-      expect(selectedTop, isNot(selectedBottom));
+      expect(selectedTop, selectedBottom);
       expect(
-        (selectedTop.computeLuminance() - selectedBottom.computeLuminance())
-            .abs(),
-        lessThan(.08),
+        selectedTop,
+        dark
+            ? AppPalette.darkPalette.selected
+            : AppPalette.lightPalette.surface,
       );
       final mouse = await tester.createGesture(
         kind: ui.PointerDeviceKind.mouse,

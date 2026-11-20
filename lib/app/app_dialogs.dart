@@ -29,6 +29,7 @@ class AppDialogFrame extends StatelessWidget {
       child: AppGlassSurface(
         blur: 0,
         opacity: 1,
+        elevated: true,
         borderRadius: BorderRadius.circular(AppRadii.dialog),
         child: Material(
           color: Colors.transparent,
@@ -156,8 +157,16 @@ Future<bool> showAppConfirmDialog(
                       onPressed: () => Navigator.pop(ctx, true),
                       style: destructive
                           ? FilledButton.styleFrom(
-                              backgroundColor: p.danger,
                               foregroundColor: Colors.white,
+                              overlayColor: Colors.transparent,
+                            ).copyWith(
+                              backgroundColor: WidgetStateProperty.resolveWith(
+                                (s) => s.contains(WidgetState.pressed)
+                                    ? Color.lerp(p.danger, p.ink, .2)!
+                                    : s.contains(WidgetState.hovered)
+                                    ? Color.lerp(p.danger, p.ink, .12)!
+                                    : p.danger,
+                              ),
                             )
                           : null,
                       child: Text(confirmLabel),

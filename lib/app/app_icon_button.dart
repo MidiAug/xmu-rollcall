@@ -48,19 +48,21 @@ class AppIconButton extends StatelessWidget {
             ).copyWith(
               backgroundColor: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.disabled)) {
-                  return active ? p.selected : null;
+                  return active ? p.controlHover : null;
                 }
                 if (active) {
-                  // An open menu remains selected while pointer feedback layers on it.
+                  // An open menu stays distinctly active while neutral pointer
+                  // feedback layers over it.
+                  final overlayBase = p.isDark ? Colors.white : p.ink;
                   return Color.alphaBlend(
-                    p.ink.withValues(
+                    overlayBase.withValues(
                       alpha: states.contains(WidgetState.pressed)
-                          ? .10
+                          ? .08
                           : states.contains(WidgetState.hovered)
-                          ? .05
+                          ? .04
                           : 0,
                     ),
-                    p.selected,
+                    p.controlPressed,
                   );
                 }
                 if (states.contains(WidgetState.pressed)) {

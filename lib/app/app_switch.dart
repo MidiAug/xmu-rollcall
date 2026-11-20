@@ -125,14 +125,15 @@ class _AppSwitchState extends State<AppSwitch>
                     child: Container(
                       width: 44,
                       height: 28,
-                      padding: const EdgeInsets.all(5),
+                      padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
                         color: Color.alphaBlend(
-                          palette.ink.withValues(
-                            alpha: enabled && _pressed ? .10 : 0,
-                          ),
+                          (palette.isDark ? Colors.white : palette.ink)
+                              .withValues(
+                                alpha: enabled && _pressed ? .10 : 0,
+                              ),
                           Color.lerp(
-                            palette.surfaceHigh,
+                            palette.switchTrackOff,
                             palette.primary,
                             progress,
                           )!,
@@ -160,15 +161,27 @@ class _AppSwitchState extends State<AppSwitch>
                         ),
                         child: Container(
                           key: const ValueKey('app-switch-thumb'),
-                          width: 18,
-                          height: 18,
+                          width: 22,
+                          height: 22,
                           decoration: BoxDecoration(
-                            color: Color.lerp(
-                              palette.muted,
-                              Colors.white,
-                              progress,
-                            ),
+                            color: Colors.white,
                             shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(
+                                  alpha: palette.isDark ? .32 : .16,
+                                ),
+                                blurRadius: 3,
+                                offset: const Offset(0, 1),
+                              ),
+                              BoxShadow(
+                                color: Colors.black.withValues(
+                                  alpha: palette.isDark ? .14 : .06,
+                                ),
+                                blurRadius: 1,
+                                offset: const Offset(0, 0.5),
+                              ),
+                            ],
                           ),
                         ),
                       ),

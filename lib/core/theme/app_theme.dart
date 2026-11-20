@@ -73,7 +73,7 @@ abstract final class AppTheme {
         clipBehavior: Clip.antiAlias,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: p.surface,
+        backgroundColor: p.popoverSurface,
         surfaceTintColor: Colors.transparent,
         barrierColor: const Color(0x66212A3A),
         elevation: 6,
@@ -83,18 +83,40 @@ abstract final class AppTheme {
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
-        style: FilledButton.styleFrom(
-          minimumSize: const Size(64, 40),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadii.button),
-          ),
-          elevation: 0,
-          textStyle: AppTypography.control,
-          disabledBackgroundColor: p.content,
-          disabledForegroundColor: p.muted.withValues(alpha: .6),
-          overlayColor: scheme.onPrimary.withValues(alpha: .09),
-        ),
+        style:
+            FilledButton.styleFrom(
+              minimumSize: const Size(64, 40),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.button),
+              ),
+              elevation: 0,
+              textStyle: AppTypography.control,
+              overlayColor: Colors.transparent,
+            ).copyWith(
+              backgroundColor: WidgetStateProperty.resolveWith(
+                (s) => s.contains(WidgetState.disabled)
+                    ? p.content
+                    : s.contains(WidgetState.pressed)
+                    ? p.primaryPressed
+                    : s.contains(WidgetState.hovered)
+                    ? p.primaryHover
+                    : p.primary,
+              ),
+              foregroundColor: WidgetStateProperty.resolveWith(
+                (s) => s.contains(WidgetState.disabled)
+                    ? p.muted.withValues(alpha: .6)
+                    : scheme.onPrimary,
+              ),
+              side: WidgetStateProperty.resolveWith(
+                (s) => s.contains(WidgetState.focused)
+                    ? BorderSide(
+                        color: p.isDark ? Colors.white : p.ink,
+                        width: 1.5,
+                      )
+                    : BorderSide.none,
+              ),
+            ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style:
@@ -104,8 +126,12 @@ abstract final class AppTheme {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppRadii.button),
               ),
-              side: BorderSide(color: p.borderStrong),
+              side: BorderSide(
+                color: p.isDark ? p.borderStrong : const Color(0xFFDCE1EA),
+              ),
               backgroundColor: p.surface,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
               overlayColor: Colors.transparent,
               foregroundColor: p.ink,
               textStyle: AppTypography.control,
@@ -115,7 +141,7 @@ abstract final class AppTheme {
                     ? p.controlPressed
                     : s.contains(WidgetState.hovered) &&
                           !s.contains(WidgetState.disabled)
-                    ? p.controlHover
+                    ? p.cardHover
                     : p.surface,
               ),
               side: WidgetStateProperty.resolveWith(
@@ -124,7 +150,9 @@ abstract final class AppTheme {
                       ? p.border
                       : s.contains(WidgetState.focused)
                       ? p.focus
-                      : p.borderStrong,
+                      : p.isDark
+                      ? p.borderStrong
+                      : const Color(0xFFDCE1EA),
                 ),
               ),
             ),
@@ -205,27 +233,27 @@ abstract final class AppTheme {
         labelStyle: TextStyle(color: p.muted, fontSize: 13),
         prefixIconColor: p.muted,
         suffixIconColor: p.muted,
-        border: WidgetStateInputBorder.resolveWith(
-          (states) => OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadii.input),
-            borderSide: BorderSide(
-              color: states.contains(WidgetState.hovered)
-                  ? p.borderStrong
-                  : p.border,
-            ),
-          ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.input),
+          borderSide: BorderSide(color: p.border),
         ),
-        focusedBorder: OutlineInputBorder(
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppRadii.input),
+          borderSide: BorderSide(color: p.border),
+        ),
+        focusedBorder: _AppFocusRingInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
           borderSide: BorderSide(color: p.focus, width: 1.2),
+          haloColor: p.focus.withValues(alpha: p.isDark ? .26 : .16),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
           borderSide: BorderSide(color: p.danger),
         ),
-        focusedErrorBorder: OutlineInputBorder(
+        focusedErrorBorder: _AppFocusRingInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
           borderSide: BorderSide(color: p.danger, width: 1.2),
+          haloColor: p.danger.withValues(alpha: p.isDark ? .26 : .16),
         ),
       ),
       dividerColor: p.border,
@@ -283,11 +311,9 @@ abstract final class AppTheme {
             ),
       ),
       switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((s) {
-          return s.contains(WidgetState.selected) ? Colors.white : p.muted;
-        }),
+        thumbColor: const WidgetStatePropertyAll(Colors.white),
         trackColor: WidgetStateProperty.resolveWith((s) {
-          return s.contains(WidgetState.selected) ? p.primary : p.surfaceHigh;
+          return s.contains(WidgetState.selected) ? p.primary : p.switchTrackOff;
         }),
         trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
@@ -298,7 +324,7 @@ abstract final class AppTheme {
         trackHeight: 3,
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: p.surfaceHigh,
+        backgroundColor: p.popoverSurface,
         contentTextStyle: TextStyle(color: p.ink, fontSize: 13),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
@@ -386,4 +412,122 @@ abstract final class AppTheme {
       labelSmall: TextStyle(fontSize: 11, height: 1.35, color: muted),
     );
   }
+}
+
+class _AppFocusRingInputBorder extends OutlineInputBorder {
+  const _AppFocusRingInputBorder({
+    super.borderSide,
+    super.borderRadius,
+    super.gapPadding,
+    required this.haloColor,
+  });
+
+  final Color haloColor;
+
+  @override
+  _AppFocusRingInputBorder copyWith({
+    BorderSide? borderSide,
+    BorderRadius? borderRadius,
+    double? gapPadding,
+    Color? haloColor,
+  }) => _AppFocusRingInputBorder(
+    borderSide: borderSide ?? this.borderSide,
+    borderRadius: borderRadius ?? this.borderRadius,
+    gapPadding: gapPadding ?? this.gapPadding,
+    haloColor: haloColor ?? this.haloColor,
+  );
+
+  @override
+  _AppFocusRingInputBorder scale(double t) => _AppFocusRingInputBorder(
+    borderSide: borderSide.scale(t),
+    borderRadius: borderRadius * t,
+    gapPadding: gapPadding * t,
+    haloColor: haloColor,
+  );
+
+  @override
+  ShapeBorder? lerpFrom(ShapeBorder? a, double t) {
+    if (a is OutlineInputBorder) {
+      return _AppFocusRingInputBorder(
+        borderRadius: BorderRadius.lerp(a.borderRadius, borderRadius, t)!,
+        borderSide: BorderSide.lerp(a.borderSide, borderSide, t),
+        gapPadding: a.gapPadding,
+        haloColor: Color.lerp(
+          a is _AppFocusRingInputBorder
+              ? a.haloColor
+              : haloColor.withValues(alpha: 0),
+          haloColor,
+          t,
+        )!,
+      );
+    }
+    return super.lerpFrom(a, t);
+  }
+
+  @override
+  ShapeBorder? lerpTo(ShapeBorder? b, double t) {
+    if (b is OutlineInputBorder) {
+      return _AppFocusRingInputBorder(
+        borderRadius: BorderRadius.lerp(borderRadius, b.borderRadius, t)!,
+        borderSide: BorderSide.lerp(borderSide, b.borderSide, t),
+        gapPadding: b.gapPadding,
+        haloColor: Color.lerp(
+          haloColor,
+          b is _AppFocusRingInputBorder
+              ? b.haloColor
+              : haloColor.withValues(alpha: 0),
+          t,
+        )!,
+      );
+    }
+    return super.lerpTo(b, t);
+  }
+
+  @override
+  void paint(
+    Canvas canvas,
+    Rect rect, {
+    double? gapStart,
+    double gapExtent = 0.0,
+    double gapPercentage = 0.0,
+    TextDirection? textDirection,
+  }) {
+    if (haloColor.a > 0) {
+      OutlineInputBorder(
+        borderSide: BorderSide(
+          color: haloColor,
+          width: 3.0,
+          strokeAlign: BorderSide.strokeAlignOutside,
+        ),
+        borderRadius: borderRadius,
+        gapPadding: gapPadding,
+      ).paint(
+        canvas,
+        rect,
+        gapStart: gapStart,
+        gapExtent: gapExtent,
+        gapPercentage: gapPercentage,
+        textDirection: textDirection,
+      );
+    }
+    super.paint(
+      canvas,
+      rect,
+      gapStart: gapStart,
+      gapExtent: gapExtent,
+      gapPercentage: gapPercentage,
+      textDirection: textDirection,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is _AppFocusRingInputBorder &&
+        super == other &&
+        other.haloColor == haloColor;
+  }
+
+  @override
+  int get hashCode => Object.hash(super.hashCode, haloColor);
 }

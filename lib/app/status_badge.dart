@@ -23,10 +23,9 @@ class AppStatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: tone == AppStatusTone.success
-            ? p.successSurface
-            : color.withValues(alpha: .08),
-        borderRadius: BorderRadius.circular(6),
+        color: color.withValues(alpha: p.isDark ? .14 : .09),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: color.withValues(alpha: p.isDark ? .22 : .14)),
       ),
       child: Text(
         label,

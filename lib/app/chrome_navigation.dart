@@ -139,28 +139,25 @@ class _DesktopNavItem extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(AppRadii.nav),
-                gradient: selected && !highContrast
-                    ? LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          selectedSurface,
-                          Color.lerp(
-                            selectedSurface,
-                            p.isDark ? p.surfaceHigh : p.selected,
-                            p.isDark ? .25 : .35,
-                          )!,
-                        ],
-                      )
+                color: selected ? selectedSurface : null,
+                border: selected && !highContrast
+                    ? Border.all(color: p.surfaceBorder)
                     : null,
                 boxShadow: selected && !highContrast
                     ? [
                         BoxShadow(
                           color: Colors.black.withValues(
-                            alpha: p.isDark ? .12 : .055,
+                            alpha: p.isDark ? .22 : .055,
                           ),
-                          blurRadius: 5,
-                          offset: const Offset(0, 2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 1.5),
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withValues(
+                            alpha: p.isDark ? .12 : .03,
+                          ),
+                          blurRadius: 1,
+                          offset: const Offset(0, 0.5),
                         ),
                       ]
                     : null,
@@ -170,7 +167,7 @@ class _DesktopNavItem extends StatelessWidget {
                 style:
                     TextButton.styleFrom(
                       alignment: Alignment.centerLeft,
-                      foregroundColor: selected ? p.navigationAccent : p.ink,
+                      foregroundColor: p.ink,
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(AppRadii.nav),
@@ -190,7 +187,7 @@ class _DesktopNavItem extends StatelessWidget {
                               : AppPalette.clearOf(selectedSurface);
                         }
                         if (states.contains(WidgetState.pressed)) {
-                          return p.selected;
+                          return p.navigationPressed;
                         }
                         if (states.contains(WidgetState.hovered)) {
                           return p.navigationHover;

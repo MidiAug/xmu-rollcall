@@ -38,7 +38,7 @@ Future<_ChoiceResult<T>?> _showChoiceSheet<T>(
     useSafeArea: true,
     isScrollControlled: true,
     showDragHandle: false,
-    backgroundColor: AppPalette.of(context).surface,
+    backgroundColor: AppPalette.of(context).popoverSurface,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),

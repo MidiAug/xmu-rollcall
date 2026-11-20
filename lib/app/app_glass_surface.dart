@@ -15,6 +15,7 @@ class AppGlassSurface extends StatelessWidget {
     this.blur = 18,
     this.opacity = .78,
     this.cacheShadows = false,
+    this.elevated = false,
   });
   final Widget child;
   final BorderRadius? borderRadius;
@@ -25,22 +26,27 @@ class AppGlassSurface extends StatelessWidget {
   /// shaders during Windows resizing. Backdrop-filtered surfaces stay vector.
   final bool cacheShadows;
 
+  /// Floating dialogs lift one tonal step in dark mode with stronger ambient shadow.
+  final bool elevated;
+
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final radius = borderRadius ?? BorderRadius.circular(AppRadii.island);
     final highContrast = MediaQuery.highContrastOf(context);
+    final opaque = blur == 0 && opacity >= 1;
+    final fill = elevated ? p.popoverSurface : p.surface;
     final surface = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: radius,
-        color: highContrast ? p.surface : null,
-        gradient: highContrast
+        color: highContrast || opaque ? fill : null,
+        gradient: highContrast || opaque
             ? null
             : LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  p.surface.withValues(alpha: opacity == 1 ? 1 : .97),
+                  p.surface.withValues(alpha: .97),
                   Color.lerp(
                     p.surface,
                     p.surfaceHigh,
@@ -49,27 +55,42 @@ class AppGlassSurface extends StatelessWidget {
                 ],
               ),
         border: Border.all(
-          color: p.isDark
-              ? Colors.white.withValues(alpha: .12)
-              : p.border.withValues(alpha: .8),
+          color: highContrast
+              ? p.borderStrong
+              : elevated
+              ? p.popoverBorder
+              : p.surfaceBorder,
         ),
       ),
       child: Padding(padding: padding, child: child),
     );
     final shadows = BoxDecoration(
       borderRadius: radius,
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: p.isDark ? .18 : .045),
-          blurRadius: 12,
-          offset: const Offset(0, 3),
-        ),
-        BoxShadow(
-          color: Colors.black.withValues(alpha: p.isDark ? .08 : .025),
-          blurRadius: 2,
-          offset: const Offset(0, 1),
-        ),
-      ],
+      boxShadow: elevated
+          ? [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: p.isDark ? .40 : .10),
+                blurRadius: 28,
+                offset: const Offset(0, 10),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: p.isDark ? .22 : .05),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ]
+          : [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: p.isDark ? .20 : .05),
+                blurRadius: 14,
+                offset: const Offset(0, 3),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: p.isDark ? .10 : .025),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
+              ),
+            ],
     );
     final clipped = ClipRRect(
       borderRadius: radius,

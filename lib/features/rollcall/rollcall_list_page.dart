@@ -1160,24 +1160,19 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
         duration: AppMotion.fast,
         curve: AppMotion.fastCurve,
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              p.surface,
-              Color.alphaBlend(
-                p.ink.withValues(alpha: p.isDark ? .02 : .008),
-                p.surface,
-              ),
-            ],
-          ),
+          color: p.surface,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: _hover ? p.borderStrong : p.border),
+          border: Border.all(color: p.border),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: p.isDark ? .10 : .045),
-              blurRadius: 12,
-              offset: const Offset(0, 3),
+              color: Colors.black.withValues(alpha: p.isDark ? .22 : .05),
+              blurRadius: _hover ? 18 : 12,
+              offset: Offset(0, _hover ? 4 : 3),
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: p.isDark ? .12 : .025),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
@@ -1188,20 +1183,6 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
             children: [
               Stack(
                 children: [
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomLeft,
-                          end: Alignment.topRight,
-                          colors: [
-                            AppPalette.clearOf(p.surfaceHigh),
-                            p.surfaceHigh.withValues(alpha: .3),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
                   Positioned(
                     right: 0,
                     bottom: 0,

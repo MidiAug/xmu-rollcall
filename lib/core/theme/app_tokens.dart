@@ -52,11 +52,25 @@ class AppPalette {
   Color get successAccent =>
       isDark ? const Color(0xFF49DB92) : const Color(0xFF00B66A);
   Color get successSurface =>
-      isDark ? const Color(0xFF173D30) : const Color(0xFFE4FAED);
+      isDark ? const Color(0xFF173D30) : const Color(0xFFE7F7EE);
   Color get navigationAccent => primary;
   // Sidebar gray is darker than the content canvas; generic hover nearly
   // disappears on it. Keep navigation feedback distinct from white selection.
-  Color get navigationHover => isDark ? hover : const Color(0xFFDFE5EE);
+  Color get navigationHover =>
+      isDark ? const Color(0xFF2A2E38) : const Color(0xFFE5E7EC);
+  Color get navigationPressed =>
+      isDark ? const Color(0xFF333845) : const Color(0xFFDBDDE3);
+
+  /// Elevated container surface for popovers, menus, dialogs and sheets.
+  Color get popoverSurface => isDark ? const Color(0xFF2A2E38) : surface;
+  Color get popoverBorder => isDark
+      ? Colors.white.withValues(alpha: .13)
+      : Colors.black.withValues(alpha: .08);
+  Color get surfaceBorder => isDark
+      ? Colors.white.withValues(alpha: .10)
+      : Colors.black.withValues(alpha: .06);
+  Color get switchTrackOff =>
+      isDark ? const Color(0xFF393E4A) : const Color(0xFFD0D5DD);
 
   /// Ink paints over the existing surface. An opaque surface token would erase
   /// a selected background while leaving its contrasting text unchanged.
@@ -67,9 +81,9 @@ class AppPalette {
   Color get primaryPressed => Color.lerp(primary, ink, .2)!;
 
   /// Action surfaces stay distinct from the canvas even under the pointer.
-  Color get controlHover => isDark ? const Color(0xFF353D4C) : hover;
+  Color get controlHover => isDark ? const Color(0xFF353A47) : hover;
   Color get controlPressed =>
-      isDark ? const Color(0xFF3D485C) : const Color(0xFFE0E5ED);
+      isDark ? const Color(0xFF3F4554) : const Color(0xFFDFE1E6);
 
   /// Document / assignment icon badge tokens shared across summary cards.
   Color get documentSurface =>
@@ -92,7 +106,7 @@ class AppPalette {
   Color get mobileOutline =>
       isDark ? const Color(0xFF3C414D) : const Color(0xFFDCE0E7);
   Color get controlSurface =>
-      isDark ? const Color(0xFF303540) : const Color(0xFFEBEEF3);
+      isDark ? const Color(0xFF2C303B) : const Color(0xFFF3F5F8);
   Color get accentSurface =>
       isDark ? const Color(0xFF343C4C) : const Color(0xFFE8ECF3);
   Color pageBackground(BuildContext context) {
@@ -119,13 +133,13 @@ class AppPalette {
     content: Color(0xFF20232B),
     ink: Color(0xFFECEEF4),
     muted: Color(0xFFA6ADBC),
-    primary: Color(0xFFA6C5FF),
+    primary: Color(0xFF70AAFF),
     danger: Color(0xFFD97777),
     border: Color(0x14FFFFFF),
     borderStrong: Color(0x22FFFFFF),
-    hover: Color(0xFF2B2F39),
-    cardHover: Color(0xFF2B2F39),
-    selected: Color(0xFF343A47),
+    hover: Color(0xFF353A47),
+    cardHover: Color(0xFF2F333E),
+    selected: Color(0xFF303543),
   );
 
   static const lightPalette = AppPalette(
@@ -142,7 +156,7 @@ class AppPalette {
     border: Color(0xFFE5E9F0),
     borderStrong: Color(0xFFD4DBE5),
     // Solid, with no dark overlay on the light canvas.
-    hover: Color(0xFFE9EDF3),
+    hover: Color(0xFFEAECEF),
     cardHover: Color(0xFFF5F6F8),
     selected: Color(0xFFE7EDF7),
   );

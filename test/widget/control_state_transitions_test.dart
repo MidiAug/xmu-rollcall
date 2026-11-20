@@ -140,6 +140,7 @@ void main() {
             )
             .where(
               (w) =>
+                  w.key != const ValueKey('app-switch-thumb') &&
                   w.decoration is BoxDecoration &&
                   (w.decoration as BoxDecoration).boxShadow != null,
             )

@@ -42,12 +42,18 @@ class AppButton extends StatelessWidget {
         if (icon != null) ...[
           SizedBox.square(
             dimension: 16,
-            child: busy
-                ? CircularProgressIndicator(
-                    strokeWidth: 1.6,
-                    semanticsLabel: '$label，正在处理',
-                  )
-                : Icon(icon, size: 16),
+            child: AnimatedSwitcher(
+              duration: MediaQuery.disableAnimationsOf(context)
+                  ? Duration.zero
+                  : AppMotion.fast,
+              child: busy
+                  ? CircularProgressIndicator(
+                      key: const ValueKey('button-busy'),
+                      strokeWidth: 1.6,
+                      semanticsLabel: '$label，正在处理',
+                    )
+                  : Icon(icon, key: ValueKey(icon), size: 16),
+            ),
           ),
           const SizedBox(width: 8),
         ],

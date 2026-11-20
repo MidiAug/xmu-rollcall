@@ -21,7 +21,11 @@ void main() {
       for (final background in [
         p.canvas,
         p.surface,
+        p.popoverSurface,
         p.content,
+        p.controlSurface,
+        p.hover,
+        p.cardHover,
         p.selected,
         p.sidebar,
       ]) {
@@ -29,6 +33,8 @@ void main() {
         expect(contrast(p.muted, background), greaterThanOrEqualTo(4.5));
         expect(contrast(p.focus, background), greaterThanOrEqualTo(3));
       }
+      expect(contrast(p.ink, p.navigationHover), greaterThanOrEqualTo(4.5));
+      expect(contrast(p.muted, p.navigationHover), greaterThanOrEqualTo(3));
       expect(
         contrast(theme.colorScheme.onPrimary, p.primary),
         greaterThanOrEqualTo(4.5),
@@ -43,12 +49,24 @@ void main() {
         contrast(p.navigationAccent, p.isDark ? p.selected : p.surface),
         greaterThanOrEqualTo(4.5),
       );
-      for (final menuSelection in [
-        p.selected,
-        Color.alphaBlend(p.focus.withValues(alpha: .12), p.selected),
-      ]) {
-        expect(contrast(p.ink, menuSelection), greaterThanOrEqualTo(4.5));
-        expect(contrast(p.primary, menuSelection), greaterThanOrEqualTo(3));
+      for (final menuHighlight in [p.hover, p.controlPressed]) {
+        expect(contrast(p.ink, menuHighlight), greaterThanOrEqualTo(4.5));
+        expect(contrast(p.primary, menuHighlight), greaterThanOrEqualTo(3));
+      }
+      final surfaceStep = math.max(
+        ((p.controlSurface.r - p.controlHover.r) * 255).abs(),
+        math.max(
+          ((p.controlSurface.g - p.controlHover.g) * 255).abs(),
+          ((p.controlSurface.b - p.controlHover.b) * 255).abs(),
+        ),
+      );
+      expect(surfaceStep, greaterThanOrEqualTo(8));
+      if (p.isDark) {
+        expect(p.popoverSurface, isNot(p.surface));
+        expect(
+          p.popoverSurface.computeLuminance(),
+          greaterThan(p.surface.computeLuminance()),
+        );
       }
     }
   });

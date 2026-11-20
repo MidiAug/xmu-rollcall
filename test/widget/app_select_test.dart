@@ -85,8 +85,8 @@ void main() {
           expect(selectedPaint.foregroundDecoration, isNull);
           await captureDesktopUi(tester, 'select-selected-$width-$dark');
           expect(
-            (selectedPaint.decoration as BoxDecoration).color,
-            selectedPalette.selected,
+            (selectedPaint.decoration as BoxDecoration).color!.a,
+            0,
           );
           final selectedLabel = tester.widget<Text>(
             find.descendant(of: selected, matching: find.byType(Text)).first,
@@ -164,13 +164,7 @@ void main() {
           );
           final keyboardSelectionColor =
               (keyboardSelectionPaint.decoration as BoxDecoration).color!;
-          expect(
-            keyboardSelectionColor,
-            Color.alphaBlend(
-              palette.focus.withValues(alpha: .12),
-              palette.selected,
-            ),
-          );
+          expect(keyboardSelectionColor, palette.hover);
           double contrast(Color foreground) {
             final first = foreground.computeLuminance();
             final second = keyboardSelectionColor.computeLuminance();

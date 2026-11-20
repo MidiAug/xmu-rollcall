@@ -324,20 +324,25 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                           widget.alignMenuEnd ? 1 : -1,
                           openAbove ? 1 : -1,
                         ),
-                        scale: .985 + .015 * value,
+                        scale: .97 + .03 * value,
                         child: child,
                       ),
                     ),
-                    child: Material(
-                      color: p.surface,
-                      elevation: AppMenuStyle.elevation,
-                      shadowColor: AppMenuStyle.shadow(context),
-                      shape: AppMenuStyle.shape(context),
-                      clipBehavior: Clip.antiAlias,
-                      child: Container(
-                        width: menuWidth,
-                        constraints: BoxConstraints(maxHeight: maxHeight),
-                        padding: const EdgeInsets.all(AppMenuStyle.inset),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(AppRadii.card),
+                        boxShadow: AppMenuStyle.shadows(context),
+                      ),
+                      child: Material(
+                        color: p.popoverSurface,
+                        elevation: 0,
+                        shadowColor: Colors.transparent,
+                        shape: AppMenuStyle.shape(context),
+                        clipBehavior: Clip.antiAlias,
+                        child: Container(
+                          width: menuWidth,
+                          constraints: BoxConstraints(maxHeight: maxHeight),
+                          padding: const EdgeInsets.all(AppMenuStyle.inset),
                         child: FocusScope(
                           node: _menuFocus,
                           autofocus: true,
@@ -452,6 +457,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                       ),
                     ),
                   ),
+                ),
                 ),
               ],
             ),
@@ -604,13 +610,7 @@ class AppMenuOption extends StatelessWidget {
           states.contains(WidgetState.hovered) ||
           states.contains(WidgetState.focused);
       final pressed = states.contains(WidgetState.pressed);
-      final bg = selected
-          ? pressed
-                ? Color.alphaBlend(p.focus.withValues(alpha: .20), p.selected)
-                : states.contains(WidgetState.focused)
-                ? Color.alphaBlend(p.focus.withValues(alpha: .12), p.selected)
-                : p.selected
-          : pressed
+      final bg = pressed
           ? p.controlPressed
           : active
           ? p.hover
@@ -619,8 +619,8 @@ class AppMenuOption extends StatelessWidget {
         fontSize: 14,
         height: 22 / 14,
         fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-        // The selection surface and check carry the accent. Small text keeps
-        // its contrast when the keyboard-focus tint is layered onto selection.
+        // Single-cursor highlight lets the active target stand out while the
+        // check mark and medium weight carry the persisted selection cleanly.
         color: danger ? p.danger : p.ink,
       );
       return Semantics(

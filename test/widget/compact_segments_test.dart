@@ -97,7 +97,7 @@ void main() {
           expect(await sample(), isNot(idle));
           expect(
             tester.widget<Text>(find.text('浅色')).style!.color,
-            palette.primary,
+            palette.ink,
           );
           expect(
             RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),

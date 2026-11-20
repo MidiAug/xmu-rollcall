@@ -166,7 +166,7 @@ class _SidebarAccountTrigger extends StatelessWidget {
                 return AppPalette.clearOf(p.sidebar);
               }
               if (open || states.contains(WidgetState.pressed)) {
-                return p.selected;
+                return p.navigationPressed;
               }
               if (states.contains(WidgetState.hovered)) {
                 return p.navigationHover;
@@ -186,7 +186,7 @@ class _SidebarAccountTrigger extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 14,
-            backgroundColor: p.selected,
+            backgroundColor: p.primary.withValues(alpha: p.isDark ? .18 : .11),
             child: Text(
               name.characters.firstOrNull ?? '我',
               style: TextStyle(
