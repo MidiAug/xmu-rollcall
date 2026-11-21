@@ -129,7 +129,7 @@ GPA以一个连续计算区组织范围切换、二级筛选与结果，使用�
 
 圆角按组件角色建立统一尺度，普通控件、内容容器和弹层各有层级；胶囊用于适合的标签、分段或主要操作，不机械覆盖全部控件。不能仅凭“去AI味”就全站减小圆角，或把大圆角、渐变和阴影本身视作缺陷。
 
-移动端导航可采用轻浮起的功能层，内容列表仍保持实体表面和清楚分隔。参考[Apple Materials](https://developer.apple.com/design/human-interface-guidelines/materials)与[Typography](https://developer.apple.com/design/human-interface-guidelines/typography)中的层次和语义样式，不把静态半透明稿称为已实现原生Liquid Glass，也不因此将Windows整体替换为iOS皮肤。目标规范与存量实现分开核对，设计稿更新不表示Flutter已经迁移。
+移动端普通子页使用裸返回箭头与紧凑导航标题，保留触控目标，不给返回、搜索或更多动作常驻添加圆形底座。底部主导航采用完整宽度的固定栏；不为质感额外添加悬浮胶囊。设置采用连续行与必要分区，成绩、考试和记录采用连续数据列表，详情采用阅读排版；不将全部内容统一包成描边圆角卡片。功能性的开关、日期选中、头像与地图叠层按各自语义保留。以上是本轮用户反馈下的P布局选择，桌面与移动端分别组织。参考[Apple Materials](https://developer.apple.com/design/human-interface-guidelines/materials)与[Typography](https://developer.apple.com/design/human-interface-guidelines/typography)中的层次和语义样式，不把静态半透明稿称为已实现原生Liquid Glass，也不因此将Windows整体替换为iOS皮肤。目标规范与存量实现分开核对，设计稿更新不表示Flutter已经迁移。
 
 **实现值（P1，不是用户逐项指定）：** 当前 `AppRadii` 的button/input/nav为10，card/group/service为16，dialog为20，island为26。保留的签到卡片仍沿其原有几何，不为统一圆角改变内容排版。电脑侧栏不采用island容器，不在业务页另造一套尺寸。
 
