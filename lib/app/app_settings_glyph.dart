@@ -18,6 +18,12 @@ enum AppSettingsGlyphKind {
   info,
   link,
   trayDown,
+  chartBar,
+  fileText,
+  trash,
+  trayUp,
+  refreshCw,
+  code,
 }
 
 /// Crisp 24x24 geometric outline glyphs for settings and assist rows.
@@ -357,6 +363,170 @@ class _AppSettingsGlyphPainter extends CustomPainter {
           ..lineTo(12 * s, 14.2 * s)
           ..lineTo(15.4 * s, 10.8 * s);
         canvas.drawPath(arrow, paint);
+
+      case AppSettingsGlyphKind.chartBar:
+        canvas.drawLine(
+          Offset(4.2 * s, 19.2 * s),
+          Offset(19.8 * s, 19.2 * s),
+          paint,
+        );
+        canvas.drawLine(
+          Offset(7.0 * s, 19.2 * s),
+          Offset(7.0 * s, 12.8 * s),
+          paint,
+        );
+        canvas.drawLine(
+          Offset(12.0 * s, 19.2 * s),
+          Offset(12.0 * s, 5.6 * s),
+          paint,
+        );
+        canvas.drawLine(
+          Offset(17.0 * s, 19.2 * s),
+          Offset(17.0 * s, 9.6 * s),
+          paint,
+        );
+
+      case AppSettingsGlyphKind.fileText:
+        final doc = Path()
+          ..moveTo(7.5 * s, 3.8 * s)
+          ..lineTo(14.0 * s, 3.8 * s)
+          ..lineTo(18.5 * s, 8.3 * s)
+          ..lineTo(18.5 * s, 18.2 * s)
+          ..arcToPoint(
+            Offset(16.5 * s, 20.2 * s),
+            radius: Radius.circular(2.0 * s),
+            clockwise: true,
+          )
+          ..lineTo(7.5 * s, 20.2 * s)
+          ..arcToPoint(
+            Offset(5.5 * s, 18.2 * s),
+            radius: Radius.circular(2.0 * s),
+            clockwise: true,
+          )
+          ..lineTo(5.5 * s, 5.8 * s)
+          ..arcToPoint(
+            Offset(7.5 * s, 3.8 * s),
+            radius: Radius.circular(2.0 * s),
+            clockwise: true,
+          )
+          ..close();
+        canvas.drawPath(doc, paint);
+        final fold = Path()
+          ..moveTo(14.0 * s, 3.8 * s)
+          ..lineTo(14.0 * s, 8.3 * s)
+          ..lineTo(18.5 * s, 8.3 * s);
+        canvas.drawPath(fold, paint);
+        canvas.drawLine(
+          Offset(8.8 * s, 12.2 * s),
+          Offset(15.2 * s, 12.2 * s),
+          paint,
+        );
+        canvas.drawLine(
+          Offset(8.8 * s, 15.6 * s),
+          Offset(13.6 * s, 15.6 * s),
+          paint,
+        );
+
+      case AppSettingsGlyphKind.trash:
+        canvas.drawLine(
+          Offset(4.8 * s, 6.5 * s),
+          Offset(19.2 * s, 6.5 * s),
+          paint,
+        );
+        final handle = Path()
+          ..moveTo(9.5 * s, 6.5 * s)
+          ..lineTo(9.5 * s, 4.8 * s)
+          ..arcToPoint(
+            Offset(10.3 * s, 4.0 * s),
+            radius: Radius.circular(0.8 * s),
+            clockwise: true,
+          )
+          ..lineTo(13.7 * s, 4.0 * s)
+          ..arcToPoint(
+            Offset(14.5 * s, 4.8 * s),
+            radius: Radius.circular(0.8 * s),
+            clockwise: true,
+          )
+          ..lineTo(14.5 * s, 6.5 * s);
+        canvas.drawPath(handle, paint);
+        final body = Path()
+          ..moveTo(6.6 * s, 6.5 * s)
+          ..lineTo(7.4 * s, 18.2 * s)
+          ..arcToPoint(
+            Offset(9.0 * s, 19.8 * s),
+            radius: Radius.circular(1.8 * s),
+            clockwise: false,
+          )
+          ..lineTo(15.0 * s, 19.8 * s)
+          ..arcToPoint(
+            Offset(16.6 * s, 18.2 * s),
+            radius: Radius.circular(1.8 * s),
+            clockwise: false,
+          )
+          ..lineTo(17.4 * s, 6.5 * s);
+        canvas.drawPath(body, paint);
+        canvas.drawLine(
+          Offset(10.2 * s, 10.2 * s),
+          Offset(10.2 * s, 16.2 * s),
+          paint,
+        );
+        canvas.drawLine(
+          Offset(13.8 * s, 10.2 * s),
+          Offset(13.8 * s, 16.2 * s),
+          paint,
+        );
+
+      case AppSettingsGlyphKind.trayUp:
+        final tray = Path()
+          ..moveTo(5 * s, 14.5 * s)
+          ..lineTo(5 * s, 18.8 * s)
+          ..lineTo(19 * s, 18.8 * s)
+          ..lineTo(19 * s, 14.5 * s);
+        canvas.drawPath(tray, paint);
+        canvas.drawLine(
+          Offset(12 * s, 14.2 * s),
+          Offset(12 * s, 4.5 * s),
+          paint,
+        );
+        final arrow = Path()
+          ..moveTo(8.6 * s, 7.9 * s)
+          ..lineTo(12 * s, 4.5 * s)
+          ..lineTo(15.4 * s, 7.9 * s);
+        canvas.drawPath(arrow, paint);
+
+      case AppSettingsGlyphKind.refreshCw:
+        const radius = 7.4;
+        canvas.drawArc(
+          Rect.fromCircle(center: Offset(12 * s, 12 * s), radius: radius * s),
+          15 * math.pi / 180,
+          300 * math.pi / 180,
+          false,
+          paint,
+        );
+        final tipX = 12 + radius * math.cos(-math.pi / 4);
+        final tipY = 12 + radius * math.sin(-math.pi / 4);
+        final arrow = Path()
+          ..moveTo(tipX * s, (tipY - 3.4) * s)
+          ..lineTo(tipX * s, tipY * s)
+          ..lineTo((tipX - 3.4) * s, tipY * s);
+        canvas.drawPath(arrow, paint);
+
+      case AppSettingsGlyphKind.code:
+        final leftBracket = Path()
+          ..moveTo(8.0 * s, 8.2 * s)
+          ..lineTo(4.2 * s, 12.0 * s)
+          ..lineTo(8.0 * s, 15.8 * s);
+        canvas.drawPath(leftBracket, paint);
+        canvas.drawLine(
+          Offset(13.5 * s, 6.5 * s),
+          Offset(10.5 * s, 17.5 * s),
+          paint,
+        );
+        final rightBracket = Path()
+          ..moveTo(16.0 * s, 8.2 * s)
+          ..lineTo(19.8 * s, 12.0 * s)
+          ..lineTo(16.0 * s, 15.8 * s);
+        canvas.drawPath(rightBracket, paint);
     }
   }
 

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:xmu_rollcall/app/app_settings_glyph.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
@@ -334,7 +335,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
                   strokeWidth: 2,
                 ),
               )
-            : const Icon(AppIcons.update),
+            : const AppSettingsGlyph(AppSettingsGlyphKind.refreshCw),
         title: _phase == _UpdatePhase.downloading ? _message : '软件更新',
         subtitleMaxLines: 1,
         subtitle: _phase == _UpdatePhase.downloading
@@ -360,7 +361,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
       children: [
         row,
         SettingsRow(
-          leading: const Icon(AppIcons.downloadRoute),
+          leading: const AppSettingsGlyph(AppSettingsGlyphKind.globe),
           title: '下载线路',
           trailing: UpdateDownloadRouteSelector(
             width: AppDensity.isTouch(context) ? 128 : 164,

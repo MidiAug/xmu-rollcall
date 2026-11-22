@@ -606,9 +606,7 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
       child: PageScaffold(
         onBack: () => Navigator.of(context).maybePop(),
         title: widget.assignment.title,
-        subtitle:
-            '应交 ${_summary.expected}    已提交 ${_summary.submitted}    已批改 ${_summary.graded}'
-            '${_summary.timeMetrics.isNotEmpty ? '    ${_summary.timeMetrics.map((m) => '${m.$1} ${m.$2}').join('    ')}' : ''}',
+        subtitleWidget: TaAssignmentSummaryBar(assignment: _summary),
         child: Material(
           color: p.canvas,
           child: FutureBuilder<void>(

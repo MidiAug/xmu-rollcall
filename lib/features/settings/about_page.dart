@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:xmu_rollcall/app/app_settings_glyph.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/app_service_symbol.dart';
@@ -102,7 +103,7 @@ class _AboutPageState extends State<AboutPage> {
               header: '开源项目',
               children: [
                 SettingsRow(
-                  leading: const Icon(AppIcons.code),
+                  leading: const AppSettingsGlyph(AppSettingsGlyphKind.code),
                   title: 'GitHub 仓库',
                   subtitle: 'MidiAug/xmu-rollcall',
                   subtitleMaxLines: 1,

@@ -91,6 +91,7 @@ class PageScaffold extends StatelessWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.subtitleWidget,
     this.trailing,
     this.headerLeading,
     this.onBack,
@@ -100,6 +101,7 @@ class PageScaffold extends StatelessWidget {
 
   final String title;
   final String? subtitle;
+  final Widget? subtitleWidget;
   final Widget? trailing;
   final Widget? headerLeading;
   final VoidCallback? onBack;
@@ -116,6 +118,7 @@ class PageScaffold extends StatelessWidget {
         headerLeading: headerLeading,
         showHeader: showHeader,
         subtitle: subtitle,
+        subtitleWidget: subtitleWidget,
         onBack: onBack,
         actions: trailing == null ? const [] : [trailing!],
         child: child,
@@ -124,7 +127,7 @@ class PageScaffold extends StatelessWidget {
     // Canvas extends under the status bar; inset content only (R-23).
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _overlayForSurface(p.pageBackground(context)),
-      child: ColoredBox(
+      child: Material(
         color: p.pageBackground(context),
         child: SafeArea(
           bottom: false,
@@ -172,19 +175,33 @@ class PageScaffold extends StatelessWidget {
                                           TextLeadingDistribution.even,
                                     ),
                               ),
-                              const SizedBox(height: AppSpace.xxs),
-                              Text(
-                                subtitle ?? ' ',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: (theme.bodySmall ?? const TextStyle())
-                                    .copyWith(
-                                      color: p.muted,
-                                      height: 1.3,
-                                      leadingDistribution:
-                                          TextLeadingDistribution.even,
-                                    ),
-                              ),
+                              if (subtitleWidget != null) ...[
+                                const SizedBox(height: 6),
+                                DefaultTextStyle.merge(
+                                  style: (theme.bodySmall ?? const TextStyle())
+                                      .copyWith(
+                                        color: p.muted,
+                                        height: 1.3,
+                                        leadingDistribution:
+                                            TextLeadingDistribution.even,
+                                      ),
+                                  child: subtitleWidget!,
+                                ),
+                              ] else ...[
+                                const SizedBox(height: AppSpace.xxs),
+                                Text(
+                                  subtitle ?? ' ',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: (theme.bodySmall ?? const TextStyle())
+                                      .copyWith(
+                                        color: p.muted,
+                                        height: 1.3,
+                                        leadingDistribution:
+                                            TextLeadingDistribution.even,
+                                      ),
+                                ),
+                              ],
                             ],
                           ),
                         ),

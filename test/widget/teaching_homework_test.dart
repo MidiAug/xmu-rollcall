@@ -15,6 +15,7 @@ import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
+import 'package:xmu_rollcall/features/homework/homework_course_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_list_row.dart';
 import 'package:xmu_rollcall/features/homework/homework_overview.dart';
@@ -519,6 +520,18 @@ void main() {
         expect(find.text('助教作业4'), findsOneWidget);
         await tester.tap(find.text('全部 4'));
         await tester.pumpAndSettle();
+        final courseRows = tester
+            .widgetList<HomeworkListRow>(
+              find.descendant(
+                of: find.byType(HomeworkCoursePage),
+                matching: find.byType(HomeworkListRow),
+              ),
+            )
+            .toList();
+        expect(courseRows, hasLength(4));
+        for (final row in courseRows) {
+          expect(row.subtitle, isEmpty);
+        }
         await captureDesktopUi(
           tester,
           'homework-course-menu-${width.toInt()}${scale == 1 ? '' : '-scale$scale'}',

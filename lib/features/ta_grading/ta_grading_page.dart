@@ -168,54 +168,81 @@ class _TaCoursesState extends State<_TaCourses> {
                 AppSpace.pageXOf(context),
                 24,
               );
+          final cached = _course == null
+              ? null
+              : widget.repository.cachedAssignments(_course!);
+          final checkedLabel = cached == null
+              ? null
+              : '上次核对 ${cached.checkedAt.toLocal().toString().substring(0, 16)}';
           final header = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  const AppServiceSymbol(
-                    size: 44,
-                    icon: AppIcons.serviceGrading,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '助教课程',
-                          style: TextStyle(color: p.muted, fontSize: 12),
+              LayoutBuilder(
+                builder: (context, bounds) {
+                  final wideHeader = bounds.maxWidth >= 520;
+                  final checkedText = checkedLabel == null
+                      ? null
+                      : Text(
+                          checkedLabel,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: p.muted),
+                        );
+                  return Row(
+                    children: [
+                      const AppServiceSymbol(
+                        size: 44,
+                        icon: AppIcons.serviceGrading,
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '助教课程',
+                              style: TextStyle(color: p.muted, fontSize: 12),
+                            ),
+                            const SizedBox(height: 5),
+                            AppTruncatedText(
+                              course.title,
+                              style: TextStyle(
+                                color: p.ink,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (!wideHeader && checkedText != null) ...[
+                              const SizedBox(height: 4),
+                              checkedText,
+                            ],
+                          ],
                         ),
-                        const SizedBox(height: 5),
-                        AppTruncatedText(
-                          course.title,
-                          style: TextStyle(
-                            color: p.ink,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                      ),
+                      if (wideHeader && checkedText != null) ...[
+                        const SizedBox(width: 12),
+                        checkedText,
                       ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  AppRefreshButton(
-                    tooltip: '更新作业',
-                    iconSize: 20,
-                    busy:
-                        snapshot.connectionState == ConnectionState.waiting,
-                    onRefresh: () async {
-                      if (_course != null) {
-                        _select(_course!, refresh: true);
-                        try {
-                          await _assignments;
-                        } catch (_) {
-                          // FutureBuilder keeps cached content and reports the failure.
-                        }
-                      }
-                    },
-                  ),
-                ],
+                      const SizedBox(width: 12),
+                      AppRefreshButton(
+                        tooltip: '更新作业',
+                        iconSize: 20,
+                        busy:
+                            snapshot.connectionState == ConnectionState.waiting,
+                        onRefresh: () async {
+                          if (_course != null) {
+                            _select(_course!, refresh: true);
+                            try {
+                              await _assignments;
+                            } catch (_) {
+                              // FutureBuilder keeps cached content and reports the failure.
+                            }
+                          }
+                        },
+                      ),
+                    ],
+                  );
+                },
               ),
               if (widget.courses.length > 1) ...[
                 const SizedBox(height: 14),
@@ -273,17 +300,6 @@ class _TaCoursesState extends State<_TaCourses> {
                   child: Text(
                     '更新失败，保留上次作业列表',
                     style: TextStyle(color: p.warning),
-                  ),
-                ),
-              if (widget.repository.cachedAssignments(_course!)
-                  case final cached?)
-                Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: Text(
-                    '上次核对 ${cached.checkedAt.toLocal().toString().substring(0, 16)}',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: p.muted),
                   ),
                 ),
               if (assignments.isEmpty)
@@ -358,68 +374,69 @@ class _TaCoursesState extends State<_TaCourses> {
                               _select(courseId);
                             }
                           },
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    AppTruncatedText(
-                                      item.title,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Wrap(
-                                      spacing: 12,
-                                      runSpacing: 6,
+                          child: LayoutBuilder(
+                            builder: (context, bounds) {
+                              final scale =
+                                  MediaQuery.textScalerOf(context).scale(1);
+                              final wide = bounds.maxWidth >= 560 * scale;
+                              return Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        for (final metric in [
-                                          ('应交', item.expected),
-                                          ('已提交', item.submitted),
-                                          ('已批改', item.graded),
-                                        ])
-                                          Text(
-                                            '${metric.$1} ${metric.$2}',
-                                            style: TextStyle(
-                                              color: p.muted,
-                                              fontSize: 12,
-                                            ),
+                                        AppTruncatedText(
+                                          item.title,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                                color: p.ink,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        TaAssignmentCountChips(
+                                          assignment: item,
+                                        ),
+                                        if (!wide &&
+                                            item.timeMetrics.isNotEmpty) ...[
+                                          const SizedBox(height: 6),
+                                          TaAssignmentTimeRow(
+                                            assignment: item,
                                           ),
-                                        for (final time in item.timeMetrics)
-                                          Text(
-                                            '${time.$1} ${time.$2}',
-                                            style: TextStyle(
-                                              color: p.muted,
-                                              fontSize: 12,
-                                            ),
-                                          ),
+                                        ],
                                       ],
                                     ),
+                                  ),
+                                  if (wide && item.timeMetrics.isNotEmpty) ...[
+                                    const SizedBox(width: 16),
+                                    TaAssignmentTimeColumn(assignment: item),
                                   ],
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              AppStatusBadge(
-                                item.submitted == 0
-                                    ? '待提交'
-                                    : item.graded > 0
-                                    ? '已批 ${item.graded}/${item.submitted}'
-                                    : '待批 $pending',
-                                tone: item.submitted == 0
-                                    ? AppStatusTone.neutral
-                                    : item.graded > 0
-                                    ? AppStatusTone.success
-                                    : AppStatusTone.accent,
-                                pill: true,
-                              ),
-                              const SizedBox(width: 12),
-                              const Icon(AppIcons.right, size: 20),
-                            ],
+                                  const SizedBox(width: 16),
+                                  AppStatusBadge(
+                                    item.submitted == 0
+                                        ? '待提交'
+                                        : item.graded > 0
+                                        ? '已批 ${item.graded}/${item.submitted}'
+                                        : '待批 $pending',
+                                    tone: item.submitted == 0
+                                        ? AppStatusTone.neutral
+                                        : item.graded > 0
+                                        ? AppStatusTone.success
+                                        : AppStatusTone.accent,
+                                    pill: true,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Icon(
+                                    AppIcons.right,
+                                    size: 18,
+                                    color: p.muted,
+                                  ),
+                                ],
+                              );
+                            },
                           ),
                         );
                       },

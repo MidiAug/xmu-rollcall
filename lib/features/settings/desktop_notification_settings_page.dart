@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:xmu_rollcall/app/app_settings_glyph.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -70,7 +71,7 @@ class _DesktopNotificationSettingsPageState
                   padTop: false,
                   children: [
                     SettingsRow(
-                      leading: const Icon(AppIcons.notification),
+                      leading: const AppSettingsGlyph(AppSettingsGlyphKind.bell),
                       title: '系统通知',
                       subtitle: '仅发送示例提醒，不会提交签到',
                       trailing: FilledButton(

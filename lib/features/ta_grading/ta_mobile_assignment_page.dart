@@ -180,21 +180,13 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
                 itemCount: students.length + 2,
                 itemBuilder: (context, index) {
                   if (index == 0) {
-                    final timeSummary = _summary.timeMetrics
-                        .map((m) => '${m.$1} ${m.$2}')
-                        .join('   ');
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (timeSummary.isNotEmpty) ...[
-                          Text(
-                            timeSummary,
-                            style: Theme.of(
-                              context,
-                            ).textTheme.bodySmall?.copyWith(color: p.muted),
-                          ),
-                          const SizedBox(height: 12),
-                        ],
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: TaAssignmentSummaryBar(assignment: _summary),
+                        ),
                         AppSegmentedControl<int>(
                           key: const ValueKey('ta-mobile-status'),
                           value: _submission,
@@ -246,20 +238,12 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
                           );
                   }
                   final s = students[index - 1];
-                  return ClipRRect(
-                    borderRadius: BorderRadius.vertical(
-                      top: index == 1
-                          ? const Radius.circular(AppRadii.card)
-                          : Radius.zero,
-                      bottom: index == students.length
-                          ? const Radius.circular(AppRadii.card)
-                          : Radius.zero,
-                    ),
-                    child: TaStudentRow(
-                      student: s,
-                      gradingKnown: _summary.graded == 0,
-                      showAvatar: _query.isNotEmpty,
-                    ),
+                  return TaStudentRow(
+                    student: s,
+                    gradingKnown: _summary.graded == 0,
+                    showAvatar: _query.isNotEmpty,
+                    isFirst: index == 1,
+                    isLast: index == students.length,
                   );
                 },
               ),

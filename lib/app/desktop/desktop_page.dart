@@ -9,6 +9,7 @@ class DesktopPageHeader extends StatelessWidget {
     required this.title,
     this.leading,
     this.subtitle,
+    this.subtitleWidget,
     this.onBack,
     this.inlineSubtitle = false,
     this.keepActionsInline = false,
@@ -17,6 +18,7 @@ class DesktopPageHeader extends StatelessWidget {
   final String title;
   final Widget? leading;
   final String? subtitle;
+  final Widget? subtitleWidget;
   final VoidCallback? onBack;
   final bool inlineSubtitle;
   final bool keepActionsInline;
@@ -56,7 +58,10 @@ class DesktopPageHeader extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: AppTypography.pageTitle.copyWith(color: p.ink),
                       ),
-                    if (subtitle != null && !inlineSubtitle) ...[
+                    if (subtitleWidget != null && !inlineSubtitle) ...[
+                      const SizedBox(height: 8),
+                      subtitleWidget!,
+                    ] else if (subtitle != null && !inlineSubtitle) ...[
                       const SizedBox(height: 8),
                       Text(
                         subtitle!,
@@ -120,6 +125,7 @@ class DesktopPage extends StatelessWidget {
     this.headerLeading,
     this.showHeader = true,
     this.subtitle,
+    this.subtitleWidget,
     this.onBack,
     this.actions = const [],
   });
@@ -127,6 +133,7 @@ class DesktopPage extends StatelessWidget {
   final Widget? headerLeading;
   final bool showHeader;
   final String? subtitle;
+  final Widget? subtitleWidget;
   final VoidCallback? onBack;
   final List<Widget> actions;
   final Widget child;
@@ -141,6 +148,7 @@ class DesktopPage extends StatelessWidget {
             title: title,
             leading: headerLeading,
             subtitle: subtitle,
+            subtitleWidget: subtitleWidget,
             onBack: onBack,
             actions: actions,
           ),

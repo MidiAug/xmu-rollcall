@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
+import 'package:xmu_rollcall/app/app_settings_glyph.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
@@ -94,7 +95,10 @@ class SettingsDataPage extends ConsumerWidget {
               header: '本机数据',
               children: [
                 SettingsRow(
-                  leading: Icon(AppIcons.clean, color: p.danger),
+                  leading: AppSettingsGlyph(
+                    AppSettingsGlyphKind.trash,
+                    color: p.danger,
+                  ),
                   title: '清除本机课程数据',
                   destructive: true,
                   subtitle: '保留手工安排、学期日期、地点与本机设置',
@@ -125,7 +129,9 @@ class SettingsDataPage extends ConsumerWidget {
                     }
 
                     return SettingsRow(
-                      leading: const Icon(AppIcons.devices),
+                      leading: const AppSettingsGlyph(
+                        AppSettingsGlyphKind.window,
+                      ),
                       title: '本机标识',
                       subtitleWidget: Text(
                         id ?? (snap.hasError ? '暂时无法读取' : '…'),
@@ -153,7 +159,9 @@ class SettingsDataPage extends ConsumerWidget {
                   },
                 ),
                 SettingsRow(
-                  leading: const Icon(AppIcons.document),
+                  leading: const AppSettingsGlyph(
+                    AppSettingsGlyphKind.fileText,
+                  ),
                   title: '最近日志',
                   trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: () =>
@@ -170,7 +178,7 @@ class SettingsDataPage extends ConsumerWidget {
                     leading: const Icon(AppIcons.radar),
                     title: PlatformHooks.isDesktop ? '电脑端签到与状态' : '签到首页',
                     subtitle: '完整首页、多方式与状态组合，模拟提交',
-                    trailing: const Icon(AppIcons.right, size: 18),
+                    trailing: Icon(AppIcons.right, size: 18, color: p.muted),
                     onTap: () => AppPageRoutes.push(
                       context,
                       RollcallPreviewPage(desktop: PlatformHooks.isDesktop),
@@ -180,7 +188,7 @@ class SettingsDataPage extends ConsumerWidget {
                     leading: const Icon(AppIcons.download),
                     title: '更新流程',
                     subtitle: '说明、检查、下载、线路与安装确认',
-                    trailing: const Icon(AppIcons.right, size: 18),
+                    trailing: Icon(AppIcons.right, size: 18, color: p.muted),
                     onTap: () =>
                         AppPageRoutes.push(context, UpdatePreviewPage()),
                   ),
@@ -189,7 +197,7 @@ class SettingsDataPage extends ConsumerWidget {
                       leading: const Icon(AppIcons.qr),
                       title: '电脑扫码  透明浮窗',
                       subtitle: '屏幕识别  拖入图片  选择图片，不提交签到',
-                      trailing: const Icon(AppIcons.right, size: 18),
+                      trailing: Icon(AppIcons.right, size: 18, color: p.muted),
                       onTap: () => AppPageRoutes.push(
                         context,
                         const DesktopQrPreviewPage(),
@@ -368,7 +376,7 @@ class _TimetableRefreshRowState extends ConsumerState<_TimetableRefreshRow> {
         : '上次更新 ${at.year}/${at.month}/${at.day} ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
     return SettingsRow(
       key: const ValueKey('academic-timetable-update-row'),
-      leading: const Icon(AppIcons.calendar),
+      leading: const AppSettingsGlyph(AppSettingsGlyphKind.calendar),
       title: '教务课表',
       subtitleWidget: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -496,7 +504,7 @@ class _ExportLogsRowState extends ConsumerState<_ExportLogsRow> {
 
   @override
   Widget build(BuildContext context) => SettingsRow(
-    leading: const Icon(AppIcons.share),
+    leading: const AppSettingsGlyph(AppSettingsGlyphKind.trayUp),
     title: _busy ? '正在准备诊断日志…' : '导出诊断日志',
     subtitle: PlatformHooks.isDesktop
         ? '打包请求流水和错误详情，另存为 ZIP'
@@ -507,7 +515,7 @@ class _ExportLogsRowState extends ConsumerState<_ExportLogsRow> {
             height: 18,
             child: CircularProgressIndicator(strokeWidth: 2),
           )
-        : const Icon(AppIcons.right, size: 18),
+        : Icon(AppIcons.right, size: 18, color: AppPalette.of(context).muted),
     onTap: _busy ? null : _export,
   );
 }
@@ -636,7 +644,11 @@ class _AcademicUpdateRowState extends ConsumerState<_AcademicUpdateRow> {
             ? '尚未缓存${grades ? '成绩' : '考试安排'}'
             : '上次更新 ${at.year}/${at.month}/${at.day} ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
         return SettingsRow(
-          leading: Icon(grades ? AppIcons.serviceGpa : AppIcons.serviceExams),
+          leading: AppSettingsGlyph(
+            grades
+                ? AppSettingsGlyphKind.chartBar
+                : AppSettingsGlyphKind.fileText,
+          ),
           title: grades ? '成绩' : '考试安排',
           stackSubtitleOnNarrow: true,
           subtitleWidget: Column(

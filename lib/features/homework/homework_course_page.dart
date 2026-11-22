@@ -267,7 +267,7 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
                                     ))
                                       HomeworkListRow(
                                         item: item,
-                                        subtitle: widget.courseName,
+                                        subtitle: '',
                                         compactTrailing: HomeworkStatusBadges(
                                           item: item,
                                           compact: true,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,8 +12,10 @@ import 'package:xmu_rollcall/app/app_checkbox.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_assignment_store.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_grading_page.dart';
+import 'package:xmu_rollcall/features/ta_grading/ta_mobile_assignment_page.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_models.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_providers.dart';
+import 'package:xmu_rollcall/features/ta_grading/ta_widgets.dart';
 import '../fixtures/ta_http_fixture.dart';
 import '../fixtures/preview_fonts.dart';
 import '../fixtures/desktop_ui_capture.dart';
@@ -773,6 +776,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(find.byType(TaAssignmentCountChips), findsOneWidget);
+      expect(find.byType(TaAssignmentTimeColumn), findsOneWidget);
       expect(find.text(expectedOpen), findsOneWidget);
       expect(find.text(expectedClose), findsOneWidget);
 
@@ -780,6 +785,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(TaAssignmentPage), findsOneWidget);
+      expect(find.byType(TaAssignmentSummaryBar), findsOneWidget);
       final openFinder = find.textContaining(expectedOpen);
       final closeFinder = find.textContaining(expectedClose);
       expect(openFinder, findsOneWidget);
@@ -793,4 +799,109 @@ void main() {
       await tester.pumpAndSettle();
     },
   );
+
+  for (final platform in [TargetPlatform.windows, TargetPlatform.android]) {
+    testWidgets(
+      'narrow 320px summary header renders cleanly without wrap or fallback underline ($platform)',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({});
+        tester.view.physicalSize = const Size(320, 950);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        final f = TaHttpFixture();
+        final repo = await f.repository();
+        addTearDown(repo.dispose);
+
+        final parsed = TaAssignment.parse(f.assignment);
+        final expectedOpen =
+            '${parsed.timeMetrics[0].$1} ${parsed.timeMetrics[0].$2}';
+        final expectedClose =
+            '${parsed.timeMetrics[1].$1} ${parsed.timeMetrics[1].$2}';
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              taRepositoryProvider.overrideWith((ref) async => repo),
+              currentTeachingCoursesProvider.overrideWith(
+                (ref) async => const [CatalogCourse(id: '91', title: '测试课程')],
+              ),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.light().copyWith(platform: platform),
+              home: const Scaffold(body: TaGradingPage()),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text(TaHttpFixture.title));
+        await tester.pumpAndSettle();
+
+        if (platform == TargetPlatform.android) {
+          expect(find.byType(TaMobileAssignmentPage), findsOneWidget);
+          final rows = tester
+              .widgetList<TaStudentRow>(find.byType(TaStudentRow))
+              .toList();
+          expect(rows, hasLength(3));
+          expect(rows.first.isFirst, isTrue);
+          expect(rows.first.isLast, isFalse);
+          expect(rows[1].isFirst, isFalse);
+          expect(rows[1].isLast, isFalse);
+          expect(rows.last.isFirst, isFalse);
+          expect(rows.last.isLast, isTrue);
+        } else {
+          expect(find.byType(TaAssignmentPage), findsOneWidget);
+        }
+
+        expect(find.byType(TaAssignmentSummaryBar), findsOneWidget);
+        for (final chip in [
+          '应交 ${parsed.expected}',
+          '已提交 ${parsed.submitted}',
+          '已批改 ${parsed.graded}',
+        ]) {
+          final finder = find.text(chip);
+          expect(finder, findsOneWidget);
+          final ctx = tester.element(finder);
+          expect(
+            DefaultTextStyle.of(ctx).style.decoration,
+            isNot(TextDecoration.underline),
+          );
+        }
+
+        for (final timeText in [expectedOpen, expectedClose]) {
+          final finder = find.text(timeText);
+          expect(finder, findsOneWidget);
+          final ctx = tester.element(finder);
+          expect(
+            DefaultTextStyle.of(ctx).style.decoration,
+            isNot(TextDecoration.underline),
+          );
+          final paragraph = ctx.renderObject! as RenderParagraph;
+          expect(paragraph.didExceedMaxLines, isFalse, reason: timeText);
+          final painter = TextPainter(
+            text: paragraph.text,
+            textDirection: paragraph.textDirection,
+            textScaler: paragraph.textScaler,
+          )..layout();
+          expect(
+            paragraph.size.width,
+            greaterThanOrEqualTo(painter.width - 0.5),
+            reason: timeText,
+          );
+          expect(
+            paragraph.size.height,
+            lessThanOrEqualTo(painter.height + 1.0),
+            reason: timeText,
+          );
+          painter.dispose();
+        }
+
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      },
+    );
+  }
 }

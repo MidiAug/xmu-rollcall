@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xmu_rollcall/app/app_settings_glyph.dart';
 import 'package:xmu_rollcall/app/providers.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
+import 'package:xmu_rollcall/core/theme/app_icons.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/features/academic/academic_access.dart';
 import 'package:xmu_rollcall/features/academic/academic_identity.dart';
@@ -225,4 +227,86 @@ void main() {
       );
     }
   }
+
+  testWidgets(
+    'SettingsDataPage renders AppSettingsGlyphs without legacy filled service icons',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final store = SecureStore.memory();
+      final container = ProviderContainer(
+        overrides: [
+          secureStoreProvider.overrideWithValue(store),
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          assistControllerProvider.overrideWith(
+            (ref) => AssistController(
+              ref,
+              bootstrap: false,
+              initial: const AssistUiState(ready: true),
+            ),
+          ),
+          academicIdentityResolverProvider.overrideWithValue(
+            (_) async => AcademicIdentity(isCurrent: () async => true),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      tester.view.physicalSize = const Size(960, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const SettingsDataPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final renderedKinds = <AppSettingsGlyphKind>{};
+      void collectGlyphs() {
+        for (final glyph in tester.widgetList<AppSettingsGlyph>(
+          find.byType(AppSettingsGlyph),
+        )) {
+          renderedKinds.add(glyph.kind);
+        }
+      }
+
+      collectGlyphs();
+      expect(find.byIcon(AppIcons.serviceGpa, skipOffstage: false), findsNothing);
+      expect(
+        find.byIcon(AppIcons.serviceExams, skipOffstage: false),
+        findsNothing,
+      );
+
+      final exportRow = find.text('导出诊断日志');
+      await tester.scrollUntilVisible(
+        exportRow,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+      collectGlyphs();
+
+      expect(renderedKinds, {
+        AppSettingsGlyphKind.calendar,
+        AppSettingsGlyphKind.chartBar,
+        AppSettingsGlyphKind.fileText,
+        AppSettingsGlyphKind.trash,
+        AppSettingsGlyphKind.window,
+        AppSettingsGlyphKind.trayUp,
+      });
+      expect(find.byIcon(AppIcons.serviceGpa, skipOffstage: false), findsNothing);
+      expect(
+        find.byIcon(AppIcons.serviceExams, skipOffstage: false),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 }
