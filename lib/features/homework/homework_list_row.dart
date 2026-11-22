@@ -10,6 +10,7 @@ class HomeworkListRow extends StatelessWidget {
     required this.item,
     required this.subtitle,
     required this.trailing,
+    this.compactTrailing,
     required this.onTap,
   });
 
@@ -19,6 +20,7 @@ class HomeworkListRow extends StatelessWidget {
   final HomeworkItem item;
   final String subtitle;
   final Widget trailing;
+  final Widget? compactTrailing;
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
@@ -47,6 +49,7 @@ class HomeworkListRow extends StatelessWidget {
                     AppTruncatedText(
                       item.title.isEmpty ? '未命名作业' : item.title,
                       style: AppTypography.body.copyWith(
+                        fontSize: AppDensity.isTouch(context) ? 16 : 14,
                         fontWeight: FontWeight.w600,
                         color: p.ink,
                       ),
@@ -58,10 +61,22 @@ class HomeworkListRow extends StatelessWidget {
                         style: AppTypography.caption.copyWith(color: p.muted),
                       ),
                     ],
-                    if (!wide) ...[const SizedBox(height: 8), metadata],
+                    if (!wide) ...[
+                      const SizedBox(height: 4),
+                      AppTruncatedText(
+                        item.dueAt == null
+                            ? item.dueLabel
+                            : '${item.dueLabel} 截止',
+                        style: AppTypography.caption.copyWith(color: p.muted),
+                      ),
+                    ],
                   ],
                 ),
               ),
+              if (!wide) ...[
+                const SizedBox(width: AppSpace.sm),
+                compactTrailing ?? trailing,
+              ],
               if (wide) ...[
                 const SizedBox(width: AppSpace.xl),
                 SizedBox(width: 264 * scale, child: metadata),

@@ -89,7 +89,7 @@ class AppSelectTrigger extends StatelessWidget {
             color: pressed && enabled
                 ? p.controlPressed
                 : hovering
-                ? (plain || touch ? p.controlHover : p.cardHover)
+                ? p.controlHover
                 : plain || touch
                 ? p.controlSurface
                 : p.surface,

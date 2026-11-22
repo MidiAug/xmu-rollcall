@@ -287,6 +287,7 @@ class Panel extends StatelessWidget {
     required this.child,
     this.padding,
     this.outlined = false,
+    this.lifted = false,
   });
 
   final Widget child;
@@ -295,10 +296,13 @@ class Panel extends StatelessWidget {
   /// Content groups use a quiet edge; floating surfaces own their elevation.
   final bool outlined;
 
+  /// One static shadow around a content group, never around each data row.
+  final bool lifted;
+
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return Material(
+    final content = Material(
       color: p.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -323,5 +327,17 @@ class Panel extends StatelessWidget {
         child: child,
       ),
     );
+    return lifted
+        ? AppGlassSurface(
+            blur: 0,
+            opacity: 1,
+            borderRadius: BorderRadius.circular(
+              AppMobileUi.useTouchChrome(context)
+                  ? AppMobileUi.panelRadius
+                  : AppRadii.card,
+            ),
+            child: content,
+          )
+        : content;
   }
 }

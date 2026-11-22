@@ -65,7 +65,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(
           tester.getSize(find.byKey(const ValueKey('tool-gpa'))).width,
-          width - 32,
+          (width - 44) / 2,
         );
         if (Platform.environment['CAPTURE_MOBILE_STYLE'] == '1') {
           await tester.runAsync(() async {

@@ -66,29 +66,27 @@ void main() {
                     ),
                     const SizedBox(height: 16),
                     StatefulBuilder(
-                      builder: (context, setState) =>
-                          AppSegmentedControl<int>(
-                            compact: true,
-                            segments: const [
-                              AppSegment(value: 0, label: '浅色'),
-                              AppSegment(value: 1, label: '暗色'),
-                            ],
-                            value: compactChoice,
-                            onChanged: (v) => setState(() => compactChoice = v),
-                          ),
+                      builder: (context, setState) => AppSegmentedControl<int>(
+                        compact: true,
+                        segments: const [
+                          AppSegment(value: 0, label: '浅色'),
+                          AppSegment(value: 1, label: '暗色'),
+                        ],
+                        value: compactChoice,
+                        onChanged: (v) => setState(() => compactChoice = v),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     StatefulBuilder(
-                      builder: (context, setState) =>
-                          AppSegmentedControl<int>(
-                            compact: false,
-                            segments: const [
-                              AppSegment(value: 0, label: '全部'),
-                              AppSegment(value: 1, label: '未提交'),
-                            ],
-                            value: normalChoice,
-                            onChanged: (v) => setState(() => normalChoice = v),
-                          ),
+                      builder: (context, setState) => AppSegmentedControl<int>(
+                        compact: false,
+                        segments: const [
+                          AppSegment(value: 0, label: '全部'),
+                          AppSegment(value: 1, label: '未提交'),
+                        ],
+                        value: normalChoice,
+                        onChanged: (v) => setState(() => normalChoice = v),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     StatefulBuilder(
@@ -155,7 +153,7 @@ void main() {
         expect(compactDecoration.boxShadow, isNotEmpty);
         expect(
           compactDecoration.borderRadius,
-          BorderRadius.circular(AppRadii.input - 2),
+          BorderRadius.circular(AppRadii.segmentThumb),
         );
         final normalThumbBox = tester.widget<DecoratedBox>(
           find
@@ -168,12 +166,9 @@ void main() {
         final normalDecoration = normalThumbBox.decoration as BoxDecoration;
         expect(
           normalDecoration.borderRadius,
-          BorderRadius.circular(AppRadii.input - 3),
+          BorderRadius.circular(AppRadii.segmentThumb),
         );
-        expect(
-          tester.widget<Text>(find.text('未提交')).style!.color,
-          p.ink,
-        );
+        expect(tester.widget<Text>(find.text('未提交')).style!.color, p.ink);
 
         // 4. AppDialogFrame uses solid elevated popoverSurface without gradient.
         final dialogDecoration = tester
@@ -216,24 +211,18 @@ void main() {
               .color,
           p.primary,
         );
-        final mouse = await tester.createGesture(
-          kind: PointerDeviceKind.mouse,
-        );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: Offset.zero);
         addTearDown(mouse.removePointer);
         await mouse.moveTo(
-          tester.getCenter(
-            find.byKey(const ValueKey('shell-select-option-1')),
-          ),
+          tester.getCenter(find.byKey(const ValueKey('shell-select-option-1'))),
         );
         await tester.pumpAndSettle();
         expect(optionFill(0).color!.a, 0);
         expect(optionFill(1).color, p.hover);
 
         await mouse.moveTo(
-          tester.getCenter(
-            find.byKey(const ValueKey('shell-select-option-0')),
-          ),
+          tester.getCenter(find.byKey(const ValueKey('shell-select-option-0'))),
         );
         await tester.pumpAndSettle();
         expect(optionFill(0).color, p.hover);
@@ -421,15 +410,9 @@ void main() {
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    AppSwitch(
-                                      value: false,
-                                      onChanged: (_) {},
-                                    ),
+                                    AppSwitch(value: false, onChanged: (_) {}),
                                     const SizedBox(width: 8),
-                                    AppSwitch(
-                                      value: true,
-                                      onChanged: (_) {},
-                                    ),
+                                    AppSwitch(value: true, onChanged: (_) {}),
                                   ],
                                 ),
                               ),
@@ -543,15 +526,11 @@ void main() {
         AppToast.dismiss();
         await tester.tap(find.byKey(const ValueKey('showcase-select')));
         await tester.pumpAndSettle();
-        final mouse = await tester.createGesture(
-          kind: PointerDeviceKind.mouse,
-        );
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await mouse.addPointer(location: Offset.zero);
         addTearDown(mouse.removePointer);
         await mouse.moveTo(
-          tester.getCenter(
-            find.byKey(const ValueKey('shell-select-option-1')),
-          ),
+          tester.getCenter(find.byKey(const ValueKey('shell-select-option-1'))),
         );
         await tester.pumpAndSettle();
         await tester.runAsync(() async {

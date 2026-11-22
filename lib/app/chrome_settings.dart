@@ -15,9 +15,11 @@ class SettingsSection extends StatelessWidget {
     this.hasLeading = true,
     this.rowPadding,
     this.dividerIndent,
+    this.headerStyle,
   });
 
   final String? header;
+  final TextStyle? headerStyle;
   final List<Widget> children;
   final Widget? footer;
 
@@ -50,9 +52,12 @@ class SettingsSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (header != null) ...[AppSectionHeading(child: Text(header!))],
+          if (header != null) ...[
+            AppSectionHeading(child: Text(header!, style: headerStyle)),
+          ],
           Panel(
             outlined: true,
+            lifted: true,
             padding: EdgeInsets.zero,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

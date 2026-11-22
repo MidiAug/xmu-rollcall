@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/app/app_service_symbol.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:flutter/material.dart';
@@ -56,7 +57,7 @@ class HomeworkDetailPage extends ConsumerWidget {
               courseId,
               (async.valueOrNull ?? seed).courseName,
             ),
-            child: const Text('查看该课全部'),
+            child: const Text('课程作业'),
           ),
       ],
       body: AppPageViewport(
@@ -67,7 +68,7 @@ class HomeworkDetailPage extends ConsumerWidget {
             children: [
               Panel(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
                       '拉取失败',
@@ -128,144 +129,166 @@ class _DetailBody extends StatelessWidget {
     final description = homeworkDescriptionText(item.description);
     final hasReadingContent =
         description.isNotEmpty || item.attachments.isNotEmpty;
-    return Panel(
-      child: Column(
-        key: ValueKey('homework-detail-content-${item.id}'),
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            key: ValueKey('homework-detail-summary-${item.id}'),
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AppIconSurface(
-                    child: Icon(AppIcons.homework, color: p.muted),
-                  ),
-                  const SizedBox(width: AppSpace.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.title.isEmpty ? '未命名作业' : item.title,
-                          style: AppTypography.cardTitle.copyWith(color: p.ink),
+    return Column(
+      key: ValueKey('homework-detail-content-${item.id}'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Column(
+          key: ValueKey('homework-detail-summary-${item.id}'),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              item.title.isEmpty ? '未命名作业' : item.title,
+              style: AppTypography.pageTitle.copyWith(color: p.ink),
+            ),
+            const SizedBox(height: AppSpace.sm),
+            AppTruncatedText(
+              item.courseName.isEmpty ? '课程未提供' : item.courseName,
+              style: AppTypography.body.copyWith(color: p.muted),
+            ),
+            const SizedBox(height: AppSpace.lg),
+            SettingsSection(
+              padTop: false,
+              hasLeading: false,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(AppSpace.md),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '截止时间',
+                        style: AppTypography.body.copyWith(color: p.muted),
+                      ),
+                      const SizedBox(width: AppSpace.md),
+                      Expanded(
+                        child: Text(
+                          item.dueAt == null
+                              ? item.dueLabel
+                              : '截止 ${item.dueLabel}',
+                          textAlign: TextAlign.end,
+                          style: AppTypography.body.copyWith(color: p.ink),
                         ),
-                        const SizedBox(height: AppSpace.xxs),
-                        AppTruncatedText(
-                          item.courseName.isEmpty ? '课程未提供' : item.courseName,
-                          style: AppTypography.caption.copyWith(color: p.muted),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(AppSpace.md),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '提交状态',
+                        style: AppTypography.body.copyWith(color: p.muted),
+                      ),
+                      const SizedBox(width: AppSpace.md),
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: HomeworkStatusBadges(item: item),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: AppSpace.sm),
-              Wrap(
-                spacing: AppSpace.md,
-                runSpacing: AppSpace.xs,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(
-                    item.dueAt == null ? item.dueLabel : '截止 ${item.dueLabel}',
-                    style: AppTypography.caption.copyWith(color: p.muted),
-                  ),
-                  HomeworkStatusBadges(item: item),
-                  if (item.type.isNotEmpty && !item.isHomework)
-                    Text(
+                ),
+                if (item.type.isNotEmpty && !item.isHomework)
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpace.md),
+                    child: Text(
                       '课程活动',
                       style: AppTypography.caption.copyWith(color: p.muted),
                     ),
-                ],
-              ),
-            ],
-          ),
-          if (!hasReadingContent) ...[
-            const SizedBox(height: AppSpace.sm),
-            Text(
-              '暂无作业说明和附件',
-              style: AppTypography.caption.copyWith(color: p.muted),
+                  ),
+              ],
             ),
-          ] else ...[
-            const SizedBox(height: AppSpace.lg),
-            Divider(color: p.border, height: 1),
-            const SizedBox(height: AppSpace.md),
           ],
-          if (description.isNotEmpty) ...[
-            Text('作业说明', style: AppTypography.control.copyWith(color: p.ink)),
-            const SizedBox(height: AppSpace.xs),
-            SelectableText(
+        ),
+        if (!hasReadingContent) ...[
+          const SizedBox(height: AppSpace.sm),
+          Text(
+            '暂无作业说明和附件',
+            style: AppTypography.caption.copyWith(color: p.muted),
+          ),
+        ] else ...[
+          const SizedBox(height: AppSpace.lg),
+          const SizedBox(height: AppSpace.md),
+        ],
+        if (description.isNotEmpty) ...[
+          Text('作业说明', style: AppTypography.control.copyWith(color: p.ink)),
+          const SizedBox(height: AppSpace.xs),
+          Panel(
+            lifted: true,
+            child: SelectableText(
               description,
               key: ValueKey('homework-description-${item.id}'),
               style: AppTypography.body.copyWith(color: p.ink, height: 1.7),
             ),
-          ],
-          if (item.attachments.isNotEmpty) ...[
-            if (description.isNotEmpty) const SizedBox(height: AppSpace.lg),
-            Text(
-              '附件（${item.attachments.length}）',
-              style: AppTypography.control.copyWith(color: p.ink),
-            ),
-            const SizedBox(height: AppSpace.xs),
-          ],
-          for (final file in item.attachments)
-            Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: p.content,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: p.border),
-              ),
-              child: Row(
-                children: [
-                  Icon(AppIcons.document, color: p.muted, size: 22),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(file.name, style: TextStyle(color: p.ink)),
-                        if (file.size != null)
-                          Text(
-                            '${(file.size! / 1024).toStringAsFixed(1)} KB',
-                            style: TextStyle(color: p.muted, fontSize: 12),
-                          ),
-                        if (file.url == null)
-                          Text(
-                            '平台未提供下载链接',
-                            style: TextStyle(color: p.muted, fontSize: 12),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (file.url != null)
-                    AppIconButton(
-                      tooltip: '下载附件',
-                      icon: const Icon(AppIcons.download, size: 20),
-                      onPressed: () async {
-                        try {
-                          if (!await launchUrl(
-                                file.url!,
-                                mode: LaunchMode.externalApplication,
-                              ) &&
-                              context.mounted) {
-                            AppToast.show(context, '无法打开附件下载链接', error: true);
-                          }
-                        } catch (_) {
-                          if (context.mounted) {
-                            AppToast.show(context, '无法打开附件下载链接', error: true);
-                          }
-                        }
-                      },
-                    ),
-                ],
-              ),
-            ),
+          ),
         ],
-      ),
+        if (item.attachments.isNotEmpty) ...[
+          if (description.isNotEmpty) const SizedBox(height: AppSpace.lg),
+          Text(
+            '附件（${item.attachments.length}）',
+            style: AppTypography.control.copyWith(color: p.ink),
+          ),
+          const SizedBox(height: AppSpace.xs),
+        ],
+        for (final file in item.attachments)
+          Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: p.surface,
+              borderRadius: BorderRadius.circular(AppRadii.card),
+              border: Border.all(color: p.border),
+            ),
+            child: Row(
+              children: [
+                const AppServiceSymbol(icon: AppIcons.document, size: 38),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(file.name, style: TextStyle(color: p.ink)),
+                      if (file.size != null)
+                        Text(
+                          '${(file.size! / 1024).toStringAsFixed(1)} KB',
+                          style: TextStyle(color: p.muted, fontSize: 12),
+                        ),
+                      if (file.url == null)
+                        Text(
+                          '平台未提供下载链接',
+                          style: TextStyle(color: p.muted, fontSize: 12),
+                        ),
+                    ],
+                  ),
+                ),
+                if (file.url != null)
+                  AppIconButton(
+                    tooltip: '下载附件',
+                    icon: const Icon(AppIcons.download, size: 20),
+                    onPressed: () async {
+                      try {
+                        if (!await launchUrl(
+                              file.url!,
+                              mode: LaunchMode.externalApplication,
+                            ) &&
+                            context.mounted) {
+                          AppToast.show(context, '无法打开附件下载链接', error: true);
+                        }
+                      } catch (_) {
+                        if (context.mounted) {
+                          AppToast.show(context, '无法打开附件下载链接', error: true);
+                        }
+                      }
+                    },
+                  ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

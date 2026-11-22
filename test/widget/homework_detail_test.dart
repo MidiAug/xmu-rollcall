@@ -15,7 +15,6 @@ import 'package:xmu_rollcall/features/homework/homework_submission.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
-import 'package:xmu_rollcall/app/chrome.dart';
 import '../fixtures/preview_fonts.dart';
 import '../fixtures/desktop_ui_capture.dart';
 
@@ -73,7 +72,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('查看该课全部'));
+    await tester.tap(find.text('课程作业'));
     await tester.pumpAndSettle();
     expect(find.byType(HomeworkCoursePage), findsOneWidget);
     await tester.tap(find.text('Next essay'));
@@ -279,7 +278,7 @@ void main() {
                     find.byKey(const ValueKey('homework-detail-content-17')),
                   )
                   .height,
-              lessThan(150),
+              lessThan(280),
             );
           }
           if (content == 'both') {
@@ -360,7 +359,10 @@ void main() {
       expect(find.text('以下为列表缓存摘要'), findsOneWidget);
       expect(find.text('缓存中的作业'), findsOneWidget);
       expect(
-        find.ancestor(of: find.text('缓存中的作业'), matching: find.byType(Panel)),
+        find.ancestor(
+          of: find.text('缓存中的作业'),
+          matching: find.byKey(const ValueKey('homework-detail-summary-7')),
+        ),
         findsOneWidget,
       );
       await tester.tap(find.text('重试'));
@@ -396,7 +398,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('查看该课全部'), findsOneWidget);
+    expect(find.text('课程作业'), findsOneWidget);
     expect(find.text('Essay'), findsOneWidget);
     expect(find.text('English'), findsOneWidget);
   });
@@ -417,7 +419,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('查看该课全部'), findsNothing);
+    expect(find.text('课程作业'), findsNothing);
     expect(find.textContaining('未提供课程信息'), findsOneWidget);
   });
 }

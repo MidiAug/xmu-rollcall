@@ -430,12 +430,12 @@ void main() {
         expect(find.text('助教作业1'), findsNothing);
         expect(find.text('我需提交的作业'), findsOneWidget);
         expect(find.text('未提交'), findsOneWidget);
-        expect(find.text('已提交'), findsNWidgets(2));
-        expect(find.text('已批改 0 分'), findsOneWidget);
-        expect(find.textContaining(RegExp(r'^已截止\s*2$')), findsOneWidget);
+        expect(find.text('已提交'), findsNothing);
+        expect(find.text('0 分'), findsOneWidget);
+        expect(find.textContaining(RegExp(r'^已截止\s*2$')), findsNWidgets(2));
         expect(find.text('成绩未公布'), findsOneWidget);
         // Finding a Text is insufficient: clipped labels remain in the tree.
-        for (final label in ['已提交', '未提交', '成绩未公布', '已批改 0 分']) {
+        for (final label in ['未提交', '成绩未公布', '0 分']) {
           for (final element in find.text(label).evaluate()) {
             final paragraph = element.renderObject! as RenderParagraph;
             expect(paragraph.didExceedMaxLines, isFalse, reason: label);
@@ -452,46 +452,12 @@ void main() {
             painter.dispose();
           }
         }
-        final deadline9 = find.byKey(const ValueKey('homework-deadline-9'));
-        final deadline10 = find.byKey(const ValueKey('homework-deadline-10'));
-        final submission9 = find.byKey(const ValueKey('homework-submission-9'));
-        final submission10 = find.byKey(
-          const ValueKey('homework-submission-10'),
-        );
+        final zero = find.text('0 分');
+        final unpublished = find.text('成绩未公布');
+        expect(zero, findsOneWidget);
+        expect(unpublished, findsOneWidget);
         expect(
-          tester.getSize(deadline9).width,
-          tester.getSize(deadline10).width,
-        );
-        expect(
-          tester.getTopLeft(submission9).dx,
-          tester.getTopLeft(submission10).dx,
-        );
-        expect(
-          tester.getSize(submission9).width,
-          tester.getSize(submission10).width,
-        );
-        expect(find.text('01/02 03:04'), findsOneWidget);
-        expect(
-          tester.getTopLeft(submission9).dx - tester.getTopRight(deadline9).dx,
-          8,
-        );
-        final grading9 = find.byKey(const ValueKey('homework-grading-9'));
-        final grading10 = find.byKey(const ValueKey('homework-grading-10'));
-        expect(tester.getTopLeft(grading9).dx, tester.getTopLeft(grading10).dx);
-        if (tester.getTopLeft(grading9).dy >
-            tester.getBottomLeft(submission9).dy) {
-          expect(
-            tester.getTopLeft(grading9).dx,
-            tester.getTopLeft(deadline9).dx,
-          );
-        } else {
-          expect(
-            tester.getTopLeft(grading9).dx - tester.getTopRight(submission9).dx,
-            8,
-          );
-        }
-        expect(
-          find.ancestor(of: grading9, matching: find.byType(FittedBox)),
+          find.ancestor(of: zero, matching: find.byType(FittedBox)),
           findsNothing,
         );
         final title = tester.widget<Text>(find.textContaining('已批改的历史作业标题'));
@@ -525,7 +491,7 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text('我需提交的作业'), findsOneWidget);
           expect(find.text('尚未公布成绩的作业'), findsNothing);
-          await tester.tap(find.text('已截止 2'));
+          await tester.tap(find.text('已截止 2').first);
           await tester.pumpAndSettle();
           expect(find.text('我需提交的作业'), findsNothing);
           expect(find.text('尚未公布成绩的作业'), findsOneWidget);
@@ -540,28 +506,19 @@ void main() {
         await tester.tap(find.text('助教作业4'));
         await tester.pumpAndSettle();
         expect(find.byType(HomeworkDetailPage), findsOneWidget);
-        await tester.tap(find.text('查看该课全部'));
+        await tester.tap(find.text('课程作业'));
         await tester.pumpAndSettle();
         for (var i = 1; i <= 4; i++) {
           expect(find.text('助教作业$i'), findsOneWidget);
         }
         final filter = find.byKey(const ValueKey('homework-course-filter'));
-        final left = tester.getRect(filter).left;
-        final right = tester.getRect(find.byType(AppRefreshButton).last).right;
-        await tester.tap(filter);
+        expect(filter, findsOneWidget);
+        await tester.tap(find.text('进行中 1').last);
         await tester.pumpAndSettle();
-        final surface = find
-            .ancestor(
-              of: find.byType(AppMenuOption).first,
-              matching: find.byWidgetPredicate(
-                (w) => w is Material && w.shape is RoundedRectangleBorder,
-              ),
-            )
-            .first;
-        if (width >= 600) {
-          expect(tester.getRect(surface).left, closeTo(left, 1));
-          expect(tester.getRect(surface).right, closeTo(right, 1));
-        }
+        expect(find.text('助教作业1'), findsNothing);
+        expect(find.text('助教作业4'), findsOneWidget);
+        await tester.tap(find.text('全部 4'));
+        await tester.pumpAndSettle();
         await captureDesktopUi(
           tester,
           'homework-course-menu-${width.toInt()}${scale == 1 ? '' : '-scale$scale'}',

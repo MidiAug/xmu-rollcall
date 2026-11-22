@@ -361,44 +361,38 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
                 if (studentItems.isNotEmpty)
                   const SizedBox(height: AppSpace.md),
               ],
-              if (upcoming.isNotEmpty &&
-                  (!desktop || _filter != _TaskFilter.overdue)) ...[
-                if (desktop)
-                  SettingsSection(
-                    header: '进行中',
-                    dividerIndent: HomeworkListRow.titleInset(context),
-                    padTop: false,
-                    children: [
-                      for (final item in upcoming)
-                        _TodoTile(item: item, onTap: () => widget.onOpen(item)),
-                    ],
-                  )
-                else ...[
-                  _SectionLabel(label: '进行中  ${upcoming.length}'),
-                  const SizedBox(height: AppSpace.xs),
-                  for (final item in upcoming)
-                    _TodoTile(item: item, onTap: () => widget.onOpen(item)),
-                ],
+              if (upcoming.isNotEmpty && (_filter != _TaskFilter.overdue)) ...[
+                SettingsSection(
+                  headerStyle: AppTypography.body.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: p.ink,
+                  ),
+                  header: '进行中  ${upcoming.length}',
+                  dividerIndent: HomeworkListRow.titleInset(context),
+                  padTop: false,
+                  children: [
+                    for (final item in upcoming)
+                      _TodoTile(item: item, onTap: () => widget.onOpen(item)),
+                  ],
+                ),
               ],
-              if (overdue.isNotEmpty &&
-                  (!desktop || _filter != _TaskFilter.upcoming)) ...[
+              if (overdue.isNotEmpty && (_filter != _TaskFilter.upcoming)) ...[
                 if (upcoming.isNotEmpty) const SizedBox(height: AppSpace.md),
-                if (desktop)
-                  SettingsSection(
-                    header: '已截止',
-                    dividerIndent: HomeworkListRow.titleInset(context),
-                    padTop: false,
-                    children: [
-                      for (final item in overdue.reversed)
-                        _TodoTile(item: item, onTap: () => widget.onOpen(item)),
-                    ],
-                  )
-                else ...[
-                  _SectionLabel(label: '已截止  ${overdue.length}'),
-                  const SizedBox(height: AppSpace.xs),
-                  for (final item in overdue.reversed)
-                    _TodoTile(item: item, onTap: () => widget.onOpen(item)),
-                ],
+                SettingsSection(
+                  headerStyle: AppTypography.body.copyWith(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: p.ink,
+                  ),
+                  header: '已截止  ${overdue.length}',
+                  dividerIndent: HomeworkListRow.titleInset(context),
+                  padTop: false,
+                  children: [
+                    for (final item in overdue.reversed)
+                      _TodoTile(item: item, onTap: () => widget.onOpen(item)),
+                  ],
+                ),
               ],
             ];
             return ListView.builder(
@@ -417,7 +411,7 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
         ),
       ),
     );
-    if (!widget.showToolbar) return content;
+
     return Column(
       children: [
         Padding(
@@ -429,12 +423,20 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
               ),
           child: Row(
             children: [
-              if (desktop) ...[
-                _HomeworkFilters(
-                  value: widget.filter,
-                  onChanged: widget.onFilterChanged,
-                ),
-                const Spacer(),
+              if (desktop || !widget.showToolbar) ...[
+                if (desktop)
+                  _HomeworkFilters(
+                    value: widget.filter,
+                    onChanged: widget.onFilterChanged,
+                  )
+                else
+                  Expanded(
+                    child: _HomeworkFilters(
+                      value: widget.filter,
+                      onChanged: widget.onFilterChanged,
+                    ),
+                  ),
+                if (widget.showToolbar) const Spacer(),
               ] else if (MediaQuery.sizeOf(context).width >=
                       AppLayout.shellBreakpoint &&
                   ShellTabScope.maybeOf(context) != null)
@@ -453,13 +455,14 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
                   ),
                 ),
               ],
-              KeyedSubtree(
-                key: ValueKey((
-                  ref.watch(authControllerProvider).profile?.id,
-                  ref.watch(selectedRollcallAccountProvider),
-                )),
-                child: const _HomeworkRefreshAction(),
-              ),
+              if (widget.showToolbar)
+                KeyedSubtree(
+                  key: ValueKey((
+                    ref.watch(authControllerProvider).profile?.id,
+                    ref.watch(selectedRollcallAccountProvider),
+                  )),
+                  child: const _HomeworkRefreshAction(),
+                ),
             ],
           ),
         ),
@@ -487,6 +490,8 @@ class _HomeworkFilters extends ConsumerWidget {
             .toList();
     return AppSegmentedControl<_TaskFilter>(
       value: value,
+      trackOnTouch: true,
+      expanded: AppDensity.isTouch(context),
       onChanged: onChanged,
       segments: [
         AppSegment(value: _TaskFilter.all, label: '全部 ${items.length}'),
@@ -589,6 +594,11 @@ class _TeachingCourseCard extends ConsumerWidget {
           ),
           if (!noOpenItems)
             SettingsSection(
+              headerStyle: AppTypography.body.copyWith(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: p.ink,
+              ),
               padTop: false,
               children: [
                 async.when(
@@ -663,71 +673,15 @@ class _TeachingAssignmentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    final due = item.dueAt?.toLocal();
-    final dueLabel = due == null
-        ? '无截止日期'
-        : '${due.year == DateTime.now().year ? '' : '${due.year}/'}${due.month}/${due.day} '
-              '${due.hour.toString().padLeft(2, '0')}:${due.minute.toString().padLeft(2, '0')} 截止';
-    if (PlatformHooks.isDesktop && !AppDensity.isTouch(context)) {
-      return HomeworkListRow(
-        item: item,
-        subtitle: '',
-        onTap: onTap,
-        trailing: HomeworkStatusBadges(item: item, withDeadline: true),
-      );
-    }
-    return AppHoverSurface(
+    return HomeworkListRow(
+      item: item,
+      subtitle: '',
       onTap: onTap,
-      borderRadius: BorderRadius.zero,
-      outlined: false,
-      quiet: true,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  item.title.isEmpty ? '未命名作业' : item.title,
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: p.ink,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(dueLabel, style: TextStyle(fontSize: 12, color: p.muted)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Icon(AppIcons.right),
-        ],
-      ),
-    );
-  }
-}
-
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return Text(
-      label,
-      style: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        letterSpacing: 0.2,
-        color: p.muted,
+      compactTrailing: HomeworkStatusBadges(item: item, compact: true),
+      trailing: HomeworkStatusBadges(
+        item: item,
+        withDeadline: true,
+        compact: true,
       ),
     );
   }
@@ -741,61 +695,15 @@ class _TodoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    if (PlatformHooks.isDesktop && !AppDensity.isTouch(context)) {
-      return HomeworkListRow(
+    return HomeworkListRow(
+      item: item,
+      subtitle: item.courseName,
+      onTap: onTap,
+      compactTrailing: HomeworkStatusBadges(item: item, compact: true),
+      trailing: HomeworkStatusBadges(
         item: item,
-        subtitle: item.courseName,
-        onTap: onTap,
-        trailing: HomeworkStatusBadges(item: item, withDeadline: true),
-      );
-    }
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: AppSpace.stackOf(context) * 0.55),
-      child: AppHoverSurface(
-        onTap: onTap,
-        padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title.isEmpty ? '未命名作业' : item.title,
-                    maxLines: 1,
-                    softWrap: false,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.2,
-                      height: 1.3,
-                      color: p.ink,
-                    ),
-                  ),
-                  if (item.courseName.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      item.courseName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 1.3,
-                        color: p.muted,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 4),
-                  HomeworkStatusBadges(item: item, withDeadline: true),
-                ],
-              ),
-            ),
-            Icon(AppIcons.right, size: 18, color: p.muted),
-          ],
-        ),
+        withDeadline: true,
+        compact: true,
       ),
     );
   }

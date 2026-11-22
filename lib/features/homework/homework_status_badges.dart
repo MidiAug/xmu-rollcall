@@ -14,21 +14,23 @@ class HomeworkStatusBadges extends ConsumerWidget {
     super.key,
     required this.item,
     this.withDeadline = false,
+    this.compact = false,
   });
   final HomeworkItem item;
   final bool withDeadline;
+  final bool compact;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final teaching = ref.watch(currentTeachingCoursesProvider);
     if (!teaching.hasValue ||
         teaching.requireValue.any((c) => c.id == '${item.courseId}')) {
       return withDeadline
-          ? _HomeworkMetadataRow(item: item)
+          ? _HomeworkMetadataRow(item: item, compact: compact)
           : const SizedBox.shrink();
     }
     if (!item.isHomework) {
       return withDeadline
-          ? _HomeworkMetadataRow(item: item)
+          ? _HomeworkMetadataRow(item: item, compact: compact)
           : const SizedBox.shrink();
     }
     final uid =
@@ -51,6 +53,7 @@ class HomeworkStatusBadges extends ConsumerWidget {
       return _HomeworkMetadataRow(
         item: item,
         state: state,
+        compact: compact,
         placeholder: async.isLoading ? '读取中' : '未知',
       );
     }
@@ -59,6 +62,9 @@ class HomeworkStatusBadges extends ConsumerWidget {
         async.isLoading ? '读取状态…' : '状态暂不可用',
         style: TextStyle(fontSize: 11, color: p.muted),
       );
+    }
+    if (compact) {
+      return _HomeworkCompactBadge(item: item, state: state);
     }
     Widget chip(String label, Color color) => AppStatusBadge(
       label,
@@ -92,10 +98,12 @@ class _HomeworkMetadataRow extends StatelessWidget {
     required this.item,
     this.state,
     this.placeholder,
+    this.compact = false,
   });
   final HomeworkItem item;
   final HomeworkSubmissionState? state;
   final String? placeholder;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -151,6 +159,7 @@ class _HomeworkMetadataRow extends StatelessWidget {
     final timeWidth = textWidth('00/00 00:00', timeStyle);
     final statusWidth = AppStatusBadge.widthOf(context, '未提交');
     return Wrap(
+      alignment: compact ? WrapAlignment.spaceBetween : WrapAlignment.start,
       spacing: 8,
       runSpacing: 6,
       crossAxisAlignment: WrapCrossAlignment.center,
@@ -167,19 +176,70 @@ class _HomeworkMetadataRow extends StatelessWidget {
             ),
           ),
         ),
-        SizedBox(
-          key: ValueKey('homework-submission-${item.id}'),
-          width: statusWidth,
-          child: submission == null
-              ? const SizedBox.shrink()
-              : badge(submission, submissionColor),
-        ),
-        if (grading != null)
+        if (compact)
+          SizedBox(
+            key: ValueKey('homework-submission-${item.id}'),
+            width: AppStatusBadge.widthOf(context, '成绩未公布'),
+            child: _HomeworkCompactBadge(
+              item: item,
+              state: state,
+              placeholder: placeholder,
+            ),
+          )
+        else
+          SizedBox(
+            key: ValueKey('homework-submission-${item.id}'),
+            width: statusWidth,
+            child: submission == null
+                ? const SizedBox.shrink()
+                : badge(submission, submissionColor),
+          ),
+        if (grading != null && !compact)
           KeyedSubtree(
             key: ValueKey('homework-grading-${item.id}'),
             child: badge(grading, p.muted),
           ),
       ],
     );
+  }
+}
+
+class _HomeworkCompactBadge extends StatelessWidget {
+  const _HomeworkCompactBadge({
+    required this.item,
+    this.state,
+    this.placeholder,
+  });
+  final HomeworkItem item;
+  final HomeworkSubmissionState? state;
+  final String? placeholder;
+  @override
+  Widget build(BuildContext context) {
+    if (state == null && placeholder == null) return const SizedBox.shrink();
+    final graded =
+        state?.grading == HomeworkGrading.graded && state?.score != null;
+    final label = graded
+        ? '${state!.score.toString().replaceFirst(RegExp(r'\.0$'), '')} 分'
+        : state?.grading == HomeworkGrading.unpublished
+        ? '成绩未公布'
+        : state?.submission == HomeworkSubmission.unknown
+        ? '未知'
+        : state?.submission == HomeworkSubmission.draft
+        ? '草稿'
+        : state?.submissionLabel ?? placeholder!;
+    final tone = graded
+        ? AppStatusTone.accent
+        : state?.submission == HomeworkSubmission.submitted
+        ? AppStatusTone.success
+        : item.isOverdue &&
+              (state?.submission == HomeworkSubmission.unsubmitted ||
+                  state?.submission == HomeworkSubmission.draft)
+        ? AppStatusTone.danger
+        : AppStatusTone.neutral;
+    final badge = AppStatusBadge(label, tone: tone, pill: true);
+    final detail = state?.gradingLabel;
+    return detail == null
+        ? badge
+        : Tooltip(message: '${state!.submissionLabel}，$detail', child: badge);
   }
 }

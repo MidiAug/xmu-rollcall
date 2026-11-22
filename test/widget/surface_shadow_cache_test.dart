@@ -17,50 +17,52 @@ class _ShadowTestBinding extends AutomatedTestWidgetsFlutterBinding {
 void main() {
   _ShadowTestBinding();
 
-  testWidgets('Windows service tile keeps hit area and keyboard activation', (
-    tester,
-  ) async {
-    var calls = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light(),
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 420,
-              child: AppServiceTile(
-                title: '学年校历',
-                description: '学期安排与教学周',
-                icon: Icons.calendar_today,
-                onPressed: () => calls++,
+  testWidgets(
+    'Windows compact service tile keeps vector shadow, hit area and keyboard activation',
+    (tester) async {
+      var calls = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light(),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 420,
+                child: AppServiceTile(
+                  title: '学年校历',
+                  description: '学期安排与教学周',
+                  icon: Icons.calendar_today,
+                  onPressed: () => calls++,
+                ),
               ),
             ),
           ),
         ),
-      ),
-    );
-    for (var i = 0; i < 30; i++) {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 10)),
       );
-      await tester.pump();
-      if (find.byType(RawImage).evaluate().isNotEmpty) break;
-    }
-    expect(find.byType(RawImage), findsOneWidget);
-    final before = tester.getRect(find.byType(AppServiceTile));
-    await tester.tapAt(before.centerLeft - const Offset(5, 0));
-    expect(calls, 0, reason: 'the shadow must not enlarge the hit area');
-    await tester.tap(find.text('学年校历'));
-    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
-    expect(calls, 2);
-    expect(tester.getRect(find.byType(AppServiceTile)), before);
-    expect(tester.takeException(), isNull);
-    await tester.pumpWidget(const SizedBox.shrink());
-    PaintingBinding.instance.imageCache.clear();
-    PaintingBinding.instance.imageCache.clearLiveImages();
-  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+      for (var i = 0; i < 30; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump();
+        if (find.byType(RawImage).evaluate().isNotEmpty) break;
+      }
+      expect(find.byType(RawImage), findsNothing);
+      final before = tester.getRect(find.byType(AppServiceTile));
+      await tester.tapAt(before.centerLeft - const Offset(5, 0));
+      expect(calls, 0, reason: 'the shadow must not enlarge the hit area');
+      await tester.tap(find.text('学年校历'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(calls, 2);
+      expect(tester.getRect(find.byType(AppServiceTile)), before);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
 
   for (final dark in [false, true]) {
     testWidgets(
@@ -230,8 +232,8 @@ void main() {
           }
 
           for (final size in [
-            const Size(300.4, 130),
-            const Size(520, 180),
+            const Size(300.4, 220),
+            const Size(520, 260),
             const Size(300, 64),
           ]) {
             for (final opacity in [1.0, .78]) {

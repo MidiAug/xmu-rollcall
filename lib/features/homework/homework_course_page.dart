@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:flutter/material.dart';
 import 'homework_list_row.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -85,44 +86,34 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
     final title = widget.courseName.isEmpty ? '课程作业' : widget.courseName;
     final async = ref.watch(courseHomeworkProvider(widget.courseId));
 
+    final catalogProvider = ref.watch(
+      scopedCourseCatalogProvider(ref.watch(selectedRollcallAccountProvider)),
+    );
+    final catalog = ref.exists(catalogProvider)
+        ? ref.watch(catalogProvider).valueOrNull
+        : null;
+    var teachers = '';
+    for (final course in catalog?.courses ?? []) {
+      if (course.id == '${widget.courseId}') {
+        teachers = course.instructorsLabel;
+        break;
+      }
+    }
+    final touch = AppDensity.isTouch(context);
     final refreshExtent = AppDensity.isTouch(context)
         ? AppMobileUi.target
         : 34.0;
     return SubpageScaffold(
       title: title,
       actions: [
+        if (!touch && teachers.isNotEmpty)
+          Text(
+            '课程教师  $teachers',
+            style: AppTypography.body.copyWith(color: p.muted),
+          ),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Center(
-              child: AppDensity.isTouch(context)
-                  ? AppToolbarChoice<HomeworkCourseFilter>(
-                      key: const ValueKey('homework-course-filter'),
-                      title: '筛选作业',
-                      value: _filter,
-                      items: HomeworkCourseFilter.values,
-                      labelOf: (v) => v.label,
-                      trailingOf: (v) => async.hasValue
-                          ? '(${async.requireValue.where(v.matches).length})'
-                          : '',
-                      onChanged: (v) => setState(() => _filter = v),
-                      width: 88,
-                    )
-                  : AppShellSelect<HomeworkCourseFilter>(
-                      key: const ValueKey('homework-course-filter'),
-                      value: _filter,
-                      items: HomeworkCourseFilter.values,
-                      labelOf: (v) => v.label,
-                      menuTrailingOf: (v) => async.hasValue
-                          ? '(${async.requireValue.where(v.matches).length})'
-                          : '',
-                      onChanged: (v) => setState(() => _filter = v),
-                      width: 100,
-                      menuWidth: 108 + refreshExtent,
-                      fixedMenuWidth: true,
-                    ),
-            ),
-            const SizedBox(width: 8),
             SizedBox(
               width: refreshExtent,
               height: refreshExtent,
@@ -136,153 +127,169 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
         ),
       ],
       body: AppPageViewport(
-        builder: (context, contentInsets) => RefreshFeedback(
-          error: async.hasValue ? async.error : null,
-          onRetry: () => ref
-              .read(courseHomeworkProvider(widget.courseId).notifier)
-              .refresh(),
-          child: AppPullToRefresh(
-            color: p.primary,
-            onRefresh: () => ref
-                .read(courseHomeworkProvider(widget.courseId).notifier)
-                .refresh(),
-            child: async.when(
-              skipError: true,
-              skipLoadingOnReload: false,
-              skipLoadingOnRefresh: true,
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: contentInsets + EdgeInsets.all(pageX),
-                children: [
-                  Panel(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '拉取失败',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            color: p.ink,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          requestFailureMessage(e),
-                          style: TextStyle(color: p.muted),
-                        ),
-                        const SizedBox(height: 12),
-                        FilledButton(
-                          onPressed: () => ref
-                              .read(
-                                courseHomeworkProvider(
-                                  widget.courseId,
-                                ).notifier,
-                              )
-                              .refresh(),
-                          child: const Text('重试'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+        maxWidth: AppLayout.workspaceMaxWidth,
+        builder: (context, toolbarInsets) => Column(
+          children: [
+            Padding(
+              padding: toolbarInsets + EdgeInsets.fromLTRB(pageX, 8, pageX, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: AppSegmentedControl<HomeworkCourseFilter>(
+                  key: const ValueKey('homework-course-filter'),
+                  value: _filter,
+                  trackOnTouch: true,
+                  expanded: AppDensity.isTouch(context),
+                  onChanged: (v) => setState(() => _filter = v),
+                  segments: [
+                    for (final filter in HomeworkCourseFilter.values)
+                      AppSegment(
+                        value: filter,
+                        label:
+                            '${filter == HomeworkCourseFilter.all ? '全部' : filter.label} ${async.valueOrNull?.where(filter.matches).length ?? 0}',
+                      ),
+                  ],
+                ),
               ),
-              data: (items) {
-                final filtered = items.where(_filter.matches).toList();
-                if (filtered.isEmpty) {
-                  return CustomScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    slivers: [
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: EmptyHint(
-                          icon: AppIcons.homework,
-                          title: items.isEmpty
-                              ? '本课暂无作业'
-                              : '当前没有${_filter.label}的作业',
-                        ),
-                      ),
-                    ],
-                  );
-                }
-                return ListView.builder(
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  padding:
-                      contentInsets +
-                      EdgeInsets.fromLTRB(
-                        pageX,
-                        AppSpace.md,
-                        pageX,
-                        AppSpace.xl,
-                      ),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, i) {
-                    final item = filtered[i];
-                    if (!AppMobileUi.useTouchChrome(context)) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: AppSpace.xs),
-                        child: Card(
-                          child: HomeworkListRow(
-                            item: item,
-                            subtitle: '',
-                            trailing: HomeworkStatusBadges(
-                              item: item,
-                              withDeadline: true,
-                            ),
-                            onTap: () => _openDetail(item),
-                          ),
-                        ),
-                      );
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpace.xs),
-                      child: AppHoverSurface(
-                        onTap: () => _openDetail(item),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.title.isEmpty ? '未命名作业' : item.title,
-                                    maxLines: 1,
-                                    softWrap: false,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      color: p.ink,
-                                    ),
+            ),
+            Expanded(
+              child: AppPageViewport(
+                maxWidth: AppLayout.workspaceMaxWidth,
+                builder: (context, contentInsets) => RefreshFeedback(
+                  error: async.hasValue ? async.error : null,
+                  onRetry: () => ref
+                      .read(courseHomeworkProvider(widget.courseId).notifier)
+                      .refresh(),
+                  child: AppPullToRefresh(
+                    color: p.primary,
+                    onRefresh: () => ref
+                        .read(courseHomeworkProvider(widget.courseId).notifier)
+                        .refresh(),
+                    child: async.when(
+                      skipError: true,
+                      skipLoadingOnReload: false,
+                      skipLoadingOnRefresh: true,
+                      loading: () =>
+                          const Center(child: CircularProgressIndicator()),
+                      error: (e, _) => ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: contentInsets + EdgeInsets.all(pageX),
+                        children: [
+                          Panel(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '拉取失败',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: p.ink,
                                   ),
-                                  const SizedBox(height: 4),
-                                  HomeworkStatusBadges(item: item),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    item.dueLabel,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: p.muted,
-                                    ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  requestFailureMessage(e),
+                                  style: TextStyle(color: p.muted),
+                                ),
+                                const SizedBox(height: 12),
+                                FilledButton(
+                                  onPressed: () => ref
+                                      .read(
+                                        courseHomeworkProvider(
+                                          widget.courseId,
+                                        ).notifier,
+                                      )
+                                      .refresh(),
+                                  child: const Text('重试'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      data: (items) {
+                        final filtered = items.where(_filter.matches).toList();
+                        if (filtered.isEmpty) {
+                          return CustomScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            slivers: [
+                              SliverFillRemaining(
+                                hasScrollBody: false,
+                                child: EmptyHint(
+                                  icon: AppIcons.homework,
+                                  title: items.isEmpty
+                                      ? '本课暂无作业'
+                                      : '当前没有${_filter.label}的作业',
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+                        return ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding:
+                              contentInsets +
+                              EdgeInsets.fromLTRB(
+                                pageX,
+                                AppSpace.md,
+                                pageX,
+                                AppSpace.xl,
+                              ),
+                          children: [
+                            if (touch && teachers.isNotEmpty)
+                              SettingsSection(
+                                header: '教学信息',
+                                hasLeading: false,
+                                padTop: false,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.all(AppSpace.md),
+                                    child: Text('课程教师  $teachers'),
                                   ),
                                 ],
                               ),
-                            ),
-                            Icon(AppIcons.right, color: p.muted),
+                            for (final closed in [false, true])
+                              if (filtered.any(
+                                (item) => item.isOverdue == closed,
+                              ))
+                                SettingsSection(
+                                  headerStyle: AppTypography.body.copyWith(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: p.ink,
+                                  ),
+                                  header:
+                                      '${closed ? '已截止' : '进行中'}  ${filtered.where((item) => item.isOverdue == closed).length}',
+                                  hasLeading: false,
+                                  padTop: closed,
+                                  children: [
+                                    for (final item in filtered.where(
+                                      (item) => item.isOverdue == closed,
+                                    ))
+                                      HomeworkListRow(
+                                        item: item,
+                                        subtitle: widget.courseName,
+                                        compactTrailing: HomeworkStatusBadges(
+                                          item: item,
+                                          compact: true,
+                                        ),
+                                        trailing: HomeworkStatusBadges(
+                                          item: item,
+                                          withDeadline: true,
+                                          compact: true,
+                                        ),
+                                        onTap: () => _openDetail(item),
+                                      ),
+                                  ],
+                                ),
                           ],
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

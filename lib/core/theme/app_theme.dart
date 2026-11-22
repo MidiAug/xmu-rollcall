@@ -140,7 +140,7 @@ abstract final class AppTheme {
                     ? p.controlPressed
                     : s.contains(WidgetState.hovered) &&
                           !s.contains(WidgetState.disabled)
-                    ? p.cardHover
+                    ? p.controlHover
                     : p.surface,
               ),
               side: WidgetStateProperty.resolveWith(
