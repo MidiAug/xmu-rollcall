@@ -266,28 +266,6 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
         final mobile = !desktop && frame.maxWidth < 800;
         return SubpageScaffold(
           title: '校园地图',
-          actions: [
-            if (mobile)
-              AppToolbarChoice<Campus>(
-                title: '选择校区',
-                value: _campus,
-                items: Campus.values,
-                labelOf: (c) => c.label,
-                width: 120,
-                onChanged: (c) {
-                  setState(() => _campus = c);
-                  _overview();
-                },
-              )
-            else
-              CampusSelector(
-                value: _campus,
-                onChanged: (c) {
-                  setState(() => _campus = c);
-                  _overview();
-                },
-              ),
-          ],
           body: Padding(
             padding: EdgeInsets.fromLTRB(
               mobile ? 0 : 24,
@@ -295,240 +273,295 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
               mobile ? 0 : 24,
               mobile ? 0 : 20,
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (!mobile) ...[
-                  SizedBox(
-                    key: const ValueKey('atlas-desktop-directory'),
-                    width: (frame.maxWidth * .24).clamp(200.0, 280.0),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: p.surface,
-                        border: Border.all(color: p.border),
-                        borderRadius: BorderRadius.circular(14),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    mobile ? 16 : 0,
+                    8,
+                    mobile ? 16 : 0,
+                    20,
+                  ),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: mobile ? double.infinity : 344,
                       ),
-                      child: _directory(),
+                      child: CampusSelector(
+                        value: _campus,
+                        expanded: true,
+                        onChanged: (c) {
+                          setState(() => _campus = c);
+                          _overview();
+                        },
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 16),
-                ],
+                ),
                 Expanded(
-                  child: Stack(
+                  child: Row(
                     children: [
-                      Positioned.fill(
-                        child: CampusMap(
-                          key: const ValueKey('campus-atlas-map'),
-                          controller: _map,
-                          center: _campus.center,
-                          zoom: 16,
-                          places: points,
-                          showPlaceLabels: !mobile || _level > 0,
-                          avoidLabelOverlap: true,
-                          onMapReady: _fitCampus,
-                          areas: polygons,
-                          selectedPlaceId: _level == 0 && group != null
-                              ? 'atlas-group:${group.id}'
-                              : _level == 1 && building != null
-                              ? _position(building)?.id
-                              : selected?.id,
-                          borderRadius: mobile
-                              ? BorderRadius.zero
-                              : BorderRadius.circular(14),
-                          onZoomChanged: (zoom) {
-                            final next = zoom >= 18
-                                ? 2
-                                : zoom >= 17
-                                ? 1
-                                : 0;
-                            if (_level != next) setState(() => _level = next);
-                          },
-                          onPlace: (place) {
-                            if (place.id.startsWith('atlas-group:')) {
-                              _selectGroup(
-                                place.id.substring('atlas-group:'.length),
-                                moveCamera: false,
-                              );
-                              return;
-                            }
-                            for (final b in buildings) {
-                              final r = b.regions
-                                  .where((r) => r.point?.id == place.id)
-                                  .firstOrNull;
-                              if (r != null || b.point?.id == place.id) {
-                                _selectBuilding(
-                                  b,
-                                  region: r,
-                                  moveCamera: false,
-                                );
-                                return;
-                              }
-                            }
-                          },
-                        ),
-                      ),
-                      Positioned(
-                        top: 14,
-                        left: 14,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: p.surface,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: p.border),
-                          ),
-                          child: Text(
-                            '${buildings.length} 栋楼宇',
-                            style: TextStyle(fontSize: 12, color: p.muted),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        bottom:
-                            14 +
-                            (mobile ? MediaQuery.paddingOf(context).bottom : 0),
-                        right: 14,
-                        left: mobile ? 14 : null,
-                        child: SizedBox(
-                          width: mobile ? null : 320,
-                          child: Container(
-                            key: const ValueKey('atlas-selection'),
-                            padding: const EdgeInsets.all(16),
+                      if (!mobile) ...[
+                        SizedBox(
+                          key: const ValueKey('atlas-desktop-directory'),
+                          width: (frame.maxWidth * .24).clamp(200.0, 280.0),
+                          child: DecoratedBox(
                             decoration: BoxDecoration(
                               color: p.surface,
                               border: Border.all(color: p.border),
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: p.ink.withValues(alpha: .04),
-                                  blurRadius: 18,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
+                              borderRadius: BorderRadius.circular(
+                                AppRadii.card,
+                              ),
                             ),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      AppIcons.building,
-                                      color: p.primary,
-                                      size: 19,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: AppTruncatedText(
-                                        region?.aliases.firstOrNull ??
-                                            building?.name ??
-                                            group?.name ??
-                                            '浏览${_campus.label}',
-                                        style: TextStyle(
-                                          color: p.ink,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                    if (mobile)
-                                      TextButton.icon(
-                                        key: const ValueKey(
-                                          'atlas-open-directory',
-                                        ),
-                                        onPressed: _openDirectory,
-                                        icon: const Icon(
-                                          AppIcons.tools,
-                                          size: 17,
-                                        ),
-                                        label: const Text('目录'),
-                                      ),
-                                    if (building != null || group != null)
-                                      AppTextLink(
-                                        key: const ValueKey('atlas-open-story'),
-                                        '详情',
-                                        onPressed: () => showDialog<void>(
-                                          context: context,
-                                          barrierColor: Colors.black.withValues(
-                                            alpha: .48,
-                                          ),
-                                          builder: (_) => CampusStoryDialog(
-                                            building: building,
-                                            group: group,
-                                            region: region,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
+                            child: _directory(),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                      ],
+                      Expanded(
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: CampusMap(
+                                key: const ValueKey('campus-atlas-map'),
+                                controller: _map,
+                                center: _campus.center,
+                                zoom: 16,
+                                places: points,
+                                showPlaceLabels: !mobile || _level > 0,
+                                avoidLabelOverlap: true,
+                                onMapReady: _fitCampus,
+                                areas: polygons,
+                                selectedPlaceId: _level == 0 && group != null
+                                    ? 'atlas-group:${group.id}'
+                                    : _level == 1 && building != null
+                                    ? _position(building)?.id
+                                    : selected?.id,
+                                borderRadius: mobile
+                                    ? BorderRadius.zero
+                                    : BorderRadius.circular(AppRadii.card),
+                                onZoomChanged: (zoom) {
+                                  final next = zoom >= 18
+                                      ? 2
+                                      : zoom >= 17
+                                      ? 1
+                                      : 0;
+                                  if (_level != next) {
+                                    setState(() => _level = next);
+                                  }
+                                },
+                                onPlace: (place) {
+                                  if (place.id.startsWith('atlas-group:')) {
+                                    _selectGroup(
+                                      place.id.substring('atlas-group:'.length),
+                                      moveCamera: false,
+                                    );
+                                    return;
+                                  }
+                                  for (final b in buildings) {
+                                    final r = b.regions
+                                        .where((r) => r.point?.id == place.id)
+                                        .firstOrNull;
+                                    if (r != null || b.point?.id == place.id) {
+                                      _selectBuilding(
+                                        b,
+                                        region: r,
+                                        moveCamera: false,
+                                      );
+                                      return;
+                                    }
+                                  }
+                                },
+                              ),
+                            ),
+                            Positioned(
+                              top: 14,
+                              left: 14,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
                                 ),
-                                const SizedBox(height: 5),
-                                if (region != null)
-                                  Text(
-                                    '${building!.name}简介',
-                                    style: TextStyle(
-                                      color: p.muted,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxHeight: 112,
-                                  ),
-                                  child: SingleChildScrollView(
-                                    child: Text(
-                                      story?.summary ??
-                                          (building == null
-                                              ? group == null
-                                                    ? '选择楼群或搜索楼宇，了解校园建筑'
-                                                    : '这里是${group.name}所在的校园片区。相关介绍正在补充。'
-                                              : '这处建筑的校史与建筑介绍正在补充。'),
-                                      style: TextStyle(
-                                        color: p.muted,
-                                        fontSize: 12,
-                                        height: 1.6,
-                                      ),
-                                    ),
+                                decoration: BoxDecoration(
+                                  color: p.surface,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: p.border),
+                                ),
+                                child: Text(
+                                  '${buildings.length} 栋楼宇',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: p.muted,
                                   ),
                                 ),
-                                if (mobile &&
-                                    building != null &&
-                                    building.regions.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 10),
-                                    child: SingleChildScrollView(
-                                      scrollDirection: Axis.horizontal,
-                                      child: Row(
+                              ),
+                            ),
+                            Positioned(
+                              bottom:
+                                  MapAttributionControls.footerHeight +
+                                  14 +
+                                  (mobile
+                                      ? MediaQuery.paddingOf(context).bottom
+                                      : 0),
+                              right: 14,
+                              left: mobile ? 14 : null,
+                              child: SizedBox(
+                                width: mobile ? null : 320,
+                                child: Container(
+                                  key: const ValueKey('atlas-selection'),
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: p.surface,
+                                    border: Border.all(color: p.border),
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadii.card,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: p.ink.withValues(alpha: .04),
+                                        blurRadius: 18,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
                                         children: [
-                                          for (final r in building.regions)
-                                            Padding(
-                                              padding: const EdgeInsets.only(
-                                                right: 8,
+                                          Icon(
+                                            AppIcons.building,
+                                            color: p.primary,
+                                            size: 19,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: AppTruncatedText(
+                                              region?.aliases.firstOrNull ??
+                                                  building?.name ??
+                                                  group?.name ??
+                                                  '浏览${_campus.label}',
+                                              style: TextStyle(
+                                                color: p.ink,
+                                                fontWeight: FontWeight.w600,
                                               ),
-                                              child: ChoiceChip(
-                                                labelStyle: TextStyle(
-                                                  fontFamily:
-                                                      AppTypography.family,
-                                                  fontFamilyFallback:
-                                                      AppTypography.fallback,
-                                                ),
-                                                label: Text(_regionLabel(r)),
-                                                selected: _regionId == r.id,
-                                                onSelected: (_) =>
-                                                    _selectBuilding(
-                                                      building,
-                                                      region: r,
-                                                      moveCamera: false,
+                                            ),
+                                          ),
+                                          if (mobile)
+                                            TextButton.icon(
+                                              key: const ValueKey(
+                                                'atlas-open-directory',
+                                              ),
+                                              onPressed: _openDirectory,
+                                              icon: const Icon(
+                                                AppIcons.tools,
+                                                size: 17,
+                                              ),
+                                              label: const Text('目录'),
+                                            ),
+                                          if (building != null || group != null)
+                                            AppTextLink(
+                                              key: const ValueKey(
+                                                'atlas-open-story',
+                                              ),
+                                              '详情',
+                                              onPressed: () => showDialog<void>(
+                                                context: context,
+                                                barrierColor: Colors.black
+                                                    .withValues(alpha: .48),
+                                                builder: (_) =>
+                                                    CampusStoryDialog(
+                                                      building: building,
+                                                      group: group,
+                                                      region: region,
                                                     ),
                                               ),
                                             ),
                                         ],
                                       ),
-                                    ),
+                                      const SizedBox(height: 5),
+                                      if (region != null)
+                                        Text(
+                                          '${building!.name}简介',
+                                          style: TextStyle(
+                                            color: p.muted,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxHeight: 112,
+                                        ),
+                                        child: SingleChildScrollView(
+                                          child: Text(
+                                            story?.summary ??
+                                                (building == null
+                                                    ? group == null
+                                                          ? '选择楼群或搜索楼宇，了解校园建筑'
+                                                          : '这里是${group.name}所在的校园片区。相关介绍正在补充。'
+                                                    : '这处建筑的校史与建筑介绍正在补充。'),
+                                            style: TextStyle(
+                                              color: p.muted,
+                                              fontSize: 12,
+                                              height: 1.6,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      if (mobile &&
+                                          building != null &&
+                                          building.regions.isNotEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 10,
+                                          ),
+                                          child: SingleChildScrollView(
+                                            scrollDirection: Axis.horizontal,
+                                            child: Row(
+                                              children: [
+                                                for (final r
+                                                    in building.regions)
+                                                  Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          right: 8,
+                                                        ),
+                                                    child: ChoiceChip(
+                                                      labelStyle: TextStyle(
+                                                        fontFamily:
+                                                            AppTypography
+                                                                .family,
+                                                        fontFamilyFallback:
+                                                            AppTypography
+                                                                .fallback,
+                                                      ),
+                                                      label: Text(
+                                                        _regionLabel(r),
+                                                      ),
+                                                      selected:
+                                                          _regionId == r.id,
+                                                      onSelected: (_) =>
+                                                          _selectBuilding(
+                                                            building,
+                                                            region: r,
+                                                            moveCamera: false,
+                                                          ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                              ],
+                                ),
+                              ),
                             ),
-                          ),
+                          ],
                         ),
                       ),
                     ],
@@ -703,12 +736,12 @@ class _AtlasDirectoryState extends State<_AtlasDirectory> {
                               key: ValueKey('atlas-building-${b.id}'),
                               outlined: false,
                               backgroundColor: active
-                                  ? p.accentSurface
+                                  ? p.accentSoft
                                   : Colors.transparent,
                               hoverColor: active
                                   ? Color.alphaBlend(
                                       p.hoverOverlay,
-                                      p.accentSurface,
+                                      p.accentSoft,
                                     )
                                   : p.hover,
                               pressedColor: p.controlPressed,
@@ -776,7 +809,7 @@ class _AtlasDirectoryState extends State<_AtlasDirectory> {
                                   hoverColor: widget.regionId == r.id
                                       ? Color.alphaBlend(
                                           p.hoverOverlay,
-                                          p.accentSurface,
+                                          p.accentSoft,
                                         )
                                       : p.hover,
                                   pressedColor: p.controlPressed,

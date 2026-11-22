@@ -486,6 +486,11 @@ void main() {
       expect(find.text('教务查询成功，暂未发布成绩；出分后可手动刷新'), findsOneWidget);
       await tester.tap(find.text('总绩点'));
       await tester.pumpAndSettle();
+      await tester.ensureVisible(find.byTooltip('更多 GPA 操作'));
+      await tester.tap(find.byTooltip('更多 GPA 操作'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('计算规则'));
+      await tester.pumpAndSettle();
       await tester.ensureVisible(find.text('计算规则与来源'));
       await tester.tap(find.text('计算规则与来源'));
       await tester.pumpAndSettle();
@@ -651,6 +656,11 @@ void main() {
           await tester.tap(find.text('恢复默认选择'));
           await tester.pumpAndSettle();
           expect(find.text('3.33'), findsOneWidget);
+          await tester.ensureVisible(find.byTooltip('更多 GPA 操作'));
+          await tester.tap(find.byTooltip('更多 GPA 操作'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('计算规则'));
+          await tester.pumpAndSettle();
           await tester.ensureVisible(find.text('计算规则与来源'));
           await tester.tap(find.text('计算规则与来源'));
           await tester.pumpAndSettle();

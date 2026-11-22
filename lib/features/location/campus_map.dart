@@ -381,6 +381,31 @@ class _CampusMapState extends State<CampusMap> {
               ),
             ),
           Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: IgnorePointer(
+              child: Container(
+                constraints: const BoxConstraints(
+                  minHeight: MapAttributionControls.footerHeight,
+                ),
+                alignment: Alignment.centerLeft,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                color: AppPalette.of(context).surface,
+                child: Text(
+                  '© 高德地图',
+                  style: TextStyle(
+                    color: AppPalette.of(context).muted,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
             top: widget.overlayInset,
             right: widget.overlayInset,
             child: MapAttributionControls(),
@@ -423,6 +448,7 @@ class _PlaceMarkerLayer extends StatelessWidget {
 
 /// Sibling of FlutterMap: controls and their padding never reach map gestures.
 class MapAttributionControls extends StatefulWidget {
+  static const footerHeight = 34.0;
   const MapAttributionControls({super.key});
   @override
   State<MapAttributionControls> createState() => _MapAttributionControlsState();
@@ -511,18 +537,27 @@ class CampusSelector extends StatelessWidget {
     super.key,
     required this.value,
     required this.onChanged,
+    this.expanded = false,
   });
   final Campus value;
   final ValueChanged<Campus> onChanged;
+  final bool expanded;
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    scrollDirection: Axis.horizontal,
-    child: AppSegmentedControl<Campus>(
+  Widget build(BuildContext context) {
+    final segments = AppSegmentedControl<Campus>(
       value: value,
       onChanged: onChanged,
+      expanded: expanded,
+      trackOnTouch: true,
       segments: [
         for (final c in Campus.values) AppSegment(value: c, label: c.label),
       ],
-    ),
-  );
+    );
+    return expanded
+        ? segments
+        : SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: segments,
+          );
+  }
 }

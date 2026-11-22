@@ -95,9 +95,11 @@ class TaStudentRow extends StatelessWidget {
     super.key,
     required this.student,
     this.gradingKnown = false,
+    this.showAvatar = false,
   });
   final TaStudent student;
   final bool gradingKnown;
+  final bool showAvatar;
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
@@ -111,13 +113,15 @@ class TaStudentRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       decoration: BoxDecoration(
         color: p.surface,
-        border: Border(bottom: BorderSide(color: p.border)),
+        border: Border(bottom: BorderSide(color: p.divider)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const AppIconSurface(size: 34, child: Icon(AppIcons.person)),
-          const SizedBox(width: 8),
+          if (showAvatar) ...[
+            AppIdentityAvatar(name: student.name, size: 36),
+            const SizedBox(width: 12),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -135,21 +139,27 @@ class TaStudentRow extends StatelessWidget {
                     context,
                   ).textTheme.bodySmall?.copyWith(color: p.muted),
                 ),
-                const SizedBox(height: 7),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 5,
-                  children: [
-                    TaTag(
-                      student.submitted ? '已提交' : '未提交',
-                      color: student.submitted ? p.success : p.muted,
-                    ),
-                    TaTag(grade, color: score != null ? p.ink : p.muted),
-                  ],
-                ),
               ],
             ),
           ),
+          const SizedBox(width: 12),
+          if (score != null)
+            Text(
+              grade,
+              style: TextStyle(
+                color: p.ink,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          else
+            AppStatusBadge(
+              student.submitted ? '已提交' : '未提交',
+              tone: student.submitted
+                  ? AppStatusTone.success
+                  : AppStatusTone.neutral,
+              pill: true,
+            ),
         ],
       ),
     );

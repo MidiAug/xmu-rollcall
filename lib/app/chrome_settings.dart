@@ -235,7 +235,9 @@ class SettingsRow extends StatelessWidget {
             this.subtitle!,
             maxLines: subtitleMaxLines,
             overflow: subtitleMaxLines == null ? null : TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(fontSize: touch ? 13 : null),
           );
     Widget buildContent(bool below) => AnimatedContainer(
       duration: duration,
@@ -280,6 +282,7 @@ class SettingsRow extends StatelessWidget {
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 fontWeight: FontWeight.w500,
+                                fontSize: touch ? 17 : null,
                                 color: !enabled && onTap != null
                                     ? p.muted
                                     : null,
@@ -291,6 +294,7 @@ class SettingsRow extends StatelessWidget {
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 fontWeight: FontWeight.w500,
+                                fontSize: touch ? 17 : null,
                                 color: !enabled && onTap != null
                                     ? p.muted
                                     : null,

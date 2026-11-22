@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/app/app_service_symbol.dart';
 import 'dart:async';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'campus_search_index.dart';
@@ -130,63 +131,26 @@ class _CampusSearchPageState extends ConsumerState<CampusSearchPage> {
                   ),
                 ),
               ),
-              Material(
-                color: p.surface,
-                borderRadius: BorderRadius.circular(16),
-                clipBehavior: Clip.antiAlias,
-                child: ListTileTheme(
-                  data: android
-                      ? ListTileThemeData(
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 2,
-                          ),
-                          horizontalTitleGap: 12,
-                          minVerticalPadding: 10,
-                          minTileHeight: 64,
-                          titleTextStyle: Theme.of(context)
-                              .textTheme
-                              .bodyMedium!
-                              .copyWith(
-                                fontSize: 14,
-                                height: 1.4,
-                                fontWeight: FontWeight.w500,
-                                color: p.ink,
-                              ),
-                          subtitleTextStyle: Theme.of(context)
-                              .textTheme
-                              .bodyMedium!
-                              .copyWith(
-                                fontSize: 12,
-                                height: 1.5,
-                                color: p.muted,
-                              ),
-                        )
-                      : ListTileTheme.of(context),
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < rows.length; i++) ...[
-                        if (android && i > 0)
-                          Divider(
-                            height: 1,
-                            thickness: 1,
-                            indent: 48,
-                            endIndent: 14,
-                            color: p.border,
-                          ),
-                        rows[i],
-                      ],
-                    ],
-                  ),
-                ),
-              ),
+              SettingsSection(padTop: false, dividerIndent: 62, children: rows),
             ],
           );
     Widget entry(CampusSearchEntry e) => SettingsRow(
       truncateTitle: true,
-      leading: Icon(e.icon, color: p.muted),
-      title: e.title,
-      subtitle: e.description,
+      leading: e.page != null
+          ? AppServiceSymbol(
+              icon: switch (e.title) {
+                'GPA 计算器' => AppIcons.serviceGpa,
+                '考试安排' => AppIcons.serviceExams,
+                '学年校历' || '本学期课表' => AppIcons.serviceCalendar,
+                '校园地图' => AppIcons.serviceMap,
+                _ => e.icon,
+              },
+              size: 34,
+            )
+          : Icon(e.icon, color: p.muted),
+      title: q.isEmpty && e.title == '本学期课表' ? '课表' : e.title,
+      minHeight: 56,
+      subtitle: q.isEmpty ? null : e.description,
       subtitleMaxLines: 2,
       trailing: const Icon(AppIcons.right, size: 18),
       onTap: () => _open(e, help: wantsHelp && e.help.isNotEmpty),
@@ -226,7 +190,19 @@ class _CampusSearchPageState extends ConsumerState<CampusSearchPage> {
                         : wantsHelp
                         ? '使用帮助'
                         : '功能',
-                    (q.isEmpty ? matchedFeatures.take(4) : matchedFeatures)
+                    (q.isEmpty
+                            ? [
+                                for (final title in [
+                                  '本学期课表',
+                                  '学年校历',
+                                  '考试安排',
+                                  'GPA 计算器',
+                                ])
+                                  matchedFeatures.firstWhere(
+                                    (e) => e.title == title,
+                                  ),
+                              ]
+                            : matchedFeatures)
                         .map(entry)
                         .toList(),
                   ),
@@ -261,7 +237,8 @@ class _CampusSearchPageState extends ConsumerState<CampusSearchPage> {
                         ),
                       ),
                   ]),
-                  section('校园官方指南', matchedGuides.map(entry).toList()),
+                  if (q.isNotEmpty)
+                    section('校园官方指南', matchedGuides.map(entry).toList()),
                   if (q.isNotEmpty &&
                       matchedFeatures.isEmpty &&
                       matchedGuides.isEmpty &&
@@ -274,7 +251,7 @@ class _CampusSearchPageState extends ConsumerState<CampusSearchPage> {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Text(
-                      '个人内容按当前账号显示；校园办事以官方页面的适用范围和最新说明为准。',
+                      q.isEmpty ? '个人内容按当前账号显示' : '校园办事以官方页面的适用范围和最新说明为准。',
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.5,

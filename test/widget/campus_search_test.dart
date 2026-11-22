@@ -98,6 +98,13 @@ void main() {
         rendered.dispose();
       });
     }
+    expect(find.text('学年校历'), findsOneWidget);
+    expect(find.text('校园官方指南'), findsNothing);
+    await tester.tap(find.text('学年校历'));
+    await tester.pumpAndSettle();
+    expect(find.text('学期安排'), findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
     await tester.enterText(
       find.byKey(const ValueKey('campus-search-field')),
       '自动签到怎么用',

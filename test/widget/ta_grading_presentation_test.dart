@@ -95,6 +95,13 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.byType(TaMobileAssignmentPage), findsOneWidget);
         expect(find.text('示例学生1'), findsOneWidget);
+        await tester.tap(find.text('未交 1'));
+        await tester.pumpAndSettle();
+        expect(find.text('示例学生1'), findsNothing);
+        expect(find.text('示例学生3'), findsOneWidget);
+        await tester.tap(find.text('全部 3'));
+        await tester.pumpAndSettle();
+        expect(find.text('示例学生1'), findsOneWidget);
         expect(find.text('导入 CSV'), findsNothing);
         expect(find.text('下载打包'), findsNothing);
         expect(find.byType(Checkbox), findsNothing);

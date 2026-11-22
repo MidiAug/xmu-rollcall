@@ -1006,42 +1006,53 @@ class _TaAssignmentPageState extends ConsumerState<TaAssignmentPage>
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
                                     children: [
-                                      Text(
-                                        '选择 CSV 成绩表，核对后再确认提交。',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(color: palette.muted),
-                                      ),
-                                      const SizedBox(height: AppSpace.md),
                                       Container(
-                                        padding: const EdgeInsets.all(
-                                          AppSpace.md,
-                                        ),
+                                        padding: const EdgeInsets.all(20),
                                         decoration: BoxDecoration(
-                                          color: palette.content,
+                                          color: palette.controlSurface,
                                           border: Border.all(
-                                            color: palette.borderStrong,
+                                            color: palette.controlRim,
                                           ),
                                           borderRadius: BorderRadius.circular(
-                                            AppRadii.control,
+                                            AppRadii.card,
                                           ),
                                         ),
-                                        child: SelectableText(
-                                          'user_no,score\nDEMO0001,86\nDEMO0002,90',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .bodyMedium
-                                              ?.copyWith(height: 1.6),
+                                        child: Column(
+                                          children: [
+                                            const AppServiceSymbol(
+                                              icon: AppIcons.document,
+                                              size: 44,
+                                            ),
+                                            const SizedBox(height: 14),
+                                            Text(
+                                              '选择包含学号和成绩的 CSV 文件',
+                                              textAlign: TextAlign.center,
+                                              style: TextStyle(
+                                                color: palette.ink,
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      const SizedBox(height: AppSpace.sm),
-                                      Text(
-                                        '两列依次为学号、成绩。学号保留前导零，成绩范围为 0 至 100。',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodySmall
-                                            ?.copyWith(color: palette.muted),
+                                      const SizedBox(height: 12),
+                                      AppDisclosure(
+                                        title: 'CSV 格式与模板',
+                                        children: [
+                                          const SelectableText(
+                                            'user_no,score\nDEMO0001,86\nDEMO0002,90',
+                                            style: TextStyle(height: 1.6),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            '两列依次为学号、成绩。学号保留前导零，成绩范围为 0 至 100。',
+                                            style: TextStyle(
+                                              color: palette.muted,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                       const SizedBox(height: AppSpace.sm),
                                     ],

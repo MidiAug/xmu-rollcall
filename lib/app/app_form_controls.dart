@@ -163,7 +163,11 @@ class _AppSearchFieldState extends State<AppSearchField> {
           autofocus: widget.autofocus,
           onChanged: widget.onChanged,
           textInputAction: TextInputAction.search,
-          style: Theme.of(context).textTheme.bodyMedium,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            fontSize: AppDensity.isTouch(context)
+                ? (widget.compact ? 15 : 17)
+                : null,
+          ),
           decoration: InputDecoration(
             constraints: widget.compact
                 ? BoxConstraints(minHeight: AppDensity.controlHeight(context))

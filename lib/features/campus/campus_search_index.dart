@@ -1,3 +1,4 @@
+import 'campus_calendar_page.dart';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/core/theme/app_icons.dart';
 import 'package:xmu_rollcall/features/grades/gpa_page.dart';
@@ -37,6 +38,15 @@ bool campusSearchMatches(String query, String content) {
 }
 
 List<CampusSearchEntry> campusSearchFeatures(int? scope) => [
+  CampusSearchEntry(
+    '学年校历',
+    '学期安排与教学周',
+    '校历 学年 秋季 春季 短学期 教学周',
+    AppIcons.calendar,
+    page: (_) => const CampusCalendarPage(),
+    help: '按已维护的学年与学期查看月历和教学周，具体安排以学校公布校历为准。',
+  ),
+
   CampusSearchEntry(
     '校园地图',
     '三个校区的楼群、楼宇与分区',

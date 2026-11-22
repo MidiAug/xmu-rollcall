@@ -43,6 +43,8 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
   late TaAssignment _summary;
   bool _ready = false;
   String _query = '';
+  int _submission = 0;
+  bool _showSearch = false;
   @override
   void initState() {
     super.initState();
@@ -126,10 +128,17 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) _repository.dispose();
       },
-      child: PageScaffold(
-        title: '作业进度',
+      child: SubpageScaffold(
+        title: widget.assignment.title,
+        actions: [
+          AppIconButton(
+            tooltip: '搜索学生',
+            icon: const Icon(AppIcons.search),
+            onPressed: () => setState(() => _showSearch = !_showSearch),
+          ),
+        ],
         onBack: () => Navigator.of(context).maybePop(),
-        child: FutureBuilder<List<TaStudent>>(
+        body: FutureBuilder<List<TaStudent>>(
           future: _loading,
           builder: (context, snapshot) {
             if (snapshot.hasError && !_ready) {
@@ -157,7 +166,12 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
                       for (final s in snapshot.data ?? <TaStudent>[]) s.id: s,
                       for (final s in _students) s.id: s,
                     }.values
-                    .where((s) => '${s.name} ${s.number}'.contains(_query))
+                    .where(
+                      (s) =>
+                          '${s.name} ${s.number}'.contains(_query) &&
+                          (_submission == 0 ||
+                              (_submission == 1) == s.submitted),
+                    )
                     .toList();
             return Material(
               color: Colors.transparent,
@@ -169,38 +183,39 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        TaOverview(
-                          title: widget.assignment.title,
-                          total: _summary.expected,
-                          submitted: _summary.submitted,
-                          graded: _summary.graded,
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Icon(AppIcons.desktop, size: 16, color: p.muted),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                '打包下载与批量评分请使用电脑端',
-                                style: Theme.of(
-                                  context,
-                                ).textTheme.bodySmall?.copyWith(color: p.muted),
-                              ),
+                        AppSegmentedControl<int>(
+                          key: const ValueKey('ta-mobile-status'),
+                          value: _submission,
+                          expanded: true,
+                          trackOnTouch: true,
+                          segments: [
+                            AppSegment(
+                              value: 0,
+                              label: '全部 ${_students.length}',
+                            ),
+                            AppSegment(
+                              value: 1,
+                              label:
+                                  '已交 ${_students.where((s) => s.submitted).length}',
+                            ),
+                            AppSegment(
+                              value: 2,
+                              label:
+                                  '未交 ${_students.where((s) => !s.submitted).length}',
                             ),
                           ],
+                          onChanged: (v) => setState(() => _submission = v),
                         ),
-                        const SizedBox(height: 24),
-                        Text(
-                          '学生提交',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: 12),
-                        AppSearchField(
-                          hintText: '搜索姓名或学号',
-                          onChanged: (value) => setState(() => _query = value),
-                        ),
-                        const SizedBox(height: 10),
+                        if (_showSearch || _query.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          AppSearchField(
+                            hintText: '搜索姓名或学号',
+                            autofocus: _showSearch,
+                            onChanged: (value) =>
+                                setState(() => _query = value),
+                          ),
+                        ],
+                        const SizedBox(height: 16),
                       ],
                     );
                   }
@@ -210,7 +225,13 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
                             padding: EdgeInsets.all(24),
                             child: Center(child: Text('没有匹配的学生')),
                           )
-                        : const SizedBox(height: 12);
+                        : Padding(
+                            padding: const EdgeInsets.only(top: 16),
+                            child: Text(
+                              '打包下载与批量评分请使用电脑端',
+                              style: TextStyle(color: p.muted, fontSize: 12),
+                            ),
+                          );
                   }
                   final s = students[index - 1];
                   return ClipRRect(
@@ -225,6 +246,7 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
                     child: TaStudentRow(
                       student: s,
                       gradingKnown: _summary.graded == 0,
+                      showAvatar: _query.isNotEmpty,
                     ),
                   );
                 },

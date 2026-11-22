@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/app/app_dialogs.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/app_checkbox.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
@@ -59,6 +61,12 @@ class _GpaPageState extends ConsumerState<GpaPage> {
               }
             },
           ),
+        AppActionMenu<String>(
+          tooltip: '更多 GPA 操作',
+          actions: const [AppMenuAction('rules', '计算规则', icon: AppIcons.info)],
+          onSelected: (_) =>
+              _showRules(graduate: data?.valueOrNull?.education == 'graduate'),
+        ),
       ],
       body: !auth.isSignedIn
           ? const EmptyHint(
@@ -453,11 +461,6 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                                 ],
                               ),
                       ),
-                      const SizedBox(height: 24),
-                      _rules(
-                        context,
-                        graduate: snapshot.education == 'graduate',
-                      ),
                     ],
                   ),
                 );
@@ -571,6 +574,80 @@ class _GpaPageState extends ConsumerState<GpaPage> {
         updated,
       ],
     );
+  }
+
+  Future<void> _showRules({required bool graduate}) async {
+    Widget body(BuildContext context) => ListView(
+      shrinkWrap: true,
+      padding: const EdgeInsets.all(20),
+      children: [
+        SettingsSection(
+          padTop: false,
+          hasLeading: false,
+          header: '计算方式',
+          children: const [
+            Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('平均绩点 = Σ（课程绩点 × 学分）÷ Σ学分'),
+            ),
+            Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('加权平均分 = Σ（成绩 × 学分）÷ Σ学分'),
+            ),
+          ],
+        ),
+        const SettingsSection(
+          hasLeading: false,
+          header: '课程范围',
+          children: [
+            Padding(padding: EdgeInsets.all(16), child: Text('只计入已勾选的课程。')),
+          ],
+        ),
+        const SizedBox(height: 20),
+        _rules(context, graduate: graduate),
+      ],
+    );
+    if (AppMobileUi.useTouchChrome(context)) {
+      await AppPageRoutes.push(
+        context,
+        Builder(
+          builder: (context) =>
+              SubpageScaffold(title: '计算规则', body: body(context)),
+        ),
+      );
+    } else {
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AppDialogFrame(
+          maxWidth: 480,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * .82,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 16, 0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '计算规则',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                      const AppSheetCloseButton(),
+                    ],
+                  ),
+                ),
+                Flexible(child: body(context)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   Widget _rules(BuildContext context, {bool graduate = false}) {

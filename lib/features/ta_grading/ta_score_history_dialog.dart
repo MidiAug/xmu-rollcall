@@ -63,19 +63,36 @@ class _TaScoreHistoryDialogState extends State<TaScoreHistoryDialog> {
                 AppSheetCloseButton(onPressed: () => Navigator.pop(context)),
               ],
             ),
-            Wrap(
-              spacing: 12,
-              runSpacing: 4,
-              children: [
-                Text(
-                  widget.student.name,
-                  style: TextStyle(color: p.ink, fontWeight: FontWeight.w500),
-                ),
-                Text(
-                  widget.student.number,
-                  style: TextStyle(color: p.muted, fontSize: 12),
-                ),
-              ],
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: p.controlSurface,
+                border: Border.all(color: p.surfaceRim),
+                borderRadius: BorderRadius.circular(AppRadii.subWell),
+              ),
+              child: Row(
+                children: [
+                  AppIdentityAvatar(name: widget.student.name, size: 36),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: AppTruncatedText(
+                      widget.student.name,
+                      style: TextStyle(
+                        color: p.ink,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(
+                      widget.student.number,
+                      style: TextStyle(color: p.muted, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 20),
             FutureBuilder<List<TaScoreRecord>>(
@@ -129,7 +146,7 @@ class _TaScoreHistoryDialogState extends State<TaScoreHistoryDialog> {
                   ListView.separated(
                     itemCount: records.length,
                     separatorBuilder: (_, _) =>
-                        Divider(height: 1, color: p.border),
+                        Divider(height: 1, color: p.divider),
                     itemBuilder: (context, index) {
                       final record = records[index];
                       return Padding(
@@ -154,7 +171,7 @@ class _TaScoreHistoryDialogState extends State<TaScoreHistoryDialog> {
                                   _score(record.score),
                                   style: TextStyle(
                                     color: p.ink,
-                                    fontSize: 20,
+                                    fontSize: 28,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),

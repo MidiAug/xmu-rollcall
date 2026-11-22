@@ -865,6 +865,17 @@ void main() {
           expect(find.text('校方资料'), findsNothing);
           expect(find.text('详情'), findsOneWidget);
           expect(find.text('保存定位'), findsNothing);
+          expect(
+            tester
+                .getRect(find.byKey(const ValueKey('atlas-selection')))
+                .bottom,
+            lessThanOrEqualTo(
+              tester
+                      .getRect(find.byKey(const ValueKey('campus-atlas-map')))
+                      .bottom -
+                  MapAttributionControls.footerHeight,
+            ),
+          );
           expect(find.text('新增楼宇'), findsNothing);
           expect(tester.takeException(), isNull);
           if (Platform.environment['CAPTURE_ATLAS_UI'] == '1') {
