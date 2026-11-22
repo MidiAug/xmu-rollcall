@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app_icon_button.dart';
+import 'chrome.dart' show AppControlStyle;
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 enum AppButtonKind { primary, secondary, quiet }
@@ -14,6 +15,7 @@ class AppButton extends StatelessWidget {
     this.busy = false,
     this.kind = AppButtonKind.primary,
     this.compact = false,
+    this.inline = false,
   });
   final String label;
   final VoidCallback? onPressed;
@@ -21,17 +23,20 @@ class AppButton extends StatelessWidget {
   final bool busy;
   final AppButtonKind kind;
   final bool compact;
+  final bool inline;
 
   @override
   Widget build(BuildContext context) {
     final action = busy ? null : onPressed;
-    final style = compact
+    final style = inline
+        ? AppControlStyle.inlineOutlined(context)
+        : compact
         ? ButtonStyle(
             minimumSize: WidgetStatePropertyAll(
               Size(0, AppDensity.controlHeight(context)),
             ),
             padding: const WidgetStatePropertyAll(
-              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             ),
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
           )
@@ -119,12 +124,14 @@ class AppSearchField extends StatefulWidget {
     this.onChanged,
     this.autofocus = false,
     this.compact = false,
+    this.inset = false,
   });
   final String hintText;
   final TextEditingController? controller;
   final ValueChanged<String>? onChanged;
   final bool autofocus;
   final bool compact;
+  final bool inset;
 
   @override
   State<AppSearchField> createState() => _AppSearchFieldState();
@@ -155,54 +162,55 @@ class _AppSearchFieldState extends State<AppSearchField> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ValueListenableBuilder<TextEditingValue>(
-        valueListenable: _controller,
-        builder: (context, value, _) => TextField(
-          controller: _controller,
-          autofocus: widget.autofocus,
-          onChanged: widget.onChanged,
-          textInputAction: TextInputAction.search,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontSize: AppDensity.isTouch(context)
-                ? (widget.compact ? 15 : 17)
-                : null,
-          ),
-          decoration: InputDecoration(
-            constraints: widget.compact
-                ? BoxConstraints(minHeight: AppDensity.controlHeight(context))
-                : null,
-            contentPadding: widget.compact
-                ? const EdgeInsets.symmetric(horizontal: 12, vertical: 8)
-                : null,
-            prefixIconConstraints: widget.compact
-                ? BoxConstraints(
-                    minWidth: 40,
-                    minHeight: AppDensity.controlHeight(context),
-                  )
-                : null,
-            suffixIconConstraints: widget.compact
-                ? BoxConstraints(
-                    minWidth: 40,
-                    minHeight: AppDensity.controlHeight(context),
-                  )
-                : null,
-            hintText: widget.hintText,
-            prefixIcon: const Icon(AppIcons.search, size: 17),
-            suffixIcon: value.text.isEmpty
-                ? null
-                : AppIconButton(
-                    extent: widget.compact
-                        ? AppDensity.controlHeight(context)
-                        : 44,
-                    tooltip: '清空搜索',
-                    icon: const Icon(AppIcons.close, size: 13),
-                    onPressed: () {
-                      _controller.clear();
-                      widget.onChanged?.call('');
-                    },
-                  ),
-          ),
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final touch = AppDensity.isTouch(context);
+    final height = touch
+        ? (widget.compact ? 40.0 : 44.0)
+        : AppDensity.controlHeight(context);
+    final iconWidth = touch ? 40.0 : 36.0;
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _controller,
+      builder: (context, value, _) => TextField(
+        controller: _controller,
+        autofocus: widget.autofocus,
+        onChanged: widget.onChanged,
+        textInputAction: TextInputAction.search,
+        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          fontSize: touch ? (widget.compact ? 14 : 15) : 13,
         ),
-      );
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: widget.inset ? p.insetSurface : null,
+          isDense: true,
+          constraints: BoxConstraints(minHeight: height),
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: touch ? (widget.compact ? 9 : 11) : 7,
+          ),
+          prefixIconConstraints: BoxConstraints(
+            minWidth: iconWidth,
+            minHeight: height,
+          ),
+          suffixIconConstraints: BoxConstraints(
+            minWidth: iconWidth,
+            minHeight: height,
+          ),
+          hintText: widget.hintText,
+          prefixIcon: const Icon(AppIcons.search, size: 17),
+          suffixIcon: value.text.isEmpty
+              ? null
+              : AppIconButton(
+                  extent: height,
+                  tooltip: '清空搜索',
+                  icon: const Icon(AppIcons.close, size: 13),
+                  onPressed: () {
+                    _controller.clear();
+                    widget.onChanged?.call('');
+                  },
+                ),
+        ),
+      ),
+    );
+  }
 }

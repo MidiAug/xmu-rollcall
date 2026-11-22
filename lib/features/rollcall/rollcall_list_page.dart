@@ -903,33 +903,44 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
             ),
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: AppTruncatedText(
-                  item.createdByName.trim(),
-                  style: AppTypography.body.copyWith(color: p.muted),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    _attendance(item, compact: true),
-                    if (updatedLabel != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        updatedLabel,
-                        style: AppTypography.caption.copyWith(color: p.muted),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (item.courseId?.isNotEmpty == true && !done)
-                _courseMenu(p, item),
-            ],
+          LayoutBuilder(
+            builder: (context, bounds) {
+              final hasMenu = item.courseId?.isNotEmpty == true && !done;
+              final available =
+                  (bounds.maxWidth - (hasMenu ? 44 : 8)).clamp(0.0, 400.0);
+              return Row(
+                children: [
+                  Expanded(
+                    child: AppTruncatedText(
+                      item.createdByName.trim(),
+                      style: AppTypography.body.copyWith(color: p.muted),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: available * 0.68),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _attendance(item, compact: true),
+                        if (updatedLabel != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            updatedLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.caption.copyWith(
+                              color: p.muted,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (hasMenu) _courseMenu(p, item),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
           Divider(
@@ -1087,7 +1098,11 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    item.isNumber ? '签到码' : '${item.typeLabel}签到',
+                    item.isNumber
+                        ? '签到码'
+                        : item.isRadar
+                        ? '签到位置'
+                        : '签到方式',
                     style: AppTypography.caption.copyWith(color: p.muted),
                   ),
                   const SizedBox(height: 8),

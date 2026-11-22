@@ -232,16 +232,19 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                     ],
                     if (_range == GradeRange.term && effectiveTerm != null) ...[
                       const SizedBox(height: 12),
-                      AppShellSelect<String>(
-                        key: const ValueKey('grade-term'),
-                        plain: true,
-                        compact: true,
-                        semanticLabel: '选择学期',
-                        width: 210,
-                        value: effectiveTerm,
-                        items: terms,
-                        labelOf: _termLabel,
-                        onChanged: (t) => setState(() => _term = t),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: AppShellSelect<String>(
+                          key: const ValueKey('grade-term'),
+                          plain: true,
+                          compact: false,
+                          semanticLabel: '选择学期',
+                          width: 210,
+                          value: effectiveTerm,
+                          items: terms,
+                          labelOf: _termLabel,
+                          onChanged: (t) => setState(() => _term = t),
+                        ),
                       ),
                     ],
                   ],
@@ -478,10 +481,11 @@ class _GpaPageState extends ConsumerState<GpaPage> {
     DateTime updatedAt,
   ) {
     final p = AppPalette.of(context);
+    final gpaValue = summary.gpa?.toStringAsFixed(2) ?? '—';
     final primary = AppMetric(
-      value: summary.gpa?.toStringAsFixed(2) ?? '—',
+      value: gpaValue,
       label: '加权 GPA',
-      valueSize: AppMobileUi.useTouchChrome(context) ? 46 : 64,
+      valueSize: AppMobileUi.useTouchChrome(context) ? 46 : 56,
       valueColor: summary.gpa == null ? p.muted : p.ink,
     );
     final secondary = Row(
@@ -550,10 +554,31 @@ class _GpaPageState extends ConsumerState<GpaPage> {
             ],
           )
         else ...[
-          Align(alignment: Alignment.centerRight, child: scopeBadge),
-          const SizedBox(height: 8),
-          primary,
-          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  '加权 GPA',
+                  style: TextStyle(color: p.muted, fontSize: 12),
+                ),
+              ),
+              const SizedBox(width: 8),
+              scopeBadge,
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            gpaValue,
+            style: TextStyle(
+              color: summary.gpa == null ? p.muted : p.ink,
+              fontSize: 56,
+              height: 1.25,
+              fontWeight: FontWeight.w600,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          const SizedBox(height: 10),
           count,
         ],
         const SizedBox(height: 20),

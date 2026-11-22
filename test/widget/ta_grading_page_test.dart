@@ -398,8 +398,9 @@ void main() {
           tester.getRect(find.byKey(const ValueKey('ta-roster-toolbar'))).right,
         );
 
+        expect(searchRect.height, 36.0);
         for (final (control, height) in [
-          (find.byKey(const ValueKey('ta-submission-filter')), 32.0),
+          (find.byKey(const ValueKey('ta-submission-filter')), searchRect.height),
           (find.byTooltip('更新名单和成绩'), searchRect.height),
         ]) {
           final rect = tester.getRect(control);

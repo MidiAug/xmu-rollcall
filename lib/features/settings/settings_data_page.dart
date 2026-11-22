@@ -143,6 +143,7 @@ class SettingsDataPage extends ConsumerWidget {
                       trailing: Tooltip(
                         message: '复制本机标识',
                         child: OutlinedButton(
+                          style: AppControlStyle.inlineOutlined(context),
                           onPressed: id == null ? null : copyId,
                           child: const Text('复制'),
                         ),
@@ -392,6 +393,7 @@ class _TimetableRefreshRowState extends ConsumerState<_TimetableRefreshRow> {
       stackSubtitleOnNarrow: true,
       trailing: OutlinedButton(
         key: const ValueKey('academic-timetable-update'),
+        style: AppControlStyle.inlineOutlined(context),
         onPressed: _busy ? null : _refresh,
         child: Text(_busy ? '更新中…' : '更新'),
       ),
@@ -657,6 +659,7 @@ class _AcademicUpdateRowState extends ConsumerState<_AcademicUpdateRow> {
             key: ValueKey(
               grades ? 'academic-grades-update' : 'academic-exams-update',
             ),
+            style: AppControlStyle.inlineOutlined(context),
             onPressed: _busy ? null : _refresh,
             child: Text(_busy ? '更新中…' : '更新'),
           ),

@@ -110,6 +110,7 @@ class _AboutPageState extends State<AboutPage> {
                   trailing: Tooltip(
                     message: '复制仓库地址',
                     child: OutlinedButton(
+                      style: AppControlStyle.inlineOutlined(context),
                       onPressed: _copyRepository,
                       child: const Text('复制'),
                     ),

@@ -311,6 +311,9 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
                     Flexible(
                       child: Text(
                         label,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: widget.prominent ? 18 : 13,
                           fontWeight: widget.prominent

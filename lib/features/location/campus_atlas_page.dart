@@ -195,10 +195,9 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
                           ),
                         ),
                       ),
-                      IconButton(
+                      AppSheetCloseButton(
                         tooltip: '关闭目录',
                         onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(AppIcons.close),
                       ),
                     ],
                   ),
@@ -281,7 +280,7 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
                     mobile ? 16 : 0,
                     8,
                     mobile ? 16 : 0,
-                    20,
+                    16,
                   ),
                   child: Align(
                     alignment: Alignment.centerLeft,
@@ -310,10 +309,11 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
                           child: DecoratedBox(
                             decoration: BoxDecoration(
                               color: p.surface,
-                              border: Border.all(color: p.border),
+                              border: Border.all(color: p.surfaceBorder),
                               borderRadius: BorderRadius.circular(
                                 AppRadii.card,
                               ),
+                              boxShadow: AppGlassSurface.groupShadows(p),
                             ),
                             child: _directory(),
                           ),
@@ -530,21 +530,12 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
                                                         const EdgeInsets.only(
                                                           right: 8,
                                                         ),
-                                                    child: ChoiceChip(
-                                                      labelStyle: TextStyle(
-                                                        fontFamily:
-                                                            AppTypography
-                                                                .family,
-                                                        fontFamilyFallback:
-                                                            AppTypography
-                                                                .fallback,
-                                                      ),
-                                                      label: Text(
-                                                        _regionLabel(r),
-                                                      ),
+                                                    child: AppFilterChoice(
+                                                      compact: true,
+                                                      label: _regionLabel(r),
                                                       selected:
                                                           _regionId == r.id,
-                                                      onSelected: (_) =>
+                                                      onTap: () =>
                                                           _selectBuilding(
                                                             building,
                                                             region: r,
@@ -865,25 +856,13 @@ class _AtlasDirectoryState extends State<_AtlasDirectory> {
       children: [
         Padding(
           padding: const EdgeInsets.all(12),
-          child: TextField(
+          child: AppSearchField(
             key: const ValueKey('atlas-search'),
             controller: _search,
+            compact: true,
+            inset: true,
+            hintText: '搜索楼名、别名或分区',
             onChanged: (_) => setState(() {}),
-            decoration: InputDecoration(
-              hintText: '搜索楼名、别名或分区',
-              prefixIcon: const Icon(AppIcons.search),
-              isDense: true,
-              suffixIcon: _search.text.isEmpty
-                  ? null
-                  : IconButton(
-                      tooltip: '清空搜索',
-                      icon: const Icon(AppIcons.close),
-                      onPressed: () {
-                        _search.clear();
-                        setState(() {});
-                      },
-                    ),
-            ),
           ),
         ),
         if (_groupId != null && query.isEmpty)
@@ -891,8 +870,9 @@ class _AtlasDirectoryState extends State<_AtlasDirectory> {
             padding: const EdgeInsets.fromLTRB(4, 0, 12, 4),
             child: Row(
               children: [
-                IconButton(
+                AppIconButton(
                   tooltip: '返回目录',
+                  extent: 34,
                   onPressed: () => selectGroup(null),
                   icon: const Icon(AppIcons.back, size: 18),
                 ),

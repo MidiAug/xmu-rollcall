@@ -347,6 +347,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
           message: label,
           child: AppButton(
             kind: AppButtonKind.secondary,
+            inline: true,
             label: label,
             busy: waiting,
             onPressed: callback,

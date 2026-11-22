@@ -2,6 +2,18 @@ part of 'chrome.dart';
 
 /// Secondary touch actions share the same surface, outline and hit target.
 abstract final class AppControlStyle {
+  static ButtonStyle inlineOutlined(BuildContext context) {
+    final touch = AppMobileUi.useTouchChrome(context);
+    return OutlinedButton.styleFrom(
+      minimumSize: Size(0, touch ? 36 : 32),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: touch ? 6 : 4),
+      tapTargetSize: touch
+          ? MaterialTapTargetSize.padded
+          : MaterialTapTargetSize.shrinkWrap,
+      textStyle: AppTypography.control.copyWith(fontSize: 13),
+    );
+  }
+
   static ButtonStyle touchIcon(BuildContext context) {
     final p = AppPalette.of(context);
     return IconButton.styleFrom(
@@ -427,10 +439,12 @@ class AppFilterChoice extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.compact = false,
   });
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final bool compact;
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
@@ -449,7 +463,10 @@ class AppFilterChoice extends StatelessWidget {
                 ? Duration.zero
                 : AppMotion.fast,
             curve: AppMotion.fastCurve,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            padding: EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: compact ? 6 : 12,
+            ),
             decoration: BoxDecoration(
               color: highlighted
                   ? Color.alphaBlend(p.hoverOverlay, fill)
@@ -464,12 +481,16 @@ class AppFilterChoice extends StatelessWidget {
               ),
             ),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 20),
+              constraints: BoxConstraints(minHeight: compact ? 18 : 20),
               child: Center(
                 child: Text(
                   label,
                   style: AppTypography.body.copyWith(
-                    fontSize: AppDensity.isTouch(context) ? 16 : 14,
+                    fontSize: compact
+                        ? 13
+                        : AppDensity.isTouch(context)
+                        ? 16
+                        : 14,
                     color: selected && !highlighted ? p.primary : p.ink,
                     fontWeight: FontWeight.w600,
                   ),

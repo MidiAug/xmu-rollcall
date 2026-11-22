@@ -81,38 +81,57 @@ class _TaScoreFieldState extends State<TaScoreField> {
       hint: widget.saving
           ? '正在保存'
           : reason ?? (widget.enabled ? '输入后按回车保存' : '暂时不可编辑'),
-      child: TextField(
-        controller: _controller,
-        focusNode: _focus,
-        enabled: reason == null || widget.saving,
-        readOnly: !widget.enabled || widget.saving,
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        textInputAction: TextInputAction.done,
-        style: TextStyle(fontSize: 13, color: AppPalette.of(context).ink),
-        decoration: InputDecoration(
-          hintText: widget.hint,
-          fillColor: reason != null && !widget.saving ? p.controlSurface : null,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 8,
+      child: Center(
+        child: TextField(
+          controller: _controller,
+          focusNode: _focus,
+          enabled: reason == null || widget.saving,
+          readOnly: !widget.enabled || widget.saving,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          textInputAction: TextInputAction.done,
+          style: TextStyle(fontSize: 13, color: AppPalette.of(context).ink),
+          decoration: InputDecoration(
+            hintText: widget.hint,
+            fillColor: reason != null && !widget.saving ? p.controlSurface : null,
+            constraints: const BoxConstraints(minHeight: 32),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 6,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: p.controlRim),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: p.controlRim),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: p.controlRim),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide(color: p.focus, width: 1.4),
+            ),
+            suffixIconConstraints: const BoxConstraints.tightFor(
+              width: 24,
+              height: 24,
+            ),
+            suffixIcon: widget.saving
+                ? const Padding(
+                    padding: EdgeInsets.all(5),
+                    child: CircularProgressIndicator(strokeWidth: 1.5),
+                  )
+                : null,
           ),
-          suffixIconConstraints: const BoxConstraints.tightFor(
-            width: 24,
-            height: 24,
-          ),
-          suffixIcon: widget.saving
-              ? const Padding(
-                  padding: EdgeInsets.all(5),
-                  child: CircularProgressIndicator(strokeWidth: 1.5),
-                )
+          onChanged: widget.enabled && !widget.saving ? widget.onChanged : null,
+          // Retain the editor's focus after Enter, including validation failures.
+          onEditingComplete: () {},
+          onSubmitted: widget.enabled && !widget.saving
+              ? widget.onSubmitted
               : null,
         ),
-        onChanged: widget.enabled && !widget.saving ? widget.onChanged : null,
-        // Retain the editor's focus after Enter, including validation failures.
-        onEditingComplete: () {},
-        onSubmitted: widget.enabled && !widget.saving
-            ? widget.onSubmitted
-            : null,
       ),
     );
   }

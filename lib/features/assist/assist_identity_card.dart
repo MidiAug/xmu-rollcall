@@ -74,7 +74,7 @@ class _AssistIdentityCardState extends ConsumerState<AssistIdentityCard> {
             quiet: true,
             outlined: false,
             backgroundColor: Colors.transparent,
-            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
             // Retain the focused target while connecting. Removing it could
             // send a repeated Enter to the previous window control instead.
             onTap: _openIdentity,
@@ -109,13 +109,14 @@ class _AssistIdentityCardState extends ConsumerState<AssistIdentityCard> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Icon(AppIcons.right),
+                Icon(AppIcons.right, size: 18, color: p.muted),
               ],
             ),
           ),
         ),
+        Container(width: 1, height: 20, color: p.divider),
         Padding(
-          padding: const EdgeInsets.only(right: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
           child: _MoreButton(
             enabled: !assist.busy,
             onSelected: (action) => _onMenuAction(context, ref, action),

@@ -55,19 +55,25 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
     return LayoutBuilder(
       builder: (context, frame) {
         final singlePane = frame.maxWidth < _locationFrameBreakpoint;
+        final desktopSelector =
+            !AppMobileUi.useTouchChrome(context) &&
+            MediaQuery.sizeOf(context).width >= 720;
+        final manager = LocationManagerContent(
+          userId: widget.userId,
+          key: _manager,
+          campus: campus,
+          showMobileListButton: false,
+          onMapViewChanged: (value) {
+            if (value != _mapView) setState(() => _mapView = value);
+          },
+        );
         return SubpageScaffold(
           title: singlePane && _mapView ? '地点列表' : '地点管理',
           onBack: singlePane && _mapView
               ? () => _manager.currentState?.showList()
               : null,
           actions: [
-            if (!AppMobileUi.useTouchChrome(context) &&
-                MediaQuery.sizeOf(context).width >= 720)
-              CampusSelector(
-                value: campus,
-                onChanged: (v) => setState(() => _campus = v),
-              )
-            else
+            if (!desktopSelector)
               AppToolbarChoice<Campus>(
                 title: '选择校区',
                 value: campus,
@@ -77,15 +83,28 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
                 onChanged: (v) => setState(() => _campus = v),
               ),
           ],
-          body: LocationManagerContent(
-            userId: widget.userId,
-            key: _manager,
-            campus: campus,
-            showMobileListButton: false,
-            onMapViewChanged: (value) {
-              if (value != _mapView) setState(() => _mapView = value);
-            },
-          ),
+          body: desktopSelector
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 344),
+                          child: CampusSelector(
+                            value: campus,
+                            expanded: true,
+                            onChanged: (v) => setState(() => _campus = v),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Expanded(child: manager),
+                  ],
+                )
+              : manager,
         );
       },
     );
@@ -431,6 +450,8 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                         padding: const EdgeInsets.all(12),
                         child: AppSearchField(
                           hintText: '搜索地点或课程',
+                          compact: true,
+                          inset: true,
                           onChanged: (value) => setState(() => _query = value),
                         ),
                       ),
@@ -575,7 +596,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                       child: CampusMap(
                         key: ValueKey(campus),
                         borderRadius: wide
-                            ? const BorderRadius.all(Radius.circular(12))
+                            ? BorderRadius.circular(AppRadii.card)
                             : BorderRadius.zero,
                         overlayInset: inset,
                         center: _viewCenter ?? campus.center,

@@ -408,6 +408,24 @@ void main() {
           tester,
           'history-r25-${width.toInt()}-${scenario.dark}',
         );
+        if (width >= 600 && scenario.scale == 1.0) {
+          expect(tester.getSize(status).height, 36.0);
+          expect(
+            tester
+                .getSize(find.byKey(const ValueKey('history-desktop-filters')))
+                .height,
+            36.0,
+          );
+        } else if (width < 600 && scenario.scale == 1.0) {
+          expect(
+            tester.getSize(course).height,
+            tester
+                .getSize(
+                  find.byKey(const ValueKey('history-secondary-filters')),
+                )
+                .height,
+          );
+        }
         if (width >= 600) {
           await tester.tap(find.byKey(const ValueKey('history-date-filter')));
           await tester.pumpAndSettle();

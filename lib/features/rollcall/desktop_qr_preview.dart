@@ -137,7 +137,7 @@ class _DesktopQrPreviewPageState extends State<DesktopQrPreviewPage> {
                       ),
                       const SizedBox(height: 20),
                       const Text(
-                        '• 拖动标题栏或透明区域移动窗口\n• 拖动边框调整识别范围\n• 把图片拖进框内，或点击“选择图片”\n• 暂停按钮只暂停屏幕识别\n• 本页只做本地识别，不登录、不签到',
+                        '拖动标题栏或透明区域移动窗口\n拖动边框调整识别范围\n把图片拖进框内，或点击“选择图片”\n暂停按钮只暂停屏幕识别\n本页只做本地识别，不登录、不签到',
                         style: TextStyle(height: 1.9, color: Color(0xff566272)),
                       ),
                       const SizedBox(height: 24),

@@ -641,6 +641,10 @@ void main() {
           await capture('gpa-recent');
           await tester.tap(find.text('学期'));
           await tester.pumpAndSettle();
+          expect(
+            tester.getSize(find.byKey(const ValueKey('grade-term'))).width,
+            lessThan(260),
+          );
           await capture('gpa-term');
           await tester.tap(find.byKey(const ValueKey('grade-term')));
           await tester.pumpAndSettle();

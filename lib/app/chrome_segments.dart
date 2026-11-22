@@ -156,7 +156,7 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
               includeSemantics: false,
               onKeyEvent: _handleKey,
               child: Container(
-                padding: const EdgeInsets.all(3),
+                padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
                   color: p.track,
                   borderRadius: BorderRadius.circular(AppRadii.segmentTrack),
@@ -284,7 +284,7 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
       child: Container(
         padding: widget.compact
             ? const EdgeInsets.symmetric(horizontal: 2)
-            : const EdgeInsets.all(3),
+            : const EdgeInsets.all(2),
         decoration: BoxDecoration(
           color: p.track,
           border: widget.compact
@@ -451,14 +451,14 @@ class _SegmentButton extends StatelessWidget {
                 curve: AppMotion.instantCurve,
                 constraints: BoxConstraints(
                   minHeight: touchTrack
-                      ? 44
+                      ? 38
                       : compact
                       ? 32
-                      : 36,
+                      : 30,
                 ),
                 padding: EdgeInsets.symmetric(
                   horizontal: compact ? 6 : 8,
-                  vertical: compact ? 2 : 4,
+                  vertical: compact ? 2 : 3,
                 ),
                 decoration: BoxDecoration(
                   color: overlayBase.withValues(alpha: overlayAlpha),

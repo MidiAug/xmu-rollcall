@@ -464,11 +464,19 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(repo.statusCalls, 1);
       repo.fail = false;
+      final manualStarted = Completer<void>();
+      repo.duringStatus = () async => manualStarted.complete();
       container.read(homeworkManualRefreshAtProvider(1).notifier).state =
-          DateTime.now();
+          DateTime.now().add(const Duration(seconds: 1));
       await container.read(provider.future);
-      await Future<void>.delayed(Duration.zero);
-      await container.pump();
+      await manualStarted.future.timeout(const Duration(seconds: 2));
+      repo.duringStatus = null;
+      await Future.doWhile(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        await container.pump();
+        return container.read(provider).requireValue.submission !=
+            HomeworkSubmission.submitted;
+      }).timeout(const Duration(seconds: 2));
       expect(repo.statusCalls, 2);
       expect(
         container.read(provider).requireValue.submission,

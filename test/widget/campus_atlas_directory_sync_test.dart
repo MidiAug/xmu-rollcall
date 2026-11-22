@@ -112,17 +112,21 @@ void main() {
         await pick(first);
         await captureDesktopUi(tester, 'atlas-same-collection-first-$large');
         final search = find.byKey(const ValueKey('atlas-search'));
-        await tester.enterText(search, last.name);
+        final searchField = find.descendant(
+          of: search,
+          matching: find.byType(TextField),
+        );
+        await tester.enterText(searchField, last.name);
         await tester.pumpAndSettle();
         await pick(last);
         expect(
-          tester.widget<TextField>(search).controller!.text,
+          tester.widget<TextField>(searchField).controller!.text,
           last.name,
           reason: 'A search matching the chosen building stays intact',
         );
         await pick(first);
         expect(
-          tester.widget<TextField>(search).controller!.text,
+          tester.widget<TextField>(searchField).controller!.text,
           isEmpty,
           reason: 'A map pick clears only a search that hides its target',
         );

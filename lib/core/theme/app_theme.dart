@@ -87,7 +87,7 @@ abstract final class AppTheme {
         style:
             FilledButton.styleFrom(
               minimumSize: const Size(64, 40),
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppRadii.button),
               ),
@@ -222,9 +222,18 @@ abstract final class AppTheme {
         fillColor: p.surface,
         hoverColor: Colors.transparent,
         isDense: true,
+        constraints: const BoxConstraints(minHeight: 40),
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 14,
-          vertical: 14,
+          horizontal: 12,
+          vertical: 10,
+        ),
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: 36,
+          minHeight: 36,
+        ),
+        suffixIconConstraints: const BoxConstraints(
+          minWidth: 36,
+          minHeight: 36,
         ),
         hintStyle: TextStyle(color: p.muted, fontSize: 13),
         labelStyle: TextStyle(color: p.muted, fontSize: 13),

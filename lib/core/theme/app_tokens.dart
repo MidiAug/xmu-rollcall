@@ -301,7 +301,7 @@ abstract final class AppDensity {
   static double controlHeight(BuildContext context) =>
       switch (Theme.of(context).platform) {
         TargetPlatform.android || TargetPlatform.iOS => 44,
-        _ => 40,
+        _ => 36,
       };
   static const desktopRow = 44.0;
   static const touchRow = 44.0;

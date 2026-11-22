@@ -180,10 +180,13 @@ class _HomeworkMetadataRow extends StatelessWidget {
           SizedBox(
             key: ValueKey('homework-submission-${item.id}'),
             width: AppStatusBadge.widthOf(context, '成绩未公布'),
-            child: _HomeworkCompactBadge(
-              item: item,
-              state: state,
-              placeholder: placeholder,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: _HomeworkCompactBadge(
+                item: item,
+                state: state,
+                placeholder: placeholder,
+              ),
             ),
           )
         else
@@ -192,7 +195,10 @@ class _HomeworkMetadataRow extends StatelessWidget {
             width: statusWidth,
             child: submission == null
                 ? const SizedBox.shrink()
-                : badge(submission, submissionColor),
+                : Align(
+                    alignment: Alignment.centerLeft,
+                    child: badge(submission, submissionColor),
+                  ),
           ),
         if (grading != null && !compact)
           KeyedSubtree(

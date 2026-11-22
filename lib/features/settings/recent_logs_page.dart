@@ -92,6 +92,7 @@ class _RecentLogsPageState extends ConsumerState<RecentLogsPage> {
                       ),
                   child: AppSearchField(
                     controller: _queryCtrl,
+                    compact: true,
                     hintText: '搜索 opId / rollcallId',
                     onChanged: (v) => setState(() => _query = v),
                   ),

@@ -438,32 +438,111 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                             ),
                       ],
                     );
-                    final course = AppToolbarChoice<String>(
+                    AppToolbarChoice<String> courseChoice({
+                      bool expandLabel = false,
+                      double? height,
+                    }) => AppToolbarChoice<String>(
                       key: const ValueKey('history-course-filter'),
                       title: '筛选课程',
                       value: courseId,
                       items: courses.keys.toList(),
                       labelOf: (id) => courses[id]!,
                       trailingOf: (id) => '(${courseCount(id)})',
+                      expandLabel: expandLabel,
+                      height: height,
                       onChanged: (id) => setState(() => _courseId = id),
                     );
                     if (!wide) {
+                      final p = AppPalette.of(context);
+                      final secondaryActive =
+                          _type != HistoryTypeFilter.all ||
+                          _period != _HistoryPeriod.all;
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           status,
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 10),
                           Row(
                             children: [
-                              Expanded(child: course),
-                              const SizedBox(width: 8),
-                              TextButton.icon(
-                                key: const ValueKey(
-                                  'history-secondary-filters',
+                              Expanded(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: p.surface,
+                                    border: Border.all(color: p.surfaceBorder),
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadii.control,
+                                    ),
+                                    boxShadow: AppGlassSurface.groupShadows(p),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadii.control,
+                                    ),
+                                    child: courseChoice(
+                                      expandLabel: true,
+                                      height: 44,
+                                    ),
+                                  ),
                                 ),
-                                onPressed: _showSecondaryFilters,
-                                icon: const Icon(AppIcons.filter, size: 16),
-                                label: const Text('类型与时间'),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadii.control,
+                                    ),
+                                    boxShadow: AppGlassSurface.groupShadows(p),
+                                  ),
+                                  child: AppHoverSurface(
+                                    key: const ValueKey(
+                                      'history-secondary-filters',
+                                    ),
+                                    backgroundColor: secondaryActive
+                                        ? p.accentSoft
+                                        : p.surface,
+                                    borderColor: secondaryActive
+                                        ? p.accentRim
+                                        : p.surfaceBorder,
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadii.control,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    onTap: _showSecondaryFilters,
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        minHeight: 42,
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              '类型与时间',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: AppTypography.control
+                                                  .copyWith(
+                                                    color: secondaryActive
+                                                        ? p.primary
+                                                        : p.ink,
+                                                  ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            AppIcons.down,
+                                            size: 14,
+                                            color: secondaryActive
+                                                ? p.primary
+                                                : p.muted,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
@@ -479,7 +558,8 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                       children: [
                         status,
                         SizedBox(
-                          width: (344 * scale).clamp(0, bounds.maxWidth),
+                          key: const ValueKey('history-desktop-filters'),
+                          width: (408 * scale).clamp(0, bounds.maxWidth),
                           child: AppGlassSurface(
                             blur: 0,
                             opacity: 1,
@@ -489,6 +569,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                             child: Row(
                               children: [
                                 Expanded(
+                                  flex: 2,
                                   child: AppToolbarChoice<HistoryTypeFilter>(
                                     key: const ValueKey('history-type-filter'),
                                     title: '签到类型',
@@ -504,13 +585,14 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                                   height: 18,
                                   color: AppPalette.of(context).divider,
                                 ),
-                                Expanded(child: course),
+                                Expanded(flex: 3, child: courseChoice()),
                                 Container(
                                   width: 1,
                                   height: 18,
                                   color: AppPalette.of(context).divider,
                                 ),
                                 Expanded(
+                                  flex: 2,
                                   child: AppToolbarChoice<_HistoryPeriod>(
                                     key: const ValueKey('history-date-filter'),
                                     title: '时间范围',

@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/campus/campus_tools_page.dart';
@@ -835,6 +836,12 @@ void main() {
             '学武',
           );
           await tester.pumpAndSettle();
+          if (width >= 800) {
+            expect(
+              tester.getSize(find.byKey(const ValueKey('atlas-search'))).height,
+              36.0,
+            );
+          }
           expect(
             find.byKey(const ValueKey('atlas-building-xa-xuewu')),
             findsOneWidget,
@@ -849,7 +856,7 @@ void main() {
           await tester.pumpAndSettle();
           if (width < 800) {
             expect(find.byKey(const ValueKey('atlas-search')), findsNothing);
-            await tester.tap(find.widgetWithText(ChoiceChip, 'A区'));
+            await tester.tap(find.widgetWithText(AppFilterChoice, 'A区'));
           } else {
             await tester.tap(
               find.byKey(const ValueKey('atlas-region-xa-xuewu:A')),
