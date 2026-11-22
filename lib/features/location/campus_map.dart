@@ -562,3 +562,54 @@ class CampusSelector extends StatelessWidget {
           );
   }
 }
+
+/// Left-aligned campus selector strip shared by campus atlas and saved locations.
+class CampusWorkspaceHeader extends StatelessWidget {
+  const CampusWorkspaceHeader({
+    super.key,
+    required this.campus,
+    required this.onChanged,
+    this.padding = EdgeInsets.zero,
+    this.maxWidth = 344,
+  });
+  final Campus campus;
+  final ValueChanged<Campus> onChanged;
+  final EdgeInsetsGeometry padding;
+  final double maxWidth;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: padding,
+    child: Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: CampusSelector(
+          value: campus,
+          expanded: true,
+          onChanged: onChanged,
+        ),
+      ),
+    ),
+  );
+}
+
+/// Grouped card container for the left directory rail beside a campus map.
+class CampusDirectoryCard extends StatelessWidget {
+  const CampusDirectoryCard({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: p.surface,
+        border: Border.all(color: p.surfaceBorder),
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        boxShadow: AppGlassSurface.groupShadows(p),
+      ),
+      child: child,
+    );
+  }
+}

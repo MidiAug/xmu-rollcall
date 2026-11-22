@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/core/network/request_failure.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'ta_models.dart';
 
@@ -164,4 +165,31 @@ class TaStudentRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class TaFailureView extends StatelessWidget {
+  const TaFailureView({super.key, required this.error, required this.retry});
+  final Object error;
+  final VoidCallback retry;
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          error is StateError && (error as StateError).message == '请先登录'
+              ? '请先登录后查看助教课程'
+              : error is FormatException
+              ? (error as FormatException).message
+              : requestFailureMessage(error),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton(
+          style: AppControlStyle.inlineOutlined(context),
+          onPressed: retry,
+          child: const Text('重试'),
+        ),
+      ],
+    ),
+  );
 }

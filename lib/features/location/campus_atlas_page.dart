@@ -275,29 +275,19 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Padding(
+                CampusWorkspaceHeader(
+                  campus: _campus,
                   padding: EdgeInsets.fromLTRB(
                     mobile ? 16 : 0,
                     8,
                     mobile ? 16 : 0,
                     16,
                   ),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: mobile ? double.infinity : 344,
-                      ),
-                      child: CampusSelector(
-                        value: _campus,
-                        expanded: true,
-                        onChanged: (c) {
-                          setState(() => _campus = c);
-                          _overview();
-                        },
-                      ),
-                    ),
-                  ),
+                  maxWidth: mobile ? double.infinity : 344,
+                  onChanged: (c) {
+                    setState(() => _campus = c);
+                    _overview();
+                  },
                 ),
                 Expanded(
                   child: Row(
@@ -306,17 +296,7 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
                         SizedBox(
                           key: const ValueKey('atlas-desktop-directory'),
                           width: (frame.maxWidth * .24).clamp(200.0, 280.0),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: p.surface,
-                              border: Border.all(color: p.surfaceBorder),
-                              borderRadius: BorderRadius.circular(
-                                AppRadii.card,
-                              ),
-                              boxShadow: AppGlassSurface.groupShadows(p),
-                            ),
-                            child: _directory(),
-                          ),
+                          child: CampusDirectoryCard(child: _directory()),
                         ),
                         const SizedBox(width: 16),
                       ],

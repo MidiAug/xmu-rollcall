@@ -87,19 +87,10 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Padding(
+                    CampusWorkspaceHeader(
                       padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 344),
-                          child: CampusSelector(
-                            value: campus,
-                            expanded: true,
-                            onChanged: (v) => setState(() => _campus = v),
-                          ),
-                        ),
-                      ),
+                      campus: campus,
+                      onChanged: (v) => setState(() => _campus = v),
                     ),
                     Expanded(child: manager),
                   ],
@@ -436,13 +427,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
             child: LayoutBuilder(
               builder: (context, bounds) {
                 final wide = useSplit;
-                final list = Container(
-                  decoration: BoxDecoration(
-                    color: p.surface,
-                    border: Border.all(color: p.surfaceBorder),
-                    borderRadius: BorderRadius.circular(AppRadii.card),
-                    boxShadow: AppGlassSurface.groupShadows(p),
-                  ),
+                final list = CampusDirectoryCard(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
