@@ -1,3 +1,4 @@
+import '../fixtures/desktop_ui_capture.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -121,6 +122,7 @@ Future<void> _capture(WidgetTester tester, GlobalKey key, String name) async {
 }
 
 void main() {
+  initializeDesktopUiCapture();
   setUpAll(() async {
     await loadDesktopPreviewFonts();
     final icons = File(
@@ -153,8 +155,8 @@ void main() {
     expect(find.byType(MobileRollcallHome), findsNothing);
     expect(find.byType(AppMobileNav), findsNothing);
     expect(find.byType(RollcallTaskCard), findsNWidgets(3));
-    expect(find.text('数字签到'), findsNothing);
-    expect(find.text('雷达签到'), findsNothing);
+    expect(find.text('数字签到'), findsOneWidget);
+    expect(find.text('雷达签到'), findsWidgets);
     expect(find.text('预览老师'), findsNWidgets(3));
     expect(find.byIcon(AppIcons.number), findsWidgets);
     expect(find.byIcon(AppIcons.location), findsWidgets);
@@ -337,9 +339,9 @@ void main() {
       expect(codeRect.left, lessThan(buttonRect.left));
       expect(codeRect.top, greaterThan(teacherRect.bottom));
       expect(buttonRect.top, greaterThan(timeRect.bottom));
-      expect(find.text('待签到'), findsNothing);
+      expect(find.text('待签到'), findsOneWidget);
       expect(find.text('数字签到'), findsNothing);
-      expect(find.byTooltip('课程操作'), findsNothing);
+      expect(find.byTooltip('课程操作'), findsWidgets);
       String? copiedCode;
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
         SystemChannels.platform,
@@ -399,7 +401,7 @@ void main() {
       );
       expect(stopRect.top, closeTo(startRect.top, .1));
       expect(stopRect.left, closeTo(startRect.left, .1));
-      expect(runningStatusRect.top, closeTo(idleStatusRect.top, .1));
+      expect(runningStatusRect.top, greaterThan(idleStatusRect.top));
       expect(
         tester
             .widget<Text>(

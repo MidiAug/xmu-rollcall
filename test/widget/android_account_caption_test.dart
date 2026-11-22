@@ -7,9 +7,13 @@ import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account_menu.dart';
 
 void main() {
-  for (final platform in [TargetPlatform.android, TargetPlatform.windows]) {
+  for (final platform in [
+    TargetPlatform.android,
+    TargetPlatform.iOS,
+    TargetPlatform.windows,
+  ]) {
     testWidgets(
-      'masthead identity selection keeps callback and platform style $platform',
+      'masthead identity selection keeps callback across platforms $platform',
       (tester) async {
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
@@ -38,10 +42,7 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(
-          find.byType(AppSelectTrigger),
-          platform == TargetPlatform.android ? findsNothing : findsOneWidget,
-        );
+        expect(find.byType(AppSelectTrigger), findsNothing);
         await tester.tap(find.text('主账号'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('协助同学'));

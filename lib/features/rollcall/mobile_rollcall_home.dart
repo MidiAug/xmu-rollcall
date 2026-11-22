@@ -3,7 +3,6 @@ import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:xmu_rollcall/app/mobile_campus_header.dart';
 import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/network/request_failure.dart';
@@ -216,117 +215,73 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
-              child: MobileCampusHeader(
+              child: Padding(
+                key: const ValueKey('mobile-rollcall-header'),
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Expanded(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              Text(
-                                '签到',
-                                style: TextStyle(
-                                  fontSize: 28,
-                                  height: 1.3,
-                                  fontWeight: FontWeight.w700,
-                                  color: p.ink,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Flexible(
-                                child: Semantics(
-                                  label:
-                                      '${now.month}月${now.day}日 周${'一二三四五六日'[now.weekday - 1]}',
-                                  child: Text(
-                                    MediaQuery.sizeOf(context).width < 360 ||
-                                            MediaQuery.textScalerOf(
-                                                  context,
-                                                ).scale(1) >
-                                                1.15
-                                        ? '${now.month}/${now.day} 周${'一二三四五六日'[now.weekday - 1]}'
-                                        : '${now.month}月${now.day}日 周${'一二三四五六日'[now.weekday - 1]}',
-                                    key: const ValueKey('mobile-home-date'),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: p.muted,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        Expanded(child: accountMenu),
                         _headerIcon('签到记录', AppIcons.history, onHistory),
                         _headerIcon('自动检测设置', AppIcons.settings, onSettings),
                       ],
                     ),
-                    SizedBox(height: android ? 8 : 12),
-                    if (android)
-                      _AndroidAccountActions(
-                        account: accountMenu,
-                        action: Transform.translate(
-                          offset: const Offset(0, 4),
-                          child: headerAction,
-                        ),
-                        status: running
-                            ? const MonitorQuickControl(
-                                style: MonitorControlStyle.mastheadStatus,
-                              )
-                            : Row(
-                                children: [
-                                  Container(
-                                    width: 7,
-                                    height: 7,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: switchError != null
-                                          ? p.danger
-                                          : p.muted.withValues(alpha: .6),
-                                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${now.month}月${now.day}日 周${'一二三四五六日'[now.weekday - 1]}',
+                      key: const ValueKey('mobile-home-date'),
+                      style: AppTypography.body.copyWith(color: p.muted),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Expanded(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(minHeight: 60),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  running
+                                      ? '值守中'
+                                      : items.isNotEmpty &&
+                                            switchError == null &&
+                                            active?.hasError != true
+                                      ? '待签到'
+                                      : headerStatus,
+                                  key: !running && android
+                                      ? const ValueKey(
+                                          'android-detection-status',
+                                        )
+                                      : null,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                    color: switchError == null
+                                        ? p.ink
+                                        : p.danger,
                                   ),
-                                  const SizedBox(width: 7),
-                                  Expanded(
-                                    child: AppTruncatedText(
-                                      headerStatus,
-                                      key: const ValueKey(
-                                        'android-detection-status',
-                                      ),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        height: 1.5,
-                                        color: switchError != null
-                                            ? p.danger
-                                            : p.muted,
-                                      ),
-                                    ),
+                                ),
+                                if (running) ...[
+                                  const SizedBox(height: 4),
+                                  const MonitorQuickControl(
+                                    style: MonitorControlStyle.mastheadStatus,
                                   ),
                                 ],
-                              ),
-                      )
-                    else
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          SizedBox(
-                            width: items.isNotEmpty ? 140 : 180,
-                            child: accountMenu,
-                          ),
-                          if (items.isNotEmpty)
-                            const MonitorQuickControl(
-                              style: MonitorControlStyle.quiet,
+                              ],
                             ),
-                        ],
-                      ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        headerAction,
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -337,46 +292,7 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     SizedBox(height: android ? 0 : 20),
-                    if (!android && !signedIn)
-                      _HomeStatus(
-                        title: '登录后查看课堂签到',
-                        action: FilledButton(
-                          onPressed: () => showLoginDialog(context),
-                          child: const Text('登录'),
-                        ),
-                      )
-                    else if (!android && checking)
-                      const _HomeStatus(
-                        title: '正在确认最新状态…',
-                        action: SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    else if (!android && switchError != null)
-                      _HomeStatus(
-                        title: switchError,
-                        action: TextButton(
-                          onPressed: onRetryIdentity,
-                          child: const Text('重试'),
-                        ),
-                      )
-                    else ...[
-                      if (!android && items.isEmpty)
-                        _HomeStatus(
-                          title: running ? '正在检测签到' : '尚未开始检测',
-                          detail: outsideDetectionWindow
-                              ? updatedLabel
-                              : running
-                              ? null
-                              : '暂无进行中的签到',
-                          action: const MonitorQuickControl(
-                            style: MonitorControlStyle.prominent,
-                          ),
-                        ),
-                      if (android && items.isNotEmpty)
-                        const SizedBox(height: 20),
+                    ...[
                       for (final item in items)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
@@ -422,14 +338,10 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
                     ],
                     if (signedIn) ...[
                       const SizedBox(height: 20),
-                      DecoratedBox(
+                      KeyedSubtree(
                         key: const ValueKey('mobile-context-surface'),
-                        decoration: BoxDecoration(
-                          color: p.surface,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
                         child: Padding(
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.zero,
                           child: CampusContextView(
                             data: data,
                             now: now,
@@ -508,119 +420,4 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
       ),
     );
   }
-}
-
-class _HomeStatus extends StatelessWidget {
-  const _HomeStatus({required this.title, required this.action, this.detail});
-  final String title;
-  final String? detail;
-  final Widget action;
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: p.surface,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final stacked =
-              constraints.maxWidth < 300 ||
-              MediaQuery.textScalerOf(context).scale(1) > 1.15;
-          final caption = Row(
-            children: [
-              Container(
-                width: 9,
-                height: 9,
-                decoration: BoxDecoration(
-                  color: p.muted.withValues(alpha: .6),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: p.ink,
-                  ),
-                ),
-              ),
-            ],
-          );
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (stacked) ...[
-                caption,
-                const SizedBox(height: 12),
-                Align(alignment: Alignment.centerRight, child: action),
-              ] else
-                Row(
-                  children: [
-                    Expanded(child: caption),
-                    const SizedBox(width: 12),
-                    action,
-                  ],
-                ),
-              if (detail != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  detail!,
-                  style: TextStyle(fontSize: 12, color: p.muted, height: 1.5),
-                ),
-              ],
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _AndroidAccountActions extends StatelessWidget {
-  const _AndroidAccountActions({
-    required this.account,
-    required this.action,
-    this.status,
-  });
-  final Widget? status;
-  final Widget account, action;
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, bounds) {
-      final stacked =
-          bounds.maxWidth < 330 ||
-          MediaQuery.textScalerOf(context).scale(1) > 1.15;
-      if (stacked) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            account,
-            ?status,
-            const SizedBox(height: 4),
-            Align(alignment: Alignment.centerRight, child: action),
-          ],
-        );
-      }
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [account, ?status],
-            ),
-          ),
-          const SizedBox(width: 12),
-          action,
-        ],
-      );
-    },
-  );
 }

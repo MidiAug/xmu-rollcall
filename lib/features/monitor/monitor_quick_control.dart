@@ -45,7 +45,6 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
       final monitor = ref.read(monitorControllerProvider);
       if (monitor.running) {
         if (widget.style == MonitorControlStyle.mastheadStatus &&
-            Theme.of(context).platform == TargetPlatform.android &&
             monitor.discovering &&
             !monitor.waitingForWindow) {
           setState(() {});
@@ -81,9 +80,8 @@ class _MonitorQuickControlState extends ConsumerState<MonitorQuickControl> {
     final prominent = style == MonitorControlStyle.prominent;
     final masthead =
         (style == MonitorControlStyle.masthead ||
-            style == MonitorControlStyle.mastheadQuiet ||
-            style == MonitorControlStyle.mastheadStatus) &&
-        Theme.of(context).platform == TargetPlatform.android;
+        style == MonitorControlStyle.mastheadQuiet ||
+        style == MonitorControlStyle.mastheadStatus);
     final statusOnly = masthead && style == MonitorControlStyle.mastheadStatus;
     final mastheadStyle = OutlinedButton.styleFrom(
       minimumSize: const Size(0, 32),

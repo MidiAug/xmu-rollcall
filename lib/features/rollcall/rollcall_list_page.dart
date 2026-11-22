@@ -6,7 +6,6 @@ import 'package:xmu_rollcall/features/location/place_providers.dart';
 import 'package:xmu_rollcall/features/location/place_matching.dart';
 import 'package:xmu_rollcall/features/location/location_validation_store.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
-import 'package:xmu_rollcall/app/campus_artwork.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
@@ -777,115 +776,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     final item = widget.item;
     final title = item.courseTitle.isEmpty ? '未命名课程' : item.courseTitle;
     if (_desktop) return _desktopCard(p, item, title);
-    if (Theme.of(context).platform == TargetPlatform.android) {
-      return _androidCard(p, item, title);
-    }
     return _mobileCard(p, item, title);
-  }
-
-  Widget _androidCard(AppPalette p, RollcallItem item, String title) {
-    final done = _answered;
-    final unavailable = item.isExpired || item.type == RollcallType.unknown;
-    final active = activeRollcallsProvider(widget.assistUserId);
-    final fetchedAt = ref.exists(active)
-        ? ref.read(active.notifier).lastUpdatedAt?.toLocal()
-        : null;
-    final updatedLabel = fetchedAt == null
-        ? widget.mobileSummary
-        : '更新于 ${fetchedAt.hour.toString().padLeft(2, '0')}:${fetchedAt.minute.toString().padLeft(2, '0')}';
-    return Container(
-      key: ValueKey('mobile-rollcall-${item.rollcallId}'),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: p.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: p.mobileOutline),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AppTruncatedText(
-                      title,
-                      style: TextStyle(
-                        fontSize: 19,
-                        height: 1.35,
-                        fontWeight: FontWeight.w600,
-                        color: p.ink,
-                      ),
-                    ),
-                    if (item.createdByName.trim().isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        item.createdByName.trim(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          height: 1.5,
-                          color: p.muted,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 14),
-              SizedBox(
-                width: 110,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    _attendance(item, compact: true),
-                    if (updatedLabel != null) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        updatedLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          height: 1.4,
-                          color: p.muted,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(child: _taskMethod(p, item)),
-              const SizedBox(width: 16),
-              if (item.isRadar)
-                FutureBuilder<_RadarTaskLocation>(
-                  future: _locationDisplay,
-                  builder: (context, snapshot) => _taskActionButton(
-                    item,
-                    done: done,
-                    unavailable: unavailable,
-                    resolving:
-                        snapshot.connectionState == ConnectionState.waiting,
-                    hasLocation: snapshot.data?.point != null,
-                  ),
-                )
-              else
-                _taskActionButton(item, done: done, unavailable: unavailable),
-            ],
-          ),
-        ],
-      ),
-    );
   }
 
   TextStyle _taskMethodTextStyle(AppPalette p) => TextStyle(
@@ -902,10 +793,10 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
           children: [
             Icon(
               AppIcons.number,
-              size: MediaQuery.textScalerOf(
-                context,
-              ).scale(item.numberCode?.isNotEmpty == true ? 22 : 18),
-              color: p.ink,
+              size: MediaQuery.textScalerOf(context).scale(
+                item.numberCode?.isNotEmpty == true ? (_desktop ? 28 : 30) : 18,
+              ),
+              color: p.primary,
             ),
             const SizedBox(width: 8),
             Expanded(child: _codeAnchor(p, item, wide: false)),
@@ -938,13 +829,13 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     bool resolving = false,
     bool hasLocation = true,
   }) => SizedBox(
-    width: _desktop ? 144 : 96,
+    width: _desktop ? 144 : 104,
     child: FilledButton(
       onPressed: done || unavailable || _submitting || resolving
           ? null
           : _submitTask,
       style: FilledButton.styleFrom(
-        minimumSize: _desktop ? const Size(144, 48) : const Size(72, 36),
+        minimumSize: _desktop ? const Size(144, 48) : const Size(104, 44),
         disabledBackgroundColor: done
             ? AppPalette.of(context).successSurface
             : null,
@@ -974,145 +865,107 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
   Widget _mobileCard(AppPalette p, RollcallItem item, String title) {
     final done = _answered;
     final unavailable = item.isExpired || item.type == RollcallType.unknown;
-    final tone = done
-        ? p.success
-        : unavailable
-        ? p.muted
-        : p.primary;
-    final room = widget.meeting?.room.trim();
-    final subtitle = room?.isNotEmpty == true
-        ? room!
-        : item.createdByName.trim();
-    return Container(
+    final active = activeRollcallsProvider(widget.assistUserId);
+    final fetchedAt = ref.exists(active)
+        ? ref.read(active.notifier).lastUpdatedAt?.toLocal()
+        : null;
+    final updatedLabel = fetchedAt == null
+        ? null
+        : '更新于 ${fetchedAt.hour.toString().padLeft(2, '0')}:${fetchedAt.minute.toString().padLeft(2, '0')}';
+    return AppGlassSurface(
       key: ValueKey('mobile-rollcall-${item.rollcallId}'),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: p.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: tone.withValues(alpha: .2)),
-      ),
+      blur: 0,
+      opacity: 1,
+      hero: !done && !unavailable,
+      borderRadius: BorderRadius.circular(AppRadii.hero),
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          AppTruncatedText(
+            title,
+            style: TextStyle(
+              fontSize: 19,
+              height: 1.4,
+              fontWeight: FontWeight.w600,
+              color: p.ink,
+            ),
+          ),
+          const SizedBox(height: 8),
           Row(
             children: [
-              Container(
-                width: 9,
-                height: 9,
-                decoration: BoxDecoration(color: tone, shape: BoxShape.circle),
-              ),
-              const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  done
-                      ? '签到完成'
-                      : item.isExpired
-                      ? '已结束'
-                      : '待签到',
-                  style: TextStyle(
-                    color: tone,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+                child: AppTruncatedText(
+                  item.createdByName.trim(),
+                  style: AppTypography.body.copyWith(color: p.muted),
                 ),
               ),
-              Text(
-                item.isRadar ? '定位签到' : '${item.typeLabel}签到',
-                style: TextStyle(color: p.muted, fontSize: 12),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    _attendance(item, compact: true),
+                    if (updatedLabel != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        updatedLabel,
+                        style: AppTypography.caption.copyWith(color: p.muted),
+                      ),
+                    ],
+                  ],
+                ),
               ),
               if (item.courseId?.isNotEmpty == true && !done)
                 _courseMenu(p, item),
             ],
           ),
-          const SizedBox(height: 12),
-          AppTruncatedText(
-            title,
-            style: TextStyle(
-              fontSize: 20,
-              height: 1.4,
-              color: p.ink,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (subtitle.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  room?.isNotEmpty == true
-                      ? AppIcons.location
-                      : AppIcons.person,
-                  size: 16,
-                  color: p.muted,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    subtitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: p.muted, fontSize: 14, height: 1.5),
-                  ),
-                ),
-              ],
-            ),
-          ],
-          if (Theme.of(context).platform == TargetPlatform.android) ...[
-            if (item.isNumber) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Text('签到码', style: TextStyle(color: p.muted, fontSize: 13)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _codeAnchor(p, item, wide: false)),
-                ],
-              ),
-            ],
-            if (item.isRadar && !done && !unavailable) ...[
-              const SizedBox(height: 12),
-              _radarLocationSummary(p),
-            ],
-            const SizedBox(height: 12),
-            _attendance(item, compact: true),
-          ],
           const SizedBox(height: 16),
-          Wrap(
-            alignment: WrapAlignment.spaceBetween,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              if (widget.mobileSummary != null)
-                Text(
-                  widget.mobileSummary!,
-                  style: TextStyle(color: p.muted, fontSize: 12),
-                ),
-              if (done)
-                FilledButton(
-                  onPressed: null,
-                  style: FilledButton.styleFrom(
-                    disabledBackgroundColor: p.successSurface,
-                    disabledForegroundColor: p.success,
-                    minimumSize: const Size(112, 48),
+          Divider(
+            height: 1,
+            color: !done && !unavailable ? p.heroRim : p.divider,
+          ),
+          const SizedBox(height: 18),
+          LayoutBuilder(
+            builder: (context, bounds) {
+              final stacked =
+                  bounds.maxWidth <
+                  270 * MediaQuery.textScalerOf(context).scale(1);
+              final action = item.isRadar
+                  ? FutureBuilder<_RadarTaskLocation>(
+                      future: _locationDisplay,
+                      builder: (context, snapshot) => _taskActionButton(
+                        item,
+                        done: done,
+                        unavailable: unavailable,
+                        resolving:
+                            snapshot.connectionState == ConnectionState.waiting,
+                        hasLocation: snapshot.data?.point != null,
+                      ),
+                    )
+                  : _taskActionButton(
+                      item,
+                      done: done,
+                      unavailable: unavailable,
+                    );
+              return Flex(
+                direction: stacked ? Axis.vertical : Axis.horizontal,
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: stacked
+                    ? CrossAxisAlignment.stretch
+                    : CrossAxisAlignment.center,
+                children: [
+                  Flexible(child: _taskMethod(p, item)),
+                  SizedBox(width: stacked ? 0 : 16, height: stacked ? 16 : 0),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    widthFactor: 1,
+                    heightFactor: 1,
+                    child: action,
                   ),
-                  child: const Text('已签到'),
-                )
-              else if (!unavailable)
-                FilledButton.icon(
-                  onPressed: _submitting ? null : _submitTask,
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(112, 48),
-                  ),
-                  label: Text(_submitting ? '提交中…' : '去签到'),
-                  icon: const Icon(AppIcons.right, size: 16),
-                  iconAlignment: IconAlignment.end,
-                )
-              else if (item.type == RollcallType.unknown && !done)
-                Text(
-                  '暂不支持此签到类型',
-                  style: TextStyle(color: p.muted, fontSize: 13),
-                ),
-            ],
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -1131,6 +984,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
         expired: item.isExpired,
         completed: _answered,
         compact: compact,
+        prominent: _desktop,
       );
 
   Widget _courseMenu(AppPalette p, RollcallItem item) => AppActionMenu<String>(
@@ -1152,79 +1006,37 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
   );
 
   Widget _desktopCard(AppPalette p, RollcallItem item, String title) {
-    return AnimatedContainer(
-      duration: AppMotion.fast,
-      curve: AppMotion.fastCurve,
-      decoration: BoxDecoration(
-        color: p.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: p.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: p.isDark ? .22 : .05),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
+    final active =
+        !_answered && !item.isExpired && item.type != RollcallType.unknown;
+    return AppGlassSurface(
+      blur: 0,
+      opacity: 1,
+      hero: active,
+      borderRadius: BorderRadius.circular(AppRadii.hero),
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: AppTruncatedText(title, style: _titleStyle(p))),
+              if (item.courseId?.isNotEmpty == true && !_answered)
+                _courseMenu(p, item),
+            ],
           ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: p.isDark ? .12 : .025),
-            blurRadius: 3,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(11),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Stack(
-              children: [
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  width: 340,
-                  height: 145,
-                  child: IgnorePointer(
-                    child: Opacity(
-                      opacity: p.isDark ? .20 : .45,
-                      child: CampusArtworkTreatment(
-                        child: Image.asset(
-                          'assets/illustrations/campus_mist.png',
-                          cacheWidth: 768,
-                          fit: BoxFit.contain,
-                          alignment: Alignment.bottomRight,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(28, 30, 20, 30),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      AppTruncatedText(title, style: _titleStyle(p)),
-                      if (item.createdByName.trim().isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        Text(
-                          item.createdByName.trim(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 14, color: p.muted),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            Divider(color: p.border, height: 1, indent: 28, endIndent: 28),
-            Padding(
-              padding: const EdgeInsets.all(28),
-              child: _desktopTaskStrip(p, item),
+          if (item.createdByName.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              item.createdByName.trim(),
+              style: AppTypography.body.copyWith(color: p.muted),
             ),
           ],
-        ),
+          const SizedBox(height: 24),
+          Divider(height: 1, color: active ? p.heroRim : p.divider),
+          const SizedBox(height: 24),
+          _desktopTaskStrip(p, item),
+        ],
       ),
     );
   }
@@ -1250,35 +1062,61 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final scale = MediaQuery.textScalerOf(context).scale(1);
-        final information = Row(
-          children: [
-            Expanded(flex: 3, child: method),
-            Container(
-              width: 1,
-              height: 40,
-              color: p.borderStrong,
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-            ),
-            Expanded(flex: 2, child: _attendance(item, compact: true)),
-          ],
-        );
-        final stacked = constraints.maxWidth < 520 * scale;
-        // Keep the same element path when the action moves below the metadata.
-        // Replacing Column with Row remounts the count and restarts its request.
-        return Flex(
+        final stacked = constraints.maxWidth < 440 * scale;
+        final information = Flex(
           direction: stacked ? Axis.vertical : Axis.horizontal,
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: stacked
               ? CrossAxisAlignment.stretch
               : CrossAxisAlignment.center,
           children: [
-            Flexible(child: information),
-            SizedBox(width: stacked ? 0 : 20, height: stacked ? 20 : 0),
-            Align(
-              alignment: Alignment.centerRight,
-              widthFactor: 1,
-              heightFactor: 1,
-              child: action,
+            Flexible(
+              flex: 3,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.isNumber ? '签到码' : '${item.typeLabel}签到',
+                    style: AppTypography.caption.copyWith(color: p.muted),
+                  ),
+                  const SizedBox(height: 8),
+                  method,
+                ],
+              ),
+            ),
+            SizedBox(width: stacked ? 0 : 24, height: stacked ? 20 : 0),
+            Flexible(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '已签到人数',
+                    style: AppTypography.caption.copyWith(color: p.muted),
+                  ),
+                  const SizedBox(height: 8),
+                  _attendance(item, compact: true),
+                ],
+              ),
+            ),
+          ],
+        );
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            information,
+            const SizedBox(height: 28),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${item.typeLabel}签到',
+                    style: AppTypography.body.copyWith(color: p.ink),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                action,
+              ],
             ),
           ],
         );
@@ -1335,7 +1173,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
 
   TextStyle _titleStyle(AppPalette palette) {
     return TextStyle(
-      fontSize: _desktop ? 30 : 15,
+      fontSize: _desktop ? 22 : 19,
       fontWeight: FontWeight.w600,
       letterSpacing: -0.2,
       height: 1.25,
@@ -1368,10 +1206,10 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
       code,
       style: TextStyle(
         fontSize: _desktop
-            ? 32
+            ? 44
             : wide
-            ? 28
-            : 22,
+            ? 32
+            : 30,
         fontFamily: _desktop ? 'Segoe UI' : null,
         fontWeight: _desktop ? FontWeight.w700 : FontWeight.w600,
         letterSpacing: _desktop

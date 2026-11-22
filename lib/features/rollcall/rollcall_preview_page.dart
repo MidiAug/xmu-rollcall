@@ -512,6 +512,7 @@ class _RollcallPreviewContentState
                             updatedLabel: updatedLabel,
                             accountMenu: RollcallAccountMenu(
                               masthead: true,
+                              mastheadTitle: '签到',
                               value: 0,
                               identities: const [],
                               ownerName: '预览同学',

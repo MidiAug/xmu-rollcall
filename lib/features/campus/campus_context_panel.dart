@@ -74,118 +74,85 @@ class CampusContextView extends StatelessWidget {
           child: Text(
             title,
             style: TextStyle(
-              fontSize: mobile ? 14 : 16,
+              fontSize: mobile ? 17 : 16,
               fontWeight: FontWeight.w600,
-              color: mobile ? p.muted : p.ink,
+              color: p.ink,
             ),
           ),
         ),
         AppTextLink(action, onPressed: onTap),
       ],
     );
-    if (mobile) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          heading('今日课程', '查看课表', onTimetable),
-          const SizedBox(height: 12),
-          if (loading)
-            const _CampusSummarySkeleton(course: true)
-          else if (summary.visible.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                data.schedule == null ? '尚未获取教务课表' : '今天没有后续课程',
-                style: TextStyle(color: p.muted, fontSize: 14),
-              ),
-            ),
-          if (!loading)
-            for (var i = 0; i < summary.visible.length; i++)
-              _MobileMeetingRow(
-                meeting: summary.visible[i],
-                current: identical(summary.visible[i], summary.current),
-                first: i == 0,
-                last: i == summary.visible.length - 1,
-              ),
-          if (showHomework) ...[
-            const SizedBox(height: 12),
-            Divider(height: 1, color: p.border),
-            const SizedBox(height: 12),
-            heading('待办事项', '查看全部', onHomework),
-            const SizedBox(height: 12),
-            if (loading)
-              const _CampusSummarySkeleton(course: false)
-            else if (pending.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  data.hasHomeworkCache ? '暂无待办事项' : '打开作业查看待办',
-                  style: TextStyle(color: p.muted, fontSize: 14),
-                ),
-              )
-            else
-              _MobileTodoRow(
-                item: pending.first,
-                deadline: _due(pending.first),
-                onTap: () => onOpenHomework(pending.first),
-              ),
-          ],
-        ],
-      );
-    }
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: p.content,
-        borderRadius: BorderRadius.circular(AppRadii.card),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            heading('今日课程', '查看课表', onTimetable),
-            const SizedBox(height: 12),
-            if (loading)
-              const _CampusSummarySkeleton(course: true)
-            else if (summary.visible.isEmpty)
-              Text(
-                data.schedule == null ? '尚未获取教务课表' : '今天没有后续课程',
-                style: TextStyle(color: p.muted, height: 1.7),
-              ),
-            if (!loading && summary.visible.isNotEmpty)
-              Column(
-                children: [
-                  for (var i = 0; i < summary.visible.length; i++)
-                    _MeetingRow(
-                      meeting: summary.visible[i],
-                      current: identical(summary.visible[i], summary.current),
-                      first: i == 0,
-                      last: i == summary.visible.length - 1,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Panel(
+          lifted: true,
+          outlined: true,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              heading('今日课程', '查看课表', onTimetable),
+              const SizedBox(height: 20),
+              if (loading)
+                const _CampusSummarySkeleton(course: true)
+              else if (summary.visible.isEmpty)
+                Text(
+                  data.schedule == null ? '尚未获取教务课表' : '今天没有后续课程',
+                  style: AppTypography.body.copyWith(color: p.muted),
+                )
+              else
+                for (var i = 0; i < summary.visible.length; i++) ...[
+                  if (i > 0)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(78, 16, 0, 16),
+                      child: Divider(height: 1, color: p.divider),
                     ),
+                  _MeetingRow(
+                    meeting: summary.visible[i],
+                    current: identical(summary.visible[i], summary.current),
+                  ),
                 ],
-              ),
-            const SizedBox(height: 16),
-            Divider(color: p.border, height: 1),
-            const SizedBox(height: 24),
-            heading('待办事项', '查看全部', onHomework),
-            const SizedBox(height: 18),
-            if (loading)
-              const _CampusSummarySkeleton(course: false)
-            else if (pending.isEmpty)
-              Text(
-                data.hasHomeworkCache ? '暂无待办事项' : '打开作业查看待办',
-                style: TextStyle(color: p.muted, height: 1.7),
-              )
-            else
-              _TodoPreview(
-                item: pending.first,
-                deadline: _due(pending.first),
-                overdue: pending.first.dueAt?.isBefore(now) == true,
-                onTap: () => onOpenHomework(pending.first),
-              ),
-          ],
+            ],
+          ),
         ),
-      ),
+        if (showHomework) ...[
+          const SizedBox(height: 20),
+          Panel(
+            lifted: true,
+            outlined: true,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                heading('待办事项', '查看全部', onHomework),
+                const SizedBox(height: 18),
+                if (loading)
+                  const _CampusSummarySkeleton(course: false)
+                else if (pending.isEmpty)
+                  Text(
+                    data.hasHomeworkCache ? '暂无待办事项' : '打开作业查看待办',
+                    style: AppTypography.body.copyWith(color: p.muted),
+                  )
+                else if (mobile)
+                  _MobileTodoRow(
+                    item: pending.first,
+                    deadline: _due(pending.first),
+                    onTap: () => onOpenHomework(pending.first),
+                  )
+                else
+                  _TodoPreview(
+                    item: pending.first,
+                    deadline: _due(pending.first),
+                    overdue: pending.first.dueAt?.isBefore(now) == true,
+                    onTap: () => onOpenHomework(pending.first),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -251,142 +218,6 @@ class _CampusSummarySkeleton extends StatelessWidget {
   }
 }
 
-class _MobileMeetingRow extends StatelessWidget {
-  const _MobileMeetingRow({
-    required this.meeting,
-    required this.current,
-    required this.first,
-    required this.last,
-  });
-  final CampusMeeting meeting;
-  final bool current, first, last;
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    String hm(DateTime t) =>
-        '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-    Widget meta(IconData icon, String text) => Row(
-      children: [
-        SizedBox(
-          width: 16,
-          height: MediaQuery.textScalerOf(context).scale(13) * 1.5,
-          child: Center(child: Icon(icon, size: 15, color: p.muted)),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 13, height: 1.5, color: p.muted),
-          ),
-        ),
-      ],
-    );
-    return IntrinsicHeight(
-      key: ValueKey('campus-meeting-${meeting.id}'),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 48 * MediaQuery.textScalerOf(context).scale(1).clamp(1, 2),
-            child: Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text(
-                hm(meeting.start),
-                maxLines: 1,
-                softWrap: false,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.5,
-                  fontWeight: FontWeight.w500,
-                  color: current ? p.primary : p.ink,
-                ),
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 16,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: CampusTimelinePainter(
-                      first: first,
-                      last: last,
-                      color: p.primary.withValues(alpha: .18),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 15,
-                  left: 3,
-                  child: Container(
-                    width: 10,
-                    height: 10,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: current ? p.primary : p.content,
-                      border: Border.all(
-                        color: current ? p.primary : p.muted,
-                        width: 1.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: current
-                      ? p.primary.withValues(alpha: .07)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      meeting.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 16,
-                        height: 1.5,
-                        fontWeight: FontWeight.w600,
-                        color: p.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    meta(
-                      AppIcons.location,
-                      meeting.room.isEmpty ? '教室未提供' : meeting.room,
-                    ),
-                    const SizedBox(height: 2),
-                    meta(
-                      AppIcons.clock,
-                      '${hm(meeting.start)}–${hm(meeting.end)}',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _MobileTodoRow extends StatelessWidget {
   const _MobileTodoRow({
     required this.item,
@@ -424,73 +255,68 @@ class _MobileTodoRow extends StatelessWidget {
               color: p.documentAccent,
             ),
           ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AppTruncatedText(
-                      item.courseName.trim().isEmpty ? '课程作业' : item.courseName,
-                      key: const ValueKey('todo-course-name'),
-                      style: TextStyle(
-                        fontSize: 15,
-                        height: 1.5,
-                        fontWeight: FontWeight.w600,
-                        color: p.ink,
-                      ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppTruncatedText(
+                  item.courseName.trim().isEmpty ? '课程作业' : item.courseName,
+                  key: const ValueKey('todo-course-name'),
+                  style: TextStyle(
+                    fontSize: 15,
+                    height: 1.5,
+                    fontWeight: FontWeight.w600,
+                    color: p.ink,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                AppTruncatedText(
+                  item.title,
+                  key: const ValueKey('mobile-todo-title'),
+                  style: TextStyle(fontSize: 13, height: 1.5, color: p.muted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Tooltip(
+            message: item.dueAt == null ? '' : '截止：${item.dueLabel}',
+            child: SizedBox(
+              width:
+                  64 * MediaQuery.textScalerOf(context).scale(1).clamp(1, 1.5),
+              child: Column(
+                key: const ValueKey('todo-deadline'),
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    parts.first,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.5,
+                      fontWeight: FontWeight.w500,
+                      color: deadline == '已截止' ? p.warning : p.ink,
                     ),
+                  ),
+                  if (parts.length > 1) ...[
                     const SizedBox(height: 3),
-                    AppTruncatedText(
-                      item.title,
-                      key: const ValueKey('mobile-todo-title'),
+                    Text(
+                      parts.last,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 12,
                         height: 1.5,
                         color: p.muted,
                       ),
                     ),
                   ],
-                ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Tooltip(
-                message: item.dueAt == null ? '' : '截止：${item.dueLabel}',
-                child: SizedBox(
-                  width:
-                      64 *
-                      MediaQuery.textScalerOf(context).scale(1).clamp(1, 1.5),
-                  child: Column(
-                    key: const ValueKey('todo-deadline'),
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        parts.first,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 13,
-                          height: 1.5,
-                          fontWeight: FontWeight.w500,
-                          color: deadline == '已截止' ? p.warning : p.ink,
-                        ),
-                      ),
-                      if (parts.length > 1) ...[
-                        const SizedBox(height: 3),
-                        Text(
-                          parts.last,
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 1.5,
-                            color: p.muted,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
+        ],
+      ),
     );
   }
 }
@@ -609,169 +435,76 @@ class _TodoPreview extends StatelessWidget {
 }
 
 class _MeetingRow extends StatelessWidget {
-  const _MeetingRow({
-    required this.meeting,
-    required this.current,
-    required this.first,
-    required this.last,
-  });
+  const _MeetingRow({required this.meeting, required this.current});
   final CampusMeeting meeting;
-  final bool current, first, last;
+  final bool current;
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final scale = MediaQuery.textScalerOf(context).scale(1);
     String hm(DateTime t) =>
         '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
-    Widget metadata(IconData icon, String label) => Row(
+    return Row(
+      key: ValueKey('campus-meeting-${meeting.id}'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          width: 14,
-          height: MediaQuery.textScalerOf(context).scale(12) * 1.5,
-          child: Center(child: Icon(icon, size: 14, color: p.muted)),
-        ),
-        const SizedBox(width: 5),
-        Expanded(
-          child: Text(
-            label,
-            style: TextStyle(fontSize: 12, color: p.muted, height: 1.5),
+          width: 48 * scale,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                hm(meeting.start),
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: current ? p.primary : p.ink,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                hm(meeting.end),
+                style: TextStyle(fontSize: 12, height: 1.5, color: p.subtle),
+              ),
+            ],
           ),
         ),
-      ],
-    );
-    return IntrinsicHeight(
-      key: ValueKey('campus-meeting-${meeting.id}'),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            width: 14,
-            child: Stack(
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(
+            key: ValueKey('campus-meeting-bar-${meeting.id}'),
+            padding: const EdgeInsets.only(left: 12),
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                  width: current ? 2 : 1,
+                  color: current ? p.primary : p.divider,
+                ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: CampusTimelinePainter(
-                      first: first,
-                      last: last,
-                      color: p.primary.withValues(alpha: .3),
-                    ),
+                AppTruncatedText(
+                  meeting.title,
+                  style: TextStyle(
+                    fontSize: 15,
+                    height: 1.5,
+                    fontWeight: FontWeight.w600,
+                    color: p.ink,
                   ),
                 ),
-                Positioned(
-                  top: 15,
-                  left: 0,
-                  child: Icon(
-                    Icons.circle,
-                    size: 14,
-                    color: current ? p.primary : p.muted.withValues(alpha: .4),
-                  ),
+                const SizedBox(height: 6),
+                Text(
+                  meeting.room.isEmpty ? '教室未提供' : meeting.room,
+                  style: AppTypography.body.copyWith(color: p.muted),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          Padding(
-            padding: const EdgeInsets.only(top: 11),
-            child: Text(
-              hm(meeting.start),
-              style: TextStyle(
-                fontSize: 14,
-                color: current ? p.primary : p.muted,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(10, 8, 8, 10),
-                decoration: BoxDecoration(
-                  color: current ? p.selected : p.surface,
-                  border: Border.all(
-                    color: current
-                        ? p.primary.withValues(alpha: .25)
-                        : p.border,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      meeting.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        height: 1.6,
-                        color: p.ink,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    metadata(
-                      AppIcons.location,
-                      meeting.room.isEmpty ? '教室未提供' : meeting.room,
-                    ),
-                    const SizedBox(height: 6),
-                    metadata(
-                      AppIcons.clock,
-                      '${hm(meeting.start)}–${hm(meeting.end)}',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
-}
-
-/// Short tapered tails extend six pixels beyond the first/last card edge.
-class CampusTimelinePainter extends CustomPainter {
-  const CampusTimelinePainter({
-    required this.first,
-    required this.last,
-    required this.color,
-  });
-  final bool first, last;
-  final Color color;
-  @override
-  void paint(Canvas canvas, Size size) {
-    final x = size.width / 2;
-    final top = first ? 2.0 : 0.0;
-    final bottom = last ? size.height - 2 : size.height;
-    final startWidth = first ? 0.5 : 1.5;
-    final endWidth = last ? 0.5 : 1.5;
-    final span = bottom - top;
-    final path = Path()
-      ..moveTo(x - startWidth, top)
-      ..cubicTo(
-        x - 1.5,
-        top + span * .3,
-        x - 1.5,
-        bottom - span * .3,
-        x - endWidth,
-        bottom,
-      )
-      ..lineTo(x + endWidth, bottom)
-      ..cubicTo(
-        x + 1.5,
-        bottom - span * .3,
-        x + 1.5,
-        top + span * .3,
-        x + startWidth,
-        top,
-      )
-      ..close();
-    canvas.drawPath(path, Paint()..color = color);
-  }
-
-  @override
-  bool shouldRepaint(CampusTimelinePainter old) =>
-      first != old.first || last != old.last || color != old.color;
 }

@@ -47,6 +47,7 @@ class AttendanceCountRow extends ConsumerStatefulWidget {
     this.assistUserId,
     this.compact = false,
     this.completed = false,
+    this.prominent = false,
   });
 
   final int rollcallId;
@@ -54,6 +55,7 @@ class AttendanceCountRow extends ConsumerStatefulWidget {
   final bool expired;
   final bool compact;
   final bool completed;
+  final bool prominent;
 
   @override
   ConsumerState<AttendanceCountRow> createState() => _AttendanceCountRowState();
@@ -307,13 +309,14 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
                     Icon(AppIcons.people, size: 20, color: p.ink),
                     const SizedBox(width: 8),
                     Flexible(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          softWrap: false,
-                          style: TextStyle(fontSize: 13, color: p.ink),
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: widget.prominent ? 18 : 13,
+                          fontWeight: widget.prominent
+                              ? FontWeight.w600
+                              : FontWeight.w400,
+                          color: p.ink,
                         ),
                       ),
                     ),

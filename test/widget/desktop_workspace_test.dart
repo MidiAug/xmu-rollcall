@@ -1069,18 +1069,15 @@ void main() {
         tester.renderObject<RenderParagraph>(courseTitle).didExceedMaxLines,
         isTrue,
       );
-      expect(find.byIcon(AppIcons.clock), findsOneWidget);
+      expect(find.text('14:30'), findsOneWidget);
+      expect(find.text('16:10'), findsOneWidget);
       expect(
-        tester.getTopLeft(find.byIcon(AppIcons.clock)).dx,
-        tester.getTopLeft(find.byIcon(AppIcons.location)).dx,
+        tester.getTopLeft(find.text('14:30')).dx,
+        tester.getTopLeft(find.text('16:10')).dx,
       );
       expect(
-        tester.getCenter(find.byIcon(AppIcons.location)).dy,
-        closeTo(tester.getCenter(find.text('教学楼 A301')).dy, .1),
-      );
-      expect(
-        tester.getCenter(find.byIcon(AppIcons.clock)).dy,
-        closeTo(tester.getCenter(find.text('14:30–16:10')).dy, .1),
+        tester.getTopLeft(find.text('教学楼 A301')).dx,
+        tester.getTopLeft(courseTitle).dx,
       );
       expect(tester.takeException(), isNull);
       if (Platform.environment['CAPTURE_DESKTOP_WORKSPACE'] == '1') {

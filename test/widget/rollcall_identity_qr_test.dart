@@ -357,88 +357,85 @@ void main() {
     return service;
   }
 
-  testWidgets(
-    'desktop sidebar is the single account entry across both pages',
-    (tester) async {
-      tester.view.physicalSize = const Size(960, 720);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final service = await show(tester, const AdaptiveShell());
-      final menu = find.byKey(const ValueKey('rollcall-identity-menu'));
-      expect(menu, findsOneWidget);
-      expect(
-        find.descendant(of: find.byType(AppSidebar), matching: menu),
-        findsOneWidget,
-      );
-      expect(find.text('主号'), findsOneWidget);
-      await captureDesktopUi(tester, 'sidebar-rollcall');
-      Navigator.of(tester.element(find.byType(RollcallHubPage))).push(
-        MaterialPageRoute<void>(
-          builder: (_) => const Scaffold(body: Text('旧账号签到详情')),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(menu);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('未签同学').last);
-      await tester.pumpAndSettle();
-      expect(find.text('协助课程'), findsOneWidget);
-      expect(find.text('旧账号签到详情'), findsNothing);
-      expect(service.sessions, contains(2));
-      await tester.tap(find.text('作业').first);
-      await tester.pumpAndSettle();
-      expect(find.text('未签同学'), findsOneWidget);
-      expect(find.text('协助作业'), findsOneWidget);
-      final refresh = find.byKey(const ValueKey('homework-refresh'));
-      expect(refresh, findsOneWidget);
-      expect(
-        find.descendant(of: find.byType(AppTitleBar), matching: refresh),
-        findsNothing,
-      );
-      expect(
-        find.descendant(
-          of: find.byType(HomeworkHubPage),
-          matching: find.byType(AppRefreshButton),
-        ),
-        findsOneWidget,
-      );
-      await tester.tap(refresh);
-      await tester.pumpAndSettle();
-      expect(_homeworkManualChecks, 1);
-      await captureDesktopUi(tester, 'homework-title-refresh');
-      Navigator.of(tester.element(find.byType(HomeworkHubPage))).push(
-        MaterialPageRoute<void>(
-          builder: (_) => const Scaffold(body: Text('旧账号作业详情')),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(refresh, findsNothing);
-      await tester.tap(menu);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('主号').last);
-      await tester.pumpAndSettle();
-      expect(find.text('主号作业'), findsOneWidget);
-      expect(find.text('旧账号作业详情'), findsNothing);
-      expect(refresh, findsOneWidget);
-      expect(find.text('主号'), findsOneWidget);
-      await tester.tap(find.text('签到').first);
-      await tester.pumpAndSettle();
-      expect(refresh, findsNothing);
-      await tester.tap(find.text('作业').first);
-      await tester.pumpAndSettle();
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(HomeworkHubPage)),
-      );
-      (container.read(authControllerProvider.notifier) as _Auth)
-          .signOutForTest();
-      await tester.pumpAndSettle();
-      expect(refresh, findsNothing);
-      expect(tester.takeException(), isNull);
-      await tester.pumpWidget(const SizedBox());
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.windows),
-  );
+  testWidgets('desktop sidebar is the single account entry across both pages', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(960, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final service = await show(tester, const AdaptiveShell());
+    final menu = find.byKey(const ValueKey('rollcall-identity-menu'));
+    expect(menu, findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(AppSidebar), matching: menu),
+      findsOneWidget,
+    );
+    expect(find.text('主号'), findsOneWidget);
+    await captureDesktopUi(tester, 'sidebar-rollcall');
+    Navigator.of(tester.element(find.byType(RollcallHubPage))).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Text('旧账号签到详情')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('未签同学').last);
+    await tester.pumpAndSettle();
+    expect(find.text('协助课程'), findsOneWidget);
+    expect(find.text('旧账号签到详情'), findsNothing);
+    expect(service.sessions, contains(2));
+    await tester.tap(find.text('作业').first);
+    await tester.pumpAndSettle();
+    expect(find.text('未签同学'), findsOneWidget);
+    expect(find.text('协助作业'), findsOneWidget);
+    final refresh = find.byKey(const ValueKey('homework-refresh'));
+    expect(refresh, findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(AppTitleBar), matching: refresh),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(HomeworkHubPage),
+        matching: find.byType(AppRefreshButton),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(refresh);
+    await tester.pumpAndSettle();
+    expect(_homeworkManualChecks, 1);
+    await captureDesktopUi(tester, 'homework-title-refresh');
+    Navigator.of(tester.element(find.byType(HomeworkHubPage))).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Text('旧账号作业详情')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(refresh, findsNothing);
+    await tester.tap(menu);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('主号').last);
+    await tester.pumpAndSettle();
+    expect(find.text('主号作业'), findsOneWidget);
+    expect(find.text('旧账号作业详情'), findsNothing);
+    expect(refresh, findsOneWidget);
+    expect(find.text('主号'), findsOneWidget);
+    await tester.tap(find.text('签到').first);
+    await tester.pumpAndSettle();
+    expect(refresh, findsNothing);
+    await tester.tap(find.text('作业').first);
+    await tester.pumpAndSettle();
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(HomeworkHubPage)),
+    );
+    (container.read(authControllerProvider.notifier) as _Auth).signOutForTest();
+    await tester.pumpAndSettle();
+    expect(refresh, findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
 
   for (final width in [320.0, 960.0]) {
     testWidgets(
@@ -803,10 +800,9 @@ void main() {
               ? AppPalette.of(tester.element(button)).ink
               : android
               ? AppPalette.of(tester.element(button)).muted
-              : Theme.of(tester.element(button))
-                    .colorScheme
-                    .onSurface
-                    .withAlpha((255 * .38).round()),
+              : Theme.of(
+                  tester.element(button),
+                ).colorScheme.onSurface.withAlpha((255 * .38).round()),
         );
         if (!scenario.allowed) {
           final mouse = await tester.createGesture(
@@ -1023,11 +1019,11 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       final service = await show(tester, const RollcallHubPage());
       expect(find.text('本人课程'), findsOneWidget);
-      expect(find.text('主号'), findsOneWidget);
+      expect(find.text('签到').first, findsOneWidget);
       expect(find.text('主号（本人）'), findsNothing);
       expect(find.byType(DropdownButton<int>), findsNothing);
       expect(
-        tester.getTopLeft(find.text('主号')).dy,
+        tester.getTopLeft(find.text('签到').first).dy,
         lessThan(tester.getTopLeft(find.text('开始检测')).dy),
       );
       expect(tester.takeException(), isNull);
@@ -1042,7 +1038,7 @@ void main() {
       expect(find.text('协助课程'), findsOneWidget);
       expect(find.text('本人课程'), findsNothing);
       expect(service.sessions, contains(2));
-      await tester.tap(find.text('去签到'));
+      await tester.tap(find.text('扫码'));
       await tester.pumpAndSettle();
       expect(find.byType(QrAnswerPage), findsOneWidget);
       expect(tester.takeException(), isNull);
@@ -1053,70 +1049,68 @@ void main() {
   );
 
   for (final dark in [false, true]) {
-    testWidgets(
-      'identity hover stays inset and supports keyboard ($dark)',
-      (tester) async {
-        tester.view.physicalSize = const Size(960, 900);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        await show(
-          tester,
-          Theme(
-            data: dark ? AppTheme.dark() : AppTheme.light(),
-            child: const RollcallHubPage(),
-          ),
-        );
-        expect(find.byTooltip('切换签到用户'), findsNothing);
-        await tester.tap(find.byKey(const ValueKey('rollcall-identity-menu')));
-        await tester.pumpAndSettle();
-        final option = find.ancestor(
-          of: find.text('未签同学'),
-          matching: find.byType(AppMenuOption),
-        );
-        final entry = find
-            .ancestor(
-              of: option,
-              matching: find.byWidgetPredicate(
-                (w) => w is Material && w.shape is RoundedRectangleBorder,
-              ),
-            )
-            .first;
-        expect(
-          tester.getRect(option).left,
-          greaterThan(tester.getRect(entry).left),
-        );
-        expect(
-          tester.getRect(option).right,
-          lessThan(tester.getRect(entry).right),
-        );
-        // Assert the inset surface and actual activation below, independently
-        // of whether the shared input layer uses InkWell or gesture actions.
-        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-        await mouse.addPointer();
-        addTearDown(mouse.removePointer);
-        await mouse.moveTo(tester.getCenter(option));
-        await tester.pumpAndSettle();
-        final context = tester.element(option);
-        final paint = tester.widget<AnimatedContainer>(
-          find.descendant(of: option, matching: find.byType(AnimatedContainer)),
-        );
-        expect(
-          (paint.decoration! as BoxDecoration).color,
-          AppPalette.of(context).hover,
-        );
-        expect(find.byTooltip('未签同学'), findsNothing);
-        Focus.of(tester.element(find.text('未签同学'))).requestFocus();
-        await tester.pumpAndSettle();
-        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-        await tester.pumpAndSettle();
-        expect(find.byType(AppMenuOption), findsNothing);
-        expect(find.text('协助课程'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-        await tester.pumpWidget(const SizedBox());
-      },
-      variant: TargetPlatformVariant.only(TargetPlatform.windows),
-    );
+    testWidgets('identity hover stays inset and supports keyboard ($dark)', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(960, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await show(
+        tester,
+        Theme(
+          data: dark ? AppTheme.dark() : AppTheme.light(),
+          child: const RollcallHubPage(),
+        ),
+      );
+      expect(find.byTooltip('切换签到用户'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('rollcall-identity-menu')));
+      await tester.pumpAndSettle();
+      final option = find.ancestor(
+        of: find.text('未签同学'),
+        matching: find.byType(AppMenuOption),
+      );
+      final entry = find
+          .ancestor(
+            of: option,
+            matching: find.byWidgetPredicate(
+              (w) => w is Material && w.shape is RoundedRectangleBorder,
+            ),
+          )
+          .first;
+      expect(
+        tester.getRect(option).left,
+        greaterThan(tester.getRect(entry).left),
+      );
+      expect(
+        tester.getRect(option).right,
+        lessThan(tester.getRect(entry).right),
+      );
+      // Assert the inset surface and actual activation below, independently
+      // of whether the shared input layer uses InkWell or gesture actions.
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer();
+      addTearDown(mouse.removePointer);
+      await mouse.moveTo(tester.getCenter(option));
+      await tester.pumpAndSettle();
+      final context = tester.element(option);
+      final paint = tester.widget<AnimatedContainer>(
+        find.descendant(of: option, matching: find.byType(AnimatedContainer)),
+      );
+      expect(
+        (paint.decoration! as BoxDecoration).color,
+        AppPalette.of(context).hover,
+      );
+      expect(find.byTooltip('未签同学'), findsNothing);
+      Focus.of(tester.element(find.text('未签同学'))).requestFocus();
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.byType(AppMenuOption), findsNothing);
+      expect(find.text('协助课程'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
   }
 
   testWidgets(

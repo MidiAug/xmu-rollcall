@@ -14,6 +14,7 @@ class RollcallAccountMenu extends StatelessWidget {
     this.width = 180,
     this.sidebar = false,
     this.masthead = false,
+    this.mastheadTitle,
   });
 
   /// Uses the menu ID: zero for the owner, otherwise the assist user ID.
@@ -25,12 +26,14 @@ class RollcallAccountMenu extends StatelessWidget {
   final double width;
   final bool sidebar;
   final bool masthead;
+  final String? mastheadTitle;
 
   @override
   Widget build(BuildContext context) => Align(
     alignment: Alignment.centerLeft,
     child: AppShellSelect<int>(
-      semanticLabel: '切换签到账号',
+      semanticLabel:
+          '切换签到账号，当前${value == 0 ? ownerName : identities.firstWhere((e) => e.userId == value).displayName}',
       key: const ValueKey('rollcall-identity-menu'),
       width: width,
       menuWidth: 220,
@@ -45,11 +48,11 @@ class RollcallAccountMenu extends StatelessWidget {
               focusNode: focus,
               onPressed: identities.isEmpty ? null : toggle,
             )
-          : masthead && Theme.of(context).platform == TargetPlatform.android
+          : masthead
           ? (context, open, toggle, focus) {
               final p = AppPalette.of(context);
               final name = value == 0
-                  ? ownerName
+                  ? mastheadTitle ?? ownerName
                   : identities.firstWhere((e) => e.userId == value).displayName;
               return TextButton(
                 focusNode: focus,
@@ -67,15 +70,15 @@ class RollcallAccountMenu extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(AppIcons.person, size: 18, color: p.primary),
-                    const SizedBox(width: 7),
                     Flexible(
                       child: Text(
                         name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 14,
+                        style: TextStyle(
+                          fontSize: mastheadTitle != null && value == 0
+                              ? 28
+                              : 20,
                           fontWeight: FontWeight.w600,
                         ),
                       ),

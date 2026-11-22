@@ -197,6 +197,7 @@ void main() {
                     scope: null,
                     accountMenu: RollcallAccountMenu(
                       masthead: true,
+                      mastheadTitle: '签到',
                       value: 0,
                       identities: const [],
                       ownerName: '林同学',
@@ -228,11 +229,11 @@ void main() {
         final dateRect = tester.getRect(
           find.byKey(const ValueKey('mobile-home-date')),
         );
-        expect(dateRect.left, greaterThan(titleRect.right));
-        expect(dateRect.bottom, lessThanOrEqualTo(titleRect.bottom + 6));
+        expect(dateRect.left, titleRect.left);
+        expect(dateRect.top, greaterThanOrEqualTo(titleRect.bottom));
         final startTime = tester.widget<Text>(find.text('10:10'));
-        expect(startTime.maxLines, 1);
-        expect(startTime.softWrap, false);
+        expect(startTime.maxLines, isNull);
+        expect(startTime.softWrap, isNull);
         expect(find.text('即将开始'), findsNothing);
         expect(
           find.text('尚未开始检测'),
@@ -243,12 +244,12 @@ void main() {
           state == 'idle' || state == 'done' ? findsNothing : findsOneWidget,
         );
         if (state == 'done') expect(find.text('已签到'), findsOneWidget);
-        final header = find.byKey(const ValueKey('mobile-campus-header'));
+        final header = find.byKey(const ValueKey('mobile-rollcall-header'));
         expect(
           tester.getTopLeft(find.text('签到').first).dy -
               tester.getTopLeft(header).dy,
           lessThan(32),
-          reason: 'Title must be top-aligned without moving artwork',
+          reason: 'Title stays near the top of the plain header',
         );
         if (state == 'idle') {
           expect(
