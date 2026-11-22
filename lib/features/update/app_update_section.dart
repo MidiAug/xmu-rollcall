@@ -281,7 +281,6 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
   @override
   Widget build(BuildContext context) {
     final update = _update;
-    final p = AppPalette.of(context);
     final checking = _controller.status == UpdateCheckStatus.checking;
     final status = switch (_phase) {
       _UpdatePhase.downloading => _message,
@@ -301,7 +300,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
                 UpdateCheckStatus.available => '有更新',
               },
     };
-    final (label, icon, callback) = switch (_phase) {
+    final (label, _, callback) = switch (_phase) {
       _UpdatePhase.downloading => (
         '取消下载',
         AppIcons.close,
@@ -336,7 +335,7 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
                 ),
               )
             : const Icon(AppIcons.update),
-        title: _phase == _UpdatePhase.downloading ? _message : '检查更新',
+        title: _phase == _UpdatePhase.downloading ? _message : '软件更新',
         subtitleMaxLines: 1,
         subtitle: _phase == _UpdatePhase.downloading
             ? _downloadDetails
@@ -344,34 +343,18 @@ class _AppUpdateSectionState extends State<AppUpdateSection> {
             ? '$status  ${_controller.error ?? '请检查网络后重试'}'
             : status,
         onTap: update != null ? _showReleaseNotes : (_busy ? null : _check),
-        trailing: SizedBox.square(
-          dimension: 44,
-          child: waiting
-              ? Center(
-                  child: SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: p.muted,
-                    ),
-                  ),
-                )
-              : IconButton(
-                  tooltip: label,
-                  onPressed: callback,
-                  style: IconButton.styleFrom(
-                    minimumSize: const Size.square(44),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.standard,
-                  ),
-                  icon: Icon(icon, size: 20),
-                  color: update != null ? p.primary : p.muted,
-                ),
+        trailing: Tooltip(
+          message: label,
+          child: AppButton(
+            kind: AppButtonKind.secondary,
+            label: label,
+            busy: waiting,
+            onPressed: callback,
+          ),
         ),
       ),
     );
     return SettingsSection(
-      header: '应用更新',
       padTop: false,
       children: [
         row,

@@ -101,7 +101,7 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
             children: [
               Row(
                 children: [
-                  const AppServiceSymbol(icon: AppIcons.guard, size: 40),
+                  const AppServiceSymbol(icon: AppIcons.rollcall, size: 40),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(

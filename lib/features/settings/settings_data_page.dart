@@ -1,3 +1,10 @@
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xmu_rollcall/features/grades/grade_models.dart';
+import 'package:xmu_rollcall/features/grades/grade_providers.dart';
+import 'package:xmu_rollcall/features/exams/exam_cache.dart';
+import 'package:xmu_rollcall/features/exams/exam_providers.dart';
+import 'package:xmu_rollcall/features/schedule/semester_preferences.dart';
 import 'package:file_selector/file_selector.dart' as file_selector;
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:flutter/foundation.dart';
@@ -72,6 +79,14 @@ class SettingsDataPage extends ConsumerWidget {
                     uid: uid,
                     accountName: accountName,
                   ),
+                  for (final kind in _AcademicUpdateKind.values)
+                    _AcademicUpdateRow(
+                      key: ValueKey((auth.profile!.id, uid, kind)),
+                      owner: auth.profile!.id,
+                      uid: uid,
+                      accountName: accountName,
+                      kind: kind,
+                    ),
                 ],
               ),
             SettingsSection(
@@ -79,9 +94,10 @@ class SettingsDataPage extends ConsumerWidget {
               header: '本机数据',
               children: [
                 SettingsRow(
-                  leading: const Icon(AppIcons.clean),
+                  leading: Icon(AppIcons.clean, color: p.danger),
                   title: '清除本机课程数据',
-                  subtitle: '清除已缓存的课表、成绩、作业与签到记录；手工安排、地点与本机设置会保留',
+                  destructive: true,
+                  subtitle: '保留手工安排、学期日期、地点与本机设置',
                   trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   onTap: () => _confirmClearCache(context, ref),
                 ),
@@ -94,6 +110,20 @@ class SettingsDataPage extends ConsumerWidget {
                   future: deviceFuture,
                   builder: (context, snap) {
                     final id = snap.data;
+                    Future<void> copyId() async {
+                      if (id == null) return;
+                      try {
+                        await Clipboard.setData(ClipboardData(text: id));
+                        if (context.mounted) {
+                          AppToast.show(context, '已复制本机标识');
+                        }
+                      } on PlatformException {
+                        if (context.mounted) {
+                          AppToast.show(context, '复制失败，请重试', error: true);
+                        }
+                      }
+                    }
+
                     return SettingsRow(
                       leading: const Icon(AppIcons.devices),
                       title: '本机标识',
@@ -112,28 +142,12 @@ class SettingsDataPage extends ConsumerWidget {
                       ),
                       trailing: Tooltip(
                         message: '复制本机标识',
-                        child: Icon(AppIcons.copy, color: p.muted, size: 18),
+                        child: OutlinedButton(
+                          onPressed: id == null ? null : copyId,
+                          child: const Text('复制'),
+                        ),
                       ),
-                      onTap: id == null
-                          ? null
-                          : () async {
-                              try {
-                                await Clipboard.setData(
-                                  ClipboardData(text: id),
-                                );
-                                if (context.mounted) {
-                                  AppToast.show(context, '已复制本机标识');
-                                }
-                              } on PlatformException {
-                                if (context.mounted) {
-                                  AppToast.show(
-                                    context,
-                                    '复制失败，请重试',
-                                    error: true,
-                                  );
-                                }
-                              }
-                            },
+                      onTap: id == null ? null : copyId,
                     );
                   },
                 ),
@@ -269,6 +283,8 @@ class SettingsDataPage extends ConsumerWidget {
     final ok = await showAppConfirmDialog(
       context,
       title: '清除本机课程数据？',
+      showCloseButton: true,
+      maxWidth: 420,
       message:
           '将删除已缓存的课表、成绩、作业与签到记录。'
           '手工课程安排、学期日期、地点与本机设置会保留。',
@@ -492,4 +508,160 @@ class _ExportLogsRowState extends ConsumerState<_ExportLogsRow> {
         : const Icon(AppIcons.right, size: 18),
     onTap: _busy ? null : _export,
   );
+}
+
+enum _AcademicUpdateKind { grades, exams }
+
+/// Opening diagnostics reads only local metadata. Provider mounting is reserved
+/// for the explicit update action, so viewing this page cannot start JW reads.
+class _AcademicUpdateRow extends ConsumerStatefulWidget {
+  const _AcademicUpdateRow({
+    super.key,
+    required this.owner,
+    required this.uid,
+    required this.accountName,
+    required this.kind,
+  });
+  final int owner, uid;
+  final String accountName;
+  final _AcademicUpdateKind kind;
+  @override
+  ConsumerState<_AcademicUpdateRow> createState() => _AcademicUpdateRowState();
+}
+
+class _AcademicUpdateRowState extends ConsumerState<_AcademicUpdateRow> {
+  late Future<DateTime?> _at = _readAt();
+  bool _busy = false;
+  String? _message;
+  bool _failed = false;
+  bool get _current =>
+      mounted &&
+      ref.read(authControllerProvider).profile?.id == widget.owner &&
+      (ref.read(selectedRollcallAccountProvider) ?? widget.owner) == widget.uid;
+  Future<DateTime?> _readAt() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return null;
+    if (widget.kind == _AcademicUpdateKind.exams) {
+      return readExamCache(
+        prefs,
+        widget.owner,
+        widget.uid,
+        currentSemester(ref.read(examClockProvider)()),
+      )?.at;
+    }
+    try {
+      final raw = prefs.getString(gradeCacheKey(widget.owner, widget.uid));
+      return raw == null
+          ? null
+          : GradeSnapshot.fromJson(jsonDecode(raw) as Map<String, dynamic>).at;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _refresh() async {
+    if (_busy || !_current) return;
+    setState(() {
+      _busy = true;
+      _message = null;
+    });
+    try {
+      final before = await _readAt();
+      if (!_current) return;
+      if (widget.kind == _AcademicUpdateKind.grades) {
+        final existed = ref.exists(gradeSnapshotProvider);
+        final subscription = ref.listenManual(gradeSnapshotProvider, (_, _) {});
+        try {
+          if (existed) {
+            await ref.read(gradeSnapshotProvider.notifier).refresh();
+          } else {
+            final initial = await ref.read(gradeSnapshotProvider.future);
+            if (!_current) return;
+            // A cold provider may already fetch or join an overdue read. Do not
+            // immediately repeat it or turn its success into a throttle error.
+            if (before != null && initial.at == before) {
+              await ref.read(gradeSnapshotProvider.notifier).refresh();
+            }
+          }
+        } finally {
+          subscription.close();
+        }
+      } else {
+        final existed = ref.exists(examSnapshotProvider);
+        final subscription = ref.listenManual(examSnapshotProvider, (_, _) {});
+        try {
+          if (existed) {
+            await ref.read(examSnapshotProvider.notifier).refresh();
+          } else {
+            final initial = await ref.read(examSnapshotProvider.future);
+            if (!_current) return;
+            if (before != null && initial.at == before) {
+              await ref.read(examSnapshotProvider.notifier).refresh();
+            }
+          }
+        } finally {
+          subscription.close();
+        }
+      }
+      if (_current) {
+        setState(() {
+          _failed = false;
+          _message = '已更新';
+          _at = _readAt();
+        });
+      }
+    } catch (error) {
+      if (_current) {
+        setState(() {
+          _failed = true;
+          _message = error is FormatException ? error.message : '更新失败，已有数据仍保留';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final grades = widget.kind == _AcademicUpdateKind.grades;
+    final p = AppPalette.of(context);
+    return FutureBuilder<DateTime?>(
+      future: _at,
+      builder: (context, snapshot) {
+        final at = snapshot.data?.toLocal();
+        final updated = at == null
+            ? '尚未缓存${grades ? '成绩' : '考试安排'}'
+            : '上次更新 ${at.year}/${at.month}/${at.day} ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+        return SettingsRow(
+          leading: Icon(grades ? AppIcons.serviceGpa : AppIcons.serviceExams),
+          title: grades ? '成绩' : '考试安排',
+          stackSubtitleOnNarrow: true,
+          subtitleWidget: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${widget.accountName}  $updated',
+                style: AppTypography.caption.copyWith(color: p.muted),
+              ),
+              if (_message != null)
+                Text(
+                  _message!,
+                  style: AppTypography.caption.copyWith(
+                    color: _failed ? p.danger : p.muted,
+                  ),
+                ),
+            ],
+          ),
+          trailing: OutlinedButton(
+            key: ValueKey(
+              grades ? 'academic-grades-update' : 'academic-exams-update',
+            ),
+            onPressed: _busy ? null : _refresh,
+            child: Text(_busy ? '更新中…' : '更新'),
+          ),
+        );
+      },
+    );
+  }
 }

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/update/app_release.dart';
@@ -107,6 +108,9 @@ class _AppUpdateForegroundPromptState
       final decision = showAppConfirmDialog(
         promptContext,
         title: '更新已下载',
+        icon: AppIcons.download,
+        showCloseButton: true,
+        maxWidth: 420,
         message:
             '厦大签到 ${update.version.name} 已下载并校验完成。现在安装将停止检测和值守，退出软件并打开安装程序。',
         confirmLabel: '退出并安装',

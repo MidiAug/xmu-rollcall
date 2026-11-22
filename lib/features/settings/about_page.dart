@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/app_service_symbol.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/update/app_update_section.dart';
 import 'package:xmu_rollcall/features/update/github_update_service.dart';
@@ -53,18 +54,20 @@ class _AboutPageState extends State<AboutPage> {
               contentInsets +
               EdgeInsets.fromLTRB(
                 AppSpace.pageXOf(context),
-                AppDensity.isTouch(context) ? 24 : 60,
+                AppDensity.isTouch(context) ? 32 : 24,
                 AppSpace.pageXOf(context),
                 AppSpace.xl,
               ),
           children: [
-            const Center(child: BrandMark(size: 56)),
+            const Center(
+              child: AppServiceSymbol(icon: AppIcons.rollcall, size: 60),
+            ),
             const SizedBox(height: 14),
             Text(
               '厦大签到',
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 24,
                 fontWeight: FontWeight.w600,
                 color: p.ink,
               ),
@@ -72,14 +75,16 @@ class _AboutPageState extends State<AboutPage> {
             const SizedBox(height: 6),
             FutureBuilder<PackageInfo>(
               future: _package,
-              builder: (context, info) => Text(
-                info.hasData
-                    ? '版本 ${info.data!.version}'
-                    : info.hasError
-                    ? '版本信息暂不可用'
-                    : '正在读取版本',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, height: 1.5, color: p.muted),
+              builder: (context, info) => Center(
+                child: AppStatusBadge(
+                  info.hasData
+                      ? '版本 ${info.data!.version}'
+                      : info.hasError
+                      ? '版本信息暂不可用'
+                      : '正在读取版本',
+                  tone: AppStatusTone.neutral,
+                  pill: true,
+                ),
               ),
             ),
             const SizedBox(height: 28),
@@ -102,15 +107,12 @@ class _AboutPageState extends State<AboutPage> {
                   subtitle: 'MidiAug/xmu-rollcall',
                   subtitleMaxLines: 1,
                   onTap: _openRepository,
-                  trailing: IconButton(
-                    tooltip: '复制仓库地址',
-                    onPressed: _copyRepository,
-                    style: IconButton.styleFrom(
-                      minimumSize: const Size.square(44),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      visualDensity: VisualDensity.standard,
+                  trailing: Tooltip(
+                    message: '复制仓库地址',
+                    child: OutlinedButton(
+                      onPressed: _copyRepository,
+                      child: const Text('复制'),
                     ),
-                    icon: Icon(AppIcons.copy, size: 17, color: p.muted),
                   ),
                 ),
               ],

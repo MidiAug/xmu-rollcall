@@ -1,3 +1,4 @@
+import 'app_service_symbol.dart';
 import 'app_icon_button.dart';
 import 'package:flutter/material.dart';
 import 'app_glass_surface.dart';
@@ -98,6 +99,9 @@ Future<bool> showAppConfirmDialog(
   String cancelLabel = '取消',
   String confirmLabel = '确定',
   bool destructive = false,
+  bool showCloseButton = false,
+  IconData? icon,
+  double maxWidth = 360,
 }) async {
   final result = await showDialog<bool>(
     context: context,
@@ -105,7 +109,7 @@ Future<bool> showAppConfirmDialog(
     builder: (ctx) {
       final p = AppPalette.of(ctx);
       return AppDialogFrame(
-        maxWidth: 360,
+        maxWidth: maxWidth,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
           child: Column(
@@ -118,14 +122,27 @@ Future<bool> showAppConfirmDialog(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: -0.2,
-                          color: p.ink,
-                        ),
+                      Row(
+                        children: [
+                          if (icon != null) ...[
+                            AppServiceSymbol(icon: icon, size: 40),
+                            const SizedBox(width: 12),
+                          ],
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: AppTypography.cardTitle.copyWith(
+                                color: p.ink,
+                              ),
+                            ),
+                          ),
+                          if (showCloseButton)
+                            AppIconButton(
+                              tooltip: '关闭',
+                              onPressed: () => Navigator.pop(ctx, false),
+                              icon: const Icon(Icons.close),
+                            ),
+                        ],
                       ),
                       if (message != null && message.isNotEmpty) ...[
                         const SizedBox(height: 8),

@@ -126,6 +126,7 @@ class SettingsRow extends StatelessWidget {
     this.trailing,
     this.onTap,
     this.enabled = true,
+    this.destructive = false,
     this.minHeight,
     this.contentPadding,
     this.subtitleSpacing = 4,
@@ -149,6 +150,7 @@ class SettingsRow extends StatelessWidget {
 
   /// A disabled action stays distinct from a passive row with child controls.
   final bool enabled;
+  final bool destructive;
 
   /// Minimum total row height on desktop, including its content padding.
   final double? minHeight;
@@ -296,7 +298,9 @@ class SettingsRow extends StatelessWidget {
                               ?.copyWith(
                                 fontWeight: FontWeight.w500,
                                 fontSize: touch ? 17 : null,
-                                color: !enabled && onTap != null
+                                color: destructive
+                                    ? p.danger
+                                    : !enabled && onTap != null
                                     ? p.muted
                                     : null,
                               ),
@@ -308,7 +312,9 @@ class SettingsRow extends StatelessWidget {
                               ?.copyWith(
                                 fontWeight: FontWeight.w500,
                                 fontSize: touch ? 17 : null,
-                                color: !enabled && onTap != null
+                                color: destructive
+                                    ? p.danger
+                                    : !enabled && onTap != null
                                     ? p.muted
                                     : null,
                               ),

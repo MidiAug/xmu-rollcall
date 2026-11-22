@@ -23,6 +23,10 @@ Future<void> loadDesktopPreviewFonts() async {
       'C:/Windows/Fonts/msyh.ttc',
       'C:/Windows/Fonts/msyhbd.ttc',
     ],
+    'Consolas': [
+      'C:/Windows/Fonts/consola.ttf',
+      'C:/Windows/Fonts/consolab.ttf',
+    ],
     'Segoe UI': [
       'C:/Windows/Fonts/segoeui.ttf',
       'C:/Windows/Fonts/seguisb.ttf',

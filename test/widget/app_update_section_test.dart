@@ -121,12 +121,12 @@ void main() {
         addTearDown(tester.view.resetDevicePixelRatio);
         await mount(tester);
         final statusRow = find.ancestor(
-          of: find.text('检查更新'),
+          of: find.text('软件更新'),
           matching: find.byType(SettingsRow),
         );
         final initial = tester.getRect(statusRow);
         expect(find.text('已是最新版本'), findsOneWidget);
-        expect(find.byIcon(AppIcons.refresh), findsOneWidget);
+        expect(find.widgetWithText(OutlinedButton, '检查更新'), findsOneWidget);
         service.pendingCheck = Completer<ReleaseUpdate?>();
         await tester.tap(find.byTooltip('检查更新'));
         await tester.pump();

@@ -1,3 +1,5 @@
+import '../fixtures/preview_fonts.dart';
+import '../fixtures/desktop_ui_capture.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -37,7 +39,9 @@ ThemeData _theme(bool dark) {
 }
 
 void main() {
+  initializeDesktopUiCapture();
   setUpAll(() async {
+    await loadDesktopPreviewFonts();
     final font = Platform.environment['ABOUT_UI_FONT'];
     if (font != null) {
       await (FontLoader(
@@ -122,7 +126,7 @@ void main() {
             // Both utility rows must share the same horizontal grid and height,
             // including when a failed check is shown instead of a current one.
             final updateRow = find.ancestor(
-              of: find.text('检查更新'),
+              of: find.text('软件更新'),
               matching: find.byType(SettingsRow),
             );
             final repositoryRow = find.ancestor(
@@ -139,10 +143,10 @@ void main() {
               expect(updateRect.height, repositoryRect.height);
             }
             expect(
-              tester.getTopLeft(find.text('检查更新')).dx,
+              tester.getTopLeft(find.text('软件更新')).dx,
               tester.getTopLeft(find.text('GitHub 仓库')).dx,
             );
-            expect(find.byType(OutlinedButton), findsNothing);
+            expect(find.widgetWithText(OutlinedButton, '复制'), findsOneWidget);
           }
           expect(tester.takeException(), isNull);
           if (Platform.environment['CAPTURE_ABOUT_UI'] == '1') {
@@ -154,6 +158,7 @@ void main() {
               final bytes = await image.toByteData(
                 format: ui.ImageByteFormat.png,
               );
+              await Directory('.tools/about-alignment').create(recursive: true);
               await File(
                 '.tools/about-alignment/$scenario-${width.toInt()}.png',
               ).writeAsBytes(bytes!.buffer.asUint8List());

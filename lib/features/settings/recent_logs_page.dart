@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/app_sliver_group.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/logging/log_record.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -49,7 +50,7 @@ class _RecentLogsPageState extends ConsumerState<RecentLogsPage> {
     return SubpageScaffold(
       title: '最近日志',
       actions: [
-        IconButton(
+        AppIconButton(
           tooltip: '刷新',
           icon: const Icon(Icons.refresh, size: 20),
           onPressed: () => setState(() {}),
@@ -89,65 +90,144 @@ class _RecentLogsPageState extends ConsumerState<RecentLogsPage> {
                         AppSpace.pageXOf(context),
                         AppSpace.sm,
                       ),
-                  child: TextField(
+                  child: AppSearchField(
                     controller: _queryCtrl,
-                    decoration: const InputDecoration(
-                      hintText: '搜索 opId / rollcallId',
-                      prefixIcon: Icon(Icons.search, size: 20),
-                      isDense: true,
-                    ),
+                    hintText: '搜索 opId / rollcallId',
                     onChanged: (v) => setState(() => _query = v),
                   ),
                 ),
                 Expanded(
                   child: items.isEmpty
-                      ? Center(
-                          child: Text(
-                            '暂无日志\n登录 / 签到 / 轮询后会出现',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: p.muted),
-                          ),
+                      ? EmptyHint(
+                          icon: AppIcons.document,
+                          title: _query.trim().isEmpty ? '暂无日志' : '未找到相关日志',
                         )
-                      : ListView.separated(
-                          padding:
-                              contentInsets +
-                              EdgeInsets.fromLTRB(
-                                AppSpace.pageXOf(context),
-                                0,
-                                AppSpace.pageXOf(context),
-                                AppSpace.xl,
-                              ),
-                          itemCount: items.length,
-                          separatorBuilder: (_, _) =>
-                              Divider(height: 1, color: p.border),
-                          itemBuilder: (context, i) {
-                            final r = items[i];
-                            final bits = <String>[
-                              r.level,
-                              r.event,
-                              if (r.opId != null)
-                                'op=${r.opId!.length > 8 ? '${r.opId!.substring(0, 8)}…' : r.opId}',
-                              if (r.rollcallId != null) 'rc=${r.rollcallId}',
-                              if (r.ok != null) (r.ok! ? 'ok' : 'fail'),
-                              if (r.status != null) 'HTTP ${r.status}',
-                              if (r.latencyMs != null) '${r.latencyMs}ms',
-                            ];
-                            return ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(
-                                bits.join('  '),
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  height: 1.35,
+                      : CustomScrollView(
+                          slivers: [
+                            SliverPadding(
+                              padding:
+                                  contentInsets +
+                                  EdgeInsets.fromLTRB(
+                                    AppSpace.pageXOf(context),
+                                    8,
+                                    AppSpace.pageXOf(context),
+                                    AppSpace.xl,
+                                  ),
+                              sliver: AppSliverGroup(
+                                sliver: SliverList.separated(
+                                  itemCount: items.length,
+                                  separatorBuilder: (_, _) => Divider(
+                                    height: 1,
+                                    color: p.divider,
+                                    indent: 20,
+                                    endIndent: 20,
+                                  ),
+                                  itemBuilder: (context, i) {
+                                    final r = items[i];
+                                    final metadata = [
+                                      r.level,
+                                      if (r.opId != null)
+                                        'op=${r.opId!.length > 8 ? '${r.opId!.substring(0, 8)}…' : r.opId}',
+                                      if (r.rollcallId != null)
+                                        'rc=${r.rollcallId}',
+                                      if (r.ok != null) r.ok! ? 'ok' : 'fail',
+                                      if (r.status != null) 'HTTP ${r.status}',
+                                      if (r.latencyMs != null)
+                                        '${r.latencyMs}ms',
+                                    ];
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                        vertical: 16,
+                                      ),
+                                      child: LayoutBuilder(
+                                        builder: (context, bounds) {
+                                          final narrow =
+                                              bounds.maxWidth <
+                                              300 *
+                                                  MediaQuery.textScalerOf(
+                                                    context,
+                                                  ).scale(1);
+                                          final time = Text(
+                                            _shortTime(r.ts),
+                                            style: AppTypography.body.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                              color: i == 0
+                                                  ? p.primary
+                                                  : p.muted,
+                                            ),
+                                          );
+                                          final entry = Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              SelectableText(
+                                                r.event,
+                                                style: AppTypography.body
+                                                    .copyWith(
+                                                      color: p.ink,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Wrap(
+                                                spacing: 12,
+                                                runSpacing: 4,
+                                                children: [
+                                                  for (final bit in metadata)
+                                                    Text(
+                                                      bit,
+                                                      style: AppTypography
+                                                          .caption
+                                                          .copyWith(
+                                                            color: p.muted,
+                                                          ),
+                                                    ),
+                                                ],
+                                              ),
+                                            ],
+                                          );
+                                          if (narrow) {
+                                            return Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                time,
+                                                const SizedBox(height: 8),
+                                                entry,
+                                              ],
+                                            );
+                                          }
+                                          return Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              SizedBox(
+                                                width:
+                                                    76 *
+                                                    MediaQuery.textScalerOf(
+                                                      context,
+                                                    ).scale(1),
+                                                child: time,
+                                              ),
+                                              Container(
+                                                width: 1,
+                                                height: 30,
+                                                color: p.controlRim,
+                                              ),
+                                              const SizedBox(width: 16),
+                                              Expanded(child: entry),
+                                            ],
+                                          );
+                                        },
+                                      ),
+                                    );
+                                  },
                                 ),
                               ),
-                              subtitle: Text(
-                                _shortTime(r.ts),
-                                style: TextStyle(color: p.muted, fontSize: 11),
-                              ),
-                            );
-                          },
+                            ),
+                          ],
                         ),
                 ),
               ],

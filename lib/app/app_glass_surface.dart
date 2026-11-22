@@ -34,6 +34,21 @@ class AppGlassSurface extends StatelessWidget {
   /// This treatment is static: it adds no backdrop blur.
   final bool hero;
 
+  /// One static shadow around a complete content group, including lazy slivers.
+  static List<BoxShadow> groupShadows(AppPalette p) => [
+    BoxShadow(
+      color: Colors.black.withValues(alpha: p.isDark ? .20 : .05),
+      blurRadius: 32,
+      spreadRadius: -4,
+      offset: const Offset(0, 12),
+    ),
+    BoxShadow(
+      color: Colors.black.withValues(alpha: p.isDark ? .10 : .025),
+      blurRadius: 3,
+      offset: const Offset(0, 1),
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
@@ -95,19 +110,7 @@ class AppGlassSurface extends StatelessWidget {
                 offset: const Offset(0, 2),
               ),
             ]
-          : [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: p.isDark ? .20 : .05),
-                blurRadius: 32,
-                spreadRadius: -4,
-                offset: const Offset(0, 12),
-              ),
-              BoxShadow(
-                color: Colors.black.withValues(alpha: p.isDark ? .10 : .025),
-                blurRadius: 3,
-                offset: const Offset(0, 1),
-              ),
-            ],
+          : groupShadows(p),
     );
     final clipped = ClipRRect(
       borderRadius: radius,
