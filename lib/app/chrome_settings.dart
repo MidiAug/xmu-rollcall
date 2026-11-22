@@ -62,7 +62,7 @@ class SettingsSection extends StatelessWidget {
                     Divider(
                       height: 1,
                       thickness: 1,
-                      color: p.border,
+                      color: p.divider,
                       indent: dividerIndent,
                       endIndent: rowPad.right,
                     ),

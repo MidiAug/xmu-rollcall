@@ -75,7 +75,11 @@ class AppSelectTrigger extends StatelessWidget {
               ? Duration.zero
               : AppMotion.fast,
           constraints: BoxConstraints(
-            minHeight: touch ? (compact ? 44 : AppMobileUi.target) : compact ? 32 : 36,
+            minHeight: touch
+                ? (compact ? 44 : AppMobileUi.target)
+                : compact
+                ? 32
+                : 36,
           ),
           padding: EdgeInsets.symmetric(
             horizontal: compact ? 8 : 10,
@@ -95,7 +99,7 @@ class AppSelectTrigger extends StatelessWidget {
                   ? p.focus
                   : touch
                   ? p.mobileOutline
-                  : p.border,
+                  : p.controlRim,
             ),
             boxShadow: outlined
                 ? [

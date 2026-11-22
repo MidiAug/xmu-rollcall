@@ -157,11 +157,11 @@ GPA以一个连续计算区组织范围切换、二级筛选与结果，使用�
 
 移动端普通子页使用裸返回箭头与紧凑导航标题，保留触控目标，不给返回、搜索或更多动作常驻添加圆形底座。手机底部导航保留左侧四入口胶囊与右侧独立搜索胶囊（U41），不合成五个等宽入口。签到首页取消本轮被否定的建筑背景（U42），不将其他模块插画自动删除。设置采用连续行与必要分区，成绩、考试和记录采用连续数据列表，详情采用阅读排版；不将全部内容统一包成描边圆角卡片。功能性的开关、日期选中、头像与地图叠层按各自语义保留。以上是本轮用户反馈下的P布局选择，桌面与移动端分别组织。参考[Apple Materials](https://developer.apple.com/design/human-interface-guidelines/materials)与[Typography](https://developer.apple.com/design/human-interface-guidelines/typography)中的层次和语义样式，不把静态半透明稿称为已实现原生Liquid Glass，也不因此将Windows整体替换为iOS皮肤。目标规范与存量实现分开核对，设计稿更新不表示Flutter已经迁移。
 
-**实现值（P1，不是用户逐项指定）：** 当前 `AppRadii` 的button/input/nav为10，card/group/service为16，dialog为20，island为26。保留的签到卡片仍沿其原有几何，不为统一圆角改变内容排版。电脑侧栏不采用island容器，不在业务页另造一套尺寸。
+**实现值（P1，不是用户逐项指定）：** 当前 `AppRadii` 的button/input/control/nav为12，card/group为20，service为22，dialog/hero为24，subWell为16，分段轨道12、滑块9，island为26。保留的签到卡片仍沿其原有几何，不为统一圆角改变内容排版。电脑侧栏不采用island容器，不在业务页另造一套尺寸。
 
-图一采用银白工作面、连续浅雾灰侧栏与顶栏、白色正文和少量蓝色操作/导航强调。浅色canvas为`#FAFBFD`、sidebar为`#EEF0F4`，primary采用`#2166DB`以保持白色按钮文字的可读性，深色primary为`#70AAFF`，深色下拉菜单与弹窗浮层使用提亮一阶的`popoverSurface`（`#2A2E38`）。这些是组合验证后的P选择（已按2026-11-20本轮确认的高质感样式方案精修），不是用户指定色号。正文与列表不铺满蓝色渐变，不增加逐项背景模糊；桌面侧栏选中采用纯净白卡配细边与双层微影（主色图标配`ink`文字），菜单选项采用“单游标中性高亮 + 主色对勾”且仍遵守无描边高亮契约。输入框、主要/次要按钮与选择器统一中性悬停按压阶梯，聚焦采用细边框配外侧柔光环，不再在悬停时加深边框或盖白雾。
+图一采用银白工作面、连续浅雾灰侧栏与顶栏、白色正文和少量蓝色操作/导航强调。浅色canvas为`#F3F5F9`、sidebar为`#EAEFF5`，primary采用`#1F64DB`以保持白色按钮文字的可读性，深色primary为`#70AAFF`，深色下拉菜单与弹窗浮层使用提亮一阶的`popoverSurface`（`#2A2E38`）。这些是组合验证后的P选择（按 R17–R25 稿迁移的当前值），不是用户指定色号。正文与列表不铺满蓝色渐变，不增加逐项背景模糊；桌面侧栏选中采用纯净白卡配细边与双层微影（主色图标配`ink`文字），菜单选项采用“单游标中性高亮 + 主色对勾”且仍遵守无描边高亮契约。输入框、主要/次要按钮与选择器统一中性悬停按压阶梯，聚焦采用细边框配外侧柔光环，不再在悬停时加深边框或盖白雾。
 
-**R17–R25 浅色目标视觉值（Penpot 已定稿待迁入 `app_tokens.dart`，属 P 实现选择）：**
+**R17–R25 浅色目标视觉值（Penpot 已定稿，共享值已迁入 `app_tokens.dart`，页面组合逐模块验收，属 P 实现选择）：**
 - 画布、边框与分割线：桌面 `canvas` `#F3F5F9`、手机 `mobileCanvas` `#F2F4F8`、`sidebar` `#EAEFF5`（右分割线 `sidebarBorder` `#DCE2EC` 1px）、`surface` `#FFFFFF`（卡片描边 `surfaceRim` `#DFE5F0`）、`divider` `#ECEFF5`、分段底轨 `track` `#E5E9F2`（`trackRim` `#D8DFEC`）、`pillMuted` `#F0F3F8`、`controlRim` `#D8E0EC`、`btnBorder` `#D4DCE9`。
 - 文字阶梯：`ink` `#121826`、`inkBody` `#1E2534`、`muted` `#5E697C`、`subtle` `#8691A5`。
 - 语义强调色：`primary` `#1F64DB`（淡底 `accentSoft` `#EBF2FE`、浅描边 `accentRim` `#CFDEF9`、概览描边 `heroRim` `#D4E2FA`、周带描边 `weekBandRim` `#D2E1FA`）、`success` `#047847`（`successSoft` `#E8F6EE`、`successRim` `#C5EBD6`）、`danger` `#C53030`（`dangerSoft` `#FDF0F0`、`dangerRim` `#F5D0D0`）。

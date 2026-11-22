@@ -44,15 +44,62 @@ class AppPalette {
   bool get isDark =>
       ThemeData.estimateBrightnessForColor(canvas) == Brightness.dark;
   Color get sidebar =>
-      isDark ? const Color(0xFF1D2027) : const Color(0xFFEEF0F4);
+      isDark ? const Color(0xFF1D2027) : const Color(0xFFEAEFF5);
+  Color get sidebarBorder =>
+      isDark ? const Color(0xFF343A47) : const Color(0xFFDCE2EC);
+  Color get inkBody =>
+      isDark ? const Color(0xFFDCE2EE) : const Color(0xFF1E2534);
+  // Decorative/disabled details only; readable metadata uses muted.
+  Color get subtle =>
+      isDark ? const Color(0xFF8995AC) : const Color(0xFF8691A5);
+  Color get surfaceRim => border;
+  Color get divider =>
+      isDark ? const Color(0xFF343A47) : const Color(0xFFECEFF5);
+  Color get track => isDark ? const Color(0xFF202630) : const Color(0xFFE5E9F2);
+  Color get trackRim =>
+      isDark ? const Color(0xFF414B5D) : const Color(0xFFD8DFEC);
+  Color get controlRim =>
+      isDark ? const Color(0xFF505B70) : const Color(0xFFD8E0EC);
+  Color get btnBorder =>
+      isDark ? const Color(0xFF505B70) : const Color(0xFFD4DCE9);
+  Color get pillMuted =>
+      isDark ? const Color(0xFF303743) : const Color(0xFFF0F3F8);
+  Color get accentSoft =>
+      isDark ? const Color(0xFF223653) : const Color(0xFFEBF2FE);
+  Color get accentRim =>
+      isDark ? const Color(0xFF3C5B88) : const Color(0xFFCFDEF9);
+  Color get weekBandRim =>
+      isDark ? const Color(0xFF3C5B88) : const Color(0xFFD2E1FA);
+  Color get heroRim =>
+      isDark ? const Color(0xFF3C5276) : const Color(0xFFD4E2FA);
+  List<Color> get heroColors => isDark
+      ? const [Color(0xFF242C3A), Color(0xFF25344B), Color(0xFF243D5F)]
+      : const [Color(0xFFFFFFFF), Color(0xFFF6F9FF), Color(0xFFE9F1FE)];
+  Color get subWell =>
+      isDark ? const Color(0xCC202B3D) : const Color(0xCCFFFFFF);
+  Color get subWellRim =>
+      isDark ? const Color(0xFF465B7A) : const Color(0xFFFFFFFF);
+  List<Color> get iconWellColors => isDark
+      ? const [Color(0xFF293A54), Color(0xFF24344F)]
+      : const [Color(0xFFF4F8FF), Color(0xFFE8F0FE)];
+  Color get iconWellRim =>
+      isDark ? const Color(0xFF415D86) : const Color(0xFFD6E4FB);
+  Color get successRim =>
+      isDark ? const Color(0xFF32674E) : const Color(0xFFC5EBD6);
+  Color get dangerSoft =>
+      isDark ? const Color(0xFF3B242B) : const Color(0xFFFDF0F0);
+  Color get dangerRim =>
+      isDark ? const Color(0xFF79444E) : const Color(0xFFF5D0D0);
+  Color get badgeRim =>
+      isDark ? const Color(0xFF505B70) : const Color(0xFFD8E0EC);
   Color get window =>
       isDark ? const Color(0xFF1C1F26) : const Color(0xFFF0F2F5);
   Color get success =>
-      isDark ? const Color(0xFF69D99D) : const Color(0xFF007A46);
+      isDark ? const Color(0xFF69D99D) : const Color(0xFF047847);
   Color get successAccent =>
       isDark ? const Color(0xFF49DB92) : const Color(0xFF00B66A);
   Color get successSurface =>
-      isDark ? const Color(0xFF173D30) : const Color(0xFFE7F7EE);
+      isDark ? const Color(0xFF173D30) : const Color(0xFFE8F6EE);
   Color get navigationAccent => primary;
   // Sidebar gray is darker than the content canvas; generic hover nearly
   // disappears on it. Keep navigation feedback distinct from white selection.
@@ -66,9 +113,7 @@ class AppPalette {
   Color get popoverBorder => isDark
       ? Colors.white.withValues(alpha: .13)
       : Colors.black.withValues(alpha: .08);
-  Color get surfaceBorder => isDark
-      ? Colors.white.withValues(alpha: .10)
-      : Colors.black.withValues(alpha: .06);
+  Color get surfaceBorder => surfaceRim;
   Color get switchTrackOff =>
       isDark ? const Color(0xFF393E4A) : const Color(0xFFD0D5DD);
 
@@ -102,7 +147,7 @@ class AppPalette {
 
   /// Touch pages separate the canvas, content cards and actionable controls.
   Color get mobileCanvas =>
-      isDark ? const Color(0xFF17191F) : const Color(0xFFF4F5F7);
+      isDark ? const Color(0xFF17191F) : const Color(0xFFF2F4F8);
   Color get mobileOutline =>
       isDark ? const Color(0xFF3C414D) : const Color(0xFFDCE0E7);
   Color get controlSurface =>
@@ -143,18 +188,17 @@ class AppPalette {
   );
 
   static const lightPalette = AppPalette(
-    canvas: Color(0xFFFAFBFD),
+    canvas: Color(0xFFF3F5F9),
     surface: Color(0xFFFFFFFF),
-    surfaceHigh: Color(0xFFEEF0F4),
+    surfaceHigh: Color(0xFFEAEFF5),
     content: Color(0xFFF0F2F6),
-    ink: Color(0xFF23262D),
-    muted: Color(0xFF626B79),
-    // The reference blue is deepened to keep small labels and white actions
-    // readable; navigation and actions still share one semantic accent.
-    primary: Color(0xFF2166DB),
-    danger: Color(0xFFC04444),
-    border: Color(0xFFE5E9F0),
-    borderStrong: Color(0xFFD4DBE5),
+    ink: Color(0xFF121826),
+    muted: Color(0xFF5E697C),
+    // R17–R25 light reference; actions and navigation share this accent.
+    primary: Color(0xFF1F64DB),
+    danger: Color(0xFFC53030),
+    border: Color(0xFFDFE5F0),
+    borderStrong: Color(0xFFD8E0EC),
     // Solid, with no dark overlay on the light canvas.
     hover: Color(0xFFEAECEF),
     cardHover: Color(0xFFF5F6F8),
@@ -208,14 +252,18 @@ abstract final class AppSpace {
 /// Controls, grouped content and overlays have distinct corner scales.
 abstract final class AppRadii {
   static const island = 26.0;
-  static const service = 16.0;
-  static const control = 10.0;
-  static const input = 10.0;
-  static const button = 10.0;
-  static const nav = 10.0;
-  static const card = 16.0;
-  static const group = 16.0;
-  static const dialog = 20.0;
+  static const hero = 24.0;
+  static const subWell = 16.0;
+  static const segmentTrack = 12.0;
+  static const segmentThumb = 9.0;
+  static const service = 22.0;
+  static const control = 12.0;
+  static const input = 12.0;
+  static const button = 12.0;
+  static const nav = 12.0;
+  static const card = 20.0;
+  static const group = 20.0;
+  static const dialog = 24.0;
 }
 
 /// Shares the density breakpoint while layout keeps following live constraints.

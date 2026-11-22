@@ -82,12 +82,13 @@ class AppGlassSurface extends StatelessWidget {
           : [
               BoxShadow(
                 color: Colors.black.withValues(alpha: p.isDark ? .20 : .05),
-                blurRadius: 14,
-                offset: const Offset(0, 3),
+                blurRadius: 32,
+                spreadRadius: -4,
+                offset: const Offset(0, 12),
               ),
               BoxShadow(
                 color: Colors.black.withValues(alpha: p.isDark ? .10 : .025),
-                blurRadius: 2,
+                blurRadius: 3,
                 offset: const Offset(0, 1),
               ),
             ],

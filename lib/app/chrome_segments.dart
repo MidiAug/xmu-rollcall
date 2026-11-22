@@ -155,8 +155,8 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
               child: Container(
                 padding: const EdgeInsets.all(3),
                 decoration: BoxDecoration(
-                  color: p.content,
-                  borderRadius: BorderRadius.circular(AppRadii.input),
+                  color: p.track,
+                  borderRadius: BorderRadius.circular(AppRadii.segmentTrack),
                 ),
                 child: Wrap(
                   spacing: 4,
@@ -173,7 +173,7 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
                               ? _segmentThumbDecoration(
                                   p,
                                   highContrast: highContrast,
-                                  radius: AppRadii.input - 3,
+                                  radius: AppRadii.segmentThumb,
                                 )
                               : const BoxDecoration(),
                           child: _segment(i),
@@ -273,9 +273,7 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
       );
     }
     final highContrast = MediaQuery.highContrastOf(context);
-    final thumbRadius = widget.compact
-        ? AppRadii.input - 2
-        : AppRadii.input - 3;
+    const thumbRadius = AppRadii.segmentThumb;
     return Focus(
       canRequestFocus: false,
       includeSemantics: false,
@@ -285,16 +283,16 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
             ? const EdgeInsets.symmetric(horizontal: 2)
             : const EdgeInsets.all(3),
         decoration: BoxDecoration(
-          color: p.content,
+          color: p.track,
           border: widget.compact
               ? null
-              : Border.all(color: highContrast ? p.muted : p.border),
-          borderRadius: BorderRadius.circular(AppRadii.input),
+              : Border.all(color: highContrast ? p.muted : p.trackRim),
+          borderRadius: BorderRadius.circular(AppRadii.segmentTrack),
         ),
         foregroundDecoration: widget.compact
             ? BoxDecoration(
-                border: Border.all(color: highContrast ? p.muted : p.border),
-                borderRadius: BorderRadius.circular(AppRadii.input),
+                border: Border.all(color: highContrast ? p.muted : p.trackRim),
+                borderRadius: BorderRadius.circular(AppRadii.segmentTrack),
               )
             : null,
         child: Stack(
@@ -428,9 +426,7 @@ class _SegmentButton extends StatelessWidget {
             : hovered
             ? (selected ? .03 : (p.isDark ? .06 : .045))
             : 0.0;
-        final radius = BorderRadius.circular(
-          compact ? AppRadii.input - 2 : AppRadii.input - 3,
-        );
+        final radius = BorderRadius.circular(AppRadii.segmentThumb);
         return Semantics(
           button: true,
           selected: selected,

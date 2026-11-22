@@ -47,11 +47,25 @@ class AppStatusBadge extends StatelessWidget {
     return Container(
       padding: _padding,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: p.isDark ? .14 : .09),
+        color: switch (tone) {
+          AppStatusTone.success => p.successSurface,
+          AppStatusTone.danger => p.dangerSoft,
+          AppStatusTone.neutral => p.pillMuted,
+          AppStatusTone.warning => color.withValues(
+            alpha: p.isDark ? .14 : .09,
+          ),
+        },
         borderRadius: BorderRadius.circular(7),
         border: Border.all(
           width: _borderWidth,
-          color: color.withValues(alpha: p.isDark ? .22 : .14),
+          color: switch (tone) {
+            AppStatusTone.success => p.successRim,
+            AppStatusTone.danger => p.dangerRim,
+            AppStatusTone.neutral => p.badgeRim,
+            AppStatusTone.warning => color.withValues(
+              alpha: p.isDark ? .22 : .14,
+            ),
+          },
         ),
       ),
       child: Text(label, maxLines: 1, style: _textStyle.copyWith(color: color)),

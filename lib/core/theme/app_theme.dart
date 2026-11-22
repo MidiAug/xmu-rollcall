@@ -47,6 +47,7 @@ abstract final class AppTheme {
       textTheme: _textTheme(
         p.ink,
         p.muted,
+        p.inkBody,
       ).apply(fontFamily: AppTypography.family),
       appBarTheme: AppBarTheme(
         backgroundColor: p.surface,
@@ -126,9 +127,7 @@ abstract final class AppTheme {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(AppRadii.button),
               ),
-              side: BorderSide(
-                color: p.isDark ? p.borderStrong : const Color(0xFFDCE1EA),
-              ),
+              side: BorderSide(color: p.btnBorder),
               backgroundColor: p.surface,
               surfaceTintColor: Colors.transparent,
               elevation: 0,
@@ -150,9 +149,7 @@ abstract final class AppTheme {
                       ? p.border
                       : s.contains(WidgetState.focused)
                       ? p.focus
-                      : p.isDark
-                      ? p.borderStrong
-                      : const Color(0xFFDCE1EA),
+                      : p.btnBorder,
                 ),
               ),
             ),
@@ -235,15 +232,15 @@ abstract final class AppTheme {
         suffixIconColor: p.muted,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
-          borderSide: BorderSide(color: p.border),
+          borderSide: BorderSide(color: p.controlRim),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
-          borderSide: BorderSide(color: p.border),
+          borderSide: BorderSide(color: p.controlRim),
         ),
         disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
-          borderSide: BorderSide(color: p.border),
+          borderSide: BorderSide(color: p.controlRim),
         ),
         focusedBorder: _AppFocusRingInputBorder(
           borderRadius: BorderRadius.circular(AppRadii.input),
@@ -260,7 +257,7 @@ abstract final class AppTheme {
           haloColor: p.danger.withValues(alpha: p.isDark ? .26 : .16),
         ),
       ),
-      dividerColor: p.border,
+      dividerColor: p.divider,
       scrollbarTheme: ScrollbarThemeData(
         thickness: const WidgetStatePropertyAll(4),
         radius: const Radius.circular(3),
@@ -272,7 +269,7 @@ abstract final class AppTheme {
           return p.muted.withValues(alpha: active ? .55 : .28);
         }),
       ),
-      dividerTheme: DividerThemeData(color: p.border, thickness: 1, space: 1),
+      dividerTheme: DividerThemeData(color: p.divider, thickness: 1, space: 1),
       listTileTheme: ListTileThemeData(
         iconColor: p.muted,
         textColor: p.ink,
@@ -317,7 +314,9 @@ abstract final class AppTheme {
       switchTheme: SwitchThemeData(
         thumbColor: const WidgetStatePropertyAll(Colors.white),
         trackColor: WidgetStateProperty.resolveWith((s) {
-          return s.contains(WidgetState.selected) ? p.primary : p.switchTrackOff;
+          return s.contains(WidgetState.selected)
+              ? p.primary
+              : p.switchTrackOff;
         }),
         trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
       ),
@@ -347,7 +346,7 @@ abstract final class AppTheme {
     );
   }
 
-  static TextTheme _textTheme(Color ink, Color muted) {
+  static TextTheme _textTheme(Color ink, Color muted, Color body) {
     return TextTheme(
       displaySmall: TextStyle(
         fontSize: 28,
@@ -388,13 +387,13 @@ abstract final class AppTheme {
         fontSize: 15,
         height: 1.45,
         letterSpacing: 0,
-        color: ink,
+        color: body,
       ),
       bodyMedium: TextStyle(
         fontSize: 14,
         height: 1.45,
         letterSpacing: 0,
-        color: ink,
+        color: body,
       ),
       bodySmall: TextStyle(
         fontSize: 12,

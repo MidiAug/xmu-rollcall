@@ -16,7 +16,15 @@ class AppServiceSymbol extends StatelessWidget {
         width: size,
         height: size,
         decoration: BoxDecoration(
-          color: highContrast ? p.surface : p.primary.withValues(alpha: .08),
+          color: highContrast ? p.surface : null,
+          gradient: highContrast
+              ? null
+              : LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: p.iconWellColors,
+                ),
+          border: Border.all(color: highContrast ? p.primary : p.iconWellRim),
           borderRadius: BorderRadius.circular(AppRadii.input),
         ),
         child: Icon(icon, size: size * .6, color: p.primary),

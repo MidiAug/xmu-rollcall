@@ -22,83 +22,55 @@ class AppSidebar extends StatelessWidget {
     final p = AppPalette.of(context);
     return SizedBox(
       width: AppLayout.sidebarWidthOf(context),
-      child: ColoredBox(
-        color: p.sidebar,
-        child: Stack(
-          children: [
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 220,
-              bottom: 118,
-              child: IgnorePointer(
-                child: ClipRect(
-                  child: RepaintBoundary(
-                    child: Align(
-                      alignment: Alignment.bottomCenter,
-                      child: CampusArtworkTreatment(
-                        child: Image.asset(
-                          'assets/illustrations/campus_sidebar.png',
-                          width: AppLayout.sidebarWidthOf(context),
-                          fit: BoxFit.fitWidth,
-                          alignment: Alignment.bottomCenter,
-                          cacheWidth: 512,
-                          filterQuality: FilterQuality.low,
-                          opacity: AlwaysStoppedAnimation(p.isDark ? .16 : .18),
-                          excludeFromSemantics: true,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: p.sidebar,
+          border: Border(right: BorderSide(color: p.sidebarBorder)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, AppSpace.xs, 10, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final d in desktopDestinations.where(
+                (d) => d != AppDestination.settings,
+              ))
+                _DesktopNavItem(
+                  destination: d,
+                  hasPendingPlace:
+                      hasPendingPlace && d == AppDestination.timetable,
+                  selected: d == current,
+                  onTap: () => onSelect(d),
+                ),
+              const Spacer(),
+              Divider(color: p.divider, height: 16),
+              _DesktopNavItem(
+                destination: AppDestination.settings,
+                selected: current == AppDestination.settings,
+                hasUpdate: hasUpdate,
+                onTap: () => onSelect(AppDestination.settings),
+              ),
+              const SizedBox(height: 2),
+              accountControl ??
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.account_circle_outlined,
+                        color: p.muted,
+                        size: 24,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          userLabel ?? '未登录',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, AppSpace.xs, 10, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final d in desktopDestinations.where(
-                    (d) => d != AppDestination.settings,
-                  ))
-                    _DesktopNavItem(
-                      destination: d,
-                      hasPendingPlace:
-                          hasPendingPlace && d == AppDestination.timetable,
-                      selected: d == current,
-                      onTap: () => onSelect(d),
-                    ),
-                  const Spacer(),
-                  Divider(color: p.border, height: 16),
-                  _DesktopNavItem(
-                    destination: AppDestination.settings,
-                    selected: current == AppDestination.settings,
-                    hasUpdate: hasUpdate,
-                    onTap: () => onSelect(AppDestination.settings),
-                  ),
-                  const SizedBox(height: 2),
-                  accountControl ??
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.account_circle_outlined,
-                            color: p.muted,
-                            size: 24,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              userLabel ?? '未登录',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -276,118 +248,94 @@ class AppMobileNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final bottom = AppDensity.mobileNavBottomInset(context);
-    if (Theme.of(context).platform == TargetPlatform.android) {
-      Widget glass(Widget child, BorderRadius radius) =>
-          AppGlassSurface(borderRadius: radius, child: child);
-      return ColoredBox(
-        color: p.mobileCanvas,
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(12, 8, 12, bottom + 8),
-          child: SizedBox(
-            height: 64,
-            child: Row(
-              children: [
-                Expanded(
-                  child: glass(
-                    LayoutBuilder(
-                      builder: (context, bounds) {
-                        final slot =
-                            bounds.maxWidth / mobileDestinations.length;
-                        const inset = 5.0;
-                        final highlightHeight = bounds.maxHeight - inset * 2;
-                        final index = mobileDestinations.indexOf(current);
-                        return Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            if (index >= 0)
-                              AnimatedPositionedDirectional(
-                                duration:
-                                    MediaQuery.disableAnimationsOf(context)
-                                    ? Duration.zero
-                                    : AppMotion.page,
-                                curve: AppMotion.pageCurve,
-                                start: slot * index + inset,
-                                top: inset,
-                                width: slot - inset * 2,
-                                height: highlightHeight,
-                                child: IgnorePointer(
-                                  child: DecoratedBox(
-                                    key: const ValueKey('mobile-nav-highlight'),
-                                    decoration: BoxDecoration(
-                                      color: p.selected,
-                                      borderRadius: BorderRadius.circular(
-                                        highlightHeight / 2,
-                                      ),
+    Widget glass(Widget child, BorderRadius radius) => AppGlassSurface(
+      blur: 0,
+      opacity: 1,
+      borderRadius: radius,
+      child: child,
+    );
+    return ColoredBox(
+      color: p.mobileCanvas,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(12, 8, 12, bottom + 8),
+        child: SizedBox(
+          height: 64,
+          child: Row(
+            children: [
+              Expanded(
+                child: glass(
+                  LayoutBuilder(
+                    builder: (context, bounds) {
+                      final slot = bounds.maxWidth / mobileDestinations.length;
+                      const inset = 5.0;
+                      final highlightHeight = bounds.maxHeight - inset * 2;
+                      final index = mobileDestinations.indexOf(current);
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (index >= 0)
+                            AnimatedPositionedDirectional(
+                              duration: MediaQuery.disableAnimationsOf(context)
+                                  ? Duration.zero
+                                  : AppMotion.page,
+                              curve: AppMotion.pageCurve,
+                              start: slot * index + inset,
+                              top: inset,
+                              width: slot - inset * 2,
+                              height: highlightHeight,
+                              child: IgnorePointer(
+                                child: DecoratedBox(
+                                  key: const ValueKey('mobile-nav-highlight'),
+                                  decoration: BoxDecoration(
+                                    color: p.accentSoft,
+                                    border: Border.all(color: p.accentRim),
+                                    borderRadius: BorderRadius.circular(
+                                      highlightHeight / 2,
                                     ),
                                   ),
                                 ),
                               ),
-                            Row(
-                              children: [
-                                for (final d in mobileDestinations)
-                                  Expanded(
-                                    child: _MobileItem(
-                                      destination: d,
-                                      selected: d == current,
-                                      onTap: () => onSelect(d),
-                                      hasUpdate:
-                                          hasUpdate &&
-                                          d == AppDestination.settings,
-                                      count: d == AppDestination.homework
-                                          ? homeworkCount
-                                          : 0,
-                                      floating: true,
-                                    ),
-                                  ),
-                              ],
                             ),
-                          ],
-                        );
-                      },
-                    ),
-                    BorderRadius.circular(32),
+                          Row(
+                            children: [
+                              for (final d in mobileDestinations)
+                                Expanded(
+                                  child: _MobileItem(
+                                    destination: d,
+                                    selected: d == current,
+                                    onTap: () => onSelect(d),
+                                    hasUpdate:
+                                        hasUpdate &&
+                                        d == AppDestination.settings,
+                                    count: d == AppDestination.homework
+                                        ? homeworkCount
+                                        : 0,
+                                    floating: true,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                  BorderRadius.circular(32),
+                ),
+              ),
+              const SizedBox(width: 10),
+              glass(
+                SizedBox(
+                  width: 60,
+                  height: 60,
+                  child: IconButton(
+                    key: const ValueKey('global-search-button'),
+                    tooltip: '搜索',
+                    onPressed: onSearch,
+                    icon: Icon(AppIcons.search, size: 25, color: p.ink),
                   ),
                 ),
-                const SizedBox(width: 10),
-                glass(
-                  SizedBox(
-                    width: 60,
-                    height: 60,
-                    child: IconButton(
-                      key: const ValueKey('global-search-button'),
-                      tooltip: '搜索',
-                      onPressed: onSearch,
-                      icon: Icon(AppIcons.search, size: 25, color: p.ink),
-                    ),
-                  ),
-                  BorderRadius.circular(30),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-    return Container(
-      decoration: BoxDecoration(
-        color: p.surface,
-        border: Border(top: BorderSide(color: p.mobileOutline)),
-      ),
-      child: Padding(
-        padding: EdgeInsets.only(bottom: bottom),
-        child: SizedBox(
-          height: AppDensity.mobileBar,
-          child: Row(
-            children: [
-              for (final d in mobileDestinations)
-                Expanded(
-                  child: _MobileItem(
-                    destination: d,
-                    selected: d == current,
-                    hasUpdate: hasUpdate && d == AppDestination.settings,
-                    onTap: () => onSelect(d),
-                  ),
-                ),
+                BorderRadius.circular(30),
+              ),
             ],
           ),
         ),
