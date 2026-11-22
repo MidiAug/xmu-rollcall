@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
+import 'package:xmu_rollcall/app/app_settings_glyph.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/app_service_symbol.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -34,10 +35,20 @@ class SettingsAssistPage extends ConsumerWidget {
           children: [
             SettingsSection(
               padTop: false,
+              dividerIndent:
+                  AppDensity.rowPadding(context).left +
+                  32 +
+                  AppDensity.settingsInnerGap,
               children: [
                 SettingsRow(
-                  leading: const AppServiceSymbol(icon: AppIcons.upload),
-                  leadingSize: 40,
+                  leading: const AppServiceSymbol(
+                    size: 32,
+                    child: AppSettingsGlyph(
+                      AppSettingsGlyphKind.link,
+                      size: 16,
+                    ),
+                  ),
+                  leadingSize: 32,
                   title: '导出协助码',
                   subtitle: auth.isSignedIn ? '将协助码发给信任的人' : '请先登录',
                   trailing: Icon(AppIcons.right, color: p.muted, size: 18),
@@ -50,8 +61,14 @@ class SettingsAssistPage extends ConsumerWidget {
                   ),
                 ),
                 SettingsRow(
-                  leading: const AppServiceSymbol(icon: AppIcons.download),
-                  leadingSize: 40,
+                  leading: const AppServiceSymbol(
+                    size: 32,
+                    child: AppSettingsGlyph(
+                      AppSettingsGlyphKind.trayDown,
+                      size: 16,
+                    ),
+                  ),
+                  leadingSize: 32,
                   title: '导入协助身份',
                   subtitle: '使用协助码或学号密码',
                   trailing: Icon(AppIcons.right, color: p.muted, size: 18),
@@ -59,8 +76,14 @@ class SettingsAssistPage extends ConsumerWidget {
                   onTap: () => showAssistRosterImport(context, ref),
                 ),
                 SettingsRow(
-                  leading: const AppServiceSymbol(icon: AppIcons.people),
-                  leadingSize: 40,
+                  leading: const AppServiceSymbol(
+                    size: 32,
+                    child: AppSettingsGlyph(
+                      AppSettingsGlyphKind.user,
+                      size: 16,
+                    ),
+                  ),
+                  leadingSize: 32,
                   title: '已导入名单',
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,

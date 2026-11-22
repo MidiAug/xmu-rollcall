@@ -211,16 +211,19 @@ class SettingsRow extends StatelessWidget {
           : hovered
           ? p.ink
           : p.muted;
-      indicator = TweenAnimationBuilder<Color?>(
+      Widget buildIndicator(Widget child) => TweenAnimationBuilder<Color?>(
         tween: ColorTween(begin: color, end: color),
         duration: duration,
         curve: AppMotion.fastCurve,
-        child: trailing,
+        child: child,
         builder: (context, color, child) => IconTheme.merge(
           data: IconThemeData(color: color),
           child: child!,
         ),
       );
+      indicator = trailing is Expanded
+          ? Expanded(flex: trailing.flex, child: buildIndicator(trailing.child))
+          : buildIndicator(trailing);
     } else {
       indicator = trailing;
     }
@@ -282,7 +285,13 @@ class SettingsRow extends StatelessWidget {
                   else
                     SizedBox.square(
                       dimension: leadingExtent,
-                      child: Center(child: leading!),
+                      child: IconTheme.merge(
+                        data: IconThemeData(
+                          size: touch ? 20 : 18,
+                          color: p.muted,
+                        ),
+                        child: Center(child: leading!),
+                      ),
                     ),
                   SizedBox(width: gap),
                 ],

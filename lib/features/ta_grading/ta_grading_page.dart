@@ -28,12 +28,16 @@ class TaGradingPage extends ConsumerWidget {
           : null,
       title: taIsMobile(context) ? '助教作业' : '修改作业',
       child: repository.when(
+        skipLoadingOnReload: repository.hasValue,
+        skipLoadingOnRefresh: repository.hasValue,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => TaFailureView(
           error: e,
           retry: () => ref.invalidate(taRepositoryProvider),
         ),
         data: (repo) => courses.when(
+          skipLoadingOnReload: courses.hasValue,
+          skipLoadingOnRefresh: courses.hasValue,
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => TaFailureView(
             error: e,
@@ -64,6 +68,8 @@ class _TaCourses extends StatefulWidget {
 
 class _TaCoursesState extends State<_TaCourses> {
   int? _course;
+  int? _renderedCourse;
+  List<TaAssignment>? _renderedAssignments;
   Future<List<TaAssignment>>? _assignments;
   Future<List<TaAssignment>> _readAssignments(
     int id, {
@@ -73,10 +79,18 @@ class _TaCoursesState extends State<_TaCourses> {
     if (!mounted || _course != id) {
       return widget.repository.cachedAssignments(id)?.items ?? const [];
     }
-    if (widget.repository.cachedAssignments(id) != null) {
-      setState(() {});
+    if (widget.repository.cachedAssignments(id) case final cached?) {
+      setState(() {
+        _renderedCourse = id;
+        _renderedAssignments = cached.items;
+      });
     }
-    return widget.repository.assignments(id, refresh: refresh);
+    final items = await widget.repository.assignments(id, refresh: refresh);
+    if (mounted && _course == id) {
+      _renderedCourse = id;
+      _renderedAssignments = items;
+    }
+    return items;
   }
 
   void _select(int id, {bool refresh = false}) {
@@ -125,7 +139,7 @@ class _TaCoursesState extends State<_TaCourses> {
     return AppPageViewport(
       maxWidth: AppLayout.workspaceMaxWidth,
       builder: (context, contentInsets) => FutureBuilder<List<TaAssignment>>(
-        key: ValueKey((_course, _assignments)),
+        key: ValueKey(_course),
         future: _assignments,
         initialData: _course == null
             ? null
@@ -135,7 +149,8 @@ class _TaCoursesState extends State<_TaCourses> {
               snapshot.data ??
               (_course == null
                   ? null
-                  : widget.repository.cachedAssignments(_course!)?.items);
+                  : widget.repository.cachedAssignments(_course!)?.items) ??
+              (_renderedCourse == _course ? _renderedAssignments : null);
           if (snapshot.hasError && assignments == null) {
             return TaFailureView(
               error: snapshot.error!,
@@ -370,6 +385,14 @@ class _TaCoursesState extends State<_TaCourses> {
                                         ])
                                           Text(
                                             '${metric.$1} ${metric.$2}',
+                                            style: TextStyle(
+                                              color: p.muted,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        for (final time in item.timeMetrics)
+                                          Text(
+                                            '${time.$1} ${time.$2}',
                                             style: TextStyle(
                                               color: p.muted,
                                               fontSize: 12,

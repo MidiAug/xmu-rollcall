@@ -210,6 +210,8 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
         : timetable == null
         ? const SizedBox.shrink()
         : visibleTimetable!.when(
+            skipLoadingOnReload: visibleTimetable.hasValue,
+            skipLoadingOnRefresh: visibleTimetable.hasValue,
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (_, _) => failure('请稍后重试'),
             data: (value) {

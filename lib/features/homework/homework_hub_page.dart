@@ -268,8 +268,8 @@ class _TodosBodyState extends ConsumerState<_TodosBody> {
         onRefresh: () => _refreshHomework(ref),
         child: visibleItems.when(
           skipError: true,
-          skipLoadingOnReload: false,
-          skipLoadingOnRefresh: true,
+          skipLoadingOnReload: visibleItems.hasValue,
+          skipLoadingOnRefresh: visibleItems.hasValue,
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => ListView(
             primary: true,
@@ -541,7 +541,8 @@ class _TeachingCourseCard extends ConsumerWidget {
     final async = ref.watch(courseHomeworkProvider(id));
     final noOpenItems =
         async.whenOrNull(
-          skipLoadingOnReload: false,
+          skipLoadingOnReload: true,
+          skipLoadingOnRefresh: true,
           data: (items) => items.every((item) => item.isOverdue),
         ) ??
         false;
@@ -602,7 +603,8 @@ class _TeachingCourseCard extends ConsumerWidget {
               padTop: false,
               children: [
                 async.when(
-                  skipLoadingOnReload: false,
+                  skipLoadingOnReload: true,
+                  skipLoadingOnRefresh: true,
                   loading: () => const Padding(
                     padding: EdgeInsets.symmetric(vertical: 16),
                     child: LinearProgressIndicator(minHeight: 2),

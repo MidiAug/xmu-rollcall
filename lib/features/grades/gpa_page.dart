@@ -75,6 +75,8 @@ class _GpaPageState extends ConsumerState<GpaPage> {
               detail: '成绩使用当前选中账号的教务会话',
             )
           : data!.when(
+              skipLoadingOnReload: data.hasValue,
+              skipLoadingOnRefresh: data.hasValue,
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) => EmptyHint(
                 icon: AppIcons.document,

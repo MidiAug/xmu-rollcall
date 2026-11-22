@@ -182,7 +182,7 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
     final history = signedIn && !android
         ? ref.watch(currentCourseHistoryProvider)
         : null;
-    final records = history?.isLoading == false ? history?.valueOrNull : null;
+    final records = history?.valueOrNull;
     final latest = HistorySummary(records ?? []).records.firstOrNull;
     final time = latest?.rollcallTime?.toLocal();
     final historyText = latest == null

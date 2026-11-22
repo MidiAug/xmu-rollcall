@@ -332,7 +332,8 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
           ? ref
                     .watch(currentCourseHistoryProvider)
                     .whenOrNull(
-                      skipLoadingOnReload: false,
+                      skipLoadingOnReload: true,
+                      skipLoadingOnRefresh: true,
                       data: (data) => data,
                     ) ??
                 const <CourseRollcallRecord>[]

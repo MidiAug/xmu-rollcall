@@ -166,8 +166,8 @@ class _HomeworkCoursePageState extends ConsumerState<HomeworkCoursePage> {
                         .refresh(),
                     child: async.when(
                       skipError: true,
-                      skipLoadingOnReload: false,
-                      skipLoadingOnRefresh: true,
+                      skipLoadingOnReload: async.hasValue,
+                      skipLoadingOnRefresh: async.hasValue,
                       loading: () =>
                           const Center(child: CircularProgressIndicator()),
                       error: (e, _) => ListView(

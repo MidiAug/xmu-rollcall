@@ -37,9 +37,11 @@ class TaOverview extends StatelessWidget {
     required this.total,
     required this.submitted,
     required this.graded,
+    this.timeSummary,
   });
   final String title;
   final int total, submitted, graded;
+  final String? timeSummary;
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
@@ -55,6 +57,16 @@ class TaOverview extends StatelessWidget {
             title,
             style: Theme.of(context).textTheme.titleLarge,
           ),
+          if (timeSummary != null && timeSummary!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                timeSummary!,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: p.muted),
+              ),
+            ),
           const SizedBox(height: 22),
           Row(
             children: [

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -422,4 +424,103 @@ void main() {
     expect(find.text('课程作业'), findsNothing);
     expect(find.textContaining('未提供课程信息'), findsOneWidget);
   });
+
+  testWidgets(
+    'detail shows seed summary and static skeleton while loading, then keeps content on background reload',
+    (tester) async {
+      const seed = HomeworkItem(
+        id: 42,
+        title: '数据结构作业',
+        courseId: 9,
+        courseName: '数据结构',
+      );
+      const detailKey = HomeworkDetailKey(
+        activityId: 42,
+        courseId: 9,
+        seed: seed,
+      );
+      final firstFetch = Completer<HomeworkItem>();
+      final secondFetch = Completer<HomeworkItem>();
+      var fetchCount = 0;
+
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          currentTeachingCoursesProvider.overrideWith((ref) async => const []),
+          homeworkSubmissionProvider.overrideWith(
+            (ref, key) async => const HomeworkSubmissionState(
+              submission: HomeworkSubmission.unsubmitted,
+            ),
+          ),
+          homeworkDetailProvider.overrideWith((ref, key) {
+            fetchCount++;
+            return fetchCount == 1 ? firstFetch.future : secondFetch.future;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const HomeworkDetailPage(seed: seed),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey('homework-detail-summary-42')),
+        findsOneWidget,
+      );
+      expect(find.text('数据结构作业'), findsOneWidget);
+      expect(find.text('数据结构'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('homework-detail-skeleton-42')),
+        findsOneWidget,
+      );
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text('暂无作业说明和附件'), findsNothing);
+
+      firstFetch.complete(seed.copyWith(description: '请提交红黑树实现与复杂度分析。'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('homework-detail-skeleton-42')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('homework-description-42')),
+        findsOneWidget,
+      );
+      expect(find.text('请提交红黑树实现与复杂度分析。'), findsOneWidget);
+
+      container.invalidate(homeworkDetailProvider(detailKey));
+      await tester.pump();
+
+      final reloading = container.read(homeworkDetailProvider(detailKey));
+      expect(reloading.isLoading, isTrue);
+      expect(reloading.hasValue, isTrue);
+      expect(
+        find.byKey(const ValueKey('homework-description-42')),
+        findsOneWidget,
+      );
+      expect(find.text('请提交红黑树实现与复杂度分析。'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('homework-detail-skeleton-42')),
+        findsNothing,
+      );
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+
+      secondFetch.complete(seed.copyWith(description: '更新后的作业要求。'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('更新后的作业要求。'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }

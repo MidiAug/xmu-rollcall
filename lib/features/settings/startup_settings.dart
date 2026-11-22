@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:xmu_rollcall/app/app_settings_glyph.dart';
 import 'package:xmu_rollcall/app/app_switch.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/platform/windows_startup.dart';
-import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 /// App launch preferences live in settings, independently of the sign-in page.
 class StartupSettings extends ConsumerStatefulWidget {
@@ -64,7 +64,9 @@ class _StartupSettingsState extends ConsumerState<StartupSettings> {
       hasLeading: !widget.showHeader,
       children: [
         SettingsRow(
-          leading: widget.showHeader ? null : const Icon(AppIcons.desktop),
+          leading: widget.showHeader
+              ? null
+              : const AppSettingsGlyph(AppSettingsGlyphKind.power),
           title: '开机启动',
           subtitle: _error ?? (startup.supported ? null : 'Windows 正式版中可设置'),
           stackSubtitleOnNarrow: true,
@@ -77,7 +79,9 @@ class _StartupSettingsState extends ConsumerState<StartupSettings> {
           ),
         ),
         SettingsRow(
-          leading: widget.showHeader ? null : const Icon(AppIcons.guard),
+          leading: widget.showHeader
+              ? null
+              : const AppSettingsGlyph(AppSettingsGlyphKind.shieldCheck),
           title: '启动后继续值守',
           subtitle: !signedIn
               ? '登录主账号后可设置'

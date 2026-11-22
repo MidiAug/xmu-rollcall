@@ -31,6 +31,12 @@ class TaAssignmentStore {
             graded < 0) {
           return null;
         }
+        final startTime = row['start_time'] is String
+            ? DateTime.tryParse(row['start_time'] as String)
+            : null;
+        final endTime = row['end_time'] is String
+            ? DateTime.tryParse(row['end_time'] as String)
+            : null;
         items.add(
           TaAssignment(
             id: id,
@@ -38,6 +44,8 @@ class TaAssignmentStore {
             expected: expected,
             submitted: submitted,
             graded: graded,
+            startTime: startTime,
+            endTime: endTime,
           ),
         );
       }
@@ -60,6 +68,8 @@ class TaAssignmentStore {
                 'expected': item.expected,
                 'submitted': item.submitted,
                 'graded': item.graded,
+                'start_time': item.startTime?.toUtc().toIso8601String(),
+                'end_time': item.endTime?.toUtc().toIso8601String(),
               },
           ],
         },

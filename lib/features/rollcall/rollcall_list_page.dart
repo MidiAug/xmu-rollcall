@@ -133,7 +133,7 @@ class RollcallListPage extends ConsumerWidget {
         ),
         data: (items) {
           if (items.isEmpty) {
-            if (async.isLoading) {
+            if (async.isLoading && !async.hasValue) {
               return const Center(child: CircularProgressIndicator());
             }
             return CustomScrollView(
@@ -262,6 +262,21 @@ typedef _RadarTaskLocation = ({
 class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
   Object? _locationDisplayKey;
   Future<_RadarTaskLocation>? _locationDisplay;
+  _RadarTaskLocation? _lastLocation;
+  (int?, int?, int, String?)? _lastLocationIdentity;
+
+  @override
+  void didUpdateWidget(covariant RollcallTaskCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.assistUserId != widget.assistUserId ||
+        oldWidget.item.rollcallId != widget.item.rollcallId ||
+        oldWidget.item.courseId != widget.item.courseId) {
+      _locationDisplayKey = null;
+      _locationDisplay = null;
+      _lastLocation = null;
+      _lastLocationIdentity = null;
+    }
+  }
 
   Future<_RadarTaskLocation> _resolveRadarLocation(
     int owner,
@@ -339,22 +354,45 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
       places,
       issues,
     );
+    final identity = (
+      owner,
+      widget.assistUserId,
+      widget.item.rollcallId,
+      widget.item.courseId,
+    );
+    if (identity != _lastLocationIdentity) {
+      _lastLocationIdentity = identity;
+      _lastLocation = null;
+    }
     if (key != _locationDisplayKey) {
       _locationDisplayKey = key;
-      _locationDisplay = owner == null
-          ? null
-          : _resolveRadarLocation(
+      if (owner == null) {
+        _locationDisplay = null;
+      } else {
+        late final Future<_RadarTaskLocation> future;
+        future =
+            _resolveRadarLocation(
               owner,
               radarActivityReferenceTime(widget.item, DateTime.now()),
               () {
                 if (!mounted) throw StateError('页面已关闭');
               },
-            );
+            ).then((resolved) {
+              if (mounted && identical(_locationDisplay, future)) {
+                _lastLocation = resolved;
+              }
+              return resolved;
+            });
+        _locationDisplay = future;
+      }
     }
     return FutureBuilder<_RadarTaskLocation>(
       future: _locationDisplay,
+      initialData: _lastLocation,
       builder: (context, snapshot) {
-        final loading = snapshot.connectionState == ConnectionState.waiting;
+        final loading =
+            snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData;
         final point = loading ? null : snapshot.data?.point;
         return Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -953,15 +991,19 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
               final stacked =
                   bounds.maxWidth <
                   270 * MediaQuery.textScalerOf(context).scale(1);
+              final method = _taskMethod(p, item);
               final action = item.isRadar
                   ? FutureBuilder<_RadarTaskLocation>(
                       future: _locationDisplay,
+                      initialData: _lastLocation,
                       builder: (context, snapshot) => _taskActionButton(
                         item,
                         done: done,
                         unavailable: unavailable,
                         resolving:
-                            snapshot.connectionState == ConnectionState.waiting,
+                            snapshot.connectionState ==
+                                ConnectionState.waiting &&
+                            !snapshot.hasData,
                         hasLocation: snapshot.data?.point != null,
                       ),
                     )
@@ -977,7 +1019,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                     ? CrossAxisAlignment.stretch
                     : CrossAxisAlignment.center,
                 children: [
-                  Flexible(child: _taskMethod(p, item)),
+                  Flexible(child: method),
                   SizedBox(width: stacked ? 0 : 16, height: stacked ? 16 : 0),
                   Align(
                     alignment: Alignment.centerRight,
@@ -1068,11 +1110,14 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     final action = item.isRadar
         ? FutureBuilder<_RadarTaskLocation>(
             future: _locationDisplay,
+            initialData: _lastLocation,
             builder: (context, snapshot) => _taskActionButton(
               item,
               done: _answered,
               unavailable: item.isExpired,
-              resolving: snapshot.connectionState == ConnectionState.waiting,
+              resolving:
+                  snapshot.connectionState == ConnectionState.waiting &&
+                  !snapshot.hasData,
               hasLocation: snapshot.data?.point != null,
             ),
           )

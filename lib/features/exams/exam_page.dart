@@ -87,6 +87,8 @@ class _ExamPageState extends ConsumerState<ExamPage>
               detail: '查看当前账号的本科考试安排',
             )
           : data!.when(
+              skipLoadingOnReload: data.hasValue,
+              skipLoadingOnRefresh: data.hasValue,
               loading: () => const Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

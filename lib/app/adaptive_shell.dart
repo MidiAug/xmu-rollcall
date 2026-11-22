@@ -292,7 +292,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                             ? ref
                                       .watch(homeworkBadgeCountProvider)
                                       .whenOrNull(
-                                        skipLoadingOnReload: false,
+                                        skipLoadingOnReload: true,
                                         data: (count) => count,
                                       ) ??
                                   0

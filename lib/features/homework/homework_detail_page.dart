@@ -62,7 +62,14 @@ class HomeworkDetailPage extends ConsumerWidget {
       ],
       body: AppPageViewport(
         builder: (context, contentInsets) => async.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
+          skipLoadingOnReload: async.hasValue,
+          skipLoadingOnRefresh: async.hasValue,
+          loading: () => ListView(
+            padding:
+                contentInsets +
+                EdgeInsets.fromLTRB(pageX, AppSpace.md, pageX, AppSpace.xl),
+            children: [_DetailBody(item: seed, loadingDetail: true)],
+          ),
           error: (e, _) => ListView(
             padding: contentInsets + EdgeInsets.all(pageX),
             children: [
@@ -119,9 +126,10 @@ class HomeworkDetailPage extends ConsumerWidget {
 }
 
 class _DetailBody extends StatelessWidget {
-  const _DetailBody({required this.item});
+  const _DetailBody({required this.item, this.loadingDetail = false});
 
   final HomeworkItem item;
+  final bool loadingDetail;
 
   @override
   Widget build(BuildContext context) {
@@ -204,11 +212,48 @@ class _DetailBody extends StatelessWidget {
             ),
           ],
         ),
-        if (!hasReadingContent) ...[
+        if (!hasReadingContent && !loadingDetail) ...[
           const SizedBox(height: AppSpace.sm),
           Text(
             '暂无作业说明和附件',
             style: AppTypography.caption.copyWith(color: p.muted),
+          ),
+        ] else if (loadingDetail && !hasReadingContent) ...[
+          const SizedBox(height: AppSpace.lg),
+          Panel(
+            key: ValueKey('homework-detail-skeleton-${item.id}'),
+            lifted: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 140,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: p.content,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                const SizedBox(height: AppSpace.sm),
+                Container(
+                  width: double.infinity,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: p.content,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+                const SizedBox(height: AppSpace.xs),
+                Container(
+                  width: 220,
+                  height: 12,
+                  decoration: BoxDecoration(
+                    color: p.content,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                ),
+              ],
+            ),
           ),
         ] else ...[
           const SizedBox(height: AppSpace.lg),

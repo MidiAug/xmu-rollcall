@@ -625,6 +625,8 @@ class _CourseDetail extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = block.course;
     final p = AppPalette.of(context);
+    final hasLocation = c.location?.isNotEmpty == true;
+    final canOpenMap = hasLocation && onMap != null;
     Widget value(String label, String value) => SettingsRow(
       title: label,
       trailing: Expanded(
@@ -684,13 +686,32 @@ class _CourseDetail extends StatelessWidget {
               SettingsRow(
                 key: const ValueKey('course-location-map-link'),
                 title: '地点',
-                onTap: c.location?.isNotEmpty == true ? onMap : null,
-                subtitle: c.location?.isNotEmpty == true
-                    ? c.location!
-                    : '教务未提供教室',
-                trailing: c.location?.isNotEmpty == true
-                    ? Icon(AppIcons.right, size: 18, color: p.muted)
-                    : null,
+                onTap: canOpenMap ? onMap : null,
+                trailing: Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          hasLocation ? c.location! : '教务未提供教室',
+                          textAlign: TextAlign.end,
+                          style: AppTypography.body.copyWith(
+                            color: canOpenMap
+                                ? p.primary
+                                : hasLocation
+                                ? p.ink
+                                : p.muted,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      if (canOpenMap) ...[
+                        const SizedBox(width: 4),
+                        Icon(AppIcons.right, size: 16, color: p.primary),
+                      ],
+                    ],
+                  ),
+                ),
               ),
               value(
                 '上课时间',
@@ -1065,8 +1086,11 @@ class _TimetableDayHeading extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: EdgeInsets.symmetric(horizontal: inline ? 4 : 2),
+      padding: EdgeInsets.symmetric(
+        horizontal: inline ? 8 : 4,
+        vertical: inline ? 4 : 2,
+      ),
       decoration: isToday
           ? BoxDecoration(
               color: p.accentSoft,
@@ -1080,6 +1104,8 @@ class _TimetableDayHeading extends StatelessWidget {
         children: [
           Text(
             weekdayLabel(day),
+            maxLines: 1,
+            softWrap: false,
             style: AppTypography.control.copyWith(
               fontSize: AppDensity.isTouch(context) ? 12 : 13,
               fontWeight: isToday ? FontWeight.w600 : FontWeight.w500,
@@ -1087,10 +1113,12 @@ class _TimetableDayHeading extends StatelessWidget {
             ),
           ),
           if (date != null) ...[
-            SizedBox(width: inline ? 8 : 0, height: inline ? 0 : AppSpace.xxs),
+            SizedBox(width: inline ? 8 : 0, height: inline ? 0 : 2),
             Text(
               '${date!.month}/${date!.day}',
               key: ValueKey('timetable-date-$day'),
+              maxLines: 1,
+              softWrap: false,
               style: AppTypography.caption.copyWith(
                 color: isToday ? p.primary : p.muted,
                 fontFeatures: const [FontFeature.tabularFigures()],

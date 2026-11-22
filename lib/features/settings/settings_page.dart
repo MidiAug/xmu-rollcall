@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
+import 'package:xmu_rollcall/app/app_settings_glyph.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
@@ -164,7 +165,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
         padTop: false,
         children: [
           SettingsRow(
-            leading: const Icon(AppIcons.theme),
+            leading: const AppSettingsGlyph(AppSettingsGlyphKind.sun),
             title: '外观',
             trailing: desktop
                 ? AppSegmentedControl<ThemePreference>(
@@ -205,7 +206,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
           ),
           if (platform == TargetPlatform.windows)
             SettingsRow(
-              leading: const Icon(AppIcons.externalLink),
+              leading: const AppSettingsGlyph(AppSettingsGlyphKind.globe),
               title: '常用网站打开方式',
               trailing: AppShellSelect<WebsiteOpenMode>(
                 semanticLabel: '常用网站打开方式',
@@ -222,7 +223,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
             ),
           if (desktop)
             SettingsRow(
-              leading: const Icon(AppIcons.desktop),
+              leading: const AppSettingsGlyph(AppSettingsGlyphKind.window),
               title: '关闭窗口时',
               trailing: AppShellSelect<CloseMode>(
                 semanticLabel: '关闭窗口时',
@@ -244,7 +245,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
         children: [
           if (!desktop)
             SettingsRow(
-              leading: const Icon(AppIcons.week),
+              leading: const AppSettingsGlyph(AppSettingsGlyphKind.calendar),
               title: '本学期课表',
               subtitle: auth.isSignedIn ? null : '请先登录',
               trailing: Icon(AppIcons.right, color: p.muted, size: 18),
@@ -253,14 +254,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   : () => AppPageRoutes.push(context, const CoursesPage()),
             ),
           SettingsRow(
-            leading: const Icon(AppIcons.location),
+            leading: const AppSettingsGlyph(AppSettingsGlyphKind.mapPin),
             title: '地点管理',
             trailing: Icon(AppIcons.right, color: p.muted, size: 18),
             onTap: () =>
                 AppPageRoutes.push(context, const SavedLocationsPage()),
           ),
           SettingsRow(
-            leading: const Icon(AppIcons.assist),
+            leading: const AppSettingsGlyph(AppSettingsGlyphKind.user),
             title: '协助同学',
             subtitle: assist.ready && assist.identities.isNotEmpty
                 ? '已导入 ${assist.identities.length} 人'
@@ -277,7 +278,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
         children: [
           if (platform == TargetPlatform.android || desktop)
             SettingsRow(
-              leading: const Icon(AppIcons.notification),
+              leading: const AppSettingsGlyph(AppSettingsGlyphKind.bell),
               title: desktop ? '桌面提醒' : '后台提醒',
               trailing: Icon(AppIcons.right, color: p.muted, size: 18),
               onTap: () => AppPageRoutes.push(
@@ -288,7 +289,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               ),
             ),
           SettingsRow(
-            leading: const Icon(AppIcons.data),
+            leading: const AppSettingsGlyph(AppSettingsGlyphKind.database),
             title: '数据与诊断',
             trailing: Icon(AppIcons.right, color: p.muted, size: 18),
             onTap: () => AppPageRoutes.push(context, const SettingsDataPage()),
@@ -343,12 +344,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
         ? null
         : '${semesterLabel(termInfo.term)}  ${termInfo.weekLabel(DateTime.now())}';
     Widget row(
-      IconData icon,
+      AppSettingsGlyphKind glyph,
       String title,
       VoidCallback onTap, {
       Widget? trailing,
     }) => SettingsRow(
-      leading: Icon(icon, color: p.muted, size: 22),
+      leading: AppSettingsGlyph(glyph),
       title: title,
       trailing: trailing ?? Icon(AppIcons.right, color: p.muted, size: 18),
       onTap: onTap,
@@ -375,7 +376,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
       width: double.infinity,
       triggerBuilder: (context, open, toggle, focus) => SettingsRow(
         focusNode: focus,
-        leading: Icon(AppIcons.theme, color: p.muted, size: 22),
+        leading: const AppSettingsGlyph(AppSettingsGlyphKind.sun),
         title: '外观',
         onTap: toggle,
         trailing: Row(
@@ -462,17 +463,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               ),
               group([
                 row(
-                  AppIcons.calendar,
+                  AppSettingsGlyphKind.calendar,
                   '本学期课表',
                   () => AppPageRoutes.push(context, const CoursesPage()),
                 ),
                 row(
-                  AppIcons.location,
+                  AppSettingsGlyphKind.mapPin,
                   '地点管理',
                   () => AppPageRoutes.push(context, const SavedLocationsPage()),
                 ),
                 row(
-                  AppIcons.assist,
+                  AppSettingsGlyphKind.user,
                   '协助同学',
                   () => AppPageRoutes.push(context, const SettingsAssistPage()),
                   trailing: Row(
@@ -503,7 +504,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 appearance,
                 if (android)
                   row(
-                    AppIcons.notification,
+                    AppSettingsGlyphKind.bell,
                     '后台提醒',
                     () => AppPageRoutes.push(
                       context,
@@ -511,7 +512,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                     ),
                   ),
                 row(
-                  AppIcons.data,
+                  AppSettingsGlyphKind.database,
                   '数据与诊断',
                   () => AppPageRoutes.push(context, const SettingsDataPage()),
                 ),

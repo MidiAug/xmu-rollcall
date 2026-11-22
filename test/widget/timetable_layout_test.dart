@@ -621,4 +621,108 @@ void main() {
       },
     );
   }
+
+  for (final dark in [false, true]) {
+    testWidgets(
+      'course detail location link uses primary color without underline or muted placeholder dark=$dark',
+      (tester) async {
+        tester.view.physicalSize = const Size(960, 720);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+
+        CatalogCourse makeCourse(String id, String title, int day, String? loc) =>
+            CatalogCourse(
+              id: id,
+              title: title,
+              instructorNames: const ['陈老师'],
+              location: loc,
+              timetables: {
+                day: [
+                  TimetableSlot(
+                    sequence: 1,
+                    endSequence: 2,
+                    start: DateTime(2000, 1, 3, 8),
+                    end: DateTime(2000, 1, 3, 9, 40),
+                  ),
+                ],
+              },
+            );
+
+        await tester.pumpWidget(
+          ProviderScope(
+            child: MaterialApp(
+              theme: dark ? AppTheme.dark() : AppTheme.light(),
+              home: Scaffold(
+                body: TimetableGridView(
+                  courses: [
+                    makeCourse('with-room', '有地点课程', 1, '海韵教学楼 205'),
+                    makeCourse('no-room', '无地点课程', 2, null),
+                  ],
+                  referenceDate: DateTime(2026, 11, 20),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('有地点课程'));
+        await tester.pumpAndSettle();
+        final linkRowFinder = find.byKey(
+          const ValueKey('course-location-map-link'),
+        );
+        expect(linkRowFinder, findsOneWidget);
+        final linkPalette = AppPalette.of(tester.element(linkRowFinder));
+        final linkRow = tester.widget<SettingsRow>(linkRowFinder);
+        expect(linkRow.onTap, isNotNull);
+
+        final locationText = tester.widget<Text>(
+          find.descendant(
+            of: linkRowFinder,
+            matching: find.text('海韵教学楼 205'),
+          ),
+        );
+        expect(locationText.style?.color, linkPalette.primary);
+        expect(locationText.style?.decoration, isNot(TextDecoration.underline));
+
+        final arrowFinder = find.descendant(
+          of: linkRowFinder,
+          matching: find.byIcon(AppIcons.right),
+        );
+        expect(arrowFinder, findsOneWidget);
+        final arrowIcon = tester.widget<Icon>(arrowFinder);
+        expect(arrowIcon.size, 16);
+        expect(arrowIcon.color, linkPalette.primary);
+
+        await tester.tap(find.byTooltip('关闭课程详情'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('无地点课程'));
+        await tester.pumpAndSettle();
+        expect(linkRowFinder, findsOneWidget);
+        final emptyPalette = AppPalette.of(tester.element(linkRowFinder));
+        final emptyRow = tester.widget<SettingsRow>(linkRowFinder);
+        expect(emptyRow.onTap, isNull);
+
+        final emptyText = tester.widget<Text>(
+          find.descendant(
+            of: linkRowFinder,
+            matching: find.text('教务未提供教室'),
+          ),
+        );
+        expect(emptyText.style?.color, emptyPalette.muted);
+        expect(emptyText.style?.decoration, isNot(TextDecoration.underline));
+        expect(
+          find.descendant(
+            of: linkRowFinder,
+            matching: find.byIcon(AppIcons.right),
+          ),
+          findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
 }

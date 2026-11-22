@@ -180,9 +180,21 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
                 itemCount: students.length + 2,
                 itemBuilder: (context, index) {
                   if (index == 0) {
+                    final timeSummary = _summary.timeMetrics
+                        .map((m) => '${m.$1} ${m.$2}')
+                        .join('   ');
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        if (timeSummary.isNotEmpty) ...[
+                          Text(
+                            timeSummary,
+                            style: Theme.of(
+                              context,
+                            ).textTheme.bodySmall?.copyWith(color: p.muted),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         AppSegmentedControl<int>(
                           key: const ValueKey('ta-mobile-status'),
                           value: _submission,

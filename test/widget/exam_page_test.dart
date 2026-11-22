@@ -139,6 +139,89 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
+
+  testWidgets(
+    'background reload on lifecycle resume keeps rendered exams without loading flicker',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      var now = DateTime(2026, 11, 10, 9);
+      final adapter = ExamAdapter();
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => Auth()),
+          assistControllerProvider.overrideWith(
+            (ref) => AssistController(
+              ref,
+              bootstrap: false,
+              initial: const AssistUiState(ready: true),
+            ),
+          ),
+          examClockProvider.overrideWithValue(() => now),
+          academicIdentityResolverProvider.overrideWithValue(
+            (_) async => AcademicIdentity(
+              username: 'synthetic',
+              isCurrent: () async => true,
+            ),
+          ),
+          academicSessionFactoryProvider.overrideWithValue(
+            () => AcademicSession(
+              store: SecureStore.memory({SecureStore.keyUserId: '1'}),
+              dio: Dio()..httpClientAdapter = adapter,
+              limiter: RateLimiter(minInterval: Duration.zero),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const ExamPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('已排课程'), findsOneWidget);
+      expect(find.text('测试楼A101'), findsOneWidget);
+      expect(find.text('正在读取考试安排…'), findsNothing);
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(examCacheKey(1, 1, '20261'));
+      now = now.add(const Duration(seconds: 16));
+      adapter.gate = Completer<void>();
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump();
+
+      final reloading = container.read(examSnapshotProvider);
+      expect(reloading.isLoading, isTrue);
+      expect(reloading.hasValue, isTrue);
+      expect(find.text('已排课程'), findsOneWidget);
+      expect(find.text('测试楼A101'), findsOneWidget);
+      expect(find.text('正在读取考试安排…'), findsNothing);
+      expect(
+        tester.widget<AppRefreshButton>(find.byType(AppRefreshButton)).busy,
+        isTrue,
+      );
+
+      adapter.gate!.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.text('已排课程'), findsOneWidget);
+      expect(find.text('正在读取考试安排…'), findsNothing);
+      expect(
+        tester.widget<AppRefreshButton>(find.byType(AppRefreshButton)).busy,
+        isFalse,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   for (final (width, scale) in [
     (390.0, 1.0),
     (1100.0, 1.0),

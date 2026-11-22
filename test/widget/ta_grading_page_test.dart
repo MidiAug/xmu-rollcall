@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
+import 'package:xmu_rollcall/core/storage/json_disk_cache.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/app_checkbox.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
+import 'package:xmu_rollcall/features/ta_grading/ta_assignment_store.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_grading_page.dart';
+import 'package:xmu_rollcall/features/ta_grading/ta_models.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_providers.dart';
 import '../fixtures/ta_http_fixture.dart';
 import '../fixtures/preview_fonts.dart';
@@ -570,6 +574,221 @@ void main() {
       expect(find.text('当前页面已失效'), findsOneWidget);
       expect(find.text('示例学生1'), findsNothing);
       expect(f.requests.where((r) => r.method == 'PUT'), isEmpty);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    },
+  );
+
+  test(
+    'TaAssignment.parse and TaAssignmentStore persist optional start_time and end_time safely',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      const userId = 17;
+      final store = TaAssignmentStore(userId);
+      final parsed = TaAssignment.parse({
+        'id': 81,
+        'title': '实验一',
+        'expected_submit_count': 12,
+        'submitted_count': 8,
+        'scored_count': 3,
+        'start_time': '2026-09-15T08:00:00Z',
+        'end_time': '2026-09-19T15:59:00Z',
+        'submit_by_group': false,
+        'score_type': 'percentage',
+        'rubric_id': 0,
+        'data': {'mode': 'normal'},
+      });
+      expect(parsed.startTime, DateTime.utc(2026, 9, 15, 8));
+      expect(parsed.endTime, DateTime.utc(2026, 9, 19, 15, 59));
+
+      final missingTimes = TaAssignment.parse({
+        'id': 82,
+        'title': '无时间字段作业',
+        'submit_by_group': false,
+        'score_type': 'percentage',
+        'data': {'mode': 'normal'},
+      });
+      expect(missingTimes.startTime, isNull);
+      expect(missingTimes.endTime, isNull);
+
+      final blankTimes = TaAssignment.parse({
+        'id': 83,
+        'title': '空时间字段作业',
+        'start_time': '  ',
+        'end_time': null,
+        'submit_by_group': false,
+        'score_type': 'percentage',
+        'data': {'mode': 'normal'},
+      });
+      expect(blankTimes.startTime, isNull);
+      expect(blankTimes.endTime, isNull);
+
+      final checkedAt = DateTime.utc(2026, 9, 16, 10, 30);
+      await store.write(
+        91,
+        TaAssignmentSnapshot([
+          parsed,
+          TaAssignment(
+            id: 84,
+            title: '仅截止时间',
+            endTime: DateTime.utc(2026, 9, 25, 12),
+          ),
+          missingTimes,
+        ], checkedAt),
+      );
+      final restored = await store.read(91);
+      expect(restored, isNotNull);
+      expect(restored!.items, hasLength(3));
+      expect(restored.items[0].startTime?.toUtc(), DateTime.utc(2026, 9, 15, 8));
+      expect(
+        restored.items[0].endTime?.toUtc(),
+        DateTime.utc(2026, 9, 19, 15, 59),
+      );
+      expect(restored.items[1].startTime, isNull);
+      expect(restored.items[1].endTime?.toUtc(), DateTime.utc(2026, 9, 25, 12));
+      expect(restored.items[2].startTime, isNull);
+      expect(restored.items[2].endTime, isNull);
+
+      // Legacy cache entries without start_time/end_time remain readable.
+      await JsonDiskCache.writeList('ta_assignments_v1_${userId}_92', [
+        {
+          'course_id': 92,
+          'assignments': [
+            {
+              'id': 85,
+              'title': '旧缓存作业',
+              'expected': 10,
+              'submitted': 5,
+              'graded': 2,
+            },
+          ],
+        },
+      ], fetchedAt: checkedAt);
+      final legacy = await store.read(92);
+      expect(legacy, isNotNull);
+      expect(legacy!.items.single.title, '旧缓存作业');
+      expect(legacy.items.single.startTime, isNull);
+      expect(legacy.items.single.endTime, isNull);
+      expect(legacy.items.single.timeMetrics, isEmpty);
+    },
+  );
+
+  test(
+    'TaAssignment.timeMetrics and formatTaAssignmentTime format open/close without middle dots',
+    () {
+      final sameYearStart = DateTime.utc(2026, 9, 15, 8);
+      final sameYearEnd = DateTime.utc(2026, 9, 19, 15, 59);
+      final sameYear = TaAssignment(
+        id: 1,
+        title: '同一年作业',
+        startTime: sameYearStart,
+        endTime: sameYearEnd,
+      );
+      final sameCrossYear =
+          sameYearStart.toLocal().year != sameYearEnd.toLocal().year;
+      expect(sameYear.timeMetrics, [
+        (
+          '开放',
+          formatTaAssignmentTime(sameYearStart, includeYear: sameCrossYear),
+        ),
+        (
+          '截止',
+          formatTaAssignmentTime(sameYearEnd, includeYear: sameCrossYear),
+        ),
+      ]);
+
+      final crossStart = DateTime.utc(2026, 12, 20, 8, 30);
+      final crossEnd = DateTime.utc(2027, 1, 5, 14, 15);
+      final crossYear = TaAssignment(
+        id: 2,
+        title: '跨年作业',
+        startTime: crossStart,
+        endTime: crossEnd,
+      );
+      expect(crossYear.timeMetrics, [
+        ('开放', formatTaAssignmentTime(crossStart, includeYear: true)),
+        ('截止', formatTaAssignmentTime(crossEnd, includeYear: true)),
+      ]);
+
+      final onlyEnd = TaAssignment(
+        id: 3,
+        title: '仅截止',
+        endTime: sameYearEnd,
+      );
+      expect(onlyEnd.timeMetrics, [
+        ('截止', formatTaAssignmentTime(sameYearEnd)),
+      ]);
+
+      for (final item in [sameYear, crossYear, onlyEnd]) {
+        for (final metric in item.timeMetrics) {
+          final rendered = '${metric.$1} ${metric.$2}';
+          expect(rendered, isNot(contains('·')));
+          expect(rendered, isNot(contains('•')));
+          expect(rendered, isNot(contains('⋅')));
+        }
+      }
+    },
+  );
+
+  testWidgets(
+    'TaGradingPage and TaAssignmentPage render open and close time text',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1100, 950);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final f = TaHttpFixture();
+      final repo = await f.repository();
+      addTearDown(repo.dispose);
+
+      final parsed = TaAssignment.parse(f.assignment);
+      final expectedOpen =
+          '${parsed.timeMetrics[0].$1} ${parsed.timeMetrics[0].$2}';
+      final expectedClose =
+          '${parsed.timeMetrics[1].$1} ${parsed.timeMetrics[1].$2}';
+      expect(
+        expectedOpen,
+        '开放 ${formatTaAssignmentTime(parsed.startTime!)}',
+      );
+      expect(
+        expectedClose,
+        '截止 ${formatTaAssignmentTime(parsed.endTime!)}',
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            taRepositoryProvider.overrideWith((ref) async => repo),
+            currentTeachingCoursesProvider.overrideWith(
+              (ref) async => const [CatalogCourse(id: '91', title: '测试课程')],
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
+            home: const Scaffold(body: TaGradingPage()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(expectedOpen), findsOneWidget);
+      expect(find.text(expectedClose), findsOneWidget);
+
+      await tester.tap(find.text(TaHttpFixture.title));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TaAssignmentPage), findsOneWidget);
+      final openFinder = find.textContaining(expectedOpen);
+      final closeFinder = find.textContaining(expectedClose);
+      expect(openFinder, findsOneWidget);
+      expect(closeFinder, findsOneWidget);
+      final subtitleText = tester.widget<Text>(openFinder).data!;
+      expect(subtitleText, isNot(contains('·')));
+      expect(subtitleText, isNot(contains('•')));
+      expect(subtitleText, isNot(contains('⋅')));
+
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
     },

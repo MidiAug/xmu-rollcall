@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
+import 'package:xmu_rollcall/app/app_settings_glyph.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/settings/about_page.dart';
@@ -15,7 +16,7 @@ class AboutSettingsRow extends ConsumerWidget {
     );
     final p = AppPalette.of(context);
     return SettingsRow(
-      leading: const Icon(AppIcons.info),
+      leading: const AppSettingsGlyph(AppSettingsGlyphKind.info),
       title: '关于',
       trailing: Row(
         mainAxisSize: MainAxisSize.min,

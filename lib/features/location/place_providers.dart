@@ -19,10 +19,10 @@ final _placeScheduleForUserProvider = FutureProvider.autoDispose
 AcademicSchedule? _schedule(Ref ref, int? userId) => userId == null
     ? ref
           .watch(campusCachedDataProvider)
-          .whenOrNull(skipLoadingOnReload: false, data: (data) => data.schedule)
+          .whenOrNull(skipLoadingOnReload: true, data: (data) => data.schedule)
     : ref
           .watch(_placeScheduleForUserProvider(userId))
-          .whenOrNull(skipLoadingOnReload: false, data: (data) => data);
+          .whenOrNull(skipLoadingOnReload: true, data: (data) => data);
 
 final courseRoomsForUserProvider = Provider.family<List<String>, int?>((
   ref,

@@ -25,6 +25,8 @@ class TaHttpFixture implements HttpClientAdapter {
     'expected_submit_count': studentCount,
     'submitted_count': submittedCount,
     'scored_count': scores.length,
+    'start_time': '2026-09-15T08:00:00Z',
+    'end_time': '2026-09-19T15:59:00Z',
     'type': 'homework',
     'submit_by_group': group,
     'score_type': 'percentage',

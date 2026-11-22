@@ -28,6 +28,22 @@ double? taScore(Object? value) {
   return score;
 }
 
+DateTime? _taOptionalDate(Object? value) =>
+    value is String && value.trim().isNotEmpty
+    ? DateTime.tryParse(value.trim())
+    : null;
+
+String formatTaAssignmentTime(DateTime value, {bool includeYear = false}) {
+  final local = value.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  final y = local.year;
+  final m = two(local.month);
+  final d = two(local.day);
+  final h = two(local.hour);
+  final min = two(local.minute);
+  return '${includeYear ? '$y-' : ''}$m-$d $h:$min';
+}
+
 class TaAssignment {
   const TaAssignment({
     required this.id,
@@ -36,6 +52,8 @@ class TaAssignment {
     this.submitted = 0,
     this.graded = 0,
     this.canGrade = false,
+    this.startTime,
+    this.endTime,
   });
   factory TaAssignment.parse(Map<String, dynamic> j) => TaAssignment(
     id: taId(j['id']),
@@ -49,10 +67,25 @@ class TaAssignment {
         (j['rubric_id'] == null || j['rubric_id'] == 0) &&
         j['is_review_homework'] != true &&
         taMap(j['data'])['mode'] == 'normal',
+    startTime: _taOptionalDate(j['start_time']),
+    endTime: _taOptionalDate(j['end_time']),
   );
   final int id, expected, submitted, graded;
   final String title;
   final bool canGrade;
+  final DateTime? startTime, endTime;
+
+  List<(String, String)> get timeMetrics {
+    final start = startTime?.toLocal();
+    final end = endTime?.toLocal();
+    final crossYear = start != null && end != null && start.year != end.year;
+    return [
+      if (start != null)
+        ('开放', formatTaAssignmentTime(start, includeYear: crossYear)),
+      if (end != null)
+        ('截止', formatTaAssignmentTime(end, includeYear: crossYear)),
+    ];
+  }
 }
 
 class TaAssignmentSnapshot {
