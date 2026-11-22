@@ -76,10 +76,10 @@ class AppSelectTrigger extends StatelessWidget {
               : AppMotion.fast,
           constraints: BoxConstraints(
             minHeight: touch
-                ? (compact ? 44 : AppMobileUi.target)
+                ? (compact ? AppDensity.controlHeightTouch : AppMobileUi.target)
                 : compact
-                ? 32
-                : 36,
+                ? AppDensity.controlHeightCompact
+                : AppDensity.controlHeightToolbar,
           ),
           padding: EdgeInsets.symmetric(
             horizontal: compact ? 8 : 10,

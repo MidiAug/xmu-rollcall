@@ -5,16 +5,27 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+bool get isDesktopUiCaptureEnabled =>
+    Platform.environment['CAPTURE_DESKTOP_UI'] == '1' ||
+    Platform.environment['CAPTURE_UI'] == '1';
+
 /// Optional local renders, with real fonts; generated PNGs stay out of Git.
 Future<void> loadDesktopUiCaptureFonts() async {
-  if (Platform.environment['CAPTURE_DESKTOP_UI'] != '1') return;
+  if (!isDesktopUiCaptureEnabled) return;
   for (final entry in {
-    'DesktopUi': Platform.environment['DESKTOP_UI_FONT']!,
-    'MaterialIcons': Platform.environment['DESKTOP_UI_ICONS']!,
+    'DesktopUi':
+        Platform.environment['DESKTOP_UI_FONT'] ??
+        r'C:\Windows\Fonts\msyh.ttc',
+    'MaterialIcons':
+        Platform.environment['DESKTOP_UI_ICONS'] ??
+        r'D:\Dev\Flutter-xmu\bin\cache\artifacts\material_fonts\MaterialIcons-Regular.otf',
   }.entries) {
-    await (FontLoader(entry.key)
-          ..addFont(File(entry.value).readAsBytes().then(ByteData.sublistView)))
-        .load();
+    final file = File(entry.value);
+    if (await file.exists()) {
+      await (FontLoader(entry.key)
+            ..addFont(file.readAsBytes().then(ByteData.sublistView)))
+          .load();
+    }
   }
 }
 
@@ -26,13 +37,13 @@ class _DesktopUiCaptureBinding extends AutomatedTestWidgetsFlutterBinding {
 /// Capture runs use the binding's supported shadow policy, without changing
 /// painting debug variables during a test or weakening its invariant checks.
 void initializeDesktopUiCapture() {
-  if (Platform.environment['CAPTURE_DESKTOP_UI'] == '1') {
+  if (isDesktopUiCaptureEnabled) {
     _DesktopUiCaptureBinding();
   }
 }
 
 ThemeData desktopCaptureTheme(ThemeData theme) {
-  if (Platform.environment['CAPTURE_DESKTOP_UI'] != '1') return theme;
+  if (!isDesktopUiCaptureEnabled) return theme;
   ButtonStyle? font(ButtonStyle? style) => style?.copyWith(
     textStyle: WidgetStatePropertyAll(
       (style.textStyle?.resolve({}) ?? const TextStyle()).copyWith(
@@ -57,7 +68,7 @@ ThemeData desktopCaptureTheme(ThemeData theme) {
 
 Future<void> captureDesktopUi(WidgetTester tester, String label) async {
   expect(tester.takeException(), isNull);
-  if (Platform.environment['CAPTURE_DESKTOP_UI'] != '1') return;
+  if (!isDesktopUiCaptureEnabled) return;
   await tester.runAsync(() async {
     final boundary =
         tester

@@ -47,33 +47,43 @@ class AppStatusBadge extends StatelessWidget {
       AppStatusTone.danger => p.danger,
       AppStatusTone.neutral => p.muted,
     };
-    return Container(
-      padding: _padding,
-      decoration: BoxDecoration(
-        color: switch (tone) {
-          AppStatusTone.success => p.successSurface,
-          AppStatusTone.accent => p.accentSoft,
-          AppStatusTone.danger => p.dangerSoft,
-          AppStatusTone.neutral => p.pillMuted,
-          AppStatusTone.warning => color.withValues(
-            alpha: p.isDark ? .14 : .09,
-          ),
-        },
-        borderRadius: BorderRadius.circular(pill ? 999 : 7),
-        border: Border.all(
-          width: _borderWidth,
+    return Align(
+      alignment: Alignment.center,
+      widthFactor: 1,
+      heightFactor: 1,
+      child: Container(
+        padding: _padding,
+        decoration: BoxDecoration(
           color: switch (tone) {
-            AppStatusTone.success => p.successRim,
-            AppStatusTone.accent => p.accentRim,
-            AppStatusTone.danger => p.dangerRim,
-            AppStatusTone.neutral => p.badgeRim,
+            AppStatusTone.success => p.successSurface,
+            AppStatusTone.accent => p.accentSoft,
+            AppStatusTone.danger => p.dangerSoft,
+            AppStatusTone.neutral => p.pillMuted,
             AppStatusTone.warning => color.withValues(
-              alpha: p.isDark ? .22 : .14,
+              alpha: p.isDark ? .14 : .09,
             ),
           },
+          borderRadius: BorderRadius.circular(pill ? 999 : 7),
+          border: Border.all(
+            width: _borderWidth,
+            color: switch (tone) {
+              AppStatusTone.success => p.successRim,
+              AppStatusTone.accent => p.accentRim,
+              AppStatusTone.danger => p.dangerRim,
+              AppStatusTone.neutral => p.badgeRim,
+              AppStatusTone.warning => color.withValues(
+                alpha: p.isDark ? .22 : .14,
+              ),
+            },
+          ),
+        ),
+        child: Text(
+          label,
+          maxLines: 1,
+          textAlign: TextAlign.center,
+          style: _textStyle.copyWith(color: color),
         ),
       ),
-      child: Text(label, maxLines: 1, style: _textStyle.copyWith(color: color)),
     );
   }
 }

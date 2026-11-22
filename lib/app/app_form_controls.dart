@@ -166,7 +166,9 @@ class _AppSearchFieldState extends State<AppSearchField> {
     final p = AppPalette.of(context);
     final touch = AppDensity.isTouch(context);
     final height = touch
-        ? (widget.compact ? 40.0 : 44.0)
+        ? (widget.compact
+              ? AppDensity.controlHeightRegular
+              : AppDensity.controlHeightTouch)
         : AppDensity.controlHeight(context);
     final iconWidth = touch ? 40.0 : 36.0;
     return ValueListenableBuilder<TextEditingValue>(

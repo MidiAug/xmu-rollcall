@@ -298,10 +298,22 @@ class _AppDensityData extends InheritedWidget {
 /// Narrow layouts use tighter settings/list density so vertical space isn't
 /// wasted; navigation stays slightly taller for thumb targets.
 abstract final class AppDensity {
+  /// L1 (32px): Desktop compact inline controls (table cells, compact selects, inline outlined buttons).
+  static const controlHeightCompact = 32.0;
+
+  /// L2 (36px): Desktop standard toolbar controls (search fields, filter selects, compact buttons).
+  static const controlHeightToolbar = 36.0;
+
+  /// L3 (40px): Form inputs, dialog buttons, and mobile compact search/toolbar controls.
+  static const controlHeightRegular = 40.0;
+
+  /// L4 (44px): Mobile standard touch targets.
+  static const controlHeightTouch = 44.0;
+
   static double controlHeight(BuildContext context) =>
       switch (Theme.of(context).platform) {
-        TargetPlatform.android || TargetPlatform.iOS => 44,
-        _ => 36,
+        TargetPlatform.android || TargetPlatform.iOS => controlHeightTouch,
+        _ => controlHeightToolbar,
       };
   static const desktopRow = 44.0;
   static const touchRow = 44.0;
