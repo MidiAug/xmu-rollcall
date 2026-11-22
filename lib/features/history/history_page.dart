@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'dart:async';
 import 'package:xmu_rollcall/core/cache/cache_policy.dart';
 import 'package:flutter/material.dart';
@@ -38,6 +39,14 @@ DateTimeRange? _rangeForPeriod(_HistoryPeriod period, DateTime now) {
           start: DateTime(now.year, now.month, now.day - days + 1),
           end: now,
         );
+}
+
+extension on _HistoryPeriod {
+  String get label => switch (this) {
+    _HistoryPeriod.all => '全部时间',
+    _HistoryPeriod.days7 => '7天内',
+    _HistoryPeriod.days30 => '30天内',
+  };
 }
 
 enum HistoryTypeFilter { all, number, radar, qr }
@@ -91,6 +100,154 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
     _type = HistoryTypeFilter.all;
     _period = _HistoryPeriod.all;
     _range = null;
+  }
+
+  Future<void> _showSecondaryFilters() async {
+    var type = _type;
+    var period = _period;
+    final identity = (
+      ref.read(authControllerProvider).profile?.id,
+      ref.read(selectedRollcallAccountProvider),
+    );
+    final result =
+        await showModalBottomSheet<
+          ({HistoryTypeFilter type, _HistoryPeriod period})
+        >(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (context) => StatefulBuilder(
+            builder: (context, update) => AppSheetFrame(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text('类型与时间', style: AppTypography.cardTitle),
+                      ),
+                      const AppSheetCloseButton(),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(
+                            '签到类型',
+                            style: AppTypography.body.copyWith(
+                              color: AppPalette.of(context).muted,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          LayoutBuilder(
+                            builder: (context, bounds) => Wrap(
+                              spacing: 12,
+                              runSpacing: 12,
+                              children: [
+                                for (final value in HistoryTypeFilter.values)
+                                  SizedBox(
+                                    width: (bounds.maxWidth - 12) / 2,
+                                    child: AppFilterChoice(
+                                      label: value.label,
+                                      selected: type == value,
+                                      onTap: () => update(() => type = value),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          Text(
+                            '时间范围',
+                            style: AppTypography.body.copyWith(
+                              color: AppPalette.of(context).muted,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          LayoutBuilder(
+                            builder: (context, bounds) {
+                              final columns =
+                                  (bounds.maxWidth /
+                                          (88 *
+                                              MediaQuery.textScalerOf(
+                                                context,
+                                              ).scale(1)))
+                                      .floor()
+                                      .clamp(1, 3);
+                              final width =
+                                  (bounds.maxWidth - (columns - 1) * 12) /
+                                  columns;
+                              return Wrap(
+                                spacing: 12,
+                                runSpacing: 12,
+                                children: [
+                                  for (final value in _HistoryPeriod.values)
+                                    SizedBox(
+                                      width: width,
+                                      child: AppFilterChoice(
+                                        label: value.label,
+                                        selected: period == value,
+                                        onTap: () =>
+                                            update(() => period = value),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AppButton(
+                          label: '重置',
+                          kind: AppButtonKind.secondary,
+                          onPressed: () => update(() {
+                            type = HistoryTypeFilter.all;
+                            period = _HistoryPeriod.all;
+                          }),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: AppButton(
+                          label: '应用筛选',
+                          onPressed: () => Navigator.pop(context, (
+                            type: type,
+                            period: period,
+                          )),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+    if (!mounted ||
+        result == null ||
+        identity !=
+            (
+              ref.read(authControllerProvider).profile?.id,
+              ref.read(selectedRollcallAccountProvider),
+            )) {
+      return;
+    }
+    setState(() {
+      _type = result.type;
+      _period = result.period;
+      _range = _rangeForPeriod(_period, DateTime.now());
+    });
   }
 
   @override
@@ -247,44 +404,10 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
           .length;
     }
 
-    final labels = [
-      ...HistorySignedFilter.values.map((value) => value.label),
-      ...HistoryTypeFilter.values.map((value) => value.label),
-      '全部课程',
-      if (wide && auth.isSignedIn) '全部时间',
-    ];
-    final painter = TextPainter(
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-    );
-    var labelWidth = 0.0;
-    for (final label in labels) {
-      painter.text = TextSpan(
-        text: label,
-        style: DefaultTextStyle.of(context).style.copyWith(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          height: 1.4,
-        ),
-      );
-      painter.layout();
-      if (painter.width > labelWidth) {
-        labelWidth = painter.width;
-      }
-    }
-    painter.dispose();
-
     return SubpageScaffold(
       title: '签到记录',
-      actions: [
-        if (auth.isSignedIn && !wide)
-          _HistoryDateFilter(
-            value: _period,
-            onSelected: _selectPeriod,
-            countOf: periodCount,
-          ),
-      ],
       body: AppPageViewport(
+        maxWidth: AppLayout.workspaceMaxWidth,
         builder: (context, contentInsets) => PrimaryScrollController(
           controller: _scroll,
           child: Column(
@@ -296,68 +419,112 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                     EdgeInsets.fromLTRB(pageX, AppSpace.sm, pageX, AppSpace.xs),
                 child: LayoutBuilder(
                   builder: (context, bounds) {
-                    // Leave room for trigger insets and its disclosure. Long
-                    // selected course names still use their truncated tooltip.
-                    final count = wide && auth.isSignedIn ? 4 : 3;
-                    final columns =
-                        ((bounds.maxWidth + AppSpace.xs) /
-                                (labelWidth.ceilToDouble() + 40 + AppSpace.xs))
-                            .floor()
-                            .clamp(1, count);
-                    final fieldWidth =
-                        (bounds.maxWidth - (columns - 1) * AppSpace.xs) /
-                        columns;
+                    final status = AppSegmentedControl<HistorySignedFilter>(
+                      key: const ValueKey('history-status-filter'),
+                      value: _signed,
+                      trackOnTouch: true,
+                      expanded: !wide,
+                      onChanged: (v) => setState(() => _signed = v),
+                      segments: [
+                        for (final value in HistorySignedFilter.values)
+                          if (value != HistorySignedFilter.other ||
+                              statusCount(value) > 0 ||
+                              _signed == value)
+                            AppSegment(
+                              value: value,
+                              label: value == HistorySignedFilter.all
+                                  ? '全部'
+                                  : value.label,
+                            ),
+                      ],
+                    );
+                    final course = AppToolbarChoice<String>(
+                      key: const ValueKey('history-course-filter'),
+                      title: '筛选课程',
+                      value: courseId,
+                      items: courses.keys.toList(),
+                      labelOf: (id) => courses[id]!,
+                      trailingOf: (id) => '(${courseCount(id)})',
+                      onChanged: (id) => setState(() => _courseId = id),
+                    );
+                    if (!wide) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          status,
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(child: course),
+                              const SizedBox(width: 8),
+                              TextButton.icon(
+                                key: const ValueKey(
+                                  'history-secondary-filters',
+                                ),
+                                onPressed: _showSecondaryFilters,
+                                icon: const Icon(AppIcons.filter, size: 16),
+                                label: const Text('类型与时间'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    }
+                    final scale = MediaQuery.textScalerOf(context).scale(1);
                     return Wrap(
-                      spacing: AppSpace.xs,
-                      runSpacing: AppSpace.xs,
+                      alignment: WrapAlignment.spaceBetween,
+                      spacing: 16,
+                      runSpacing: 12,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
+                        status,
                         SizedBox(
-                          width: fieldWidth,
-                          child: _HistoryFilter<HistorySignedFilter>(
-                            title: '签到状态',
-                            key: const ValueKey('history-status-filter'),
-                            value: _signed,
-                            items: HistorySignedFilter.values,
-                            labelOf: (v) => v.label,
-                            countOf: statusCount,
-                            onChanged: (v) => setState(() => _signed = v),
-                          ),
-                        ),
-                        SizedBox(
-                          width: fieldWidth,
-                          child: _HistoryFilter<HistoryTypeFilter>(
-                            title: '签到类型',
-                            key: const ValueKey('history-type-filter'),
-                            value: _type,
-                            items: HistoryTypeFilter.values,
-                            labelOf: (v) => v.label,
-                            countOf: typeCount,
-                            onChanged: (v) => setState(() => _type = v),
-                          ),
-                        ),
-                        SizedBox(
-                          width: fieldWidth,
-                          child: _HistoryFilter<String>(
-                            title: '筛选课程',
-                            key: const ValueKey('history-course-filter'),
-                            value: courseId,
-                            items: courses.keys.toList(),
-                            labelOf: (id) => courses[id]!,
-                            countOf: courseCount,
-                            wideMenu: true,
-                            onChanged: (id) => setState(() => _courseId = id),
-                          ),
-                        ),
-                        if (wide && auth.isSignedIn)
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _HistoryDateFilter(
-                              value: _period,
-                              onSelected: _selectPeriod,
-                              countOf: periodCount,
-                              expand: true,
+                          width: (344 * scale).clamp(0, bounds.maxWidth),
+                          child: AppGlassSurface(
+                            blur: 0,
+                            opacity: 1,
+                            borderRadius: BorderRadius.circular(
+                              AppRadii.control,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: AppToolbarChoice<HistoryTypeFilter>(
+                                    key: const ValueKey('history-type-filter'),
+                                    title: '签到类型',
+                                    value: _type,
+                                    items: HistoryTypeFilter.values,
+                                    labelOf: (v) => v.label,
+                                    trailingOf: (v) => '(${typeCount(v)})',
+                                    onChanged: (v) => setState(() => _type = v),
+                                  ),
+                                ),
+                                Container(
+                                  width: 1,
+                                  height: 18,
+                                  color: AppPalette.of(context).divider,
+                                ),
+                                Expanded(child: course),
+                                Container(
+                                  width: 1,
+                                  height: 18,
+                                  color: AppPalette.of(context).divider,
+                                ),
+                                Expanded(
+                                  child: AppToolbarChoice<_HistoryPeriod>(
+                                    key: const ValueKey('history-date-filter'),
+                                    title: '时间范围',
+                                    value: _period,
+                                    items: _HistoryPeriod.values,
+                                    labelOf: (v) => v.label,
+                                    trailingOf: (v) => '(${periodCount(v)})',
+                                    onChanged: _selectPeriod,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
+                        ),
                       ],
                     );
                   },
@@ -377,43 +544,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Equal-width compact triggers; menu labels can wrap independently of the row.
-class _HistoryFilter<T> extends StatelessWidget {
-  const _HistoryFilter({
-    super.key,
-    required this.title,
-    required this.value,
-    required this.items,
-    required this.labelOf,
-    required this.countOf,
-    required this.onChanged,
-    this.wideMenu = false,
-  });
-  final T value;
-  final List<T> items;
-  final String Function(T) labelOf;
-  final int Function(T) countOf;
-  final ValueChanged<T> onChanged;
-  final bool wideMenu;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, bounds) => AppShellSelect<T>(
-        semanticLabel: title,
-        value: value,
-        items: items,
-        labelOf: labelOf,
-        menuTrailingOf: (v) => '(${countOf(v)})',
-        onChanged: onChanged,
-        width: bounds.maxWidth,
-        menuWidth: wideMenu ? 240 : 160,
       ),
     );
   }
@@ -516,10 +646,7 @@ class _CourseHistoryBody extends ConsumerWidget {
               slivers: const [
                 SliverFillRemaining(
                   hasScrollBody: false,
-                  child: EmptyHint(
-                    icon: AppIcons.homework,
-                    title: '暂无课程签到',
-                  ),
+                  child: EmptyHint(icon: AppIcons.homework, title: '暂无课程签到'),
                 ),
               ],
             );
@@ -530,15 +657,29 @@ class _CourseHistoryBody extends ConsumerWidget {
               slivers: const [
                 SliverFillRemaining(
                   hasScrollBody: false,
-                  child: EmptyHint(
-                    icon: AppIcons.filter,
-                    title: '无匹配记录',
-                  ),
+                  child: EmptyHint(icon: AppIcons.filter, title: '无匹配记录'),
                 ),
               ],
             );
           }
-          return ListView.separated(
+          final groups =
+              <
+                ({DateTime? day, bool placeholder}),
+                List<CourseRollcallRecord>
+              >{};
+          for (final record in filtered) {
+            final time = record.isPlaceholder
+                ? null
+                : record.rollcallTime?.toLocal();
+            final group = (
+              day: time == null ? null : DateUtils.dateOnly(time),
+              placeholder: record.isPlaceholder,
+            );
+            groups.putIfAbsent(group, () => []).add(record);
+          }
+          final days = groups.entries.toList(growable: false);
+          return ListView.builder(
+            primary: true,
             physics: const AlwaysScrollableScrollPhysics(),
             padding:
                 contentInsets +
@@ -548,65 +689,30 @@ class _CourseHistoryBody extends ConsumerWidget {
                   AppSpace.pageXOf(context),
                   AppSpace.xl,
                 ),
-            itemCount: filtered.length,
-            separatorBuilder: (_, _) => const SizedBox.shrink(),
-            itemBuilder: (context, i) {
-              final r = filtered[i];
-              final date = r.isPlaceholder ? null : r.rollcallTime?.toLocal();
-              final previous = i == 0 || filtered[i - 1].isPlaceholder
-                  ? null
-                  : filtered[i - 1].rollcallTime?.toLocal();
-              final startsPlaceholders =
-                  r.isPlaceholder && (i == 0 || !filtered[i - 1].isPlaceholder);
-              final startsUndated =
-                  !r.isPlaceholder &&
-                  date == null &&
-                  (i == 0 ||
-                      filtered[i - 1].isPlaceholder ||
-                      filtered[i - 1].rollcallTime != null);
-              final startsDay =
-                  date != null &&
-                  (previous == null ||
-                      DateUtils.dateOnly(date) != DateUtils.dateOnly(previous));
-              final next = i + 1 < filtered.length ? filtered[i + 1] : null;
-              final endsGroup =
-                  next == null ||
-                  r.isPlaceholder != next.isPlaceholder ||
-                  (!r.isPlaceholder &&
-                      (date == null
-                          ? next.rollcallTime != null
-                          : next.rollcallTime == null ||
-                                DateUtils.dateOnly(date) !=
-                                    DateUtils.dateOnly(
-                                      next.rollcallTime!.toLocal(),
-                                    )));
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+            itemCount: days.length,
+            itemBuilder: (context, index) {
+              final group = days[index];
+              return SettingsSection(
+                header: group.key.placeholder
+                    ? '暂无签到记录的课程'
+                    : group.key.day == null
+                    ? '时间未提供'
+                    : _historyDayLabel(group.key.day!),
+                headerStyle: AppTypography.body.copyWith(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: p.muted,
+                ),
+                hasLeading: false,
+                padTop: index > 0,
                 children: [
-                  if (startsDay || startsPlaceholders || startsUndated)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 20, bottom: 8),
-                      child: Text(
-                        startsPlaceholders
-                            ? '暂无签到记录的课程'
-                            : startsUndated
-                            ? '时间未提供'
-                            : _historyDayLabel(date!),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                          color: p.muted,
-                        ),
+                  for (var i = 0; i < group.value.length; i++)
+                    _CourseTile(
+                      key: ValueKey(
+                        '${group.value[i].courseId}_${group.value[i].rollcallId}_${group.value[i].signedStatus}',
                       ),
+                      record: group.value[i],
                     ),
-                  _CourseTile(
-                    key: ValueKey(
-                      '${r.courseId}_${r.rollcallId}_${r.signedStatus}',
-                    ),
-                    record: r,
-                    first: startsDay || startsPlaceholders || startsUndated,
-                    last: endsGroup,
-                  ),
                 ],
               );
             },
@@ -650,88 +756,9 @@ bool _historyMatchesStatus(
   };
 }
 
-class _HistoryDateFilter extends StatelessWidget {
-  const _HistoryDateFilter({
-    required this.value,
-    required this.onSelected,
-    required this.countOf,
-    this.expand = false,
-  });
-  final _HistoryPeriod value;
-  final ValueChanged<_HistoryPeriod> onSelected;
-  final int Function(_HistoryPeriod) countOf;
-  final bool expand;
-  static const labels = {
-    _HistoryPeriod.all: '全部时间',
-    _HistoryPeriod.days7: '7天内',
-    _HistoryPeriod.days30: '30天内',
-  };
-  @override
-  Widget build(BuildContext context) {
-    if (expand) {
-      return _HistoryFilter<_HistoryPeriod>(
-        title: '时间范围',
-        key: const ValueKey('history-date-filter'),
-        value: value,
-        items: _HistoryPeriod.values,
-        labelOf: (v) => labels[v]!,
-        countOf: countOf,
-        onChanged: onSelected,
-      );
-    }
-    if (AppMobileUi.useTouchChrome(context)) {
-      return AppToolbarChoice<_HistoryPeriod>(
-        key: const ValueKey('history-date-filter'),
-        title: '时间范围',
-        value: value,
-        items: _HistoryPeriod.values,
-        labelOf: (v) => labels[v]!,
-        trailingOf: (v) => '(${countOf(v)})',
-        onChanged: onSelected,
-      );
-    }
-    final painter = TextPainter(
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-    );
-    var labelWidth = 0.0;
-    for (final label in labels.values) {
-      painter.text = TextSpan(
-        text: label,
-        style: DefaultTextStyle.of(
-          context,
-        ).style.copyWith(fontSize: 14, fontWeight: FontWeight.w500),
-      );
-      painter.layout();
-      if (painter.width > labelWidth) labelWidth = painter.width;
-    }
-    painter.dispose();
-    // Include padding, the arrow and spacing, with room for the full label.
-    final width = labelWidth + 64;
-    return Center(
-      child: AppShellSelect<_HistoryPeriod>(
-        key: const ValueKey('history-date-filter'),
-        value: value,
-        items: _HistoryPeriod.values,
-        labelOf: (v) => labels[v]!,
-        menuTrailingOf: (v) => '(${countOf(v)})',
-        onChanged: onSelected,
-        width: width,
-        menuWidth: width + 64,
-      ),
-    );
-  }
-}
-
 class _CourseTile extends StatelessWidget {
-  const _CourseTile({
-    super.key,
-    required this.record,
-    required this.first,
-    required this.last,
-  });
+  const _CourseTile({super.key, required this.record});
   final CourseRollcallRecord record;
-  final bool first, last;
 
   @override
   Widget build(BuildContext context) {
@@ -745,81 +772,79 @@ class _CourseTile extends StatelessWidget {
       HistoryAttendance.unsigned => AppStatusTone.danger,
       HistoryAttendance.other => AppStatusTone.neutral,
     };
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: p.surface,
-        borderRadius: BorderRadius.vertical(
-          top: first ? const Radius.circular(AppRadii.group) : Radius.zero,
-          bottom: last ? const Radius.circular(AppRadii.group) : Radius.zero,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(AppSpace.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AppTruncatedText(
-                  title,
-                  style: AppTypography.body.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: p.ink,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (record.isPlaceholder)
-                  Text(
-                    '本课暂无签到记录',
-                    style: AppTypography.caption.copyWith(color: p.muted),
-                  )
-                else
-                  Wrap(
-                    spacing: 12,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      AppStatusBadge(record.signedStatus, tone: tone),
-                      Text(
-                        record.typeLabel,
-                        style: AppTypography.caption.copyWith(color: p.muted),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(AppSpace.md),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppTruncatedText(
+                      title,
+                      style: AppTypography.body.copyWith(
+                        fontSize: AppDensity.isTouch(context) ? 16 : 14,
+                        fontWeight: FontWeight.w600,
+                        color: p.ink,
                       ),
-                      if (time != null)
-                        Tooltip(
-                          message: record.timeLabel,
-                          child: Text(
-                            '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+                    ),
+                    const SizedBox(height: 8),
+                    if (record.isPlaceholder)
+                      Text(
+                        '本课暂无签到记录',
+                        style: AppTypography.caption.copyWith(
+                          fontSize: AppDensity.isTouch(context) ? 13 : 12,
+                          color: p.muted,
+                        ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 8,
+                        children: [
+                          if (time != null)
+                            Tooltip(
+                              message: record.timeLabel,
+                              child: Text(
+                                '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+                                style: AppTypography.caption.copyWith(
+                                  color: p.muted,
+                                ),
+                              ),
+                            ),
+                          Text(
+                            record.typeLabel,
                             style: AppTypography.caption.copyWith(
                               color: p.muted,
                             ),
                           ),
+                        ],
+                      ),
+                    if (!record.isPlaceholder && record.detail.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        record.detail,
+                        style: AppTypography.caption.copyWith(
+                          color: p.muted,
+                          height: 1.4,
                         ),
+                      ),
                     ],
-                  ),
-                if (!record.isPlaceholder && record.detail.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    record.detail,
-                    style: AppTypography.caption.copyWith(
-                      color: p.muted,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
+              ),
+              if (!record.isPlaceholder) ...[
+                const SizedBox(width: 16),
+                AppStatusBadge(record.signedStatus, tone: tone, pill: true),
               ],
-            ),
+            ],
           ),
-          if (!last)
-            Divider(
-              height: 1,
-              thickness: 1,
-              indent: 16,
-              endIndent: 16,
-              color: p.border,
-            ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

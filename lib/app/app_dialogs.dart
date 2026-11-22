@@ -343,3 +343,49 @@ class _AppPromptDialogState extends State<_AppPromptDialog> {
     );
   }
 }
+
+/// Surface and safe area for short touch tasks with caller-owned scrolling/actions.
+class AppSheetFrame extends StatelessWidget {
+  const AppSheetFrame({super.key, required this.child});
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => AppGlassSurface(
+    blur: 0,
+    opacity: 1,
+    elevated: true,
+    borderRadius: const BorderRadius.vertical(
+      top: Radius.circular(AppRadii.dialog),
+    ),
+    child: Material(
+      color: Colors.transparent,
+      child: SafeArea(
+        top: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * .9,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppPalette.of(context).controlRim,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Flexible(child: child),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}

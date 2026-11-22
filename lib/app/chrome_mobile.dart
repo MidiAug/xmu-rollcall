@@ -6,7 +6,7 @@ abstract final class AppMobileUi {
   static const target = 48.0;
   static const choiceRow = 56.0;
   static const inset = 16.0;
-  static const panelRadius = 16.0;
+  static const panelRadius = AppRadii.card;
 
   /// Input presentation is independent of whether a layout has one or two panes.
   static bool useTouchChrome(BuildContext context) =>
@@ -192,6 +192,7 @@ class AppToolbarChoice<T> extends StatelessWidget {
       onPressed: toggle,
       style: TextButton.styleFrom(
         minimumSize: const Size(0, AppMobileUi.target),
+        alignment: Alignment.centerLeft,
         padding: const EdgeInsets.symmetric(horizontal: 8),
         shape: const RoundedRectangleBorder(),
         backgroundColor: Colors.transparent,

@@ -44,6 +44,7 @@ void main() {
         (p.success, p.successSurface),
         (p.danger, p.dangerSoft),
         (p.primary, p.accentSoft),
+        (p.ink, Color.alphaBlend(p.hoverOverlay, p.accentSoft)),
         (dark ? p.canvas : Colors.white, p.primary),
       ]) {
         expect(contrast(pair.$1, pair.$2), greaterThanOrEqualTo(4.5));

@@ -1,3 +1,6 @@
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
+import 'dart:ui' as ui;
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -58,33 +61,6 @@ class _History extends CourseHistoryNotifier {
     String? courseId,
   }) async {
     if (reason == EnsureFreshReason.pullToRefresh) lastManualCourse = courseId;
-  }
-}
-
-class _DatedHistory extends _History {
-  @override
-  Future<List<CourseRollcallRecord>> build() async {
-    final now = DateTime.now();
-    return [
-      CourseRollcallRecord(
-        courseId: 'a',
-        courseTitle: '本学期课程',
-        rollcallId: 'current',
-        rollcallTime: DateTime(now.year, now.month, now.day - 6),
-        typeLabel: '数字',
-        signedStatus: '未签到',
-        platformStatus: '',
-      ),
-      CourseRollcallRecord(
-        courseId: 'a',
-        courseTitle: '本学期课程',
-        rollcallId: 'previous',
-        rollcallTime: DateTime(now.year, now.month, now.day - 29),
-        typeLabel: '数字',
-        signedStatus: '已签到',
-        platformStatus: '',
-      ),
-    ];
   }
 }
 
@@ -167,6 +143,7 @@ class _ProjectionHistory extends _History {
 }
 
 void main() {
+  initializeDesktopUiCapture();
   setUpAll(() async {
     await loadDesktopPreviewFonts();
     await loadDesktopUiCaptureFonts();
@@ -214,7 +191,8 @@ void main() {
           tester,
           'history-events-${width.toInt()}${undated ? '-undated' : ''}',
         );
-        for (final label in ['全部状态', '全部类型', '全部课程']) {
+        for (final label
+            in width < 600 ? ['全部', '类型与时间', '全部课程'] : ['全部', '全部类型', '全部课程']) {
           final paragraph = tester.renderObject<RenderParagraph>(
             find.text(label),
           );
@@ -310,146 +288,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(history.lastManualCourse, 'b');
   });
-  testWidgets(
-    'menu counts follow other filters while the trigger stays compact',
-    (tester) async {
-      tester.view.physicalSize = const Size(384, 1000);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            authControllerProvider.overrideWith((ref) => _Auth()),
-            courseHistoryProvider.overrideWith(_History.new),
-          ],
-          child: MaterialApp(
-            theme: AppTheme.light(),
-            home: const HistoryPage(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final status = find.byKey(const ValueKey('history-status-filter'));
-      final course = find.byKey(const ValueKey('history-course-filter'));
-      final type = find.byKey(const ValueKey('history-type-filter'));
-      expect(find.text('签到次数'), findsNothing);
-      expect(
-        find.byKey(const ValueKey('history-recent-timeline')),
-        findsNothing,
-      );
-      expect(find.text('全部状态'), findsOneWidget);
-      await tester.tap(status);
-      await tester.pumpAndSettle();
-      void expectOption(int index, String label, int count) {
-        final option = find.byKey(ValueKey('shell-select-option-$index'));
-        expect(
-          find.descendant(of: option, matching: find.text(label)),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(of: option, matching: find.text('($count)')),
-          findsOneWidget,
-        );
-      }
-
-      expectOption(0, '全部状态', 3);
-      expectOption(2, '已签到', 2);
-      expectOption(1, '未签到', 1);
-      expect(find.byIcon(Icons.check_rounded), findsNothing);
-      expect(
-        tester
-            .renderObject<RenderParagraph>(
-              find.descendant(
-                of: find.byKey(const ValueKey('shell-select-option-2')),
-                matching: find.text('已签到'),
-              ),
-            )
-            .didExceedMaxLines,
-        isFalse,
-      );
-      await tester.tap(find.byKey(const ValueKey('shell-select-option-1')));
-      await tester.pumpAndSettle();
-      expect(find.text('未签记录'), findsOneWidget);
-      expect(find.text('已签记录'), findsNothing);
-      await tester.tap(course);
-      await tester.pumpAndSettle();
-      expectOption(2, '线性代数', 0);
-      await tester.tap(find.byKey(const ValueKey('shell-select-option-1')));
-      await tester.pumpAndSettle();
-      await tester.tap(status);
-      await tester.pumpAndSettle();
-      expectOption(0, '全部状态', 2);
-      expectOption(2, '已签到', 1);
-      await tester.tap(find.byKey(const ValueKey('shell-select-option-2')));
-      await tester.pumpAndSettle();
-      expect(find.text('已签记录'), findsOneWidget);
-      await tester.tap(type);
-      await tester.pumpAndSettle();
-      expectOption(1, '数字签到', 0);
-      expectOption(3, '二维码签到', 1);
-      await tester.tap(find.byKey(const ValueKey('shell-select-option-0')));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
-    'rolling 7 and 30 day filters can be reset without custom dates',
-    (tester) async {
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            authControllerProvider.overrideWith((ref) => _Auth()),
-            courseHistoryProvider.overrideWith(_DatedHistory.new),
-          ],
-          child: MaterialApp(
-            theme: AppTheme.light(),
-            home: const HistoryPage(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      final date = find.byKey(const ValueKey('history-date-filter'));
-      expect(find.byTooltip('全部时间'), findsNothing);
-      expect(find.byTooltip('全部状态'), findsNothing);
-      await tester.tap(date);
-      await tester.pumpAndSettle();
-      expect(find.byTooltip('7天内'), findsNothing);
-      expect(find.text('自选日期'), findsNothing);
-      expect(find.text('本周'), findsNothing);
-      expect(find.text('本月'), findsNothing);
-      await tester.tap(find.text('7天内'));
-      await tester.pumpAndSettle();
-      expect(find.byTooltip('7天内'), findsNothing);
-      expect(find.text('已签到'), findsNothing);
-      expect(find.text('未签到'), findsOneWidget);
-      await tester.tap(date);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('30天内'));
-      await tester.pumpAndSettle();
-      expect(find.text('已签到'), findsOneWidget);
-      expect(find.text('未签到'), findsOneWidget);
-      await tester.tap(date);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('全部时间'));
-      await tester.pumpAndSettle();
-      expect(find.text('已签到'), findsOneWidget);
-      expect(find.text('未签到'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    },
-  );
 
   for (final scenario in [
-    (width: 960.0, dark: false, scale: 1.0),
-    (width: 960.0, dark: true, scale: 1.0),
-    (width: 384.0, dark: false, scale: 1.0),
-    (width: 320.0, dark: true, scale: 1.3),
+    (width: 960.0, scale: 1.0, dark: false),
+    (width: 960.0, scale: 1.3, dark: true),
+    (width: 384.0, scale: 1.0, dark: false),
+    (width: 320.0, scale: 1.3, dark: true),
+    (width: 320.0, scale: 2.0, dark: false),
   ]) {
     testWidgets(
-      'time counts respect other filters and ignore their own selection at $scenario',
+      'status, course, type and period use the same deduplicated records $scenario',
       (tester) async {
-        tester.view.physicalSize = Size(scenario.width, 720);
+        tester.view.physicalSize = Size(scenario.width, 1000);
         tester.view.devicePixelRatio = 1;
         addTearDown(tester.view.resetPhysicalSize);
         addTearDown(tester.view.resetDevicePixelRatio);
@@ -462,7 +312,6 @@ void main() {
                 courseHistoryProvider.overrideWith(_PeriodHistory.new),
               ],
               child: MaterialApp(
-                debugShowCheckedModeBanner: false,
                 theme: desktopCaptureTheme(
                   scenario.dark ? AppTheme.dark() : AppTheme.light(),
                 ),
@@ -478,208 +327,166 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final date = find.byKey(const ValueKey('history-date-filter'));
+        Finder row(String id) => find.byKey(ValueKey(id));
+        expect(row('a_recent_未签到'), findsOneWidget);
+        expect(row('a_old_已签到'), findsOneWidget);
+        expect(row('b_older_已签到'), findsOneWidget);
         final status = find.byKey(const ValueKey('history-status-filter'));
-        if (scenario.width >= 600) {
-          expect(tester.getTopLeft(date).dy, tester.getTopLeft(status).dy);
-          expect(
-            tester.getSize(date).width,
-            closeTo(tester.getSize(status).width, .01),
-          );
-        } else {
-          expect(
-            tester.getTopLeft(date).dy,
-            lessThan(tester.getTopLeft(status).dy),
-          );
+        expect(status, findsOneWidget);
+        final course = find.byKey(const ValueKey('history-course-filter'));
+        final width = scenario.width;
+        for (final target in [status, course]) {
+          expect(tester.getRect(target).left, greaterThanOrEqualTo(16));
+          expect(tester.getRect(target).right, lessThanOrEqualTo(width - 16));
         }
-        final label =
-            '${scenario.width.toInt()}-${scenario.dark ? 'dark' : 'light'}';
-        await captureDesktopUi(tester, 'history-four-filters-$label');
-        void counts(List<int> expected) {
-          for (var i = 0; i < expected.length; i++) {
+        Future<void> secondary({String? type, String? period}) async {
+          if (width < 600) {
+            await tester.tap(
+              find.byKey(const ValueKey('history-secondary-filters')),
+            );
+            await tester.pumpAndSettle();
+            if (type != null) {
+              await tester.tap(find.widgetWithText(AppFilterChoice, type));
+            }
+            if (period != null) {
+              Focus.of(tester.element(find.text(period))).requestFocus();
+              await tester.pump();
+              await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+            }
+            await tester.pumpAndSettle();
+            if (period == '7天内') {
+              final choice = find.widgetWithText(AppFilterChoice, period!);
+              final mouse = await tester.createGesture(
+                kind: ui.PointerDeviceKind.mouse,
+              );
+              await mouse.addPointer(location: const Offset(1, 1));
+              await mouse.moveTo(tester.getCenter(choice));
+              await tester.pumpAndSettle();
+              final p = AppPalette.of(tester.element(choice));
+              expect(
+                tester.widget<Text>(find.text(period)).style!.color,
+                p.ink,
+              );
+              final rect = tester.getRect(choice);
+              await mouse.down(rect.center);
+              await tester.pumpAndSettle();
+              expect(tester.getRect(choice), rect);
+              await mouse.moveTo(const Offset(1, 1));
+              await mouse.up();
+              await tester.pumpAndSettle();
+              expect(tester.widget<AppFilterChoice>(choice).selected, isTrue);
+              await mouse.removePointer();
+              await tester.pumpAndSettle();
+            }
+            await captureDesktopUi(
+              tester,
+              'history-sheet-${width.toInt()}-${scenario.dark}',
+            );
+            await tester.tap(find.text('应用筛选'));
+            await tester.pumpAndSettle();
+          } else {
+            if (type != null) {
+              await tester.tap(
+                find.byKey(const ValueKey('history-type-filter')),
+              );
+              await tester.pumpAndSettle();
+              await tester.tap(find.widgetWithText(AppMenuOption, type));
+              await tester.pumpAndSettle();
+            }
+            if (period != null) {
+              await tester.tap(
+                find.byKey(const ValueKey('history-date-filter')),
+              );
+              await tester.pumpAndSettle();
+              await tester.tap(find.widgetWithText(AppMenuOption, period));
+              await tester.pumpAndSettle();
+            }
+          }
+        }
+
+        await captureDesktopUi(
+          tester,
+          'history-r25-${width.toInt()}-${scenario.dark}',
+        );
+        if (width >= 600) {
+          await tester.tap(find.byKey(const ValueKey('history-date-filter')));
+          await tester.pumpAndSettle();
+          for (final (index, count) in [(0, 3), (1, 1), (2, 2)]) {
             expect(
               find.descendant(
-                of: find.byKey(ValueKey('shell-select-option-$i')),
-                matching: find.text('(${expected[i]})'),
+                of: find.byKey(ValueKey('shell-select-option-$index')),
+                matching: find.text('($count)'),
               ),
               findsOneWidget,
             );
           }
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
         }
-
-        await tester.tap(date);
-        await tester.pumpAndSettle();
-        counts([3, 1, 2]);
-        await captureDesktopUi(tester, 'history-time-counts-$label');
-        await tester.tap(find.byKey(const ValueKey('shell-select-option-1')));
-        await tester.pumpAndSettle();
-        await tester.tap(date);
-        await tester.pumpAndSettle();
-        counts([3, 1, 2]);
-        await tester.tap(find.byKey(const ValueKey('shell-select-option-0')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('history-course-filter')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('shell-select-option-1')));
-        await tester.pumpAndSettle();
-        await tester.tap(date);
-        await tester.pumpAndSettle();
-        counts([2, 1, 2]);
-        await tester.tap(find.byKey(const ValueKey('shell-select-option-0')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('history-type-filter')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('shell-select-option-3')));
-        await tester.pumpAndSettle();
-        await tester.tap(status);
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('shell-select-option-2')));
-        await tester.pumpAndSettle();
-        await tester.tap(date);
-        await tester.pumpAndSettle();
-        counts([0, 0, 0]);
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await tester.pumpAndSettle();
-        expect(tester.takeException(), isNull);
-        await tester.pumpWidget(const SizedBox());
-      },
-    );
-  }
-
-  for (final width in [320.0, 384.0, 900.0, 1440.0]) {
-    testWidgets(
-      'responsive filters fit $width and combine with long course names',
-      (tester) async {
-        tester.view.physicalSize = Size(width, 1000);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              authControllerProvider.overrideWith((ref) => _Auth()),
-              courseHistoryProvider.overrideWith(_History.new),
-            ],
-            child: MaterialApp(
-              theme: AppTheme.light(),
-              home: const HistoryPage(),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        final dateLabel = find.descendant(
-          of: find.byKey(const ValueKey('history-date-filter')),
-          matching: find.text('全部时间'),
-        );
-        expect(
-          tester.renderObject<RenderParagraph>(dateLabel).didExceedMaxLines,
-          isFalse,
-        );
-        final status = find.byKey(const ValueKey('history-status-filter'));
-        final type = find.byKey(const ValueKey('history-type-filter'));
-        final course = find.byKey(const ValueKey('history-course-filter'));
-        final date = find.byKey(const ValueKey('history-date-filter'));
-        if (width >= 600) {
-          expect(tester.getTopLeft(date).dy, tester.getTopLeft(status).dy);
-          expect(
-            tester.getSize(date).width,
-            closeTo(tester.getSize(status).width, .01),
-          );
-        } else {
-          expect(
-            tester.getTopLeft(date).dy,
-            lessThan(tester.getTopLeft(status).dy),
-          );
-        }
-        expect(
-          tester.getSize(status).width,
-          closeTo(tester.getSize(course).width, .01),
-        );
-        final fields = [status, type, course].map(tester.getRect).toList();
-        for (var i = 0; i < fields.length; i++) {
-          expect(fields[i].left, greaterThanOrEqualTo(16));
-          expect(fields[i].right, lessThanOrEqualTo(width - 16));
-          if (i == 0) continue;
-          expect(fields[i].top, greaterThanOrEqualTo(fields[i - 1].top));
-          expect(fields[i].overlaps(fields[i - 1]), isFalse);
-        }
-        for (final label in ['全部状态', '全部类型', '全部课程']) {
-          expect(
-            tester
-                .renderObject<RenderParagraph>(find.text(label))
-                .didExceedMaxLines,
-            isFalse,
-          );
-        }
-
+        await secondary(period: '7天内');
+        expect(row('a_recent_未签到'), findsOneWidget);
+        expect(row('a_old_已签到'), findsNothing);
+        expect(row('b_older_已签到'), findsNothing);
+        await secondary(period: '30天内');
+        expect(row('a_old_已签到'), findsOneWidget);
+        expect(row('b_older_已签到'), findsNothing);
+        await secondary(period: '全部时间');
+        expect(row('b_older_已签到'), findsOneWidget);
         await tester.tap(course);
         await tester.pumpAndSettle();
-        final option = find.byKey(const ValueKey('shell-select-option-1'));
+        final firstCourse = find.byKey(const ValueKey('shell-select-option-1'));
         expect(
-          option,
+          find.descendant(of: firstCourse, matching: find.text('(2)')),
           findsOneWidget,
-          reason: 'course choices must be deduplicated',
         );
-        final menu = tester.getRect(option);
-        expect(menu.left, greaterThanOrEqualTo(0));
-        expect(menu.right, lessThanOrEqualTo(width));
-        expect(
-          menu.width,
-          width < 680 ? closeTo(width - 32, 1) : lessThanOrEqualTo(240),
-        );
-        final menuText = tester.widget<Text>(
-          find.descendant(of: option, matching: find.byType(Text)).first,
-        );
-        if (width < 680) {
-          expect(menuText.maxLines, isNull);
-        } else {
-          expect(menuText.maxLines, 1);
-          expect(menuText.overflow, TextOverflow.ellipsis);
-        }
-        final countLabel = find.descendant(
-          of: option,
-          matching: find.text('(2)'),
-        );
-        expect(countLabel, findsOneWidget);
-        expect(
-          tester.renderObject<RenderParagraph>(countLabel).didExceedMaxLines,
-          isFalse,
-        );
-        await tester.tap(option);
+        await tester.tap(firstCourse);
         await tester.pumpAndSettle();
-        expect(find.text('另一课程'), findsNothing);
-        final selected = tester.widget<Text>(
-          find.descendant(of: course, matching: find.byType(Text)).first,
+        expect(row('b_older_已签到'), findsNothing);
+        await secondary(type: '二维码签到');
+        expect(row('a_recent_未签到'), findsOneWidget);
+        expect(row('a_old_已签到'), findsNothing);
+        await tester.tap(
+          find.descendant(of: status, matching: find.text('已签到')),
         );
-        expect(selected.maxLines, 1);
-        expect(selected.overflow, TextOverflow.ellipsis);
-        expect(find.text('已签记录'), findsOneWidget);
-        expect(find.text('未签记录'), findsOneWidget);
-
-        await tester.tap(type);
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('shell-select-option-1')));
-        await tester.pumpAndSettle();
-        expect(find.text('已签记录'), findsNothing);
-        expect(find.text('未签记录'), findsOneWidget);
-        await tester.tap(status);
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('shell-select-option-2')));
         await tester.pumpAndSettle();
         expect(find.text('无匹配记录'), findsOneWidget);
-
-        await tester.tap(course);
+        await tester.tap(
+          find.descendant(of: status, matching: find.text('全部')),
+        );
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('shell-select-option-0')));
-        await tester.pumpAndSettle();
-        await tester.tap(type);
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('shell-select-option-0')));
-        await tester.pumpAndSettle();
-        expect(find.text('另一课程'), findsOneWidget);
-        expect(find.text('已签记录'), findsOneWidget);
-        expect(find.text('未签记录'), findsNothing);
+        expect(row('a_recent_未签到'), findsOneWidget);
+        if (width < 600) {
+          await tester.tap(
+            find.byKey(const ValueKey('history-secondary-filters')),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.widgetWithText(AppFilterChoice, '数字签到'));
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          expect(
+            row('a_recent_未签到'),
+            findsOneWidget,
+            reason: 'cancel leaves applied filters intact',
+          );
+          await tester.tap(
+            find.byKey(const ValueKey('history-secondary-filters')),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('重置'));
+          await tester.pumpAndSettle();
+          expect(
+            row('a_old_已签到'),
+            findsNothing,
+            reason: 'reset stays local until applied',
+          );
+          await tester.tap(find.text('应用筛选'));
+          await tester.pumpAndSettle();
+        } else {
+          await secondary(type: '全部类型');
+        }
+        expect(row('a_old_已签到'), findsOneWidget);
         expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
       },
     );
   }

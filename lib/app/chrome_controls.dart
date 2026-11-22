@@ -419,3 +419,66 @@ class _AppSurfaceInteractionState extends State<_AppSurfaceInteraction> {
     );
   }
 }
+
+/// A persistent choice in a filter panel; unlike an action, selected state stays visible.
+class AppFilterChoice extends StatelessWidget {
+  const AppFilterChoice({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final fill = selected ? p.accentSoft : p.controlSurface;
+    return Semantics(
+      selected: selected,
+      child: _AppSurfaceInteraction(
+        onTap: onTap,
+        builder: (context, states) {
+          final highlighted =
+              states.contains(WidgetState.hovered) ||
+              states.contains(WidgetState.pressed) ||
+              states.contains(WidgetState.focused);
+          return AnimatedContainer(
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : AppMotion.fast,
+            curve: AppMotion.fastCurve,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: highlighted
+                  ? Color.alphaBlend(p.hoverOverlay, fill)
+                  : fill,
+              borderRadius: BorderRadius.circular(AppRadii.control),
+              border: Border.all(
+                color: states.contains(WidgetState.focused)
+                    ? p.focus
+                    : selected
+                    ? p.accentRim
+                    : p.controlRim,
+              ),
+            ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 20),
+              child: Center(
+                child: Text(
+                  label,
+                  style: AppTypography.body.copyWith(
+                    fontSize: AppDensity.isTouch(context) ? 16 : 14,
+                    color: selected && !highlighted ? p.primary : p.ink,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
