@@ -397,6 +397,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
       message: widget.item.courseTitle,
       initialValue: widget.item.numberCode,
       hintText: '老师提供的签到码',
+      inputIcon: AppIcons.number,
       keyboardType: TextInputType.number,
       confirmLabel: '签到',
       validator: (value) => value.trim().isEmpty ? '请输入签到码' : null,
@@ -1127,39 +1128,78 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
   void _showCourseReference() {
     showDialog<void>(
       context: context,
-      builder: (context) => Dialog(
+      builder: (context) => AppDialogFrame(
+        maxWidth: 480,
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 540),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * .85,
+          ),
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
                   children: [
-                    const Expanded(
-                      child: Text(
-                        '课堂参考',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                    Expanded(
+                      child: Text('课堂参考', style: AppTypography.cardTitle),
                     ),
-                    IconButton(
+                    AppIconButton(
                       tooltip: '关闭',
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(AppIcons.close),
                     ),
                   ],
                 ),
+                const SizedBox(height: 16),
                 Flexible(
                   child: SingleChildScrollView(
-                    child: SessionPriorPanel(
-                      courseId: widget.item.courseId!,
-                      assistUserId: widget.assistUserId,
-                      currentType: widget.item.type,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SettingsSection(
+                          padTop: false,
+                          hasLeading: false,
+                          children: [
+                            SettingsRow(
+                              title: '课程',
+                              trailing: Expanded(
+                                child: AppTruncatedText(
+                                  widget.item.courseTitle,
+                                ),
+                              ),
+                            ),
+                            SettingsRow(
+                              title: '课表地点',
+                              trailing: Expanded(
+                                child: Text(
+                                  widget.meeting?.room.isNotEmpty == true
+                                      ? widget.meeting!.room
+                                      : '未提供',
+                                  textAlign: TextAlign.end,
+                                ),
+                              ),
+                            ),
+                            SettingsRow(
+                              title: '时间',
+                              trailing: Expanded(
+                                child: Text(
+                                  widget.meeting == null
+                                      ? '未提供'
+                                      : '${widget.meeting!.start.hour.toString().padLeft(2, '0')}:${widget.meeting!.start.minute.toString().padLeft(2, '0')}–${widget.meeting!.end.hour.toString().padLeft(2, '0')}:${widget.meeting!.end.minute.toString().padLeft(2, '0')}',
+                                  textAlign: TextAlign.end,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SessionPriorPanel(
+                          courseId: widget.item.courseId!,
+                          assistUserId: widget.assistUserId,
+                          currentType: widget.item.type,
+                        ),
+                      ],
                     ),
                   ),
                 ),

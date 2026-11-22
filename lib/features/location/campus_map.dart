@@ -380,30 +380,11 @@ class _CampusMapState extends State<CampusMap> {
                 ),
               ),
             ),
-          Positioned(
+          const Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: IgnorePointer(
-              child: Container(
-                constraints: const BoxConstraints(
-                  minHeight: MapAttributionControls.footerHeight,
-                ),
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                color: AppPalette.of(context).surface,
-                child: Text(
-                  '© 高德地图',
-                  style: TextStyle(
-                    color: AppPalette.of(context).muted,
-                    fontSize: 11,
-                  ),
-                ),
-              ),
-            ),
+            child: MapAttributionFooter(),
           ),
           Positioned(
             top: widget.overlayInset,
@@ -444,6 +425,26 @@ class _PlaceMarkerLayer extends StatelessWidget {
     }
     return MarkerLayer(markers: visible);
   }
+}
+
+/// Permanent attribution band shared by browsing and coordinate selection maps.
+class MapAttributionFooter extends StatelessWidget {
+  const MapAttributionFooter({super.key});
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    child: Container(
+      constraints: const BoxConstraints(
+        minHeight: MapAttributionControls.footerHeight,
+      ),
+      alignment: Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: AppPalette.of(context).surface,
+      child: Text(
+        '© 高德地图',
+        style: TextStyle(color: AppPalette.of(context).muted, fontSize: 11),
+      ),
+    ),
+  );
 }
 
 /// Sibling of FlutterMap: controls and their padding never reach map gestures.

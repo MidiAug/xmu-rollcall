@@ -2,7 +2,8 @@ import 'campus_tile_cache.dart';
 import 'campus_map_config.dart';
 import 'location_models.dart';
 import 'campus_places.dart';
-import 'campus_map.dart' show CampusSelector, MapAttributionControls;
+import 'campus_map.dart'
+    show CampusSelector, MapAttributionControls, MapAttributionFooter;
 import 'place_matching.dart';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/shell_tab_exit_guard.dart';
@@ -189,6 +190,7 @@ class MapPickPanelState extends State<MapPickPanel>
             Padding(
               padding: widget.campusSelectorPadding,
               child: CampusSelector(
+                expanded: true,
                 value: _campus,
                 onChanged: (campus) {
                   if (widget.busy) return;
@@ -254,6 +256,12 @@ class MapPickPanelState extends State<MapPickPanel>
                           ],
                         ),
                       ],
+                    ),
+                    const Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: MapAttributionFooter(),
                     ),
                     const Positioned(
                       top: kMapOverlayInset,

@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/app/app_checkbox.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
 import 'dart:ui' show PointerDeviceKind;
@@ -48,6 +49,7 @@ import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/platform/desktop_qr_scanner.dart';
 import '../fixtures/desktop_ui_capture.dart';
+import '../fixtures/preview_fonts.dart';
 
 class _AuthRepo extends Fake implements AuthRepository {}
 
@@ -259,7 +261,11 @@ Future<void> openHistory(WidgetTester tester) async {
 }
 
 void main() {
-  setUpAll(loadDesktopUiCaptureFonts);
+  initializeDesktopUiCapture();
+  setUpAll(() async {
+    await loadDesktopUiCaptureFonts();
+    await loadDesktopPreviewFonts();
+  });
   tearDown(AppToast.dismiss);
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -276,6 +282,8 @@ void main() {
     WidgetTester tester,
     Widget page, {
     bool visibleTab = false,
+    bool dark = false,
+    double textScale = 1,
     bool noClassForAssist = false,
     StartMonitorResult? startResult,
     DateTime? now,
@@ -338,7 +346,15 @@ void main() {
           key: const ValueKey('desktop-ui-capture'),
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
-            theme: desktopCaptureTheme(AppTheme.light()),
+            theme: desktopCaptureTheme(
+              dark ? AppTheme.dark() : AppTheme.light(),
+            ),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(textScale)),
+              child: child!,
+            ),
             home: Scaffold(
               body: visibleTab
                   ? ShellTabScope(
@@ -355,6 +371,38 @@ void main() {
     );
     await tester.pumpAndSettle();
     return service;
+  }
+
+  for (final size in [320.0, 390.0, 1100.0]) {
+    for (final dark in [false, true]) {
+      testWidgets('QR selection R25 $size dark=$dark', (tester) async {
+        tester.view.physicalSize = Size(size, 1100);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await show(
+          tester,
+          QrAnswerPage(
+            item: RollcallItem.fromJson(_row(title: '高等数学与多变量函数微积分课程名称截断验证')),
+          ),
+          dark: dark,
+          textScale: size == 320 ? 2 : 1,
+        );
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('未签同学'));
+        await tester.pumpAndSettle();
+        final choices = tester
+            .widgetList<AppCheckbox>(find.byType(AppCheckbox))
+            .toList();
+        expect(choices, hasLength(3));
+        expect(choices.where((choice) => choice.value == true), hasLength(2));
+        expect(choices.last.onChanged, isNull);
+        expect(_puts, isEmpty);
+        await captureDesktopUi(tester, 'qr-r25-${size.toInt()}-$dark');
+        await tester.pumpWidget(const SizedBox());
+      }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+    }
   }
 
   testWidgets('desktop sidebar is the single account entry across both pages', (
@@ -476,25 +524,46 @@ void main() {
         await openHistory(tester);
         await tester.pumpAndSettle();
         final oldHistory = tester.state(find.byType(HistoryPage));
-        for (final filter in [
-          ('history-status-filter', '未签到'),
-          ('history-type-filter', '二维码签到'),
-          ('history-course-filter', '筛选课程'),
-          ('history-date-filter', '7天内'),
-        ]) {
-          await tester.tap(find.byKey(ValueKey(filter.$1)));
-          await tester.pumpAndSettle();
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(const ValueKey('history-status-filter')),
+            matching: find.text('未签到'),
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (width < 600) {
           await tester.tap(
-            find
-                .descendant(
-                  of: find.byType(AppMenuOption),
-                  matching: find.text(filter.$2),
-                )
-                .last,
+            find.byKey(const ValueKey('history-secondary-filters')),
           );
           await tester.pumpAndSettle();
+          await tester.tap(find.widgetWithText(AppFilterChoice, '二维码签到'));
+          await tester.tap(find.widgetWithText(AppFilterChoice, '7天内'));
+          await tester.tap(find.text('应用筛选'));
+          await tester.pumpAndSettle();
+        } else {
+          for (final filter in [
+            ('history-type-filter', '二维码签到'),
+            ('history-date-filter', '7天内'),
+          ]) {
+            await tester.tap(find.byKey(ValueKey(filter.$1)));
+            await tester.pumpAndSettle();
+            await tester.tap(find.widgetWithText(AppMenuOption, filter.$2));
+            await tester.pumpAndSettle();
+          }
         }
-        await tester.tap(find.byKey(const ValueKey('history-status-filter')));
+        await tester.tap(find.byKey(const ValueKey('history-course-filter')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.widgetWithText(AppMenuOption, '筛选课程'));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(
+            ValueKey(
+              width < 600
+                  ? 'history-secondary-filters'
+                  : 'history-course-filter',
+            ),
+          ),
+        );
         await tester.pumpAndSettle();
         // A mobile choice is modal; programmatic tab navigation must dismiss it.
         ShellNavigation.instance.open(AppDestination.homework);
@@ -516,7 +585,10 @@ void main() {
         expect(find.byType(HistoryPage), findsNothing);
         await openHistory(tester);
         await tester.pumpAndSettle();
-        for (final label in ['全部状态', '全部类型', '全部课程', '全部时间']) {
+        for (final label
+            in width < 600
+                ? ['全部', '全部课程', '类型与时间']
+                : ['全部', '全部类型', '全部课程', '全部时间']) {
           expect(find.text(label), findsOneWidget);
         }
         await select(width < 600 ? '我的' : '设置');
@@ -1155,7 +1227,7 @@ void main() {
       expect(find.text('已签同学'), findsOneWidget);
       expect(find.text('其他课程同学'), findsNothing);
       final checkboxes = tester
-          .widgetList<Checkbox>(find.byType(Checkbox))
+          .widgetList<AppCheckbox>(find.byType(AppCheckbox))
           .toList();
       expect(checkboxes.last.onChanged, isNull);
       await tester.tap(find.text('未签同学'));

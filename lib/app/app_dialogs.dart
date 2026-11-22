@@ -1,3 +1,4 @@
+import 'app_icon_button.dart';
 import 'package:flutter/material.dart';
 import 'app_glass_surface.dart';
 import 'app_form_controls.dart';
@@ -198,6 +199,7 @@ Future<String?> showAppPromptDialog(
   String? initialValue,
   String? hintText,
   String? labelText,
+  IconData? inputIcon,
   String? Function(String value)? validator,
   TextInputType? keyboardType,
   String cancelLabel = '取消',
@@ -212,6 +214,7 @@ Future<String?> showAppPromptDialog(
       initialValue: initialValue,
       hintText: hintText,
       labelText: labelText,
+      inputIcon: inputIcon,
       validator: validator,
       keyboardType: keyboardType,
       cancelLabel: cancelLabel,
@@ -227,6 +230,7 @@ class _AppPromptDialog extends StatefulWidget {
     this.initialValue,
     this.hintText,
     this.labelText,
+    this.inputIcon,
     this.validator,
     this.keyboardType,
     required this.cancelLabel,
@@ -238,6 +242,7 @@ class _AppPromptDialog extends StatefulWidget {
   final String? initialValue;
   final String? hintText;
   final String? labelText;
+  final IconData? inputIcon;
   final String? Function(String value)? validator;
   final TextInputType? keyboardType;
   final String cancelLabel;
@@ -286,13 +291,20 @@ class _AppPromptDialogState extends State<_AppPromptDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              widget.title,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: p.ink,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: AppTypography.cardTitle.copyWith(color: p.ink),
+                  ),
+                ),
+                AppIconButton(
+                  tooltip: '关闭',
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close, size: 20),
+                ),
+              ],
             ),
             if (widget.message != null && widget.message!.isNotEmpty) ...[
               const SizedBox(height: 6),
@@ -309,6 +321,10 @@ class _AppPromptDialogState extends State<_AppPromptDialog> {
               keyboardType: widget.keyboardType,
               decoration: InputDecoration(
                 labelText: widget.labelText,
+                fillColor: p.controlSurface,
+                prefixIcon: widget.inputIcon == null
+                    ? null
+                    : Icon(widget.inputIcon, color: p.muted),
                 hintText: widget.hintText,
                 errorText: _error,
                 errorMaxLines: 3,

@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/app/app_checkbox.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window_store.dart';
 import 'dart:convert';
 import 'dart:async';
@@ -722,19 +723,45 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
                 AppSpace.xl,
               ),
           children: [
-            Text(
-              item.courseTitle,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.15,
-                color: p.ink,
+            Panel(
+              lifted: true,
+              outlined: true,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppTruncatedText(
+                          item.courseTitle,
+                          style: AppTypography.cardTitle.copyWith(color: p.ink),
+                        ),
+                        if (item.createdByName.trim().isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            '发起人：${item.createdByName}',
+                            style: AppTypography.body.copyWith(color: p.muted),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  AppStatusBadge(
+                    item.isExpired
+                        ? '已结束'
+                        : item.isAnswered
+                        ? '已签到'
+                        : '进行中',
+                    tone: item.isExpired
+                        ? AppStatusTone.neutral
+                        : item.isAnswered
+                        ? AppStatusTone.success
+                        : AppStatusTone.accent,
+                    pill: true,
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: AppSpace.xs),
-            Text(
-              '发起人：${item.createdByName}',
-              style: TextStyle(fontSize: 12, color: p.muted),
             ),
             if (_status != null) ...[
               const SizedBox(height: AppSpace.sm),
@@ -749,19 +776,66 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
                 padTop: false,
                 header: '为谁签到',
                 children: [
-                  SettingsRow(
-                    leading: const Icon(AppIcons.person),
-                    title: primary?.displayName ?? '我',
-                    subtitle: _primaryDone ? '已签到或已结束' : '当前账号',
-                    onTap: _submitting || _loadingEligible || _primaryDone
-                        ? null
-                        : () => setState(() => _includeOwner = !_includeOwner),
-                    trailing: IgnorePointer(
-                      child: Checkbox(
-                        value: _includeOwner,
-                        onChanged: _primaryDone ? null : (_) {},
-                      ),
+                  AppCheckboxRow(
+                    label:
+                        primary?.displayName ??
+                        ref.watch(authControllerProvider).profile?.name ??
+                        '我',
+                    value: _includeOwner,
+                    trailing: true,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
                     ),
+                    onChanged: _submitting || _loadingEligible || _primaryDone
+                        ? null
+                        : (value) => setState(() => _includeOwner = value),
+                    title: Row(
+                      children: [
+                        AppIdentityAvatar(
+                          name:
+                              primary?.displayName ??
+                              ref.watch(authControllerProvider).profile?.name,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                primary?.displayName ??
+                                    ref
+                                        .watch(authControllerProvider)
+                                        .profile
+                                        ?.name ??
+                                    '我',
+                                style: AppTypography.body.copyWith(
+                                  fontSize: AppDensity.isTouch(context)
+                                      ? 17
+                                      : 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: _primaryDone ? p.muted : p.ink,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                widget.assistUserId == null ? '主账号' : '协助账号',
+                                style: AppTypography.caption.copyWith(
+                                  color: p.muted,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    accessory: _primaryDone
+                        ? const AppStatusBadge(
+                            '已签到或已结束',
+                            tone: AppStatusTone.success,
+                            pill: true,
+                          )
+                        : null,
                   ),
                   if (_loadingEligible)
                     const Padding(
@@ -772,93 +846,168 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
                       child: LinearProgressIndicator(minHeight: 2),
                     ),
                   for (final row in _rows)
-                    SettingsRow(
-                      leading: Icon(
-                        AppIcons.assist,
-                        color: row.canSelect ? null : p.muted,
+                    AppCheckboxRow(
+                      label: row.identity.displayName,
+                      value: _selectedAssist.contains(row.identity.userId),
+                      trailing: true,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
                       ),
-                      title: row.identity.displayName,
-                      subtitle: _eligLabel(row.eligibility),
-                      onTap: (_submitting || _loadingEligible || !row.canSelect)
+                      onChanged:
+                          _submitting || _loadingEligible || !row.canSelect
                           ? null
-                          : () {
-                              setState(() {
-                                final id = row.identity.userId;
-                                if (_selectedAssist.contains(id)) {
-                                  _selectedAssist.remove(id);
-                                } else {
-                                  _selectedAssist.add(id);
-                                }
-                              });
-                            },
-                      trailing: IgnorePointer(
-                        child: Checkbox(
-                          value: _selectedAssist.contains(row.identity.userId),
-                          onChanged: row.canSelect ? (_) {} : null,
-                        ),
+                          : (selected) => setState(() {
+                              if (selected) {
+                                _selectedAssist.add(row.identity.userId);
+                              } else {
+                                _selectedAssist.remove(row.identity.userId);
+                              }
+                            }),
+                      title: Row(
+                        children: [
+                          AppIdentityAvatar(name: row.identity.displayName),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  row.identity.displayName,
+                                  style: AppTypography.body.copyWith(
+                                    fontSize: AppDensity.isTouch(context)
+                                        ? 17
+                                        : 15,
+                                    fontWeight: FontWeight.w600,
+                                    color: row.canSelect ? p.ink : p.muted,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '协助账号',
+                                  style: AppTypography.caption.copyWith(
+                                    color: p.muted,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
+                      accessory: row.canSelect
+                          ? null
+                          : AppStatusBadge(
+                              _eligLabel(row.eligibility),
+                              tone:
+                                  row.eligibility ==
+                                      AssistQrEligibility.signedOrDone
+                                  ? AppStatusTone.success
+                                  : AppStatusTone.neutral,
+                              pill: true,
+                            ),
                     ),
                 ],
               ),
               const SizedBox(height: AppSpace.md),
             ],
             if (!_cameraSupported) ...[
-              TextField(
-                controller: _dataCtrl,
-                maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: '二维码内容',
-                  hintText: '可粘贴内容，或点击扫码签到打开独立识别窗口',
-                  alignLabelWithHint: true,
-                ),
-              ),
-              const SizedBox(height: AppSpace.xs),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: _submitting ? null : _pasteClipboard,
-                  icon: const Icon(AppIcons.paste, size: 16),
-                  label: const Text('从剪贴板粘贴'),
-                ),
+              SettingsSection(
+                header: '二维码内容',
+                padTop: false,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
+                          controller: _dataCtrl,
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            hintText: '粘贴二维码内容或识别后的签到链接',
+                            fillColor: p.controlSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: OutlinedButton.icon(
+                            onPressed: _submitting ? null : _pasteClipboard,
+                            icon: const Icon(AppIcons.paste, size: 16),
+                            label: const Text('从剪贴板粘贴'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: AppSpace.md),
             ],
-            FilledButton.icon(
-              onPressed: _submitting || _scanning || _loadingEligible
-                  ? null
-                  : _scanAndSubmit,
-              icon: Icon(
-                _cameraSupported || _desktopSupported
-                    ? Icons.qr_code_scanner
-                    : AppIcons.submit,
-                size: 18,
-              ),
-              label: Text(
-                _submitting
-                    ? '提交中…'
-                    : _loadingEligible
-                    ? '正在核对名单…'
-                    : _desktopSupported
-                    ? '扫码签到'
-                    : (_cameraSupported ? '扫码并签到' : '确认并提交'),
-              ),
+            LayoutBuilder(
+              builder: (context, bounds) {
+                final primaryAction = FilledButton.icon(
+                  onPressed: _submitting || _scanning || _loadingEligible
+                      ? null
+                      : _scanAndSubmit,
+                  icon: Icon(
+                    _cameraSupported || _desktopSupported
+                        ? Icons.qr_code_scanner
+                        : AppIcons.submit,
+                    size: 18,
+                  ),
+                  label: Text(
+                    _submitting
+                        ? '提交中…'
+                        : _loadingEligible
+                        ? '正在核对名单…'
+                        : _cameraSupported || _desktopSupported
+                        ? '扫码签到（${_buildTargets().length}人）'
+                        : '确认并提交',
+                  ),
+                );
+                final secondaryAction = OutlinedButton(
+                  onPressed: _submitting || _loadingEligible
+                      ? null
+                      : () async {
+                          if (_dataCtrl.text.trim().isEmpty) {
+                            await _pasteClipboard();
+                          }
+                          if (_dataCtrl.text.trim().isNotEmpty) {
+                            await _submit();
+                          }
+                        },
+                  child: const Text('粘贴内容并提交'),
+                );
+                final hasScanner = _cameraSupported || _desktopSupported;
+                if (bounds.maxWidth >=
+                    560 * MediaQuery.textScalerOf(context).scale(1)) {
+                  return Row(
+                    children: [
+                      if (hasScanner) secondaryAction,
+                      const Spacer(),
+                      primaryAction,
+                    ],
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    primaryAction,
+                    if (hasScanner) ...[
+                      const SizedBox(height: 12),
+                      secondaryAction,
+                      const SizedBox(height: 16),
+                      Text(
+                        '扫码后为所选账号提交签到',
+                        textAlign: TextAlign.center,
+                        style: AppTypography.caption.copyWith(color: p.muted),
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
-            if (_cameraSupported || _desktopSupported) ...[
-              const SizedBox(height: AppSpace.xs),
-              TextButton(
-                onPressed: _submitting || _loadingEligible
-                    ? null
-                    : () async {
-                        if (_dataCtrl.text.trim().isEmpty) {
-                          await _pasteClipboard();
-                        }
-                        if (_dataCtrl.text.trim().isNotEmpty) {
-                          await _submit();
-                        }
-                      },
-                child: const Text('粘贴内容并提交'),
-              ),
-            ],
             if (_results.isNotEmpty) ...[
               const SizedBox(height: AppSpace.lg),
               SettingsSection(

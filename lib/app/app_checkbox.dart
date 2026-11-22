@@ -14,6 +14,8 @@ class AppCheckboxRow extends StatelessWidget {
     this.title,
     this.subtitle,
     this.padding = EdgeInsets.zero,
+    this.trailing = false,
+    this.accessory,
   });
   final String label;
   final bool? value;
@@ -21,59 +23,90 @@ class AppCheckboxRow extends StatelessWidget {
   final Widget? title;
   final Widget? subtitle;
   final EdgeInsetsGeometry padding;
+  final bool trailing;
+  final Widget? accessory;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: padding,
-    child: MergeSemantics(
-      child: Row(
-        children: [
-          TooltipVisibility(
-            visible: false,
-            child: AppCheckbox(
-              value: value,
-              label: label,
-              onChanged: onChanged,
-            ),
-          ),
-          const SizedBox(width: 2),
-          Expanded(
-            child: GestureDetector(
-              excludeFromSemantics: true,
-              behavior: HitTestBehavior.opaque,
-              onTap: onChanged == null ? null : () => onChanged!(value != true),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(minHeight: 44),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      title ??
-                          Text(
-                            label,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: onChanged == null
-                                      ? AppPalette.of(context).muted
-                                      : null,
-                                ),
-                          ),
-                      if (subtitle != null) ...[
-                        const SizedBox(height: 4),
-                        subtitle!,
+  Widget build(BuildContext context) {
+    final stackAccessory =
+        accessory != null &&
+        AppDensity.isTouch(context) &&
+        MediaQuery.textScalerOf(context).scale(1) > 1.15;
+    return Padding(
+      padding: padding,
+      child: MergeSemantics(
+        child: Row(
+          children: [
+            if (!trailing) ...[
+              TooltipVisibility(
+                visible: false,
+                child: AppCheckbox(
+                  value: value,
+                  label: label,
+                  onChanged: onChanged,
+                ),
+              ),
+              const SizedBox(width: 2),
+            ],
+            Expanded(
+              child: GestureDetector(
+                excludeFromSemantics: true,
+                behavior: HitTestBehavior.opaque,
+                onTap: onChanged == null
+                    ? null
+                    : () => onChanged!(value != true),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 44),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        title ??
+                            Text(
+                              label,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: onChanged == null
+                                        ? AppPalette.of(context).muted
+                                        : null,
+                                  ),
+                            ),
+                        if (subtitle != null) ...[
+                          const SizedBox(height: 4),
+                          subtitle!,
+                        ],
+                        if (stackAccessory) ...[
+                          const SizedBox(height: 8),
+                          accessory!,
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+            if (accessory != null && !stackAccessory) ...[
+              const SizedBox(width: 8),
+              accessory!,
+            ],
+            if (trailing) ...[
+              const SizedBox(width: 8),
+              TooltipVisibility(
+                visible: false,
+                child: AppCheckbox(
+                  value: value,
+                  label: label,
+                  onChanged: onChanged,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 /// Controlled selection: null means mixed; activation always selects it.
