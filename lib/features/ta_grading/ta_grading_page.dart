@@ -374,69 +374,48 @@ class _TaCoursesState extends State<_TaCourses> {
                               _select(courseId);
                             }
                           },
-                          child: LayoutBuilder(
-                            builder: (context, bounds) {
-                              final scale =
-                                  MediaQuery.textScalerOf(context).scale(1);
-                              final wide = bounds.maxWidth >= 560 * scale;
-                              return Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        AppTruncatedText(
-                                          item.title,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w600,
-                                                color: p.ink,
-                                              ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        TaAssignmentCountChips(
-                                          assignment: item,
-                                        ),
-                                        if (!wide &&
-                                            item.timeMetrics.isNotEmpty) ...[
-                                          const SizedBox(height: 6),
-                                          TaAssignmentTimeRow(
-                                            assignment: item,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    AppTruncatedText(
+                                      item.title,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: p.ink,
                                           ),
-                                        ],
-                                      ],
                                     ),
-                                  ),
-                                  if (wide && item.timeMetrics.isNotEmpty) ...[
-                                    const SizedBox(width: 16),
-                                    TaAssignmentTimeColumn(assignment: item),
+                                    const SizedBox(height: 8),
+                                    TaAssignmentSummaryBar(assignment: item),
                                   ],
-                                  const SizedBox(width: 16),
-                                  AppStatusBadge(
-                                    item.submitted == 0
-                                        ? '待提交'
-                                        : item.graded > 0
-                                        ? '已批 ${item.graded}/${item.submitted}'
-                                        : '待批 $pending',
-                                    tone: item.submitted == 0
-                                        ? AppStatusTone.neutral
-                                        : item.graded > 0
-                                        ? AppStatusTone.success
-                                        : AppStatusTone.accent,
-                                    pill: true,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Icon(
-                                    AppIcons.right,
-                                    size: 18,
-                                    color: p.muted,
-                                  ),
-                                ],
-                              );
-                            },
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              AppStatusBadge(
+                                item.submitted == 0
+                                    ? '待提交'
+                                    : item.graded > 0
+                                    ? '已批 ${item.graded}/${item.submitted}'
+                                    : '待批 $pending',
+                                tone: item.submitted == 0
+                                    ? AppStatusTone.neutral
+                                    : item.graded > 0
+                                    ? AppStatusTone.success
+                                    : AppStatusTone.accent,
+                                pill: true,
+                              ),
+                              const SizedBox(width: 12),
+                              Icon(
+                                AppIcons.right,
+                                size: 18,
+                                color: p.muted,
+                              ),
+                            ],
                           ),
                         );
                       },

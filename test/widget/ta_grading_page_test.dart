@@ -777,7 +777,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(TaAssignmentCountChips), findsOneWidget);
-      expect(find.byType(TaAssignmentTimeColumn), findsOneWidget);
+      expect(find.byType(TaAssignmentSummaryBar), findsOneWidget);
+      expect(find.byType(TaAssignmentTimeRow), findsOneWidget);
+      expect(find.byType(TaAssignmentTimeColumn), findsNothing);
       expect(find.text(expectedOpen), findsOneWidget);
       expect(find.text(expectedClose), findsOneWidget);
 
@@ -904,4 +906,114 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'multiple assignments align count chips and left-aligned time row across digit counts',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(1100, 950);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final f = TaHttpFixture();
+      final assignmentA = {
+        ...f.assignment,
+        'id': 81,
+        'title': '作业一：两位数提交统计',
+        'expected_submit_count': 111,
+        'submitted_count': 47,
+        'scored_count': 0,
+        'start_time': '2026-09-15T08:00:00Z',
+        'end_time': '2026-09-19T15:59:00Z',
+      };
+      final assignmentB = {
+        ...f.assignment,
+        'id': 82,
+        'title': '作业二：三位数全批改统计',
+        'expected_submit_count': 111,
+        'submitted_count': 111,
+        'scored_count': 111,
+        'start_time': '2026-09-16T08:00:00Z',
+        'end_time': '2026-09-20T15:59:00Z',
+      };
+      f.intercept = (o) async {
+        if (o.uri.path.endsWith('/homework-activities')) {
+          return TaHttpFixture.response({
+            'homework_activities': [assignmentA, assignmentB],
+            'pages': 1,
+          });
+        }
+        return null;
+      };
+      final repo = await f.repository();
+      addTearDown(repo.dispose);
+
+      final parsedA = TaAssignment.parse(assignmentA);
+      final parsedB = TaAssignment.parse(assignmentB);
+      final openTextA =
+          '${parsedA.timeMetrics[0].$1} ${parsedA.timeMetrics[0].$2}';
+      final closeTextA =
+          '${parsedA.timeMetrics[1].$1} ${parsedA.timeMetrics[1].$2}';
+      final openTextB =
+          '${parsedB.timeMetrics[0].$1} ${parsedB.timeMetrics[0].$2}';
+      final closeTextB =
+          '${parsedB.timeMetrics[1].$1} ${parsedB.timeMetrics[1].$2}';
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            taRepositoryProvider.overrideWith((ref) async => repo),
+            currentTeachingCoursesProvider.overrideWith(
+              (ref) async => const [CatalogCourse(id: '91', title: '测试课程')],
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.windows),
+            home: const Scaffold(body: TaGradingPage()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final chipGroups = find.byType(TaAssignmentCountChips);
+      final timeRows = find.byType(TaAssignmentTimeRow);
+      final badges = find.byType(AppStatusBadge);
+      expect(chipGroups, findsNWidgets(2));
+      expect(timeRows, findsNWidgets(2));
+      expect(badges, findsNWidgets(2));
+      expect(find.byType(TaAssignmentTimeColumn), findsNothing);
+
+      final chipsRectA = tester.getRect(chipGroups.at(0));
+      final chipsRectB = tester.getRect(chipGroups.at(1));
+      expect(chipsRectA.left, closeTo(chipsRectB.left, 0.5));
+      expect(chipsRectA.width, closeTo(chipsRectB.width, 0.5));
+
+      final timeRectA = tester.getRect(timeRows.at(0));
+      final timeRectB = tester.getRect(timeRows.at(1));
+      expect(timeRectA.left, closeTo(timeRectB.left, 0.5));
+      expect(timeRectA.left, greaterThan(chipsRectA.right));
+      expect(timeRectA.right, lessThan(tester.getRect(badges.at(0)).left));
+      expect(timeRectB.right, lessThan(tester.getRect(badges.at(1)).left));
+
+      final openRectA = tester.getRect(
+        find.descendant(of: timeRows.at(0), matching: find.text(openTextA)),
+      );
+      final openRectB = tester.getRect(
+        find.descendant(of: timeRows.at(1), matching: find.text(openTextB)),
+      );
+      final closeRectA = tester.getRect(
+        find.descendant(of: timeRows.at(0), matching: find.text(closeTextA)),
+      );
+      final closeRectB = tester.getRect(
+        find.descendant(of: timeRows.at(1), matching: find.text(closeTextB)),
+      );
+      expect(openRectA.left, closeTo(openRectB.left, 0.5));
+      expect(closeRectA.left, closeTo(closeRectB.left, 0.5));
+
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpAndSettle();
+    },
+  );
 }

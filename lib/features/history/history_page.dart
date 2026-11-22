@@ -569,7 +569,6 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                             child: Row(
                               children: [
                                 Expanded(
-                                  flex: 2,
                                   child: AppToolbarChoice<HistoryTypeFilter>(
                                     key: const ValueKey('history-type-filter'),
                                     title: '签到类型',
@@ -577,6 +576,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                                     items: HistoryTypeFilter.values,
                                     labelOf: (v) => v.label,
                                     trailingOf: (v) => '(${typeCount(v)})',
+                                    expandLabel: true,
                                     onChanged: (v) => setState(() => _type = v),
                                   ),
                                 ),
@@ -585,14 +585,13 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                                   height: 18,
                                   color: AppPalette.of(context).divider,
                                 ),
-                                Expanded(flex: 3, child: courseChoice()),
+                                Expanded(child: courseChoice(expandLabel: true)),
                                 Container(
                                   width: 1,
                                   height: 18,
                                   color: AppPalette.of(context).divider,
                                 ),
                                 Expanded(
-                                  flex: 2,
                                   child: AppToolbarChoice<_HistoryPeriod>(
                                     key: const ValueKey('history-date-filter'),
                                     title: '时间范围',
@@ -600,6 +599,7 @@ class _HistoryPageState extends ConsumerState<HistoryPage>
                                     items: _HistoryPeriod.values,
                                     labelOf: (v) => v.label,
                                     trailingOf: (v) => '(${periodCount(v)})',
+                                    expandLabel: true,
                                     onChanged: _selectPeriod,
                                   ),
                                 ),

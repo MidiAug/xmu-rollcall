@@ -245,7 +245,11 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
             Offset.zero,
           );
           final overlaySize = info.overlaySize;
-          final maxMenuWidth = (widget.menuWidth ?? widget.width).clamp(
+          final triggerWidth = info.childSize.width > 0
+              ? info.childSize.width
+              : widget.width;
+          final defaultMaxWidth = triggerWidth > 320.0 ? triggerWidth : 320.0;
+          final maxMenuWidth = (widget.menuWidth ?? defaultMaxWidth).clamp(
             0.0,
             overlaySize.width - 24,
           );
@@ -260,7 +264,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
               text: (widget.menuLabelOf ?? widget.labelOf)(item),
               style: DefaultTextStyle.of(context).style.copyWith(
                 fontSize: 14,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w600,
                 height: 22 / 14,
               ),
               children: [
@@ -275,10 +279,11 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
             if (painter.width > labelWidth) labelWidth = painter.width;
           }
           painter.dispose();
+          final minMenuWidth = triggerWidth.clamp(0.0, maxMenuWidth);
           final menuWidth = widget.fixedMenuWidth
               ? maxMenuWidth
               : (labelWidth + 88 + (widget.iconOf == null ? 0 : 28)).clamp(
-                  widget.width.clamp(0.0, maxMenuWidth),
+                  minMenuWidth,
                   maxMenuWidth,
                 );
           final left =

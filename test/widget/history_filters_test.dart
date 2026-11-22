@@ -427,7 +427,47 @@ void main() {
           );
         }
         if (width >= 600) {
-          await tester.tap(find.byKey(const ValueKey('history-date-filter')));
+          final typeFilter = find.byKey(const ValueKey('history-type-filter'));
+          final dateFilter = find.byKey(const ValueKey('history-date-filter'));
+          final typeWidth = tester.getSize(typeFilter).width;
+          final courseWidth = tester.getSize(course).width;
+          final dateWidth = tester.getSize(dateFilter).width;
+          expect((typeWidth - courseWidth).abs(), lessThan(1.5));
+          expect((courseWidth - dateWidth).abs(), lessThan(1.5));
+          expect((typeWidth - dateWidth).abs(), lessThan(1.5));
+          final filtersRect = tester.getRect(
+            find.byKey(const ValueKey('history-desktop-filters')),
+          );
+          final statusRect = tester.getRect(status);
+          expect(statusRect.right, lessThanOrEqualTo(filtersRect.left));
+          expect(statusRect.top, lessThan(filtersRect.bottom));
+          expect(filtersRect.top, lessThan(statusRect.bottom));
+
+          await tester.tap(typeFilter);
+          await tester.pumpAndSettle();
+          for (final label in ['全部类型', '数字签到', '雷达签到', '二维码签到']) {
+            final labelFinder = find.descendant(
+              of: find.byType(AppMenuOption),
+              matching: find.text(label),
+            );
+            expect(labelFinder, findsOneWidget);
+            final paragraph = tester.renderObject<RenderParagraph>(labelFinder);
+            expect(paragraph.didExceedMaxLines, isFalse);
+            expect(
+              tester.getSize(labelFinder).width,
+              greaterThanOrEqualTo(50.0),
+            );
+          }
+          if (width == 960 && scenario.scale == 1.0 && !scenario.dark) {
+            await captureDesktopUi(
+              tester,
+              'history-type-menu-${width.toInt()}-${scenario.dark}',
+            );
+          }
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+
+          await tester.tap(dateFilter);
           await tester.pumpAndSettle();
           for (final (index, count) in [(0, 3), (1, 1), (2, 2)]) {
             expect(

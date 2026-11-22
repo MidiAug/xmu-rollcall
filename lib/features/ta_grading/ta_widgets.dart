@@ -110,6 +110,7 @@ class TaAssignmentCountChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final scale = MediaQuery.textScalerOf(context).scale(1);
     final baseStyle = Theme.of(context).textTheme.bodySmall ?? const TextStyle();
     final metrics = [
       (
@@ -160,22 +161,29 @@ class TaAssignmentCountChips extends StatelessWidget {
       children: [
         for (final metric in metrics)
           Container(
+            constraints: BoxConstraints(
+              minWidth: (metric.$1 == '应交' ? 68.0 : 80.0) * scale,
+            ),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: metric.$3,
               borderRadius: BorderRadius.circular(7),
               border: Border.all(color: metric.$4),
             ),
-            child: Text(
-              '${metric.$1} ${metric.$2}',
-              maxLines: 1,
-              softWrap: false,
-              style: baseStyle.copyWith(
-                fontSize: 12,
-                height: 1.2,
-                color: metric.$5,
-                fontWeight: metric.$6,
-                fontFeatures: const [FontFeature.tabularFigures()],
+            child: Center(
+              widthFactor: 1,
+              heightFactor: 1,
+              child: Text(
+                '${metric.$1} ${metric.$2}',
+                maxLines: 1,
+                softWrap: false,
+                style: baseStyle.copyWith(
+                  fontSize: 12,
+                  height: 1.2,
+                  color: metric.$5,
+                  fontWeight: metric.$6,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
               ),
             ),
           ),
@@ -226,7 +234,7 @@ class TaAssignmentTimeRow extends StatelessWidget {
     final p = AppPalette.of(context);
     final baseStyle = Theme.of(context).textTheme.bodySmall ?? const TextStyle();
     return Wrap(
-      spacing: 12,
+      spacing: 16,
       runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
@@ -258,17 +266,18 @@ class TaAssignmentSummaryBar extends StatelessWidget {
       return TaAssignmentCountChips(assignment: assignment);
     }
     final p = AppPalette.of(context);
+    final scale = MediaQuery.textScalerOf(context).scale(1);
     return LayoutBuilder(
       builder: (context, bounds) {
-        if (bounds.maxWidth >= 480 * MediaQuery.textScalerOf(context).scale(1)) {
+        if (bounds.maxWidth >= 480 * scale) {
           return Row(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               TaAssignmentCountChips(assignment: assignment),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Container(width: 1, height: 14, color: p.borderStrong),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Flexible(child: TaAssignmentTimeRow(assignment: assignment)),
             ],
           );
