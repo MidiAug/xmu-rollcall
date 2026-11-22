@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/app/app_service_symbol.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -100,13 +101,13 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
             children: [
               Row(
                 children: [
-                  const BrandMark(size: 22),
+                  const AppServiceSymbol(icon: AppIcons.guard, size: 40),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       '登录畅课',
                       style: TextStyle(
-                        fontSize: 17,
+                        fontSize: 20,
                         fontWeight: FontWeight.w600,
                         letterSpacing: -0.3,
                         color: p.ink,
@@ -136,9 +137,10 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
                 inputFormatters: [
                   FilteringTextInputFormatter.deny(RegExp(r'\s')),
                 ],
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
+                  fillColor: p.insetSurface,
                   labelText: '学号',
-                  prefixIcon: Icon(AppIcons.person, size: 19),
+                  hintText: '输入学号',
                 ),
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return '请输入学号';
@@ -154,7 +156,8 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
                 onFieldSubmitted: (_) => _submit(),
                 decoration: InputDecoration(
                   labelText: '密码',
-                  prefixIcon: const Icon(AppIcons.lock, size: 19),
+                  hintText: '输入密码',
+                  fillColor: p.insetSurface,
                   suffixIcon: AppIconButton(
                     tooltip: _obscure ? '显示密码' : '隐藏密码',
                     onPressed: () => setState(() => _obscure = !_obscure),

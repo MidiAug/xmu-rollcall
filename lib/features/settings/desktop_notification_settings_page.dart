@@ -68,26 +68,6 @@ class _DesktopNotificationSettingsPageState
               children: [
                 SettingsSection(
                   padTop: false,
-                  footer: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        shell.trayAvailable.value
-                            ? '前台显示应用内提醒，后台或托盘时发送系统通知；退出或睡眠时不检测。'
-                            : '前台显示应用内提醒，后台时发送系统通知；退出或睡眠时不检测。',
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodySmall?.copyWith(color: p.muted),
-                      ),
-                      if (PlatformHooks.isWindows) ...[
-                        const SizedBox(height: AppSpace.xs),
-                        TextButton(
-                          onPressed: _openSettings,
-                          child: const Text('Windows 通知设置'),
-                        ),
-                      ],
-                    ],
-                  ),
                   children: [
                     SettingsRow(
                       leading: const Icon(AppIcons.notification),
@@ -151,6 +131,30 @@ class _DesktopNotificationSettingsPageState
                             : '检查系统通知设置',
                         subtitle: '允许厦大签到发送通知，并检查勿扰模式；修改后重新发送测试。',
                         onTap: PlatformHooks.isWindows ? _openSettings : null,
+                      ),
+                  ],
+                ),
+                SettingsSection(
+                  hasLeading: false,
+                  children: [
+                    Padding(
+                      padding: AppDensity.rowPadding(context),
+                      child: Text(
+                        shell.trayAvailable.value
+                            ? '前台显示应用内提醒，后台或托盘时发送系统通知；退出或睡眠时不检测。'
+                            : '前台显示应用内提醒，后台时发送系统通知；退出或睡眠时不检测。',
+                        style: AppTypography.body.copyWith(color: p.muted),
+                      ),
+                    ),
+                    if (PlatformHooks.isWindows)
+                      SettingsRow(
+                        title: 'Windows 通知设置',
+                        trailing: Icon(
+                          AppIcons.right,
+                          size: 18,
+                          color: p.muted,
+                        ),
+                        onTap: _openSettings,
                       ),
                   ],
                 ),

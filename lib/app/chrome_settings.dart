@@ -115,6 +115,8 @@ class SettingsRow extends StatelessWidget {
   const SettingsRow({
     super.key,
     this.leading,
+    this.leadingSize,
+    this.focusNode,
     required this.title,
     this.truncateTitle = false,
     this.subtitle,
@@ -130,6 +132,8 @@ class SettingsRow extends StatelessWidget {
   });
 
   final Widget? leading;
+  final double? leadingSize;
+  final FocusNode? focusNode;
   final String title;
   final bool truncateTitle;
   final String? subtitle;
@@ -154,6 +158,7 @@ class SettingsRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final row = _AppSurfaceInteraction(
+      focusNode: focusNode,
       onTap: enabled ? onTap : null,
       builder: _buildRow,
     );
@@ -224,9 +229,9 @@ class SettingsRow extends StatelessWidget {
             ? AppDensity.rowHeight(context)
             : AppDensity.settingsRowMinHeight);
     final gap = AppDensity.settingsInnerGap;
-    final leadingExtent = touch
-        ? AppDensity.settingsTouchLeading
-        : AppDensity.settingsLeading;
+    final leadingExtent =
+        leadingSize ??
+        (touch ? AppDensity.settingsTouchLeading : AppDensity.settingsLeading);
     final hasSupporting = this.subtitle != null || subtitleWidget != null;
     final padding =
         (contentPadding ??

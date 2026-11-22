@@ -15,6 +15,7 @@ class AppShellSelect<T> extends StatefulWidget {
     this.menuLeadingOf,
     this.menuSubtitleOf,
     this.menuTitle,
+    this.highlightSelection = false,
     this.iconOf,
     this.width = 132,
     this.menuWidth,
@@ -40,6 +41,7 @@ class AppShellSelect<T> extends StatefulWidget {
   final Widget Function(T)? menuLeadingOf;
   final String Function(T)? menuSubtitleOf;
   final String? menuTitle;
+  final bool highlightSelection;
   final IconData Function(T)? iconOf;
   final ValueChanged<T>? onChanged;
   final Widget? leading;
@@ -187,6 +189,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
       leadingOf: widget.menuLeadingOf,
       subtitleOf: widget.menuSubtitleOf,
       iconOf: widget.iconOf,
+      highlightSelection: widget.highlightSelection,
       onPointerMode: (value) => _pointerActivation = value,
       pointerAutofocus: _pointerActivation,
       onPresented: (context) {
@@ -423,6 +426,8 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                                                 'shell-select-option-$i',
                                               ),
                                               showCheck: true,
+                                              highlightSelection:
+                                                  widget.highlightSelection,
                                               leading: widget.menuLeadingOf
                                                   ?.call(widget.items[i]),
                                               subtitle: widget.menuSubtitleOf
@@ -596,6 +601,7 @@ class AppMenuOption extends StatelessWidget {
     this.showCheck = false,
     this.leadingIcon,
     this.leading,
+    this.highlightSelection = false,
     this.subtitle,
     this.danger = false,
     this.autofocus = false,
@@ -610,6 +616,7 @@ class AppMenuOption extends StatelessWidget {
   final bool showCheck;
   final IconData? leadingIcon;
   final Widget? leading;
+  final bool highlightSelection;
   final String? subtitle;
   final bool danger;
   final bool autofocus;
@@ -632,13 +639,13 @@ class AppMenuOption extends StatelessWidget {
           ? p.controlPressed
           : active
           ? p.hover
-          : selected && subtitle != null && leading != null
+          : selected && highlightSelection
           ? p.accentSoft
           : AppPalette.clearOf(p.hover);
       final style = TextStyle(
-        fontSize: subtitle != null && leading != null
-            ? (AppDensity.isTouch(context) ? 17 : 15)
-            : 14,
+        fontSize: AppDensity.isTouch(context)
+            ? 17
+            : (subtitle != null && leading != null ? 15 : 14),
         height: 1.5,
         fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
         // Single-cursor highlight lets the active target stand out while the

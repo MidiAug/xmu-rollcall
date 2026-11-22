@@ -1,3 +1,4 @@
+import '../fixtures/desktop_ui_capture.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
@@ -89,6 +90,7 @@ class _DesktopFrame extends StatelessWidget {
 }
 
 void main() {
+  initializeDesktopUiCapture();
   setUpAll(() async {
     await loadDesktopPreviewFonts();
     final font = Platform.environment['MONITOR_UI_FONT'];
@@ -243,6 +245,42 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+  for (final dark in [false, true]) {
+    testWidgets('Android R22 initial actions dark=$dark', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        RepaintBoundary(
+          key: const ValueKey('desktop-ui-capture'),
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: _theme(
+              dark: dark,
+            ).copyWith(platform: TargetPlatform.android),
+            home: NotificationSettingsPage(
+              readStatus: () async =>
+                  const AndroidDiscoveryNotificationStatus(enabled: true),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '发送测试'))
+            .onPressed,
+        isNotNull,
+      );
+      expect(find.text('声音与横幅'), findsOneWidget);
+      expect(find.text('后台运行'), findsOneWidget);
+      await captureDesktopUi(tester, 'notification-mobile-r22-$dark');
+      await tester.pumpWidget(const SizedBox());
+    });
+  }
+
   for (final width in [384.0, 960.0]) {
     testWidgets(
       'Android reminder at $width restores confirmation and invalidates changed permissions',

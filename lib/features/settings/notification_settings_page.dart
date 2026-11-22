@@ -282,7 +282,7 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
         children: [
           SettingsSection(
             padTop: false,
-            header: verified ? '提醒已实测' : '检查 → 测试 → 确认收到',
+            header: verified ? '提醒已实测' : null,
             children: [
               SettingsRow(
                 leading: Icon(
@@ -305,10 +305,24 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : null,
-                onTap: _loading || _busy || _deadline != null
-                    ? null
-                    : _startTest,
               ),
+              if (_deadline == null)
+                Padding(
+                  padding: AppDensity.rowPadding(context),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _loading || _busy ? null : _startTest,
+                      child: Text(
+                        _readFailed
+                            ? '重新检查'
+                            : verified
+                            ? '重新测试'
+                            : '发送测试',
+                      ),
+                    ),
+                  ),
+                ),
               if (_deadline != null && !waiting)
                 Padding(
                   padding: AppDensity.rowPadding(context),
@@ -362,28 +376,28 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
           SettingsSection(
             hasLeading: false,
             children: [
+              SettingsRow(
+                title: '声音与横幅',
+                subtitle: '调整签到提醒的通知方式',
+                trailing: Icon(AppIcons.right, size: 18, color: p.muted),
+                onTap: () => _open(
+                  AndroidMonitorShell
+                      .instance
+                      .openDiscoveryNotificationSettings,
+                ),
+              ),
+              SettingsRow(
+                title: '后台运行',
+                subtitle: '检查应用的省电与后台限制',
+                trailing: Icon(AppIcons.right, size: 18, color: p.muted),
+                onTap: () => _open(
+                  AndroidMonitorShell.instance.openAppBackgroundSettings,
+                ),
+              ),
               AppDisclosure(
-                title: '更多选项与排查',
+                title: '更多选项',
                 contentPadding: EdgeInsets.zero,
                 children: [
-                  SettingsRow(
-                    title: '发现通知设置',
-                    subtitle: '声音可按个人习惯选择；锁屏内容也在这里设置',
-                    onTap: () => _open(
-                      AndroidMonitorShell
-                          .instance
-                          .openDiscoveryNotificationSettings,
-                    ),
-                  ),
-                  SettingsRow(
-                    title: '后台运行设置',
-                    subtitle: xiaomi
-                        ? '省电策略 → 无限制；仅在锁屏检测延迟时需要'
-                        : '仅在锁屏后检测延迟时调整',
-                    onTap: () => _open(
-                      AndroidMonitorShell.instance.openAppBackgroundSettings,
-                    ),
-                  ),
                   if (status?.background['batteryExempt'] == false)
                     SettingsRow(
                       title: '系统电池优化',
@@ -408,7 +422,8 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                     child: Text(
                       '需要显示课程内容时，将锁屏规则设为「显示通知及其内容」。'
                       '需要通知时亮屏，可在手机的锁屏或通知光效设置中选择亮屏；这是可选的全局设置。'
-                      '\n\n系统检查不能读取所有厂商开关，请以实际测试为准。',
+                      '\n\n系统检查不能读取所有厂商开关，请以实际测试为准。'
+                      '\n\n退出账号、手动停止或达到系统后台时限后停止检测。',
                       style: TextStyle(
                         fontSize: 13,
                         height: 1.5,
@@ -417,13 +432,6 @@ class _NotificationSettingsPageState extends State<NotificationSettingsPage> {
                     ),
                   ),
                 ],
-              ),
-              Padding(
-                padding: const EdgeInsets.only(top: AppSpace.md),
-                child: Text(
-                  '开始检测 → 发现签到 → 提醒或按规则自动提交。检测倒计时保持安静，自动提交结果更新原提醒。退出账号、手动停止或达到系统后台时限后停止检测。',
-                  style: TextStyle(fontSize: 12, height: 1.5, color: p.muted),
-                ),
               ),
             ],
           ),

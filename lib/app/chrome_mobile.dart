@@ -32,6 +32,7 @@ Future<_ChoiceResult<T>?> _showChoiceSheet<T>(
   required ValueChanged<BuildContext> onPresented,
   required ValueChanged<bool> onPointerMode,
   bool pointerAutofocus = false,
+  bool highlightSelection = false,
 }) {
   final selectedAnchor = GlobalKey();
   return showModalBottomSheet<_ChoiceResult<T>>(
@@ -134,6 +135,7 @@ Future<_ChoiceResult<T>?> _showChoiceSheet<T>(
                                       leading: leadingOf?.call(items[i]),
                                       subtitle: subtitleOf?.call(items[i]),
                                       selected: items[i] == value,
+                                      highlightSelection: highlightSelection,
                                       showCheck: true,
                                       wrap: true,
                                       autofocus:

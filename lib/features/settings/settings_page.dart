@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
-import 'package:xmu_rollcall/app/mobile_campus_header.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
@@ -104,81 +103,62 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
 
     // Keep the controls independent of the live centering gutter.
     final sections = <Widget>[
-      if (AppDensity.isTouch(context))
-        _SettingsAccountCard(
-          title: auth.isSignedIn ? (auth.profile?.name ?? '已登录') : '未登录',
-          subtitle: accountSubtitle,
-          action: auth.isSignedIn
-              ? OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    backgroundColor: p.surface,
-                    side: BorderSide(color: p.mobileOutline),
-                    minimumSize: const Size(64, 44),
-                  ),
-                  onPressed: () =>
-                      ref.read(authControllerProvider.notifier).signOut(),
-                  child: const Text('退出'),
-                )
-              : FilledButton(
-                  style: FilledButton.styleFrom(
-                    minimumSize: const Size(64, 44),
-                  ),
-                  onPressed: () => showLoginDialog(context),
-                  child: const Text('登录'),
-                ),
-        )
-      else
-        Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpace.xxs,
-            0,
-            AppSpace.md,
-            AppSpace.md,
-          ),
-          child: Row(
-            children: [
-              AppIdentityAvatar(
-                name: auth.isSignedIn ? auth.profile?.name : null,
-                size: 48,
-              ),
-              const SizedBox(width: AppSpace.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AppTruncatedText(
+      Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpace.xxs,
+          0,
+          AppSpace.md,
+          AppSpace.md,
+        ),
+        child: Row(
+          children: [
+            AppIdentityAvatar(
+              name: auth.isSignedIn ? auth.profile?.name : null,
+              size: 48,
+            ),
+            const SizedBox(width: AppSpace.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AppHoverSurface(
+                    quiet: true,
+                    outlined: false,
+                    onTap: () => auth.isSignedIn
+                        ? _showAccount(context)
+                        : showLoginDialog(context),
+                    child: AppTruncatedText(
                       auth.isSignedIn ? (auth.profile?.name ?? '已登录') : '未登录',
                       style: AppTypography.sectionTitle.copyWith(
                         fontSize: 18,
                         color: p.ink,
                       ),
                     ),
-                    const SizedBox(height: AppSpace.xxs),
-                    Text(
-                      accountSubtitle,
-                      maxLines: 2,
-                      style: AppTypography.caption.copyWith(color: p.muted),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: AppSpace.xxs),
+                  Text(
+                    accountSubtitle,
+                    maxLines: 2,
+                    style: AppTypography.caption.copyWith(color: p.muted),
+                  ),
+                ],
               ),
-              const SizedBox(width: AppSpace.md),
-              auth.isSignedIn
-                  ? TextButton(
-                      onPressed: () async {
-                        await ref
-                            .read(authControllerProvider.notifier)
-                            .signOut();
-                      },
-                      child: const Text('退出'),
-                    )
-                  : TextButton(
-                      onPressed: () => showLoginDialog(context),
-                      child: const Text('登录'),
-                    ),
-            ],
-          ),
+            ),
+            const SizedBox(width: AppSpace.md),
+            auth.isSignedIn
+                ? OutlinedButton(
+                    onPressed: () async {
+                      await ref.read(authControllerProvider.notifier).signOut();
+                    },
+                    child: const Text('退出'),
+                  )
+                : TextButton(
+                    onPressed: () => showLoginDialog(context),
+                    child: const Text('登录'),
+                  ),
+          ],
         ),
+      ),
       SettingsSection(
         header: desktop ? null : '应用',
         padTop: false,
@@ -347,7 +327,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     String subtitle,
   ) {
     final p = AppPalette.of(context);
-    final android = Theme.of(context).platform == TargetPlatform.android;
+    final platform = Theme.of(context).platform;
+    final android = platform == TargetPlatform.android;
+    final assist = ref.watch(assistControllerProvider);
     final college = android && auth.isSignedIn
         ? ref
               .watch(academicCachedScheduleProvider(auth.profile!.id))
@@ -366,53 +348,19 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
       VoidCallback onTap, {
       Widget? trailing,
     }) => SettingsRow(
-      leading: SizedBox(width: 24, child: Icon(icon, color: p.muted, size: 23)),
+      leading: Icon(icon, color: p.muted, size: 22),
       title: title,
-      minHeight: android ? 48 : 52,
-      contentPadding: EdgeInsets.symmetric(vertical: android ? 4 : 6),
-      trailing: trailing ?? Icon(AppIcons.right, color: p.muted, size: 17),
+      trailing: trailing ?? Icon(AppIcons.right, color: p.muted, size: 18),
       onTap: onTap,
     );
-    Widget group(String title, List<Widget> rows) => Padding(
-      padding: EdgeInsets.fromLTRB(
-        android ? 16 : 20,
-        android ? 16 : 20,
-        android ? 16 : 20,
-        0,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: p.muted,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Material(
-            color: p.surface,
-            borderRadius: BorderRadius.circular(16),
-            clipBehavior: Clip.antiAlias,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
-                children: [
-                  for (var i = 0; i < rows.length; i++) ...[
-                    if (i > 0) Divider(height: 1, color: p.border, indent: 36),
-                    rows[i],
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+    Widget group(List<Widget> rows) => Padding(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
+      child: SettingsSection(padTop: false, children: rows),
     );
     final appearance = AppShellSelect<ThemePreference>(
       semanticLabel: '外观模式',
+      menuTitle: '外观',
+      highlightSelection: true,
       value: preference,
       items: const [
         ThemePreference.light,
@@ -425,29 +373,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
         ThemePreference.system => '跟随系统',
       },
       width: double.infinity,
-      triggerBuilder: (context, open, toggle, focus) => TextButton(
+      triggerBuilder: (context, open, toggle, focus) => SettingsRow(
         focusNode: focus,
-        onPressed: toggle,
-        style: TextButton.styleFrom(
-          padding: EdgeInsets.zero,
-          minimumSize: Size(48, android ? 56 : 64),
-          foregroundColor: p.ink,
-        ),
-        child: Row(
+        leading: Icon(AppIcons.theme, color: p.muted, size: 22),
+        title: '外观',
+        onTap: toggle,
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(
-              width: 24,
-              child: Icon(AppIcons.theme, size: 23, color: p.muted),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(child: Text('外观', style: TextStyle(fontSize: 14))),
             Text(switch (preference) {
               ThemePreference.light => '浅色',
               ThemePreference.dark => '暗色',
               ThemePreference.system => '跟随系统',
-            }, style: TextStyle(fontSize: 13, color: p.muted)),
+            }, style: AppTypography.body.copyWith(color: p.muted)),
             const SizedBox(width: 8),
-            Icon(AppIcons.down, size: 14, color: p.muted),
+            Icon(AppIcons.right, size: 18, color: p.muted),
           ],
         ),
       ),
@@ -464,75 +404,63 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
             controller: _scroll,
             padding: const EdgeInsets.only(bottom: 24),
             children: [
-              MobileCampusHeader(
-                child: Theme.of(context).platform == TargetPlatform.android
-                    ? _AndroidProfileHeader(
-                        college: college,
-                        semester: semester,
-                        onSignOut: () =>
-                            ref.read(authControllerProvider.notifier).signOut(),
-                        name: auth.isSignedIn ? auth.profile!.name : '未登录',
-                        subtitle: subtitle,
-                        signedIn: auth.isSignedIn,
-                        onTap: () => auth.isSignedIn
-                            ? _showAccount(context, auth, subtitle)
-                            : showLoginDialog(context),
-                      )
-                    : Row(
-                        children: [
-                          AppIdentityAvatar(
-                            name: auth.isSignedIn ? auth.profile?.name : null,
-                            size: 60,
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  auth.isSignedIn ? auth.profile!.name : '未登录',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.w700,
-                                    color: p.ink,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  subtitle,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: p.muted,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextButton.icon(
-                                  style: TextButton.styleFrom(
-                                    padding: EdgeInsets.zero,
-                                    minimumSize: const Size(48, 48),
-                                    alignment: Alignment.centerLeft,
-                                    foregroundColor: p.ink,
-                                  ),
-                                  onPressed: () => auth.isSignedIn
-                                      ? _showAccount(context, auth, subtitle)
-                                      : showLoginDialog(context),
-                                  label: Text(
-                                    auth.isSignedIn ? '账号管理' : '登录账号',
-                                  ),
-                                  icon: const Icon(AppIcons.right, size: 16),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+                child: Text(
+                  '我的',
+                  style: AppTypography.pageTitle.copyWith(
+                    fontSize: 28,
+                    color: p.ink,
+                  ),
+                ),
               ),
-              group('常用', [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: SettingsSection(
+                  padTop: false,
+                  children: [
+                    SettingsRow(
+                      key: const ValueKey('android-profile-summary'),
+                      leadingSize: 44,
+                      leading: AppIdentityAvatar(
+                        name: auth.isSignedIn ? auth.profile?.name : null,
+                        size: 44,
+                      ),
+                      title: auth.isSignedIn ? auth.profile!.name : '未登录',
+                      subtitle: auth.isSignedIn ? '主账号' : subtitle,
+                      trailing: Icon(AppIcons.right, size: 18, color: p.muted),
+                      onTap: () => auth.isSignedIn
+                          ? _showAccount(context)
+                          : showLoginDialog(context),
+                    ),
+                    if (college?.trim().isNotEmpty == true || semester != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (college?.trim().isNotEmpty == true)
+                              Text(
+                                college!.trim(),
+                                key: const ValueKey('profile-college'),
+                                style: AppTypography.caption.copyWith(
+                                  color: p.muted,
+                                ),
+                              ),
+                            if (semester != null)
+                              Text(
+                                semester,
+                                style: AppTypography.caption.copyWith(
+                                  color: p.muted,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              group([
                 row(
                   AppIcons.calendar,
                   '本学期课表',
@@ -547,20 +475,33 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   AppIcons.assist,
                   '协助同学',
                   () => AppPageRoutes.push(context, const SettingsAssistPage()),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        assist.ready
+                            ? '已导入 ${assist.identities.length} 人'
+                            : '…',
+                        style: AppTypography.body.copyWith(color: p.muted),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(AppIcons.right, size: 18, color: p.muted),
+                    ],
+                  ),
                 ),
               ]),
               if ({
                 TargetPlatform.windows,
                 TargetPlatform.macOS,
                 TargetPlatform.linux,
-              }.contains(Theme.of(context).platform))
+              }.contains(platform))
                 const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 20),
+                  padding: EdgeInsets.symmetric(horizontal: 16),
                   child: StartupSettings(),
                 ),
-              group('应用', [
+              group([
                 appearance,
-                if (Theme.of(context).platform == TargetPlatform.android)
+                if (android)
                   row(
                     AppIcons.notification,
                     '后台提醒',
@@ -574,7 +515,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                   '数据与诊断',
                   () => AppPageRoutes.push(context, const SettingsDataPage()),
                 ),
-                const AboutSettingsRow(compact: true),
+                const AboutSettingsRow(),
               ]),
             ],
           ),
@@ -583,214 +524,105 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     );
   }
 
-  void _showAccount(BuildContext context, AuthState auth, String subtitle) {
-    showModalBottomSheet<void>(
-      context: context,
-      useSafeArea: true,
-      showDragHandle: false,
-      builder: (sheetContext) => SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+  void _showAccount(BuildContext context) {
+    AppPageRoutes.push(context, const _AccountManagementPage());
+  }
+}
+
+class _AccountManagementPage extends ConsumerWidget {
+  const _AccountManagementPage();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authControllerProvider);
+    final p = AppPalette.of(context);
+    final name = auth.profile?.name ?? '未登录';
+    return SubpageScaffold(
+      title: '账号管理',
+      body: AppPageViewport(
+        builder: (context, insets) => ListView(
+          padding: insets + EdgeInsets.all(AppSpace.pageXOf(context)),
+          children: [
+            Panel(
+              lifted: true,
+              outlined: true,
+              child: Row(
                 children: [
-                  const Expanded(
-                    child: Text(
-                      '账号管理',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                  AppIdentityAvatar(name: name, size: 52),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name,
+                          style: AppTypography.cardTitle.copyWith(color: p.ink),
+                        ),
+                        const SizedBox(height: 6),
+                        if (auth.isSignedIn)
+                          const AppStatusBadge(
+                            '主账号',
+                            tone: AppStatusTone.accent,
+                            pill: true,
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            SettingsSection(
+              padTop: false,
+              hasLeading: false,
+              children: [
+                SettingsRow(
+                  title: '当前身份',
+                  trailing: Expanded(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(name, textAlign: TextAlign.end),
+                    ),
+                  ),
+                ),
+                if (auth.isSignedIn)
+                  const SettingsRow(title: '账号级别', trailing: Text('主账号')),
+                if (auth.profile?.studentNo?.isNotEmpty == true)
+                  SettingsRow(
+                    title: '学号',
+                    trailing: Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: SelectableText(
+                          auth.profile!.studentNo!,
+                          textAlign: TextAlign.end,
+                        ),
                       ),
                     ),
                   ),
-                  const AppSheetCloseButton(),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                auth.profile!.name,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(subtitle),
-              const SizedBox(height: 24),
-              OutlinedButton(
-                onPressed: () {
-                  Navigator.pop(sheetContext);
-                  ref.read(authControllerProvider.notifier).signOut();
-                },
-                child: const Text('退出登录'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// A single account summary anchors the personal page without nested cards.
-class _SettingsAccountCard extends StatelessWidget {
-  const _SettingsAccountCard({
-    required this.title,
-    required this.subtitle,
-    required this.action,
-  });
-  final String title, subtitle;
-  final Widget action;
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return DecoratedBox(
-      key: const ValueKey('settings-account-card'),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color.alphaBlend(p.primary.withValues(alpha: .09), p.surface),
-            p.surface,
-          ],
-        ),
-        border: Border.all(color: p.mobileOutline),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: [
-            const BrandMark(size: 48),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 19,
-                      fontWeight: FontWeight.w600,
-                      color: p.ink,
+              ],
+            ),
+            const SizedBox(height: 24),
+            if (auth.isSignedIn)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: SizedBox(
+                  width: AppDensity.isTouch(context) ? double.infinity : null,
+                  child: OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: p.danger,
+                      side: BorderSide(color: p.dangerRim),
                     ),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      ref.read(authControllerProvider.notifier).signOut();
+                    },
+                    child: const Text('退出登录'),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    subtitle,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 12, height: 1.5, color: p.muted),
-                  ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            action,
           ],
         ),
       ),
-    );
-  }
-}
-
-class _AndroidProfileHeader extends StatelessWidget {
-  const _AndroidProfileHeader({
-    required this.name,
-    this.college,
-    this.semester,
-    required this.subtitle,
-    required this.signedIn,
-    required this.onTap,
-    required this.onSignOut,
-  });
-  final String name, subtitle;
-  final String? college, semester;
-  final bool signedIn;
-  final VoidCallback onTap, onSignOut;
-  @override
-  Widget build(BuildContext context) {
-    final p = AppPalette.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Flexible(
-              child: AppHoverSurface(
-                key: const ValueKey('android-profile-summary'),
-                outlined: false,
-                backgroundColor: Colors.transparent,
-                hoverColor: p.hover,
-                pressedColor: p.controlPressed,
-                borderRadius: BorderRadius.circular(AppRadii.control),
-                onTap: onTap,
-                child: Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 28,
-                    height: 1.3,
-                    fontWeight: FontWeight.w700,
-                    color: p.ink,
-                  ),
-                ),
-              ),
-            ),
-            if (signedIn) ...[
-              const SizedBox(width: 10),
-              TextButton(
-                onPressed: onSignOut,
-                style: TextButton.styleFrom(
-                  foregroundColor: p.muted,
-                  minimumSize: const Size(44, 44),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                ),
-                child: const Text('退出', style: TextStyle(fontSize: 12)),
-              ),
-            ],
-          ],
-        ),
-        AppTruncatedText(
-          subtitle,
-          style: TextStyle(fontSize: 13, height: 1.5, color: p.muted),
-        ),
-        const SizedBox(height: 12),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 260),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (college?.trim().isNotEmpty == true)
-                Text(
-                  college!.trim(),
-                  key: const ValueKey('profile-college'),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, height: 1.5, color: p.muted),
-                ),
-              if (semester != null)
-                Text(
-                  semester!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, height: 1.5, color: p.muted),
-                ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 }

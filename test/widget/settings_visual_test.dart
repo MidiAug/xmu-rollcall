@@ -1,3 +1,4 @@
+import '../fixtures/desktop_ui_capture.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import '../fixtures/preview_fonts.dart';
@@ -215,6 +216,7 @@ class _SettingsFrame extends StatelessWidget {
 }
 
 void main() {
+  initializeDesktopUiCapture();
   setUp(() {
     PackageInfo.setMockInitialValues(
       appName: '厦大签到',
@@ -447,9 +449,9 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('常用'), desktop ? findsNothing : findsOneWidget);
+        expect(find.text('常用'), findsNothing);
         expect(find.text('外观与窗口'), findsNothing);
-        expect(find.text('应用'), desktop ? findsNothing : findsOneWidget);
+        expect(find.text('应用'), findsNothing);
         expect(find.text('本学期课表'), desktop ? findsNothing : findsOneWidget);
         for (final removed in ['账号', '检测', '更多', '窗口']) {
           expect(find.text(removed), findsNothing);
@@ -465,7 +467,7 @@ void main() {
           );
           expect(tester.widget<SettingsSection>(group).header, isNull);
         } else {
-          expect(find.byType(SettingsSection), findsNothing);
+          expect(find.byType(SettingsSection), findsWidgets);
         }
         expect(
           tester.getCenter(appearance).dx,
@@ -483,6 +485,14 @@ void main() {
           key,
           '${width.toInt()}-${dark ? 'dark' : 'light'}',
         );
+
+        if (!desktop) {
+          await tester.tap(appearance);
+          await tester.pumpAndSettle();
+          await capture(tester, key, 'appearance-r22-${width.toInt()}-$dark');
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+        }
 
         if (desktop) {
           await tester.scrollUntilVisible(find.text('启动后继续值守'), 180);
@@ -593,13 +603,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.text('我的'),
-        findsOneWidget,
-        reason: 'Only the bottom navigation keeps the page label',
+        findsNWidgets(2),
+        reason:
+            'The page title and bottom navigation both name this destination',
       );
       expect(find.text('信息学院'), findsOneWidget);
       expect(find.byType(CircleAvatar), findsNothing);
-      expect(tester.widget<Text>(find.text('测试同学')).style?.fontSize, 28);
-      expect(find.widgetWithText(TextButton, '退出'), findsOneWidget);
+      expect(tester.widget<Text>(find.text('测试同学')).style?.fontSize, 17);
+      expect(find.text('退出'), findsNothing);
 
       final container = ProviderScope.containerOf(
         tester.element(find.byType(SettingsPage)),
@@ -613,7 +624,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('退出登录'), findsOneWidget);
       expect(find.text('测试同学'), findsNWidgets(2));
-      await tester.tap(find.byTooltip('关闭'));
+      await capture(tester, key, 'account-management-r22-$dark');
+      await tester.tap(find.byTooltip('返回'));
       await tester.pumpAndSettle();
       expect(find.text('退出登录'), findsNothing);
       expect(tester.takeException(), isNull);
@@ -622,7 +634,7 @@ void main() {
   }
 
   for (final platform in [TargetPlatform.android, TargetPlatform.windows]) {
-    testWidgets('settings density changes only on Android at $platform', (
+    testWidgets('R25 touch settings share row geometry at $platform', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(390, 844);
@@ -635,10 +647,7 @@ void main() {
         of: find.text('地点管理'),
         matching: find.byType(SettingsRow),
       );
-      expect(
-        tester.getSize(row).height,
-        platform == TargetPlatform.android ? 56 : 64,
-      );
+      expect(tester.getSize(row).height, 60);
       expect(
         find.byKey(const ValueKey('profile-college')),
         platform == TargetPlatform.android ? findsOneWidget : findsNothing,
@@ -822,9 +831,9 @@ void main() {
           await tester.pumpAndSettle();
         } else {
           tester
-              .widget<TextButton>(
+              .widget<SettingsRow>(
                 find
-                    .descendant(of: menu, matching: find.byType(TextButton))
+                    .descendant(of: menu, matching: find.byType(SettingsRow))
                     .first,
               )
               .focusNode!

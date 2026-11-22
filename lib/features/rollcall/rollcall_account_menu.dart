@@ -39,6 +39,7 @@ class RollcallAccountMenu extends StatelessWidget {
       menuWidth: 260,
       fixedMenuWidth: true,
       menuTitle: '切换签到账号',
+      highlightSelection: true,
       menuLeadingOf: (id) => AppIdentityAvatar(
         name: id == 0
             ? ownerName
