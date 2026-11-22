@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
-import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/schedule/academic_calendar.dart';
 
@@ -111,14 +109,6 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
                   onChanged: _selectTerm,
                 ),
               ),
-              if (active)
-                Text(
-                  '第 ${_today.difference(_term.monday).inDays ~/ 7 + 1} 教学周',
-                  style: AppTypography.body.copyWith(
-                    color: p.dataAccent,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
             ],
           ),
         ),
@@ -132,6 +122,7 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
       padding: EdgeInsets.all(touch ? 16 : 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             children: [
@@ -176,145 +167,145 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
         ],
       ),
     );
-    final schedule = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (!touch && active) ...[
-          Panel(
-            outlined: true,
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text('教学周进度', style: TextStyle(color: p.muted, fontSize: 13)),
-                const SizedBox(height: 16),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text('第 ', style: TextStyle(color: p.muted)),
-                    Text(
-                      '${_today.difference(_term.monday).inDays ~/ 7 + 1}',
-                      style: TextStyle(
-                        color: p.ink,
-                        fontSize: 40,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      ' / ${_term.weeks} 周',
-                      style: TextStyle(color: p.muted),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                LinearProgressIndicator(
-                  value:
-                      (_today.difference(_term.monday).inDays ~/ 7 + 1) /
-                      _term.weeks,
-                  minHeight: 8,
-                  borderRadius: BorderRadius.circular(4),
-                  color: p.primary,
-                  backgroundColor: p.track,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-        ],
-        Text('学期安排', style: AppTypography.sectionTitle.copyWith(color: p.ink)),
-        const SizedBox(height: 12),
-        Panel(
-          padding: EdgeInsets.zero,
+    Widget buildSchedule({required bool expandTerms}) {
+      Widget buildTermRow(AcademicTermDates term) {
+        final row = AppHoverSurface(
+          key: ValueKey('calendar-term-row-${term.term}'),
+          outlined: false,
+          backgroundColor: p.surface,
+          quiet: true,
+          borderRadius: BorderRadius.zero,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          onTap: () => _selectTerm(term.term),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              for (final (i, term) in _terms.indexed) ...[
-                if (i > 0)
-                  Divider(
-                    height: 1,
-                    indent: 20,
-                    endIndent: 20,
-                    color: p.border,
-                  ),
-                AppHoverSurface(
-                  key: ValueKey('calendar-term-row-${term.term}'),
-                  outlined: false,
-                  backgroundColor: p.surface,
-                  quiet: true,
-                  borderRadius: BorderRadius.zero,
-                  padding: const EdgeInsets.all(20),
-                  onTap: () => _selectTerm(term.term),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _name(term),
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                                color: _termCode == term.term
-                                    ? p.dataAccent
-                                    : p.ink,
-                              ),
-                            ),
-                          ),
-                          Text(
-                            '${term.weeks}周',
-                            style: TextStyle(fontSize: 13, color: p.muted),
-                          ),
-                          const SizedBox(width: 12),
-                          Icon(
-                            _termCode == term.term
-                                ? AppIcons.check
-                                : AppIcons.right,
-                            size: 18,
-                            color: _termCode == term.term ? p.dataAccent : null,
-                          ),
-                        ],
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _name(term),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: _termCode == term.term ? p.dataAccent : p.ink,
                       ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 6,
-                        children: [
-                          Text(
-                            _date(term.monday),
-                            style: TextStyle(
-                              color: p.muted,
-                              fontSize: 13,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                          Text(
-                            '—',
-                            style: TextStyle(color: p.muted, fontSize: 13),
-                          ),
-                          Text(
-                            _date(term.end),
-                            style: TextStyle(
-                              color: p.muted,
-                              fontSize: 13,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                        ],
+                    ),
+                  ),
+                  Text(
+                    '${term.weeks}周',
+                    style: TextStyle(fontSize: 13, color: p.muted),
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(
+                    _termCode == term.term ? AppIcons.check : AppIcons.right,
+                    size: 18,
+                    color: _termCode == term.term ? p.dataAccent : null,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  Text(
+                    _date(term.monday),
+                    style: TextStyle(
+                      color: p.muted,
+                      fontSize: 13,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  Text('—', style: TextStyle(color: p.muted, fontSize: 13)),
+                  Text(
+                    _date(term.end),
+                    style: TextStyle(
+                      color: p.muted,
+                      fontSize: 13,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+        return expandTerms ? Expanded(child: row) : row;
+      }
+
+      final schedulePanel = Panel(
+        key: const ValueKey('calendar-schedule-panel'),
+        padding: EdgeInsets.zero,
+        child: Column(
+          children: [
+            for (final (i, term) in _terms.indexed) ...[
+              if (i > 0)
+                Divider(
+                  height: 1,
+                  indent: 20,
+                  endIndent: 20,
+                  color: p.border,
+                ),
+              buildTermRow(term),
+            ],
+          ],
+        ),
+      );
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (active) ...[
+            Panel(
+              outlined: true,
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text('教学周进度', style: TextStyle(color: p.muted, fontSize: 13)),
+                  const SizedBox(height: 10),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Text('第 ', style: TextStyle(color: p.muted)),
+                      Text(
+                        '${_today.difference(_term.monday).inDays ~/ 7 + 1}',
+                        style: TextStyle(
+                          color: p.ink,
+                          fontSize: 34,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        ' / ${_term.weeks} 周',
+                        style: TextStyle(color: p.muted),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
+                  const SizedBox(height: 14),
+                  LinearProgressIndicator(
+                    value:
+                        (_today.difference(_term.monday).inDays ~/ 7 + 1) /
+                        _term.weeks,
+                    minHeight: 8,
+                    borderRadius: BorderRadius.circular(4),
+                    color: p.primary,
+                    backgroundColor: p.track,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+          Text('学期安排', style: AppTypography.sectionTitle.copyWith(color: p.ink)),
+          const SizedBox(height: 10),
+          if (expandTerms) Expanded(child: schedulePanel) else schedulePanel,
+        ],
+      );
+    }
+
     return PageScaffold(
       title: '学年校历',
       onBack: () => Navigator.of(context).maybePop(),
@@ -338,47 +329,27 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
               const SizedBox(height: 24),
               LayoutBuilder(
                 builder: (context, bounds) => bounds.maxWidth >= 760
-                    ? Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(flex: 13, child: month),
-                          const SizedBox(width: 24),
-                          Expanded(flex: 7, child: schedule),
-                        ],
+                    ? IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(flex: 13, child: month),
+                            const SizedBox(width: 24),
+                            Expanded(
+                              flex: 7,
+                              child: buildSchedule(expandTerms: true),
+                            ),
+                          ],
+                        ),
                       )
                     : Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [month, const SizedBox(height: 24), schedule],
+                        children: [
+                          month,
+                          const SizedBox(height: 24),
+                          buildSchedule(expandTerms: false),
+                        ],
                       ),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                '展示已维护的教学周安排，不含完整节假日与临时调课。具体以学校公布校历为准。',
-                style: TextStyle(color: p.muted, fontSize: 12, height: 1.6),
-              ),
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: AppButton(
-                  label: '校方校历资料',
-                  icon: AppIcons.externalLink,
-                  kind: AppButtonKind.quiet,
-                  onPressed: () async {
-                    try {
-                      if (!await launchUrl(
-                            Uri.parse(
-                              'https://dblab.xmu.edu.cn/topic/share/school-calendar/',
-                            ),
-                            mode: LaunchMode.externalApplication,
-                          ) &&
-                          context.mounted) {
-                        AppToast.show(context, '无法打开校历来源');
-                      }
-                    } catch (_) {
-                      if (context.mounted) AppToast.show(context, '无法打开校历来源');
-                    }
-                  },
-                ),
               ),
             ],
           ),
