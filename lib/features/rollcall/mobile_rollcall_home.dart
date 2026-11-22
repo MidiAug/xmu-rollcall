@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/assist/assist_overview.dart';
+import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/location/course_meeting.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
@@ -292,6 +294,22 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     SizedBox(height: android ? 0 : 20),
+                    if (scope != null && !switching) ...[
+                      if (ref
+                              .watch(assistControllerProvider)
+                              .identities
+                              .where((e) => e.userId == scope)
+                              .firstOrNull
+                          case final identity?)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 20),
+                          child: AssistIdentityHeader(identity: identity),
+                        ),
+                      if (active?.hasValue == true &&
+                          active?.hasError != true &&
+                          items.isEmpty)
+                        const AssistEmptyRollcall(),
+                    ],
                     ...[
                       for (final item in items)
                         Padding(

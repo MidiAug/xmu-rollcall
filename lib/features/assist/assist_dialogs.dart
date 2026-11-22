@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
+import 'package:xmu_rollcall/app/app_service_symbol.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/core/session/assist_service.dart';
@@ -78,7 +79,7 @@ class _AssistImportDialogState extends State<_AssistImportDialog> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return AppDialogFrame(
-      maxWidth: 420,
+      maxWidth: 440,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
         child: Form(
@@ -92,7 +93,7 @@ class _AssistImportDialogState extends State<_AssistImportDialog> {
                   Expanded(
                     child: Text(
                       '导入协助身份',
-                      style: AppTypography.sectionTitle.copyWith(color: p.ink),
+                      style: AppTypography.cardTitle.copyWith(color: p.ink),
                     ),
                   ),
                   AppSheetCloseButton(enabled: !_submitting),
@@ -120,7 +121,9 @@ class _AssistImportDialogState extends State<_AssistImportDialog> {
                   controller: _tokenCtrl,
                   maxLines: 4,
                   enabled: !_submitting,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: p.insetSurface,
                     labelText: '协助码',
                     hintText: 'xmu2.…',
                     alignLabelWithHint: true,
@@ -131,10 +134,11 @@ class _AssistImportDialogState extends State<_AssistImportDialog> {
                       ? '请粘贴协助码'
                       : null,
                 ),
+                const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: AppButton(
-                    kind: AppButtonKind.quiet,
+                    kind: AppButtonKind.secondary,
                     onPressed: _submitting
                         ? null
                         : () async {
@@ -240,7 +244,7 @@ class _AssistExportDialogState extends State<_AssistExportDialog> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return AppDialogFrame(
-      maxWidth: 420,
+      maxWidth: 440,
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
         child: Column(
@@ -252,7 +256,7 @@ class _AssistExportDialogState extends State<_AssistExportDialog> {
                 Expanded(
                   child: Text(
                     '导出协助码',
-                    style: AppTypography.sectionTitle.copyWith(color: p.ink),
+                    style: AppTypography.cardTitle.copyWith(color: p.ink),
                   ),
                 ),
                 AppSheetCloseButton(enabled: !_submitting),
@@ -270,11 +274,23 @@ class _AssistExportDialogState extends State<_AssistExportDialog> {
               onChanged: (value) => setState(() => _kind = value),
             ),
             const SizedBox(height: 12),
-            Text(
-              _kind == AssistExportKind.session
-                  ? '把当前登录状态做成协助码发给同学。过期后需重新导出，或改用「账号密码」。'
-                  : '将使用本机保存的学号与密码生成协助码，对方可长期代为登录；你改密码或退出登录后需重新导出。',
-              style: TextStyle(fontSize: 13, height: 1.4, color: p.muted),
+            Panel(
+              inset: true,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const AppServiceSymbol(icon: AppIcons.rollcall, size: 40),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _kind == AssistExportKind.session
+                          ? '把当前登录状态做成协助码发给同学。过期后需重新导出，或改用「账号密码」。仅发送给信任的人。'
+                          : '将使用本机保存的学号与密码生成协助码，对方可长期代为登录；你改密码或退出登录后需重新导出。仅发送给信任的人。',
+                      style: AppTypography.body.copyWith(color: p.muted),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 18),
             _AssistDialogActions(

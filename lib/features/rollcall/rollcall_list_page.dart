@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/assist/assist_overview.dart';
 import 'package:xmu_rollcall/features/location/course_meeting.dart';
 import 'package:xmu_rollcall/features/location/course_radar_store.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
@@ -142,11 +143,20 @@ class RollcallListPage extends ConsumerWidget {
                   hasScrollBody: false,
                   child: Column(
                     children: [
-                      const Expanded(
-                        child: EmptyHint(
-                          icon: Icons.inbox_outlined,
-                          title: '暂无进行中的签到',
-                        ),
+                      Expanded(
+                        child: assistUserId != null
+                            ? Padding(
+                                padding:
+                                    contentInsets + const EdgeInsets.all(24),
+                                child: const Align(
+                                  alignment: Alignment.topCenter,
+                                  child: AssistEmptyRollcall(),
+                                ),
+                              )
+                            : const EmptyHint(
+                                icon: Icons.inbox_outlined,
+                                title: '暂无进行中的签到',
+                              ),
                       ),
                       if (footer != null)
                         Padding(

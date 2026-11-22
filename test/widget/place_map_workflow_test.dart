@@ -30,6 +30,7 @@ import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 import 'package:xmu_rollcall/features/settings/timetable_grid_view.dart';
 import '../fixtures/preview_fonts.dart';
+import '../fixtures/desktop_ui_capture.dart';
 import 'package:xmu_rollcall/features/settings/courses_page.dart';
 import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
@@ -68,6 +69,7 @@ class _IssueAuth extends AuthController {
 }
 
 void main() {
+  initializeDesktopUiCapture();
   setUpAll(() async {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
@@ -81,12 +83,6 @@ void main() {
   setUpAll(() async {
     if (Platform.environment['CAPTURE_PLACE_UI'] == '1') {
       await loadDesktopPreviewFonts();
-      await (FontLoader('MaterialIcons')..addFont(
-            File(
-              'D:/Dev/Flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
-            ).readAsBytes().then(ByteData.sublistView),
-          ))
-          .load();
     }
   });
   test(
@@ -244,7 +240,7 @@ void main() {
           await show(const SavedLocationsPage());
           expect(scope.read(preferredCampusProvider), Campus.xiangan);
           expect(find.text('待定位（1）'), findsOneWidget);
-          expect(find.byType(TextField), findsNothing);
+          expect(find.byType(AppSearchField), findsOneWidget);
           if (width >= 720) {
             expect(find.byType(CampusSelector), findsOneWidget);
             expect(
@@ -268,8 +264,16 @@ void main() {
             tester
                 .getSize(find.byKey(const ValueKey('managed-room-西部片区9号楼')))
                 .height,
-            width < 600 ? inInclusiveRange(68, 72) : lessThanOrEqualTo(60),
+            inInclusiveRange(56, 96),
           );
+          await tester.enterText(find.byType(TextField).first, '不存在的地点');
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('managed-room-西部片区9号楼')),
+            findsNothing,
+          );
+          await tester.enterText(find.byType(TextField).first, '');
+          await tester.pumpAndSettle();
           await capture(tester, 'map-$width-$dark');
           await tester.tap(find.byKey(const ValueKey('managed-room-西部片区9号楼')));
           await tester.pumpAndSettle();
@@ -630,7 +634,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         await capture(tester, 'binding-correction-$width');
-        await tester.tap(find.text('保存坐标'));
+        await tester.tap(find.text('保存校正'));
         await tester.pumpAndSettle();
         expect(await readLocationIssues(1, 1), isEmpty);
         final saved = await readAutomaticRadarLocation(
@@ -710,7 +714,7 @@ void main() {
         const LatLng(24.6052, 118.3132),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('保存坐标'));
+      await tester.tap(find.text('保存校正'));
       await tester.pumpAndSettle();
       expect(await readLocationIssues(1, 1), isEmpty);
       final saved = await readAutomaticRadarLocation(
@@ -753,7 +757,10 @@ void main() {
       final mapRect = tester.getRect(mapFinder);
       final hint = tester.getRect(find.byKey(const ValueKey('map-idle-hint')));
       expect(hint.left - mapRect.left, closeTo(12, .1));
-      expect(mapRect.bottom - hint.bottom, closeTo(12, .1));
+      expect(
+        mapRect.bottom - hint.bottom,
+        closeTo(12 + MapAttributionControls.footerHeight, .1),
+      );
       expect(
         tester.widget<FlutterMap>(find.byType(FlutterMap)).options.onTap,
         isNull,
@@ -797,7 +804,10 @@ void main() {
         find.byKey(const ValueKey('map-place-inspector')),
       );
       expect(mapRect.right - inspector.right, closeTo(12, .1));
-      expect(mapRect.bottom - inspector.bottom, closeTo(12, .1));
+      expect(
+        mapRect.bottom - inspector.bottom,
+        closeTo(12 + MapAttributionControls.footerHeight, .1),
+      );
       final coordinates = tester.widget<SelectableText>(
         find.byKey(const ValueKey('managed-place-coordinates')),
       );

@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/app/app_service_symbol.dart';
 import 'location_validation_store.dart';
 import 'course_radar_store.dart';
 import 'place_buildings.dart';
@@ -131,6 +132,8 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
 
   String? _error;
   String? _editingId;
+  String _query = '';
+  bool _correcting = false;
   @override
   void initState() {
     super.initState();
@@ -255,6 +258,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
           ? place.id
           : null;
       _creating = place == null || correcting;
+      _correcting = correcting;
       _name.text = room;
       _error = null;
     });
@@ -336,7 +340,15 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
         ManagedPlaceEntry(g.name, matchCoursePlace(g.name, custom), g.courses),
     ].where((e) => inCampus(e.name, e.place)).toList();
     final allBuildings = groupPlaceEntries(rawEntries);
-    final entries = [...allBuildings];
+    final query = _query.trim().toLowerCase();
+    final entries = allBuildings
+        .where(
+          (e) =>
+              query.isEmpty ||
+              e.name.toLowerCase().contains(query) ||
+              e.courses.any((c) => c.toLowerCase().contains(query)),
+        )
+        .toList();
 
     bool needsCorrection(ManagedBuilding b) => b.children.any(
       (e) => issues.any((issue) => issue.concerns(e.name, e.courses)),
@@ -373,7 +385,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
     }
 
     final visible = [
-      for (final building in entries)
+      for (final building in allBuildings)
         for (final entry in building.children) ?entry.place,
     ];
     final point =
@@ -405,20 +417,23 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
             child: LayoutBuilder(
               builder: (context, bounds) {
                 final wide = useSplit;
-                final androidList =
-                    !wide &&
-                    Theme.of(context).platform == TargetPlatform.android;
                 final list = Container(
                   decoration: BoxDecoration(
-                    color: wide ? p.surface : Colors.transparent,
-                    border: Border.all(
-                      color: wide ? p.border : Colors.transparent,
-                    ),
-                    borderRadius: BorderRadius.circular(wide ? 12 : 0),
+                    color: p.surface,
+                    border: Border.all(color: p.surfaceBorder),
+                    borderRadius: BorderRadius.circular(AppRadii.card),
+                    boxShadow: AppGlassSurface.groupShadows(p),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: AppSearchField(
+                          hintText: '搜索地点或课程',
+                          onChanged: (value) => setState(() => _query = value),
+                        ),
+                      ),
                       Expanded(
                         child: entries.isEmpty
                             ? Center(
@@ -472,166 +487,60 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                           ),
                                         ),
                                       Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: wide ? 8 : 0,
-                                          vertical: 4,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
                                         ),
-                                        child: Material(
-                                          color: rowSelected
-                                              ? Color.alphaBlend(
-                                                  p.primary.withValues(
-                                                    alpha: .09,
-                                                  ),
-                                                  p.surface,
-                                                )
-                                              : p.surface,
-                                          shape: RoundedRectangleBorder(
+                                        child: DecoratedBox(
+                                          decoration: BoxDecoration(
+                                            color: rowSelected
+                                                ? p.selected
+                                                : Colors.transparent,
                                             borderRadius: BorderRadius.circular(
-                                              10,
-                                            ),
-                                            side: BorderSide(
-                                              color: rowSelected
-                                                  ? p.primary.withValues(
-                                                      alpha: .22,
-                                                    )
-                                                  : Colors.transparent,
+                                              AppRadii.control,
                                             ),
                                           ),
-                                          clipBehavior: Clip.antiAlias,
-                                          child: ListTile(
+                                          child: SettingsRow(
                                             key: ValueKey(
                                               'managed-room-${e.name}',
                                             ),
-                                            dense: !androidList,
-                                            minTileHeight: androidList
-                                                ? 68
-                                                : 56,
-                                            minVerticalPadding: androidList
-                                                ? 10
-                                                : 6,
-                                            minLeadingWidth: androidList
-                                                ? 36
-                                                : 28,
-                                            horizontalTitleGap: androidList
-                                                ? 12
-                                                : 10,
-                                            contentPadding:
-                                                EdgeInsets.symmetric(
-                                                  horizontal: androidList
-                                                      ? 12
-                                                      : 8,
-                                                ),
-                                            leading: Container(
-                                              width: androidList ? 36 : 28,
-                                              height: androidList ? 36 : 28,
-                                              decoration: BoxDecoration(
-                                                color: invalid
-                                                    ? p.danger.withValues(
-                                                        alpha: .1,
-                                                      )
-                                                    : rowSelected
-                                                    ? p.selected
-                                                    : p.surfaceHigh,
-                                                borderRadius:
-                                                    BorderRadius.circular(8),
-                                              ),
-                                              child: Icon(
-                                                e.grouped ||
-                                                        e.name.contains('楼')
-                                                    ? AppIcons.building
-                                                    : AppIcons.location,
-                                                size: 17,
-                                                color: invalid
-                                                    ? p.danger
-                                                    : rowSelected
-                                                    ? p.primary
-                                                    : p.muted,
-                                              ),
+                                            leading: AppServiceSymbol(
+                                              icon:
+                                                  e.grouped ||
+                                                      e.name.contains('楼')
+                                                  ? AppIcons.building
+                                                  : AppIcons.location,
+                                              size: wide ? 28 : 40,
                                             ),
-                                            title: AppTruncatedText(
-                                              e.name,
-                                              style: Theme.of(context)
-                                                  .textTheme
-                                                  .bodyMedium
-                                                  ?.copyWith(
-                                                    fontSize: androidList
-                                                        ? 15
-                                                        : 13,
-                                                    color: p.ink,
-                                                    fontWeight: FontWeight.w600,
+                                            leadingSize: wide ? 28 : 40,
+                                            title: e.name,
+                                            subtitleWidget: AppTruncatedText(
+                                              invalid
+                                                  ? '位置校验未通过，点击校正'
+                                                  : e.courses.isNotEmpty
+                                                  ? e.courses.join('、')
+                                                  : isPending
+                                                  ? '${e.pending} 个区域待补全'
+                                                  : e.place != null &&
+                                                        isTeachingPreset(
+                                                          e.place!,
+                                                        )
+                                                  ? '内置教学地点'
+                                                  : e.place != null &&
+                                                        isReferencePlace(
+                                                          e.place!,
+                                                        )
+                                                  ? '楼宇参考'
+                                                  : '个人地点',
+                                              style: AppTypography.caption
+                                                  .copyWith(
+                                                    color: invalid
+                                                        ? p.danger
+                                                        : p.muted,
                                                   ),
                                             ),
-                                            subtitle:
-                                                isPending &&
-                                                    !invalid &&
-                                                    e.courses.isNotEmpty
-                                                ? AppTruncatedText(
-                                                    e.courses.join('、'),
-                                                    style: Theme.of(context)
-                                                        .textTheme
-                                                        .bodySmall
-                                                        ?.copyWith(
-                                                          fontSize: androidList
-                                                              ? 12
-                                                              : 11,
-                                                          color: p.muted,
-                                                        ),
-                                                  )
-                                                : Tooltip(
-                                                    message: e.courses.isEmpty
-                                                        ? ''
-                                                        : e.courses.join('、'),
-                                                    child: Text(
-                                                      invalid
-                                                          ? '位置校验未通过，点击校正'
-                                                          : isPending
-                                                          ? (e
-                                                                    .courses
-                                                                    .isNotEmpty
-                                                                ? e.courses
-                                                                      .join('、')
-                                                                : '${e.pending} 个区域待补全')
-                                                          : [
-                                                              if (e.grouped)
-                                                                '${e.children.length} 个区域',
-                                                              if (e
-                                                                  .courses
-                                                                  .isNotEmpty)
-                                                                '${e.courses.length} 门课程',
-                                                              if (!e.grouped &&
-                                                                  e
-                                                                      .courses
-                                                                      .isEmpty)
-                                                                isTeachingPreset(
-                                                                      e.place!,
-                                                                    )
-                                                                    ? '内置教学地点'
-                                                                    : isReferencePlace(
-                                                                        e.place!,
-                                                                      )
-                                                                    ? '楼宇参考'
-                                                                    : '个人地点',
-                                                            ].join('，'),
-                                                      maxLines: isPending
-                                                          ? 2
-                                                          : 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                      style: Theme.of(context)
-                                                          .textTheme
-                                                          .bodySmall
-                                                          ?.copyWith(
-                                                            fontSize:
-                                                                androidList
-                                                                ? 12
-                                                                : 11,
-                                                            color: p.muted,
-                                                          ),
-                                                    ),
-                                                  ),
                                             trailing: Icon(
                                               AppIcons.right,
-                                              size: 15,
+                                              size: 16,
                                               color: p.muted,
                                             ),
                                             onTap: _busy
@@ -751,7 +660,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                         activeBuilding != null)
                       Positioned(
                         right: inset,
-                        bottom: inset,
+                        bottom: inset + MapAttributionControls.footerHeight,
                         left: wide ? null : inset,
                         child: SizedBox(
                           width: wide
@@ -759,10 +668,11 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                               : null,
                           child: ConstrainedBox(
                             constraints: BoxConstraints(
-                              maxHeight: (bounds.maxHeight - 2 * inset).clamp(
-                                0.0,
-                                bounds.maxHeight,
-                              ),
+                              maxHeight:
+                                  (bounds.maxHeight -
+                                          2 * inset -
+                                          MapAttributionControls.footerHeight)
+                                      .clamp(0.0, bounds.maxHeight),
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(
@@ -786,7 +696,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                     else
                       Positioned(
                         left: inset,
-                        bottom: inset,
+                        bottom: inset + MapAttributionControls.footerHeight,
                         right: inset,
                         child: IgnorePointer(
                           child: Align(
@@ -874,7 +784,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
           children: [
             Row(
               children: [
-                Icon(AppIcons.building, color: p.muted, size: 18),
+                const AppServiceSymbol(icon: AppIcons.building),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -967,11 +877,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                       for (final course in child.courses)
                         Padding(
                           padding: const EdgeInsets.symmetric(vertical: 5),
-                          child: Text(
+                          child: AppTruncatedText(
                             course,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyMedium,
+                            style: AppTypography.body.copyWith(color: p.ink),
                           ),
                         ),
                     ],
@@ -999,13 +907,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
         color: p.surface,
         border: Border.all(color: p.border),
         borderRadius: BorderRadius.circular(AppMobileUi.panelRadius),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: .08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: AppGlassSurface.groupShadows(p),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1014,7 +916,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
         children: [
           Row(
             children: [
-              Icon(AppIcons.location, size: 20, color: p.muted),
+              const AppServiceSymbol(icon: AppIcons.location),
               const SizedBox(width: 8),
               Expanded(
                 child: Wrap(
@@ -1097,9 +999,9 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                     child: Text(
                       _busy
                           ? '保存中…'
-                          : _editingId == null
-                          ? '保存坐标'
-                          : '保存校正',
+                          : _correcting
+                          ? '保存校正'
+                          : '保存坐标',
                     ),
                   ),
                 ),

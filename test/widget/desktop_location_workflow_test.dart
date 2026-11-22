@@ -152,7 +152,10 @@ void main() {
     expect(mapRect.right, 384);
     expect(panel.left - mapRect.left, 16);
     expect(mapRect.right - panel.right, 16);
-    expect(mapRect.bottom - panel.bottom, 16);
+    expect(
+      mapRect.bottom - panel.bottom,
+      16 + MapAttributionControls.footerHeight,
+    );
     await capture('map');
     await tester.tap(find.byTooltip('返回'));
     await tester.pumpAndSettle();
@@ -219,7 +222,10 @@ void main() {
     final map = tester.getRect(find.byType(FlutterMap));
     expect(bounds.left - map.left, 16);
     expect(map.right - bounds.right, 16);
-    expect(map.bottom - bounds.bottom, 16);
+    expect(
+      map.bottom - bounds.bottom,
+      16 + MapAttributionControls.footerHeight,
+    );
     expect(bounds.height, lessThanOrEqualTo(map.height - 32));
     final save = find.widgetWithText(FilledButton, '保存坐标');
     await tester.ensureVisible(save);

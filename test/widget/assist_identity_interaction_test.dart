@@ -1,3 +1,9 @@
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/auth/auth_models.dart';
+import 'package:xmu_rollcall/features/auth/auth_repository.dart';
+import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
+import 'package:xmu_rollcall/features/assist/assist_overview.dart';
+import '../fixtures/desktop_ui_capture.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:ui' as ui;
@@ -31,6 +37,19 @@ class _Empty extends ActiveRollcallsNotifier {
   Future<List<RollcallItem>> build(int? assistUserId) async => const [];
 }
 
+class _AuthRepo extends Fake implements AuthRepository {}
+
+class _Auth extends AuthController {
+  _Auth() : super(_AuthRepo()) {
+    state = const AuthState(
+      status: AuthStatus.signedIn,
+      profile: UserProfile(id: 1, name: '主账号'),
+    );
+  }
+  @override
+  Future<void> bootstrap() async {}
+}
+
 class _Routes extends NavigatorObserver {
   var pushes = 0;
   @override
@@ -42,6 +61,8 @@ Widget _app({
   required bool dark,
   required VoidCallback onProbe,
   bool fail = false,
+  bool signedIn = false,
+  double scale = 1,
   bool Function()? shouldFail,
   Future<void> Function()? waitForProbe,
   NavigatorObserver? observer,
@@ -55,6 +76,11 @@ Widget _app({
   );
   return ProviderScope(
     overrides: [
+      if (signedIn) authControllerProvider.overrideWith((ref) => _Auth()),
+      if (signedIn)
+        campusCachedDataProvider.overrideWith(
+          (ref) async => const CampusCachedData(),
+        ),
       secureStoreProvider.overrideWithValue(memory),
       deviceIdentityProvider.overrideWith((ref) => DeviceIdentity(memory)),
       sessionClientRegistryProvider.overrideWith(
@@ -95,8 +121,15 @@ Widget _app({
       navigatorKey: navigator,
       navigatorObservers: observer == null ? const [] : [observer],
       theme: dark ? AppTheme.dark() : AppTheme.light(),
-      builder: (_, child) =>
-          RepaintBoundary(key: const ValueKey('assist-capture'), child: child!),
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(scale)),
+        child: RepaintBoundary(
+          key: const ValueKey('assist-capture'),
+          child: child!,
+        ),
+      ),
       home: const AssistIdentitiesPage(),
     ),
   );
@@ -146,6 +179,7 @@ Future<void> _tabTo(WidgetTester tester, FocusNode target) async {
 }
 
 void main() {
+  initializeDesktopUiCapture();
   setUpAll(loadDesktopPreviewFonts);
   setUp(() => SharedPreferences.setMockInitialValues({}));
   tearDown(AppToast.dismiss);
@@ -194,6 +228,37 @@ void main() {
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
   );
+  for (final width in [320.0, 384.0, 960.0]) {
+    for (final dark in [false, true]) {
+      testWidgets('production assist overview $width $dark', (tester) async {
+        tester.view.physicalSize = Size(width, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final navigator = GlobalKey<NavigatorState>();
+        await tester.pumpWidget(
+          _app(
+            navigator: navigator,
+            dark: dark,
+            signedIn: true,
+            scale: width == 320 ? 2 : 1,
+            onProbe: () {},
+          ),
+        );
+        await tester.pumpAndSettle();
+        await _capture(tester, 'assist-roster-$width-$dark');
+        await tester.tap(find.text('同学甲'));
+        await tester.pumpAndSettle();
+        expect(find.byType(AssistIdentityHeader), findsOneWidget);
+        expect(find.byType(AssistEmptyRollcall), findsOneWidget);
+        expect(find.text('协助身份'), findsOneWidget);
+        expect(find.text('继续值守'), findsNothing);
+        await _capture(tester, 'assist-overview-$width-$dark');
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      }, variant: TargetPlatformVariant.only(TargetPlatform.windows));
+    }
+  }
   testWidgets('capture assist roster baseline', (tester) async {
     await tester.pumpWidget(
       _app(navigator: GlobalKey<NavigatorState>(), dark: false, onProbe: () {}),

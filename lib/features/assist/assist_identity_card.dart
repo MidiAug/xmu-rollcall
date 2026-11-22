@@ -18,7 +18,13 @@ import 'package:xmu_rollcall/features/settings/courses_page.dart';
 
 /// The identity and its overflow menu are separate keyboard/pointer targets.
 class AssistIdentityCard extends ConsumerStatefulWidget {
-  const AssistIdentityCard({super.key, required this.identity});
+  const AssistIdentityCard({
+    super.key,
+    required this.identity,
+    this.grouped = false,
+  });
+
+  final bool grouped;
 
   final AssistIdentity identity;
 
@@ -60,67 +66,66 @@ class _AssistIdentityCardState extends ConsumerState<AssistIdentityCard> {
     final p = AppPalette.of(context);
     final assist = ref.watch(assistControllerProvider);
 
-    return Panel(
-      outlined: true,
-      padding: EdgeInsets.zero,
-      child: Row(
-        children: [
-          Expanded(
-            child: AppHoverSurface(
-              key: ValueKey('assist-open-${identity.userId}'),
-              quiet: true,
-              outlined: false,
-              backgroundColor: Colors.transparent,
-              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-              // Retain the focused target while connecting. Removing it could
-              // send a repeated Enter to the previous window control instead.
-              onTap: _openIdentity,
-              child: Row(
-                children: [
-                  AppIdentityAvatar(name: identity.displayName, size: 42),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          identity.displayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.2,
-                            height: 1.2,
-                            color: p.ink,
-                          ),
+    final row = Row(
+      children: [
+        Expanded(
+          child: AppHoverSurface(
+            key: ValueKey('assist-open-${identity.userId}'),
+            quiet: true,
+            outlined: false,
+            backgroundColor: Colors.transparent,
+            padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+            // Retain the focused target while connecting. Removing it could
+            // send a repeated Enter to the previous window control instead.
+            onTap: _openIdentity,
+            child: Row(
+              children: [
+                AppIdentityAvatar(name: identity.displayName, size: 42),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        identity.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2,
+                          height: 1.2,
+                          color: p.ink,
                         ),
-                        const SizedBox(height: 6),
-                        Semantics(
-                          liveRegion: _opening,
-                          child: _KindBadge(
-                            label: _opening ? '正在连接…' : identity.kind.labelZh,
-                          ),
+                      ),
+                      const SizedBox(height: 6),
+                      Semantics(
+                        liveRegion: _opening,
+                        child: _KindBadge(
+                          label: _opening ? '正在连接…' : identity.kind.labelZh,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  const Icon(AppIcons.right),
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(AppIcons.right),
+              ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: _MoreButton(
-              enabled: !assist.busy,
-              onSelected: (action) => _onMenuAction(context, ref, action),
-            ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: _MoreButton(
+            enabled: !assist.busy,
+            onSelected: (action) => _onMenuAction(context, ref, action),
           ),
-        ],
-      ),
+        ),
+      ],
     );
+    return widget.grouped
+        ? row
+        : Panel(outlined: true, padding: EdgeInsets.zero, child: row);
   }
 
   Future<void> _onMenuAction(

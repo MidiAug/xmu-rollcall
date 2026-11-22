@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
-import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/app/app_service_symbol.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/assist/assist_dialogs.dart';
 import 'package:xmu_rollcall/features/assist/assist_identities_page.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
-import 'package:xmu_rollcall/core/session/session_credential.dart';
 
 /// 我的 → 协助同学（导出 / 导入 / 名单）。
 class SettingsAssistPage extends ConsumerWidget {
@@ -37,9 +36,10 @@ class SettingsAssistPage extends ConsumerWidget {
               padTop: false,
               children: [
                 SettingsRow(
-                  leading: const Icon(AppIcons.upload),
+                  leading: const AppServiceSymbol(icon: AppIcons.upload),
+                  leadingSize: 40,
                   title: '导出协助码',
-                  subtitle: auth.isSignedIn ? null : '请先登录',
+                  subtitle: auth.isSignedIn ? '将协助码发给信任的人' : '请先登录',
                   trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   enabled: auth.isSignedIn && !assist.busy,
                   onTap: () => showAssistExportDialog(
@@ -50,38 +50,17 @@ class SettingsAssistPage extends ConsumerWidget {
                   ),
                 ),
                 SettingsRow(
-                  leading: const Icon(AppIcons.download),
+                  leading: const AppServiceSymbol(icon: AppIcons.download),
+                  leadingSize: 40,
                   title: '导入协助身份',
+                  subtitle: '使用协助码或学号密码',
                   trailing: Icon(AppIcons.right, color: p.muted, size: 18),
                   enabled: !assist.busy,
-                  onTap: () => showAssistImportDialog(
-                    context,
-                    onImportToken: (token) async {
-                      final id = await ref
-                          .read(assistControllerProvider.notifier)
-                          .importToken(token);
-                      if (context.mounted) {
-                        AppToast.show(
-                          context,
-                          '已导入 ${id.displayName}（${id.kind.labelZh}，同课 ${id.sharedCourses.length} 门）',
-                        );
-                      }
-                    },
-                    onImportPlain: (user, pass) async {
-                      final id = await ref
-                          .read(assistControllerProvider.notifier)
-                          .importPlainAccount(username: user, password: pass);
-                      if (context.mounted) {
-                        AppToast.show(
-                          context,
-                          '已导入 ${id.displayName}（${id.kind.labelZh}，同课 ${id.sharedCourses.length} 门）',
-                        );
-                      }
-                    },
-                  ),
+                  onTap: () => showAssistRosterImport(context, ref),
                 ),
                 SettingsRow(
-                  leading: const Icon(AppIcons.people),
+                  leading: const AppServiceSymbol(icon: AppIcons.people),
+                  leadingSize: 40,
                   title: '已导入名单',
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
