@@ -170,43 +170,68 @@ void main() {
                 w.scrollDirection == Axis.vertical,
           );
           expect(tester.getRect(pageScroll).right, closeTo(width, .1));
-          expect(find.text('常用工具'), findsOneWidget);
-          expect(find.text('研究生'), findsOneWidget);
-          for (final name in ['信息门户', '教务', '学工', '图书馆', '邮箱']) {
-            expect(find.text(name), findsOneWidget);
-            final linkFinder = find.ancestor(
-              of: find.text(name),
-              matching: find.byType(AppTextLink),
-            );
-            expect(tester.widget<AppTextLink>(linkFinder).icon, isNull);
+          expect(
+            find.text('常用工具'),
+            width == 320 ? findsNothing : findsOneWidget,
+          );
+          expect(find.text(width == 320 ? '助教' : '研究生'), findsOneWidget);
+          if (width == 320) {
             expect(
-              tester.getCenter(linkFinder).dy,
+              find.byKey(const ValueKey('campus-websites-row')),
+              findsNothing,
+            );
+            expect(find.text('常用网站'), findsNothing);
+            final mapRect = tester.getRect(
+              find.byKey(const ValueKey('tool-campus-map')),
+            );
+            final examRect = tester.getRect(
+              find.byKey(const ValueKey('tool-exams')),
+            );
+            expect(mapRect.top, examRect.top);
+            expect(mapRect.right, lessThan(examRect.left));
+            expect(
               tester
-                  .getCenter(
-                    find.ancestor(
-                      of: find.text('信息门户'),
-                      matching: find.byType(AppTextLink),
-                    ),
+                  .getSize(find.byKey(const ValueKey('tool-ta-grading')))
+                  .width,
+              greaterThan(mapRect.width),
+            );
+          } else {
+            for (final name in ['信息门户', '教务', '学工', '图书馆', '邮箱']) {
+              expect(find.text(name), findsOneWidget);
+              final linkFinder = find.ancestor(
+                of: find.text(name),
+                matching: find.byType(AppTextLink),
+              );
+              expect(tester.widget<AppTextLink>(linkFinder).icon, isNull);
+              expect(
+                tester.getCenter(linkFinder).dy,
+                tester
+                    .getCenter(
+                      find.ancestor(
+                        of: find.text('信息门户'),
+                        matching: find.byType(AppTextLink),
+                      ),
+                    )
+                    .dy,
+              );
+            }
+            for (final name in ['研究生选课', '校外访问', '密码服务']) {
+              expect(find.text(name), findsNothing);
+            }
+            expect(
+              tester
+                  .widget<SingleChildScrollView>(
+                    find.byKey(const ValueKey('campus-websites-row')),
                   )
-                  .dy,
+                  .scrollDirection,
+              Axis.horizontal,
+            );
+
+            expect(
+              tester.getTopLeft(find.text('常用网站')).dy,
+              greaterThan(tester.getTopLeft(find.text('研究生')).dy),
             );
           }
-          for (final name in ['研究生选课', '校外访问', '密码服务']) {
-            expect(find.text(name), findsNothing);
-          }
-          expect(
-            tester
-                .widget<SingleChildScrollView>(
-                  find.byKey(const ValueKey('campus-websites-row')),
-                )
-                .scrollDirection,
-            Axis.horizontal,
-          );
-
-          expect(
-            tester.getTopLeft(find.text('常用网站')).dy,
-            greaterThan(tester.getTopLeft(find.text('研究生')).dy),
-          );
           expect(find.text('校园地图、考试安排、成绩计算与助教工具'), findsNothing);
           final map = tester.getSize(
             find.byKey(const ValueKey('tool-campus-map')),
@@ -219,9 +244,11 @@ void main() {
             }
           }
           await captureDesktopUi(tester, 'tools-directory-$width-$dark');
-          await tester.ensureVisible(find.text('邮箱'));
-          await tester.pumpAndSettle();
-          await captureDesktopUi(tester, 'tools-websites-$width-$dark');
+          if (width != 320) {
+            await tester.ensureVisible(find.text('邮箱'));
+            await tester.pumpAndSettle();
+            await captureDesktopUi(tester, 'tools-websites-$width-$dark');
+          }
           await tester.ensureVisible(find.text('学年校历'));
           await tester.tap(find.text('学年校历'));
           await tester.pumpAndSettle();
@@ -231,7 +258,7 @@ void main() {
           await captureDesktopUi(tester, 'calendar-$width-$dark');
           await tester.tap(find.byTooltip('返回'));
           await tester.pumpAndSettle();
-          await tester.ensureVisible(find.text('研究生'));
+          await tester.ensureVisible(find.text(width == 320 ? '助教' : '研究生'));
           expect(tester.takeException(), isNull);
         },
       );
@@ -324,7 +351,7 @@ void main() {
         final end = tester.getRect(find.text('2027.01.09'));
         expect(start.overlaps(end), isFalse);
         expect(end.right, lessThanOrEqualTo(width - 16));
-        if (width == 320) expect(end.top, greaterThan(start.bottom));
+        expect(start.overlaps(end), isFalse);
         expect(find.text('第 9 教学周'), findsOneWidget);
         final range = tester.getRect(
           find.byKey(const ValueKey('calendar-range')),
@@ -340,13 +367,13 @@ void main() {
         );
         expect(year.left, greaterThanOrEqualTo(range.left));
         expect(term.right, lessThanOrEqualTo(range.right));
-        expect(grid.top, lessThan(range.top));
+        expect(grid.top, greaterThan(range.bottom));
         expect(
           find.ancestor(
             of: find.byKey(const ValueKey('calendar-term')),
             matching: find.byType(Panel),
           ),
-          findsOneWidget,
+          findsNothing,
         );
         if (width == 1104) {
           expect((year.center.dy - term.center.dy).abs(), lessThan(1));

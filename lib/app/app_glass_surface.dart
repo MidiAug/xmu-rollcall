@@ -16,6 +16,7 @@ class AppGlassSurface extends StatelessWidget {
     this.opacity = .78,
     this.cacheShadows = false,
     this.elevated = false,
+    this.hero = false,
   });
   final Widget child;
   final BorderRadius? borderRadius;
@@ -29,18 +30,31 @@ class AppGlassSurface extends StatelessWidget {
   /// Floating dialogs lift one tonal step in dark mode with stronger ambient shadow.
   final bool elevated;
 
+  /// Reserved for GPA, rollcall and assist overview cards, never list rows.
+  /// This treatment is static: it adds no backdrop blur.
+  final bool hero;
+
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final radius = borderRadius ?? BorderRadius.circular(AppRadii.island);
+    final radius =
+        borderRadius ??
+        BorderRadius.circular(hero ? AppRadii.hero : AppRadii.island);
     final highContrast = MediaQuery.highContrastOf(context);
-    final opaque = blur == 0 && opacity >= 1;
+    final backdropBlur = hero ? 0.0 : blur;
+    final opaque = hero || (blur == 0 && opacity >= 1);
     final fill = elevated ? p.popoverSurface : p.surface;
     final surface = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: radius,
-        color: highContrast || opaque ? fill : null,
-        gradient: highContrast || opaque
+        color: highContrast || (opaque && !hero) ? fill : null,
+        gradient: hero && !highContrast
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: p.heroColors,
+              )
+            : highContrast || opaque
             ? null
             : LinearGradient(
                 begin: Alignment.topLeft,
@@ -57,6 +71,8 @@ class AppGlassSurface extends StatelessWidget {
         border: Border.all(
           color: highContrast
               ? p.borderStrong
+              : hero
+              ? p.heroRim
               : elevated
               ? p.popoverBorder
               : p.surfaceBorder,
@@ -95,14 +111,17 @@ class AppGlassSurface extends StatelessWidget {
     );
     final clipped = ClipRRect(
       borderRadius: radius,
-      child: blur > 0 && !highContrast
+      child: backdropBlur > 0 && !highContrast
           ? BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+              filter: ui.ImageFilter.blur(
+                sigmaX: backdropBlur,
+                sigmaY: backdropBlur,
+              ),
               child: surface,
             )
           : surface,
     );
-    return blur == 0 && cacheShadows
+    return backdropBlur == 0 && cacheShadows
         ? _CachedSurfaceShadow(decoration: shadows, child: clipped)
         : DecoratedBox(decoration: shadows, child: clipped);
   }

@@ -20,6 +20,7 @@ class AppSegmentedControl<T> extends StatefulWidget {
     this.expanded = false,
     this.compact = false,
     this.enabled = true,
+    this.trackOnTouch = false,
   });
 
   final List<AppSegment<T>> segments;
@@ -28,9 +29,11 @@ class AppSegmentedControl<T> extends StatefulWidget {
   final bool expanded;
 
   /// Embedded desktop choices use a 32px target without the raised 44px track.
-  /// Touch targets retain the app's 48px minimum regardless of this preference.
+  /// Touch tabs retain 48px targets; touch tracks use at least 44px per choice.
   final bool compact;
   final bool enabled;
+  /// Explicit filled track for GPA, calendar and exam filters on touch pages.
+  final bool trackOnTouch;
 
   @override
   State<AppSegmentedControl<T>> createState() => _AppSegmentedControlState<T>();
@@ -225,7 +228,7 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
     double x,
     double segmentWidth,
   ) {
-    if (touch) {
+    if (touch && !widget.trackOnTouch) {
       return Focus(
         canRequestFocus: false,
         includeSemantics: false,
@@ -353,6 +356,7 @@ class _AppSegmentedControlState<T> extends State<AppSegmentedControl<T>> {
       onTap: () => _select(index),
       compact: widget.compact,
       enabled: widget.enabled,
+      touchTrack: widget.trackOnTouch && AppMobileUi.useTouchChrome(context),
     );
   }
 }
@@ -367,6 +371,7 @@ class _SegmentButton extends StatelessWidget {
     required this.onTap,
     required this.compact,
     required this.enabled,
+    required this.touchTrack,
   });
 
   final String label;
@@ -376,11 +381,12 @@ class _SegmentButton extends StatelessWidget {
   final VoidCallback onTap;
   final bool compact;
   final bool enabled;
+  final bool touchTrack;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    if (AppMobileUi.useTouchChrome(context)) {
+    if (AppMobileUi.useTouchChrome(context) && !touchTrack) {
       final foreground = (selected ? p.primary : p.muted).withValues(
         alpha: enabled ? 1 : .55,
       );
@@ -443,7 +449,13 @@ class _SegmentButton extends StatelessWidget {
                     ? Duration.zero
                     : AppMotion.instant,
                 curve: AppMotion.instantCurve,
-                constraints: BoxConstraints(minHeight: compact ? 32 : 36),
+                constraints: BoxConstraints(
+                  minHeight: touchTrack
+                      ? 44
+                      : compact
+                      ? 32
+                      : 36,
+                ),
                 padding: EdgeInsets.symmetric(
                   horizontal: compact ? 6 : 8,
                   vertical: compact ? 2 : 4,

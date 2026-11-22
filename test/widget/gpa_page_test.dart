@@ -16,6 +16,7 @@ import 'package:xmu_rollcall/features/grades/gpa_page.dart';
 import 'package:xmu_rollcall/features/grades/grade_models.dart';
 import 'package:xmu_rollcall/features/grades/grade_providers.dart';
 import '../fixtures/preview_fonts.dart';
+import '../fixtures/desktop_ui_capture.dart';
 
 class Repo extends Fake implements AuthRepository {}
 
@@ -121,6 +122,7 @@ class ManyGrades extends GradeNotifier {
 }
 
 void main() {
+  initializeDesktopUiCapture();
   setUpAll(() async {
     await loadDesktopPreviewFonts();
     final file = File(
@@ -196,10 +198,7 @@ void main() {
             final heading = tester.getRect(
               find.byKey(const ValueKey('grade-course-heading')),
             );
-            expect(
-              heading.top - tester.getRect(calculation).bottom,
-              closeTo(24, .1),
-            );
+            expect(heading.top, closeTo(tester.getRect(calculation).top, .1));
             expect(
               tester
                       .getRect(
@@ -538,10 +537,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('3.33'), findsOneWidget);
     await tester.ensureVisible(find.byKey(const ValueKey('grade-b')));
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     await tester.tap(find.byKey(const ValueKey('grade-b')));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const ValueKey('grade-summary')));
+    await tester.pumpAndSettle();
     expect(find.text('4.00'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());

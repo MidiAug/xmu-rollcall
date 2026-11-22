@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/core/theme/app_icons.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_grading_page.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_mobile_assignment_page.dart';
@@ -62,6 +64,32 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('研究生课程：写作与学术实践'), findsOneWidget);
         expect(find.text('助教作业'), findsOneWidget);
+        final assignmentTitle = find.text(TaHttpFixture.title);
+        final assignmentRow = find
+            .ancestor(
+              of: assignmentTitle,
+              matching: find.byType(AppHoverSurface),
+            )
+            .first;
+        expect(
+          find.descendant(
+            of: assignmentRow,
+            matching: find.byType(AppIconSurface),
+          ),
+          findsNothing,
+        );
+        final badge = find.descendant(
+          of: assignmentRow,
+          matching: find.byType(AppStatusBadge),
+        );
+        final arrow = find.descendant(
+          of: assignmentRow,
+          matching: find.byIcon(AppIcons.right),
+        );
+        expect(
+          tester.getCenter(badge).dy,
+          closeTo(tester.getCenter(arrow).dy, .1),
+        );
         await captureDesktopUi(tester, 'ta-mobile-list-${entry.$1}-$dark');
         await tester.tap(find.text(TaHttpFixture.title));
         await tester.pumpAndSettle();

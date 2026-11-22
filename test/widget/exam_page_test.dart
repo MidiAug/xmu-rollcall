@@ -245,9 +245,9 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          expect(find.text('1门'), findsOneWidget);
-          expect(find.text('2场'), findsOneWidget);
-          expect(find.text('1场'), findsOneWidget);
+          expect(find.text('未安排 1门'), findsOneWidget);
+          expect(find.text('未考试 2场'), findsOneWidget);
+          expect(find.text('已考试 1场'), findsOneWidget);
           expect(find.textContaining('上次核对 2026-11-10 09:00'), findsOneWidget);
           final metadata = tester.getRect(
             find.byKey(const ValueKey('exam-metadata')),
@@ -296,7 +296,7 @@ void main() {
           );
           expect(
             find.byWidgetPredicate((w) => w is Tooltip && w.message == '计算机网络'),
-            scale >= 2.5 ? findsOneWidget : findsNothing,
+            findsNothing,
           );
           expect(
             tester
@@ -309,8 +309,8 @@ void main() {
           await capture('exams');
           if (scale >= 2.5) {
             final primaryTitle = find.descendant(
-              of: find.byKey(const ValueKey('exam-a')),
-              matching: find.text('计算机网络'),
+              of: find.byKey(const ValueKey('exam-b')),
+              matching: find.text('软件工程与面向对象程序设计课程综合实践'),
             );
             expect(
               tester
@@ -318,14 +318,29 @@ void main() {
                   .didExceedMaxLines,
               isTrue,
             );
+            await tester.ensureVisible(primaryTitle);
+            await tester.pumpAndSettle();
             await tester.longPress(primaryTitle);
             await tester.pumpAndSettle();
-            expect(find.text('计算机网络'), findsNWidgets(2));
+            expect(find.text('软件工程与面向对象程序设计课程综合实践'), findsNWidgets(2));
             Tooltip.dismissAllToolTips();
             await tester.pumpAndSettle();
           }
           await tester.scrollUntilVisible(find.text('数学分析'), 200);
           expect(find.text('按公布的结束时间归类'), findsOneWidget);
+          await tester.scrollUntilVisible(
+            find.byKey(const ValueKey('exam-status-filter')),
+            -300,
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('已考试 1场'));
+          await tester.pumpAndSettle();
+          expect(find.byKey(const ValueKey('exam-c')), findsOneWidget);
+          expect(find.byKey(const ValueKey('exam-a')), findsNothing);
+          expect(find.byKey(const ValueKey('exam-d')), findsNothing);
+          await tester.tap(find.text('全部 4'));
+          await tester.pumpAndSettle();
+          expect(find.byKey(const ValueKey('exam-a')), findsOneWidget);
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox.shrink());
           await tester.pumpWidget(

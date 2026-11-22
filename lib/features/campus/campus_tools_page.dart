@@ -89,6 +89,7 @@ class _CampusToolsPageState extends State<CampusToolsPage>
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final tools = campusTools;
+    final touch = AppMobileUi.useTouchChrome(context);
     return PageScaffold(
       title: '工具',
       showHeader: AppMobileUi.useTouchChrome(context),
@@ -116,59 +117,63 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                 ),
                 child: LayoutBuilder(
                   builder: (context, bounds) {
-                    final compact = bounds.maxWidth < 580;
-                    final gap = compact ? AppSpace.sm : AppSpace.md;
-                    final columns = compact ? 1 : 2;
+                    final columns = touch || bounds.maxWidth >= 580 ? 2 : 1;
+                    final gap = touch ? AppSpace.sm : AppSpace.lg;
                     final tileWidth =
                         (bounds.maxWidth - gap * (columns - 1)) / columns;
-                    Widget group(String title, Iterable<CampusTool> entries) =>
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: AppSpace.sm,
-                              ),
-                              child: Text(
-                                title,
-                                style: Theme.of(context).textTheme.titleSmall
-                                    ?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                      color: p.muted,
-                                    ),
-                              ),
-                            ),
-                            Wrap(
-                              spacing: gap,
-                              runSpacing: gap,
-                              children: [
-                                for (final tool in entries)
-                                  SizedBox(
-                                    width: tileWidth,
-                                    child: AppServiceTile(
-                                      key: ValueKey('tool-${tool.id}'),
-                                      title:
-                                          tool.id == 'ta-grading' &&
-                                              taIsMobile(context)
-                                          ? '助教作业'
-                                          : tool.title,
-                                      description: tool.id == 'ta-grading'
-                                          ? taIsMobile(context)
-                                                ? '提交情况与批改进度'
-                                                : '作业打包下载与批量评分'
-                                          : tool.description,
-                                      icon: tool.icon,
-                                      compact: compact,
-                                      onPressed: () => AppPageRoutes.push(
-                                        context,
-                                        tool.page(context),
-                                      ),
-                                    ),
+                    Widget group(
+                      String title,
+                      Iterable<CampusTool> entries,
+                    ) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (!touch || title == '助教')
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: AppSpace.sm),
+                            child: Text(
+                              title,
+                              style: Theme.of(context).textTheme.titleSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: p.muted,
                                   ),
-                              ],
                             ),
+                          ),
+                        Wrap(
+                          spacing: gap,
+                          runSpacing: gap,
+                          children: [
+                            for (final tool in entries)
+                              SizedBox(
+                                width: touch && tool.id == 'ta-grading'
+                                    ? bounds.maxWidth
+                                    : tileWidth,
+                                child: AppServiceTile(
+                                  key: ValueKey('tool-${tool.id}'),
+                                  title:
+                                      tool.id == 'ta-grading' &&
+                                          taIsMobile(context)
+                                      ? '助教作业'
+                                      : tool.title,
+                                  description: tool.id == 'ta-grading'
+                                      ? taIsMobile(context)
+                                            ? '提交情况与批改进度'
+                                            : '作业打包下载与批量评分'
+                                      : tool.description,
+                                  icon: tool.icon,
+                                  compact: !touch || tool.id == 'ta-grading',
+                                  showDescription:
+                                      !touch || tool.id == 'ta-grading',
+                                  onPressed: () => AppPageRoutes.push(
+                                    context,
+                                    tool.page(context),
+                                  ),
+                                ),
+                              ),
                           ],
-                        );
+                        ),
+                      ],
+                    );
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -182,61 +187,65 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                             ),
                             const SizedBox(height: AppSpace.xl),
                             group(
-                              '研究生',
+                              touch ? '助教' : '研究生',
                               tools.where((t) => t.id == 'ta-grading'),
                             ),
                           ],
                         ),
-                        Padding(
-                          padding: const EdgeInsets.only(top: 28),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Divider(color: p.border, height: 1),
-                              const SizedBox(height: 12),
-                              SingleChildScrollView(
-                                key: const ValueKey('campus-websites-row'),
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children: [
-                                    Text(
-                                      '常用网站',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(color: p.muted),
-                                    ),
-                                    for (final link in const [
-                                      ('信息门户', 'https://i.xmu.edu.cn/'),
-                                      ('教务', 'https://jw.xmu.edu.cn/'),
-                                      ('学工', 'https://xmuxg.xmu.edu.cn/login'),
-                                      ('图书馆', 'https://library.xmu.edu.cn/'),
-                                      ('邮箱', 'https://mail.stu.xmu.edu.cn/'),
-                                    ]) ...[
-                                      const SizedBox(width: 24),
-                                      AppTextLink(
-                                        link.$1,
-                                        icon: null,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 6,
-                                        ),
-                                        textStyle: Theme.of(context)
+                        if (!touch)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 28),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Divider(color: p.border, height: 1),
+                                const SizedBox(height: 12),
+                                SingleChildScrollView(
+                                  key: const ValueKey('campus-websites-row'),
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        '常用网站',
+                                        style: Theme.of(context)
                                             .textTheme
                                             .bodySmall
-                                            ?.copyWith(fontSize: 13),
-                                        onPressed: () => openCampusWebsite(
-                                          context,
-                                          title: link.$1,
-                                          url: Uri.parse(link.$2),
-                                        ),
+                                            ?.copyWith(color: p.muted),
                                       ),
+                                      for (final link in const [
+                                        ('信息门户', 'https://i.xmu.edu.cn/'),
+                                        ('教务', 'https://jw.xmu.edu.cn/'),
+                                        (
+                                          '学工',
+                                          'https://xmuxg.xmu.edu.cn/login',
+                                        ),
+                                        ('图书馆', 'https://library.xmu.edu.cn/'),
+                                        ('邮箱', 'https://mail.stu.xmu.edu.cn/'),
+                                      ]) ...[
+                                        const SizedBox(width: 24),
+                                        AppTextLink(
+                                          link.$1,
+                                          icon: null,
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 6,
+                                          ),
+                                          textStyle: Theme.of(context)
+                                              .textTheme
+                                              .bodySmall
+                                              ?.copyWith(fontSize: 13),
+                                          onPressed: () => openCampusWebsite(
+                                            context,
+                                            title: link.$1,
+                                            url: Uri.parse(link.$2),
+                                          ),
+                                        ),
+                                      ],
                                     ],
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
                       ],
                     );
                   },

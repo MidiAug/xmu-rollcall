@@ -18,6 +18,7 @@ class ExamPage extends ConsumerStatefulWidget {
 class _ExamPageState extends ConsumerState<ExamPage>
     with WidgetsBindingObserver {
   Timer? _clock;
+  ExamStatus? _status;
   @override
   void initState() {
     super.initState();
@@ -148,7 +149,20 @@ class _ExamPageState extends ConsumerState<ExamPage>
                         groups: groups,
                         updating: notifier.updating,
                         warning: notifier.warning,
+                        status: _status,
+                        onStatusChanged: (value) =>
+                            setState(() => _status = value),
                       ),
+                      if (_status != null && groups[_status]!.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 32),
+                          child: Text(
+                            '该状态暂无考试安排',
+                            style: TextStyle(
+                              color: AppPalette.of(context).muted,
+                            ),
+                          ),
+                        ),
                       if (snapshot.exams.isEmpty)
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 40),
@@ -162,7 +176,8 @@ class _ExamPageState extends ConsumerState<ExamPage>
                         ExamStatus.unarranged,
                         ExamStatus.finished,
                       ])
-                        if (groups[status]!.isNotEmpty) ...[
+                        if (groups[status]!.isNotEmpty &&
+                            (_status == null || _status == status)) ...[
                           Padding(
                             padding: const EdgeInsets.only(top: 26, bottom: 12),
                             child: Row(
@@ -240,7 +255,11 @@ class _ExamOverview extends StatelessWidget {
     required this.groups,
     required this.updating,
     required this.warning,
+    required this.status,
+    required this.onStatusChanged,
   });
+  final ExamStatus? status;
+  final ValueChanged<ExamStatus?> onStatusChanged;
   final ExamSnapshot snapshot;
   final Map<ExamStatus, List<AcademicExam>> groups;
   final bool updating;
@@ -281,34 +300,34 @@ class _ExamOverview extends StatelessWidget {
           ],
         ),
         const SizedBox(height: AppSpace.xs),
-        Wrap(
-          spacing: AppSpace.xl,
-          runSpacing: AppSpace.xs,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            for (final status in [
-              ExamStatus.upcoming,
-              ExamStatus.unarranged,
-              ExamStatus.finished,
-            ])
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _label(status),
-                    style: AppTypography.caption.copyWith(color: p.muted),
+        LayoutBuilder(
+          builder: (context, bounds) => SizedBox(
+            width: bounds.maxWidth.clamp(0.0, 500.0),
+            child: AppSegmentedControl<ExamStatus?>(
+              key: const ValueKey('exam-status-filter'),
+              value: status,
+              onChanged: onStatusChanged,
+              expanded: true,
+              compact: true,
+              trackOnTouch: true,
+              segments: [
+                AppSegment<ExamStatus?>(
+                  value: null,
+                  label: '全部 ${snapshot.exams.length}',
+                ),
+                for (final item in [
+                  ExamStatus.upcoming,
+                  ExamStatus.unarranged,
+                  ExamStatus.finished,
+                ])
+                  AppSegment<ExamStatus?>(
+                    value: item,
+                    label:
+                        '${_label(item)} ${groups[item]!.length}${item == ExamStatus.unarranged ? '门' : '场'}',
                   ),
-                  const SizedBox(width: AppSpace.xs),
-                  Text(
-                    '${groups[status]!.length}${status == ExamStatus.unarranged ? '门' : '场'}',
-                    style: AppTypography.control.copyWith(
-                      color: p.ink,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ],
-              ),
-          ],
+              ],
+            ),
+          ),
         ),
         if (updating) ...[
           const SizedBox(height: 12),
@@ -342,199 +361,139 @@ class _ExamCard extends StatelessWidget {
     final p = AppPalette.of(context);
     final date = exam.date;
     final finished = exam.statusAt(now) == ExamStatus.finished;
-    final days = date == null
-        ? null
-        : DateUtils.dateOnly(date).difference(DateUtils.dateOnly(now)).inDays;
+    final touch = AppMobileUi.useTouchChrome(context);
     final timing = date == null
         ? '考试时间尚未公布'
         : exam.start == null || exam.end == null
         ? '时间待公布'
         : '${_time(exam.start!)}—${_time(exam.end!)}';
+    final color = finished ? p.muted : p.ink;
+    final time = Text(
+      timing,
+      style: TextStyle(
+        color: color,
+        fontSize: 16,
+        height: 1.4,
+        fontWeight: FontWeight.w500,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+    );
+    final title = AppTruncatedText(
+      exam.course,
+      style: TextStyle(
+        color: color,
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        height: 1.4,
+      ),
+    );
     final details = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AppTruncatedText(
-          exam.course,
-          style: TextStyle(
-            color: finished ? p.muted : p.ink,
-            fontSize: featured ? 20 : 16,
-            fontWeight: FontWeight.w600,
-            height: 1.4,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          timing,
-          style: TextStyle(
-            color: finished ? p.muted : p.ink,
-            fontSize: featured ? 22 : 14,
-            height: 1.4,
-            fontWeight: featured ? FontWeight.w500 : FontWeight.w400,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-        if (date != null) ...[
-          const SizedBox(height: 10),
+        if (touch) ...[
+          title,
+          const SizedBox(height: 6),
+          time,
+        ] else
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Icon(AppIcons.location, size: 14, color: p.muted),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
+              Expanded(child: title),
+              const SizedBox(width: 20),
+              time,
+            ],
+          ),
+        if (date != null ||
+            exam.seat.isNotEmpty ||
+            exam.mode.isNotEmpty ||
+            exam.name.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 16,
+            runSpacing: 6,
+            children: [
+              if (date != null)
+                Text(
                   exam.room.isEmpty ? '地点待公布' : exam.room,
                   style: TextStyle(color: p.muted, fontSize: 13, height: 1.5),
                 ),
-              ),
-            ],
-          ),
-        ],
-        if (exam.seat.isNotEmpty ||
-            exam.mode.isNotEmpty ||
-            exam.name.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 6,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              if (exam.seat.isNotEmpty) AppStatusBadge('座位 ${exam.seat}'),
-              if (exam.mode.isNotEmpty) AppStatusBadge(exam.mode),
-              if (exam.name.isNotEmpty)
+              if (exam.seat.isNotEmpty)
                 Text(
-                  exam.name,
-                  style: TextStyle(color: p.muted, fontSize: 12, height: 1.5),
+                  '座位 ${exam.seat}',
+                  style: TextStyle(color: p.inkBody, fontSize: 13, height: 1.5),
                 ),
+              if (exam.mode.isNotEmpty)
+                Text(exam.mode, style: TextStyle(color: p.muted, fontSize: 12)),
+              if (exam.name.isNotEmpty)
+                Text(exam.name, style: TextStyle(color: p.muted, fontSize: 12)),
             ],
           ),
         ],
       ],
     );
-    return DecoratedBox(
+    return Padding(
       key: ValueKey('exam-${exam.id}'),
-      decoration: BoxDecoration(
-        gradient: featured && !MediaQuery.highContrastOf(context)
-            ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  p.dataAccent.withValues(alpha: .055),
-                  AppPalette.clearOf(p.dataAccent),
-                ],
-              )
-            : null,
-      ),
-      child: Padding(
-        padding: EdgeInsets.all(featured ? 24 : 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (featured) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      '最近一场考试',
-                      style: TextStyle(
-                        color: p.dataAccent,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+      padding: EdgeInsets.all(touch ? 18 : 24),
+      child: LayoutBuilder(
+        builder: (context, bounds) {
+          final scaler = MediaQuery.textScalerOf(context);
+          if (bounds.maxWidth < 380 && scaler.scale(14) > 18) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  date == null
+                      ? '待安排'
+                      : '${date.month}月${date.day}日  周${'一二三四五六日'[date.weekday - 1]}',
+                  style: TextStyle(
+                    color: featured ? p.primary : p.muted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                   ),
-                  if (days != null)
-                    AppStatusBadge(
-                      days == 0
-                          ? '今天'
-                          : days == 1
-                          ? '明天'
-                          : '$days天后',
-                    ),
-                ],
-              ),
-              const SizedBox(height: 22),
-            ],
-            LayoutBuilder(
-              builder: (context, bounds) {
-                final scaler = MediaQuery.textScalerOf(context);
-                // Large text needs full-width details rather than a squeezed date
-                // column whose two-digit day can silently wrap onto separate lines.
-                if (bounds.maxWidth < 380 && scaler.scale(14) > 18) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        date == null
-                            ? '待安排'
-                            : '${date.month}月${date.day}日  周${'一二三四五六日'[date.weekday - 1]}',
-                        style: TextStyle(
-                          color: finished ? p.muted : p.dataAccent,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      details,
-                    ],
-                  );
-                }
-                final daySize = featured ? 38.0 : 28.0;
-                return Row(
+                ),
+                const SizedBox(height: 12),
+                details,
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 64 * scaler.scale(1),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SizedBox(
-                      width:
-                          (featured ? 62 : 48) *
-                          scaler.scale(daySize) /
-                          daySize,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (date == null) ...[
-                            Icon(AppIcons.calendar, size: 24, color: p.muted),
-                            const SizedBox(height: 6),
-                            Text(
-                              '待安排',
-                              style: TextStyle(color: p.muted, fontSize: 10),
-                            ),
-                          ] else ...[
-                            Text(
-                              '${date.month}月',
-                              style: TextStyle(color: p.muted, fontSize: 12),
-                            ),
-                            Text(
-                              '${date.day}',
-                              softWrap: false,
-                              style: TextStyle(
-                                fontSize: daySize,
-                                height: 1.2,
-                                fontWeight: FontWeight.w600,
-                                color: finished ? p.muted : p.dataAccent,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures(),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '周${'一二三四五六日'[date.weekday - 1]}',
-                              style: TextStyle(color: p.muted, fontSize: 11),
-                            ),
-                          ],
-                        ],
+                    Text(
+                      date == null
+                          ? '待定'
+                          : '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}',
+                      style: TextStyle(
+                        color: featured ? p.primary : color,
+                        fontSize: date == null ? 14 : 20,
+                        fontWeight: FontWeight.w600,
+                        height: 1.3,
                       ),
                     ),
-                    const SizedBox(width: 18),
-                    Expanded(child: details),
+                    if (date != null) ...[
+                      const SizedBox(height: 5),
+                      Text(
+                        '周${'一二三四五六日'[date.weekday - 1]}',
+                        style: TextStyle(color: p.muted, fontSize: 12),
+                      ),
+                    ],
                   ],
-                );
-              },
-            ),
-          ],
-        ),
+                ),
+              ),
+              Container(
+                width: featured ? 2 : 1,
+                height: 56 * scaler.scale(1),
+                color: featured ? p.primary : p.divider,
+              ),
+              const SizedBox(width: 18),
+              Expanded(child: details),
+            ],
+          );
+        },
       ),
     );
   }

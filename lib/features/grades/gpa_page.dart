@@ -117,6 +117,309 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                     )
                     .toList();
                 final summary = calculateGpa(included);
+                final filters = Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    LayoutBuilder(
+                      builder: (context, bounds) {
+                        final segments = AppSegmentedControl<GradeRange>(
+                          key: const ValueKey('grade-range'),
+                          trackOnTouch: true,
+                          expanded: true,
+                          value: _range,
+                          segments: const [
+                            AppSegment(value: GradeRange.all, label: '总绩点'),
+                            AppSegment(value: GradeRange.year, label: '学年'),
+                            AppSegment(value: GradeRange.recent, label: '近学期'),
+                            AppSegment(value: GradeRange.term, label: '学期'),
+                          ],
+                          onChanged: (r) => setState(() {
+                            _range = r;
+                            if (r == GradeRange.year &&
+                                selectedYears.isEmpty &&
+                                years.isNotEmpty) {
+                              _years.add(years.first);
+                            }
+                          }),
+                        );
+                        final general = SizedBox(
+                          width: 172,
+                          child: AppCheckboxRow(
+                            label: '排除通识课程',
+                            value: _excludeGeneral,
+                            onChanged: (v) =>
+                                setState(() => _excludeGeneral = v),
+                          ),
+                        );
+                        return bounds.maxWidth >= 600
+                            ? Row(
+                                children: [
+                                  SizedBox(width: 340, child: segments),
+                                  const Spacer(),
+                                  general,
+                                ],
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  segments,
+                                  const SizedBox(height: 8),
+                                  general,
+                                ],
+                              );
+                      },
+                    ),
+                    if (_range == GradeRange.year) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        '选择学年，可多选',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 6),
+                      LayoutBuilder(
+                        builder: (context, bounds) {
+                          final itemWidth =
+                              184 *
+                              MediaQuery.textScalerOf(context).scale(14) /
+                              14;
+                          return Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              for (final y in years)
+                                SizedBox(
+                                  width: bounds.maxWidth < itemWidth
+                                      ? bounds.maxWidth
+                                      : itemWidth,
+                                  child: AppCheckboxRow(
+                                    key: ValueKey('grade-year-$y'),
+                                    label: '$y—${y + 1}学年',
+                                    value: selectedYears.contains(y),
+                                    onChanged: (v) => setState(
+                                      () =>
+                                          v ? _years.add(y) : _years.remove(y),
+                                    ),
+                                  ),
+                                ),
+                              if (years.isEmpty)
+                                Text(
+                                  snapshot.records.isEmpty
+                                      ? '成绩发布后显示可选学年'
+                                      : '暂无可识别的学年',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
+                    if (_range == GradeRange.recent && terms.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      _RecentTermCount(
+                        key: const ValueKey('grade-recent'),
+                        value: recentCount,
+                        maximum: terms.length,
+                        onChanged: (n) => setState(() => _recentCount = n),
+                      ),
+                    ],
+                    if (_range == GradeRange.term && effectiveTerm != null) ...[
+                      const SizedBox(height: 12),
+                      AppShellSelect<String>(
+                        key: const ValueKey('grade-term'),
+                        plain: true,
+                        compact: true,
+                        semanticLabel: '选择学期',
+                        width: 210,
+                        value: effectiveTerm,
+                        items: terms,
+                        labelOf: _termLabel,
+                        onChanged: (t) => setState(() => _term = t),
+                      ),
+                    ],
+                  ],
+                );
+                final overview = AppGlassSurface(
+                  key: const ValueKey('grade-calculation'),
+                  hero: true,
+                  blur: 0,
+                  opacity: 1,
+                  padding: EdgeInsets.all(
+                    AppMobileUi.useTouchChrome(context) ? 20 : 24,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _summaryContent(
+                        context,
+                        summary,
+                        scopeLabel,
+                        visible,
+                        included,
+                        snapshot.at,
+                      ),
+                      if (_error != null ||
+                          ref.read(gradeSnapshotProvider.notifier).warning !=
+                              null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          _error ??
+                              ref.read(gradeSnapshotProvider.notifier).warning!,
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodySmall?.copyWith(color: p.danger),
+                        ),
+                      ],
+                    ],
+                  ),
+                );
+                final courses = Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Wrap(
+                      key: const ValueKey('grade-course-heading'),
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      runSpacing: 4,
+                      children: [
+                        Text(
+                          '课程明细',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
+                        Text(
+                          '已选 ${included.length} 门 / 可计 ${visible.where((r) => r.eligible).length} 门',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        if (_excluded.isNotEmpty || _excludeGeneral)
+                          AppTextLink(
+                            '恢复默认选择',
+                            onPressed: () => setState(() {
+                              _excluded.clear();
+                              _excludeGeneral = false;
+                            }),
+                          ),
+                      ],
+                    ),
+                    if (visible.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Center(
+                          child: Text(
+                            snapshot.records.isEmpty
+                                ? snapshot.education == 'graduate'
+                                      ? '教务查询成功，暂未发布成绩；出分后可手动刷新'
+                                      : '暂无已公布成绩'
+                                : _range == GradeRange.year &&
+                                      selectedYears.isEmpty
+                                ? '选择学年后查看课程与 GPA'
+                                : '当前范围暂无成绩',
+                            style: TextStyle(color: p.muted),
+                          ),
+                        ),
+                      )
+                    else
+                      for (final term in [
+                        ...gradeTerms(visible),
+                        if (visible.any((r) => r.term.isEmpty)) '',
+                      ]) ...[
+                        const SizedBox(height: 12),
+                        Panel(
+                          key: ValueKey('grade-term-group-$term'),
+                          padding: EdgeInsets.zero,
+                          child: Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  16,
+                                  16,
+                                  12,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        _termLabel(term),
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: p.ink,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          'GPA ${calculateGpa(included.where((r) => r.term == term)).gpa?.toStringAsFixed(2) ?? '—'}',
+                                          style: TextStyle(
+                                            color: p.dataAccent,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            fontFeatures: const [
+                                              FontFeature.tabularFigures(),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '${visible.where((r) => r.term == term).length} 门',
+                                          style: TextStyle(
+                                            color: p.muted,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              for (final (index, row)
+                                  in visible
+                                      .where((r) => r.term == term)
+                                      .indexed) ...[
+                                if (index > 0)
+                                  Divider(
+                                    height: 1,
+                                    indent: 60,
+                                    endIndent: 16,
+                                    color: p.border,
+                                  ),
+                                _GradeCourseRow(
+                                  key: ValueKey('grade-${row.id}'),
+                                  row: row,
+                                  selected:
+                                      row.eligible &&
+                                      !_excluded.contains(row.id) &&
+                                      !(_excludeGeneral &&
+                                          row.generalEducation),
+                                  excludedGeneral:
+                                      row.eligible &&
+                                      _excludeGeneral &&
+                                      row.generalEducation,
+                                  onChanged:
+                                      row.eligible &&
+                                          !(_excludeGeneral &&
+                                              row.generalEducation)
+                                      ? (value) => setState(
+                                          () => value
+                                              ? _excluded.remove(row.id)
+                                              : _excluded.add(row.id),
+                                        )
+                                      : null,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                  ],
+                );
                 return AppPageViewport(
                   maxWidth: AppLayout.workspaceMaxWidth,
                   builder: (context, contentInsets) => ListView(
@@ -129,324 +432,27 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                           24,
                         ),
                     children: [
-                      Panel(
-                        key: const ValueKey('grade-calculation'),
-                        padding: EdgeInsets.all(
-                          AppDensity.isTouch(context) ? 16 : 24,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            LayoutBuilder(
-                              builder: (context, bounds) {
-                                final segments =
-                                    AppSegmentedControl<GradeRange>(
-                                      key: const ValueKey('grade-range'),
-                                      expanded: true,
-                                      value: _range,
-                                      segments: const [
-                                        AppSegment(
-                                          value: GradeRange.all,
-                                          label: '总绩点',
-                                        ),
-                                        AppSegment(
-                                          value: GradeRange.year,
-                                          label: '学年',
-                                        ),
-                                        AppSegment(
-                                          value: GradeRange.recent,
-                                          label: '近学期',
-                                        ),
-                                        AppSegment(
-                                          value: GradeRange.term,
-                                          label: '学期',
-                                        ),
-                                      ],
-                                      onChanged: (r) => setState(() {
-                                        _range = r;
-                                        if (r == GradeRange.year &&
-                                            selectedYears.isEmpty &&
-                                            years.isNotEmpty) {
-                                          _years.add(years.first);
-                                        }
-                                      }),
-                                    );
-                                final general = SizedBox(
-                                  width: 172,
-                                  child: AppCheckboxRow(
-                                    label: '排除通识课程',
-                                    value: _excludeGeneral,
-                                    onChanged: (v) =>
-                                        setState(() => _excludeGeneral = v),
-                                  ),
-                                );
-                                return bounds.maxWidth >= 600
-                                    ? Row(
-                                        children: [
-                                          SizedBox(width: 340, child: segments),
-                                          const Spacer(),
-                                          general,
-                                        ],
-                                      )
-                                    : Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          segments,
-                                          const SizedBox(height: 8),
-                                          general,
-                                        ],
-                                      );
-                              },
-                            ),
-                            if (_range == GradeRange.year) ...[
-                              const SizedBox(height: 12),
-                              Text(
-                                '选择学年，可多选',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                              const SizedBox(height: 6),
-                              LayoutBuilder(
-                                builder: (context, bounds) {
-                                  final itemWidth =
-                                      184 *
-                                      MediaQuery.textScalerOf(
-                                        context,
-                                      ).scale(14) /
-                                      14;
-                                  return Wrap(
-                                    spacing: 8,
-                                    runSpacing: 6,
-                                    children: [
-                                      for (final y in years)
-                                        SizedBox(
-                                          width: bounds.maxWidth < itemWidth
-                                              ? bounds.maxWidth
-                                              : itemWidth,
-                                          child: AppCheckboxRow(
-                                            key: ValueKey('grade-year-$y'),
-                                            label: '$y—${y + 1}学年',
-                                            value: selectedYears.contains(y),
-                                            onChanged: (v) => setState(
-                                              () => v
-                                                  ? _years.add(y)
-                                                  : _years.remove(y),
-                                            ),
-                                          ),
-                                        ),
-                                      if (years.isEmpty)
-                                        Text(
-                                          snapshot.records.isEmpty
-                                              ? '成绩发布后显示可选学年'
-                                              : '暂无可识别的学年',
-                                          style: Theme.of(
-                                            context,
-                                          ).textTheme.bodySmall,
-                                        ),
-                                    ],
-                                  );
-                                },
-                              ),
-                            ],
-                            if (_range == GradeRange.recent &&
-                                terms.isNotEmpty) ...[
-                              const SizedBox(height: 12),
-                              _RecentTermCount(
-                                key: const ValueKey('grade-recent'),
-                                value: recentCount,
-                                maximum: terms.length,
-                                onChanged: (n) =>
-                                    setState(() => _recentCount = n),
-                              ),
-                            ],
-                            if (_range == GradeRange.term &&
-                                effectiveTerm != null) ...[
-                              const SizedBox(height: 12),
-                              AppShellSelect<String>(
-                                key: const ValueKey('grade-term'),
-                                plain: true,
-                                compact: true,
-                                semanticLabel: '选择学期',
-                                width: 210,
-                                value: effectiveTerm,
-                                items: terms,
-                                labelOf: _termLabel,
-                                onChanged: (t) => setState(() => _term = t),
-                              ),
-                            ],
-                            const SizedBox(height: 20),
-                            Divider(height: 1, color: p.border),
-                            const SizedBox(height: 20),
-                            _summaryContent(
-                              context,
-                              summary,
-                              scopeLabel,
-                              visible,
-                              included,
-                              snapshot.at,
-                            ),
-                            if (_error != null ||
-                                ref
-                                        .read(gradeSnapshotProvider.notifier)
-                                        .warning !=
-                                    null) ...[
-                              const SizedBox(height: 12),
-                              Text(
-                                _error ??
-                                    ref
-                                        .read(gradeSnapshotProvider.notifier)
-                                        .warning!,
-                                style: Theme.of(context).textTheme.bodySmall
-                                    ?.copyWith(color: p.danger),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
+                      filters,
                       const SizedBox(height: 24),
-                      Wrap(
-                        key: const ValueKey('grade-course-heading'),
-                        alignment: WrapAlignment.spaceBetween,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 12,
-                        runSpacing: 4,
-                        children: [
-                          Text(
-                            '课程明细',
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-                          Text(
-                            '已选 ${included.length} 门 / 可计 ${visible.where((r) => r.eligible).length} 门',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                          if (_excluded.isNotEmpty || _excludeGeneral)
-                            AppTextLink(
-                              '恢复默认选择',
-                              onPressed: () => setState(() {
-                                _excluded.clear();
-                                _excludeGeneral = false;
-                              }),
-                            ),
-                        ],
-                      ),
-                      if (visible.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.all(32),
-                          child: Center(
-                            child: Text(
-                              snapshot.records.isEmpty
-                                  ? snapshot.education == 'graduate'
-                                        ? '教务查询成功，暂未发布成绩；出分后可手动刷新'
-                                        : '暂无已公布成绩'
-                                  : _range == GradeRange.year &&
-                                        selectedYears.isEmpty
-                                  ? '选择学年后查看课程与 GPA'
-                                  : '当前范围暂无成绩',
-                              style: TextStyle(color: p.muted),
-                            ),
-                          ),
-                        )
-                      else
-                        for (final term in [
-                          ...gradeTerms(visible),
-                          if (visible.any((r) => r.term.isEmpty)) '',
-                        ]) ...[
-                          const SizedBox(height: 12),
-                          Panel(
-                            key: ValueKey('grade-term-group-$term'),
-                            padding: EdgeInsets.zero,
-                            child: Column(
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    16,
-                                    16,
-                                    12,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          _termLabel(term),
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            color: p.ink,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        children: [
-                                          Text(
-                                            'GPA ${calculateGpa(included.where((r) => r.term == term)).gpa?.toStringAsFixed(2) ?? '—'}',
-                                            style: TextStyle(
-                                              color: p.dataAccent,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                              fontFeatures: const [
-                                                FontFeature.tabularFigures(),
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            '${visible.where((r) => r.term == term).length} 门',
-                                            style: TextStyle(
-                                              color: p.muted,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                for (final (index, row)
-                                    in visible
-                                        .where((r) => r.term == term)
-                                        .indexed) ...[
-                                  if (index > 0)
-                                    Divider(
-                                      height: 1,
-                                      indent: 60,
-                                      endIndent: 16,
-                                      color: p.border,
-                                    ),
-                                  _GradeCourseRow(
-                                    key: ValueKey('grade-${row.id}'),
-                                    row: row,
-                                    selected:
-                                        row.eligible &&
-                                        !_excluded.contains(row.id) &&
-                                        !(_excludeGeneral &&
-                                            row.generalEducation),
-                                    excludedGeneral:
-                                        row.eligible &&
-                                        _excludeGeneral &&
-                                        row.generalEducation,
-                                    onChanged:
-                                        row.eligible &&
-                                            !(_excludeGeneral &&
-                                                row.generalEducation)
-                                        ? (value) => setState(
-                                            () => value
-                                                ? _excluded.remove(row.id)
-                                                : _excluded.add(row.id),
-                                          )
-                                        : null,
-                                  ),
+                      LayoutBuilder(
+                        builder: (context, bounds) => bounds.maxWidth >= 760
+                            ? Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(flex: 7, child: overview),
+                                  const SizedBox(width: 24),
+                                  Expanded(flex: 13, child: courses),
                                 ],
-                              ],
-                            ),
-                          ),
-                        ],
+                              )
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  overview,
+                                  const SizedBox(height: 24),
+                                  courses,
+                                ],
+                              ),
+                      ),
                       const SizedBox(height: 24),
                       _rules(
                         context,
@@ -472,88 +478,97 @@ class _GpaPageState extends ConsumerState<GpaPage> {
     final primary = AppMetric(
       value: summary.gpa?.toStringAsFixed(2) ?? '—',
       label: '加权 GPA',
-      valueSize: 56,
-      valueColor: summary.gpa == null ? p.muted : p.dataAccent,
+      valueSize: AppMobileUi.useTouchChrome(context) ? 46 : 64,
+      valueColor: summary.gpa == null ? p.muted : p.ink,
     );
     final secondary = Row(
       children: [
         Expanded(
           child: AppMetric(
             label: '加权均分',
+            valueSize: 28,
+            inset: true,
             value: summary.average?.toStringAsFixed(2) ?? '—',
           ),
         ),
+        const SizedBox(width: 12),
         Expanded(
           child: AppMetric(
             label: '计入学分',
+            valueSize: 28,
+            inset: true,
             value: summary.credits.toStringAsFixed(1),
           ),
         ),
       ],
     );
+    final touch = AppMobileUi.useTouchChrome(context);
+    final scopeBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: p.subWell,
+        borderRadius: BorderRadius.circular(AppRadii.control),
+        border: Border.all(color: p.subWellRim),
+      ),
+      child: Text(
+        scope,
+        style: TextStyle(
+          color: p.primary,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+    final updated = Text(
+      '成绩更新于 ${updatedAt.toLocal().toString().substring(0, 16)}',
+      key: const ValueKey('grade-updated-at'),
+      style: Theme.of(context).textTheme.bodySmall,
+    );
+    final count = Text(
+      '已计入 ${included.length} 门课程',
+      style: TextStyle(color: p.muted, fontSize: 13),
+    );
     return Column(
       key: const ValueKey('grade-summary'),
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 16,
-          runSpacing: 4,
-          children: [
-            Text(
-              scope,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: p.ink,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            Text(
-              '成绩更新于 ${updatedAt.toLocal().toString().substring(0, 16)}',
-              key: const ValueKey('grade-updated-at'),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        LayoutBuilder(
-          builder: (context, bounds) => bounds.maxWidth >= 560
-              ? Row(
-                  children: [
-                    Expanded(flex: 3, child: primary),
-                    const SizedBox(width: 32),
-                    Expanded(
-                      flex: 4,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          secondary,
-                          if (gradeTerms(visible)
-                                  .where((t) => GradeTerm.parse(t) != null)
-                                  .length >
-                              1) ...[
-                            const SizedBox(height: 24),
-                            _SemesterGpaChart(
-                              visible: visible,
-                              included: included,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ],
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    primary,
-                    const SizedBox(height: 20),
-                    Divider(height: 1, color: p.border),
-                    const SizedBox(height: 20),
-                    secondary,
-                  ],
+        if (touch)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: primary),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [scopeBadge, const SizedBox(height: 10), count],
                 ),
-        ),
+              ),
+            ],
+          )
+        else ...[
+          Align(alignment: Alignment.centerRight, child: scopeBadge),
+          const SizedBox(height: 8),
+          primary,
+          const SizedBox(height: 12),
+          count,
+        ],
+        const SizedBox(height: 20),
+        if (!touch) ...[
+          Divider(height: 1, color: p.heroRim),
+          const SizedBox(height: 20),
+        ],
+        secondary,
+        if (!touch &&
+            gradeTerms(
+                  visible,
+                ).where((t) => GradeTerm.parse(t) != null).length >
+                1) ...[
+          const SizedBox(height: 24),
+          _SemesterGpaChart(visible: visible, included: included),
+        ],
+        const SizedBox(height: 20),
+        updated,
       ],
     );
   }

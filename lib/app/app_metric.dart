@@ -9,18 +9,22 @@ class AppMetric extends StatelessWidget {
     required this.label,
     this.valueSize = 24,
     this.valueColor,
+    this.inset = false,
   });
   final String value, label;
   final double valueSize;
   final Color? valueColor;
+  final bool inset;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    return Column(
+    final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
+        Text(label, style: TextStyle(color: p.muted, fontSize: 12)),
+        const SizedBox(height: 5),
         Text(
           value,
           style: TextStyle(
@@ -31,9 +35,18 @@ class AppMetric extends StatelessWidget {
             fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
-        const SizedBox(height: 5),
-        Text(label, style: TextStyle(color: p.muted, fontSize: 12)),
       ],
     );
+    return inset
+        ? Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: p.subWell,
+              borderRadius: BorderRadius.circular(AppRadii.subWell),
+              border: Border.all(color: p.subWellRim),
+            ),
+            child: content,
+          )
+        : content;
   }
 }

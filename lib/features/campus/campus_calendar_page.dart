@@ -59,11 +59,267 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
     final active = _contains(_term, _today);
     final firstMonth = DateTime(_term.monday.year, _term.monday.month);
     final lastMonth = DateTime(_term.end.year, _term.end.month);
+    final touch = AppMobileUi.useTouchChrome(context);
+    final controls = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        LayoutBuilder(
+          builder: (context, bounds) => Wrap(
+            key: const ValueKey('calendar-range'),
+            spacing: AppSpace.md,
+            runSpacing: AppSpace.sm,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              AppShellSelect<int>(
+                plain: true,
+                compact: true,
+                key: const ValueKey('calendar-year'),
+                semanticLabel: '选择学年',
+                value: _year,
+                items: _years.reversed.toList(),
+                labelOf: (v) => '$v—${v + 1}学年',
+                width: (188 * MediaQuery.textScalerOf(context).scale(1)).clamp(
+                  0.0,
+                  bounds.maxWidth,
+                ),
+                menuWidth: 220,
+                onChanged: (v) => setState(() {
+                  _year = v;
+                  _termCode = _initialTerm.term;
+                  _month = _initialMonth(_term);
+                }),
+              ),
+              SizedBox(
+                width: bounds.maxWidth.clamp(0.0, 288.0),
+                child: AppSegmentedControl<String>(
+                  key: const ValueKey('calendar-term'),
+                  trackOnTouch: true,
+                  compact: true,
+                  expanded: true,
+                  value: _termCode,
+                  segments: [
+                    for (final t in _terms)
+                      AppSegment(
+                        value: t.term,
+                        label: switch (t.term[4]) {
+                          '1' => '秋季',
+                          '2' => '春季',
+                          _ => '短学期',
+                        },
+                      ),
+                  ],
+                  onChanged: _selectTerm,
+                ),
+              ),
+              if (active)
+                Text(
+                  '第 ${_today.difference(_term.monday).inDays ~/ 7 + 1} 教学周',
+                  style: AppTypography.body.copyWith(
+                    color: p.dataAccent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+    final month = AppGlassSurface(
+      key: const ValueKey('calendar-month-grid'),
+      blur: 0,
+      opacity: 1,
+      borderRadius: BorderRadius.circular(AppRadii.card),
+      padding: EdgeInsets.all(touch ? 16 : 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${_month.year}年${_month.month}月',
+                  key: const ValueKey('calendar-month'),
+                  style: TextStyle(
+                    fontSize: AppMobileUi.useTouchChrome(context) ? 20 : 24,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -.5,
+                    color: p.ink,
+                  ),
+                ),
+              ),
+              AppIconButton(
+                key: const ValueKey('calendar-previous'),
+                tooltip: '上个月',
+                extent: AppMobileUi.useTouchChrome(context) ? 44 : 36,
+                onPressed: _month.isAfter(firstMonth)
+                    ? () => setState(
+                        () => _month = DateTime(_month.year, _month.month - 1),
+                      )
+                    : null,
+                icon: const Icon(AppIcons.back, size: 18),
+              ),
+              AppIconButton(
+                key: const ValueKey('calendar-next'),
+                tooltip: '下个月',
+                extent: AppMobileUi.useTouchChrome(context) ? 44 : 36,
+                onPressed: _month.isBefore(lastMonth)
+                    ? () => setState(
+                        () => _month = DateTime(_month.year, _month.month + 1),
+                      )
+                    : null,
+                icon: const Icon(AppIcons.right, size: 18),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          _TeachingMonth(term: _term, month: _month, today: _today),
+        ],
+      ),
+    );
+    final schedule = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!touch && active) ...[
+          Panel(
+            outlined: true,
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text('教学周进度', style: TextStyle(color: p.muted, fontSize: 13)),
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    Text('第 ', style: TextStyle(color: p.muted)),
+                    Text(
+                      '${_today.difference(_term.monday).inDays ~/ 7 + 1}',
+                      style: TextStyle(
+                        color: p.ink,
+                        fontSize: 40,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      ' / ${_term.weeks} 周',
+                      style: TextStyle(color: p.muted),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                LinearProgressIndicator(
+                  value:
+                      (_today.difference(_term.monday).inDays ~/ 7 + 1) /
+                      _term.weeks,
+                  minHeight: 8,
+                  borderRadius: BorderRadius.circular(4),
+                  color: p.primary,
+                  backgroundColor: p.track,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+        Text('学期安排', style: AppTypography.sectionTitle.copyWith(color: p.ink)),
+        const SizedBox(height: 12),
+        Panel(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              for (final (i, term) in _terms.indexed) ...[
+                if (i > 0)
+                  Divider(
+                    height: 1,
+                    indent: 20,
+                    endIndent: 20,
+                    color: p.border,
+                  ),
+                AppHoverSurface(
+                  key: ValueKey('calendar-term-row-${term.term}'),
+                  outlined: false,
+                  backgroundColor: p.surface,
+                  quiet: true,
+                  borderRadius: BorderRadius.zero,
+                  padding: const EdgeInsets.all(20),
+                  onTap: () => _selectTerm(term.term),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _name(term),
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: _termCode == term.term
+                                    ? p.dataAccent
+                                    : p.ink,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            '${term.weeks}周',
+                            style: TextStyle(fontSize: 13, color: p.muted),
+                          ),
+                          const SizedBox(width: 12),
+                          Icon(
+                            _termCode == term.term
+                                ? AppIcons.check
+                                : AppIcons.right,
+                            size: 18,
+                            color: _termCode == term.term ? p.dataAccent : null,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          Text(
+                            _date(term.monday),
+                            style: TextStyle(
+                              color: p.muted,
+                              fontSize: 13,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                          Text(
+                            '—',
+                            style: TextStyle(color: p.muted, fontSize: 13),
+                          ),
+                          Text(
+                            _date(term.end),
+                            style: TextStyle(
+                              color: p.muted,
+                              fontSize: 13,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
     return PageScaffold(
       title: '学年校历',
       onBack: () => Navigator.of(context).maybePop(),
       child: Material(
-        color: p.canvas,
+        color: p.pageBackground(context),
         child: AppPageViewport(
           maxWidth: AppLayout.workspaceMaxWidth,
           builder: (context, insets) => ListView(
@@ -71,249 +327,29 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
                 insets +
                 EdgeInsets.fromLTRB(
                   AppSpace.pageXOf(context),
-                  8,
+                  20,
                   AppSpace.pageXOf(context),
                   32,
                 ),
             children: [
-              if (!_years.contains(_requestedYear)) ...[
-                const SizedBox(height: 12),
+              if (!_years.contains(_requestedYear))
                 Text('当前学年校历尚未维护，显示已收录学年。', style: TextStyle(color: p.muted)),
-              ],
-              const SizedBox(height: 20),
-              Panel(
-                key: const ValueKey('calendar-month-grid'),
-                padding: EdgeInsets.all(
-                  AppMobileUi.useTouchChrome(context) ? 12 : 20,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    LayoutBuilder(
-                      builder: (context, bounds) => Wrap(
-                        key: const ValueKey('calendar-range'),
-                        spacing: AppSpace.md,
-                        runSpacing: AppSpace.sm,
-                        crossAxisAlignment: WrapCrossAlignment.center,
+              controls,
+              const SizedBox(height: 24),
+              LayoutBuilder(
+                builder: (context, bounds) => bounds.maxWidth >= 760
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          AppShellSelect<int>(
-                            plain: true,
-                            compact: true,
-                            key: const ValueKey('calendar-year'),
-                            semanticLabel: '选择学年',
-                            value: _year,
-                            items: _years.reversed.toList(),
-                            labelOf: (v) => '$v—${v + 1}学年',
-                            width:
-                                (188 *
-                                        MediaQuery.textScalerOf(
-                                          context,
-                                        ).scale(1))
-                                    .clamp(0.0, bounds.maxWidth),
-                            menuWidth: 220,
-                            onChanged: (v) => setState(() {
-                              _year = v;
-                              _termCode = _initialTerm.term;
-                              _month = _initialMonth(_term);
-                            }),
-                          ),
-                          SizedBox(
-                            width: bounds.maxWidth.clamp(0.0, 288.0),
-                            child: AppSegmentedControl<String>(
-                              key: const ValueKey('calendar-term'),
-                              compact: true,
-                              expanded: true,
-                              value: _termCode,
-                              segments: [
-                                for (final t in _terms)
-                                  AppSegment(
-                                    value: t.term,
-                                    label: switch (t.term[4]) {
-                                      '1' => '秋季',
-                                      '2' => '春季',
-                                      _ => '短学期',
-                                    },
-                                  ),
-                              ],
-                              onChanged: _selectTerm,
-                            ),
-                          ),
-                          if (active)
-                            Text(
-                              '第 ${_today.difference(_term.monday).inDays ~/ 7 + 1} 教学周',
-                              style: AppTypography.body.copyWith(
-                                color: p.dataAccent,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                          Expanded(flex: 13, child: month),
+                          const SizedBox(width: 24),
+                          Expanded(flex: 7, child: schedule),
                         ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [month, const SizedBox(height: 24), schedule],
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    Divider(height: 1, color: p.border),
-                    const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '${_month.year}年${_month.month}月',
-                            key: const ValueKey('calendar-month'),
-                            style: TextStyle(
-                              fontSize: AppMobileUi.useTouchChrome(context)
-                                  ? 20
-                                  : 24,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: -.5,
-                              color: p.ink,
-                            ),
-                          ),
-                        ),
-                        AppIconButton(
-                          key: const ValueKey('calendar-previous'),
-                          tooltip: '上个月',
-                          extent: AppMobileUi.useTouchChrome(context) ? 44 : 36,
-                          onPressed: _month.isAfter(firstMonth)
-                              ? () => setState(
-                                  () => _month = DateTime(
-                                    _month.year,
-                                    _month.month - 1,
-                                  ),
-                                )
-                              : null,
-                          icon: const Icon(AppIcons.back, size: 18),
-                        ),
-                        AppIconButton(
-                          key: const ValueKey('calendar-next'),
-                          tooltip: '下个月',
-                          extent: AppMobileUi.useTouchChrome(context) ? 44 : 36,
-                          onPressed: _month.isBefore(lastMonth)
-                              ? () => setState(
-                                  () => _month = DateTime(
-                                    _month.year,
-                                    _month.month + 1,
-                                  ),
-                                )
-                              : null,
-                          icon: const Icon(AppIcons.right, size: 18),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    _TeachingMonth(term: _term, month: _month, today: _today),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 28),
-              Text(
-                '学期安排',
-                style: AppTypography.sectionTitle.copyWith(color: p.ink),
-              ),
-              const SizedBox(height: 12),
-              Panel(
-                padding: EdgeInsets.zero,
-                child: Column(
-                  children: [
-                    for (final (i, term) in _terms.indexed) ...[
-                      if (i > 0)
-                        Divider(
-                          height: 1,
-                          indent: 20,
-                          endIndent: 20,
-                          color: p.border,
-                        ),
-                      AppHoverSurface(
-                        key: ValueKey('calendar-term-row-${term.term}'),
-                        outlined: false,
-                        backgroundColor: p.surface,
-                        quiet: true,
-                        borderRadius: BorderRadius.zero,
-                        padding: const EdgeInsets.all(20),
-                        onTap: () => _selectTerm(term.term),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    _name(term),
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: _termCode == term.term
-                                          ? p.dataAccent
-                                          : p.ink,
-                                    ),
-                                  ),
-                                ),
-                                Text(
-                                  '${term.weeks}周',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: p.muted,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Icon(
-                                  _termCode == term.term
-                                      ? AppIcons.check
-                                      : AppIcons.right,
-                                  size: 18,
-                                  color: _termCode == term.term
-                                      ? p.dataAccent
-                                      : null,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            LayoutBuilder(
-                              builder: (context, bounds) => Wrap(
-                                spacing: 32,
-                                runSpacing: 12,
-                                children: [
-                                  for (final field in [
-                                    ('教学周起始', term.monday),
-                                    ('学期结束', term.end),
-                                  ])
-                                    SizedBox(
-                                      width: bounds.maxWidth < 300
-                                          ? bounds.maxWidth
-                                          : 180,
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            field.$1,
-                                            style: TextStyle(
-                                              color: p.muted,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            _date(field.$2),
-                                            style: TextStyle(
-                                              color: p.ink,
-                                              fontSize: 14,
-                                              fontFeatures: const [
-                                                FontFeature.tabularFigures(),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
               ),
               const SizedBox(height: 20),
               Text(
@@ -407,7 +443,7 @@ class _TeachingMonth extends StatelessWidget {
                       ) ||
                       today.month != month.month
                   ? null
-                  : p.dataAccent.withValues(alpha: p.isDark ? .10 : .055),
+                  : p.accentSoft,
               borderRadius: BorderRadius.circular(AppRadii.control),
             ),
             child: Row(
@@ -441,9 +477,6 @@ class _TeachingMonth extends StatelessWidget {
                           first,
                           row * 7 + column,
                         );
-                        if (day.month != month.month) {
-                          return const SizedBox(height: 38);
-                        }
                         final inTerm =
                             !day.isBefore(term.monday) &&
                             !day.isAfter(term.end);
@@ -463,13 +496,9 @@ class _TeachingMonth extends StatelessWidget {
                               width: 38,
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
-                                color: isToday
-                                    ? p.dataAccent
-                                    : day.weekday >= 6
-                                    ? p.content
-                                    : null,
+                                color: isToday ? p.dataAccent : null,
                                 borderRadius: BorderRadius.circular(
-                                  AppRadii.control,
+                                  isToday ? 24 : AppRadii.control,
                                 ),
                               ),
                               child: Text(
@@ -477,7 +506,7 @@ class _TeachingMonth extends StatelessWidget {
                                 style: TextStyle(
                                   color: isToday
                                       ? Theme.of(context).colorScheme.onPrimary
-                                      : inTerm
+                                      : inTerm && day.month == month.month
                                       ? p.ink
                                       : p.muted,
                                   fontSize: 14,

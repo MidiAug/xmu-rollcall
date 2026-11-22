@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
-enum AppStatusTone { success, warning, danger, neutral }
+enum AppStatusTone { success, warning, danger, neutral, accent }
 
 class AppStatusBadge extends StatelessWidget {
   const AppStatusBadge(
     this.label, {
     super.key,
     this.tone = AppStatusTone.neutral,
+    this.pill = false,
   });
   static const _padding = EdgeInsets.symmetric(horizontal: 8, vertical: 3);
   static const _borderWidth = 1.0;
@@ -35,11 +36,13 @@ class AppStatusBadge extends StatelessWidget {
 
   final String label;
   final AppStatusTone tone;
+  final bool pill;
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final color = switch (tone) {
       AppStatusTone.success => p.success,
+      AppStatusTone.accent => p.primary,
       AppStatusTone.warning => p.warning,
       AppStatusTone.danger => p.danger,
       AppStatusTone.neutral => p.muted,
@@ -49,17 +52,19 @@ class AppStatusBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: switch (tone) {
           AppStatusTone.success => p.successSurface,
+          AppStatusTone.accent => p.accentSoft,
           AppStatusTone.danger => p.dangerSoft,
           AppStatusTone.neutral => p.pillMuted,
           AppStatusTone.warning => color.withValues(
             alpha: p.isDark ? .14 : .09,
           ),
         },
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(pill ? 999 : 7),
         border: Border.all(
           width: _borderWidth,
           color: switch (tone) {
             AppStatusTone.success => p.successRim,
+            AppStatusTone.accent => p.accentRim,
             AppStatusTone.danger => p.dangerRim,
             AppStatusTone.neutral => p.badgeRim,
             AppStatusTone.warning => color.withValues(

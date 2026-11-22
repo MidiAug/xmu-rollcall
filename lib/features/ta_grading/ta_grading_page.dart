@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/app/app_service_symbol.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -164,7 +165,17 @@ class _TaCoursesState extends State<_TaCourses> {
                   24,
                 ),
             itemCount: assignments.length + 1,
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
+            separatorBuilder: (_, index) => index == 0
+                ? const SizedBox(height: 20)
+                : ColoredBox(
+                    color: p.surface,
+                    child: Divider(
+                      height: 1,
+                      indent: 20,
+                      endIndent: 20,
+                      color: p.divider,
+                    ),
+                  ),
             itemBuilder: (context, index) {
               if (index == 0) {
                 return Column(
@@ -172,9 +183,9 @@ class _TaCoursesState extends State<_TaCourses> {
                   children: [
                     Row(
                       children: [
-                        const AppIconSurface(
+                        const AppServiceSymbol(
                           size: 44,
-                          child: Icon(AppIcons.homework),
+                          icon: AppIcons.serviceGrading,
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -286,17 +297,6 @@ class _TaCoursesState extends State<_TaCourses> {
                           ).textTheme.bodySmall?.copyWith(color: p.muted),
                         ),
                       ),
-                    const SizedBox(height: 26),
-                    Row(
-                      children: [
-                        Text(
-                          '课程作业',
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                        const SizedBox(width: 8),
-                        AppStatusBadge('${assignments.length}'),
-                      ],
-                    ),
                     if (assignments.isEmpty)
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 32),
@@ -310,8 +310,20 @@ class _TaCoursesState extends State<_TaCourses> {
                 0,
                 item.submitted,
               );
+              final rowRadius = BorderRadius.vertical(
+                top: index == 1
+                    ? const Radius.circular(AppRadii.card)
+                    : Radius.zero,
+                bottom: index == assignments.length
+                    ? const Radius.circular(AppRadii.card)
+                    : Radius.zero,
+              );
               return AppHoverSurface(
-                padding: const EdgeInsets.all(16),
+                outlined: false,
+                quiet: true,
+                backgroundColor: p.surface,
+                borderRadius: rowRadius,
+                padding: const EdgeInsets.all(20),
                 onTap: () async {
                   final courseId = _course!;
                   await AppPageRoutes.push(
@@ -334,48 +346,55 @@ class _TaCoursesState extends State<_TaCourses> {
                     _select(courseId);
                   }
                 },
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        const AppIconSurface(
-                          child: Icon(AppIcons.serviceGrading),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: AppTruncatedText(
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          AppTruncatedText(
                             item.title,
-                            style: Theme.of(context).textTheme.titleMedium,
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w600),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Icon(AppIcons.right, color: p.muted, size: 20),
-                      ],
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 6,
+                            children: [
+                              for (final metric in [
+                                ('应交', item.expected),
+                                ('已提交', item.submitted),
+                                ('已批改', item.graded),
+                              ])
+                                Text(
+                                  '${metric.$1} ${metric.$2}',
+                                  style: TextStyle(
+                                    color: p.muted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 16,
-                      runSpacing: 6,
-                      children: [
-                        for (final metric in [
-                          ('应交', item.expected),
-                          ('已提交', item.submitted),
-                          ('已批改', item.graded),
-                        ])
-                          Text(
-                            '${metric.$1} ${metric.$2}',
-                            style: TextStyle(color: p.muted, fontSize: 12),
-                          ),
-                        Text(
-                          pending == 0 ? '批改完成' : '待批改 $pending',
-                          style: TextStyle(
-                            color: pending == 0 ? p.muted : p.warning,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+                    const SizedBox(width: 12),
+                    AppStatusBadge(
+                      item.submitted == 0
+                          ? '待提交'
+                          : item.graded > 0
+                          ? '已批 ${item.graded}/${item.submitted}'
+                          : '待批 $pending',
+                      tone: item.submitted == 0
+                          ? AppStatusTone.neutral
+                          : item.graded > 0
+                          ? AppStatusTone.success
+                          : AppStatusTone.accent,
+                      pill: true,
                     ),
+                    const SizedBox(width: 12),
+                    const Icon(AppIcons.right, size: 20),
                   ],
                 ),
               );

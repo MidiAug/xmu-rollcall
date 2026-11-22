@@ -13,27 +13,32 @@ class AppServiceTile extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.compact = false,
+    this.showDescription = true,
   });
   final String title, description;
   final IconData icon;
   final VoidCallback onPressed;
 
-  /// Horizontal layout for a narrow viewport.
+  /// Horizontal desktop directory entry or the mobile teaching-assistant row.
   final bool compact;
+  final bool showDescription;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final radius = BorderRadius.circular(AppRadii.service);
+    final touch = AppMobileUi.useTouchChrome(context);
     final symbol = AppServiceSymbol(
       key: const ValueKey('service-symbol'),
       icon: icon,
-      size: compact ? 36 : 40,
+      size: touch ? 44 : 52,
     );
-    final label = AppTruncatedText(
+    final label = Text(
       title,
+      maxLines: compact ? 1 : 2,
+      overflow: TextOverflow.ellipsis,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-        fontSize: compact ? 15 : 16,
+        fontSize: 16,
         fontWeight: FontWeight.w600,
         color: p.ink,
       ),
@@ -61,30 +66,46 @@ class AppServiceTile extends StatelessWidget {
           outlined: false,
           backgroundColor: Colors.transparent,
           borderRadius: radius,
-          padding: const EdgeInsets.all(AppSpace.lg),
+          padding: EdgeInsets.all(touch ? AppSpace.md : AppSpace.xl),
           onTap: onPressed,
           child: compact
-              ? Row(
-                  children: [
-                    symbol,
-                    const SizedBox(width: AppSpace.md),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          label,
-                          const SizedBox(height: AppSpace.xxs),
-                          detail,
-                        ],
+              ? ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: touch ? 44 : 60),
+                  child: Row(
+                    children: [
+                      symbol,
+                      const SizedBox(width: AppSpace.md),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            label,
+                            if (showDescription) ...[
+                              const SizedBox(height: AppSpace.xxs),
+                              detail,
+                            ],
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: AppSpace.sm),
-                    arrow,
-                  ],
+                      const SizedBox(width: AppSpace.sm),
+                      arrow,
+                    ],
+                  ),
                 )
               : ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 94),
+                  constraints: BoxConstraints(
+                    minHeight: showDescription
+                        ? 94
+                        : 44 +
+                              12 +
+                              MediaQuery.textScalerOf(context).scale(16) *
+                                  1.4 *
+                                  (MediaQuery.textScalerOf(context).scale(1) >
+                                          1.2
+                                      ? 2
+                                      : 1),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -92,8 +113,10 @@ class AppServiceTile extends StatelessWidget {
                       Row(children: [symbol, const Spacer(), arrow]),
                       const SizedBox(height: AppSpace.sm),
                       label,
-                      const SizedBox(height: AppSpace.xxs),
-                      detail,
+                      if (showDescription) ...[
+                        const SizedBox(height: AppSpace.xxs),
+                        detail,
+                      ],
                     ],
                   ),
                 ),
