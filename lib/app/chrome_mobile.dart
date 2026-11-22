@@ -27,6 +27,8 @@ Future<_ChoiceResult<T>?> _showChoiceSheet<T>(
   required String Function(T) labelOf,
   String Function(T)? trailingOf,
   IconData Function(T)? iconOf,
+  Widget Function(T)? leadingOf,
+  String Function(T)? subtitleOf,
   required ValueChanged<BuildContext> onPresented,
   required ValueChanged<bool> onPointerMode,
   bool pointerAutofocus = false,
@@ -38,7 +40,7 @@ Future<_ChoiceResult<T>?> _showChoiceSheet<T>(
     useSafeArea: true,
     isScrollControlled: true,
     showDragHandle: false,
-    backgroundColor: AppPalette.of(context).popoverSurface,
+    backgroundColor: Colors.transparent,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -87,14 +89,14 @@ Future<_ChoiceResult<T>?> _showChoiceSheet<T>(
             },
             child: Listener(
               onPointerDown: (_) => onPointerMode(true),
-              child: SafeArea(
-                top: false,
+              child: AppSheetFrame(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
                     maxHeight: MediaQuery.sizeOf(sheetContext).height * .75,
                   ),
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    padding: EdgeInsets.zero,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -129,6 +131,8 @@ Future<_ChoiceResult<T>?> _showChoiceSheet<T>(
                                       trailing:
                                           trailingOf?.call(items[i]) ?? '',
                                       leadingIcon: iconOf?.call(items[i]),
+                                      leading: leadingOf?.call(items[i]),
+                                      subtitle: subtitleOf?.call(items[i]),
                                       selected: items[i] == value,
                                       showCheck: true,
                                       wrap: true,

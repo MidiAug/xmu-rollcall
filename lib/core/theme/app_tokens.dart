@@ -43,6 +43,11 @@ class AppPalette {
   final Color selected;
   bool get isDark =>
       ThemeData.estimateBrightnessForColor(canvas) == Brightness.dark;
+  // Camera framing remains a dark scene in both themes.
+  Color get scannerCanvas => const Color(0xFF141B28);
+  Color get scannerInk => const Color(0xFFC1CCDC);
+  Color get scannerAccent => const Color(0xFF4B8FF7);
+  Color get scannerControl => const Color(0xFF394150);
   Color get sidebar =>
       isDark ? const Color(0xFF1D2027) : const Color(0xFFEAEFF5);
   Color get sidebarBorder =>

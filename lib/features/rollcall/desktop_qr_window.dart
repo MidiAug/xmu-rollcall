@@ -326,7 +326,7 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
         child: LayoutBuilder(
           builder: (context, bounds) {
             final scale = MediaQuery.textScalerOf(context).scale(12) / 12;
-            final header = 78.0 + (scale - 1).clamp(0, 1) * 24;
+            final header = 84.0 + (scale - 1).clamp(0, 1) * 36;
             final footer = 142.0 + (scale - 1).clamp(0, 1) * 64;
             const inset = 18.0;
             final hole = Rect.fromLTWH(
@@ -380,9 +380,9 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '扫码签到',
+                                  '二维码识别',
                                   style: TextStyle(
-                                    fontSize: 15,
+                                    fontSize: 20,
                                     fontWeight: FontWeight.w600,
                                     color: p.ink,
                                   ),
@@ -516,9 +516,7 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        _recognized
-                            ? '识别完成，签到结果请查看主窗口'
-                            : '拖动对准  拖入图片  拖动边缘缩放',
+                        _recognized ? '识别完成，签到结果请查看主窗口' : '拖动对准  拖入图片  拖动边缘缩放',
                         style: TextStyle(fontSize: 11, color: p.muted),
                       ),
                       const Spacer(),

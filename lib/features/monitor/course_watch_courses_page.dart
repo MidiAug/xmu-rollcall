@@ -100,7 +100,7 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
         maxWidth: AppLayout.workspaceMaxWidth,
         builder: (context, contentInsets) => LayoutBuilder(
           builder: (context, bounds) => ListView(
-            padding: contentInsets + const EdgeInsets.all(24),
+            padding: contentInsets + EdgeInsets.all(AppSpace.pageXOf(context)),
             children: [
               if (_error != null) ...[
                 Text(_error!, style: TextStyle(color: p.danger)),
@@ -113,6 +113,16 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
                   '暂无可关联的课程，请先获取课表并查看一次畅课课程。',
                   style: TextStyle(color: p.muted),
                 ),
+              if (_courses?.isNotEmpty == true) ...[
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    '已选 ${_courses!.where((course) => _scope.selectionFor(course) != false).length} 门参与课表值守',
+                    style: AppTypography.body.copyWith(color: p.muted),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               if (bounds.maxWidth - contentInsets.horizontal >= 728)
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -148,116 +158,115 @@ class _CourseWatchCoursesPageState extends State<CourseWatchCoursesPage> {
     );
   }
 
-  Widget _courseCard(CatalogCourse course, AppPalette p) => Material(
+  Widget _courseCard(CatalogCourse course, AppPalette p) => SettingsSection(
     key: ValueKey('watch-course-card-${course.id}'),
-    color: p.surface,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(AppRadii.card),
-      side: BorderSide(color: p.border),
-    ),
-    clipBehavior: Clip.antiAlias,
-    child: Column(
-      children: [
-        AppCheckboxRow(
-          key: ValueKey('watch-course-${course.id}'),
-          label: course.title,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          value: _scope.selectionFor(course),
-          title: AppTruncatedText(
-            course.title,
-            style: AppTypography.body.copyWith(
-              fontWeight: FontWeight.w600,
-              color: p.ink,
-            ),
+    padTop: false,
+    hasLeading: false,
+    children: [
+      AppCheckboxRow(
+        key: ValueKey('watch-course-${course.id}'),
+        label: course.title,
+        trailing: true,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        value: _scope.selectionFor(course),
+        title: AppTruncatedText(
+          course.title,
+          style: AppTypography.body.copyWith(
+            fontSize: AppDensity.isTouch(context) ? 17 : 15,
+            fontWeight: FontWeight.w600,
+            color: _scope.excludedCourses.contains(course.id) ? p.muted : p.ink,
           ),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (course.needsSchedule ||
-                  _scope.excludedCourses.contains(course.id)) ...[
-                Text(
-                  course.needsSchedule ? '暂无可用的上课安排' : '本课程不参与值守',
-                  style: AppTypography.caption.copyWith(color: p.muted),
-                ),
-                const SizedBox(height: 6),
-              ],
-              _historyTypes(course.id, p),
-            ],
-          ),
-          onChanged: _saving
-              ? null
-              : (included) {
-                  final excluded = {..._scope.excludedCourses};
-                  final meetings = {..._scope.excludedMeetings};
-                  if (_scope.excludedCourses.contains(course.id)) {
-                    excluded.remove(course.id);
-                  } else if (_scope.selectionFor(course) == false) {
-                    for (final day in course.timetables.entries) {
-                      for (final block in courseWatchWeeklyBlocks(day.value)) {
-                        meetings.remove(
-                          CourseWatchScope.meetingKey(
-                            course.id,
-                            day.key,
-                            block.id,
-                          ),
-                        );
-                      }
-                    }
-                  } else {
-                    excluded.add(course.id);
-                  }
-                  _save(
-                    CourseWatchScope(
-                      excludedCourses: excluded,
-                      excludedMeetings: meetings,
-                    ),
-                  );
-                },
         ),
-        if (!_scope.excludedCourses.contains(course.id))
-          for (final day in course.timetables.keys.toList()..sort())
-            for (final block in courseWatchWeeklyBlocks(
-              course.timetables[day]!,
-            ))
-              AppCheckboxRow(
-                key: ValueKey(
-                  'watch-meeting-${CourseWatchScope.meetingKey(course.id, day, block.id)}',
-                ),
-                padding: const EdgeInsets.only(left: 32, right: 16),
-                label: '每${weekdayLabel(day)}  ${block.sectionLabel}',
-                value: _scope.allows(course.id, day, block.id),
-                title: Text(
-                  '每${weekdayLabel(day)}  ${block.sectionLabel}',
-                  style: AppTypography.control.copyWith(color: p.ink),
-                ),
-                subtitle: Text(
-                  '${formatHm(block.coreStart)} – ${formatHm(block.coreEnd)}',
-                  style: AppTypography.caption.copyWith(color: p.muted),
-                ),
-                onChanged: _saving
-                    ? null
-                    : (included) {
-                        final excluded = {..._scope.excludedMeetings};
-                        final key = CourseWatchScope.meetingKey(
-                          course.id,
-                          day,
-                          block.id,
-                        );
-                        if (included == true) {
-                          excluded.remove(key);
-                        } else {
-                          excluded.add(key);
-                        }
-                        _save(
-                          CourseWatchScope(
-                            excludedCourses: _scope.excludedCourses,
-                            excludedMeetings: excluded,
-                          ),
-                        );
-                      },
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (course.needsSchedule ||
+                _scope.excludedCourses.contains(course.id)) ...[
+              Text(
+                course.needsSchedule ? '暂无可用的上课安排' : '本课程不参与值守',
+                style: AppTypography.caption.copyWith(color: p.muted),
               ),
-      ],
-    ),
+              const SizedBox(height: 6),
+            ],
+            _historyTypes(course.id, p),
+          ],
+        ),
+        onChanged: _saving
+            ? null
+            : (included) {
+                final excluded = {..._scope.excludedCourses};
+                final meetings = {..._scope.excludedMeetings};
+                if (_scope.excludedCourses.contains(course.id)) {
+                  excluded.remove(course.id);
+                } else if (_scope.selectionFor(course) == false) {
+                  for (final day in course.timetables.entries) {
+                    for (final block in courseWatchWeeklyBlocks(day.value)) {
+                      meetings.remove(
+                        CourseWatchScope.meetingKey(
+                          course.id,
+                          day.key,
+                          block.id,
+                        ),
+                      );
+                    }
+                  }
+                } else {
+                  excluded.add(course.id);
+                }
+                _save(
+                  CourseWatchScope(
+                    excludedCourses: excluded,
+                    excludedMeetings: meetings,
+                  ),
+                );
+              },
+      ),
+      if (!_scope.excludedCourses.contains(course.id))
+        for (final day in course.timetables.keys.toList()..sort())
+          for (final block in courseWatchWeeklyBlocks(course.timetables[day]!))
+            AppCheckboxRow(
+              key: ValueKey(
+                'watch-meeting-${CourseWatchScope.meetingKey(course.id, day, block.id)}',
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              trailing: true,
+              label: '每${weekdayLabel(day)}  ${block.sectionLabel}',
+              value: _scope.allows(course.id, day, block.id),
+              title: Text(
+                '每${weekdayLabel(day)}  ${block.sectionLabel}',
+                style: AppTypography.body.copyWith(
+                  fontSize: AppDensity.isTouch(context) ? 17 : 15,
+                  fontWeight: FontWeight.w500,
+                  color: p.ink,
+                ),
+              ),
+              subtitle: Text(
+                '${formatHm(block.coreStart)} – ${formatHm(block.coreEnd)}',
+                style: AppTypography.caption.copyWith(color: p.muted),
+              ),
+              onChanged: _saving
+                  ? null
+                  : (included) {
+                      final excluded = {..._scope.excludedMeetings};
+                      final key = CourseWatchScope.meetingKey(
+                        course.id,
+                        day,
+                        block.id,
+                      );
+                      if (included == true) {
+                        excluded.remove(key);
+                      } else {
+                        excluded.add(key);
+                      }
+                      _save(
+                        CourseWatchScope(
+                          excludedCourses: _scope.excludedCourses,
+                          excludedMeetings: excluded,
+                        ),
+                      );
+                    },
+            ),
+    ],
   );
 
   Widget _historyTypes(String courseId, AppPalette p) {

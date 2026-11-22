@@ -13,9 +13,11 @@ import 'package:xmu_rollcall/features/monitor/course_watch.dart';
 import 'package:xmu_rollcall/features/monitor/course_watch_courses_page.dart';
 import 'package:xmu_rollcall/features/rollcall/session_block.dart';
 import '../fixtures/preview_fonts.dart';
+import '../fixtures/desktop_ui_capture.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 
 void main() {
+  initializeDesktopUiCapture();
   setUpAll(loadDesktopPreviewFonts);
   for (final scenario in [
     (false, 960.0),

@@ -362,7 +362,12 @@ class _AppPromptDialogState extends State<_AppPromptDialog> {
 
 /// Surface and safe area for short touch tasks with caller-owned scrolling/actions.
 class AppSheetFrame extends StatelessWidget {
-  const AppSheetFrame({super.key, required this.child});
+  const AppSheetFrame({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(20),
+  });
+  final EdgeInsetsGeometry padding;
   final Widget child;
   @override
   Widget build(BuildContext context) => AppGlassSurface(
@@ -381,7 +386,7 @@ class AppSheetFrame extends StatelessWidget {
             maxHeight: MediaQuery.sizeOf(context).height * .9,
           ),
           child: Padding(
-            padding: const EdgeInsets.all(20),
+            padding: padding,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [

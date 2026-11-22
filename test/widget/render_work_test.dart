@@ -93,10 +93,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('history-status-filter')));
-    await tester.pumpAndSettle();
     _CountedRecord.reads = 0;
-    await tester.tap(find.byKey(const ValueKey('shell-select-option-2')));
+    await tester.tap(find.text('已签到'));
     await tester.pumpAndSettle();
     debugPrint(
       'history timestamp reads after filtering 200 rows: ${_CountedRecord.reads}',

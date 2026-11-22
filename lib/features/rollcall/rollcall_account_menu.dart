@@ -36,7 +36,16 @@ class RollcallAccountMenu extends StatelessWidget {
           '切换签到账号，当前${value == 0 ? ownerName : identities.firstWhere((e) => e.userId == value).displayName}',
       key: const ValueKey('rollcall-identity-menu'),
       width: width,
-      menuWidth: 220,
+      menuWidth: 260,
+      fixedMenuWidth: true,
+      menuTitle: '切换签到账号',
+      menuLeadingOf: (id) => AppIdentityAvatar(
+        name: id == 0
+            ? ownerName
+            : identities.firstWhere((item) => item.userId == id).displayName,
+        size: 40,
+      ),
+      menuSubtitleOf: (id) => id == 0 ? '主账号' : '协助账号',
       triggerBuilder: sidebar
           ? (context, open, toggle, focus) => _SidebarAccountTrigger(
               name: value == 0

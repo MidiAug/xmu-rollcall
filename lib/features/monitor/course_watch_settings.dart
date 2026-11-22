@@ -74,14 +74,20 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
             ? '全部课程与上课安排'
             : '已排除 ${_scope.excludedCourses.length} 门课程、${_scope.excludedMeetings.length} 个安排');
     final next = state.nextPollAt?.toLocal();
-    Widget phase(String title, String time) => SizedBox(
-      width: 180 * MediaQuery.textScalerOf(context).scale(1),
+    Widget phase(String title, String time, double width) => SizedBox(
+      width: width,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: AppTypography.caption.copyWith(color: p.muted)),
           const SizedBox(height: 4),
-          Text(time, style: AppTypography.body.copyWith(color: p.ink)),
+          Text(
+            time,
+            style: AppTypography.body.copyWith(
+              color: p.ink,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -118,14 +124,22 @@ class _CourseWatchSettingsState extends ConsumerState<CourseWatchSettings> {
             if (c.courseWatch)
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: Wrap(
-                  spacing: 16,
-                  runSpacing: 12,
-                  children: [
-                    phase('上课', '前 10 至后 5 分钟'),
-                    phase('课间', '前后各延 2.5 分钟'),
-                    phase('下课', '前 5 至后 10 分钟'),
-                  ],
+                child: LayoutBuilder(
+                  builder: (context, bounds) {
+                    final scale = MediaQuery.textScalerOf(context).scale(1);
+                    final width = bounds.maxWidth >= 270 * scale
+                        ? (bounds.maxWidth - 32) / 3
+                        : bounds.maxWidth;
+                    return Wrap(
+                      spacing: 16,
+                      runSpacing: 12,
+                      children: [
+                        phase('上课', '前 10 至后 5 分钟', width),
+                        phase('课间', '前后各延 2.5 分钟', width),
+                        phase('下课', '前 5 至后 10 分钟', width),
+                      ],
+                    );
+                  },
                 ),
               ),
             if (c.courseWatch)

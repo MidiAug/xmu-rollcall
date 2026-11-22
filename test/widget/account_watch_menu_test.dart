@@ -175,7 +175,8 @@ void main() {
         await tester.tap(find.text('值守同学'));
         await tester.pumpAndSettle();
         expect(find.text('值守中'), findsOneWidget);
-        expect(find.byIcon(AppIcons.guard), findsNWidgets(2));
+        expect(find.byIcon(AppIcons.guard), findsOneWidget);
+        expect(find.byType(AppIdentityAvatar), findsNWidgets(3));
         if (Platform.environment['CAPTURE_WATCH_MENU'] == '1') {
           await tester.runAsync(() async {
             final boundary = tester.renderObject<RenderRepaintBoundary>(

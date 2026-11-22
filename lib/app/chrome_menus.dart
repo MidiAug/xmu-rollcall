@@ -12,6 +12,9 @@ class AppShellSelect<T> extends StatefulWidget {
     required this.onChanged,
     this.menuLabelOf,
     this.menuTrailingOf,
+    this.menuLeadingOf,
+    this.menuSubtitleOf,
+    this.menuTitle,
     this.iconOf,
     this.width = 132,
     this.menuWidth,
@@ -34,6 +37,9 @@ class AppShellSelect<T> extends StatefulWidget {
   /// Optional longer labels for the menu, keeping the trigger compact.
   final String Function(T)? menuLabelOf;
   final String Function(T)? menuTrailingOf;
+  final Widget Function(T)? menuLeadingOf;
+  final String Function(T)? menuSubtitleOf;
+  final String? menuTitle;
   final IconData Function(T)? iconOf;
   final ValueChanged<T>? onChanged;
   final Widget? leading;
@@ -173,11 +179,13 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
     AppShellSelect._openHooks.add(_closeHook);
     final result = await _showChoiceSheet<T>(
       context,
-      title: widget.semanticLabel ?? '请选择',
+      title: widget.menuTitle ?? widget.semanticLabel ?? '请选择',
       value: widget.value,
       items: List<T>.of(widget.items),
       labelOf: widget.menuLabelOf ?? widget.labelOf,
       trailingOf: widget.menuTrailingOf,
+      leadingOf: widget.menuLeadingOf,
+      subtitleOf: widget.menuSubtitleOf,
       iconOf: widget.iconOf,
       onPointerMode: (value) => _pointerActivation = value,
       pointerAutofocus: _pointerActivation,
@@ -343,111 +351,118 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                           width: menuWidth,
                           constraints: BoxConstraints(maxHeight: maxHeight),
                           padding: const EdgeInsets.all(AppMenuStyle.inset),
-                        child: FocusScope(
-                          node: _menuFocus,
-                          autofocus: true,
-                          onKeyEvent: (_, event) {
-                            if (event is KeyDownEvent) {
-                              _pointerActivation = false;
-                            }
-                            return KeyEventResult.ignored;
-                          },
-                          child: Shortcuts(
-                            shortcuts: const {
-                              SingleActivator(LogicalKeyboardKey.escape):
-                                  DismissIntent(),
-                              SingleActivator(LogicalKeyboardKey.arrowDown):
-                                  NextFocusIntent(),
-                              SingleActivator(LogicalKeyboardKey.arrowUp):
-                                  PreviousFocusIntent(),
+                          child: FocusScope(
+                            node: _menuFocus,
+                            autofocus: true,
+                            onKeyEvent: (_, event) {
+                              if (event is KeyDownEvent) {
+                                _pointerActivation = false;
+                              }
+                              return KeyEventResult.ignored;
                             },
-                            child: Actions(
-                              actions: {
-                                DismissIntent: CallbackAction<DismissIntent>(
-                                  onInvoke: (_) {
-                                    _pointerActivation = false;
-                                    _hide();
-                                    return null;
-                                  },
-                                ),
-                                NextFocusIntent:
-                                    CallbackAction<NextFocusIntent>(
-                                      onInvoke: (_) {
-                                        _pointerActivation = false;
-                                        _menuFocus.nextFocus();
-                                        return null;
-                                      },
-                                    ),
-                                PreviousFocusIntent:
-                                    CallbackAction<PreviousFocusIntent>(
-                                      onInvoke: (_) {
-                                        _pointerActivation = false;
-                                        _menuFocus.previousFocus();
-                                        return null;
-                                      },
-                                    ),
+                            child: Shortcuts(
+                              shortcuts: const {
+                                SingleActivator(LogicalKeyboardKey.escape):
+                                    DismissIntent(),
+                                SingleActivator(LogicalKeyboardKey.arrowDown):
+                                    NextFocusIntent(),
+                                SingleActivator(LogicalKeyboardKey.arrowUp):
+                                    PreviousFocusIntent(),
                               },
-                              child: Listener(
-                                onPointerDown: (_) => _pointerActivation = true,
-                                child: _SelectMenuViewport(
-                                  selectedAnchor: _selectedOption,
-                                  initialOffset: initialOffset,
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: [
-                                      for (
-                                        var i = 0;
-                                        i < widget.items.length;
-                                        i++
-                                      ) ...[
-                                        if (i > 0) const SizedBox(height: 4),
-                                        KeyedSubtree(
-                                          key: i == initialIndex
-                                              ? _selectedOption
-                                              : null,
-                                          child: AppMenuOption(
-                                            pointerAutofocus:
-                                                _pointerActivation,
-                                            key: ValueKey(
-                                              'shell-select-option-$i',
-                                            ),
-                                            showCheck: true,
-                                            leadingIcon: widget.iconOf?.call(
-                                              widget.items[i],
-                                            ),
-                                            label:
-                                                (widget.menuLabelOf ??
-                                                widget.labelOf)(
-                                                  widget.items[i],
-                                                ),
-                                            trailing:
-                                                widget.menuTrailingOf?.call(
-                                                  widget.items[i],
-                                                ) ??
-                                                '',
-                                            wrap: widget.wrapMenuLabels,
-                                            selected:
-                                                widget.items[i] == widget.value,
-                                            autofocus:
-                                                widget.items[i] ==
-                                                    widget.value ||
-                                                (i == 0 &&
-                                                    !widget.items.contains(
-                                                      widget.value,
-                                                    )),
-                                            onTap: () {
-                                              if (!_portal.isShowing) return;
-                                              _hide();
-                                              widget.onChanged?.call(
+                              child: Actions(
+                                actions: {
+                                  DismissIntent: CallbackAction<DismissIntent>(
+                                    onInvoke: (_) {
+                                      _pointerActivation = false;
+                                      _hide();
+                                      return null;
+                                    },
+                                  ),
+                                  NextFocusIntent:
+                                      CallbackAction<NextFocusIntent>(
+                                        onInvoke: (_) {
+                                          _pointerActivation = false;
+                                          _menuFocus.nextFocus();
+                                          return null;
+                                        },
+                                      ),
+                                  PreviousFocusIntent:
+                                      CallbackAction<PreviousFocusIntent>(
+                                        onInvoke: (_) {
+                                          _pointerActivation = false;
+                                          _menuFocus.previousFocus();
+                                          return null;
+                                        },
+                                      ),
+                                },
+                                child: Listener(
+                                  onPointerDown: (_) =>
+                                      _pointerActivation = true,
+                                  child: _SelectMenuViewport(
+                                    selectedAnchor: _selectedOption,
+                                    initialOffset: initialOffset,
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.stretch,
+                                      children: [
+                                        for (
+                                          var i = 0;
+                                          i < widget.items.length;
+                                          i++
+                                        ) ...[
+                                          if (i > 0) const SizedBox(height: 4),
+                                          KeyedSubtree(
+                                            key: i == initialIndex
+                                                ? _selectedOption
+                                                : null,
+                                            child: AppMenuOption(
+                                              pointerAutofocus:
+                                                  _pointerActivation,
+                                              key: ValueKey(
+                                                'shell-select-option-$i',
+                                              ),
+                                              showCheck: true,
+                                              leading: widget.menuLeadingOf
+                                                  ?.call(widget.items[i]),
+                                              subtitle: widget.menuSubtitleOf
+                                                  ?.call(widget.items[i]),
+                                              leadingIcon: widget.iconOf?.call(
                                                 widget.items[i],
-                                              );
-                                            },
+                                              ),
+                                              label:
+                                                  (widget.menuLabelOf ??
+                                                  widget.labelOf)(
+                                                    widget.items[i],
+                                                  ),
+                                              trailing:
+                                                  widget.menuTrailingOf?.call(
+                                                    widget.items[i],
+                                                  ) ??
+                                                  '',
+                                              wrap: widget.wrapMenuLabels,
+                                              selected:
+                                                  widget.items[i] ==
+                                                  widget.value,
+                                              autofocus:
+                                                  widget.items[i] ==
+                                                      widget.value ||
+                                                  (i == 0 &&
+                                                      !widget.items.contains(
+                                                        widget.value,
+                                                      )),
+                                              onTap: () {
+                                                if (!_portal.isShowing) return;
+                                                _hide();
+                                                widget.onChanged?.call(
+                                                  widget.items[i],
+                                                );
+                                              },
+                                            ),
                                           ),
-                                        ),
+                                        ],
                                       ],
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),
@@ -457,7 +472,6 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                       ),
                     ),
                   ),
-                ),
                 ),
               ],
             ),
@@ -581,6 +595,8 @@ class AppMenuOption extends StatelessWidget {
     this.wrap = false,
     this.showCheck = false,
     this.leadingIcon,
+    this.leading,
+    this.subtitle,
     this.danger = false,
     this.autofocus = false,
     this.pointerAutofocus = false,
@@ -593,6 +609,8 @@ class AppMenuOption extends StatelessWidget {
   final bool wrap;
   final bool showCheck;
   final IconData? leadingIcon;
+  final Widget? leading;
+  final String? subtitle;
   final bool danger;
   final bool autofocus;
 
@@ -614,10 +632,14 @@ class AppMenuOption extends StatelessWidget {
           ? p.controlPressed
           : active
           ? p.hover
+          : selected && subtitle != null && leading != null
+          ? p.accentSoft
           : AppPalette.clearOf(p.hover);
       final style = TextStyle(
-        fontSize: 14,
-        height: 22 / 14,
+        fontSize: subtitle != null && leading != null
+            ? (AppDensity.isTouch(context) ? 17 : 15)
+            : 14,
+        height: 1.5,
         fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
         // Single-cursor highlight lets the active target stand out while the
         // check mark and medium weight carry the persisted selection cleanly.
@@ -645,7 +667,10 @@ class AppMenuOption extends StatelessWidget {
             ),
             child: Row(
               children: [
-                if (leadingIcon != null) ...[
+                if (leading != null) ...[
+                  leading!,
+                  const SizedBox(width: 12),
+                ] else if (leadingIcon != null) ...[
                   Icon(
                     leadingIcon,
                     size: 18,
@@ -658,9 +683,22 @@ class AppMenuOption extends StatelessWidget {
                   const SizedBox(width: 10),
                 ],
                 Expanded(
-                  child: wrap
-                      ? Text(label, style: style)
-                      : AppTruncatedText(label, style: style),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      wrap
+                          ? Text(label, style: style)
+                          : AppTruncatedText(label, style: style),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle!,
+                          style: AppTypography.caption.copyWith(color: p.muted),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
                 if (trailing.isNotEmpty) ...[
                   const SizedBox(width: 8),

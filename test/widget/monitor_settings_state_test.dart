@@ -1,3 +1,4 @@
+import '../fixtures/desktop_ui_capture.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window_provider.dart';
 import '../fixtures/preview_fonts.dart';
 import 'dart:io';
@@ -54,6 +55,8 @@ Future<void> _reveal(WidgetTester tester, Finder finder) async {
 }
 
 void main() {
+  initializeDesktopUiCapture();
+  setUpAll(loadDesktopPreviewFonts);
   testWidgets(
     'watch course and mode taps explain running and starting restrictions',
     (tester) async {

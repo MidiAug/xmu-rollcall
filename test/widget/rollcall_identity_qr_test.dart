@@ -1105,6 +1105,7 @@ void main() {
         tester.getSize(find.byType(AppMenuOption).first).width,
         closeTo(320 - 32, 1),
       );
+      await captureDesktopUi(tester, 'identity-picker-r25-320');
       await tester.tap(find.text('未签同学').last);
       await tester.pumpAndSettle();
       expect(find.text('协助课程'), findsOneWidget);
