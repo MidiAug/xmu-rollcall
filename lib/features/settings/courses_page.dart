@@ -142,15 +142,61 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
               : '${semesterLabel(info.term)}${info.start == null ? '' : '  ${info.start!.year}年${info.start!.month}月${info.start!.day}日起'}'
         : '${info?.weekLabel(now) ?? '本周课表'}  ${monday.month}月${monday.day}日—${sunday.month}月${sunday.day}日';
     final selector = auth.isSignedIn
-        ? AppSegmentedControl<bool>(
-            segments: const [
-              AppSegment(value: false, label: '本周', icon: AppIcons.week),
-              AppSegment(value: true, label: '学期', icon: AppIcons.calendar),
-            ],
-            value: _semester,
-            onChanged: (value) => setState(() => _semester = value),
+        ? SizedBox(
+            width:
+                (AppDensity.isTouch(context) ? 144.0 : 180.0) *
+                MediaQuery.textScalerOf(context).scale(1),
+            child: AppSegmentedControl<bool>(
+              expanded: true,
+              segments: const [
+                AppSegment(value: false, label: '本周'),
+                AppSegment(value: true, label: '学期'),
+              ],
+              trackOnTouch: true,
+              value: _semester,
+              onChanged: (value) => setState(() => _semester = value),
+            ),
           )
         : null;
+    final mobileRangeHeader = selector == null
+        ? null
+        : Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpace.pageXOf(context),
+              12,
+              AppSpace.pageXOf(context),
+              12,
+            ),
+            child: LayoutBuilder(
+              builder: (context, bounds) {
+                final scale = MediaQuery.textScalerOf(context).scale(1);
+                final metadata = Text(
+                  !_semester && AppDensity.isTouch(context)
+                      ? '${info?.weekLabel(now) ?? '本周'} ${monday.month}/${monday.day}–${sunday.month}/${sunday.day}'
+                      : meta,
+                  style: AppTypography.caption.copyWith(color: p.muted),
+                );
+                if (bounds.maxWidth < 320 * scale) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [selector, const SizedBox(height: 8), metadata],
+                  );
+                }
+                return Row(
+                  children: [
+                    selector,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: metadata,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          );
     final content = !auth.isSignedIn
         ? EmptyHint(
             icon: AppIcons.lock,
@@ -269,8 +315,6 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
                       ),
                       assistUserId: widget.assistUserId,
                       semester: _semester,
-                      meta: meta,
-                      showMeta: !desktopTab,
                     ),
                   ),
                 ],
@@ -300,8 +344,13 @@ class _CoursesPageState extends ConsumerState<CoursesPage>
     }
     return SubpageScaffold(
       title: widget.accountName == null ? '课表' : '${widget.accountName}的课表',
-      actions: selector == null ? null : [selector],
-      body: content,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ?mobileRangeHeader,
+          Expanded(child: content),
+        ],
+      ),
     );
   }
 }
@@ -312,12 +361,8 @@ class _TimetableBody extends StatelessWidget {
     required this.snap,
     this.assistUserId,
     this.semester = false,
-    required this.meta,
-    this.showMeta = true,
   });
   final bool semester;
-  final String meta;
-  final bool showMeta;
   final int? assistUserId;
 
   final CourseCatalogSnapshot? snap;
@@ -362,11 +407,6 @@ class _TimetableBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (showMeta)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpace.sm),
-              child: Text(meta, style: Theme.of(context).textTheme.bodySmall),
-            ),
           Expanded(
             child: TimetableGridView(
               courses: withSlots,

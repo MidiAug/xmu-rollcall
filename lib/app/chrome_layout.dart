@@ -288,6 +288,7 @@ class Panel extends StatelessWidget {
     this.padding,
     this.outlined = false,
     this.lifted = false,
+    this.inset = false,
   });
 
   final Widget child;
@@ -298,12 +299,13 @@ class Panel extends StatelessWidget {
 
   /// One static shadow around a content group, never around each data row.
   final bool lifted;
+  final bool inset;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final content = Material(
-      color: p.surface,
+      color: inset ? p.insetSurface : p.surface,
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(
@@ -327,7 +329,7 @@ class Panel extends StatelessWidget {
         child: child,
       ),
     );
-    return lifted
+    return lifted && !inset
         ? AppGlassSurface(
             blur: 0,
             opacity: 1,

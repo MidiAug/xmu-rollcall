@@ -1,3 +1,4 @@
+import '../fixtures/desktop_ui_capture.dart';
 import 'package:xmu_rollcall/features/settings/settings_data_page.dart';
 import 'dart:async';
 import 'package:cookie_jar/cookie_jar.dart';
@@ -93,6 +94,7 @@ class _CountingSync extends AcademicSync {
 }
 
 void main() {
+  initializeDesktopUiCapture();
   setUp(() => SharedPreferences.setMockInitialValues({}));
   setUpAll(() async {
     await loadDesktopPreviewFonts();
@@ -383,9 +385,14 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
-  for (final width in [384.0, 960.0]) {
+  for (final (width, dark, scale) in [
+    (384.0, false, 1.0),
+    (960.0, false, 1.0),
+    (320.0, true, 2.0),
+    (960.0, true, 1.0),
+  ]) {
     testWidgets(
-      'week/term toggle is local and excludes off-week meetings at $width',
+      'week/term toggle is local and excludes off-week meetings at $width dark=$dark scale=$scale',
       (tester) async {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = Size(width, 800);
@@ -449,13 +456,13 @@ void main() {
             );
             await Directory('.tools/academic-ui').create(recursive: true);
             await File(
-              '.tools/academic-ui/$mode-${width.toInt()}.png',
+              '.tools/academic-ui/$mode-${width.toInt()}${dark ? '-dark' : ''}.png',
             ).writeAsBytes(bytes!.buffer.asUint8List());
             image.dispose();
           });
         }
 
-        var theme = AppTheme.light();
+        var theme = dark ? AppTheme.dark() : AppTheme.light();
         if (Platform.environment['SETTINGS_UI_FONT'] != null) {
           theme = theme.copyWith(
             textTheme: theme.textTheme.apply(fontFamily: 'ScheduleUi'),
@@ -511,6 +518,12 @@ void main() {
               child: MaterialApp(
                 debugShowCheckedModeBanner: false,
                 theme: theme,
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.linear(scale)),
+                  child: child!,
+                ),
                 home: const CoursesPage(),
               ),
             ),

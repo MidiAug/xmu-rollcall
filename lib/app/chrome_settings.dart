@@ -16,8 +16,10 @@ class SettingsSection extends StatelessWidget {
     this.rowPadding,
     this.dividerIndent,
     this.headerStyle,
+    this.inset = false,
   });
 
+  final bool inset;
   final String? header;
   final TextStyle? headerStyle;
   final List<Widget> children;
@@ -57,7 +59,8 @@ class SettingsSection extends StatelessWidget {
           ],
           Panel(
             outlined: true,
-            lifted: true,
+            lifted: !inset,
+            inset: inset,
             padding: EdgeInsets.zero,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,

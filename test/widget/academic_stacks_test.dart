@@ -256,6 +256,9 @@ void main() {
         find.descendant(of: single, matching: find.text(secondTitle)),
       );
       await tester.pumpAndSettle();
+      expect(find.text('同一时段的课程'), findsOneWidget);
+      await tester.tap(find.widgetWithText(SettingsRow, secondTitle));
+      await tester.pumpAndSettle();
       expect(find.text('教师single-b'), findsOneWidget);
       expect(find.text('示例教学楼 single-b'), findsWidgets);
       expect(find.text('教师single-a'), findsNothing);
@@ -283,6 +286,9 @@ void main() {
       await tester.tap(
         find.descendant(of: stack('3-4'), matching: find.text('后续双节课程')),
       );
+      await tester.pumpAndSettle();
+      expect(find.text('同一时段的课程'), findsOneWidget);
+      await tester.tap(find.widgetWithText(SettingsRow, '后续双节课程'));
       await tester.pumpAndSettle();
       expect(find.text('教师double-b'), findsOneWidget);
       expect(find.text('教师double-a'), findsNothing);

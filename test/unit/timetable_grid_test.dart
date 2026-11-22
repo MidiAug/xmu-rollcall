@@ -97,6 +97,11 @@ void main() {
         final b = tint.ink.computeLuminance();
         final contrast = a > b ? (a + .05) / (b + .05) : (b + .05) / (a + .05);
         expect(contrast, greaterThanOrEqualTo(4.5));
+        final stripe = tint.accent.computeLuminance();
+        final stripeContrast = a > stripe
+            ? (a + .05) / (stripe + .05)
+            : (stripe + .05) / (a + .05);
+        expect(stripeContrast, greaterThanOrEqualTo(3));
       }
     }
   });

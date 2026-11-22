@@ -184,7 +184,7 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
                       decoration: BoxDecoration(
                         color: row.isBreak ? p.content : null,
                         border: Border(
-                          top: BorderSide(color: p.border, width: .5),
+                          top: BorderSide(color: p.divider, width: .5),
                         ),
                       ),
                       alignment: Alignment.center,
@@ -208,7 +208,7 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
                               ? p.dataAccent.withValues(alpha: .025)
                               : null,
                           border: Border(
-                            left: BorderSide(color: p.border, width: .5),
+                            left: BorderSide(color: p.divider, width: .5),
                           ),
                         ),
                       ),
@@ -259,45 +259,13 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
                 Expanded(
                   child: DecoratedBox(
                     key: ValueKey('timetable-day-$day'),
-                    decoration: BoxDecoration(
-                      color: isToday(day)
-                          ? p.dataAccent.withValues(alpha: .10)
-                          : null,
-                    ),
+                    decoration: const BoxDecoration(),
                     child: Center(
-                      child: Flex(
-                        direction: dayW >= 116 * scale
-                            ? Axis.horizontal
-                            : Axis.vertical,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            weekdayLabel(day),
-                            style: AppTypography.control.copyWith(
-                              fontSize: touch ? 12 : 13,
-                              fontWeight: isToday(day)
-                                  ? FontWeight.w600
-                                  : FontWeight.w500,
-                              color: isToday(day) ? p.dataAccent : p.ink,
-                            ),
-                          ),
-                          if (widget.showDates) ...[
-                            SizedBox(
-                              width: dayW >= 116 * scale ? 8 : 0,
-                              height: dayW >= 116 * scale ? 0 : AppSpace.xxs,
-                            ),
-                            Text(
-                              '${dateOf(day).month}/${dateOf(day).day}',
-                              key: ValueKey('timetable-date-$day'),
-                              style: AppTypography.caption.copyWith(
-                                color: isToday(day) ? p.dataAccent : p.muted,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures(),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
+                      child: _TimetableDayHeading(
+                        day: day,
+                        date: widget.showDates ? dateOf(day) : null,
+                        isToday: isToday(day),
+                        inline: dayW >= 116 * scale,
                       ),
                     ),
                   ),
@@ -313,14 +281,11 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
             // Sparse weeks should end at the last drawn row rather than leave
             // a blank framed area below the grid. Long weeks still scroll.
             height: math.min(h, headerH + bodyH),
-            child: Material(
+            child: Panel(
               key: const ValueKey('timetable-surface'),
-              color: p.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppRadii.group),
-                side: BorderSide(color: p.border),
-              ),
-              clipBehavior: Clip.antiAlias,
+              padding: EdgeInsets.zero,
+              lifted: true,
+              outlined: true,
               child: ScrollConfiguration(
                 behavior: ScrollConfiguration.of(
                   context,
@@ -459,19 +424,22 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
         useSafeArea: true,
         isScrollControlled: true,
         showDragHandle: false,
-        backgroundColor: AppPalette.of(context).surface,
-        builder: (sheetContext) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
-          ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight:
-                  (MediaQuery.sizeOf(sheetContext).height -
-                      MediaQuery.viewInsetsOf(sheetContext).bottom) *
-                  .8,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) => AppSheetFrame(
+          padding: const EdgeInsets.only(top: 12),
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
             ),
-            child: detail,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight:
+                    (MediaQuery.sizeOf(sheetContext).height -
+                        MediaQuery.viewInsetsOf(sheetContext).bottom) *
+                    .8,
+              ),
+              child: detail,
+            ),
           ),
         ),
       );
@@ -555,7 +523,23 @@ class _CourseDetailFlowState extends ConsumerState<_CourseDetailFlow> {
                   icon: const Icon(AppIcons.back),
                 ),
                 Expanded(
-                  child: Text(room.isEmpty ? '上课地点' : room, maxLines: 2),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        room.isEmpty ? '上课地点' : room,
+                        maxLines: 2,
+                        style: AppTypography.cardTitle,
+                      ),
+                      if (room.isNotEmpty)
+                        Text(
+                          '上课地点',
+                          style: AppTypography.caption.copyWith(
+                            color: AppPalette.of(context).muted,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
                 const AppSheetCloseButton(),
               ],
@@ -640,52 +624,84 @@ class _CourseDetail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = block.course;
-    final text = Theme.of(context).textTheme;
+    final p = AppPalette.of(context);
+    Widget value(String label, String value) => SettingsRow(
+      title: label,
+      trailing: Expanded(
+        child: SelectableText(
+          value,
+          textAlign: TextAlign.end,
+          style: AppTypography.body.copyWith(
+            color: p.ink,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 16, 20),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: SelectableText(
-                  c.title.trim().isEmpty ? '未命名课程' : c.title,
-                  style: text.titleLarge,
+                child: Text(
+                  '课程详情',
+                  style: AppTypography.sectionTitle.copyWith(color: p.ink),
                 ),
               ),
-              const SizedBox(width: 8),
               const AppSheetCloseButton(
                 tooltip: '关闭课程详情',
                 alignWithTitle: true,
               ),
             ],
           ),
-          if (_separateClassLabel(c) != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(_separateClassLabel(c)!, style: text.bodySmall),
+          const SizedBox(height: 16),
+          SelectableText(
+            c.title.trim().isEmpty ? '未命名课程' : c.title,
+            style: AppTypography.cardTitle.copyWith(
+              color: p.ink,
+              fontWeight: FontWeight.w600,
             ),
-          const SizedBox(height: 20),
-          _DetailRow(
-            icon: AppIcons.clock,
-            text:
-                '${weekdayLabel(block.weekday)} ${block.block.sectionLabel}  '
-                '${formatHm(block.block.coreStart)}–${formatHm(block.block.coreEnd)}',
           ),
-          if (block.weekLabel != null)
-            _DetailRow(icon: AppIcons.calendar, text: block.weekLabel!),
-          if (c.instructorsLabel.isNotEmpty)
-            _DetailRow(icon: AppIcons.person, text: c.instructorsLabel),
-          if (!c.id.startsWith('academic:')) ...[
+          if (_separateClassLabel(c) != null) ...[
+            const SizedBox(height: 6),
             Text(
-              '签到地点',
-              style: text.labelMedium?.copyWith(
-                color: AppPalette.of(context).muted,
-              ),
+              _separateClassLabel(c)!,
+              style: AppTypography.body.copyWith(color: p.muted),
             ),
+          ],
+          const SizedBox(height: 20),
+          SettingsSection(
+            inset: true,
+            padTop: false,
+            hasLeading: false,
+            children: [
+              if (c.instructorsLabel.isNotEmpty)
+                value('教师', c.instructorsLabel),
+              SettingsRow(
+                key: const ValueKey('course-location-map-link'),
+                title: '地点',
+                onTap: c.location?.isNotEmpty == true ? onMap : null,
+                subtitle: c.location?.isNotEmpty == true
+                    ? c.location!
+                    : '教务未提供教室',
+                trailing: c.location?.isNotEmpty == true
+                    ? Icon(AppIcons.right, size: 18, color: p.muted)
+                    : null,
+              ),
+              value(
+                '上课时间',
+                '${weekdayLabel(block.weekday)} ${block.block.sectionLabel}\n${formatHm(block.block.coreStart)}–${formatHm(block.block.coreEnd)}',
+              ),
+              if (block.weekLabel != null) value('教学周', block.weekLabel!),
+            ],
+          ),
+          if (!c.id.startsWith('academic:')) ...[
+            const SizedBox(height: 20),
+            Text('签到地点', style: AppTypography.caption.copyWith(color: p.muted)),
             const SizedBox(height: 6),
             CourseLocationSetting(
               courseId: c.id,
@@ -697,72 +713,6 @@ class _CourseDetail extends StatelessWidget {
               meetings: courseMeetingLabels(c),
             ),
           ],
-          AppHoverSurface(
-            key: const ValueKey('course-location-map-link'),
-            quiet: true,
-            outlined: false,
-            backgroundColor: Colors.transparent,
-            hoverColor: AppPalette.of(context).hover,
-            pressedColor: AppPalette.of(context).controlPressed,
-            borderRadius: BorderRadius.circular(AppRadii.control),
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            onTap: c.location?.isNotEmpty == true ? onMap : null,
-            child: Row(
-              children: [
-                Icon(
-                  AppIcons.location,
-                  size: 18,
-                  color: AppPalette.of(context).primary,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    c.location?.isNotEmpty == true ? c.location! : '教务未提供教室',
-                    style: text.bodyMedium?.copyWith(
-                      color: AppPalette.of(context).primary,
-                    ),
-                  ),
-                ),
-                const Icon(AppIcons.right),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.icon, required this.text});
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 18,
-            height:
-                MediaQuery.textScalerOf(
-                  context,
-                ).scale(Theme.of(context).textTheme.bodyMedium!.fontSize!) *
-                (Theme.of(context).textTheme.bodyMedium!.height ?? 1),
-            child: Center(
-              child: Icon(icon, size: 18, color: AppPalette.of(context).muted),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: SelectableText(
-              text,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ),
         ],
       ),
     );
@@ -807,6 +757,95 @@ class _TimetableStackState extends State<_TimetableStack> {
     }
   }
 
+  Future<void> _showVariants(BuildContext context) async {
+    final all = widget.variants;
+    final heading =
+        '${weekdayLabel(all.first.weekday)} ${all.first.block.sectionLabel}';
+    Widget contents(BuildContext sheetContext) => Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text('同一时段的课程', style: AppTypography.cardTitle)),
+              const AppSheetCloseButton(),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            heading,
+            style: AppTypography.body.copyWith(
+              color: AppPalette.of(sheetContext).muted,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Flexible(
+            child: SingleChildScrollView(
+              child: SettingsSection(
+                inset: true,
+                padTop: false,
+                hasLeading: true,
+                children: [
+                  for (final b in all)
+                    SettingsRow(
+                      leading: Container(
+                        width: 3,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: timetableTintForCourseId(
+                            b.course.id,
+                            brightness: Theme.of(context).brightness,
+                          ).accent,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                      title: b.course.title,
+                      subtitle: b.course.location,
+                      trailing: Icon(
+                        AppIcons.right,
+                        color: AppPalette.of(context).muted,
+                        size: 18,
+                      ),
+                      onTap: () => Navigator.pop(sheetContext, b),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    final TimetablePlacedBlock? chosen;
+    if (AppDensity.isTouch(context)) {
+      chosen = await showModalBottomSheet<TimetablePlacedBlock>(
+        context: context,
+        useRootNavigator: true,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) => AppSheetFrame(
+          padding: const EdgeInsets.only(top: 12),
+          child: contents(sheetContext),
+        ),
+      );
+    } else {
+      chosen = await showDialog<TimetablePlacedBlock>(
+        context: context,
+        builder: (dialogContext) => AppDialogFrame(
+          maxWidth: 440,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(dialogContext).height * .85,
+            ),
+            child: contents(dialogContext),
+          ),
+        ),
+      );
+    }
+    if (mounted && chosen != null) widget.onOpen(chosen);
+  }
+
   @override
   Widget build(BuildContext context) {
     final all = widget.variants;
@@ -847,7 +886,8 @@ class _TimetableStackState extends State<_TimetableStack> {
               block.course.id,
               brightness: Theme.of(context).brightness,
             ),
-            onTap: () => widget.onOpen(block),
+            onTap: () =>
+                multiple ? _showVariants(context) : widget.onOpen(block),
           ),
         ),
         if (multiple)
@@ -888,9 +928,9 @@ class _CourseBlockChip extends StatelessWidget {
     final p = AppPalette.of(context);
     final scaler = MediaQuery.textScalerOf(context);
     final titleStyle = Theme.of(context).textTheme.titleSmall!.copyWith(
-      fontSize: touch ? 11 : 13,
+      fontSize: touch ? 12 : 14,
       fontWeight: FontWeight.w600,
-      color: p.ink,
+      color: tint.ink,
       height: 1.4,
       letterSpacing: 0,
     );
@@ -917,75 +957,147 @@ class _CourseBlockChip extends StatelessWidget {
         hoverColor: Color.alphaBlend(p.hoverOverlay, tint.fill),
         pressedColor: Color.lerp(tint.fill, p.ink, p.isDark ? .10 : .08),
         borderRadius: BorderRadius.circular(AppRadii.control),
-        outlined: false,
+        outlined: true,
+        borderColor: tint.rim,
         onTap: onTap,
         child: ExcludeSemantics(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              touch ? 6 : 10,
-              compact ? (touch ? 2 : 4) : (touch ? 6 : 8),
-              touch ? 6 : 10,
-              compact ? (touch ? 2 : 4) : (touch ? 6 : 8),
-            ),
-            child: LayoutBuilder(
-              builder: (context, bounds) {
-                final showFooter =
-                    footer.isNotEmpty &&
-                    bounds.maxHeight >= titleH + metaH + (compact ? 0 : 6);
-                final showClass =
-                    _separateClassLabel(c) != null &&
-                    bounds.maxHeight >=
-                        titleH * 2 + metaH * (showFooter ? 2 : 1) + 12;
-                final showWeeks =
-                    week != null && bounds.maxHeight >= titleH + metaH * 2 + 14;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Flexible(
-                            child: Padding(
-                              padding: EdgeInsets.only(right: controlInset),
-                              child: AppTruncatedText(
-                                c.title.trim().isEmpty ? '未命名课程' : c.title,
-                                style: titleStyle,
-                              ),
-                            ),
-                          ),
-                          if (showClass) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              _separateClassLabel(c)!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: metaStyle,
-                            ),
-                          ],
-                        ],
-                      ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (!touch)
+                Positioned(
+                  left: 6,
+                  top: 10,
+                  bottom: 10,
+                  width: 3,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: tint.accent,
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                    if (showWeeks) ...[
-                      const SizedBox(height: 4),
-                      AppTruncatedText(week, style: metaStyle),
-                    ],
-                    if (showFooter) ...[
-                      SizedBox(height: footerGap),
-                      Text(
-                        footer,
-                        maxLines: 1,
-                        softWrap: false,
-                        overflow: TextOverflow.ellipsis,
-                        style: metaStyle,
-                      ),
-                    ],
-                  ],
-                );
-              },
-            ),
+                  ),
+                ),
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  touch ? 6 : 15,
+                  compact ? (touch ? 2 : 4) : (touch ? 6 : 8),
+                  touch ? 6 : 10,
+                  compact ? (touch ? 2 : 4) : (touch ? 6 : 8),
+                ),
+                child: LayoutBuilder(
+                  builder: (context, bounds) {
+                    final showFooter =
+                        footer.isNotEmpty &&
+                        bounds.maxHeight >= titleH + metaH + (compact ? 0 : 6);
+                    final showClass =
+                        _separateClassLabel(c) != null &&
+                        bounds.maxHeight >=
+                            titleH * 2 + metaH * (showFooter ? 2 : 1) + 12;
+                    final showWeeks =
+                        week != null &&
+                        bounds.maxHeight >= titleH + metaH * 2 + 14;
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Flexible(
+                                child: Padding(
+                                  padding: EdgeInsets.only(right: controlInset),
+                                  child: AppTruncatedText(
+                                    c.title.trim().isEmpty ? '未命名课程' : c.title,
+                                    style: titleStyle,
+                                  ),
+                                ),
+                              ),
+                              if (showClass) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  _separateClassLabel(c)!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: metaStyle,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (showWeeks) ...[
+                          const SizedBox(height: 4),
+                          AppTruncatedText(week, style: metaStyle),
+                        ],
+                        if (showFooter) ...[
+                          SizedBox(height: footerGap),
+                          Text(
+                            footer,
+                            maxLines: 1,
+                            softWrap: false,
+                            overflow: TextOverflow.ellipsis,
+                            style: metaStyle,
+                          ),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _TimetableDayHeading extends StatelessWidget {
+  const _TimetableDayHeading({
+    required this.day,
+    required this.date,
+    required this.isToday,
+    required this.inline,
+  });
+  final int day;
+  final DateTime? date;
+  final bool isToday, inline;
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: isToday
+          ? BoxDecoration(
+              color: p.accentSoft,
+              border: Border.all(color: p.accentRim),
+              borderRadius: BorderRadius.circular(AppRadii.card),
+            )
+          : null,
+      child: Flex(
+        direction: inline ? Axis.horizontal : Axis.vertical,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            weekdayLabel(day),
+            style: AppTypography.control.copyWith(
+              fontSize: AppDensity.isTouch(context) ? 12 : 13,
+              fontWeight: isToday ? FontWeight.w600 : FontWeight.w500,
+              color: isToday ? p.primary : p.ink,
+            ),
+          ),
+          if (date != null) ...[
+            SizedBox(width: inline ? 8 : 0, height: inline ? 0 : AppSpace.xxs),
+            Text(
+              '${date!.month}/${date!.day}',
+              key: ValueKey('timetable-date-$day'),
+              style: AppTypography.caption.copyWith(
+                color: isToday ? p.primary : p.muted,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

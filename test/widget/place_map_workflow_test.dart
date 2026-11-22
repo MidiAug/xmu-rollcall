@@ -863,7 +863,7 @@ void main() {
         tester
             .getSize(find.byKey(const ValueKey('course-location-map-link')))
             .height,
-        lessThan(40),
+        greaterThanOrEqualTo(44),
       );
       await tester.tap(find.byKey(const ValueKey('course-location-map-link')));
       await tester.pump();

@@ -1,3 +1,4 @@
+import '../fixtures/desktop_ui_capture.dart';
 import '../fixtures/preview_fonts.dart';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -9,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/features/location/location_providers.dart';
+import 'package:xmu_rollcall/features/location/campus_map.dart';
 import 'package:xmu_rollcall/features/location/map_pick_panel.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
@@ -160,6 +162,7 @@ class _DesktopFrame extends StatelessWidget {
 }
 
 void main() {
+  initializeDesktopUiCapture();
   setUp(() => SharedPreferences.setMockInitialValues({}));
   setUpAll(() async {
     await loadDesktopPreviewFonts();
@@ -230,6 +233,105 @@ void main() {
         expect(tester.takeException(), isNull);
       },
     );
+  }
+
+  for (final width in [320.0, 960.0]) {
+    for (final dark in [false, true]) {
+      testWidgets(
+        'stack chooser opens actual course detail $width dark=$dark',
+        (tester) async {
+          tester.view.physicalSize = Size(width, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          final choices = [
+            for (var n = 0; n < 2; n++)
+              CatalogCourse(
+                id: 'academic:stack-$n',
+                title: n == 0 ? '第一门课程的完整长名称' : '第二门课程',
+                location: '教学楼 A10$n',
+                instructorNames: const ['陈老师'],
+                timetables: {
+                  1: [
+                    TimetableSlot(
+                      sequence: 1,
+                      endSequence: 2,
+                      start: DateTime(2000, 1, 3, 8),
+                      end: DateTime(2000, 1, 3, 9, 40),
+                      dates: {n == 0 ? '2026-11-16' : '2026-11-23'},
+                      weekLabel: n == 0 ? '第11周' : '第12周',
+                    ),
+                  ],
+                },
+              ),
+          ];
+          await tester.pumpWidget(
+            ProviderScope(
+              child: RepaintBoundary(
+                key: const ValueKey('desktop-ui-capture'),
+                child: MaterialApp(
+                  debugShowCheckedModeBanner: false,
+                  theme: dark ? AppTheme.dark() : AppTheme.light(),
+                  home: Scaffold(
+                    body: TimetableGridView(
+                      courses: choices,
+                      referenceDate: DateTime(2026, 11, 16),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('第一门课程的完整长名称'));
+          await tester.pumpAndSettle();
+          expect(find.text('同一时段的课程'), findsOneWidget);
+          expect(find.text('第二门课程'), findsOneWidget);
+          await captureDesktopUi(
+            tester,
+            'timetable-overlap-${width.toInt()}-$dark',
+          );
+          await tester.tap(find.text('第二门课程'));
+          await tester.pumpAndSettle();
+          expect(find.byTooltip('关闭课程详情'), findsOneWidget);
+          expect(find.text('第12周'), findsOneWidget);
+          expect(
+            find.descendant(
+              of: find.byKey(const ValueKey('course-location-map-link')),
+              matching: find.text('教学楼 A101'),
+            ),
+            findsOneWidget,
+          );
+          await captureDesktopUi(
+            tester,
+            'timetable-detail-${width.toInt()}-$dark',
+          );
+          await tester.tap(
+            find.byKey(const ValueKey('course-location-map-link')),
+          );
+          await tester.pumpAndSettle();
+          expect(find.byType(CampusMap), findsOneWidget);
+          expect(
+            tester.getSize(find.byType(MapAttributionFooter)).height,
+            greaterThanOrEqualTo(34),
+          );
+          await captureDesktopUi(
+            tester,
+            'timetable-map-${width.toInt()}-$dark',
+          );
+          await tester.tap(find.byTooltip('返回课程'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('关闭课程详情'));
+          await tester.pumpAndSettle();
+          expect(find.byTooltip('切换课次（1/2）'), findsOneWidget);
+          await tester.tap(find.byTooltip('切换课次（1/2）'));
+          await tester.pumpAndSettle();
+          expect(find.byTooltip('切换课次（2/2）'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox());
+        },
+      );
+    }
   }
 
   testWidgets('week header dates cross a year boundary without marking today', (

@@ -57,6 +57,8 @@ class AppPalette {
   // Decorative/disabled details only; readable metadata uses muted.
   Color get subtle =>
       isDark ? const Color(0xFF8995AC) : const Color(0xFF8691A5);
+  Color get insetSurface =>
+      isDark ? const Color(0xFF202630) : const Color(0xFFF6F8FB);
   Color get surfaceRim => border;
   Color get divider =>
       isDark ? const Color(0xFF343A47) : const Color(0xFFECEFF5);
@@ -409,4 +411,30 @@ abstract final class AppLayout {
   /// Initial desktop size; native resize is bounded by [minimumWindowSize].
   static const Size windowSize = Size(1120, 780);
   static const Size minimumWindowSize = Size(900, 640);
+}
+
+/// Stable course identity hues; surfaces pair each hue with theme-aware ink.
+abstract final class AppCourseColors {
+  static const accents = <Color>[
+    Color(0xFFE86A8A), // rose
+    Color(0xFF8B7CF6), // lavender
+    Color(0xFFF09A4A), // apricot
+    Color(0xFF5BA8E0), // sky
+    Color(0xFF5CB89A), // mint
+    Color(0xFFD4A017), // gold
+    Color(0xFFC77DCF), // orchid
+    Color(0xFF6B9BD1), // soft blue
+    Color(0xFFE07A5F), // coral
+    Color(0xFF4DB6A0), // teal
+    Color(0xFFB07CC6), // lilac
+    Color(0xFF7EB56A), // leaf
+    Color(0xFFE8A0B0), // blush
+    Color(0xFF5C8AD6), // cornflower
+    Color(0xFFD4925A), // sand
+    Color(0xFF6CB5C9), // aqua
+    Color(0xFFC96B8A), // raspberry
+    Color(0xFF8A9AE0), // periwinkle
+    Color(0xFFC9A227), // mustard
+    Color(0xFF6AAB8E), // sage
+  ];
 }

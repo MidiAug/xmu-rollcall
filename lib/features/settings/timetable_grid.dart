@@ -44,32 +44,17 @@ class TimetableAxisRow {
 }
 
 /// Stable course identity hues, shared by light and dark surfaces.
-const kTimetableCourseAccents = <Color>[
-  Color(0xFFE86A8A), // rose
-  Color(0xFF8B7CF6), // lavender
-  Color(0xFFF09A4A), // apricot
-  Color(0xFF5BA8E0), // sky
-  Color(0xFF5CB89A), // mint
-  Color(0xFFD4A017), // gold
-  Color(0xFFC77DCF), // orchid
-  Color(0xFF6B9BD1), // soft blue
-  Color(0xFFE07A5F), // coral
-  Color(0xFF4DB6A0), // teal
-  Color(0xFFB07CC6), // lilac
-  Color(0xFF7EB56A), // leaf
-  Color(0xFFE8A0B0), // blush
-  Color(0xFF5C8AD6), // cornflower
-  Color(0xFFD4925A), // sand
-  Color(0xFF6CB5C9), // aqua
-  Color(0xFFC96B8A), // raspberry
-  Color(0xFF8A9AE0), // periwinkle
-  Color(0xFFC9A227), // mustard
-  Color(0xFF6AAB8E), // sage
-];
+const kTimetableCourseAccents = AppCourseColors.accents;
 
 /// Fill + ink for one course (same id → same pair).
 class TimetableCourseTint {
-  const TimetableCourseTint({required this.fill, required this.ink});
+  const TimetableCourseTint({
+    required this.fill,
+    required this.ink,
+    required this.accent,
+    required this.rim,
+  });
+  final Color accent, rim;
 
   /// Soft pastel block background.
   final Color fill;
@@ -96,10 +81,15 @@ TimetableCourseTint timetableTintForCourseId(
   )!;
   final ink = Color.lerp(
     accent,
-    dark ? const Color(0xFFFFFFFF) : const Color(0xFF18181B),
+    dark ? AppPalette.darkPalette.ink : AppPalette.lightPalette.ink,
     dark ? 0.60 : 0.48,
   )!;
-  return TimetableCourseTint(fill: fill, ink: ink);
+  return TimetableCourseTint(
+    fill: fill,
+    ink: ink,
+    accent: Color.lerp(accent, ink, .65)!,
+    rim: Color.lerp(fill, ink, dark ? .35 : .18)!,
+  );
 }
 
 /// Default Mon–Fri; append Sat/Sun only when any course has slots that day.
