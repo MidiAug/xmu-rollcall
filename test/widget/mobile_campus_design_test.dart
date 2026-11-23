@@ -22,10 +22,18 @@ import 'package:xmu_rollcall/features/rollcall/mobile_rollcall_home.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account_menu.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
+import 'package:xmu_rollcall/features/rollcall/attendance_count.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 import '../fixtures/preview_fonts.dart';
 
 class _Repo extends Fake implements AuthRepository {}
+
+class _Attendance extends Fake implements RollcallRepository {
+  @override
+  Future<AttendanceCount> fetchAttendanceCount(int id, {String? opId}) async =>
+      const AttendanceCount(36, 48);
+}
 
 class _Auth extends AuthController {
   _Auth() : super(_Repo()) {
@@ -127,6 +135,9 @@ void main() {
             overrides: [
               authControllerProvider.overrideWith((ref) => _Auth()),
               activeRollcallsProvider.overrideWith(_Lists.new),
+              rollcallRepositoryForProvider(
+                null,
+              ).overrideWithValue(_Attendance()),
               selectedDetectionWindowProvider.overrideWith(
                 (ref) async => const DetectionWindow(enabled: false),
               ),
