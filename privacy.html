@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>账号与数据说明｜厦大签到第三方开源项目</title><meta name="description" content="了解 MidiAug 独立维护的厦大签到网站与客户端的数据边界、学校登录、设备凭据存储、协助身份、更新下载和问题反馈。">
+<link rel="canonical" href="https://midiaug.github.io/xmu-rollcall/privacy.html">
+<meta property="og:type" content="website"><meta property="og:locale" content="zh_CN">
+<meta property="og:title" content="账号与数据说明｜厦大签到第三方开源项目">
+<meta property="og:description" content="了解 MidiAug 独立维护的厦大签到网站与客户端的数据边界、学校登录、设备凭据存储、协助身份、更新下载和问题反馈。">
+<meta property="og:url" content="https://midiaug.github.io/xmu-rollcall/privacy.html">
+<meta property="og:image" content="https://midiaug.github.io/xmu-rollcall/assets/windows-rollcall.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#ffffff"><link rel="icon" href="assets/app_icon.png">
+<link rel="stylesheet" href="assets/style.css"></head><body>
+<a class="skip" href="#main">跳到正文</a>
+<header><div class="nav wrap"><a class="brand" href="index.html"><img src="assets/app_icon.png" width="32" height="32" alt="">厦大签到</a><nav aria-label="主导航"><a href="index.html">概览</a><a href="install.html">安装</a><a href="faq.html">常见问题</a><a class="nav-source" href="https://github.com/MidiAug/xmu-rollcall">GitHub</a></nav></div></header>
+<div class="identity-bar">MidiAug 第三方开源项目，非学校官方应用。<a href="privacy.html">账号与数据说明</a></div>
+<main id="main"><article class="article"><p class="eyebrow">账号与数据说明</p><h1>知道数据去哪，<br>再决定使用。</h1><p class="lead">厦大签到是 MidiAug 独立维护的第三方开源项目，与厦门大学及 TronClass 官方无隶属关系。以下区分介绍网站与已安装客户端。</p>
+<section><h2>这个网站做什么？</h2><p>本站提供功能介绍、界面预览和安装指引，不提供校园账号登录、密码输入、凭证上传或在线签到。本站没有配置统计脚本、广告、外部字体服务或业务追踪 Cookie，正文无需 JavaScript 即可阅读。</p><p>网站由 GitHub Pages 托管。访问会向托管服务发送正常的网络请求，相关基础设施数据处理适用 <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub 隐私声明</a>。打开 GitHub 发布页、源码或 Issues 后，进入的是 GitHub 服务。</p></section>
+<section><h2>客户端怎样登录？</h2><p>客户端使用学校统一身份认证账号，连接学校认证与畅课服务完成登录和业务访问。可在<a href="https://github.com/MidiAug/xmu-rollcall">源代码</a>中核对实现；本项目不代表学校提供认证服务。请仅在确认来源的客户端内操作，不在介绍网站或反馈区输入校园密码。</p><p>账号凭据和令牌使用设备上的系统安全存储，课程、作业、成绩等业务缓存保存在本机。业务缓存与凭据分别管理，请妥善保管设备。</p></section>
+<section><h2>多身份、缓存与退出登录</h2><p>主账号与各协助身份使用独立会话、缓存和检测配置。协助功能可能主动导入、导出身份凭证包，只应在双方知情同意的可信设备之间使用，不要公开分享或上传到 Issues、聊天群或网页。</p><p>退出登录会清除主号凭据，课程等缓存默认保留。共用或转交设备前，请同时检查协助身份和本机数据，在应用“我的 → 数据与诊断”等对应入口管理缓存与账号；转交设备前可分别清理。</p></section>
+<section><h2>位置、相机与校园网页</h2><p>雷达签到涉及课程位置，二维码识别可能使用相机或桌面图像；提交的信息用于学校畅课业务。请核对权限和位置，确认提交影响。校园地图使用公开地图瓦片，并在本机按需缓存已浏览内容。</p><p>Windows 可通过隔离的内置网页或系统浏览器打开校园网站，目标网站有各自的数据处理规则。各网站按自身规则处理登录状态。</p></section>
+<section><h2>更新与下载</h2><p>应用从项目 GitHub 正式发布读取公开更新信息和安装包，核对文件大小及 SHA-256；检查和下载安装包不需要校园账号。Windows 发现更新后可后台下载并校验，安装仍需确认。主动选择下载加速线路时，第三方节点会参与公开安装包传输；校验清单来自 GitHub。</p><p>Android 使用项目固定签名；Windows 当前没有 Authenticode 发布者签名。来源或安全提示无法确认时，请暂停安装并反馈。</p></section>
+<section><h2>怎样反馈而不泄露信息？</h2><p>在 <a href="https://github.com/MidiAug/xmu-rollcall/issues">GitHub Issues</a> 提供系统和应用版本、操作步骤及脱敏截图。导出诊断日志后先检查内容，不要提交密码、Cookie、Token、身份凭证包或他人的个人数据。维护者资料见 <a href="https://github.com/MidiAug">MidiAug GitHub 主页</a>。</p><p>此说明随项目功能与数据处理方式同步更新。</p></section></article>
+</main>
+<footer><div class="wrap"><div class="footer-inner"><span>厦大签到 / xmu-rollcall</span><div class="footer-links"><a href="privacy.html">账号与数据</a><a href="https://github.com/MidiAug/xmu-rollcall/blob/main/LICENSE">MIT 许可</a><a href="https://github.com/MidiAug/xmu-rollcall/issues">反馈问题</a></div></div><p class="footer-note">由 <a href="https://github.com/MidiAug">MidiAug</a> 独立维护，与厦门大学及 TronClass 官方无隶属关系。本站不提供校园账号登录或凭证上传。请遵守学校规定。</p></div></footer>
+</body></html>
