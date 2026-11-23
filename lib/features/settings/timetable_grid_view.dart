@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/app/app_settings_glyph.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/location/course_location_setting.dart';
@@ -631,9 +632,9 @@ class _CourseDetail extends StatelessWidget {
     final p = AppPalette.of(context);
     final hasLocation = c.location?.isNotEmpty == true;
     final canOpenMap = hasLocation && onMap != null;
-    Widget value(String label, String value, {required IconData icon, bool singleLine = false}) => SettingsRow(
+    Widget value(String label, String value, {required AppSettingsGlyphKind glyph, bool singleLine = false}) => SettingsRow(
       title: label,
-      leading: Icon(icon),
+      leading: AppSettingsGlyph(glyph),
       trailing: Expanded(
         child: singleLine
             ? AppTruncatedText(
@@ -695,11 +696,11 @@ class _CourseDetail extends StatelessWidget {
             hasLeading: true,
             children: [
               if (c.instructorsLabel.isNotEmpty)
-                value('教师', c.instructorsLabel, icon: AppIcons.person, singleLine: true),
+                value('教师', c.instructorsLabel, glyph: AppSettingsGlyphKind.user, singleLine: true),
               SettingsRow(
                 key: const ValueKey('course-location-map-link'),
                 title: '地点',
-                leading: const Icon(AppIcons.location),
+                leading: const AppSettingsGlyph(AppSettingsGlyphKind.mapPin),
                 onTap: canOpenMap ? onMap : null,
                 trailing: Expanded(
                   child: Row(
@@ -730,10 +731,10 @@ class _CourseDetail extends StatelessWidget {
               value(
                 '上课时间',
                 '${weekdayLabel(block.weekday)} ${block.block.sectionLabel}\n${formatHm(block.block.coreStart)}–${formatHm(block.block.coreEnd)}',
-                icon: AppIcons.clock,
+                glyph: AppSettingsGlyphKind.clock,
               ),
               if (block.weekLabel != null)
-                value('教学周', block.weekLabel!, icon: AppIcons.calendar),
+                value('教学周', block.weekLabel!, glyph: AppSettingsGlyphKind.calendar),
             ],
           ),
           if (!c.id.startsWith('academic:')) ...[

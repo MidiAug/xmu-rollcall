@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xmu_rollcall/app/app_settings_glyph.dart';
 import 'package:xmu_rollcall/features/location/location_providers.dart';
 import 'package:xmu_rollcall/features/location/campus_map.dart';
 import 'package:xmu_rollcall/features/location/map_pick_panel.dart';
@@ -812,11 +813,12 @@ void main() {
       await tester.tap(find.text('多教师课程'));
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(AppIcons.person), findsWidgets);
-      expect(find.byIcon(AppIcons.location), findsWidgets);
-      expect(find.byIcon(AppIcons.clock), findsWidgets);
-      // block.weekLabel is null in this test slot, so calendar icon is not rendered.
-      expect(find.byIcon(AppIcons.calendar), findsNothing);
+      expect(find.byType(AppSettingsGlyph), findsWidgets);
+      expect(find.byWidgetPredicate((w) => w is AppSettingsGlyph && w.kind == AppSettingsGlyphKind.user), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is AppSettingsGlyph && w.kind == AppSettingsGlyphKind.mapPin), findsOneWidget);
+      expect(find.byWidgetPredicate((w) => w is AppSettingsGlyph && w.kind == AppSettingsGlyphKind.clock), findsOneWidget);
+      // block.weekLabel is null in this test slot, so calendar glyph is not rendered.
+      expect(find.byWidgetPredicate((w) => w is AppSettingsGlyph && w.kind == AppSettingsGlyphKind.calendar), findsNothing);
 
       final instructorTextFinder = find.text('王程、臧彧、温程璐、沈思琪、范晓亮、陈老师、李老师');
       expect(instructorTextFinder, findsOneWidget);

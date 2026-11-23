@@ -24,6 +24,7 @@ enum AppSettingsGlyphKind {
   trayUp,
   refreshCw,
   code,
+  clock,
 }
 
 /// Crisp 24x24 geometric outline glyphs for settings and assist rows.
@@ -527,6 +528,11 @@ class _AppSettingsGlyphPainter extends CustomPainter {
           ..lineTo(19.8 * s, 12.0 * s)
           ..lineTo(16.0 * s, 15.8 * s);
         canvas.drawPath(rightBracket, paint);
+
+      case AppSettingsGlyphKind.clock:
+        canvas.drawCircle(Offset(12 * s, 12 * s), 9.0 * s, paint);
+        canvas.drawLine(Offset(12 * s, 7.2 * s), Offset(12 * s, 12 * s), paint);
+        canvas.drawLine(Offset(12 * s, 12 * s), Offset(15.2 * s, 13.8 * s), paint);
     }
   }
 
