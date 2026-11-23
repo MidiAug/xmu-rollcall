@@ -17,4 +17,4 @@ pwsh -File scripts/capture-readme.ps1
 | `android-homework.png`、`android-homework-dark.png`、`windows-homework.png` | `readme_preview_test.dart`，HomeworkHubPage；手机 390 × 844、桌面 1120 × 780 |
 | `windows-gpa.png` | `gpa_page_test.dart`，GpaPage，960 × 1000 |
 
-提交前逐张实看：没有真实身份或凭据，没有加载中/错误占位、调试横幅或失焦菜单；文案、导航、功能范围与当前源码一致。截图中的历史日期和测试课程是演示数据，不代表在线业务状态。新功能说明以 [功能状态](../../docs/FEATURE_TRACKING.md) 为准。
+提交前逐张实看：没有真实身份或凭据，没有加载中/错误占位、调试横幅或失焦菜单；文案、导航、功能范围与当前源码一致。截图中的历史日期和测试课程是演示数据，不代表在线业务状态。功能范围与版本变化以根目录 [README](../../README.md) 和 [CHANGELOG](../../CHANGELOG.md) 为准。
