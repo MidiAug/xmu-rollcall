@@ -21,7 +21,7 @@ Android / Windows　第三方开源项目，非学校官方应用。
 
 ## 界面预览
 
-以下图片由当前 Flutter 页面与虚构数据渲染，包含浅色、深色及手机布局，不含真实账号信息。它们用于展示页面，不代替 Android 真机、系统通知或真实课堂验收。点击图片查看大图。[预览生成方式](assets/screenshots/README.md)
+以下图片使用当前 Flutter 页面与演示数据。手机作业图在 Android 15 模拟器原生运行后截取，保留系统状态栏；其他图片为页面组件渲染，不含真实账号信息。点击图片查看大图。[预览生成方式](assets/screenshots/README.md)
 
 ### Windows
 
@@ -56,14 +56,14 @@ Android / Windows　第三方开源项目，非学校官方应用。
   <tr>
     <td align="center"><img src="assets/screenshots/android-rollcall.png" width="240" alt="手机雷达签到页，显示已签到人数与选择位置操作" /></td>
     <td align="center"><img src="assets/screenshots/android-rollcall-dark.png" width="240" alt="手机深色模式，显示签到完成与今日课程" /></td>
-    <td align="center"><img src="assets/screenshots/android-homework.png" width="240" alt="手机作业列表，显示进行中、已截止、提交状态和分数" /></td>
+    <td align="center"><img src="assets/screenshots/android-homework-native.png" width="240" alt="手机作业列表，显示进行中、已截止、提交状态和分数" /></td>
   </tr>
 </table>
 
 <details>
 <summary>查看深色作业页</summary>
 
-<img src="assets/screenshots/android-homework-dark.png" width="300" alt="深色模式作业页面" />
+<img src="assets/screenshots/android-homework-native-dark.png" width="300" alt="深色模式作业页面" />
 
 </details>
 
