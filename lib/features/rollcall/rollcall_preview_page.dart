@@ -461,7 +461,7 @@ class _RollcallPreviewContentState
                       },
                     ),
                   ),
-                  IconButton(
+                  AppIconButton(
                     tooltip: '重放场景',
                     onPressed: () {
                       controller.selectScenario(scenario);
@@ -470,7 +470,7 @@ class _RollcallPreviewContentState
                     },
                     icon: const Icon(AppIcons.refresh),
                   ),
-                  IconButton(
+                  AppIconButton(
                     tooltip: '复制模拟二维码',
                     onPressed: () async {
                       await Clipboard.setData(

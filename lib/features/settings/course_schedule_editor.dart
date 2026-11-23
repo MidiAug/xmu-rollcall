@@ -411,7 +411,7 @@ class _CourseScheduleEditorState extends ConsumerState<CourseScheduleEditor> {
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
-              IconButton(
+              AppIconButton(
                 tooltip: '删除本次安排',
                 visualDensity: VisualDensity.compact,
                 onPressed: _saving

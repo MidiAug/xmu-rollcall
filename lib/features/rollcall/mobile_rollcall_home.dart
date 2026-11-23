@@ -81,13 +81,10 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
     return SizedBox(
       width: android ? 44 : null,
       height: android ? 48 : null,
-      child: IconButton(
+      child: AppIconButton(
         tooltip: label,
         alignment: android ? Alignment.topRight : Alignment.center,
         padding: android ? const EdgeInsets.only(top: 4) : null,
-        constraints: android
-            ? const BoxConstraints.tightFor(width: 44, height: 48)
-            : null,
         onPressed: action,
         icon: Icon(icon, color: android ? p.muted : p.ink, size: 23),
       ),

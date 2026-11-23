@@ -867,12 +867,10 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
                                     ],
                                   ),
                                 ),
-                                IconButton(
+                                AppSheetCloseButton(
                                   tooltip: '取消',
-                                  onPressed: _submitting
-                                      ? null
-                                      : () => Navigator.pop(context),
-                                  icon: const Icon(AppIcons.close, size: 20),
+                                  enabled: !_submitting,
+                                  onPressed: () => Navigator.pop(context),
                                 ),
                               ],
                             ),
@@ -996,13 +994,9 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      IconButton(
+                      AppIconButton(
                         tooltip: _locating ? '定位中…' : '当前位置',
-                        color: p.muted,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 44,
-                          height: 44,
-                        ),
+                        extent: 44,
                         onPressed: _submitting || _locating
                             ? null
                             : _useSystemLocation,
@@ -1013,17 +1007,13 @@ class _RollcallAnswerPageState extends ConsumerState<RollcallAnswerPage> {
                                   strokeWidth: 2,
                                 ),
                               )
-                            : const Icon(AppIcons.location, size: 20),
+                            : Icon(AppIcons.location, size: 20, color: p.muted),
                       ),
-                      IconButton(
+                      AppIconButton(
                         tooltip: '已保存地点',
-                        color: p.muted,
-                        constraints: const BoxConstraints.tightFor(
-                          width: 44,
-                          height: 44,
-                        ),
+                        extent: 44,
                         onPressed: _submitting ? null : _usePreset,
-                        icon: const Icon(AppIcons.bookmark, size: 20),
+                        icon: Icon(AppIcons.bookmark, size: 20, color: p.muted),
                       ),
                     ],
                   ),

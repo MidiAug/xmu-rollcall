@@ -327,9 +327,10 @@ class AppMobileNav extends StatelessWidget {
                 SizedBox(
                   width: 60,
                   height: 60,
-                  child: IconButton(
+                  child: AppIconButton(
                     key: const ValueKey('global-search-button'),
                     tooltip: '搜索',
+                    extent: 60,
                     onPressed: onSearch,
                     icon: Icon(AppIcons.search, size: 25, color: p.ink),
                   ),

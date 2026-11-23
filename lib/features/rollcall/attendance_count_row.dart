@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -408,42 +409,21 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
   }
 
   Widget _pauseButton(AppPalette p, {required bool compact}) {
-    final width = compact
-        ? 24.0
-        : AppDensity.isTouch(context)
-        ? 44.0
-        : 28.0;
-    final height = compact
+    final extent = compact
         ? 28.0
         : AppDensity.isTouch(context)
         ? 44.0
         : 28.0;
-    return IconButton(
+    return AppIconButton(
       tooltip: _manuallyPaused ? '继续刷新人数' : '暂停刷新人数',
+      extent: extent,
+      padding: EdgeInsets.zero,
       onPressed: _togglePause,
-      icon: Icon(_manuallyPaused ? AppIcons.play : AppIcons.pause),
-      iconSize: compact ? 13 : 16,
-      style:
-          IconButton.styleFrom(
-            minimumSize: Size(width, height),
-            maximumSize: Size(width, height),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            padding: EdgeInsets.zero,
-            hoverColor: Colors.transparent,
-            highlightColor: Colors.transparent,
-            focusColor: p.primary.withValues(alpha: .08),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
-            ),
-          ).copyWith(
-            foregroundColor: WidgetStateProperty.resolveWith(
-              (states) =>
-                  states.contains(WidgetState.hovered) ||
-                      states.contains(WidgetState.focused)
-                  ? p.primary
-                  : p.muted,
-            ),
-          ),
+      icon: Icon(
+        _manuallyPaused ? AppIcons.play : AppIcons.pause,
+        size: compact ? 13 : 16,
+        color: p.muted,
+      ),
     );
   }
 }

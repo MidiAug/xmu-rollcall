@@ -122,37 +122,27 @@ class _CampusMapState extends State<CampusMap> {
       message: tooltip == label ? '' : tooltip ?? '放大查看$label区域',
       child: Semantics(
         selected: selected,
-        child: Material(
-          color: selected ? p.primary : p.surface,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-            side: BorderSide(color: p.primary.withValues(alpha: .35)),
-          ),
-          child: InkWell(
-            onTap: onTap,
-            // Lift toward theme ink: white over a blue selection would lower
-            // white-label contrast, while dark-theme ink lifts the pale accent.
-            focusColor: selected ? p.ink.withValues(alpha: .12) : null,
-            borderRadius: BorderRadius.circular(18),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 9),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(AppIcons.location, size: 15, color: foreground),
-                  const SizedBox(width: 4),
-                  Flexible(
-                    child: AppTruncatedText(
-                      label,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: foreground,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+        child: AppHoverSurface(
+          onTap: onTap,
+          backgroundColor: selected ? p.primary : p.surface,
+          borderColor: p.primary.withValues(alpha: .35),
+          borderRadius: BorderRadius.circular(18),
+          padding: const EdgeInsets.symmetric(horizontal: 9),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(AppIcons.location, size: 15, color: foreground),
+              const SizedBox(width: 4),
+              Flexible(
+                child: AppTruncatedText(
+                  label,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: foreground,
+                    fontWeight: FontWeight.w600,
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -305,21 +295,20 @@ class _CampusMapState extends State<CampusMap> {
                               )
                             : Tooltip(
                                 message: place.note,
-                                child: IconButton(
-                                  style: IconButton.styleFrom(
-                                    backgroundColor: p.surface,
-                                    side: BorderSide(
-                                      color: p.primary.withValues(alpha: .3),
-                                    ),
-                                  ),
+                                child: AppHoverSurface(
+                                  onTap: () => widget.onPlace?.call(place),
+                                  backgroundColor: p.surface,
+                                  borderColor: p.primary.withValues(alpha: .3),
+                                  borderRadius: BorderRadius.circular(18),
                                   padding: EdgeInsets.zero,
-                                  onPressed: () => widget.onPlace?.call(place),
-                                  icon: Icon(
-                                    place.id.startsWith('xmu:')
-                                        ? AppIcons.building
-                                        : AppIcons.location,
-                                    size: 18,
-                                    color: p.primary,
+                                  child: Center(
+                                    child: Icon(
+                                      place.id.startsWith('xmu:')
+                                          ? AppIcons.building
+                                          : AppIcons.location,
+                                      size: 18,
+                                      color: p.primary,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -473,8 +462,9 @@ class _MapAttributionControlsState extends State<MapAttributionControls> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                IconButton(
+                AppIconButton(
                   tooltip: 'flutter_map',
+                  extent: 34,
                   onPressed: () => setState(() => _open = !_open),
                   icon: Image.asset(
                     'lib/assets/flutter_map_logo.png',
@@ -482,22 +472,15 @@ class _MapAttributionControlsState extends State<MapAttributionControls> {
                     width: 22,
                     height: 22,
                   ),
-                  style: IconButton.styleFrom(
-                    minimumSize: const Size(34, 34),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
                 ),
-                IconButton(
+                AppIconButton(
                   tooltip: _open ? '收起地图来源' : '地图来源',
+                  extent: 34,
                   onPressed: () => setState(() => _open = !_open),
                   icon: Icon(
                     _open ? AppIcons.close : AppIcons.info,
                     size: 19,
                     color: p.muted,
-                  ),
-                  style: IconButton.styleFrom(
-                    minimumSize: const Size(34, 34),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                 ),
               ],

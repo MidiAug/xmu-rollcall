@@ -325,7 +325,7 @@ class _AssistPollQuickBarState extends State<_AssistPollQuickBar> {
             ),
           ),
           const SizedBox(width: 4),
-          IconButton(
+          AppIconButton(
             tooltip: '停止检测',
             visualDensity: VisualDensity.compact,
             onPressed: m.stop,

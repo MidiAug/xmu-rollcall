@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:window_manager/window_manager.dart';
 import 'package:zxing2/qrcode.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/platform/desktop_qr_scanner.dart';
 
@@ -86,10 +87,9 @@ class _DesktopQrPreviewPageState extends State<DesktopQrPreviewPage> {
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                 ),
-                IconButton(
+                AppSheetCloseButton(
                   tooltip: '关闭预览',
                   onPressed: () => windowManager.close(),
-                  icon: const Icon(Icons.close, size: 19),
                 ),
               ],
             ),

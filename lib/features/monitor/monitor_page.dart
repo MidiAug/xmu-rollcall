@@ -286,24 +286,18 @@ class _NumberControl extends StatelessWidget {
     final p = AppPalette.of(context);
     final target = AppDensity.isTouch(context) ? 44.0 : 36.0;
     final valueLabel = unit == '%' ? '$value%' : '$value $unit';
-    Widget button({required bool increase}) => SizedBox.square(
-      dimension: target,
-      child: IconButton(
-        tooltip: '${increase ? '增加' : '减少'}$label',
-        onPressed: onChanged != null && (increase ? value < max : value > min)
-            ? () => onChanged!(
-                (value + (increase ? step : -step)).clamp(min, max),
-              )
-            : null,
-        padding: EdgeInsets.zero,
-        style: IconButton.styleFrom(
-          minimumSize: Size.zero,
-          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        ),
-        icon: Icon(
-          increase ? Icons.add_rounded : Icons.remove_rounded,
-          size: 17,
-        ),
+    Widget button({required bool increase}) => AppIconButton(
+      tooltip: '${increase ? '增加' : '减少'}$label',
+      extent: target,
+      padding: EdgeInsets.zero,
+      onPressed: onChanged != null && (increase ? value < max : value > min)
+          ? () => onChanged!(
+              (value + (increase ? step : -step)).clamp(min, max),
+            )
+          : null,
+      icon: Icon(
+        increase ? Icons.add_rounded : Icons.remove_rounded,
+        size: 17,
       ),
     );
     return Semantics(

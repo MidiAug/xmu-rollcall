@@ -88,8 +88,8 @@ void main() {
       );
     });
 
-    test('forbids raw InkWell in lib/features outside legacy allowlist', () {
-      const allowlist = {'lib/features/location/campus_map.dart'};
+    test('forbids raw InkWell in lib/features', () {
+      const allowlist = <String>{};
       final files = _scanDartFiles(const ['lib/features']);
       expect(files, isNotEmpty);
       final inkWellPattern = RegExp(r'\bInkWell\s*\(');
@@ -145,19 +145,8 @@ void main() {
       },
     );
 
-    test('forbids raw IconButton in lib/features outside legacy allowlist', () {
-      const allowlist = {
-        'lib/features/assist/assist_rollcall_hub_page.dart',
-        'lib/features/location/campus_map.dart',
-        'lib/features/monitor/monitor_page.dart',
-        'lib/features/rollcall/attendance_count_row.dart',
-        'lib/features/rollcall/desktop_qr_preview.dart',
-        'lib/features/rollcall/desktop_qr_window.dart',
-        'lib/features/rollcall/mobile_rollcall_home.dart',
-        'lib/features/rollcall/rollcall_answer_page.dart',
-        'lib/features/rollcall/rollcall_preview_page.dart',
-        'lib/features/settings/course_schedule_editor.dart',
-      };
+    test('forbids raw IconButton in lib/features', () {
+      const allowlist = <String>{};
       final files = _scanDartFiles(const ['lib/features']);
       expect(files, isNotEmpty);
       final iconButtonPattern = RegExp(r'(?<!App)\bIconButton\s*\(');

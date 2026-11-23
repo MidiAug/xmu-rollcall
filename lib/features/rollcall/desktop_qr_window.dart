@@ -7,6 +7,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/rollcall/desktop_qr_decoder.dart';
@@ -398,7 +399,7 @@ class _DesktopQrScanWindowState extends State<DesktopQrScanWindow> {
                               ],
                             ),
                           ),
-                          IconButton(
+                          AppIconButton(
                             tooltip: '关闭扫码窗',
                             onPressed: () => _finish(null),
                             icon: Icon(

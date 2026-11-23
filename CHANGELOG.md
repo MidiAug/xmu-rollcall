@@ -25,6 +25,8 @@
 
 ### Changed
 
+- 清空业务层裸 `IconButton` 与裸 `InkWell` 静态门禁历史豁免清单，将签到、课表编辑、校园地图、值守设置及移动端全局搜索等剩余入口统一迁入 `AppIconButton`、`AppSheetCloseButton` 与 `AppHoverSurface`。
+
 - 完成文档分层整理与单跳入口收敛：新增 `docs/INDEX.md` 功能定位索引并统一规则入口，将 `docs/design/` 历史设计日志及根目录 `design-qa.md` 归档至 `docs/history/`，同步更新 `DESIGN.md`、`docs/design/COMPONENTS.md`、`docs/ARCHITECTURE.md` 与 `docs/FEATURE_TRACKING.md` 的现行组件与页面契约。
 
 - 升级 `test/widget/ui_architecture_contract_test.dart` 自动化门禁：保留中点分隔符与 L1–L4 高度检查，新增业务功能页禁用裸 `IconButton`、`lib/features/settings/` 分组行强制使用 `AppSettingsGlyph` 的静态检查（带存量豁免清单），以及桌面 `34×34` 与触屏 `44×44` 图标按钮默认尺寸运行时断言。
@@ -103,6 +105,8 @@
 - 精简多处空态提示、设置项重复副标题、引导口号与只读说明行，并去掉值守设置与课程页面局部字体/间距覆写，使控件圆角与排版统一回到共享主题与 `AppRadii`。
 
 ### Fixed
+
+- 修复退出登录清理异常或与新登录交叠时会话状态可能停留或被旧退出覆盖的问题，登录失败统一映射为稳定中文提示且不再暴露底层网络细节；协助身份列表本地数据损坏时记录诊断日志并在写操作前备份原内容、拒绝空列表覆盖写回；课表值守自动检查失败路径补齐独立失败计数、指数退避与 `429 Retry-After` 遵循。
 
 - 修复全局 `InputDecorationTheme` 与非紧凑搜索框（校园地图、地点管理、最近日志及手机搜索页）偏高的问题；修复 GPA「学期」下拉框在拉伸列内被撑满整页宽度、作业状态徽标被定宽容器拉宽左偏、桌面签到记录组合筛选过高与长课名挤占、桌面二维码签到预览残留圆点列表符，以及 `homework_overview_test` 全量并发时的刷新时序抖动。
 
