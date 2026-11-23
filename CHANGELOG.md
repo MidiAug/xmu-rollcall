@@ -25,6 +25,10 @@
 
 ### Changed
 
+- 完成文档分层整理与单跳入口收敛：新增 `docs/INDEX.md` 功能定位索引并统一规则入口，将 `docs/design/` 历史设计日志及根目录 `design-qa.md` 归档至 `docs/history/`，同步更新 `DESIGN.md`、`docs/design/COMPONENTS.md`、`docs/ARCHITECTURE.md` 与 `docs/FEATURE_TRACKING.md` 的现行组件与页面契约。
+
+- 升级 `test/widget/ui_architecture_contract_test.dart` 自动化门禁：保留中点分隔符与 L1–L4 高度检查，新增业务功能页禁用裸 `IconButton`、`lib/features/settings/` 分组行强制使用 `AppSettingsGlyph` 的静态检查（带存量豁免清单），以及桌面 `34×34` 与触屏 `44×44` 图标按钮默认尺寸运行时断言。
+
 - 课程详情弹窗行首图标统一采用与设置页一致的几何线性图标（AppSettingsGlyph）。
 
 - 收紧桌面端 `AppIconButton` 与 `AppSheetCloseButton` 的默认尺寸（34px）并保持图标居中，修复课程详情与地点弹窗切换返回时顶部内边距跳动及关闭/返回按钮悬浮高亮偏移、过大的问题，并同步规范地点选择器弹窗顶栏控件；优化 GPA 计算器在空成绩下的「学年」筛选展示（无可选学年时不再堆叠冗余提示，并在右侧「课程明细」无数据时统一使用卡片承载空状态），同时为考试安排按状态筛选空态补充卡片容器。

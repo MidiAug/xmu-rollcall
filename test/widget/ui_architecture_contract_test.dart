@@ -144,6 +144,68 @@ void main() {
         );
       },
     );
+
+    test('forbids raw IconButton in lib/features outside legacy allowlist', () {
+      const allowlist = {
+        'lib/features/assist/assist_rollcall_hub_page.dart',
+        'lib/features/location/campus_map.dart',
+        'lib/features/monitor/monitor_page.dart',
+        'lib/features/rollcall/attendance_count_row.dart',
+        'lib/features/rollcall/desktop_qr_preview.dart',
+        'lib/features/rollcall/desktop_qr_window.dart',
+        'lib/features/rollcall/mobile_rollcall_home.dart',
+        'lib/features/rollcall/rollcall_answer_page.dart',
+        'lib/features/rollcall/rollcall_preview_page.dart',
+        'lib/features/settings/course_schedule_editor.dart',
+      };
+      final files = _scanDartFiles(const ['lib/features']);
+      expect(files, isNotEmpty);
+      final iconButtonPattern = RegExp(r'(?<!App)\bIconButton\s*\(');
+      final violations = <String>[];
+      for (final file in files) {
+        final path = _normalizePath(file.path);
+        if (allowlist.contains(path)) continue;
+        final lines = file.readAsLinesSync();
+        for (var i = 0; i < lines.length; i++) {
+          if (iconButtonPattern.hasMatch(lines[i])) {
+            violations.add('$path:${i + 1}');
+          }
+        }
+      }
+      expect(
+        violations,
+        isEmpty,
+        reason: 'Forbidden raw IconButton usage in features (use AppIconButton / AppSheetCloseButton): $violations',
+      );
+    });
+
+    test('enforces AppSettingsGlyph for leading icons in lib/features/settings outside legacy allowlist', () {
+      const allowlist = {
+        'lib/features/settings/course_schedule_editor.dart',
+        'lib/features/settings/desktop_notification_settings_page.dart',
+        'lib/features/settings/notification_settings_page.dart',
+        'lib/features/settings/settings_data_page.dart',
+      };
+      final files = _scanDartFiles(const ['lib/features/settings']);
+      expect(files, isNotEmpty);
+      final leadingIconPattern = RegExp(r'leading:\s*(?:const\s+)?Icon\(');
+      final violations = <String>[];
+      for (final file in files) {
+        final path = _normalizePath(file.path);
+        if (allowlist.contains(path)) continue;
+        final lines = file.readAsLinesSync();
+        for (var i = 0; i < lines.length; i++) {
+          if (leadingIconPattern.hasMatch(lines[i])) {
+            violations.add('$path:${i + 1}');
+          }
+        }
+      }
+      expect(
+        violations,
+        isEmpty,
+        reason: 'Grouped settings/detail rows in lib/features/settings/ must use AppSettingsGlyph instead of raw Icon(...): $violations',
+      );
+    });
   });
 
   group('Shared control four-tier height contract', () {
@@ -157,6 +219,8 @@ void main() {
       const segmentCompactKey = ValueKey('desktop-segment-compact');
       const inlineButtonKey = ValueKey('desktop-inline-outlined');
       const badgeKey = ValueKey('desktop-status-badge');
+      const iconButtonKey = ValueKey('desktop-icon-button');
+      const closeButtonKey = ValueKey('desktop-close-button');
 
       await _pumpWithDensity(
         tester,
@@ -229,6 +293,18 @@ void main() {
               width: 96,
               child: AppStatusBadge('未提交', key: badgeKey),
             ),
+            const SizedBox(height: 12),
+            AppIconButton(
+              key: iconButtonKey,
+              tooltip: '刷新',
+              icon: const Icon(AppIcons.refresh),
+              onPressed: () {},
+            ),
+            const SizedBox(height: 12),
+            AppSheetCloseButton(
+              key: closeButtonKey,
+              onPressed: () {},
+            ),
           ],
         ),
       );
@@ -239,6 +315,8 @@ void main() {
       expect(tester.getSize(find.byKey(segmentRegularKey)).height, 36.0);
       expect(tester.getSize(find.byKey(segmentCompactKey)).height, 32.0);
       expect(tester.getSize(find.byKey(inlineButtonKey)).height, 32.0);
+      expect(tester.getSize(find.byKey(iconButtonKey)), const Size(34, 34));
+      expect(tester.getSize(find.byKey(closeButtonKey)), const Size(34, 34));
 
       final innerBadgeBox = find.descendant(
         of: find.byKey(badgeKey),
@@ -256,6 +334,8 @@ void main() {
       const searchRegularKey = ValueKey('mobile-search-regular');
       const selectCompactKey = ValueKey('mobile-select-compact');
       const selectRegularKey = ValueKey('mobile-select-regular');
+      const mobileIconButtonKey = ValueKey('mobile-icon-button');
+      const mobileCloseButtonKey = ValueKey('mobile-close-button');
 
       await _pumpWithDensity(
         tester,
@@ -302,6 +382,18 @@ void main() {
                 onTap: () {},
               ),
             ),
+            const SizedBox(height: 12),
+            AppIconButton(
+              key: mobileIconButtonKey,
+              tooltip: '刷新',
+              icon: const Icon(AppIcons.refresh),
+              onPressed: () {},
+            ),
+            const SizedBox(height: 12),
+            AppSheetCloseButton(
+              key: mobileCloseButtonKey,
+              onPressed: () {},
+            ),
           ],
         ),
       );
@@ -310,6 +402,8 @@ void main() {
       expect(tester.getSize(find.byKey(searchRegularKey)).height, 44.0);
       expect(tester.getSize(find.byKey(selectCompactKey)).height, 44.0);
       expect(tester.getSize(find.byKey(selectRegularKey)).height, 48.0);
+      expect(tester.getSize(find.byKey(mobileIconButtonKey)), const Size(44, 44));
+      expect(tester.getSize(find.byKey(mobileCloseButtonKey)), const Size(44, 44));
       expect(tester.takeException(), isNull);
     });
   });
