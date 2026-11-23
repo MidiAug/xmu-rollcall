@@ -405,4 +405,83 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('本课未提供课表时段，过往签到可在签到记录中查看'), findsOneWidget);
   });
+
+  testWidgets(
+    'mobile task card right-aligns attendance count and keeps icon/pause steady across load',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await tester.runAsync(loadDesktopPreviewFonts);
+      tester.view.physicalSize = const Size(384, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final repo = _Repo()..pending = Completer<AttendanceCount>();
+      final container = ProviderContainer(
+        overrides: [
+          attendanceCountClockProvider.overrideWithValue(
+            tester.binding.clock.now,
+          ),
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          assistControllerProvider.overrideWith(
+            (ref) => AssistController(ref, bootstrap: false),
+          ),
+          rollcallRepositoryForProvider(null).overrideWithValue(repo),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
+            home: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.all(16),
+                child: RollcallTaskCard(
+                  item: RollcallItem(
+                    rollcallId: 1,
+                    courseTitle: '专业英语',
+                    createdByName: '陈老师',
+                    type: RollcallType.radar,
+                    status: 'on_call',
+                    rollcallStatus: 'on_call',
+                    isExpired: false,
+                    scored: false,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(find.text('查询中…'), findsOneWidget);
+
+      final cardRect = tester.getRect(find.byType(RollcallTaskCard));
+      final peopleIcon = find
+          .descendant(
+            of: find.byType(AttendanceCountRow),
+            matching: find.byType(Icon),
+          )
+          .first;
+      final pause = find.byTooltip('暂停刷新人数');
+      final pendingIconRect = tester.getRect(peopleIcon);
+      final pendingPauseRect = tester.getRect(pause);
+
+      // Right-aligned near the card right padding (within 32px), not left in the middle.
+      expect(cardRect.right - pendingPauseRect.right, lessThan(32));
+
+      repo.pending!.complete(const AttendanceCount(30, 40));
+      await tester.pumpAndSettle();
+      expect(find.text('30 / 40 人'), findsOneWidget);
+
+      final loadedIconRect = tester.getRect(peopleIcon);
+      final loadedPauseRect = tester.getRect(pause);
+      expect(loadedIconRect.left, closeTo(pendingIconRect.left, 0.1));
+      expect(loadedPauseRect.left, closeTo(pendingPauseRect.left, 0.1));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
+  );
 }

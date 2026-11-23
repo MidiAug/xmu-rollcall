@@ -290,8 +290,12 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
           : _manuallyPaused
           ? '未更新'
           : '查询中…';
+      final minLabelWidth = MediaQuery.textScalerOf(
+        context,
+      ).scale(widget.prominent ? 96 : 68);
       return Align(
         alignment: Alignment.centerLeft,
+        widthFactor: 1,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -310,17 +314,20 @@ class _AttendanceCountRowState extends ConsumerState<AttendanceCountRow>
                     Icon(AppIcons.people, size: 20, color: p.ink),
                     const SizedBox(width: 8),
                     Flexible(
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        softWrap: false,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: widget.prominent ? 18 : 13,
-                          fontWeight: widget.prominent
-                              ? FontWeight.w600
-                              : FontWeight.w400,
-                          color: p.ink,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(minWidth: minLabelWidth),
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: widget.prominent ? 18 : 13,
+                            fontWeight: widget.prominent
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            color: p.ink,
+                          ),
                         ),
                       ),
                     ),
