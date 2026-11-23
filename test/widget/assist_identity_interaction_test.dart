@@ -249,9 +249,9 @@ void main() {
         await _capture(tester, 'assist-roster-$width-$dark');
         await tester.tap(find.text('同学甲'));
         await tester.pumpAndSettle();
-        expect(find.byType(AssistIdentityHeader), findsOneWidget);
         expect(find.byType(AssistEmptyRollcall), findsOneWidget);
-        expect(find.text('协助身份'), findsOneWidget);
+        expect(find.text('协助身份'), findsNothing);
+        expect(find.text('同学甲'), findsOneWidget);
         expect(find.text('继续值守'), findsNothing);
         await _capture(tester, 'assist-overview-$width-$dark');
         expect(tester.takeException(), isNull);

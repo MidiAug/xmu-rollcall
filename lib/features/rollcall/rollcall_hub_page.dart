@@ -1,4 +1,3 @@
-import 'package:xmu_rollcall/features/assist/assist_overview.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_status_line.dart';
 import 'package:xmu_rollcall/features/rollcall/mobile_rollcall_home.dart';
 import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
@@ -506,13 +505,6 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
                       : 0,
                 ),
               ),
-              if (scope != null)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 20),
-                  child: AssistIdentityHeader(
-                    identity: roster.firstWhere((e) => e.userId == scope),
-                  ),
-                ),
               Expanded(
                 child: _switching
                     ? const Center(child: CircularProgressIndicator())
