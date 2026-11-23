@@ -155,16 +155,27 @@ class _ExamPageState extends ConsumerState<ExamPage>
                         onStatusChanged: (value) =>
                             setState(() => _status = value),
                       ),
-                      if (_status != null && groups[_status]!.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 32),
-                          child: Text(
-                            '该状态暂无考试安排',
-                            style: TextStyle(
-                              color: AppPalette.of(context).muted,
+                      if (_status != null &&
+                          snapshot.exams.isNotEmpty &&
+                          groups[_status]!.isEmpty) ...[
+                        const SizedBox(height: 16),
+                        Panel(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 36,
+                          ),
+                          child: Center(
+                            child: Text(
+                              '该状态暂无考试安排',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppPalette.of(context).muted,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ),
+                      ],
                       if (snapshot.exams.isEmpty)
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 40),

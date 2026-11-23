@@ -240,6 +240,7 @@ void main() {
       testWidgets(
         'stack chooser opens actual course detail $width dark=$dark',
         (tester) async {
+          Offset? detailCloseOffset;
           tester.view.physicalSize = Size(width, 844);
           tester.view.devicePixelRatio = 1;
           addTearDown(tester.view.resetPhysicalSize);
@@ -294,6 +295,15 @@ void main() {
           await tester.tap(find.text('第二门课程'));
           await tester.pumpAndSettle();
           expect(find.byTooltip('关闭课程详情'), findsOneWidget);
+          if (width == 960.0) {
+            final flow = find.byKey(const ValueKey('course-detail-flow'));
+            final detailClose = find.byTooltip('关闭课程详情');
+            final detailCloseIcon = find.descendant(of: detailClose, matching: find.byType(Icon));
+            final detailCloseRect = tester.getRect(detailClose);
+            expect(detailCloseRect.size, const Size(34, 34));
+            expect((tester.getCenter(detailCloseIcon) - detailCloseRect.center).distance, lessThan(1.0));
+            detailCloseOffset = detailCloseRect.topRight - tester.getRect(flow).topRight;
+          }
           expect(find.text('第12周'), findsOneWidget);
           expect(
             find.descendant(
@@ -310,6 +320,26 @@ void main() {
             find.byKey(const ValueKey('course-location-map-link')),
           );
           await tester.pumpAndSettle();
+          if (width == 960.0) {
+            final flow = find.byKey(const ValueKey('course-detail-flow'));
+            final mapBack = find.byTooltip('返回课程');
+            final mapBackIcon = find.descendant(
+              of: mapBack,
+              matching: find.byType(Icon),
+            );
+            final mapBackRect = tester.getRect(mapBack);
+            expect(mapBackRect.size, const Size(34, 34));
+            expect(
+              (tester.getCenter(mapBackIcon) - mapBackRect.center).distance,
+              lessThan(1.0),
+            );
+            final mapClose = find.byTooltip('关闭');
+            final mapCloseRect = tester.getRect(mapClose);
+            expect(mapCloseRect.size, const Size(34, 34));
+            final mapCloseOffset = mapCloseRect.topRight - tester.getRect(flow).topRight;
+            expect((detailCloseOffset!.dx - mapCloseOffset.dx).abs(), lessThan(1.0));
+            expect((detailCloseOffset.dy - mapCloseOffset.dy).abs(), lessThan(6.0));
+          }
           expect(find.byType(CampusMap), findsOneWidget);
           expect(
             tester.getSize(find.byType(MapAttributionFooter)).height,
@@ -321,6 +351,12 @@ void main() {
           );
           await tester.tap(find.byTooltip('返回课程'));
           await tester.pumpAndSettle();
+          if (width == 960.0) {
+            final returnedCloseOffset =
+                tester.getRect(find.byTooltip('关闭课程详情')).topRight -
+                tester.getRect(find.byKey(const ValueKey('course-detail-flow'))).topRight;
+            expect((returnedCloseOffset - detailCloseOffset!).distance, lessThan(0.5));
+          }
           await tester.tap(find.byTooltip('关闭课程详情'));
           await tester.pumpAndSettle();
           expect(find.byTooltip('切换课次（1/2）'), findsOneWidget);

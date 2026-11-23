@@ -8,6 +8,9 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xmu_rollcall/app/app_icon_button.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
+import 'package:xmu_rollcall/core/theme/app_icons.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/features/location/location_models.dart';
 import 'package:xmu_rollcall/features/location/location_picker.dart';
@@ -287,8 +290,8 @@ void main() {
       expect(find.byType(MapPickPanel), findsOneWidget);
       expect(
         tester
-            .widget<IconButton>(
-              find.widgetWithIcon(IconButton, Icons.close_rounded),
+            .widget<AppIconButton>(
+              find.widgetWithIcon(AppIconButton, AppIcons.closeStrong),
             )
             .onPressed,
         isNull,

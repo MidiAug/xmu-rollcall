@@ -482,7 +482,10 @@ void main() {
       expect(find.text('暂时无法读取成绩'), findsNothing);
       await tester.tap(find.text('学年'));
       await tester.pumpAndSettle();
-      expect(find.text('成绩发布后显示可选学年'), findsOneWidget);
+      expect(find.text('成绩发布后显示可选学年'), findsNothing);
+      expect(find.text('选择学年，可多选'), findsNothing);
+      expect(find.text('暂无学年'), findsOneWidget);
+      expect(find.byKey(const ValueKey('grade-empty-panel')), findsOneWidget);
       expect(find.text('教务查询成功，暂未发布成绩；出分后可手动刷新'), findsOneWidget);
       await tester.tap(find.text('总绩点'));
       await tester.pumpAndSettle();

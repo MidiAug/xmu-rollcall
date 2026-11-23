@@ -109,12 +109,15 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                 final scopeLabel = switch (_range) {
                   GradeRange.all => '全部成绩',
                   GradeRange.year =>
-                    selectedYears.isEmpty
+                    years.isEmpty
+                        ? '暂无学年'
+                        : selectedYears.isEmpty
                         ? '请选择学年'
                         : (selectedYears.toList()..sort())
                               .map((y) => '$y—${y + 1}学年')
                               .join('、'),
-                  GradeRange.recent => '最近 $recentCount 个有成绩的学期',
+                  GradeRange.recent =>
+                    terms.isEmpty ? '暂无学期' : '最近 $recentCount 个有成绩的学期',
                   GradeRange.term =>
                     effectiveTerm == null ? '暂无学期' : _termLabel(effectiveTerm),
                 };
@@ -179,13 +182,8 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                               );
                       },
                     ),
-                    if (_range == GradeRange.year) ...[
+                    if (_range == GradeRange.year && years.isNotEmpty) ...[
                       const SizedBox(height: 12),
-                      Text(
-                        '选择学年，可多选',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 6),
                       LayoutBuilder(
                         builder: (context, bounds) {
                           final itemWidth =
@@ -210,13 +208,6 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                                           v ? _years.add(y) : _years.remove(y),
                                     ),
                                   ),
-                                ),
-                              if (years.isEmpty)
-                                Text(
-                                  snapshot.records.isEmpty
-                                      ? '成绩发布后显示可选学年'
-                                      : '暂无可识别的学年',
-                                  style: Theme.of(context).textTheme.bodySmall,
                                 ),
                             ],
                           );
@@ -317,9 +308,14 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                           ),
                       ],
                     ),
-                    if (visible.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(32),
+                    if (visible.isEmpty) ...[
+                      const SizedBox(height: 12),
+                      Panel(
+                        key: const ValueKey('grade-empty-panel'),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 36,
+                        ),
                         child: Center(
                           child: Text(
                             snapshot.records.isEmpty
@@ -330,10 +326,12 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                                       selectedYears.isEmpty
                                 ? '选择学年后查看课程与 GPA'
                                 : '当前范围暂无成绩',
-                            style: TextStyle(color: p.muted),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: p.muted, fontSize: 13),
                           ),
                         ),
-                      )
+                      ),
+                    ]
                     else
                       for (final term in [
                         ...gradeTerms(visible),

@@ -157,7 +157,7 @@ class _LocationPickerState extends ConsumerState<LocationPickerContent> {
             if (!didPop) _handleBack();
           },
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -165,17 +165,16 @@ class _LocationPickerState extends ConsumerState<LocationPickerContent> {
                 Row(
                   children: [
                     if (_editing || widget.onBack != null) ...[
-                      IconButton(
+                      AppIconButton(
                         tooltip: _editing ? '返回地点列表' : '返回课程详情',
                         onPressed: _saving
                             ? null
                             : _editing
                             ? _back
                             : widget.onBack,
-                        visualDensity: VisualDensity.compact,
-                        icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                        icon: const Icon(AppIcons.back, size: 18),
                       ),
-                      const SizedBox(width: 4),
+                      const SizedBox(width: 8),
                     ],
                     Expanded(
                       child: Text(
@@ -183,13 +182,10 @@ class _LocationPickerState extends ConsumerState<LocationPickerContent> {
                         style: text.titleLarge,
                       ),
                     ),
-                    IconButton(
+                    AppSheetCloseButton(
                       tooltip: '关闭地点选择',
-                      onPressed: _saving
-                          ? null
-                          : widget.onClose ?? () => Navigator.pop(context),
-                      visualDensity: VisualDensity.compact,
-                      icon: const Icon(Icons.close_rounded, size: 20),
+                      enabled: !_saving,
+                      onPressed: widget.onClose ?? () => Navigator.pop(context),
                     ),
                   ],
                 ),

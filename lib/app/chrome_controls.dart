@@ -42,17 +42,16 @@ class AppSheetCloseButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool enabled;
   @override
-  Widget build(BuildContext context) => AppIconButton(
-    tooltip: tooltip,
-    padding: EdgeInsets.zero,
-    extent: 44,
-    alignment: alignWithTitle ? Alignment.topCenter : Alignment.center,
-    onPressed: enabled ? onPressed ?? () => Navigator.of(context).pop() : null,
-    icon: Padding(
-      padding: EdgeInsets.only(top: alignWithTitle ? 2 : 0),
-      child: const Icon(AppIcons.closeStrong, size: 24),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final touch = AppMobileUi.useTouchChrome(context);
+    return AppIconButton(
+      tooltip: tooltip,
+      padding: EdgeInsets.zero,
+      extent: touch ? 44 : 34,
+      onPressed: enabled ? onPressed ?? () => Navigator.of(context).pop() : null,
+      icon: Icon(AppIcons.closeStrong, size: touch ? 22 : 18),
+    );
+  }
 }
 
 /// Soft stadium control without Material ripple (poll / quick actions).

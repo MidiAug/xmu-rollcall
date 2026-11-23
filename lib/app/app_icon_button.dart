@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
-import 'app_tooltip_anchor.dart';
+import 'chrome.dart';
 
 /// A transient action, separate from persistent navigation selection. Styling
 /// comes from AppTheme; this owns hit size, symbol size and the tooltip anchor.
@@ -11,7 +11,7 @@ class AppIconButton extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.focusNode,
-    this.extent = 44,
+    this.extent,
     this.active = false,
     this.visualDensity,
     this.alignment = Alignment.center,
@@ -21,7 +21,7 @@ class AppIconButton extends StatelessWidget {
   final Widget icon;
   final VoidCallback? onPressed;
   final FocusNode? focusNode;
-  final double extent;
+  final double? extent;
   final bool active;
   final VisualDensity? visualDensity;
   final AlignmentGeometry alignment;
@@ -30,6 +30,7 @@ class AppIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final resolvedExtent = extent ?? (AppMobileUi.useTouchChrome(context) ? 44.0 : 34.0);
     return AppTooltipAnchor(
       child: IconButton(
         tooltip: tooltip,
@@ -40,12 +41,19 @@ class AppIconButton extends StatelessWidget {
         icon: icon,
         style:
             IconButton.styleFrom(
-              fixedSize: Size.square(extent),
-              minimumSize: Size.square(extent),
-              maximumSize: Size.square(extent),
-              padding: padding ?? EdgeInsets.all(extent < 40 ? 6 : 10),
+              fixedSize: Size.square(resolvedExtent),
+              minimumSize: Size.square(resolvedExtent),
+              maximumSize: Size.square(resolvedExtent),
+              padding: padding ?? EdgeInsets.all(resolvedExtent < 40 ? 6 : 10),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ).copyWith(
+              shape: resolvedExtent < 40
+                  ? WidgetStatePropertyAll(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    )
+                  : null,
               backgroundColor: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.disabled)) {
                   return active ? p.controlHover : null;

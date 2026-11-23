@@ -514,21 +514,24 @@ class _CourseDetailFlowState extends ConsumerState<_CourseDetailFlow> {
       child: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
             child: Row(
               children: [
                 AppIconButton(
                   tooltip: '返回课程',
                   onPressed: () => setState(() => _map = false),
-                  icon: const Icon(AppIcons.back),
+                  icon: const Icon(AppIcons.back, size: 18),
                 ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         room.isEmpty ? '上课地点' : room,
                         maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: AppTypography.cardTitle,
                       ),
                       if (room.isNotEmpty)
@@ -541,6 +544,7 @@ class _CourseDetailFlowState extends ConsumerState<_CourseDetailFlow> {
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
                 const AppSheetCloseButton(),
               ],
             ),
@@ -656,7 +660,6 @@ class _CourseDetail extends StatelessWidget {
               ),
               const AppSheetCloseButton(
                 tooltip: '关闭课程详情',
-                alignWithTitle: true,
               ),
             ],
           ),
