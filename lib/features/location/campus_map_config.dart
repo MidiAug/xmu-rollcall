@@ -5,7 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 const LatLng kDefaultMapCenter = LatLng(24.608429, 118.309669);
 
 const String kAmapTileUrlTemplate =
-    'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}';
+    'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&ltype=11&x={x}&y={y}&z={z}';
 
 // This source returns solid-color placeholders beyond z18; overzoom locally.
 const int kAmapMaxNativeZoom = 18;

@@ -100,7 +100,7 @@ class _CampusMapState extends State<CampusMap> {
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
     )..layout();
-    final width = (painter.width + 37).clamp(58.0, 240.0);
+    final width = (painter.width + 48).clamp(64.0, 380.0);
     painter.dispose();
     return width;
   }
