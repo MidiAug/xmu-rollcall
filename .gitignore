@@ -64,8 +64,11 @@ Desktop.ini
 
 # Local capture / agent workflow scripts (keep locally)
 /scripts/archive_http_capture.py
+/scripts/audit_teaching_locations.dart
 /scripts/bootstrap-reference-repos.ps1
+/scripts/export_teaching_catalog.py
 /scripts/git-commit-context.ps1
+/scripts/preview-desktop-qr.ps1
 
 # Local research outputs and raw session captures
 /captures/
