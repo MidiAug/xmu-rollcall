@@ -27,7 +27,6 @@ import 'package:xmu_rollcall/features/rollcall/attendance_count_row.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_answer_page.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
-import 'package:xmu_rollcall/features/rollcall/session_prior_panel.dart';
 import 'package:xmu_rollcall/features/campus/campus_summary.dart';
 import 'package:xmu_rollcall/features/schedule/academic_schedule.dart';
 
@@ -264,6 +263,8 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
   Future<_RadarTaskLocation>? _locationDisplay;
   _RadarTaskLocation? _lastLocation;
   (int?, int?, int, String?)? _lastLocationIdentity;
+  bool _numberFailed = false;
+  bool _radarLocationRejected = false;
 
   @override
   void didUpdateWidget(covariant RollcallTaskCard oldWidget) {
@@ -275,6 +276,10 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
       _locationDisplay = null;
       _lastLocation = null;
       _lastLocationIdentity = null;
+      _numberFailed = false;
+      _radarLocationRejected = false;
+    } else if (oldWidget.item.numberCode != widget.item.numberCode) {
+      _numberFailed = false;
     }
   }
 
@@ -407,12 +412,22 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
               child: Text(
                 loading
                     ? '正在确认签到位置…'
+                    : _radarLocationRejected &&
+                          !_answered &&
+                          !widget.item.isExpired
+                    ? '位置不在范围内，请重选'
                     : point == null
                     ? (_answered ? '未保存签到位置' : '需补充签到位置')
                     : point.labelSnapshot.isNotEmpty
                     ? point.labelSnapshot
                     : '已保存的签到位置',
-                style: _taskMethodTextStyle(p),
+                style: _taskMethodTextStyle(p).copyWith(
+                  color: _radarLocationRejected &&
+                          !_answered &&
+                          !widget.item.isExpired
+                      ? p.danger
+                      : p.ink,
+                ),
               ),
             ),
           ],
@@ -502,9 +517,10 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
       ok = result.ok;
       if (!current()) return;
       if (result.ok) {
-        setState(
-          () => _submittedFor = (owner, widget.assistUserId, item.rollcallId),
-        );
+        setState(() {
+          _numberFailed = false;
+          _submittedFor = (owner, widget.assistUserId, item.rollcallId);
+        });
         if (codeOverride != null &&
             ref.exists(activeRollcallsProvider(widget.assistUserId))) {
           ref
@@ -517,6 +533,8 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                 ),
               );
         }
+      } else {
+        setState(() => _numberFailed = true);
       }
       await ref
           .read(ref.read(localHistoryForProvider(widget.assistUserId)).notifier)
@@ -696,14 +714,13 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
         ref.invalidate(locationIssuesProvider);
       }
       if (!result.ok && result.isLocationRejected && mounted && current()) {
-        final retry = await showAppConfirmDialog(
-          context,
-          title: '签到位置不匹配',
-          message: '预设位置不符合本次签到范围，请在地图上重新选择上课位置。',
-          confirmLabel: '重新选择',
-        );
-        if (retry && current()) await _openRadarPicker();
+        setState(() => _radarLocationRejected = true);
+        AppToast.show(context, '位置不在范围内，请重新选择位置', error: true);
+        await _openRadarPicker();
         return;
+      }
+      if (result.ok && mounted) {
+        setState(() => _radarLocationRejected = false);
       }
       if (mounted && current()) {
         AppToast.show(
@@ -736,14 +753,20 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
   void _submitTask() {
     if (_submitting) return;
     if (widget.item.isRadar) {
-      _oneClickRadar();
+      if (_radarLocationRejected) {
+        _openRadarPicker();
+      } else {
+        _oneClickRadar();
+      }
       return;
     }
     if (!_desktop && Theme.of(context).platform != TargetPlatform.android) {
       _openSecondary(prefillNumber: true);
       return;
     }
-    if (widget.item.isNumber && widget.item.numberCode?.isNotEmpty == true) {
+    if (widget.item.isNumber &&
+        widget.item.numberCode?.isNotEmpty == true &&
+        !_numberFailed) {
       _oneClickNumber();
     } else {
       _openSecondary(prefillNumber: true);
@@ -902,8 +925,11 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
             ? '提交中…'
             : item.isQrcode
             ? '扫码'
-            : item.isNumber && item.numberCode?.isNotEmpty != true
+            : item.isNumber &&
+                  (item.numberCode?.isNotEmpty != true || _numberFailed)
             ? '手动输入'
+            : item.isRadar && _radarLocationRejected
+            ? '重选位置'
             : item.isRadar && !hasLocation && !resolving
             ? '选择位置'
             : '签到',
@@ -943,9 +969,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
           const SizedBox(height: 8),
           LayoutBuilder(
             builder: (context, bounds) {
-              final hasMenu = item.courseId?.isNotEmpty == true && !done;
-              final available =
-                  (bounds.maxWidth - (hasMenu ? 44 : 8)).clamp(0.0, 400.0);
+              final available = (bounds.maxWidth - 8).clamp(0.0, 400.0);
               return Row(
                 children: [
                   Expanded(
@@ -975,7 +999,6 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                       ],
                     ),
                   ),
-                  if (hasMenu) _courseMenu(p, item),
                 ],
               );
             },
@@ -1051,24 +1074,6 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
         prominent: _desktop,
       );
 
-  Widget _courseMenu(AppPalette p, RollcallItem item) => AppActionMenu<String>(
-    tooltip: '课程操作',
-    enabled: !_submitting && !item.isExpired,
-    onSelected: (value) {
-      if (value == 'manual') {
-        _openSecondary();
-      } else {
-        _showCourseReference();
-      }
-    },
-    actions: [
-      if (item.isNumber)
-        const AppMenuAction('manual', '手动输入', icon: AppIcons.document),
-      if (item.courseId?.isNotEmpty == true)
-        const AppMenuAction('prior', '课堂参考', icon: AppIcons.history),
-    ],
-  );
-
   Widget _desktopCard(AppPalette p, RollcallItem item, String title) {
     final active =
         !_answered && !item.isExpired && item.type != RollcallType.unknown;
@@ -1081,14 +1086,7 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: AppTruncatedText(title, style: _titleStyle(p))),
-              if (item.courseId?.isNotEmpty == true && !_answered)
-                _courseMenu(p, item),
-            ],
-          ),
+          AppTruncatedText(title, style: _titleStyle(p)),
           if (item.createdByName.trim().isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
@@ -1195,92 +1193,6 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
     );
   }
 
-  void _showCourseReference() {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AppDialogFrame(
-        maxWidth: 480,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(context).height * .85,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text('课堂参考', style: AppTypography.cardTitle),
-                    ),
-                    AppIconButton(
-                      tooltip: '关闭',
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(AppIcons.close),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Flexible(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        SettingsSection(
-                          padTop: false,
-                          hasLeading: false,
-                          children: [
-                            SettingsRow(
-                              title: '课程',
-                              trailing: Expanded(
-                                child: AppTruncatedText(
-                                  widget.item.courseTitle,
-                                ),
-                              ),
-                            ),
-                            SettingsRow(
-                              title: '课表地点',
-                              trailing: Expanded(
-                                child: Text(
-                                  widget.meeting?.room.isNotEmpty == true
-                                      ? widget.meeting!.room
-                                      : '未提供',
-                                  textAlign: TextAlign.end,
-                                ),
-                              ),
-                            ),
-                            SettingsRow(
-                              title: '时间',
-                              trailing: Expanded(
-                                child: Text(
-                                  widget.meeting == null
-                                      ? '未提供'
-                                      : '${widget.meeting!.start.hour.toString().padLeft(2, '0')}:${widget.meeting!.start.minute.toString().padLeft(2, '0')}–${widget.meeting!.end.hour.toString().padLeft(2, '0')}:${widget.meeting!.end.minute.toString().padLeft(2, '0')}',
-                                  textAlign: TextAlign.end,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SessionPriorPanel(
-                          courseId: widget.item.courseId!,
-                          assistUserId: widget.assistUserId,
-                          currentType: widget.item.type,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   TextStyle _titleStyle(AppPalette palette) {
     return TextStyle(
       fontSize: _desktop ? 22 : 19,
@@ -1298,18 +1210,28 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
   }) {
     final code = item.numberCode;
     final err = item.numberCodeError;
+    if (_numberFailed && !_answered && !item.isExpired) {
+      return Text(
+        '签到失败，请手动输入',
+        style: _taskMethodTextStyle(palette).copyWith(color: palette.danger),
+      );
+    }
     if (code == null || code.isEmpty) {
       return Text(
         (Theme.of(context).platform == TargetPlatform.android || _desktop) &&
                 !_answered &&
                 !item.isExpired
-            ? '无法获取签到码'
+            ? (err != null ? '获取签到码失败' : '无法获取签到码')
             : _answered || item.isExpired
             ? '暂无可用签到码'
             : err == null
             ? '正在获取签到码…'
             : '无法获取签到码，请手动输入',
-        style: _taskMethodTextStyle(palette),
+        style: _taskMethodTextStyle(palette).copyWith(
+          color: err != null && !_answered && !item.isExpired
+              ? palette.danger
+              : palette.ink,
+        ),
       );
     }
     final text = Text(

@@ -662,7 +662,18 @@ class _QrAnswerPageState extends ConsumerState<QrAnswerPage> {
         },
       );
       if (!mounted) return;
-      AppToast.show(context, '完成：$okCount/${results.length} 成功');
+      if (okCount == 0) {
+        final firstMsg = results.firstOrNull?.message;
+        AppToast.show(
+          context,
+          results.length == 1 && firstMsg != null && firstMsg.isNotEmpty
+              ? firstMsg
+              : '签到未成功，请查看结果后重试',
+          error: true,
+        );
+      } else {
+        AppToast.show(context, '完成：$okCount/${results.length} 成功');
+      }
       if (!_singleAssist) await _prepareEligible();
     } catch (error, stack) {
       AppLog.logAppError(error: error, stackTrace: stack, source: 'qr.batch');

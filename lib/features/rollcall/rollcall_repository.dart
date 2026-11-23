@@ -728,6 +728,44 @@ class RollcallRepository {
     return '\u672a\u77e5';
   }
 
+  Future<AnswerResult> _executeAnswerPut(
+    Future<Response<dynamic>> Function() send, {
+    String? opId,
+    int? rollcallId,
+    bool allowLocation403 = false,
+  }) async {
+    late final Response<dynamic> res;
+    try {
+      res = await send();
+    } on DioException catch (error) {
+      final response = error.response;
+      final status = response?.statusCode ?? 0;
+      // Business rejections may include the server's distance/message. Keep
+      // authentication, throttling and server/transport failures as exceptions.
+      if (response == null ||
+          status < 400 ||
+          status >= 500 ||
+          status == 401 ||
+          status == 429 ||
+          response.data is! Map) {
+        rethrow;
+      }
+      // Some deployments use 403 for an explicit radar scope rejection.
+      // A generic 403 still follows the existing session-expired path.
+      if (status == 403 &&
+          (!allowLocation403 ||
+              !AnswerResult(
+                ok: false,
+                status: status,
+                raw: Map<String, dynamic>.from(response.data as Map),
+              ).isLocationRejected)) {
+        rethrow;
+      }
+      return _mapAnswer(response, opId: opId, rollcallId: rollcallId);
+    }
+    return _mapAnswer(res, opId: opId, rollcallId: rollcallId);
+  }
+
   Future<AnswerResult> answerNumber({
     required int rollcallId,
     required String numberCode,
@@ -735,12 +773,15 @@ class RollcallRepository {
   }) async {
     final deviceId = await _deviceId();
     final opts = Options(extra: {'opId': ?opId, 'rollcallId': rollcallId});
-    final res = await http.putUri<dynamic>(
-      TronEndpoints.answerNumber(rollcallId),
-      data: {'deviceId': deviceId, 'numberCode': numberCode},
-      options: opts,
+    return _executeAnswerPut(
+      () => http.putUri<dynamic>(
+        TronEndpoints.answerNumber(rollcallId),
+        data: {'deviceId': deviceId, 'numberCode': numberCode},
+        options: opts,
+      ),
+      opId: opId,
+      rollcallId: rollcallId,
     );
-    return _mapAnswer(res, opId: opId, rollcallId: rollcallId);
   }
 
   Future<AnswerResult> answerRadar({
@@ -764,9 +805,8 @@ class RollcallRepository {
     }
     final deviceId = await _deviceId();
     final opts = Options(extra: {'opId': ?opId, 'rollcallId': rollcallId});
-    late final Response<dynamic> res;
-    try {
-      res = await http.putUri<dynamic>(
+    return _executeAnswerPut(
+      () => http.putUri<dynamic>(
         TronEndpoints.answerRadar(rollcallId),
         data: {
           'accuracy': accuracy,
@@ -780,33 +820,11 @@ class RollcallRepository {
         },
         options: opts,
         beforeSend: beforeSend,
-      );
-    } on DioException catch (error) {
-      final response = error.response;
-      final status = response?.statusCode ?? 0;
-      // Business rejections may include the server's distance/message. Keep
-      // authentication, throttling and server/transport failures as exceptions.
-      if (response == null ||
-          status < 400 ||
-          status >= 500 ||
-          status == 401 ||
-          status == 429 ||
-          response.data is! Map) {
-        rethrow;
-      }
-      // Some deployments use 403 for an explicit radar scope rejection.
-      // A generic 403 still follows the existing session-expired path.
-      if (status == 403 &&
-          !AnswerResult(
-            ok: false,
-            status: status,
-            raw: Map<String, dynamic>.from(response.data as Map),
-          ).isLocationRejected) {
-        rethrow;
-      }
-      return _mapAnswer(response, opId: opId, rollcallId: rollcallId);
-    }
-    return _mapAnswer(res, opId: opId, rollcallId: rollcallId);
+      ),
+      opId: opId,
+      rollcallId: rollcallId,
+      allowLocation403: true,
+    );
   }
 
   /// Student QR answer: `{ data, deviceId }` (data from scan/paste).
@@ -820,12 +838,15 @@ class RollcallRepository {
         ? deviceId.trim()
         : await _deviceId();
     final opts = Options(extra: {'opId': ?opId, 'rollcallId': rollcallId});
-    final res = await http.putUri<dynamic>(
-      TronEndpoints.answerQr(rollcallId),
-      data: {'data': data, 'deviceId': id},
-      options: opts,
+    return _executeAnswerPut(
+      () => http.putUri<dynamic>(
+        TronEndpoints.answerQr(rollcallId),
+        data: {'data': data, 'deviceId': id},
+        options: opts,
+      ),
+      opId: opId,
+      rollcallId: rollcallId,
     );
-    return _mapAnswer(res, opId: opId, rollcallId: rollcallId);
   }
 
   /// Course id set for the current [http] session (assist same-course filter).
@@ -867,9 +888,10 @@ class RollcallRepository {
           map['distance'] is num && (map['distance'] as num).isFinite
           ? map['distance']
           : null;
+      final rawMessage = map['message']?.toString().trim();
       final msg = distance != null
           ? '未成功，距离约 $distance'
-          : (map['message']?.toString() ?? '提交失败 ($status)');
+          : _friendlyAnswerError(rawMessage, status: status);
       result = AnswerResult(ok: false, message: msg, raw: map, status: status);
     }
     if (opId != null && rollcallId != null) {
@@ -883,5 +905,23 @@ class RollcallRepository {
       );
     }
     return result;
+  }
+
+  static String _friendlyAnswerError(String? raw, {required int status}) {
+    if (raw == null || raw.isEmpty || raw == 'unexpected') {
+      return '提交失败 ($status)';
+    }
+    return switch (raw) {
+      'QR_code_expired' || 'qr_code_expired' => '二维码已过期，请重新扫描',
+      'invalid_qr_code' ||
+      'QR_code_invalid' ||
+      'qr_code_invalid' => '二维码无效，请重新扫描',
+      'rollcall_closed' ||
+      'rollcall_ended' ||
+      'not_in_progress' => '签到已结束',
+      'already_answered' || 'already_signed' => '已签到，无需重复提交',
+      'wrong_number_code' || 'number_code_error' => '签到码不正确',
+      _ => raw,
+    };
   }
 }

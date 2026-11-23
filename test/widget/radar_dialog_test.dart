@@ -238,11 +238,6 @@ void main() {
       find.widgetWithText(FilledButton, rejectedPreset ? '签到' : '选择位置'),
     );
     await tester.pumpAndSettle();
-    if (rejectedPreset) {
-      expect(find.text('签到位置不匹配'), findsOneWidget);
-      await tester.tap(find.text('重新选择'));
-      await tester.pumpAndSettle();
-    }
     expect(find.byType(Dialog), findsOneWidget);
     expect(find.byType(MapPickPanel), findsOneWidget);
     expect(
@@ -404,8 +399,10 @@ void main() {
       );
       await tester.tap(find.byTooltip('取消'));
       await tester.pumpAndSettle();
-      expect(find.text('选择位置'), findsOneWidget);
+      expect(find.text('重选位置'), findsOneWidget);
+      expect(find.text('位置不在范围内，请重选'), findsOneWidget);
       expect(adapter.submissions, 1);
+      AppToast.dismiss();
       await tester.pumpWidget(const SizedBox());
     },
   );
@@ -473,6 +470,7 @@ void main() {
       expect(find.byType(Dialog), findsNothing);
       expect(find.text('已签到'), findsNothing);
       expect(adapter.submissions, 1);
+      AppToast.dismiss();
       await tester.pumpWidget(const SizedBox());
     },
   );

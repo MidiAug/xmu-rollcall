@@ -114,14 +114,6 @@ class TaAssignmentCountChips extends StatelessWidget {
     final baseStyle = Theme.of(context).textTheme.bodySmall ?? const TextStyle();
     final metrics = [
       (
-        '应交',
-        assignment.expected,
-        p.pillMuted,
-        p.surfaceRim,
-        p.muted,
-        FontWeight.w500,
-      ),
-      (
         '已提交',
         assignment.submitted,
         assignment.submitted > 0 ? p.controlSurface : p.pillMuted,
@@ -162,7 +154,7 @@ class TaAssignmentCountChips extends StatelessWidget {
         for (final metric in metrics)
           Container(
             constraints: BoxConstraints(
-              minWidth: (metric.$1 == '应交' ? 68.0 : 80.0) * scale,
+              minWidth: 80.0 * scale,
             ),
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(

@@ -113,6 +113,7 @@ Map<String, dynamic> _row({
 
 class _Client extends TronHttpClient {
   _Client({required super.store, required super.sessionKey});
+  static Map<String, dynamic>? nextPutError;
   @override
   Future<void> init() async {}
   @override
@@ -136,6 +137,16 @@ class _Client extends TronHttpClient {
   }) async {
     await beforeSend?.call();
     _puts.add((session: sessionKey.storageId, body: data as Map));
+    final err = nextPutError;
+    if (err != null) {
+      nextPutError = null;
+      final req = RequestOptions(path: uri.path);
+      throw DioException(
+        requestOptions: req,
+        response: Response(requestOptions: req, statusCode: 400, data: err),
+        type: DioExceptionType.badResponse,
+      );
+    }
     _data[sessionKey.storageId] = [_row(signed: true)];
     return Response<T>(
       requestOptions: RequestOptions(path: uri.path),
@@ -1331,5 +1342,74 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
     variant: TargetPlatformVariant.only(TargetPlatform.windows),
+  );
+
+  testWidgets(
+    'mobile QR expired 400 renders friendly Chinese error and retry action',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async {
+          if (call.method == 'Clipboard.getData') {
+            return const <String, dynamic>{'text': 'QR_EXPIRED_TOKEN'};
+          }
+          return null;
+        },
+      );
+      addTearDown(
+        () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
+      _Client.nextPutError = const {'message': 'QR_code_expired'};
+      await show(
+        tester,
+        QrAnswerPage(
+          item: RollcallItem.fromJson(_row(title: '大学生职业素养养成')),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('粘贴内容并提交'));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      expect(find.text('二维码已过期，请重新扫描'), findsAtLeastNWidgets(1));
+      expect(find.text('重新扫码'), findsOneWidget);
+      expect(find.textContaining('DioException'), findsNothing);
+      await captureDesktopUi(tester, 'qr-answer-expired-error');
+      expect(tester.takeException(), isNull);
+      AppToast.dismiss();
+      await tester.pumpWidget(const SizedBox());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
+  );
+
+  testWidgets(
+    'mobile active QR card hides redundant course menu',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      _data['owner'] = [
+        {
+          ..._row(title: '大学生职业素养养成'),
+          'created_by_name': '蔡靖蓉',
+        },
+      ];
+      await show(tester, const RollcallHubPage());
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('课程操作'), findsNothing);
+      await captureDesktopUi(tester, 'mobile-rollcall-qr-card');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.android),
   );
 }

@@ -343,20 +343,47 @@ class _TaCoursesState extends State<_TaCourses> {
                           0,
                           item.submitted,
                         );
+                        final mobile = taIsMobile(context);
+                        final statusBadge = AppStatusBadge(
+                          item.submitted == 0
+                              ? '待提交'
+                              : item.graded > 0
+                              ? '已批 ${item.graded}/${item.submitted}'
+                              : '待批 $pending',
+                          tone: item.submitted == 0
+                              ? AppStatusTone.neutral
+                              : item.graded > 0
+                              ? AppStatusTone.success
+                              : AppStatusTone.accent,
+                          pill: true,
+                        );
+                        final titleWidget = AppTruncatedText(
+                          item.title,
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: p.ink,
+                              ),
+                        );
+                        final chevron = Icon(
+                          AppIcons.right,
+                          size: 18,
+                          color: p.muted,
+                        );
                         return AppHoverSurface(
                           outlined: false,
                           quiet: true,
                           backgroundColor: Colors.transparent,
                           borderRadius: BorderRadius.zero,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 16,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: mobile ? 16 : 20,
+                            vertical: mobile ? 14 : 16,
                           ),
                           onTap: () async {
                             final courseId = _course!;
                             await AppPageRoutes.push(
                               context,
-                              taIsMobile(context)
+                              mobile
                                   ? TaMobileAssignmentPage(
                                       repository: widget.repository,
                                       courseId: courseId,
@@ -374,49 +401,52 @@ class _TaCoursesState extends State<_TaCourses> {
                               _select(courseId);
                             }
                           },
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                          child: mobile
+                              ? Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
-                                    AppTruncatedText(
-                                      item.title,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w600,
-                                            color: p.ink,
-                                          ),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          titleWidget,
+                                          if (item.timeMetrics.isNotEmpty) ...[
+                                            const SizedBox(height: 8),
+                                            TaAssignmentTimeRow(
+                                              assignment: item,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
                                     ),
-                                    const SizedBox(height: 8),
-                                    TaAssignmentSummaryBar(assignment: item),
+                                    const SizedBox(width: 12),
+                                    statusBadge,
+                                    const SizedBox(width: 8),
+                                    chevron,
+                                  ],
+                                )
+                              : Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          titleWidget,
+                                          const SizedBox(height: 8),
+                                          TaAssignmentSummaryBar(
+                                            assignment: item,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    statusBadge,
+                                    const SizedBox(width: 12),
+                                    chevron,
                                   ],
                                 ),
-                              ),
-                              const SizedBox(width: 16),
-                              AppStatusBadge(
-                                item.submitted == 0
-                                    ? '待提交'
-                                    : item.graded > 0
-                                    ? '已批 ${item.graded}/${item.submitted}'
-                                    : '待批 $pending',
-                                tone: item.submitted == 0
-                                    ? AppStatusTone.neutral
-                                    : item.graded > 0
-                                    ? AppStatusTone.success
-                                    : AppStatusTone.accent,
-                                pill: true,
-                              ),
-                              const SizedBox(width: 12),
-                              Icon(
-                                AppIcons.right,
-                                size: 18,
-                                color: p.muted,
-                              ),
-                            ],
-                          ),
                         );
                       },
                     ),

@@ -73,6 +73,15 @@ class _Adapter implements HttpClientAdapter {
       final data = options.data as Map;
       expect(data['deviceId'], isNotEmpty);
       expect(data['data'], 'QRDATA');
+      if (options.path.contains('/999/')) {
+        return ResponseBody.fromString(
+          '{"message":"QR_code_expired"}',
+          400,
+          headers: {
+            Headers.contentTypeHeader: [Headers.jsonContentType],
+          },
+        );
+      }
       return ResponseBody.fromString(
         '{"ok":true}',
         200,
@@ -133,6 +142,11 @@ void main() {
 
     final qr = await repo.answerQr(rollcallId: 3, data: 'QRDATA');
     expect(qr.ok, isTrue);
+
+    final expiredQr = await repo.answerQr(rollcallId: 999, data: 'QRDATA');
+    expect(expiredQr.ok, isFalse);
+    expect(expiredQr.status, 400);
+    expect(expiredQr.message, '二维码已过期，请重新扫描');
 
     final id1 = await identity.getId();
     final id2 = await identity.getId();

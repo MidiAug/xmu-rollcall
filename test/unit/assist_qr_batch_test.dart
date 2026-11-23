@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/core/session/session_credential.dart';
@@ -164,6 +165,33 @@ void main() {
       expect(order, ['我', '乙', '丙']);
       expect(results.map((r) => r.ok).toList(), [true, false, true]);
       expect(results[1].message, 'fail');
+    });
+
+    test('maps thrown DioException to user-friendly failure message', () async {
+      final runner = AssistQrBatchRunner(
+        submit: (target, data) async {
+          throw DioException(
+            requestOptions: RequestOptions(path: '/api/rollcall/1/answer_qr_rollcall'),
+            response: Response(
+              requestOptions: RequestOptions(path: '/api/rollcall/1/answer_qr_rollcall'),
+              statusCode: 500,
+            ),
+            type: DioExceptionType.badResponse,
+          );
+        },
+      );
+
+      final results = await runner.run(
+        qrData: 'DATA',
+        targets: [
+          AssistQrTarget(key: SessionKey.owner, label: '我', userId: 0),
+        ],
+      );
+
+      expect(results, hasLength(1));
+      expect(results.single.ok, isFalse);
+      expect(results.single.message, '服务暂时不可用，请稍后重试');
+      expect(results.single.message, isNot(contains('DioException')));
     });
   });
 }

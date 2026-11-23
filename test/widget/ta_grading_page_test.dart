@@ -859,7 +859,6 @@ void main() {
 
         expect(find.byType(TaAssignmentSummaryBar), findsOneWidget);
         for (final chip in [
-          '应交 ${parsed.expected}',
           '已提交 ${parsed.submitted}',
           '已批改 ${parsed.graded}',
         ]) {

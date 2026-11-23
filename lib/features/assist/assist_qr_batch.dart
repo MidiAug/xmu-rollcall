@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/core/network/request_failure.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/core/session/session_key.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
@@ -93,7 +94,10 @@ class AssistQrBatchRunner {
         final r = await submit(t, qrData);
         out.add(AssistQrSubmitResult(target: t, ok: r.ok, message: r.message));
       } catch (e) {
-        out.add(AssistQrSubmitResult(target: t, ok: false, message: '$e'));
+        final msg = e is FormatException
+            ? e.message
+            : requestFailureMessage(e);
+        out.add(AssistQrSubmitResult(target: t, ok: false, message: msg));
       }
     }
     return out;

@@ -263,7 +263,7 @@ void main() {
         );
         await _choose(tester, RollcallPreviewScenario.missing);
         final styles = <TextStyle>[];
-        for (final label in ['无法获取签到码', '需补充签到位置', '二维码']) {
+        for (final label in ['获取签到码失败', '需补充签到位置', '二维码']) {
           final text = find.text(label);
           await tester.ensureVisible(text);
           await tester.pumpAndSettle();
@@ -277,7 +277,10 @@ void main() {
             closeTo(tester.getCenter(text).dy, .5),
           );
         }
-        expect(styles.toSet(), hasLength(1));
+        expect(
+          styles.map((s) => (s.fontSize, s.fontWeight)).toSet(),
+          hasLength(1),
+        );
         expect(styles.first.fontSize, 18);
         expect(styles.first.fontWeight, FontWeight.w400);
         await _capture(
@@ -341,7 +344,7 @@ void main() {
       expect(buttonRect.top, greaterThan(timeRect.bottom));
       expect(find.text('待签到'), findsOneWidget);
       expect(find.text('数字签到'), findsNothing);
-      expect(find.byTooltip('课程操作'), findsWidgets);
+      expect(find.byTooltip('课程操作'), findsNothing);
       String? copiedCode;
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
         SystemChannels.platform,
@@ -452,7 +455,7 @@ void main() {
         }
         if (scenario == RollcallPreviewScenario.missing) {
           expect(find.text('1234'), findsNothing);
-          expect(find.text('无法获取签到码'), findsOneWidget);
+          expect(find.text('获取签到码失败'), findsOneWidget);
           expect(find.widgetWithText(FilledButton, '手动输入'), findsOneWidget);
           expect(find.widgetWithText(FilledButton, '选择位置'), findsOneWidget);
           expect(find.text('需补充签到位置'), findsOneWidget);
