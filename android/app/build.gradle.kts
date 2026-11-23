@@ -44,6 +44,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["appLabel"] = if (previewBuild) "厦大签到 预览" else "厦大签到"
     }
 
     signingConfigs {
@@ -62,6 +63,7 @@ android {
             if (!previewBuild) {
                 applicationIdSuffix = ".debug"
                 versionNameSuffix = "-debug"
+                manifestPlaceholders["appLabel"] = "厦大签到 Debug"
             }
         }
         release {
