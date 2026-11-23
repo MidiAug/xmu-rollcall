@@ -9,6 +9,8 @@
 - 合入 `main` → 同样检查通过后，自动构建 Android 测试 APK、Windows x64 NSIS 安装器和便携 ZIP。到该次 Actions 运行的 Artifacts 下载，保留 7 天；不会自动安装。
 - 连续推送会取消同一分支或 PR 的旧检查，避免重复占用构建资源。手动运行 `Flutter checks` 可选择待验证分支，在合入 `main` 前也能生成测试包。
 
+显式加载真实文字的布局测试使用仓库内固定的 Noto Sans SC 测试字体，不依赖 runner 的系统字体或运行时下载；普通行为测试仍可使用 Flutter 默认测试字体。来源、许可证及更新方式见 [测试字体说明](../test/fixtures/fonts/README.md)。`CAPTURE_*=1` 仅用于 Windows 本机字体截图验收，不在普通 CI 设置；可读截图需固定平台和 SDK，不作为跨平台逐像素相同的承诺。
+
 Android 测试包使用独立应用 ID `cn.edu.xmu.rollcall.xmu_rollcall.preview` 和临时开发签名，可与正式版并存，不读取正式版登录数据。不同 runner 的测试包签名可能不同，不能保证测试包之间覆盖升级。Windows 测试包与正式版使用同一安装位置，仅在主动安装后替换程序。
 
 ## 配置 Android 固定签名（首次）
