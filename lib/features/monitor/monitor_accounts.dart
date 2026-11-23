@@ -1,6 +1,6 @@
 part of 'monitor_controller.dart';
 
-/// Desktop engines belong to credential accounts, independently of the visible page.
+/// Monitor engines belong to credential accounts, independently of the visible page.
 final accountMonitorProvider =
     StateNotifierProvider.family<MonitorController, MonitorState, int?>(
       (ref, scope) =>
@@ -8,13 +8,6 @@ final accountMonitorProvider =
     );
 
 final accountMonitorStatesProvider = Provider<Map<int?, MonitorState>>((ref) {
-  if (!PlatformHooks.isDesktop) {
-    return {
-      ref.watch(selectedRollcallAccountProvider): ref.watch(
-        monitorControllerProvider,
-      ),
-    };
-  }
   final identities = ref.watch(assistControllerProvider).identities;
   return {
     for (final scope in <int?>[null, ...identities.map((a) => a.userId)])
@@ -52,6 +45,9 @@ class _SelectedMonitorController extends MonitorController {
             .stopAsync(reason: reason),
     ];
     await Future.wait(stops);
+    if (PlatformHooks.isAndroid) {
+      await AndroidMonitorShell.instance.stopOngoing(reason: reason);
+    }
   }
 
   final _observed = <int?>{};

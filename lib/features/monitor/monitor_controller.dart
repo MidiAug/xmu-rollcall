@@ -107,9 +107,7 @@ class MonitorState {
 
 final monitorControllerProvider =
     StateNotifierProvider<MonitorController, MonitorState>(
-      (ref) => PlatformHooks.isDesktop
-          ? _SelectedMonitorController(ref)
-          : MonitorController(ref),
+      (ref) => _SelectedMonitorController(ref),
     );
 
 class MonitorController extends StateNotifier<MonitorState> {
@@ -137,7 +135,12 @@ class MonitorController extends StateNotifier<MonitorState> {
         return;
       }
       if (PlatformHooks.isAndroid) {
-        unawaited(AndroidMonitorShell.instance.pollNow(manual: false));
+        unawaited(
+          AndroidMonitorShell.instance.pollNow(
+            assistUserId: _scope,
+            manual: false,
+          ),
+        );
       } else {
         unawaited(_engine?.pollNow());
       }
@@ -149,9 +152,9 @@ class MonitorController extends StateNotifier<MonitorState> {
       _ref.listen(selectedRollcallAccountProvider, (previous, next) {
         if (previous == next) return;
         _changeSelectedAccount(
-          preserveBackgroundRun:
-              _restoringAccountSelection ||
-              _ref.read(selectedRollcallAccountProvider.notifier).restoring,
+          preserveBackgroundRun: _ref
+              .read(selectedRollcallAccountProvider.notifier)
+              .restoring,
         );
       });
     }
@@ -200,8 +203,6 @@ class MonitorController extends StateNotifier<MonitorState> {
   String? _runId;
   int _generation = 0;
   bool _restoring = false;
-  bool _canRestoreAccountSelection = true;
-  bool _restoringAccountSelection = false;
   int? _lastSnapshotPoll;
   int _lastSnapshotStamp = -1;
 
@@ -214,7 +215,6 @@ class MonitorController extends StateNotifier<MonitorState> {
     if (preserveBackgroundRun) {
       _generation++;
     } else {
-      _canRestoreAccountSelection = false;
       stop(reason: 'selected_account_changed');
     }
     _startFuture = null;
@@ -304,41 +304,16 @@ class MonitorController extends StateNotifier<MonitorState> {
   Future<void> _restore() async {
     final auth = _ref.read(authControllerProvider);
     if (!auth.isSignedIn) return;
-    final canRestoreSelection = _canRestoreAccountSelection;
-    _canRestoreAccountSelection = false;
+    final scope = _scope;
     final generation = _generation;
     try {
-      final snapshot = await AndroidMonitorShell.instance.readStatus();
+      final snapshot = await AndroidMonitorShell.instance.readStatus(
+        assistUserId: scope,
+      );
       if (!mounted ||
           generation != _generation ||
           state.starting ||
           snapshot == null) {
-        return;
-      }
-      final restoredScope = snapshot['assistUserId'];
-      if (canRestoreSelection &&
-          snapshot['running'] == true &&
-          (snapshot['ownerUserId'] ?? snapshot['userId']) == auth.profile?.id &&
-          _ref.read(selectedRollcallAccountProvider) == null &&
-          restoredScope is int) {
-        final service = await _ref.read(assistServiceProvider.future);
-        final accounts = await service.listIdentities();
-        if (!mounted || generation != _generation || state.starting) return;
-        if (!accounts.any((a) => a.userId == restoredScope)) {
-          await AndroidMonitorShell.instance.stopOngoing(
-            reason: 'account_removed',
-          );
-          return;
-        }
-        // Hydrate the selected account without revoking its existing worker.
-        // Explicit user switches always take the stopping path above.
-        _restoringAccountSelection = true;
-        try {
-          _ref.read(selectedRollcallAccountProvider.notifier).state =
-              restoredScope;
-        } finally {
-          _restoringAccountSelection = false;
-        }
         return;
       }
       _restoring = true;
@@ -428,11 +403,7 @@ class MonitorController extends StateNotifier<MonitorState> {
           )
           .toList();
       _ref
-          .read(
-            activeRollcallsProvider(
-              _ref.read(selectedRollcallAccountProvider),
-            ).notifier,
-          )
+          .read(activeRollcallsProvider(scope).notifier)
           .applyMonitorItems(
             items,
             fetchedAt: successMs == null
@@ -491,7 +462,10 @@ class MonitorController extends StateNotifier<MonitorState> {
       if (!mounted || generation != _generation || key != _configKey) return;
       _engine?.updateConfig(config);
       if (PlatformHooks.isAndroid && state.running) {
-        await AndroidMonitorShell.instance.updateConfig(config);
+        await AndroidMonitorShell.instance.updateConfig(
+          config,
+          assistUserId: _scope,
+        );
       }
       if (key != null) await _persistConfig(config, key);
     } catch (error, stack) {
@@ -687,7 +661,9 @@ class MonitorController extends StateNotifier<MonitorState> {
           );
           return StartMonitorResult.fgsFailed;
         }
-        final status = await AndroidMonitorShell.instance.readStatus();
+        final status = await AndroidMonitorShell.instance.readStatus(
+          assistUserId: scope,
+        );
         if (!current()) return StartMonitorResult.cancelled;
         if (status != null && status['runId'] == id) _onSnapshot(status);
         return state.running || status?['reason'] == 'activity_found'
@@ -998,7 +974,7 @@ class MonitorController extends StateNotifier<MonitorState> {
     AppLog.event('monitor.stop.request', fields: {'reason': reason});
     if (PlatformHooks.isAndroid) {
       _stopping = AndroidMonitorShell.instance
-          .stopOngoing(reason: reason)
+          .stopAccount(assistUserId: _scope, reason: reason)
           .catchError((Object error, StackTrace stack) {
             AppLog.logAppError(
               error: error,
@@ -1012,7 +988,12 @@ class MonitorController extends StateNotifier<MonitorState> {
   void pollNow({bool manual = true}) {
     if (!state.running) return;
     if (PlatformHooks.isAndroid) {
-      unawaited(AndroidMonitorShell.instance.pollNow(manual: manual));
+      unawaited(
+        AndroidMonitorShell.instance.pollNow(
+          assistUserId: _scope,
+          manual: manual,
+        ),
+      );
     } else {
       unawaited(_engine?.pollNow(manual: manual) ?? Future.value());
     }

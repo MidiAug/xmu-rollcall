@@ -9,6 +9,14 @@ class AndroidMonitorNotifications {
   static const discoveryChannelId = 'monitor_discovery';
   static const discoveryPayload = 'rollcall';
 
+  static int notificationId(String? runId) => runId == null
+      ? 2602
+      : 2700 +
+            runId.codeUnits.fold<int>(
+              0,
+              (hash, unit) => (hash * 31 + unit) & 0x3fffffff,
+            );
+
   Future<void> discovered({
     required String runId,
     required int count,
@@ -21,11 +29,14 @@ class AndroidMonitorNotifications {
       FlutterForegroundTask.sendDataToMain({
         'action': 'foreground_notice',
         'runId': runId,
+        'kind': 'discovered',
+        'courseTitle': courseTitle ?? '',
+        'count': count,
         'message': '${courseTitle ?? ''} 发现签到 $count 条，点击卡片可处理',
       });
       return;
     }
-    await show(count: count, courseTitle: courseTitle);
+    await show(count: count, runId: runId, courseTitle: courseTitle);
   }
 
   Future<void> showResult({
@@ -41,11 +52,14 @@ class AndroidMonitorNotifications {
       FlutterForegroundTask.sendDataToMain({
         'action': 'foreground_notice',
         'runId': runId,
+        'kind': ok ? 'auto_answer_succeeded' : 'auto_answer_failed',
+        'courseTitle': courseTitle,
+        'count': 1,
         'message': body,
       });
       return;
     }
-    await show(count: 1, body: body, quiet: true);
+    await show(count: 1, runId: runId, body: body, quiet: true);
   }
 
   Future<void> init({void Function(NotificationResponse)? onResponse}) async {
@@ -73,12 +87,13 @@ class AndroidMonitorNotifications {
   Future<void> show({
     required int count,
     bool diagnostic = false,
+    String? runId,
     String? courseTitle,
     String? body,
     bool quiet = false,
   }) async {
     await plugin.show(
-      id: diagnostic ? 2699 : 2602,
+      id: diagnostic ? 2699 : notificationId(runId),
       title: diagnostic ? '厦大签到  通知测试' : kAppDisplayName,
       body:
           body ??

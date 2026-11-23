@@ -13,8 +13,10 @@ import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
+import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_notice.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/settings/settings_page.dart';
 import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 import 'package:xmu_rollcall/features/update/app_update_foreground_prompt.dart';
@@ -165,18 +167,61 @@ class _AndroidMonitorBinder extends ConsumerStatefulWidget {
 }
 
 class _AndroidMonitorBinderState extends ConsumerState<_AndroidMonitorBinder> {
+  void _handleForegroundNotice(Map<String, dynamic> event) {
+    final kindRaw = event['kind'] as String?;
+    final kind = switch (kindRaw) {
+      'discovered' => MonitorNoticeKind.discovered,
+      'auto_answer_succeeded' => MonitorNoticeKind.autoAnswerSucceeded,
+      'auto_answer_failed' => MonitorNoticeKind.autoAnswerFailed,
+      _ => null,
+    };
+    final assistScope = event['assistUserId'] as int?;
+    if (kind != null) {
+      if (assistScope == ref.read(selectedRollcallAccountProvider)) return;
+      ref.read(monitorNoticeProvider.notifier).state = MonitorNoticeEvent(
+        id: nextMonitorNoticeId(),
+        accountScope: assistScope,
+        accountLabel: _accountLabel(assistScope),
+        kind: kind,
+        courseTitle: (event['courseTitle'] as String? ?? '').trim(),
+        count: (event['count'] as num?)?.toInt() ?? 1,
+      );
+      return;
+    }
+    final ctx = widget.navigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+    AppToast.show(ctx, event['message'] as String? ?? '发现新的签到');
+  }
+
+  String _accountLabel(int? scope) {
+    if (scope == null) {
+      final name = ref.read(authControllerProvider).profile?.name.trim() ?? '';
+      return name.isEmpty ? '主账号' : name;
+    }
+    for (final identity in ref.read(assistControllerProvider).identities) {
+      if (identity.userId == scope) {
+        final name = identity.displayName.trim();
+        return name.isEmpty ? '协助账号' : name;
+      }
+    }
+    return '协助账号';
+  }
+
   @override
   Widget build(BuildContext context) {
-    ref.watch(monitorControllerProvider.select((s) => s.running));
+    ref.watch(globalMonitorStateProvider.select((s) => s.running));
     return AndroidMonitorShellBinder(
-      stopMonitor: () {
-        ref.read(monitorControllerProvider.notifier).stop();
-      },
+      stopMonitor: () => unawaited(
+        ref
+            .read(monitorControllerProvider.notifier)
+            .stopAllAsync(reason: 'android_stop'),
+      ),
       onUserMessage: (message) {
         final ctx = widget.navigatorKey.currentContext;
         if (ctx == null || !ctx.mounted) return;
         AppToast.show(ctx, message);
       },
+      onForegroundNotice: _handleForegroundNotice,
       child: widget.child,
     );
   }
