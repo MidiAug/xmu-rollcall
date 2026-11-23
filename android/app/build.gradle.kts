@@ -58,6 +58,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            if (!previewBuild) {
+                applicationIdSuffix = ".debug"
+                versionNameSuffix = "-debug"
+            }
+        }
         release {
             // Local development keeps its existing key; CI release forbids fallback.
             signingConfig = signingConfigs.getByName(
