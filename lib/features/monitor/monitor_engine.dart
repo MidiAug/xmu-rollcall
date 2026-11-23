@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:dio/dio.dart';
 
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
@@ -53,6 +54,8 @@ class MonitorEngine {
   bool _busy = false;
   int _generation = 0;
   int _failures = 0;
+  int _automaticFailures = 0;
+  Duration? _automaticMinDelay;
   DateTime? _nextAt;
 
   Set<int> get notifiedIds => Set.unmodifiable(_notifiedIds);
@@ -69,6 +72,8 @@ class MonitorEngine {
     _generation++;
     _latestItems = handedOffItems;
     _lastAutomaticAt = null;
+    _automaticFailures = 0;
+    _automaticMinDelay = null;
     if (_discovering) {
       _schedule(Duration.zero);
     } else {
@@ -82,6 +87,8 @@ class MonitorEngine {
     _generation++;
     _timer?.cancel();
     _automaticTimer?.cancel();
+    _automaticFailures = 0;
+    _automaticMinDelay = null;
     _nextAt = null;
   }
 
@@ -91,6 +98,8 @@ class MonitorEngine {
     _config = config;
     _automaticTimer?.cancel();
     _lastAutomaticAt = null;
+    _automaticFailures = 0;
+    _automaticMinDelay = null;
     if (!_busy) _scheduleAutomatic();
     if (_running && !_busy) {
       // Rebuild lesson windows before publishing a new discovery time.
@@ -127,10 +136,35 @@ class MonitorEngine {
   Duration get _automaticDelay {
     final last = _lastAutomaticAt;
     if (last == null) return Duration.zero;
-    final remaining = last
-        .add(Duration(seconds: _config.effectiveAttendanceIntervalSeconds))
-        .difference(_now());
+    final baseSeconds =
+        _config.effectiveAttendanceIntervalSeconds *
+        (1 << _automaticFailures.clamp(0, 4));
+    var interval = Duration(seconds: baseSeconds);
+    final minDelay = _automaticMinDelay;
+    if (minDelay != null && minDelay > interval) {
+      interval = minDelay;
+    }
+    final remaining = last.add(interval).difference(_now());
     return remaining.isNegative ? Duration.zero : remaining;
+  }
+
+  Duration? _parseRetryAfter(String? raw) {
+    final header = raw?.trim();
+    if (header == null || header.isEmpty) return null;
+    Duration? serverDelay;
+    final seconds = int.tryParse(header);
+    if (seconds != null && seconds >= 0) {
+      serverDelay = Duration(seconds: seconds);
+    } else {
+      try {
+        serverDelay = HttpDate.parse(header).difference(_now());
+      } on FormatException {
+        return null;
+      }
+    }
+    if (serverDelay.isNegative) return null;
+    const maxDelay = Duration(seconds: 600);
+    return serverDelay > maxDelay ? maxDelay : serverDelay;
   }
 
   void _scheduleAutomatic() {
@@ -242,6 +276,8 @@ class MonitorEngine {
       }
       final message = await _processAutomatic(current);
       if (current()) {
+        _automaticFailures = 0;
+        _automaticMinDelay = null;
         onUpdate(
           MonitorEngineUpdate(
             failures: _failures,
@@ -273,9 +309,17 @@ class MonitorEngine {
           ),
         );
       } else {
+        _automaticFailures++;
+        if (error is DioException && error.response?.statusCode == 429) {
+          _automaticMinDelay = _parseRetryAfter(
+            error.response?.headers.value('retry-after'),
+          );
+        } else {
+          _automaticMinDelay = null;
+        }
         onUpdate(
           MonitorEngineUpdate(
-            failures: _failures,
+            failures: _automaticFailures,
             ok: false,
             message: '人数检查失败，稍后重试',
           ),

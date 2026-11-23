@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/core/session/assist_identity.dart';
 import 'package:xmu_rollcall/core/storage/secure_store.dart';
 
@@ -20,25 +21,46 @@ class AssistIdentityStore {
   }
 
   static const rosterKey = 'assist_identities_json';
+  static const corruptBackupKey = '${rosterKey}_corrupt_backup';
 
-  Future<List<AssistIdentity>> list() async {
+  Future<({List<AssistIdentity> items, String? raw, bool corrupt})>
+  _readRoster() async {
     final raw = await _store.read(rosterKey);
-    if (raw == null || raw.isEmpty) return const [];
+    if (raw == null || raw.isEmpty) {
+      return (items: const <AssistIdentity>[], raw: raw, corrupt: false);
+    }
     try {
       final list = jsonDecode(raw) as List<dynamic>;
-      return list
+      final items = list
           .map(
             (e) => AssistIdentity.fromJson(Map<String, dynamic>.from(e as Map)),
           )
           .where((e) => e.userId > 0)
           .toList();
-    } catch (_) {
-      return const [];
+      return (items: items, raw: raw, corrupt: false);
+    } catch (error) {
+      AppLog.event(
+        'assist.roster.corrupt',
+        level: 'W',
+        fields: {'errorType': error.runtimeType.toString()},
+      );
+      return (items: const <AssistIdentity>[], raw: raw, corrupt: true);
     }
   }
 
+  Future<List<AssistIdentity>> _readForMutation() async {
+    final result = await _readRoster();
+    if (result.corrupt && result.raw != null) {
+      await _store.write(corruptBackupKey, result.raw!);
+      throw const FormatException('协助身份列表已损坏，已备份原数据并阻止覆盖');
+    }
+    return result.items;
+  }
+
+  Future<List<AssistIdentity>> list() async => (await _readRoster()).items;
+
   Future<void> upsert(AssistIdentity identity) => _mutate(() async {
-    final items = await list();
+    final items = await _readForMutation();
     final next = [...items.where((e) => e.userId != identity.userId), identity]
       ..sort((a, b) => a.displayName.compareTo(b.displayName));
     await _store.write(
@@ -48,7 +70,9 @@ class AssistIdentityStore {
   });
 
   Future<void> remove(int userId) => _mutate(() async {
-    final next = (await list()).where((e) => e.userId != userId).toList();
+    final next = (await _readForMutation())
+        .where((e) => e.userId != userId)
+        .toList();
     if (next.isEmpty) {
       await _store.delete(rosterKey);
     } else {

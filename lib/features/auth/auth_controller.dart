@@ -135,22 +135,44 @@ class AuthController extends StateNotifier<AuthState> {
       if (sync != null) {
         unawaited(sync(profile, username, password).catchError((Object _) {}));
       }
-    } catch (e) {
+    } catch (e, stack) {
+      AppLog.logAppError(error: e, stackTrace: stack, source: 'auth_sign_in');
       if (!mounted || generation != _generation) rethrow;
       state = AuthState(
         status: AuthStatus.signedOut,
-        errorMessage: e.toString(),
+        errorMessage: e is AuthException ? e.message : '登录失败，请检查网络后重试',
       );
       rethrow;
     }
   }
 
   Future<void> signOut() async {
-    _generation++;
-    await beforeSignOut?.call();
-    await _repo.signOut();
-    // Disk mirrors kept (R-35 S2); memory cleared via [sessionLifecycleProvider].
-    state = const AuthState(status: AuthStatus.signedOut);
+    final generation = ++_generation;
+    try {
+      try {
+        await beforeSignOut?.call();
+      } catch (error, stack) {
+        AppLog.logAppError(
+          error: error,
+          stackTrace: stack,
+          source: 'auth_before_sign_out',
+        );
+      }
+      try {
+        await _repo.signOut();
+      } catch (error, stack) {
+        AppLog.logAppError(
+          error: error,
+          stackTrace: stack,
+          source: 'auth_sign_out',
+        );
+      }
+    } finally {
+      // Disk mirrors kept (R-35 S2); memory cleared via [sessionLifecycleProvider].
+      if (mounted && generation == _generation) {
+        state = const AuthState(status: AuthStatus.signedOut);
+      }
+    }
   }
 }
 

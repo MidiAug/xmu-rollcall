@@ -662,4 +662,72 @@ void main() {
     await engine.pollNow();
     expect(calls, 1);
   });
+
+  testWidgets(
+    'automatic check applies exponential backoff, honors 429 Retry-After, and resets on success',
+    (tester) async {
+      var attempts = 0;
+      final autoUpdates = <MonitorEngineUpdate>[];
+      engine = MonitorEngine(
+        config: const MonitorConfig(
+          autoAnswer: true,
+          attendanceIntervalSeconds: 15,
+          jitterRatio: 0,
+        ),
+        fetch: () async => [item(1)],
+        notify: (_) async => true,
+        processAutomatic: (_, _, _) async {
+          attempts++;
+          final options = RequestOptions(path: '/rollcalls/1/answer');
+          if (attempts == 1) {
+            throw StateError('transient failure');
+          }
+          if (attempts == 2) {
+            throw DioException(
+              requestOptions: options,
+              response: Response(
+                requestOptions: options,
+                statusCode: 429,
+                headers: Headers.fromMap({
+                  'retry-after': ['90'],
+                }),
+              ),
+            );
+          }
+          return 'waiting';
+        },
+        now: tester.binding.clock.now,
+        onUpdate: autoUpdates.add,
+      );
+
+      engine.start(handedOffItems: [item(1)]);
+      // Initial automatic check fires immediately (Duration.zero) and fails -> failures: 1, next delay = 15 * 2 = 30s.
+      await tester.pump(Duration.zero);
+      expect(attempts, 1);
+      expect(autoUpdates.last.ok, isFalse);
+      expect(autoUpdates.last.failures, 1);
+
+      await tester.pump(const Duration(seconds: 29));
+      expect(attempts, 1);
+      await tester.pump(const Duration(seconds: 1));
+      // 2nd attempt hits 429 with Retry-After: 90 -> failures: 2, exponential = 60s, max(60s, 90s) = 90s.
+      expect(attempts, 2);
+      expect(autoUpdates.last.ok, isFalse);
+      expect(autoUpdates.last.failures, 2);
+
+      await tester.pump(const Duration(seconds: 89));
+      expect(attempts, 2);
+      await tester.pump(const Duration(seconds: 1));
+      // 3rd attempt succeeds -> resets backoff and reports failures: 0, next check at 15s.
+      expect(attempts, 3);
+      expect(autoUpdates.last.ok, isTrue);
+      expect(autoUpdates.last.failures, 0);
+
+      await tester.pump(const Duration(seconds: 14));
+      expect(attempts, 3);
+      await tester.pump(const Duration(seconds: 1));
+      expect(attempts, 4);
+      engine.stop();
+    },
+  );
 }

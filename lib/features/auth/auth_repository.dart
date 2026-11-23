@@ -40,32 +40,73 @@ class AuthRepository {
     required String password,
     bool rememberPassword = false,
   }) async {
-    await http.init();
-    await http.clearSession();
+    try {
+      await http.init();
+      await http.clearSession();
 
-    AppLog.event('login.step', fields: {'step': 'fetch_form'});
-    final form = await _fetchLoginForm();
-    final next = await IdsAuth(http.hop).submit(
-      url: form.url,
-      html: form.html,
-      username: username,
-      password: password,
-    );
+      AppLog.event('login.step', fields: {'step': 'fetch_form'});
+      final form = await _fetchLoginForm();
+      final Uri next;
+      try {
+        next = await IdsAuth(http.hop).submit(
+          url: form.url,
+          html: form.html,
+          username: username,
+          password: password,
+        );
+      } on FormatException catch (error) {
+        if (error.source == null &&
+            const {
+              '统一认证地址异常',
+              '需要验证码，请在统一认证中完成登录',
+              '统一认证页面异常',
+              '统一认证未通过，请检查账号密码',
+            }.contains(error.message)) {
+          throw AuthException(error.message);
+        }
+        rethrow;
+      }
 
-    AppLog.event('login.step', fields: {'step': 'follow_code'});
-    final code = await _followToAuthCode(next);
-    AppLog.event('login.step', fields: {'step': 'oauth_token'});
-    final profile = await completeOAuthCode(code);
-    await store.write(SecureStore.keyLastUsername, username);
-    await identity.bindStudentNumber(profile.studentNo ?? username);
-    await store.write(SecureStore.keyRememberPassword, '$rememberPassword');
-    if (rememberPassword) {
-      await store.write(SecureStore.keyOwnerPassword, password);
-    } else {
-      await store.delete(SecureStore.keyOwnerPassword);
+      AppLog.event('login.step', fields: {'step': 'follow_code'});
+      final code = await _followToAuthCode(next);
+      AppLog.event('login.step', fields: {'step': 'oauth_token'});
+      final profile = await completeOAuthCode(code);
+      await store.write(SecureStore.keyLastUsername, username);
+      await identity.bindStudentNumber(profile.studentNo ?? username);
+      await store.write(SecureStore.keyRememberPassword, '$rememberPassword');
+      if (rememberPassword) {
+        await store.write(SecureStore.keyOwnerPassword, password);
+      } else {
+        await store.delete(SecureStore.keyOwnerPassword);
+      }
+      AppLog.event('login.step', fields: {'step': 'done', 'userId': profile.id});
+      return profile;
+    } catch (error) {
+      throw _mapSignInError(error);
     }
-    AppLog.event('login.step', fields: {'step': 'done', 'userId': profile.id});
-    return profile;
+  }
+
+  AuthException _mapSignInError(Object error) {
+    if (error is AuthException) return error;
+    if (error is DioException) {
+      final status = error.response?.statusCode ?? 0;
+      if (status == 429) {
+        return AuthException('登录请求过于频繁，请稍后重试');
+      }
+      if (status >= 500) {
+        return AuthException('登录服务暂时不可用，请稍后重试');
+      }
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.sendTimeout ||
+          error.type == DioExceptionType.receiveTimeout) {
+        return AuthException('登录超时，请检查网络后重试');
+      }
+      if (error.type == DioExceptionType.connectionError) {
+        return AuthException('网络连接失败，请检查网络后重试');
+      }
+      return AuthException('登录失败，请检查网络后重试');
+    }
+    return AuthException('登录失败，请稍后重试');
   }
 
   Future<({Uri url, String html})> _fetchLoginForm() async {

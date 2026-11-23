@@ -7,6 +7,7 @@ import 'package:xmu_rollcall/app/app_checkbox.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
+import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 
 Future<void> showLoginDialog(BuildContext context) {
   return showDialog<void>(
@@ -78,7 +79,9 @@ class _LoginDialogState extends ConsumerState<LoginDialog> {
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      setState(
+        () => _error = e is AuthException ? e.message : '登录失败，请检查网络后重试',
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

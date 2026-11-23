@@ -30,6 +30,50 @@ void main() {
       await roster.remove(9);
       expect(await roster.list(), isEmpty);
     });
+
+    test('corrupt JSON returns empty list without crashing', () async {
+      final store = SecureStore.memory();
+      await store.write(AssistIdentityStore.rosterKey, '{corrupt-json');
+      final roster = AssistIdentityStore(store);
+      expect(await roster.list(), isEmpty);
+      expect(
+        await store.read(AssistIdentityStore.rosterKey),
+        '{corrupt-json',
+      );
+    });
+
+    test(
+      'upsert and remove refuse overwrite, preserve original key, and write corrupt backup',
+      () async {
+        const corruptRaw = '{"unexpected":"object"}';
+        final store = SecureStore.memory();
+        await store.write(AssistIdentityStore.rosterKey, corruptRaw);
+        final roster = AssistIdentityStore(store);
+
+        await expectLater(
+          roster.upsert(
+            const AssistIdentity(
+              userId: 10,
+              displayName: '李四',
+              kind: AssistCredentialKind.session,
+            ),
+          ),
+          throwsA(isA<FormatException>()),
+        );
+        expect(await store.read(AssistIdentityStore.rosterKey), corruptRaw);
+        expect(
+          await store.read(AssistIdentityStore.corruptBackupKey),
+          corruptRaw,
+        );
+
+        await expectLater(roster.remove(10), throwsA(isA<FormatException>()));
+        expect(await store.read(AssistIdentityStore.rosterKey), corruptRaw);
+        expect(
+          await store.read(AssistIdentityStore.corruptBackupKey),
+          corruptRaw,
+        );
+      },
+    );
   });
 
   group('AssistService', () {
