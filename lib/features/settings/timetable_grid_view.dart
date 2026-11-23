@@ -631,17 +631,27 @@ class _CourseDetail extends StatelessWidget {
     final p = AppPalette.of(context);
     final hasLocation = c.location?.isNotEmpty == true;
     final canOpenMap = hasLocation && onMap != null;
-    Widget value(String label, String value) => SettingsRow(
+    Widget value(String label, String value, {required IconData icon, bool singleLine = false}) => SettingsRow(
       title: label,
+      leading: Icon(icon),
       trailing: Expanded(
-        child: SelectableText(
-          value,
-          textAlign: TextAlign.end,
-          style: AppTypography.body.copyWith(
-            color: p.ink,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        child: singleLine
+            ? AppTruncatedText(
+                value,
+                textAlign: TextAlign.end,
+                style: AppTypography.body.copyWith(
+                  color: p.ink,
+                  fontWeight: FontWeight.w500,
+                ),
+              )
+            : SelectableText(
+                value,
+                textAlign: TextAlign.end,
+                style: AppTypography.body.copyWith(
+                  color: p.ink,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
       ),
     );
     return Padding(
@@ -682,13 +692,14 @@ class _CourseDetail extends StatelessWidget {
           SettingsSection(
             inset: true,
             padTop: false,
-            hasLeading: false,
+            hasLeading: true,
             children: [
               if (c.instructorsLabel.isNotEmpty)
-                value('教师', c.instructorsLabel),
+                value('教师', c.instructorsLabel, icon: AppIcons.person, singleLine: true),
               SettingsRow(
                 key: const ValueKey('course-location-map-link'),
                 title: '地点',
+                leading: const Icon(AppIcons.location),
                 onTap: canOpenMap ? onMap : null,
                 trailing: Expanded(
                   child: Row(
@@ -719,8 +730,10 @@ class _CourseDetail extends StatelessWidget {
               value(
                 '上课时间',
                 '${weekdayLabel(block.weekday)} ${block.block.sectionLabel}\n${formatHm(block.block.coreStart)}–${formatHm(block.block.coreEnd)}',
+                icon: AppIcons.clock,
               ),
-              if (block.weekLabel != null) value('教学周', block.weekLabel!),
+              if (block.weekLabel != null)
+                value('教学周', block.weekLabel!, icon: AppIcons.calendar),
             ],
           ),
           if (!c.id.startsWith('academic:')) ...[

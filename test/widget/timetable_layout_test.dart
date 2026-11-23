@@ -761,4 +761,75 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'course detail long instructors single line truncation and icons test',
+    (tester) async {
+      tester.view.physicalSize = const Size(600, 720);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final course = CatalogCourse(
+        id: 'long-instr',
+        title: '多教师课程',
+        instructorNames: const [
+          '王程',
+          '臧彧',
+          '温程璐',
+          '沈思琪',
+          '范晓亮',
+          '陈老师',
+          '李老师',
+        ],
+        location: '海韵教学楼 205',
+        timetables: {
+          1: [
+            TimetableSlot(
+              sequence: 1,
+              endSequence: 2,
+              start: DateTime(2000, 1, 3, 8),
+              end: DateTime(2000, 1, 3, 9, 40),
+            ),
+          ],
+        },
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: TimetableGridView(
+                courses: [course],
+                referenceDate: DateTime(2026, 11, 20),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('多教师课程'));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(AppIcons.person), findsWidgets);
+      expect(find.byIcon(AppIcons.location), findsWidgets);
+      expect(find.byIcon(AppIcons.clock), findsWidgets);
+      // block.weekLabel is null in this test slot, so calendar icon is not rendered.
+      expect(find.byIcon(AppIcons.calendar), findsNothing);
+
+      final instructorTextFinder = find.text('王程、臧彧、温程璐、沈思琪、范晓亮、陈老师、李老师');
+      expect(instructorTextFinder, findsOneWidget);
+
+      final textWidget = tester.widget<Text>(instructorTextFinder);
+      expect(textWidget.maxLines, 1);
+      expect(textWidget.overflow, TextOverflow.ellipsis);
+
+      final paragraph = tester.renderObject<RenderParagraph>(instructorTextFinder);
+      expect(paragraph.didExceedMaxLines, isTrue);
+
+      expect(find.byType(Tooltip), findsWidgets);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }
