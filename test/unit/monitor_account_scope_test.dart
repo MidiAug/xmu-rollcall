@@ -17,6 +17,8 @@ import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/features/monitor/monitor_notice.dart';
+import 'package:xmu_rollcall/platform/platform_hooks.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_repository.dart';
@@ -50,9 +52,11 @@ class _Service extends Fake implements AssistService {
 
 class _Repo extends Fake implements RollcallRepository {
   final entered = Completer<void>();
+  Completer<List<RollcallItem>>? activeFuture;
   Completer<String?>? code;
   final answered = Completer<void>();
   final codeEntered = Completer<void>();
+  AnswerResult answerResult = const AnswerResult(ok: true);
   int puts = 0;
   bool expired = false;
   String courseId = 'a';
@@ -117,6 +121,7 @@ class _Repo extends Fake implements RollcallRepository {
         response: Response(requestOptions: request, statusCode: 401),
       );
     }
+    if (activeFuture != null) return activeFuture!.future;
     return [
       RollcallItem.fromJson({
         'rollcall_id': 9,
@@ -154,7 +159,7 @@ class _Repo extends Fake implements RollcallRepository {
   }) async {
     puts++;
     if (!answered.isCompleted) answered.complete();
-    return const AnswerResult(ok: true);
+    return answerResult;
   }
 }
 
@@ -204,7 +209,11 @@ void main() {
       ],
     );
   });
-  tearDown(() => container.dispose());
+  tearDown(() {
+    PlatformHooks.onRollcallsDiscovered = null;
+    PlatformHooks.onAutomaticAnswerResult = null;
+    container.dispose();
+  });
   Future<void> loaded() async {
     for (var i = 0; i < 100; i++) {
       if (!container.read(monitorControllerProvider).loadingSettings) return;
@@ -273,7 +282,7 @@ void main() {
   );
 
   test(
-    'switch cancels a pending automatic submission and starts the selected repository',
+    'switch keeps a pending automatic submission alive in its own account independently',
     () async {
       a.code = Completer<String?>();
       final ctrl = container.read(monitorControllerProvider.notifier);
@@ -281,14 +290,32 @@ void main() {
       await a.entered.future;
       await Future<void>.delayed(Duration.zero);
       select(2);
+      await loaded();
       expect(container.read(monitorControllerProvider).running, isFalse);
-      a.code!.complete('1234');
+      expect(container.read(accountMonitorProvider(null)).running, isTrue);
       expect(await ctrl.startAsync(), StartMonitorResult.started);
       await b.entered.future;
       await Future<void>.delayed(Duration.zero);
-      expect(a.puts, 0);
+      a.code!.complete('1234');
+      await a.answered.future.timeout(const Duration(seconds: 3));
+      for (var i = 0; i < 20; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(a.puts, 1);
       expect(b.puts, 0);
       expect(service.sessions, [2]);
+      expect(
+        container.read(activeRollcallsProvider(null)).valueOrNull,
+        isNotEmpty,
+      );
+      expect(
+        container.read(container.read(localHistoryForProvider(null))).single.ok,
+        isTrue,
+      );
+      expect(
+        container.read(container.read(localHistoryForProvider(2))),
+        isEmpty,
+      );
       expect(container.read(monitorControllerProvider).running, isFalse);
       expect(container.read(monitorControllerProvider).discovering, isFalse);
     },
@@ -578,6 +605,141 @@ void main() {
         container.read(currentLocalHistoryProvider).single.courseTitle,
         'B',
       );
+    },
+  );
+
+  test(
+    'background account discovery and auto-answer emit toast notices without middle dots while selected account stays quiet',
+    () async {
+      PlatformHooks.onRollcallsDiscovered = (_) async {};
+      PlatformHooks.onAutomaticAnswerResult = (_, _) async {};
+      final ctrl = container.read(monitorControllerProvider.notifier);
+      await loaded();
+
+      // Selected account discovery and auto-answer do not emit background notices.
+      expect(await ctrl.startAsync(), StartMonitorResult.started);
+      await a.answered.future.timeout(const Duration(seconds: 3));
+      for (var i = 0; i < 20; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(container.read(monitorNoticeProvider), isNull);
+      ctrl.stop();
+
+      // Switch to account 2 while preparing background discovery + success on B.
+      final notices = <MonitorNoticeEvent>[];
+      final sub = container.listen<MonitorNoticeEvent?>(
+        monitorNoticeProvider,
+        (_, next) {
+          if (next != null) notices.add(next);
+        },
+      );
+      addTearDown(sub.close);
+
+      select(2);
+      await loaded();
+      ctrl.setAutomaticAnswer(true);
+      ctrl.setAnswerWaitMode(AnswerWaitMode.none);
+      b.activeFuture = Completer<List<RollcallItem>>();
+      b.code = Completer<String?>();
+      expect(await ctrl.startAsync(), StartMonitorResult.started);
+      await b.entered.future;
+      select(null);
+      await loaded();
+
+      b.activeFuture!.complete([
+        RollcallItem.fromJson({
+          'rollcall_id': 19,
+          'course_id': 'c1',
+          'course_title': '高等数学',
+          'is_number': true,
+          'status': 'absent',
+        }),
+      ]);
+      await b.codeEntered.future.timeout(const Duration(seconds: 3));
+      for (var i = 0; i < 10; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(
+        notices.any(
+          (n) =>
+              n.accountScope == 2 &&
+              n.kind == MonitorNoticeKind.discovered &&
+              n.formatMessage() == 'B 发现新签到：高等数学',
+        ),
+        isTrue,
+      );
+
+      b.code!.complete('5678');
+      await b.answered.future.timeout(const Duration(seconds: 3));
+      for (var i = 0; i < 20; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(
+        notices.last.kind,
+        MonitorNoticeKind.autoAnswerSucceeded,
+      );
+      expect(notices.last.isError, isFalse);
+      expect(notices.last.formatMessage(), 'B 已自动签到：高等数学');
+
+      // Verify failure path on background account 2.
+      final failRepo = _Repo()
+        ..answerResult = const AnswerResult(ok: false, message: '签到码错误');
+      final failContainer = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          assistServiceProvider.overrideWith((ref) async => service),
+          assistControllerProvider.overrideWith(
+            (ref) => AssistController(
+              ref,
+              bootstrap: false,
+              initial: const AssistUiState(
+                ready: true,
+                identities: [
+                  AssistIdentity(
+                    userId: 2,
+                    displayName: 'B',
+                    kind: AssistCredentialKind.session,
+                    deviceId: 'device-b',
+                  ),
+                ],
+              ),
+            ),
+          ),
+          rollcallRepositoryProvider.overrideWithValue(a),
+          rollcallRepositoryForProvider(2).overrideWithValue(failRepo),
+        ],
+      );
+      addTearDown(failContainer.dispose);
+      final failNotices = <MonitorNoticeEvent>[];
+      final failSub = failContainer.listen<MonitorNoticeEvent?>(
+        monitorNoticeProvider,
+        (_, next) {
+          if (next != null) failNotices.add(next);
+        },
+      );
+      addTearDown(failSub.close);
+      failContainer.read(selectedRollcallAccountProvider.notifier).state = 2;
+      final failCtrl = failContainer.read(monitorControllerProvider.notifier);
+      while (failContainer.read(monitorControllerProvider).loadingSettings) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      failCtrl.setAutomaticAnswer(true);
+      failCtrl.setAnswerWaitMode(AnswerWaitMode.none);
+      failRepo.code = Completer<String?>();
+      expect(await failCtrl.startAsync(), StartMonitorResult.started);
+      await failRepo.codeEntered.future.timeout(const Duration(seconds: 3));
+      failContainer.read(selectedRollcallAccountProvider.notifier).state = null;
+      failRepo.code!.complete('0000');
+      await failRepo.answered.future.timeout(const Duration(seconds: 3));
+      for (var i = 0; i < 20; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(failNotices.last.kind, MonitorNoticeKind.autoAnswerFailed);
+      expect(failNotices.last.isError, isTrue);
+      expect(failNotices.last.formatMessage(), 'B 自动签到失败：值守测试课');
+      for (final n in [...notices, ...failNotices]) {
+        expect(n.formatMessage(), isNot(contains(RegExp(r'[·•⋅]'))));
+      }
     },
   );
 }

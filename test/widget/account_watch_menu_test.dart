@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/app/app.dart';
+import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +17,7 @@ import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/auth_repository.dart';
 import 'package:xmu_rollcall/features/assist/assist_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
+import 'package:xmu_rollcall/features/monitor/monitor_notice.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account_menu.dart';
 import '../fixtures/preview_fonts.dart';
@@ -133,9 +136,7 @@ void main() {
                                       .identities,
                                   watchingAccounts: {
                                     for (final e in states.entries)
-                                      if (e.value.running &&
-                                          e.value.config.courseWatch)
-                                        e.key ?? 0,
+                                      if (e.value.running) e.key ?? 0,
                                   },
                                   onChanged: (id) =>
                                       ref
@@ -216,4 +217,117 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'running account without courseWatch stays running on switch and shows indicator',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          assistControllerProvider.overrideWith(
+            (ref) => AssistController(
+              ref,
+              bootstrap: false,
+              initial: const AssistUiState(
+                ready: true,
+                identities: [
+                  AssistIdentity(
+                    userId: 2,
+                    displayName: '另一位同学',
+                    kind: AssistCredentialKind.session,
+                    deviceId: 'test-device',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: Scaffold(
+              body: Consumer(
+                builder: (context, ref, _) {
+                  final states = ref.watch(accountMonitorStatesProvider);
+                  final selected = ref.watch(selectedRollcallAccountProvider);
+                  return RollcallAccountMenu(
+                    sidebar: true,
+                    width: 156,
+                    value: selected ?? 0,
+                    ownerName: '值守同学',
+                    identities: ref.watch(assistControllerProvider).identities,
+                    watchingAccounts: {
+                      for (final e in states.entries)
+                        if (e.value.running) e.key ?? 0,
+                    },
+                    onChanged: (id) =>
+                        ref
+                            .read(selectedRollcallAccountProvider.notifier)
+                            .state = id == 0 ? null : id,
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final monitor = container.read(monitorControllerProvider.notifier);
+      monitor.debugArmRunning();
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('值守中'), findsOneWidget);
+      await tester.tap(find.text('值守同学'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('另一位同学'));
+      await tester.pumpAndSettle();
+      expect(container.read(accountMonitorProvider(null)).running, isTrue);
+      await tester.tap(find.text('另一位同学'));
+      await tester.pumpAndSettle();
+      expect(find.text('值守中'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'MonitorNoticeToastBinder renders AppToast for background monitor events',
+    (tester) async {
+      addTearDown(AppToast.dismiss);
+      final navKey = GlobalKey<NavigatorState>();
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MonitorNoticeToastBinder(
+            navigatorKey: navKey,
+            child: MaterialApp(
+              navigatorKey: navKey,
+              theme: AppTheme.light(),
+              home: const Scaffold(body: SizedBox.shrink()),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      container.read(monitorNoticeProvider.notifier).state = MonitorNoticeEvent(
+        id: nextMonitorNoticeId(),
+        accountScope: 2,
+        accountLabel: 'B',
+        kind: MonitorNoticeKind.autoAnswerSucceeded,
+        courseTitle: '工程伦理',
+      );
+      await tester.pump();
+      expect(find.text('B 已自动签到：工程伦理'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+      expect(find.text('B 已自动签到：工程伦理'), findsNothing);
+    },
+  );
 }

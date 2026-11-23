@@ -15,6 +15,7 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_engine.dart';
 import 'package:xmu_rollcall/features/monitor/automatic_rollcall_answer.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_models.dart';
+import 'package:xmu_rollcall/features/monitor/monitor_notice.dart';
 import 'package:xmu_rollcall/features/monitor/course_watch.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
@@ -746,7 +747,22 @@ class MonitorController extends StateNotifier<MonitorState> {
                 ),
               );
           if (current()) {
-            await PlatformHooks.onAutomaticAnswerResult?.call(item, result.ok);
+            try {
+              await PlatformHooks.onAutomaticAnswerResult?.call(
+                item,
+                result.ok,
+              );
+            } finally {
+              if (current()) {
+                _emitBackgroundNotice(
+                  scope: scope,
+                  kind: result.ok
+                      ? MonitorNoticeKind.autoAnswerSucceeded
+                      : MonitorNoticeKind.autoAnswerFailed,
+                  courseTitle: item.courseTitle,
+                );
+              }
+            }
           }
         },
       );
@@ -819,8 +835,16 @@ class MonitorController extends StateNotifier<MonitorState> {
         notify: (items) async {
           if (!current()) return false;
           final notify = PlatformHooks.onRollcallsDiscovered;
-          if (notify == null && PlatformHooks.isDesktop) return false;
           if (notify != null) await notify(items);
+          if (current() && items.isNotEmpty) {
+            _emitBackgroundNotice(
+              scope: scope,
+              kind: MonitorNoticeKind.discovered,
+              courseTitle: items.first.courseTitle,
+              count: items.length,
+            );
+          }
+          if (notify == null && PlatformHooks.isDesktop) return false;
           return true;
         },
         onUpdate: (update) {
@@ -926,6 +950,37 @@ class MonitorController extends StateNotifier<MonitorState> {
     if (!current()) return;
     final plan = await watch.window(completeProbe: state.config.completeProbe);
     if (current()) state = state.copyWith(discoveryWindow: plan);
+  }
+
+  String _accountLabel(int? scope) {
+    if (scope == null) {
+      final name = _ref.read(authControllerProvider).profile?.name.trim() ?? '';
+      return name.isEmpty ? '主账号' : name;
+    }
+    for (final identity in _ref.read(assistControllerProvider).identities) {
+      if (identity.userId == scope) {
+        final name = identity.displayName.trim();
+        return name.isEmpty ? '协助账号' : name;
+      }
+    }
+    return '协助账号';
+  }
+
+  void _emitBackgroundNotice({
+    required int? scope,
+    required MonitorNoticeKind kind,
+    String courseTitle = '',
+    int count = 1,
+  }) {
+    if (_ref.read(selectedRollcallAccountProvider) == scope) return;
+    _ref.read(monitorNoticeProvider.notifier).state = MonitorNoticeEvent(
+      id: nextMonitorNoticeId(),
+      accountScope: scope,
+      accountLabel: _accountLabel(scope),
+      kind: kind,
+      courseTitle: courseTitle.trim(),
+      count: count,
+    );
   }
 
   void stop({String reason = 'user_stop'}) {

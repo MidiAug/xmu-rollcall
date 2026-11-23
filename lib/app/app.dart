@@ -14,6 +14,7 @@ import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
 import 'package:xmu_rollcall/features/auth/login_page.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_controller.dart';
+import 'package:xmu_rollcall/features/monitor/monitor_notice.dart';
 import 'package:xmu_rollcall/features/settings/settings_page.dart';
 import 'package:xmu_rollcall/features/update/app_update_controller.dart';
 import 'package:xmu_rollcall/features/update/app_update_foreground_prompt.dart';
@@ -99,6 +100,11 @@ class _XmuRollcallAppState extends ConsumerState<XmuRollcallApp>
       child: app,
     );
 
+    app = MonitorNoticeToastBinder(
+      navigatorKey: _rootNavigatorKey,
+      child: app,
+    );
+
     if (PlatformHooks.isDesktop) {
       app = DesktopShellBinder(navigatorKey: _rootNavigatorKey, child: app);
     } else if (PlatformHooks.isAndroid) {
@@ -114,6 +120,33 @@ class _XmuRollcallAppState extends ConsumerState<XmuRollcallApp>
     }
 
     return app;
+  }
+}
+
+class MonitorNoticeToastBinder extends ConsumerWidget {
+  const MonitorNoticeToastBinder({
+    super.key,
+    required this.navigatorKey,
+    required this.child,
+  });
+
+  final GlobalKey<NavigatorState> navigatorKey;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen<MonitorNoticeEvent?>(monitorNoticeProvider, (_, next) {
+      if (next == null) return;
+      final overlay = navigatorKey.currentState?.overlay;
+      if (overlay == null || !overlay.mounted) return;
+      AppToast.show(
+        overlay.context,
+        next.formatMessage(),
+        error: next.isError,
+        targetOverlay: overlay,
+      );
+    });
+    return child;
   }
 }
 

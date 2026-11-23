@@ -33,22 +33,20 @@ class _SelectedMonitorController extends MonitorController {
   _SelectedMonitorController(Ref ref) : super(ref, bootstrap: false) {
     _select(null);
     _select(_scope);
-    ref.listen(selectedRollcallAccountProvider, (previous, next) {
-      final old = ref.read(accountMonitorProvider(previous));
-      // Ordinary detection remains a single foreground-account task.
-      if (!old.config.courseWatch) {
-        ref
-            .read(accountMonitorProvider(previous).notifier)
-            .stop(reason: 'selected_account_changed');
-      }
+    ref.listen(selectedRollcallAccountProvider, (_, next) {
       _select(next);
     });
   }
 
   @override
   Future<void> stopAllAsync({String reason = 'user_stop'}) async {
+    final scopes = <int?>{
+      null,
+      ..._observed,
+      ..._ref.read(assistControllerProvider).identities.map((a) => a.userId),
+    };
     final stops = [
-      for (final scope in _observed)
+      for (final scope in scopes)
         _ref
             .read(accountMonitorProvider(scope).notifier)
             .stopAsync(reason: reason),

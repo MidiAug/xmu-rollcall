@@ -25,6 +25,8 @@
 
 ### Changed
 
+- 电脑端切换主账号与协助账号视图时保留各账号正在进行的检测与值守任务，不再因切换页面而中断；当后台非当前选中账号发现新签到或完成自动签到（成功/失败）时，在界面内以 Toast 提示对应账号与课程结果。
+
 - 清空业务层裸 `IconButton` 与裸 `InkWell` 静态门禁历史豁免清单，将签到、课表编辑、校园地图、值守设置及移动端全局搜索等剩余入口统一迁入 `AppIconButton`、`AppSheetCloseButton` 与 `AppHoverSurface`。
 
 - 完成文档分层整理与单跳入口收敛：新增 `docs/INDEX.md` 功能定位索引并统一规则入口，将 `docs/design/` 历史设计日志及根目录 `design-qa.md` 归档至 `docs/history/`，同步更新 `DESIGN.md`、`docs/design/COMPONENTS.md`、`docs/ARCHITECTURE.md` 与 `docs/FEATURE_TRACKING.md` 的现行组件与页面契约。

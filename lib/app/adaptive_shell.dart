@@ -206,8 +206,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                                                 accountMonitorStatesProvider,
                                               )
                                               .entries)
-                                        if (entry.value.running &&
-                                            entry.value.config.courseWatch)
+                                        if (entry.value.running)
                                           entry.key ?? 0,
                                     },
                                     width:
