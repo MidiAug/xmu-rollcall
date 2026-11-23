@@ -155,8 +155,8 @@ void main() {
     expect(find.byType(MobileRollcallHome), findsNothing);
     expect(find.byType(AppMobileNav), findsNothing);
     expect(find.byType(RollcallTaskCard), findsNWidgets(3));
-    expect(find.text('数字签到'), findsOneWidget);
-    expect(find.text('雷达签到'), findsWidgets);
+    expect(find.text('数字签到'), findsNothing);
+    expect(find.text('雷达签到'), findsNothing);
     expect(find.text('预览老师'), findsNWidgets(3));
     expect(find.byIcon(AppIcons.number), findsWidgets);
     expect(find.byIcon(AppIcons.location), findsWidgets);
@@ -211,6 +211,55 @@ void main() {
     await _capture(tester, capture, 'desktop-completed');
     expect(tester.takeException(), isNull);
   });
+
+  for (final dark in [false, true]) {
+    for (final scale in [1.0, 1.3]) {
+      testWidgets('desktop task corners stay compact dark=$dark scale=$scale', (
+        tester,
+      ) async {
+        final capture = await _mount(
+          tester,
+          desktop: true,
+          width: 1104,
+          dark: dark,
+          scale: scale,
+        );
+        for (final element in find.byType(RollcallTaskCard).evaluate()) {
+          final card = find.byWidget(element.widget);
+          final cardRect = tester.getRect(card);
+          final count = find.descendant(
+            of: card,
+            matching: find.byType(AttendanceCountRow),
+          );
+          final teacher = find.descendant(
+            of: card,
+            matching: find.text('预览老师'),
+          );
+          final button = find.descendant(
+            of: card,
+            matching: find.byType(FilledButton),
+          );
+          final countRect = tester.getRect(count);
+          final teacherRect = tester.getRect(teacher);
+          final buttonRect = tester.getRect(button);
+          expect(countRect.center.dy, lessThan(teacherRect.top));
+          expect(countRect.right, closeTo(cardRect.right - 28, 0.5));
+          expect(buttonRect.right, closeTo(cardRect.right - 28, 0.5));
+          expect(buttonRect.bottom, closeTo(cardRect.bottom - 28, 0.5));
+          expect(cardRect.height, lessThan(300 * scale));
+        }
+        expect(find.text('数字签到'), findsNothing);
+        expect(find.text('雷达签到'), findsNothing);
+        expect(find.text('二维码签到'), findsNothing);
+        for (final caption in ['签到码', '签到位置', '签到方式']) {
+          expect(find.text(caption), findsNothing);
+        }
+        expect(tester.takeException(), isNull);
+        await _capture(tester, capture, 'desktop-compact-$dark-$scale');
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+    }
+  }
 
   testWidgets('desktop missing number uses the shared manual entry dialog', (
     tester,

@@ -422,7 +422,8 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
                     ? point.labelSnapshot
                     : '已保存的签到位置',
                 style: _taskMethodTextStyle(p).copyWith(
-                  color: _radarLocationRejected &&
+                  color:
+                      _radarLocationRejected &&
                           !_answered &&
                           !widget.item.isExpired
                       ? p.danger
@@ -1086,14 +1087,28 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AppTruncatedText(title, style: _titleStyle(p)),
-          if (item.createdByName.trim().isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              item.createdByName.trim(),
-              style: AppTypography.body.copyWith(color: p.muted),
-            ),
-          ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppTruncatedText(title, style: _titleStyle(p)),
+                    if (item.createdByName.trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      AppTruncatedText(
+                        item.createdByName.trim(),
+                        style: AppTypography.body.copyWith(color: p.muted),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              _attendance(item, compact: true),
+            ],
+          ),
           const SizedBox(height: 24),
           Divider(height: 1, color: active ? p.heroRim : p.divider),
           const SizedBox(height: 24),
@@ -1128,64 +1143,20 @@ class _RollcallTileState extends ConsumerState<RollcallTaskCard> {
       builder: (context, constraints) {
         final scale = MediaQuery.textScalerOf(context).scale(1);
         final stacked = constraints.maxWidth < 440 * scale;
-        final information = Flex(
+        return Flex(
           direction: stacked ? Axis.vertical : Axis.horizontal,
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: stacked
               ? CrossAxisAlignment.stretch
-              : CrossAxisAlignment.center,
+              : CrossAxisAlignment.end,
           children: [
-            Flexible(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.isNumber
-                        ? '签到码'
-                        : item.isRadar
-                        ? '签到位置'
-                        : '签到方式',
-                    style: AppTypography.caption.copyWith(color: p.muted),
-                  ),
-                  const SizedBox(height: 8),
-                  method,
-                ],
-              ),
-            ),
-            SizedBox(width: stacked ? 0 : 24, height: stacked ? 20 : 0),
-            Flexible(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '已签到人数',
-                    style: AppTypography.caption.copyWith(color: p.muted),
-                  ),
-                  const SizedBox(height: 8),
-                  _attendance(item, compact: true),
-                ],
-              ),
-            ),
-          ],
-        );
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            information,
-            const SizedBox(height: 28),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${item.typeLabel}签到',
-                    style: AppTypography.body.copyWith(color: p.ink),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                action,
-              ],
+            Flexible(child: method),
+            SizedBox(width: stacked ? 0 : 24, height: stacked ? 16 : 0),
+            Align(
+              alignment: Alignment.centerRight,
+              widthFactor: 1,
+              heightFactor: 1,
+              child: action,
             ),
           ],
         );
