@@ -36,6 +36,8 @@ Desktop.ini
 
 # ── Local product docs / research (keep on disk; not for public remote) ──
 /docs/
+/DESIGN.md
+/api-reference/captures/
 
 # Browser HTTP dumps at repo root (contain live session Cookie / ticket)
 /*_Full.txt
@@ -102,6 +104,7 @@ app.*.symbols
 app.*.map.json
 
 # Android Studio will place build artifacts here
+/android/build/
 /android/app/debug
 /android/app/profile
 /android/app/release
