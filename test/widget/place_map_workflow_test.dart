@@ -419,13 +419,13 @@ void main() {
       ).colorScheme.primary;
       expect(
         tester
-            .widget<Material>(
+            .widget<AppHoverSurface>(
               find.descendant(
                 of: selectedLabel,
-                matching: find.byType(Material),
+                matching: find.byType(AppHoverSurface),
               ),
             )
-            .color,
+            .backgroundColor,
         primary,
       );
       expect(find.text('暂无匹配课程'), findsOneWidget);
@@ -436,13 +436,13 @@ void main() {
       final selectedBuilding = find.byKey(const ValueKey('map-building-学武楼'));
       expect(
         tester
-            .widget<Material>(
+            .widget<AppHoverSurface>(
               find.descendant(
                 of: selectedBuilding,
-                matching: find.byType(Material),
+                matching: find.byType(AppHoverSurface),
               ),
             )
-            .color,
+            .backgroundColor,
         primary,
       );
       await capture(tester, 'building-selected-collapsed');
@@ -454,13 +454,13 @@ void main() {
       );
       expect(
         tester
-            .widget<Material>(
+            .widget<AppHoverSurface>(
               find.descendant(
                 of: selectedBuilding,
-                matching: find.byType(Material),
+                matching: find.byType(AppHoverSurface),
               ),
             )
-            .color,
+            .backgroundColor,
         isNot(primary),
       );
       await tester.pumpWidget(const SizedBox.shrink());
