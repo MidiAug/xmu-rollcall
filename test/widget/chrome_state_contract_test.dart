@@ -43,15 +43,6 @@ void main() {
   initializeDesktopUiCapture();
   setUpAll(() async {
     await loadDesktopPreviewFonts();
-    final sdk = Platform.environment['FLUTTER_ROOT'] ?? 'D:/Dev/Flutter-xmu';
-    final font = File(
-      '$sdk/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
-    );
-    if (font.existsSync()) {
-      await (FontLoader(
-        'MaterialIcons',
-      )..addFont(font.readAsBytes().then(ByteData.sublistView))).load();
-    }
   });
   for (final dark in [false, true]) {
     testWidgets('narrow window chrome states render together dark=$dark', (

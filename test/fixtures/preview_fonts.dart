@@ -33,15 +33,50 @@ Future<void> _loadWindowsPreviewFonts() async {
   await _loadWindowsTextFonts();
 }
 
-Future<void> _loadIconFonts() async {
-  final sdk = Platform.environment['FLUTTER_ROOT'] ?? 'D:/Dev/Flutter-xmu';
-  final materialIcons = File(
+String? resolveFlutterSdkPath() {
+  final envRoot = Platform.environment['FLUTTER_ROOT'];
+  if (envRoot != null &&
+      envRoot.isNotEmpty &&
+      Directory(envRoot).existsSync()) {
+    return envRoot;
+  }
+  var dir = File(Platform.resolvedExecutable).parent;
+  while (true) {
+    final iconFont = File(
+      '${dir.path}/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+    );
+    if (iconFont.existsSync()) {
+      return dir.path;
+    }
+    final parent = dir.parent;
+    if (parent.path == dir.path) {
+      break;
+    }
+    dir = parent;
+  }
+  final fvmSdk = Directory('.fvm/flutter_sdk');
+  if (fvmSdk.existsSync()) {
+    return fvmSdk.path;
+  }
+  return null;
+}
+
+String? resolveFlutterMaterialIconsFontPath() {
+  final sdk = resolveFlutterSdkPath();
+  if (sdk == null) return null;
+  final font = File(
     '$sdk/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
   );
-  if (materialIcons.existsSync()) {
-    await (FontLoader(
-      'MaterialIcons',
-    )..addFont(materialIcons.readAsBytes().then(ByteData.sublistView))).load();
+  return font.existsSync() ? font.path : null;
+}
+
+Future<void> _loadIconFonts() async {
+  final materialIconsPath = resolveFlutterMaterialIconsFontPath();
+  if (materialIconsPath != null) {
+    await (FontLoader('MaterialIcons')..addFont(
+          File(materialIconsPath).readAsBytes().then(ByteData.sublistView),
+        ))
+        .load();
   }
   final config =
       jsonDecode(File('.dart_tool/package_config.json').readAsStringSync())

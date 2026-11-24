@@ -30,9 +30,9 @@ pwsh -File scripts/capture-readme.ps1
 $previousPreview = $env:XMU_ANDROID_PREVIEW
 try {
     $env:XMU_ANDROID_PREVIEW = 'true'
-    & D:/Dev/Flutter-xmu/bin/flutter.bat run --no-pub -d <device-id> -t tool/preview_homework.dart --no-resident
+    flutter run --no-pub -d <device-id> -t tool/preview_homework.dart --no-resident
     python scripts/capture_android_preview.py --device <device-id> --output build/readme-preview/android-homework-native.png
-    & D:/Dev/Flutter-xmu/bin/flutter.bat run --no-pub -d <device-id> -t tool/preview_homework.dart --no-resident --dart-define=PREVIEW_DARK=true
+    flutter run --no-pub -d <device-id> -t tool/preview_homework.dart --no-resident --dart-define=PREVIEW_DARK=true
     python scripts/capture_android_preview.py --device <device-id> --output build/readme-preview/android-homework-native-dark.png
 } finally {
     $env:XMU_ANDROID_PREVIEW = $previousPreview

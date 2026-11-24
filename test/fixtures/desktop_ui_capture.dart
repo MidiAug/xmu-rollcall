@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'preview_fonts.dart';
 
 bool get isDesktopUiCaptureEnabled =>
     Platform.environment['CAPTURE_DESKTOP_UI'] == '1' ||
@@ -12,19 +13,20 @@ bool get isDesktopUiCaptureEnabled =>
 /// Optional local renders, with real fonts; generated PNGs stay out of Git.
 Future<void> loadDesktopUiCaptureFonts() async {
   if (!isDesktopUiCaptureEnabled) return;
-  for (final entry in {
+  final iconFont =
+      Platform.environment['DESKTOP_UI_ICONS'] ??
+      resolveFlutterMaterialIconsFontPath();
+  final fonts = <String, String>{
     'DesktopUi':
-        Platform.environment['DESKTOP_UI_FONT'] ??
-        r'C:\Windows\Fonts\msyh.ttc',
-    'MaterialIcons':
-        Platform.environment['DESKTOP_UI_ICONS'] ??
-        r'D:\Dev\Flutter-xmu\bin\cache\artifacts\material_fonts\MaterialIcons-Regular.otf',
-  }.entries) {
+        Platform.environment['DESKTOP_UI_FONT'] ?? r'C:\Windows\Fonts\msyh.ttc',
+    'MaterialIcons': ?iconFont,
+  };
+  for (final entry in fonts.entries) {
     final file = File(entry.value);
     if (await file.exists()) {
-      await (FontLoader(entry.key)
-            ..addFont(file.readAsBytes().then(ByteData.sublistView)))
-          .load();
+      await (FontLoader(
+        entry.key,
+      )..addFont(file.readAsBytes().then(ByteData.sublistView))).load();
     }
   }
 }

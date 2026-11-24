@@ -143,7 +143,7 @@ flutter analyze --no-pub
 flutter test --no-pub
 ```
 
-Windows 安装器另需 NSIS，脚本可在缺少时下载便携工具。Android 正式签名配置与 `-RequireSigning` 用法见 [CI/CD 文档](.github/CI_CD.md)。本机维护统一使用 `tool/flutter.ps1` 或 `D:\Dev\Flutter-xmu\bin\flutter.bat`。
+Windows 安装器另需 NSIS，脚本可在缺少时下载便携工具。Android 正式签名配置与 `-RequireSigning` 用法见 [CI/CD 文档](.github/CI_CD.md)。本机维护可直接使用 `fvm flutter`、已加入 `PATH` 的 `flutter` 或 `tool/flutter.ps1`（仓库根目录 `.fvmrc` 锁定 Flutter `3.47.9`）。
 
 普通测试使用模拟数据；显式布局测试加载固定的测试字体，截图捕获模式使用 Windows 本机字体，见 [测试字体说明](test/fixtures/fonts/README.md)。截图生成与实看方法见 [预览维护说明](assets/screenshots/README.md)。
 

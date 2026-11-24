@@ -122,3 +122,6 @@ app.*.map.json
 **/ios/Flutter/ephemeral/
 /scripts/start-location-picker.ps1
 /tools/LOCATION_PICKER.md
+
+# FVM Version Cache
+.fvm/
