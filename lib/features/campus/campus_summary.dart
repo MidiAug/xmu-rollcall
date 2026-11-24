@@ -16,8 +16,19 @@ class CampusMeeting {
 }
 
 class CampusCourseSummary {
-  const CampusCourseSummary({this.current, this.next, this.afterNext});
+  const CampusCourseSummary({
+    this.current,
+    this.next,
+    this.afterNext,
+    this.hasCoursesToday = false,
+  });
   final CampusMeeting? current, next, afterNext;
+  final bool hasCoursesToday;
+  String? get emptyMessage => visible.isNotEmpty
+      ? null
+      : hasCoursesToday
+      ? '今天的课程已结束'
+      : '今天没有课程';
   List<CampusMeeting> get visible =>
       current != null ? [current!, ?next] : [?next, ?afterNext];
 }
@@ -102,6 +113,7 @@ CampusCourseSummary selectCampusCourses(
     }
   }
   return CampusCourseSummary(
+    hasCoursesToday: meetings.isNotEmpty,
     current: current,
     next: next,
     afterNext: afterNext,

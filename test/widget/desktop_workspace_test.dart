@@ -5,6 +5,7 @@ import 'package:xmu_rollcall/features/homework/homework_detail_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
 import 'package:xmu_rollcall/features/history/history_page.dart';
 import '../fixtures/preview_fonts.dart';
+import '../fixtures/layout_test_fonts.dart';
 import '../fixtures/desktop_ui_capture.dart';
 import 'dart:io';
 import 'dart:async';
@@ -218,6 +219,9 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
   setUpAll(() async {
     await loadDesktopPreviewFonts();
+    if (Platform.environment['CAPTURE_HOME_DAY_UI'] == '1') {
+      await loadLayoutTestFonts();
+    }
     final material = File(
       'D:/Dev/Flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
     );
@@ -227,6 +231,102 @@ void main() {
       )..addFont(material.readAsBytes().then(ByteData.sublistView))).load();
     }
   });
+  for (final dark in [false, true]) {
+    for (final mode in ['no-class', 'finished', 'upcoming']) {
+      testWidgets('desktop home day status $mode dark=$dark', (tester) async {
+        tester.view.physicalSize = const Size(1104, 770);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final at = mode == 'finished' ? DateTime(2026, 10, 28, 21) : now;
+        final capture = GlobalKey();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              secureStoreProvider.overrideWithValue(SecureStore.memory()),
+              authControllerProvider.overrideWith((ref) => _Auth()),
+              assistServiceProvider.overrideWith((ref) async => _Assist()),
+              assistControllerProvider.overrideWith(
+                (ref) => AssistController(
+                  ref,
+                  bootstrap: false,
+                  initial: const AssistUiState(ready: true, identities: []),
+                ),
+              ),
+              activeRollcallsProvider.overrideWith(_EmptyRollcalls.new),
+              activeRollcallClockProvider.overrideWithValue(() => at),
+              selectedDetectionWindowProvider.overrideWith(
+                (ref) async => const DetectionWindow(enabled: false),
+              ),
+              currentCourseHistoryProvider.overrideWithValue(
+                const AsyncData([]),
+              ),
+              campusCachedDataProvider.overrideWith(
+                (ref) async => CampusCachedData(
+                  hasHomeworkCache: true,
+                  schedule: mode == 'no-class'
+                      ? AcademicSchedule(
+                          term: '20261',
+                          monday: schedule.monday,
+                          fetchedAt: at,
+                          rows: [],
+                        )
+                      : schedule,
+                  // Keep another section present to exercise hiding only the course card.
+                  homework: homework,
+                ),
+              ),
+              campusNowProvider.overrideWithValue(() => at),
+              campusClockProvider.overrideWith((ref) => Stream.value(at)),
+            ],
+            child: RepaintBoundary(
+              key: capture,
+              child: MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
+                  platform: TargetPlatform.windows,
+                ),
+                home: const Scaffold(body: RollcallHubPage()),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.text('今日课程'),
+          mode == 'upcoming' ? findsOneWidget : findsNothing,
+        );
+        expect(find.text('待办事项'), findsOneWidget);
+        final message = find.byKey(const ValueKey('rollcall-day-empty'));
+        expect(message, mode == 'upcoming' ? findsNothing : findsOneWidget);
+        if (mode != 'upcoming') {
+          expect(
+            find.text(mode == 'no-class' ? '今天没有课程' : '今天的课程已结束'),
+            findsOneWidget,
+          );
+          final viewport = tester.getRect(find.byType(RollcallListPage));
+          expect(tester.getCenter(message).dx, closeTo(viewport.center.dx, 1));
+          expect(tester.getCenter(message).dy, closeTo(viewport.center.dy, 1));
+        }
+        expect(tester.takeException(), isNull);
+        if (Platform.environment['CAPTURE_HOME_DAY_UI'] == '1') {
+          await tester.runAsync(() async {
+            final im =
+                await (capture.currentContext!.findRenderObject()!
+                        as RenderRepaintBoundary)
+                    .toImage();
+            final bytes = await im.toByteData(format: ui.ImageByteFormat.png);
+            await Directory('build/home-day-ui').create(recursive: true);
+            await File(
+              'build/home-day-ui/$mode-desktop-$dark.png',
+            ).writeAsBytes(bytes!.buffer.asUint8List());
+            im.dispose();
+          });
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+    }
+  }
   for (final variant in [
     (900.0, 640.0, false, 1.0, 1.0),
     (900.0, 640.0, false, 1.0, 2.0),
@@ -1136,9 +1236,7 @@ void main() {
             ),
           ),
           activeRollcallsProvider.overrideWith(_EmptyRollcalls.new),
-          rollcallRepositoryForProvider(
-            null,
-          ).overrideWithValue(_Attendance()),
+          rollcallRepositoryForProvider(null).overrideWithValue(_Attendance()),
           activeRollcallClockProvider.overrideWithValue(() => now),
           selectedDetectionWindowProvider.overrideWith(
             (ref) async => const DetectionWindow(

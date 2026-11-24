@@ -135,6 +135,10 @@ class RollcallListPage extends ConsumerWidget {
             if (async.isLoading && !async.hasValue) {
               return const Center(child: CircularProgressIndicator());
             }
+            final dayMessage =
+                !async.hasError && academicSchedule != null && at != null
+                ? selectCampusCourses(academicSchedule!, at!).emptyMessage
+                : null;
             return CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
@@ -143,7 +147,21 @@ class RollcallListPage extends ConsumerWidget {
                   child: Column(
                     children: [
                       Expanded(
-                        child: assistUserId != null
+                        child: dayMessage != null
+                            ? Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Text(
+                                    dayMessage,
+                                    key: const ValueKey('rollcall-day-empty'),
+                                    textAlign: TextAlign.center,
+                                    style: AppTypography.body.copyWith(
+                                      color: palette.muted,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : assistUserId != null
                             ? Padding(
                                 padding:
                                     contentInsets + const EdgeInsets.all(24),

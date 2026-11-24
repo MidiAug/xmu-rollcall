@@ -36,6 +36,29 @@ AcademicCourseRow row(
 });
 void main() {
   test(
+    'day status distinguishes no classes, breaks and the exact final end',
+    () {
+      final data = schedule();
+      expect(
+        selectCampusCourses(data, DateTime(2026, 10, 29, 10)).emptyMessage,
+        '今天没有课程',
+      );
+      expect(
+        selectCampusCourses(data, DateTime(2026, 10, 28, 12)).emptyMessage,
+        isNull,
+      );
+      expect(
+        selectCampusCourses(data, DateTime(2026, 10, 28, 18, 19)).emptyMessage,
+        isNull,
+      );
+      expect(
+        selectCampusCourses(data, DateTime(2026, 10, 28, 18, 20)).emptyMessage,
+        '今天的课程已结束',
+      );
+    },
+  );
+
+  test(
     'task caption uses only one matching academic course on the actual day',
     () {
       final data = schedule();

@@ -137,6 +137,20 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
       monitorControllerProvider.select((s) => s.running),
     );
     final checking = switching || (active?.isLoading == true && items.isEmpty);
+    final courses = data.schedule == null
+        ? null
+        : selectCampusCourses(data.schedule!, now);
+    final emptyMessage =
+        signedIn &&
+            !checking &&
+            switchError == null &&
+            active?.hasValue == true &&
+            active?.hasError != true &&
+            items.isEmpty &&
+            cached?.hasError != true &&
+            cached?.isLoading != true
+        ? courses?.emptyMessage
+        : null;
     final headerStatus = !signedIn
         ? '登录后查看课堂签到'
         : checking
@@ -292,7 +306,9 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     SizedBox(height: android ? 0 : 20),
-                    if (scope != null && !switching) ...[
+                    if (scope != null &&
+                        !switching &&
+                        emptyMessage == null) ...[
                       if (active?.hasValue == true &&
                           active?.hasError != true &&
                           items.isEmpty)
@@ -366,60 +382,80 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
                 ),
               ),
             ),
-            if (!android)
+            if (!android || emptyMessage != null)
               SliverFillRemaining(
                 hasScrollBody: false,
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 32, 20, 12),
-                    child: signedIn
-                        ? Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Divider(color: p.borderStrong, height: 1),
-                              AppHoverSurface(
-                                quiet: true,
-                                outlined: false,
-                                backgroundColor: Colors.transparent,
-                                hoverColor: p.cardHover,
-                                pressedColor: p.hover,
-                                borderRadius: BorderRadius.circular(
-                                  AppRadii.control,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                onTap: onHistory,
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      AppIcons.history,
-                                      size: 18,
-                                      color: p.muted,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        '上次签到  $historyText',
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: p.muted,
-                                          fontSize: 12,
-                                          height: 1.5,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Icon(AppIcons.right),
-                                  ],
-                                ),
+                child: Column(
+                  children: [
+                    if (emptyMessage != null)
+                      Expanded(
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              emptyMessage,
+                              key: const ValueKey('rollcall-day-empty'),
+                              textAlign: TextAlign.center,
+                              style: AppTypography.body.copyWith(
+                                color: p.muted,
                               ),
-                            ],
-                          )
-                        : const SizedBox.shrink(),
-                  ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (emptyMessage == null) const Spacer(),
+                    if (!android)
+                      Padding(
+                        key: const ValueKey('mobile-history-footer'),
+                        padding: const EdgeInsets.fromLTRB(20, 32, 20, 12),
+                        child: signedIn
+                            ? Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Divider(color: p.borderStrong, height: 1),
+                                  AppHoverSurface(
+                                    quiet: true,
+                                    outlined: false,
+                                    backgroundColor: Colors.transparent,
+                                    hoverColor: p.cardHover,
+                                    pressedColor: p.hover,
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadii.control,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
+                                    onTap: onHistory,
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          AppIcons.history,
+                                          size: 18,
+                                          color: p.muted,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            '上次签到  $historyText',
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: p.muted,
+                                              fontSize: 12,
+                                              height: 1.5,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        const Icon(AppIcons.right),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                  ],
                 ),
               ),
           ],

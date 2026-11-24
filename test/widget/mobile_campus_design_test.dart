@@ -1,6 +1,9 @@
 import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/app/pull_to_refresh.dart';
 import 'dart:io';
+import 'dart:async';
+import '../fixtures/layout_test_fonts.dart';
+import '../fixtures/desktop_ui_capture.dart';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -96,8 +99,208 @@ Map<String, dynamic> _course(
 };
 
 void main() {
-  setUpAll(loadDesktopPreviewFonts);
+  initializeDesktopUiCapture();
+  setUpAll(() async {
+    await loadDesktopPreviewFonts();
+    await loadDesktopUiCaptureFonts();
+    if (Platform.environment['CAPTURE_HOME_DAY_UI'] == '1') {
+      await loadLayoutTestFonts();
+    }
+  });
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    for (final dark in [false, true]) {
+      for (final mode in [
+        'no-class',
+        'finished',
+        'upcoming',
+        'missing',
+        'loading',
+        'failed',
+        'transition',
+        'active',
+      ]) {
+        testWidgets('home day status $mode $platform dark=$dark', (
+          tester,
+        ) async {
+          final narrow = dark && mode == 'no-class';
+          final width = narrow ? 320.0 : 390.0;
+          tester.view.physicalSize = Size(width, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          final capture = GlobalKey();
+          _running = false;
+          _items = mode == 'active'
+              ? [
+                  const RollcallItem(
+                    rollcallId: 17,
+                    courseTitle: '临时课堂签到',
+                    createdByName: '测试教师',
+                    type: RollcallType.number,
+                    status: 'on_call',
+                    rollcallStatus: 'on_call',
+                    isExpired: false,
+                    scored: false,
+                    numberCode: '1234',
+                  ),
+                ]
+              : [];
+          final pending = Completer<CampusCachedData>();
+          final clock = StreamController<DateTime>.broadcast();
+          addTearDown(clock.close);
+          await tester.pumpWidget(
+            ProviderScope(
+              overrides: [
+                authControllerProvider.overrideWith((ref) => _Auth()),
+                activeRollcallsProvider.overrideWith(_Lists.new),
+                rollcallRepositoryForProvider(
+                  null,
+                ).overrideWithValue(_Attendance()),
+                monitorControllerProvider.overrideWith(_Monitor.new),
+                selectedDetectionWindowProvider.overrideWith(
+                  (ref) async => const DetectionWindow(enabled: false),
+                ),
+                currentCourseHistoryProvider.overrideWithValue(
+                  const AsyncData([]),
+                ),
+                campusNowProvider.overrideWithValue(() => _now),
+                campusClockProvider.overrideWith(
+                  (ref) =>
+                      mode == 'transition' ? clock.stream : Stream.value(_now),
+                ),
+                campusCachedDataProvider.overrideWith((ref) async {
+                  if (mode == 'loading') return pending.future;
+                  if (mode == 'failed') throw StateError('offline');
+                  return CampusCachedData(
+                    hasHomeworkCache: true,
+                    schedule: mode == 'missing'
+                        ? null
+                        : AcademicSchedule(
+                            term: '20261',
+                            monday: DateTime(2026, 10, 26),
+                            fetchedAt: _now,
+                            rows: mode == 'no-class' || mode == 'active'
+                                ? []
+                                : [
+                                    AcademicCourseRow.fromJson(
+                                      _course(
+                                        '1',
+                                        '测试课程',
+                                        'A101',
+                                        480,
+                                        mode == 'finished' ? 600 : 800,
+                                      ),
+                                    ),
+                                  ],
+                          ),
+                  );
+                }),
+              ],
+              child: RepaintBoundary(
+                key: capture,
+                child: MaterialApp(
+                  debugShowCheckedModeBanner: false,
+                  theme: desktopCaptureTheme(
+                    dark ? AppTheme.dark() : AppTheme.light(),
+                  ).copyWith(platform: platform),
+                  builder: (context, child) => MediaQuery(
+                    data: MediaQuery.of(
+                      context,
+                    ).copyWith(textScaler: TextScaler.linear(narrow ? 1.5 : 1)),
+                    child: child!,
+                  ),
+                  home: Scaffold(
+                    body: MobileRollcallHome(
+                      controller: scroll,
+                      accountMenu: RollcallAccountMenu(
+                        masthead: true,
+                        mastheadTitle: '签到',
+                        value: 0,
+                        identities: const [],
+                        ownerName: '林同学',
+                        onChanged: (_) {},
+                      ),
+                      scope: null,
+                      updatedLabel: '更新于 10:12',
+                      onHistory: () {},
+                      onSettings: () {},
+                      onTimetable: () {},
+                      onHomework: () {},
+                      onOpenHomework: (_) {},
+                      onRetryIdentity: () {},
+                    ),
+                    bottomNavigationBar: AppMobileNav(
+                      current: AppDestination.rollcall,
+                      onSelect: (_) {},
+                      onSearch: () {},
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final message = find.byKey(const ValueKey('rollcall-day-empty'));
+          final empty = mode == 'no-class' || mode == 'finished';
+          expect(message, empty ? findsOneWidget : findsNothing);
+          expect(
+            find.text('今日课程'),
+            empty || mode == 'active' ? findsNothing : findsOneWidget,
+          );
+          if (empty) {
+            expect(
+              find.text(mode == 'no-class' ? '今天没有课程' : '今天的课程已结束'),
+              findsOneWidget,
+            );
+            final top = tester
+                .getRect(find.byKey(const ValueKey('mobile-context-surface')))
+                .bottom;
+            final bottom = platform == TargetPlatform.iOS
+                ? tester
+                      .getRect(
+                        find.byKey(const ValueKey('mobile-history-footer')),
+                      )
+                      .top
+                : tester.getRect(find.byType(CustomScrollView)).bottom;
+            expect(tester.getCenter(message).dx, closeTo(width / 2, 1));
+            expect(
+              tester.getCenter(message).dy,
+              closeTo((top + bottom) / 2, 25),
+            );
+          }
+          expect(tester.takeException(), isNull);
+          if (mode == 'transition') {
+            clock.add(DateTime(2026, 10, 28, 13, 20));
+            await tester.pumpAndSettle();
+            expect(find.text('今日课程'), findsNothing);
+            expect(find.text('今天的课程已结束'), findsOneWidget);
+            clock.add(DateTime(2026, 10, 29));
+            await tester.pumpAndSettle();
+            expect(find.text('今天没有课程'), findsOneWidget);
+            expect(tester.takeException(), isNull);
+          }
+          if (Platform.environment['CAPTURE_HOME_DAY_UI'] == '1' && empty) {
+            await tester.runAsync(() async {
+              final im =
+                  await (capture.currentContext!.findRenderObject()!
+                          as RenderRepaintBoundary)
+                      .toImage();
+              final bytes = await im.toByteData(format: ui.ImageByteFormat.png);
+              await Directory('build/home-day-ui').create(recursive: true);
+              await File(
+                'build/home-day-ui/$mode-${platform.name}-$dark.png',
+              ).writeAsBytes(bytes!.buffer.asUint8List());
+              im.dispose();
+            });
+          }
+          await tester.pumpWidget(const SizedBox.shrink());
+        });
+      }
+    }
+  }
   for (final dark in [false, true]) {
     for (final state in ['idle', 'active', 'running', 'done', 'long']) {
       testWidgets('mobile campus $state dark=$dark stays usable and sparse', (

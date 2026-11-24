@@ -73,6 +73,8 @@ class CampusContextView extends StatelessWidget {
     final summary = data.schedule == null
         ? const CampusCourseSummary()
         : selectCampusCourses(data.schedule!, now);
+    final showCourses =
+        loading || data.schedule == null || summary.visible.isNotEmpty;
     final pending = [...data.homework]
       ..sort((a, b) {
         final aDue = a.dueAt, bDue = b.dueAt;
@@ -99,41 +101,40 @@ class CampusContextView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Panel(
-          lifted: true,
-          outlined: true,
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              heading('今日课程', '查看课表', onTimetable),
-              const SizedBox(height: 20),
-              if (loading)
-                const _CampusSummarySkeleton(course: true)
-              else if (summary.visible.isEmpty)
-                Text(
-                  data.schedule == null
-                      ? (scheduleSyncing ? '正在更新课表…' : '尚未获取教务课表')
-                      : '今天没有后续课程',
-                  style: AppTypography.body.copyWith(color: p.muted),
-                )
-              else
-                for (var i = 0; i < summary.visible.length; i++) ...[
-                  if (i > 0)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(78, 16, 0, 16),
-                      child: Divider(height: 1, color: p.divider),
+        if (showCourses)
+          Panel(
+            lifted: true,
+            outlined: true,
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                heading('今日课程', '查看课表', onTimetable),
+                const SizedBox(height: 20),
+                if (loading)
+                  const _CampusSummarySkeleton(course: true)
+                else if (summary.visible.isEmpty)
+                  Text(
+                    scheduleSyncing ? '正在更新课表…' : '尚未获取教务课表',
+                    style: AppTypography.body.copyWith(color: p.muted),
+                  )
+                else
+                  for (var i = 0; i < summary.visible.length; i++) ...[
+                    if (i > 0)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(78, 16, 0, 16),
+                        child: Divider(height: 1, color: p.divider),
+                      ),
+                    _MeetingRow(
+                      meeting: summary.visible[i],
+                      current: identical(summary.visible[i], summary.current),
                     ),
-                  _MeetingRow(
-                    meeting: summary.visible[i],
-                    current: identical(summary.visible[i], summary.current),
-                  ),
-                ],
-            ],
+                  ],
+              ],
+            ),
           ),
-        ),
         if (showHomework) ...[
-          const SizedBox(height: 20),
+          if (showCourses) const SizedBox(height: 20),
           Panel(
             lifted: true,
             outlined: true,
