@@ -594,13 +594,6 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.runAsync(
-        () => precacheImage(
-          const AssetImage('assets/illustrations/campus_header.png'),
-          tester.element(find.byType(SettingsPage)),
-        ),
-      );
-      await tester.pumpAndSettle();
       expect(
         find.text('我的'),
         findsNWidgets(2),

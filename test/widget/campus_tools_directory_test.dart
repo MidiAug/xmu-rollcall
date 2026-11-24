@@ -4,14 +4,17 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/cupertino.dart' show CupertinoIcons;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xmu_rollcall/app/app_service_tile.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
+import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/campus/campus_tools_page.dart';
 import 'package:xmu_rollcall/features/campus/campus_calendar_page.dart';
+import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import '../fixtures/desktop_ui_capture.dart';
 import '../fixtures/preview_fonts.dart';
 
@@ -141,25 +144,38 @@ void main() {
           addTearDown(tester.view.resetPhysicalSize);
           addTearDown(tester.view.resetDevicePixelRatio);
           await tester.pumpWidget(
-            MaterialApp(
-              debugShowCheckedModeBanner: false,
-              theme: desktopCaptureTheme(
-                (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
-                  platform: width == 320
-                      ? TargetPlatform.android
-                      : TargetPlatform.windows,
+            ProviderScope(
+              overrides: [
+                currentTeachingCoursesProvider.overrideWith(
+                  (ref) async => const [
+                    CatalogCourse(
+                      id: '99',
+                      title: '助教测试课',
+                      roles: ['instructor_assistant'],
+                    ),
+                  ],
                 ),
-              ),
-              builder: (context, child) => RepaintBoundary(
-                key: const ValueKey('desktop-ui-capture'),
-                child: MediaQuery(
-                  data: MediaQuery.of(context).copyWith(
-                    textScaler: TextScaler.linear(width == 320 ? 1.3 : 1),
+              ],
+              child: MaterialApp(
+                debugShowCheckedModeBanner: false,
+                theme: desktopCaptureTheme(
+                  (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
+                    platform: width == 320
+                        ? TargetPlatform.android
+                        : TargetPlatform.windows,
                   ),
-                  child: child!,
                 ),
+                builder: (context, child) => RepaintBoundary(
+                  key: const ValueKey('desktop-ui-capture'),
+                  child: MediaQuery(
+                    data: MediaQuery.of(context).copyWith(
+                      textScaler: TextScaler.linear(width == 320 ? 1.3 : 1),
+                    ),
+                    child: child!,
+                  ),
+                ),
+                home: const Scaffold(body: CampusToolsPage()),
               ),
-              home: const Scaffold(body: CampusToolsPage()),
             ),
           );
           await tester.pumpAndSettle();
@@ -193,7 +209,7 @@ void main() {
               tester
                   .getSize(find.byKey(const ValueKey('tool-ta-grading')))
                   .width,
-              greaterThan(mapRect.width),
+              closeTo(mapRect.width, 0.1),
             );
           } else {
             for (final name in ['信息门户', '教务', '学工', '图书馆', '邮箱']) {
@@ -253,8 +269,11 @@ void main() {
           await tester.tap(find.text('学年校历'));
           await tester.pumpAndSettle();
           expect(find.byType(CampusCalendarPage), findsOneWidget);
-          expect(find.text('第一学期'), findsOneWidget);
-          expect(find.text('短学期'), findsNWidgets(2));
+          expect(
+            find.text('第一学期'),
+            width <= 760 ? findsNothing : findsOneWidget,
+          );
+          expect(find.text('小学期'), findsNWidgets(width <= 760 ? 1 : 2));
           await captureDesktopUi(tester, 'calendar-$width-$dark');
           await tester.tap(find.byTooltip('返回'));
           await tester.pumpAndSettle();
@@ -264,6 +283,37 @@ void main() {
       );
     }
   }
+  for (final width in [320.0, 1104.0]) {
+    testWidgets('non-TA user sees 4 equal tools without TA section at $width', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 840);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            currentTeachingCoursesProvider.overrideWith((ref) async => const []),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(
+              platform: width == 320
+                  ? TargetPlatform.android
+                  : TargetPlatform.windows,
+            ),
+            home: const Scaffold(body: CampusToolsPage()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(AppServiceTile), findsNWidgets(4));
+      expect(find.byKey(const ValueKey('tool-ta-grading')), findsNothing);
+      expect(find.text('助教'), findsNothing);
+      expect(find.text('研究生'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
   for (final dark in [false, true]) {
     testWidgets('full directory shell composition dark=$dark', (tester) async {
       tester.view.physicalSize = const Size(1104, 771);
@@ -271,32 +321,45 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       await tester.pumpWidget(
-        MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: desktopCaptureTheme(
-            (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
-              platform: TargetPlatform.windows,
+        ProviderScope(
+          overrides: [
+            currentTeachingCoursesProvider.overrideWith(
+              (ref) async => const [
+                CatalogCourse(
+                  id: '99',
+                  title: '助教测试课',
+                  roles: ['instructor_assistant'],
+                ),
+              ],
             ),
-          ),
-          home: RepaintBoundary(
-            key: const ValueKey('desktop-ui-capture'),
-            child: Scaffold(
-              body: Column(
-                children: [
-                  const AppTitleBar(title: '厦大签到'),
-                  Expanded(
-                    child: Row(
-                      children: [
-                        AppSidebar(
-                          current: AppDestination.campusTools,
-                          onSelect: (_) {},
-                          userLabel: '示例账号',
-                        ),
-                        const Expanded(child: CampusToolsPage()),
-                      ],
+          ],
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: desktopCaptureTheme(
+              (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
+                platform: TargetPlatform.windows,
+              ),
+            ),
+            home: RepaintBoundary(
+              key: const ValueKey('desktop-ui-capture'),
+              child: Scaffold(
+                body: Column(
+                  children: [
+                    const AppTitleBar(title: '厦大签到'),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          AppSidebar(
+                            current: AppDestination.campusTools,
+                            onSelect: (_) {},
+                            userLabel: '示例账号',
+                          ),
+                          const Expanded(child: CampusToolsPage()),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -305,13 +368,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('service-symbol')), findsNWidgets(5));
       expect(find.byType(BackdropFilter), findsNothing);
-      await tester.runAsync(
-        () => precacheImage(
-          const AssetImage('assets/illustrations/campus_sidebar.png'),
-          tester.element(find.byType(AppSidebar)),
-        ),
-      );
-      await tester.pumpAndSettle();
       final map = tester.getRect(find.byKey(const ValueKey('tool-campus-map')));
       final grading = tester.getRect(
         find.byKey(const ValueKey('tool-ta-grading')),
@@ -347,14 +403,24 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final start = tester.getRect(find.text('2026.09.07'));
-        final end = tester.getRect(find.text('2027.01.09'));
-        expect(start.overlaps(end), isFalse);
-        expect(end.right, lessThanOrEqualTo(width - 16));
-        expect(start.overlaps(end), isFalse);
+        if (width < 760) {
+          expect(
+            find.byKey(const ValueKey('calendar-summary-card')),
+            findsOneWidget,
+          );
+          expect(find.textContaining('2026.09.07'), findsOneWidget);
+          expect(find.textContaining('2027.01.09'), findsOneWidget);
+          expect(find.text('第 9 / 18 周'), findsOneWidget);
+          expect(find.text('学期安排'), findsNothing);
+        } else {
+          final start = tester.getRect(find.text('2026.09.07'));
+          final end = tester.getRect(find.text('2027.01.09'));
+          expect(start.overlaps(end), isFalse);
+          expect(end.right, lessThanOrEqualTo(width - 16));
+          expect(find.text('教学周进度'), findsOneWidget);
+          expect(find.text(' / 18 周'), findsOneWidget);
+        }
         expect(find.text('第 9 教学周'), findsNothing);
-        expect(find.text('教学周进度'), findsOneWidget);
-        expect(find.text(' / 18 周'), findsOneWidget);
         expect(find.textContaining('展示已维护的教学周安排'), findsNothing);
         expect(find.text('校方校历资料'), findsNothing);
         final range = tester.getRect(
@@ -379,14 +445,16 @@ void main() {
           ),
           findsNothing,
         );
-        if (width == 1104) {
+        if (width == 1104 || scale == 1.0) {
           expect((year.center.dy - term.center.dy).abs(), lessThan(1));
+        } else {
+          expect(term.top, greaterThanOrEqualTo(year.bottom));
+        }
+        if (width == 1104) {
           final schedulePanel = tester.getRect(
             find.byKey(const ValueKey('calendar-schedule-panel')),
           );
           expect((grid.bottom - schedulePanel.bottom).abs(), lessThan(1.0));
-        } else {
-          expect(term.top, greaterThanOrEqualTo(year.bottom));
         }
         expect(find.byType(BackdropFilter), findsNothing);
         expect(tester.takeException(), isNull);
@@ -598,8 +666,7 @@ void main() {
       await tester.pumpAndSettle();
       if (date.year == 2026) {
         expect(find.text('第 9 教学周'), findsNothing);
-        expect(find.text('教学周进度'), findsOneWidget);
-        expect(find.text(' / 18 周'), findsOneWidget);
+        expect(find.text('第 9 / 18 周'), findsOneWidget);
         expect(find.text('9'), findsWidgets);
         await tester.tap(find.byType(AppShellSelect<int>));
         await tester.pumpAndSettle();

@@ -1,7 +1,10 @@
 import 'package:xmu_rollcall/features/location/location_providers.dart';
 import 'package:xmu_rollcall/app/desktop_back_navigation.dart';
 import 'dart:async';
+import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/adaptive_shell.dart';
 import 'package:xmu_rollcall/app/app_brand.dart';
@@ -35,6 +38,8 @@ class XmuRollcallApp extends ConsumerStatefulWidget {
 
 class _XmuRollcallAppState extends ConsumerState<XmuRollcallApp>
     with WidgetsBindingObserver {
+  bool _lockedPhoneOrientation = false;
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +53,24 @@ class _XmuRollcallAppState extends ConsumerState<XmuRollcallApp>
         ref.read(authControllerProvider.notifier).bootstrap();
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_lockedPhoneOrientation &&
+        !kIsWeb &&
+        (Platform.isAndroid || Platform.isIOS)) {
+      final shortest = MediaQuery.sizeOf(context).shortestSide;
+      if (shortest > 0 && shortest < AppLayout.shellBreakpoint) {
+        _lockedPhoneOrientation = true;
+        unawaited(
+          SystemChrome.setPreferredOrientations(const [
+            DeviceOrientation.portraitUp,
+          ]),
+        );
+      }
+    }
   }
 
   @override

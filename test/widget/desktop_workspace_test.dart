@@ -377,15 +377,6 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        if (Platform.environment['CAPTURE_DESKTOP_WORKSPACE'] == '1') {
-          await tester.runAsync(
-            () => precacheImage(
-              const AssetImage('assets/illustrations/campus_mist.png'),
-              tester.element(find.byType(AdaptiveShell)),
-            ),
-          );
-          await tester.pumpAndSettle();
-        }
         final sidebar = find.byType(AppSidebar);
         expect(
           find.descendant(of: sidebar, matching: find.byType(BrandMark)),

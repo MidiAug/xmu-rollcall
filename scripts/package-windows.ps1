@@ -53,9 +53,10 @@ if ($pubspec -notmatch '(?m)^version:\s*([^\s#+]+)') {
 $ver = $Matches[1]
 
 New-Item -ItemType Directory -Force -Path 'dist' | Out-Null
+New-Item -ItemType Directory -Force -Path 'build/symbols/windows' | Out-Null
 
 Write-Host '==> flutter build windows --release'
-$buildArgs = @('build', 'windows', '--release')
+$buildArgs = @('build', 'windows', '--release', '--split-debug-info=build/symbols/windows')
 if ($NoPub) { $buildArgs += '--no-pub' }
 & flutter @buildArgs
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

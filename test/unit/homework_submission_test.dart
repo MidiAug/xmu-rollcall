@@ -34,7 +34,7 @@ void main() {
       expect(state.submission, HomeworkSubmission.submitted);
       expect(state.grading, HomeworkGrading.unpublished);
       expect(state.score, isNull);
-      expect(state.gradingLabel, '成绩未公布');
+      expect(state.gradingLabel, '已批改');
     },
   );
   test(

@@ -137,6 +137,9 @@ void main() {
     );
     final trigger = find.byType(AppToolbarChoice<Campus>);
     expect(tester.getSize(trigger).height, 48);
+    expect(tester.getSize(trigger).width, lessThan(120));
+    expect(tester.getRect(trigger).right, closeTo(376, .1));
+    expect(tester.widget<AppToolbarChoice<Campus>>(trigger).alignMenuEnd, isTrue);
     expect(find.byType(AppSelectTrigger), findsNothing);
     await capture('list');
     await tester.tap(find.byKey(const ValueKey('managed-room-学武楼')));
@@ -148,14 +151,14 @@ void main() {
     final panel = tester.getRect(
       find.byKey(const ValueKey('map-building-inspector')),
     );
+    expect(find.text('© 高德地图'), findsNothing);
+    expect(find.byType(MapAttributionControls), findsOneWidget);
+    expect(MapAttributionControls.footerHeight, 0);
     expect(mapRect.left, 0);
     expect(mapRect.right, 384);
     expect(panel.left - mapRect.left, 16);
     expect(mapRect.right - panel.right, 16);
-    expect(
-      mapRect.bottom - panel.bottom,
-      16 + MapAttributionControls.footerHeight,
-    );
+    expect(mapRect.bottom - panel.bottom, 16);
     await capture('map');
     await tester.tap(find.byTooltip('返回'));
     await tester.pumpAndSettle();
@@ -222,10 +225,7 @@ void main() {
     final map = tester.getRect(find.byType(FlutterMap));
     expect(bounds.left - map.left, 16);
     expect(map.right - bounds.right, 16);
-    expect(
-      map.bottom - bounds.bottom,
-      16 + MapAttributionControls.footerHeight,
-    );
+    expect(map.bottom - bounds.bottom, 16);
     expect(bounds.height, lessThanOrEqualTo(map.height - 32));
     final save = find.widgetWithText(FilledButton, '保存坐标');
     await tester.ensureVisible(save);

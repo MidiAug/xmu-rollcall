@@ -2,8 +2,7 @@ import 'campus_tile_cache.dart';
 import 'campus_map_config.dart';
 import 'location_models.dart';
 import 'campus_places.dart';
-import 'campus_map.dart'
-    show CampusSelector, MapAttributionControls, MapAttributionFooter;
+import 'campus_map.dart' show CampusSelector, MapAttributionControls;
 import 'place_matching.dart';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/app/shell_tab_exit_guard.dart';
@@ -63,7 +62,8 @@ class MapPickPanel extends StatefulWidget {
 class MapPickPanelState extends State<MapPickPanel>
     with WidgetsBindingObserver {
   late LatLng _point;
-  final _mapController = MapController();
+  MapController _mapController = MapController();
+  late CampusTileProvider _tileProvider = CampusTileProvider();
   late final TextEditingController _note;
   final _noteFocus = FocusNode();
   final _noteField = GlobalKey();
@@ -73,6 +73,22 @@ class MapPickPanelState extends State<MapPickPanel>
   bool _campusChosen = false;
 
   LatLng get point => _point;
+
+  void _switchCampus(Campus campus) {
+    final previous = _mapController;
+    _campus = campus;
+    _point = campus.center;
+    _mapController = MapController();
+    _tileProvider = CampusTileProvider();
+    WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+  }
+
+  LatLngBounds _effectiveBounds() {
+    final bounds = campusBoundsFor(_campus);
+    if (bounds.contains(_point)) return bounds;
+    if (kXmuMapBounds.contains(_point)) return kXmuMapBounds;
+    return LatLngBounds.fromPoints([bounds.southWest, bounds.northEast, _point]);
+  }
 
   @override
   void initState() {
@@ -103,9 +119,12 @@ class MapPickPanelState extends State<MapPickPanel>
         widget.initial == null &&
         !_hasSelection &&
         !_campusChosen) {
-      _campus = widget.initialCampus;
-      _point = _campus.center;
-      _mapController.move(_point, 16);
+      if (widget.initialCampus != _campus) {
+        _switchCampus(widget.initialCampus);
+      } else {
+        _point = _campus.center;
+        _mapController.move(_point, 16);
+      }
     }
   }
 
@@ -195,12 +214,15 @@ class MapPickPanelState extends State<MapPickPanel>
                 onChanged: (campus) {
                   if (widget.busy) return;
                   setState(() {
-                    _campus = campus;
                     _campusChosen = true;
-                    _point = campus.center;
                     _hasSelection = false;
+                    if (campus == _campus) {
+                      _point = campus.center;
+                      _mapController.move(campus.center, 16);
+                    } else {
+                      _switchCampus(campus);
+                    }
                   });
-                  _mapController.move(campus.center, 16);
                   _draftChanged();
                 },
               ),
@@ -210,58 +232,56 @@ class MapPickPanelState extends State<MapPickPanel>
                 ignoring: widget.busy,
                 child: Stack(
                   children: [
-                    FlutterMap(
-                      mapController: _mapController,
-                      options: MapOptions(
-                        backgroundColor: p.surfaceHigh,
-                        initialCenter: _point,
-                        initialZoom: 16,
-                        minZoom: kXmuMapMinZoom,
-                        maxZoom: kAmapMaxZoom,
-                        cameraConstraint: CameraConstraint.containCenter(
-                          bounds: kXmuMapBounds,
+                    RepaintBoundary(
+                      child: FlutterMap(
+                        key: ValueKey(_campus),
+                        mapController: _mapController,
+                        options: MapOptions(
+                          backgroundColor: p.surfaceHigh,
+                          initialCenter: _point,
+                          initialZoom: 16,
+                          minZoom: kCampusScopedMinZoom,
+                          maxZoom: kAmapMaxZoom,
+                          interactionOptions: kCampusMapInteractionOptions,
+                          cameraConstraint: CameraConstraint.containCenter(
+                            bounds: _effectiveBounds(),
+                          ),
+                          onTap: (_, latLng) {
+                            FocusScope.of(context).unfocus();
+                            setState(() {
+                              _point = latLng;
+                              _hasSelection = true;
+                            });
+                            _draftChanged();
+                          },
                         ),
-                        onTap: (_, latLng) {
-                          FocusScope.of(context).unfocus();
-                          setState(() {
-                            _point = latLng;
-                            _hasSelection = true;
-                          });
-                          _draftChanged();
-                        },
-                      ),
-                      children: [
-                        TileLayer(
-                          tileProvider: CampusTileProvider(),
-                          maxNativeZoom: kAmapMaxNativeZoom,
-                          minNativeZoom: 3,
-                          urlTemplate: kAmapTileUrlTemplate,
-                          subdomains: kAmapTileSubdomains,
-                          userAgentPackageName: 'com.xmu.rollcall',
-                        ),
-                        MarkerLayer(
-                          markers: [
-                            if (!widget.requireSelection || _hasSelection)
-                              Marker(
-                                point: _point,
-                                width: 40,
-                                height: 40,
-                                alignment: Alignment.topCenter,
-                                child: Icon(
-                                  Icons.location_on,
-                                  color: p.primary,
-                                  size: 40,
+                        children: [
+                          TileLayer(
+                            tileProvider: _tileProvider,
+                            maxNativeZoom: kAmapMaxNativeZoom,
+                            minNativeZoom: 3,
+                            urlTemplate: kAmapTileUrlTemplate,
+                            subdomains: kAmapTileSubdomains,
+                            userAgentPackageName: 'com.xmu.rollcall',
+                          ),
+                          MarkerLayer(
+                            markers: [
+                              if (!widget.requireSelection || _hasSelection)
+                                Marker(
+                                  point: _point,
+                                  width: 40,
+                                  height: 40,
+                                  alignment: Alignment.topCenter,
+                                  child: Icon(
+                                    Icons.location_on,
+                                    color: p.primary,
+                                    size: 40,
+                                  ),
                                 ),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: MapAttributionFooter(),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                     const Positioned(
                       top: kMapOverlayInset,

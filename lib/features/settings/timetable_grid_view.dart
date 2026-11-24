@@ -10,9 +10,10 @@ import 'package:xmu_rollcall/features/location/location_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
-import 'dart:math' as math;
 import 'dart:async';
+import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:xmu_rollcall/core/cache/course_catalog_store.dart';
@@ -67,6 +68,45 @@ class _ScrollableTimetableGrid extends StatefulWidget {
 class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
   final _vertical = ScrollController();
   final _horizontal = ScrollController();
+  late List<int> _days;
+  late List<TimetableAxisRow> _rows;
+  late Map<int, int> _seqIndex;
+  late List<TimetablePlacedBlock> _blocks;
+  late List<List<TimetablePlacedBlock>> _stacks;
+  late bool _hasStack;
+  late Map<TimetablePlacedBlock, ({int column, int count})> _columns;
+  late int _maxColumns;
+  late int _breakCount;
+  late int _periodCount;
+
+  void _recomputeGridData() {
+    _days = visibleWeekdays(widget.courses);
+    _rows = buildTimetableAxisRows(widget.courses);
+    _seqIndex = sequenceToRowIndex(_rows);
+    _blocks = placeTimetableBlocks(widget.courses);
+    _stacks = timetableStacks(_blocks);
+    _hasStack = _stacks.any((variants) => variants.length > 1);
+    _columns = timetableColumns(_blocks);
+    _maxColumns = _columns.values.fold(1, (n, v) => math.max(n, v.count));
+    _breakCount = _rows.where((r) => r.isBreak).length;
+    _periodCount = _rows.length - _breakCount;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _recomputeGridData();
+  }
+
+  @override
+  void didUpdateWidget(covariant _ScrollableTimetableGrid oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!listEquals(oldWidget.courses, widget.courses) ||
+        oldWidget.referenceDate != widget.referenceDate ||
+        oldWidget.showDates != widget.showDates) {
+      _recomputeGridData();
+    }
+  }
 
   @override
   void dispose() {
@@ -83,14 +123,13 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
       1.0,
       MediaQuery.textScalerOf(context).scale(13) / 13,
     );
-    final days = visibleWeekdays(widget.courses);
-    final rows = buildTimetableAxisRows(widget.courses);
-    final seqIndex = sequenceToRowIndex(rows);
-    final blocks = placeTimetableBlocks(widget.courses);
-    final stacks = timetableStacks(blocks);
-    final hasStack = stacks.any((variants) => variants.length > 1);
-    final columns = timetableColumns(blocks);
-    final maxColumns = columns.values.fold(1, (n, v) => math.max(n, v.count));
+    final days = _days;
+    final rows = _rows;
+    final seqIndex = _seqIndex;
+    final stacks = _stacks;
+    final hasStack = _hasStack;
+    final columns = _columns;
+    final maxColumns = _maxColumns;
     final axisW = (touch ? 56.0 : 60.0) * scale;
     // Switching the displayed range must not shift the timetable's first row.
     // Reserve the date line even when semester mode omits specific dates.
@@ -108,13 +147,21 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Keep 6px trailing/bottom breathing room inside Panel (20px radius):
+        // combined with each card's 2px margin, total 8px inset matches 20 - 12 = 8px.
+        const gridInset = 6.0;
         final w = constraints.maxWidth;
         final h = constraints.maxHeight;
-        if (!w.isFinite || !h.isFinite || w <= 0 || h <= headerH) {
+        final innerW = w - gridInset;
+        final innerH = h - gridInset;
+        if (!w.isFinite ||
+            !h.isFinite ||
+            innerW <= axisW ||
+            innerH <= headerH) {
           return const SizedBox.shrink();
         }
         final gridW = math.max(
-          w,
+          innerW,
           // A stacked cell must fit the 44px touch action and a readable title.
           // Keep horizontal scrolling rather than shrinking either target.
           axisW +
@@ -124,10 +171,10 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
                   maxColumns,
         );
         final dayW = (gridW - axisW) / days.length;
-        final breakCount = rows.where((r) => r.isBreak).length;
-        final periodCount = rows.length - breakCount;
+        final breakCount = _breakCount;
+        final periodCount = _periodCount;
         final breakH = (touch ? 18.0 : 22.0) * scale;
-        final available = (h - headerH - breakCount * breakH) / periodCount;
+        final available = (innerH - headerH - breakCount * breakH) / periodCount;
         final periodH = math.max(
           (touch ? (hasStack ? 48.0 : 44.0) : 56.0) * scale,
           math.min(96.0 * scale, available),
@@ -172,52 +219,54 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
           );
         }
 
-        final dayGrid = SizedBox(
-          width: gridW - axisW,
-          height: bodyH,
-          child: Stack(
-            children: [
-              Column(
-                children: [
-                  for (final row in rows)
-                    Container(
-                      height: row.isBreak ? breakH : periodH,
-                      decoration: BoxDecoration(
-                        color: row.isBreak ? p.content : null,
-                        border: Border(
-                          top: BorderSide(color: p.divider, width: .5),
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: row.isBreak
-                          ? Text(
-                              row.breakLabel ?? '',
-                              style: Theme.of(context).textTheme.labelSmall,
-                            )
-                          : null,
-                    ),
-                ],
-              ),
-              Row(
-                children: [
-                  for (final day in days)
-                    Expanded(
-                      child: Container(
-                        height: bodyH,
+        final dayGrid = RepaintBoundary(
+          child: SizedBox(
+            width: gridW - axisW,
+            height: bodyH,
+            child: Stack(
+              children: [
+                Column(
+                  children: [
+                    for (final row in rows)
+                      Container(
+                        height: row.isBreak ? breakH : periodH,
                         decoration: BoxDecoration(
-                          color: isToday(day)
-                              ? p.dataAccent.withValues(alpha: .025)
-                              : null,
+                          color: row.isBreak ? p.content : null,
                           border: Border(
-                            left: BorderSide(color: p.divider, width: .5),
+                            top: BorderSide(color: p.divider, width: .5),
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: row.isBreak
+                            ? Text(
+                                row.breakLabel ?? '',
+                                style: Theme.of(context).textTheme.labelSmall,
+                              )
+                            : null,
+                      ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    for (final day in days)
+                      Expanded(
+                        child: Container(
+                          height: bodyH,
+                          decoration: BoxDecoration(
+                            color: isToday(day)
+                                ? p.dataAccent.withValues(alpha: .025)
+                                : null,
+                            border: Border(
+                              left: BorderSide(color: p.divider, width: .5),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                ],
-              ),
-              ...blockWidgets,
-            ],
+                  ],
+                ),
+                ...blockWidgets,
+              ],
+            ),
           ),
         );
         final body = SizedBox(
@@ -281,10 +330,13 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
             width: double.infinity,
             // Sparse weeks should end at the last drawn row rather than leave
             // a blank framed area below the grid. Long weeks still scroll.
-            height: math.min(h, headerH + bodyH),
+            height: math.min(h, headerH + bodyH + gridInset),
             child: Panel(
               key: const ValueKey('timetable-surface'),
-              padding: EdgeInsets.zero,
+              padding: const EdgeInsets.only(
+                right: gridInset,
+                bottom: gridInset,
+              ),
               lifted: true,
               outlined: true,
               child: ScrollConfiguration(
@@ -293,7 +345,7 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
                 ).copyWith(scrollbars: false),
                 child: Scrollbar(
                   controller: _horizontal,
-                  thumbVisibility: !touch && gridW > w,
+                  thumbVisibility: !touch && gridW > innerW,
                   notificationPredicate: (n) =>
                       n.metrics.axis == Axis.horizontal,
                   child: Column(
@@ -340,7 +392,7 @@ class _ScrollableTimetableGridState extends State<_ScrollableTimetableGrid> {
                       Expanded(
                         child: Scrollbar(
                           controller: _vertical,
-                          thumbVisibility: !touch && bodyH > h - headerH,
+                          thumbVisibility: !touch && bodyH > innerH - headerH,
                           notificationPredicate: (n) =>
                               n.metrics.axis == Axis.vertical,
                           child: SingleChildScrollView(
@@ -1112,7 +1164,7 @@ class _TimetableDayHeading extends StatelessWidget {
           ? BoxDecoration(
               color: p.accentSoft,
               border: Border.all(color: p.accentRim),
-              borderRadius: BorderRadius.circular(AppRadii.card),
+              borderRadius: BorderRadius.circular(8),
             )
           : null,
       child: Flex(

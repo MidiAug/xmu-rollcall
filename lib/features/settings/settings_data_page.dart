@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/features/grades/grade_models.dart';
@@ -47,15 +48,6 @@ class SettingsDataPage extends ConsumerWidget {
     final auth = ref.watch(authControllerProvider);
     final scope = ref.watch(selectedRollcallAccountProvider);
     final uid = scope ?? auth.profile?.id;
-    final accountName = scope == null
-        ? auth.profile?.name ?? '当前账号'
-        : ref
-                  .watch(assistControllerProvider)
-                  .identities
-                  .where((identity) => identity.userId == scope)
-                  .firstOrNull
-                  ?.displayName ??
-              '当前协助账号';
 
     return SubpageScaffold(
       title: '数据与诊断',
@@ -78,14 +70,12 @@ class SettingsDataPage extends ConsumerWidget {
                   _TimetableRefreshRow(
                     key: ValueKey((auth.profile!.id, uid)),
                     uid: uid,
-                    accountName: accountName,
                   ),
                   for (final kind in _AcademicUpdateKind.values)
                     _AcademicUpdateRow(
                       key: ValueKey((auth.profile!.id, uid, kind)),
                       owner: auth.profile!.id,
                       uid: uid,
-                      accountName: accountName,
                       kind: kind,
                     ),
                 ],
@@ -308,13 +298,8 @@ class SettingsDataPage extends ConsumerWidget {
 }
 
 class _TimetableRefreshRow extends ConsumerStatefulWidget {
-  const _TimetableRefreshRow({
-    super.key,
-    required this.uid,
-    required this.accountName,
-  });
+  const _TimetableRefreshRow({super.key, required this.uid});
   final int uid;
-  final String accountName;
   @override
   ConsumerState<_TimetableRefreshRow> createState() =>
       _TimetableRefreshRowState();
@@ -322,13 +307,24 @@ class _TimetableRefreshRow extends ConsumerStatefulWidget {
 
 class _TimetableRefreshRowState extends ConsumerState<_TimetableRefreshRow> {
   bool _busy = false;
+  bool _recentlyUpdated = false;
+  Timer? _updatedTimer;
   String? _status;
   bool _error = false;
 
+  @override
+  void dispose() {
+    _updatedTimer?.cancel();
+    super.dispose();
+  }
+
   Future<void> _refresh() async {
     if (_busy) return;
+    _updatedTimer?.cancel();
+    _updatedTimer = null;
     setState(() {
       _busy = true;
+      _recentlyUpdated = false;
       _status = null;
     });
     try {
@@ -346,16 +342,22 @@ class _TimetableRefreshRowState extends ConsumerState<_TimetableRefreshRow> {
       );
       if (!mounted) return;
       final error = sync.errorFor(widget.uid);
+      final succeeded = error == null && after?.fetchedAt != before?.fetchedAt;
       setState(() {
         _error = error != null;
-        _status =
-            error ??
-            (after?.fetchedAt == before?.fetchedAt ? '刚刚检查过，请稍后再试' : '课表已更新');
+        _recentlyUpdated = succeeded;
+        _status = succeeded ? null : (error ?? '刚刚检查过，请稍后再试');
       });
+      if (succeeded) {
+        _updatedTimer = Timer(const Duration(seconds: 3), () {
+          if (mounted) setState(() => _recentlyUpdated = false);
+        });
+      }
     } catch (_) {
       if (mounted) {
         setState(() {
           _error = true;
+          _recentlyUpdated = false;
           _status = '更新失败，请稍后重试';
         });
       }
@@ -374,6 +376,14 @@ class _TimetableRefreshRowState extends ConsumerState<_TimetableRefreshRow> {
               ? '正在读取更新时间…'
               : '尚未缓存课表'
         : '上次更新 ${at.year}/${at.month}/${at.day} ${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+    final baseStyle = AppControlStyle.inlineOutlined(context);
+    final buttonStyle = _recentlyUpdated
+        ? baseStyle.copyWith(
+            foregroundColor: WidgetStatePropertyAll(p.success),
+            backgroundColor: WidgetStatePropertyAll(p.successSurface),
+            side: WidgetStatePropertyAll(BorderSide(color: p.successRim)),
+          )
+        : baseStyle;
     return SettingsRow(
       key: const ValueKey('academic-timetable-update-row'),
       leading: const AppSettingsGlyph(AppSettingsGlyphKind.calendar),
@@ -381,10 +391,7 @@ class _TimetableRefreshRowState extends ConsumerState<_TimetableRefreshRow> {
       subtitleWidget: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            '${widget.accountName}  $updated',
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
+          Text(updated, style: Theme.of(context).textTheme.bodySmall),
           if (_status != null) ...[
             const SizedBox(height: 4),
             Text(
@@ -401,9 +408,15 @@ class _TimetableRefreshRowState extends ConsumerState<_TimetableRefreshRow> {
       stackSubtitleOnNarrow: true,
       trailing: OutlinedButton(
         key: const ValueKey('academic-timetable-update'),
-        style: AppControlStyle.inlineOutlined(context),
-        onPressed: _busy ? null : _refresh,
-        child: Text(_busy ? '更新中…' : '更新'),
+        style: buttonStyle,
+        onPressed: (_busy || _recentlyUpdated) ? null : _refresh,
+        child: Text(
+          _busy
+              ? '更新中'
+              : _recentlyUpdated
+              ? '已更新'
+              : '更新',
+        ),
       ),
     );
   }
@@ -529,11 +542,9 @@ class _AcademicUpdateRow extends ConsumerStatefulWidget {
     super.key,
     required this.owner,
     required this.uid,
-    required this.accountName,
     required this.kind,
   });
   final int owner, uid;
-  final String accountName;
   final _AcademicUpdateKind kind;
   @override
   ConsumerState<_AcademicUpdateRow> createState() => _AcademicUpdateRowState();
@@ -542,8 +553,17 @@ class _AcademicUpdateRow extends ConsumerStatefulWidget {
 class _AcademicUpdateRowState extends ConsumerState<_AcademicUpdateRow> {
   late Future<DateTime?> _at = _readAt();
   bool _busy = false;
+  bool _recentlyUpdated = false;
+  Timer? _updatedTimer;
   String? _message;
   bool _failed = false;
+
+  @override
+  void dispose() {
+    _updatedTimer?.cancel();
+    super.dispose();
+  }
+
   bool get _current =>
       mounted &&
       ref.read(authControllerProvider).profile?.id == widget.owner &&
@@ -571,8 +591,11 @@ class _AcademicUpdateRowState extends ConsumerState<_AcademicUpdateRow> {
 
   Future<void> _refresh() async {
     if (_busy || !_current) return;
+    _updatedTimer?.cancel();
+    _updatedTimer = null;
     setState(() {
       _busy = true;
+      _recentlyUpdated = false;
       _message = null;
     });
     try {
@@ -616,14 +639,19 @@ class _AcademicUpdateRowState extends ConsumerState<_AcademicUpdateRow> {
       if (_current) {
         setState(() {
           _failed = false;
-          _message = '已更新';
+          _recentlyUpdated = true;
+          _message = null;
           _at = _readAt();
+        });
+        _updatedTimer = Timer(const Duration(seconds: 3), () {
+          if (mounted) setState(() => _recentlyUpdated = false);
         });
       }
     } catch (error) {
       if (_current) {
         setState(() {
           _failed = true;
+          _recentlyUpdated = false;
           _message = error is FormatException ? error.message : '更新失败，已有数据仍保留';
         });
       }
@@ -636,6 +664,14 @@ class _AcademicUpdateRowState extends ConsumerState<_AcademicUpdateRow> {
   Widget build(BuildContext context) {
     final grades = widget.kind == _AcademicUpdateKind.grades;
     final p = AppPalette.of(context);
+    final baseStyle = AppControlStyle.inlineOutlined(context);
+    final buttonStyle = _recentlyUpdated
+        ? baseStyle.copyWith(
+            foregroundColor: WidgetStatePropertyAll(p.success),
+            backgroundColor: WidgetStatePropertyAll(p.successSurface),
+            side: WidgetStatePropertyAll(BorderSide(color: p.successRim)),
+          )
+        : baseStyle;
     return FutureBuilder<DateTime?>(
       future: _at,
       builder: (context, snapshot) {
@@ -654,10 +690,7 @@ class _AcademicUpdateRowState extends ConsumerState<_AcademicUpdateRow> {
           subtitleWidget: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                '${widget.accountName}  $updated',
-                style: AppTypography.caption.copyWith(color: p.muted),
-              ),
+              Text(updated, style: AppTypography.caption.copyWith(color: p.muted)),
               if (_message != null)
                 Text(
                   _message!,
@@ -671,9 +704,15 @@ class _AcademicUpdateRowState extends ConsumerState<_AcademicUpdateRow> {
             key: ValueKey(
               grades ? 'academic-grades-update' : 'academic-exams-update',
             ),
-            style: AppControlStyle.inlineOutlined(context),
-            onPressed: _busy ? null : _refresh,
-            child: Text(_busy ? '更新中…' : '更新'),
+            style: buttonStyle,
+            onPressed: (_busy || _recentlyUpdated) ? null : _refresh,
+            child: Text(
+              _busy
+                  ? '更新中'
+                  : _recentlyUpdated
+                  ? '已更新'
+                  : '更新',
+            ),
           ),
         );
       },

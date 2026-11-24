@@ -121,13 +121,6 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.runAsync(
-        () => precacheImage(
-          const AssetImage('assets/illustrations/campus_sidebar.png'),
-          tester.element(find.byType(AppSidebar)),
-        ),
-      );
-      await tester.pumpAndSettle();
       final mouse = await tester.createGesture(
         kind: ui.PointerDeviceKind.mouse,
       );

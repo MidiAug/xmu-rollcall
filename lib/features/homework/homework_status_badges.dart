@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:xmu_rollcall/app/status_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -158,6 +160,11 @@ class _HomeworkMetadataRow extends StatelessWidget {
 
     final timeWidth = textWidth('00/00 00:00', timeStyle);
     final statusWidth = AppStatusBadge.widthOf(context, '未提交');
+    final compactBadgeWidth = [
+      AppStatusBadge.widthOf(context, '100 分'),
+      AppStatusBadge.widthOf(context, '已批改'),
+      statusWidth,
+    ].reduce(math.max);
     return Wrap(
       alignment: compact ? WrapAlignment.spaceBetween : WrapAlignment.start,
       spacing: 8,
@@ -179,7 +186,7 @@ class _HomeworkMetadataRow extends StatelessWidget {
         if (compact)
           SizedBox(
             key: ValueKey('homework-submission-${item.id}'),
-            width: AppStatusBadge.widthOf(context, '成绩未公布'),
+            width: compactBadgeWidth,
             child: Align(
               alignment: Alignment.centerRight,
               child: _HomeworkCompactBadge(
@@ -222,20 +229,24 @@ class _HomeworkCompactBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (state == null && placeholder == null) return const SizedBox.shrink();
-    final graded =
+    final hasScore =
         state?.grading == HomeworkGrading.graded && state?.score != null;
-    final label = graded
-        ? '${state!.score.toString().replaceFirst(RegExp(r'\.0$'), '')} 分'
-        : state?.grading == HomeworkGrading.unpublished
-        ? '成绩未公布'
+    final gradedWithoutScore =
+        state?.grading == HomeworkGrading.unpublished ||
+        state?.grading == HomeworkGrading.graded;
+    final label = hasScore
+        ? '${formatHomeworkScore(state!.score!)} 分'
+        : gradedWithoutScore
+        ? '已批改'
         : state?.submission == HomeworkSubmission.unknown
         ? '未知'
         : state?.submission == HomeworkSubmission.draft
         ? '草稿'
         : state?.submissionLabel ?? placeholder!;
-    final tone = graded
+    final tone = hasScore
         ? AppStatusTone.accent
-        : state?.submission == HomeworkSubmission.submitted
+        : gradedWithoutScore ||
+              state?.submission == HomeworkSubmission.submitted
         ? AppStatusTone.success
         : item.isOverdue &&
               (state?.submission == HomeworkSubmission.unsubmitted ||

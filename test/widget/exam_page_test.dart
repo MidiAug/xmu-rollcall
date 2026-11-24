@@ -26,6 +26,7 @@ import 'package:xmu_rollcall/features/exams/exam_page.dart';
 import 'package:xmu_rollcall/features/exams/exam_providers.dart';
 import '../fixtures/preview_fonts.dart';
 import 'package:xmu_rollcall/features/campus/campus_tools_page.dart';
+import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 
 class Repo extends Fake implements AuthRepository {}
 
@@ -427,19 +428,26 @@ void main() {
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox.shrink());
           await tester.pumpWidget(
-            MaterialApp(
-              builder: (context, child) => MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(textScaler: TextScaler.linear(scale)),
-                child: child!,
+            ProviderScope(
+              overrides: [
+                currentTeachingCoursesProvider.overrideWith(
+                  (ref) async => const [],
+                ),
+              ],
+              child: MaterialApp(
+                builder: (context, child) => MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(textScaler: TextScaler.linear(scale)),
+                  child: child!,
+                ),
+                theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
+                  platform: mobile
+                      ? TargetPlatform.android
+                      : TargetPlatform.windows,
+                ),
+                home: RepaintBoundary(key: key, child: const CampusToolsPage()),
               ),
-              theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
-                platform: mobile
-                    ? TargetPlatform.android
-                    : TargetPlatform.windows,
-              ),
-              home: RepaintBoundary(key: key, child: const CampusToolsPage()),
             ),
           );
           await tester.pumpAndSettle();

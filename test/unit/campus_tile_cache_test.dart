@@ -172,7 +172,7 @@ void main() {
       expect(stored!.metadata.isStale, isFalse);
       expect(
         stored.metadata.staleAt.difference(DateTime.now()).inHours,
-        inInclusiveRange(23, 24),
+        inInclusiveRange(7 * 24 - 1, 7 * 24),
       );
       final reopened = provider();
       await _image(reopened, layer(reopened));
@@ -261,6 +261,23 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 20));
       }
       expect(await oversized.exists(), isFalse);
+    },
+  );
+
+  test(
+    'campusTileKeyGenerator normalizes AMap subdomains while keeping coordinates distinct',
+    () {
+      const base =
+          'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&ltype=11&x=54321&y=28123&z=16';
+      const sub3 =
+          'https://webrd03.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&ltype=11&x=54321&y=28123&z=16';
+      const otherTile =
+          'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&ltype=11&x=54322&y=28123&z=16';
+      const otherZoom =
+          'https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&ltype=11&x=54321&y=28123&z=17';
+      expect(campusTileKeyGenerator(sub3), campusTileKeyGenerator(base));
+      expect(campusTileKeyGenerator(otherTile), isNot(campusTileKeyGenerator(base)));
+      expect(campusTileKeyGenerator(otherZoom), isNot(campusTileKeyGenerator(base)));
     },
   );
 }

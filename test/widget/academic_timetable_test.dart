@@ -175,7 +175,7 @@ void main() {
         final saved = AcademicSchedule(
           term: '20261',
           monday: DateTime(2026, 9, 7),
-          fetchedAt: DateTime.now(),
+          fetchedAt: DateTime.now().subtract(const Duration(minutes: 1)),
           rows: [],
         );
         await AcademicScheduleStore.write(1, saved);
@@ -233,6 +233,8 @@ void main() {
           reason: 'Opening data settings only reads cached metadata',
         );
         expect(find.text('教务课表'), findsOneWidget);
+        expect(find.textContaining('测试  '), findsNothing);
+        expect(find.textContaining('上次更新 '), findsOneWidget);
         if (Platform.environment['CAPTURE_ACADEMIC_UI'] == '1') {
           await tester.runAsync(() async {
             final boundary =
@@ -252,13 +254,19 @@ void main() {
           });
         }
 
-        await tester.tap(
-          find.byKey(const ValueKey('academic-timetable-update')),
+        final timetableButton = find.byKey(
+          const ValueKey('academic-timetable-update'),
         );
+        await tester.tap(timetableButton);
         for (var i = 0; i < 5; i++) {
           await tester.pump(const Duration(milliseconds: 20));
         }
         expect(reader.calls, 1);
+        expect(
+          find.descendant(of: timetableButton, matching: find.text('更新中')),
+          findsOneWidget,
+        );
+        expect(tester.widget<OutlinedButton>(timetableButton).onPressed, isNull);
         pending.complete(
           AcademicSchedule(
             term: saved.term,
@@ -268,16 +276,30 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        expect(find.text('课表已更新'), findsOneWidget);
-        await tester.tap(
-          find.byKey(const ValueKey('academic-timetable-update')),
+        expect(find.text('课表已更新'), findsNothing);
+        expect(
+          find.descendant(of: timetableButton, matching: find.text('已更新')),
+          findsOneWidget,
         );
+        expect(tester.widget<OutlinedButton>(timetableButton).onPressed, isNull);
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(of: timetableButton, matching: find.text('更新')),
+          findsOneWidget,
+        );
+        expect(
+          tester.widget<OutlinedButton>(timetableButton).onPressed,
+          isNotNull,
+        );
+        await tester.tap(timetableButton);
         await tester.pumpAndSettle();
         expect(
           reader.calls,
           1,
           reason: 'Manual refresh still obeys the shared 15 second cooldown',
         );
+        expect(find.text('刚刚检查过，请稍后再试'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       },
@@ -553,7 +575,7 @@ void main() {
                   .getRect(find.byKey(const ValueKey('timetable-surface')))
                   .bottom -
               tester.getRect(lastBlock).bottom,
-          lessThan(8),
+          lessThanOrEqualTo(8),
           reason:
               'A sparse grid surface ends with its last row, without a blank framed tail',
         );

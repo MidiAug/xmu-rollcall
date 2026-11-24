@@ -2,6 +2,9 @@ enum HomeworkSubmission { unknown, unsubmitted, draft, submitted }
 
 enum HomeworkGrading { unknown, pending, unpublished, graded }
 
+String formatHomeworkScore(num score) =>
+    score.toString().replaceFirst(RegExp(r'\.0$'), '');
+
 class HomeworkSubmissionState {
   const HomeworkSubmissionState({
     required this.submission,
@@ -23,11 +26,11 @@ class HomeworkSubmissionState {
       : switch (grading) {
           HomeworkGrading.unknown => null,
           HomeworkGrading.pending => '未批改',
-          HomeworkGrading.unpublished => '成绩未公布',
+          HomeworkGrading.unpublished => '已批改',
           HomeworkGrading.graded =>
             score == null
                 ? '已批改'
-                : '已批改 ${score!.toString().replaceFirst(RegExp(r'\.0$'), '')} 分',
+                : '已批改 ${formatHomeworkScore(score!)} 分',
         };
 
   static HomeworkSubmissionState parse(Object? payload) {

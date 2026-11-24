@@ -172,43 +172,58 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                     children: [
                       Consumer(
                         builder: (context, ref, _) {
-                          final name = ref
-                              .watch(authControllerProvider)
-                              .profile
-                              ?.name;
+                          final authSummary = ref.watch(
+                            authControllerProvider.select(
+                              (s) => (
+                                isSignedIn: s.isSignedIn,
+                                name: s.profile?.name,
+                              ),
+                            ),
+                          );
                           final hasUpdate = ref.watch(
                             appUpdateControllerProvider.select(
                               (c) => c.update != null,
                             ),
                           );
-                          final auth = ref.watch(authControllerProvider);
-                          final roster = ref
-                              .watch(assistControllerProvider)
-                              .identities;
+                          final roster = ref.watch(
+                            assistControllerProvider.select(
+                              (s) => s.identities,
+                            ),
+                          );
                           final selected = ref.watch(
                             selectedRollcallAccountProvider,
                           );
+                          final watchingKey = authSummary.isSignedIn
+                              ? ref.watch(
+                                  accountMonitorStatesProvider.select((m) {
+                                    final ids = [
+                                      for (final e in m.entries)
+                                        if (e.value.running) e.key ?? 0,
+                                    ]..sort();
+                                    return ids.join(',');
+                                  }),
+                                )
+                              : '';
+                          final watchingAccounts = watchingKey.isEmpty
+                              ? const <int>{}
+                              : {
+                                  for (final s in watchingKey.split(','))
+                                    int.parse(s),
+                                };
 
                           return AppSidebar(
-                            hasPendingPlace: ref
-                                .watch(unmatchedRoomsProvider)
-                                .isNotEmpty,
+                            hasPendingPlace: ref.watch(
+                              unmatchedRoomsProvider.select(
+                                (r) => r.isNotEmpty,
+                              ),
+                            ),
                             current: _current,
                             onSelect: _onSelect,
-                            userLabel: name,
-                            accountControl: auth.isSignedIn
+                            userLabel: authSummary.name,
+                            accountControl: authSummary.isSignedIn
                                 ? RollcallAccountMenu(
                                     sidebar: true,
-                                    watchingAccounts: {
-                                      for (final entry
-                                          in ref
-                                              .watch(
-                                                accountMonitorStatesProvider,
-                                              )
-                                              .entries)
-                                        if (entry.value.running)
-                                          entry.key ?? 0,
-                                    },
+                                    watchingAccounts: watchingAccounts,
                                     width:
                                         AppLayout.sidebarWidthOf(context) - 20,
                                     value:
@@ -216,7 +231,7 @@ class _AdaptiveShellState extends State<AdaptiveShell> {
                                         ? selected!
                                         : 0,
                                     identities: roster,
-                                    ownerName: name ?? '我',
+                                    ownerName: authSummary.name ?? '我',
                                     onChanged: (value) {
                                       // Detail routes are bound to the identity they opened with.
                                       for (final d in [

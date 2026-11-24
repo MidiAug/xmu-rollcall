@@ -170,6 +170,8 @@ void main() {
           expect(grades.calls, isEmpty);
           expect(exams.calls, isEmpty);
           await captureDesktopUi(tester, 'data-r22-initial-$uid-$cache');
+          expect(find.textContaining('主账号  '), findsNothing);
+          expect(find.textContaining('当前协助账号  '), findsNothing);
           final gradeButton = find.byKey(
             const ValueKey('academic-grades-update'),
           );
@@ -189,7 +191,25 @@ void main() {
               at,
             );
           } else {
+            expect(
+              find.descendant(of: gradeButton, matching: find.text('已更新')),
+              findsOneWidget,
+            );
+            expect(
+              tester.widget<OutlinedButton>(gradeButton).onPressed,
+              isNull,
+            );
             expect(find.text('已更新'), findsOneWidget);
+            await tester.pump(const Duration(seconds: 3));
+            await tester.pumpAndSettle();
+            expect(
+              find.descendant(of: gradeButton, matching: find.text('更新')),
+              findsOneWidget,
+            );
+            expect(
+              tester.widget<OutlinedButton>(gradeButton).onPressed,
+              isNotNull,
+            );
             await tester.tap(gradeButton);
             await tester.pumpAndSettle();
             expect(grades.calls, [
@@ -207,8 +227,25 @@ void main() {
             expect(find.text('更新失败，已有数据仍保留'), findsOneWidget);
             final prefs = await SharedPreferences.getInstance();
             expect(readExamCache(prefs, 1, uid, '20261')!.at, at);
+          } else {
+            expect(
+              find.descendant(of: examButton, matching: find.text('已更新')),
+              findsOneWidget,
+            );
+            expect(
+              tester.widget<OutlinedButton>(examButton).onPressed,
+              isNull,
+            );
           }
           await captureDesktopUi(tester, 'data-r22-$uid-$cache');
+          if (cache != 'exam-failure') {
+            await tester.pump(const Duration(seconds: 3));
+            await tester.pumpAndSettle();
+            expect(
+              find.descendant(of: examButton, matching: find.text('更新')),
+              findsOneWidget,
+            );
+          }
           if (uid == 1 && cache == 'fresh') {
             final clear = find.text('清除本机课程数据');
             await tester.ensureVisible(clear);
@@ -307,6 +344,62 @@ void main() {
       );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'disposing SettingsDataPage cancels pending update indicator timers',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final store = SecureStore.memory();
+      final grades = _Grades(AcademicSession(store: store));
+      final container = ProviderContainer(
+        overrides: [
+          secureStoreProvider.overrideWithValue(store),
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          assistControllerProvider.overrideWith(
+            (ref) => AssistController(
+              ref,
+              bootstrap: false,
+              initial: const AssistUiState(ready: true),
+            ),
+          ),
+          academicIdentityResolverProvider.overrideWithValue(
+            (_) async => AcademicIdentity(isCurrent: () async => true),
+          ),
+          gradeClockProvider.overrideWithValue(() => now),
+          gradeReaderProvider.overrideWithValue(() => grades),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      tester.view.physicalSize = const Size(960, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.light(),
+            home: const SettingsDataPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final gradeButton = find.byKey(const ValueKey('academic-grades-update'));
+      await tester.ensureVisible(gradeButton);
+      await tester.tap(gradeButton);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: gradeButton, matching: find.text('已更新')),
+        findsOneWidget,
+      );
+
+      await tester.pumpWidget(const SizedBox());
+      expect(tester.takeException(), isNull);
     },
   );
 }

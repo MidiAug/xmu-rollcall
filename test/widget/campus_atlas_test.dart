@@ -205,6 +205,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(map().places.any((p) => p.id == 'atlas-group:xa-main'), isTrue);
       expect(map().places.any((p) => p.note == '学武楼 A区'), isFalse);
+      controller.move(Campus.xiangan.center, 16.6);
+      await tester.pumpAndSettle();
+      expect(map().places.any((p) => p.note == '学武楼（1号楼）'), isTrue);
+      expect(map().places.any((p) => p.id.startsWith('atlas-group:')), isFalse);
       controller.move(Campus.xiangan.center, 17.8);
       await tester.pumpAndSettle();
       expect(map().places.any((p) => p.note == '学武楼（1号楼）'), isTrue);
@@ -579,15 +583,44 @@ void main() {
         teachingBuildings.singleWhere((b) => b.id == 'xa-xuewu').groupId,
         'xa-main',
       );
+      expect(kCampusScopedMinZoom, 13.5);
+      expect(kCampusMapInteractionOptions.enableMultiFingerGestureRace, isTrue);
+      expect(kCampusMapInteractionOptions.rotationThreshold, 32.0);
+      for (final campus in Campus.values) {
+        final bounds = campusBoundsFor(campus);
+        expect(kXmuMapBounds.containsBounds(bounds), isTrue);
+        expect(bounds.contains(campus.center), isTrue);
+        for (final g in teachingGroups.where(
+          (g) => '${g.campus}校区' == campus.label,
+        )) {
+          if (g.point case final point?) {
+            expect(
+              bounds.contains(LatLng(point.latitude, point.longitude)),
+              isTrue,
+            );
+          }
+          for (final v in g.vertices) {
+            expect(bounds.contains(LatLng(v.latitude, v.longitude)), isTrue);
+          }
+        }
+      }
       for (final b in teachingBuildings.where(
         (b) => ['思明', '翔安', '漳州'].contains(b.campus),
       )) {
+        final campus = Campus.values.singleWhere(
+          (c) => c.label == '${b.campus}校区',
+        );
+        final bounds = campusBoundsFor(campus);
         for (final point in [
           b.point,
           ...b.regions.map((r) => r.point),
         ].whereType<TeachingPoint>()) {
           expect(
             kXmuMapBounds.contains(LatLng(point.latitude, point.longitude)),
+            isTrue,
+          );
+          expect(
+            bounds.contains(LatLng(point.latitude, point.longitude)),
             isTrue,
           );
         }
@@ -820,6 +853,7 @@ void main() {
           await tester.pumpAndSettle();
           final initial = tester.widget<CampusMap>(find.byType(CampusMap));
           expect(initial.onTap, isNull);
+          expect(initial.showPlaceLabels, isTrue);
           expect(initial.areas, isNotEmpty);
           expect(
             initial.places.any((p) => p.id.startsWith('atlas-group:')),
@@ -872,15 +906,17 @@ void main() {
           expect(find.text('校方资料'), findsNothing);
           expect(find.text('详情'), findsOneWidget);
           expect(find.text('保存定位'), findsNothing);
+          expect(find.text('© 高德地图'), findsNothing);
+          expect(find.byType(MapAttributionControls), findsOneWidget);
+          expect(MapAttributionControls.footerHeight, 0);
           expect(
             tester
                 .getRect(find.byKey(const ValueKey('atlas-selection')))
                 .bottom,
             lessThanOrEqualTo(
               tester
-                      .getRect(find.byKey(const ValueKey('campus-atlas-map')))
-                      .bottom -
-                  MapAttributionControls.footerHeight,
+                  .getRect(find.byKey(const ValueKey('campus-atlas-map')))
+                  .bottom,
             ),
           );
           expect(find.text('新增楼宇'), findsNothing);

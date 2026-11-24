@@ -1,13 +1,16 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app.dart';
 import 'package:xmu_rollcall/app/auth_session.dart';
+import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'package:xmu_rollcall/platform/platform_hooks.dart';
@@ -19,6 +22,21 @@ Future<void> main(List<String> arguments) async {
   await runZonedGuarded(
     () async {
       WidgetsFlutterBinding.ensureInitialized();
+      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+        final view =
+            WidgetsBinding.instance.platformDispatcher.views.firstOrNull;
+        if (view != null &&
+            view.physicalSize != Size.zero &&
+            view.devicePixelRatio > 0 &&
+            (view.physicalSize / view.devicePixelRatio).shortestSide <
+                AppLayout.shellBreakpoint) {
+          unawaited(
+            SystemChrome.setPreferredOrientations(const [
+              DeviceOrientation.portraitUp,
+            ]),
+          );
+        }
+      }
       if (PlatformHooks.isWindows) {
         final window = await WindowController.fromCurrentEngine();
         if (window.arguments.isNotEmpty) {

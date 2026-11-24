@@ -436,7 +436,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                     ),
                     if (college?.trim().isNotEmpty == true || semester != null)
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                        padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -536,6 +536,7 @@ class _AccountManagementPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authControllerProvider);
     final p = AppPalette.of(context);
+    final touch = AppMobileUi.useTouchChrome(context);
     final name = auth.profile?.name ?? '未登录';
     return SubpageScaffold(
       title: '账号管理',
@@ -609,10 +610,32 @@ class _AccountManagementPage extends ConsumerWidget {
                 child: SizedBox(
                   width: AppDensity.isTouch(context) ? double.infinity : null,
                   child: OutlinedButton(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: p.danger,
-                      side: BorderSide(color: p.dangerRim),
-                    ),
+                    style:
+                        OutlinedButton.styleFrom(
+                          foregroundColor: p.danger,
+                          minimumSize: Size(
+                            0,
+                            touch
+                                ? AppMobileUi.target
+                                : AppDensity.controlHeightRegular,
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: touch ? 12 : 10,
+                          ),
+                          textStyle: AppTypography.control.copyWith(
+                            fontSize: touch ? 15 : 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ).copyWith(
+                          side: WidgetStateProperty.resolveWith(
+                            (s) => BorderSide(
+                              color: s.contains(WidgetState.focused)
+                                  ? p.focus
+                                  : p.dangerRim,
+                            ),
+                          ),
+                        ),
                     onPressed: () {
                       Navigator.pop(context);
                       ref.read(authControllerProvider.notifier).signOut();

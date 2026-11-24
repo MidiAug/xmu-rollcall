@@ -67,9 +67,25 @@ android {
             }
         }
         release {
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             // Local development keeps its existing key; CI release forbids fallback.
             signingConfig = signingConfigs.getByName(
                 if (hasReleaseKey && !previewBuild) "production" else "debug",
+            )
+        }
+    }
+
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/AL2.0",
+                "META-INF/LGPL2.1",
+                "DebugProbesKt.bin",
             )
         }
     }

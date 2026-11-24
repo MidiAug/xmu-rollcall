@@ -1,7 +1,14 @@
 import 'package:flutter_map/flutter_map.dart';
 
 const campusTileCacheMaxBytes = 64 * 1024 * 1024;
-const campusTileFreshAge = Duration(days: 1);
+const campusTileFreshAge = Duration(days: 7);
+
+final _amapSubdomainPattern = RegExp(r'webrd0[1-4]\.is\.autonavi\.com');
+
+String campusTileKeyGenerator(String url) =>
+    BuiltInMapCachingProvider.uuidTileKeyGenerator(
+      url.replaceFirst(_amapSubdomainPattern, 'webrd01.is.autonavi.com'),
+    );
 
 /// Policy for the current public AMap basemap, not a general HTTP cache.
 /// flutter_map does not fully interpret no-store/no-cache/private directives;
@@ -13,8 +20,9 @@ BuiltInMapCachingProvider campusTileCache({
 }) => BuiltInMapCachingProvider.getOrCreateInstance(
   cacheDirectory: cacheDirectory,
   maxCacheSize: campusTileCacheMaxBytes,
+  tileKeyGenerator: campusTileKeyGenerator,
   // The tile CDN can return Age greater than max-age without validators.
-  // Reuse viewed imagery for one day rather than refetching on every reopen.
+  // Reuse viewed imagery for seven days rather than refetching on every reopen.
   overrideFreshAge: campusTileFreshAge,
 );
 

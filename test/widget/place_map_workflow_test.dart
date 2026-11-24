@@ -503,14 +503,20 @@ void main() {
       expect(find.byKey(const ValueKey('managed-room-西部片区4号楼')), findsNothing);
       await tester.tap(find.byKey(const ValueKey('managed-room-学信楼')));
       await tester.pumpAndSettle();
-      final cluster = tester
+      expect(find.byKey(const ValueKey('map-building-坤銮楼')), findsNothing);
+      expect(find.byKey(const ValueKey('map-building-学武楼')), findsNothing);
+      final focusedMap = tester.widget<CampusMap>(find.byType(CampusMap));
+      expect(focusedMap.places, hasLength(1));
+      expect(focusedMap.places.single.id, 'xmu:teaching:west-2');
+      expect(focusedMap.selectedPlaceId, 'xmu:teaching:west-2');
+      final marker = tester
           .widget<MarkerLayer>(find.byType(MarkerLayer).first)
           .markers
           .singleWhere(
-            (m) => m.child.key == const ValueKey('map-building-坤銮楼'),
+            (m) => m.child.key == const ValueKey('map-place-学信楼（2号楼）'),
           );
-      expect(cluster.point.latitude, closeTo(24.60559845, .0000001));
-      expect(cluster.point.longitude, closeTo(118.3127415, .0000001));
+      expect(marker.point.latitude, closeTo(24.604261, .000001));
+      expect(marker.point.longitude, closeTo(118.299946, .000001));
       final panel = find.byKey(const ValueKey('map-building-inspector'));
       expect(panel, findsOneWidget);
       expect(
@@ -756,11 +762,11 @@ void main() {
       final mapFinder = find.byType(CampusMap);
       final mapRect = tester.getRect(mapFinder);
       final hint = tester.getRect(find.byKey(const ValueKey('map-idle-hint')));
+      expect(find.text('© 高德地图'), findsNothing);
+      expect(find.byType(MapAttributionControls), findsOneWidget);
+      expect(MapAttributionControls.footerHeight, 0);
       expect(hint.left - mapRect.left, closeTo(12, .1));
-      expect(
-        mapRect.bottom - hint.bottom,
-        closeTo(12 + MapAttributionControls.footerHeight, .1),
-      );
+      expect(mapRect.bottom - hint.bottom, closeTo(12, .1));
       expect(
         tester.widget<FlutterMap>(find.byType(FlutterMap)).options.onTap,
         isNull,
@@ -804,10 +810,7 @@ void main() {
         find.byKey(const ValueKey('map-place-inspector')),
       );
       expect(mapRect.right - inspector.right, closeTo(12, .1));
-      expect(
-        mapRect.bottom - inspector.bottom,
-        closeTo(12 + MapAttributionControls.footerHeight, .1),
-      );
+      expect(mapRect.bottom - inspector.bottom, closeTo(12, .1));
       final coordinates = tester.widget<SelectableText>(
         find.byKey(const ValueKey('managed-place-coordinates')),
       );

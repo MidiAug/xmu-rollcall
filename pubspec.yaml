@@ -69,9 +69,6 @@ flutter_launcher_icons:
 flutter:
   uses-material-design: true
   assets:
-    - assets/illustrations/campus_mist.png
-    - assets/illustrations/campus_header.png
-    - assets/illustrations/campus_sidebar.png
     - assets/tray/tray_icon.ico
     - assets/tray/tray_icon.png
     - assets/tray/tray_icon_active.ico

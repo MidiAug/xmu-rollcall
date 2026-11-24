@@ -190,11 +190,15 @@ class AuthRepository {
   }
 
   Future<UserProfile?> cachedProfile() async {
-    final id = int.tryParse(await store.read(SecureStore.keyUserId) ?? '');
+    final (rawId, displayName) = await (
+      store.read(SecureStore.keyUserId),
+      store.read(SecureStore.keyUserDisplayName),
+    ).wait;
+    final id = int.tryParse(rawId ?? '');
     if (id == null || id == 0) return null;
     return UserProfile(
       id: id,
-      name: await store.read(SecureStore.keyUserDisplayName) ?? '用户',
+      name: displayName ?? '用户',
     );
   }
 

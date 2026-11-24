@@ -272,13 +272,6 @@ void main() {
             true,
           );
         }
-        await tester.runAsync(
-          () => precacheImage(
-            const AssetImage('assets/illustrations/campus_header.png'),
-            tester.element(find.byType(MobileRollcallHome)),
-          ),
-        );
-        await tester.pumpAndSettle();
         if (Platform.environment['CAPTURE_MOBILE_CAMPUS'] == '1') {
           await tester.runAsync(() async {
             final boundary =

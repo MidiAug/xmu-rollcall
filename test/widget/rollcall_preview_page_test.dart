@@ -57,18 +57,6 @@ Future<GlobalKey> _mount(
     ),
   );
   await tester.pumpAndSettle();
-  if (desktop) {
-    await tester.runAsync(
-      () => precacheImage(
-        const ResizeImage(
-          AssetImage('assets/illustrations/campus_mist.png'),
-          width: 768,
-        ),
-        tester.element(find.byType(RollcallPreviewPage)),
-      ),
-    );
-    await tester.pumpAndSettle();
-  }
   return capture;
 }
 
@@ -422,13 +410,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(copiedCode, '1234');
       AppToast.dismiss();
-      await tester.pumpAndSettle();
-      await tester.runAsync(
-        () => precacheImage(
-          const AssetImage('assets/illustrations/campus_header.png'),
-          tester.element(find.byType(MobileRollcallHome)),
-        ),
-      );
       await tester.pumpAndSettle();
       await _capture(tester, capture, 'ready');
       final startRect = tester.getRect(

@@ -41,7 +41,7 @@ List<CampusSearchEntry> campusSearchFeatures(int? scope) => [
   CampusSearchEntry(
     '学年校历',
     '学期安排与教学周',
-    '校历 学年 秋季 春季 短学期 教学周',
+    '校历 学年 秋季 春季 小学期 短学期 教学周',
     AppIcons.calendar,
     page: (_) => const CampusCalendarPage(),
     help: '按已维护的学年与学期查看月历和教学周，具体安排以学校公布校历为准。',

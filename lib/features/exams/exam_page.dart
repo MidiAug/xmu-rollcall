@@ -141,7 +141,7 @@ class _ExamPageState extends ConsumerState<ExamPage>
                         contentInsets +
                         EdgeInsets.fromLTRB(
                           AppSpace.pageXOf(context),
-                          12,
+                          AppMobileUi.useTouchChrome(context) ? 16.0 : 12.0,
                           AppSpace.pageXOf(context),
                           28,
                         ),
@@ -312,7 +312,11 @@ class _ExamOverview extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: AppSpace.xs),
+        SizedBox(
+          height: AppMobileUi.useTouchChrome(context)
+              ? AppSpace.md
+              : AppSpace.sm,
+        ),
         LayoutBuilder(
           builder: (context, bounds) => SizedBox(
             width: bounds.maxWidth.clamp(0.0, 500.0),

@@ -1,12 +1,21 @@
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 
 abstract final class AppTheme {
-  static ThemeData dark() =>
-      _fromPalette(brightness: Brightness.dark, p: AppPalette.darkPalette);
+  static final Map<TargetPlatform, ThemeData> _lightByPlatform = {};
+  static final Map<TargetPlatform, ThemeData> _darkByPlatform = {};
 
-  static ThemeData light() =>
-      _fromPalette(brightness: Brightness.light, p: AppPalette.lightPalette);
+  static ThemeData dark() => _darkByPlatform.putIfAbsent(
+    defaultTargetPlatform,
+    () => _fromPalette(brightness: Brightness.dark, p: AppPalette.darkPalette),
+  );
+
+  static ThemeData light() => _lightByPlatform.putIfAbsent(
+    defaultTargetPlatform,
+    () =>
+        _fromPalette(brightness: Brightness.light, p: AppPalette.lightPalette),
+  );
 
   static ThemeData _fromPalette({
     required Brightness brightness,

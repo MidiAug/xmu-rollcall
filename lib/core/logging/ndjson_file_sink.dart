@@ -24,6 +24,7 @@ class NdjsonFileSink {
   Directory? _dir;
   IOSink? _ioSink;
   File? _activeFile;
+  int _activeBytes = 0;
   Future<void> _chain = Future.value();
 
   bool healthy = true;
@@ -50,29 +51,19 @@ class NdjsonFileSink {
     return completer.future;
   }
 
-  Future<void> open() => enqueue(() async {
-        _dir = _injectedDir ??
-            Directory(
-              '${(await getApplicationSupportDirectory()).path}/logs',
-            );
-        if (!await _dir!.exists()) {
-          await _dir!.create(recursive: true);
-        }
-        _activeFile = File('${_dir!.path}/$activeFileName');
-        if (!await _activeFile!.exists()) {
-          await _activeFile!.create(recursive: true);
-        }
-        await _ioSink?.close();
-        _ioSink = _activeFile!.openWrite(mode: FileMode.append);
-      });
+  Future<void> open() => enqueue(() => _openActive(reopen: true));
 
   Future<void> appendLine(String line) => enqueue(() async {
         await _ensureOpen();
         try {
           _ioSink!.writeln(line);
           await _ioSink!.flush();
-          await _rotateIfNeeded();
-          await _enforceRetention();
+          // Dart IOSink.writeln always writes a single '\n' byte.
+          _activeBytes += utf8.encode(line).length + 1;
+          final rotated = await _rotateIfNeeded();
+          if (rotated) {
+            await _enforceRetention();
+          }
         } catch (_) {
           healthy = false;
           writeErrorCount++;
@@ -143,6 +134,10 @@ class NdjsonFileSink {
 
   Future<void> _ensureOpen() async {
     if (_dir != null && _ioSink != null && _activeFile != null) return;
+    await _openActive(reopen: false);
+  }
+
+  Future<void> _openActive({required bool reopen}) async {
     _dir ??= _injectedDir ??
         Directory('${(await getApplicationSupportDirectory()).path}/logs');
     if (!await _dir!.exists()) {
@@ -152,12 +147,19 @@ class NdjsonFileSink {
     if (!await _activeFile!.exists()) {
       await _activeFile!.create(recursive: true);
     }
-    _ioSink ??= _activeFile!.openWrite(mode: FileMode.append);
+    if (reopen) {
+      await _ioSink?.close();
+      _ioSink = null;
+    }
+    if (_ioSink == null) {
+      _ioSink = _activeFile!.openWrite(mode: FileMode.append);
+      _activeBytes = await _activeFile!.length();
+      await _enforceRetention();
+    }
   }
 
-  Future<void> _rotateIfNeeded() async {
-    final length = await _activeFile!.length();
-    if (length < maxFileBytes) return;
+  Future<bool> _rotateIfNeeded() async {
+    if (_activeBytes < maxFileBytes) return false;
     await _ioSink?.flush();
     await _ioSink?.close();
     _ioSink = null;
@@ -167,6 +169,8 @@ class NdjsonFileSink {
     _activeFile = File('${_dir!.path}/$activeFileName');
     await _activeFile!.create(recursive: true);
     _ioSink = _activeFile!.openWrite(mode: FileMode.append);
+    _activeBytes = 0;
+    return true;
   }
 
   Future<void> _enforceRetention() async {

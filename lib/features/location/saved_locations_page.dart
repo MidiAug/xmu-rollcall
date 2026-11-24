@@ -2,7 +2,8 @@ import 'package:xmu_rollcall/app/app_service_symbol.dart';
 import 'location_validation_store.dart';
 import 'course_radar_store.dart';
 import 'place_buildings.dart';
-import 'campus_map_config.dart' show kMapOverlayInset;
+import 'campus_map_config.dart'
+    show campusBoundsFor, kCampusScopedMinZoom, kMapOverlayInset;
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'package:flutter/material.dart';
@@ -79,7 +80,8 @@ class _SavedLocationsPageState extends ConsumerState<SavedLocationsPage> {
                 value: campus,
                 items: Campus.values,
                 labelOf: (c) => c.label,
-                width: 120,
+                width: null,
+                alignMenuEnd: true,
                 onChanged: (v) => setState(() => _campus = v),
               ),
           ],
@@ -380,13 +382,17 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
         _focusedBuilding = building.name;
         _regionOnly = false;
         _focusedRoom = null;
-        _selected = null;
-        _point = null;
-        _creating = false;
-        _mobileMap = true;
         final fullBuilding =
             allBuildings.where((e) => e.name == building.name).firstOrNull ??
             building;
+        final buildingPlaces = fullBuilding.children
+            .map((e) => e.place)
+            .whereType<SavedLocation>()
+            .toList();
+        _selected = buildingPlaces.length == 1 ? buildingPlaces.single : null;
+        _point = null;
+        _creating = false;
+        _mobileMap = true;
         if (focusMap && fullBuilding.center != null) {
           _viewCenter = fullBuilding.center;
         }
@@ -394,10 +400,37 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
       widget.onMapViewChanged?.call(true);
     }
 
-    final visible = [
-      for (final building in allBuildings)
-        for (final entry in building.children) ?entry.place,
-    ];
+    final List<SavedLocation> visible;
+    if (!_creating &&
+        (_focusedRoom != null ||
+            activeBuilding != null ||
+            _selected != null)) {
+      if (_focusedRoom != null) {
+        final focusedId = coursePlaceIdentity(_focusedRoom!);
+        final matched = [
+          for (final building in allBuildings)
+            for (final entry in building.children)
+              if (entry.place != null &&
+                  (entry.name == _focusedRoom ||
+                      coursePlaceIdentity(entry.name) == focusedId))
+                entry.place!,
+        ];
+        visible = matched.isNotEmpty
+            ? matched
+            : [?_selected];
+      } else if (activeBuilding != null) {
+        visible = [
+          for (final entry in activeBuilding.children) ?entry.place,
+        ];
+      } else {
+        visible = [_selected!];
+      }
+    } else {
+      visible = [
+        for (final building in allBuildings)
+          for (final entry in building.children) ?entry.place,
+      ];
+    }
     final point =
         _point ??
         (_selected == null
@@ -473,10 +506,10 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                                     children: [
                                       if (i == 0 || previous != status)
                                         Padding(
-                                          padding: EdgeInsets.fromLTRB(
-                                            wide ? 16 : 0,
+                                          padding: const EdgeInsets.fromLTRB(
+                                            16,
                                             10,
-                                            wide ? 16 : 0,
+                                            16,
                                             8,
                                           ),
                                           child: Text(
@@ -575,6 +608,12 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                     ],
                   ),
                 );
+                final bottomInset =
+                    inset +
+                    MapAttributionControls.footerHeight +
+                    (AppMobileUi.useTouchChrome(context)
+                        ? MediaQuery.paddingOf(context).bottom
+                        : 0);
                 final map = Stack(
                   children: [
                     Positioned.fill(
@@ -585,6 +624,8 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                             : BorderRadius.zero,
                         overlayInset: inset,
                         center: _viewCenter ?? campus.center,
+                        bounds: campusBoundsFor(campus),
+                        minZoom: kCampusScopedMinZoom,
                         point: _creating ? point : null,
                         selectedPlaceId: _creating ? null : _selected?.id,
                         places: visible,
@@ -666,7 +707,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                         activeBuilding != null)
                       Positioned(
                         right: inset,
-                        bottom: inset + MapAttributionControls.footerHeight,
+                        bottom: bottomInset,
                         left: wide ? null : inset,
                         child: SizedBox(
                           width: wide
@@ -675,9 +716,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                           child: ConstrainedBox(
                             constraints: BoxConstraints(
                               maxHeight:
-                                  (bounds.maxHeight -
-                                          2 * inset -
-                                          MapAttributionControls.footerHeight)
+                                  (bounds.maxHeight - inset - bottomInset)
                                       .clamp(0.0, bounds.maxHeight),
                             ),
                             child: ClipRRect(
@@ -702,7 +741,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                     else
                       Positioned(
                         left: inset,
-                        bottom: inset + MapAttributionControls.footerHeight,
+                        bottom: bottomInset,
                         right: inset,
                         child: IgnorePointer(
                           child: Align(
@@ -962,6 +1001,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                   _point = null;
                   _focusedRoom = null;
                   _focusedBuilding = null;
+                  _regionOnly = false;
                 }),
               ),
             ],
@@ -1021,6 +1061,7 @@ class _LocationManagerState extends ConsumerState<LocationManagerContent> {
                       : () => setState(() {
                           _creating = false;
                           _point = null;
+                          if (_selected == null) _focusedRoom = null;
                         }),
                   child: const Text('取消'),
                 ),

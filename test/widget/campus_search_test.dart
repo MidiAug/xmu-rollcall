@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
+import 'package:xmu_rollcall/features/campus/campus_calendar_page.dart';
 import 'package:xmu_rollcall/features/campus/campus_search_page.dart';
 import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
@@ -102,7 +103,8 @@ void main() {
     expect(find.text('校园官方指南'), findsNothing);
     await tester.tap(find.text('学年校历'));
     await tester.pumpAndSettle();
-    expect(find.text('学期安排'), findsOneWidget);
+    expect(find.byType(CampusCalendarPage), findsOneWidget);
+    expect(find.byKey(const ValueKey('calendar-summary-card')), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     await tester.enterText(

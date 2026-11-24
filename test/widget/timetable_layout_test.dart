@@ -342,10 +342,7 @@ void main() {
             expect((detailCloseOffset.dy - mapCloseOffset.dy).abs(), lessThan(6.0));
           }
           expect(find.byType(CampusMap), findsOneWidget);
-          expect(
-            tester.getSize(find.byType(MapAttributionFooter)).height,
-            greaterThanOrEqualTo(34),
-          );
+          expect(find.byType(MapAttributionControls), findsOneWidget);
           await captureDesktopUi(
             tester,
             'timetable-map-${width.toInt()}-$dark',

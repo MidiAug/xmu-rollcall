@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'campus_map.dart';
+import 'campus_map_config.dart';
 import 'campus_places.dart';
 import 'location_models.dart';
 import 'teaching_catalog.dart';
@@ -24,7 +25,7 @@ class CampusAtlasPage extends StatefulWidget {
 }
 
 class _CampusAtlasPageState extends State<CampusAtlasPage> {
-  final _map = MapController();
+  MapController _map = MapController();
   Campus _campus = Campus.xiangan;
   String? _groupId, _buildingId, _regionId;
   int _level = 0;
@@ -285,8 +286,19 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
                   ),
                   maxWidth: mobile ? double.infinity : 344,
                   onChanged: (c) {
-                    setState(() => _campus = c);
-                    _overview();
+                    if (c == _campus) return;
+                    final previous = _map;
+                    setState(() {
+                      _campus = c;
+                      _map = MapController();
+                      _groupId = null;
+                      _buildingId = null;
+                      _regionId = null;
+                      _level = 0;
+                    });
+                    WidgetsBinding.instance.addPostFrameCallback(
+                      (_) => previous.dispose(),
+                    );
                   },
                 ),
                 Expanded(
@@ -308,9 +320,11 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
                                 key: const ValueKey('campus-atlas-map'),
                                 controller: _map,
                                 center: _campus.center,
+                                bounds: campusBoundsFor(_campus),
+                                minZoom: kCampusScopedMinZoom,
                                 zoom: 16,
                                 places: points,
-                                showPlaceLabels: !mobile || _level > 0,
+                                showPlaceLabels: true,
                                 avoidLabelOverlap: true,
                                 onMapReady: _fitCampus,
                                 areas: polygons,
@@ -325,7 +339,7 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
                                 onZoomChanged: (zoom) {
                                   final next = zoom >= 18
                                       ? 2
-                                      : zoom >= 17
+                                      : zoom >= 16.5
                                       ? 1
                                       : 0;
                                   if (_level != next) {

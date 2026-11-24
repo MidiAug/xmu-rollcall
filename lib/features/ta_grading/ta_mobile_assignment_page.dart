@@ -113,15 +113,17 @@ class _TaMobileAssignmentPageState extends ConsumerState<TaMobileAssignmentPage>
       ref.watch(taRepositoryProvider).valueOrNull,
       widget.repository,
     )) {
-      return const PageScaffold(
+      return SubpageScaffold(
         title: '助教作业',
-        child: Center(child: Text('账号已变更，请返回重新查看')),
+        onBack: () => Navigator.of(context).maybePop(),
+        body: const Center(child: Text('账号已变更，请返回重新查看')),
       );
     }
     if (!_repository.active) {
-      return const PageScaffold(
+      return SubpageScaffold(
         title: '助教作业',
-        child: Center(child: Text('请返回重新打开作业')),
+        onBack: () => Navigator.of(context).maybePop(),
+        body: const Center(child: Text('请返回重新打开作业')),
       );
     }
     return PopScope(

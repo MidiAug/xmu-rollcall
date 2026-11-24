@@ -10,7 +10,7 @@ import 'package:xmu_rollcall/features/location/campus_map_config.dart';
 enum RadarLocationAction { device, map, preset }
 
 /// Confirmation card: what will be submitted, then one way to change it.
-class RadarPlaceCard extends StatelessWidget {
+class RadarPlaceCard extends StatefulWidget {
   const RadarPlaceCard({
     super.key,
     required this.selection,
@@ -21,9 +21,36 @@ class RadarPlaceCard extends StatelessWidget {
   final VoidCallback? onChange;
 
   @override
+  State<RadarPlaceCard> createState() => _RadarPlaceCardState();
+}
+
+class _RadarPlaceCardState extends State<RadarPlaceCard> {
+  late CampusTileProvider _tileProvider = CampusTileProvider();
+
+  static String? _coordKey(RadarGeoSelection? selection) => selection == null
+      ? null
+      : '${selection.latitude.toStringAsFixed(5)},${selection.longitude.toStringAsFixed(5)}';
+
+  @override
+  void didUpdateWidget(RadarPlaceCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selection != null &&
+        _coordKey(oldWidget.selection) != _coordKey(widget.selection)) {
+      // _PointPreview keys FlutterMap by coordinates, so TileLayer disposes the old provider.
+      _tileProvider = CampusTileProvider();
+    }
+  }
+
+  @override
+  void dispose() {
+    _tileProvider.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
-    final current = selection;
+    final current = widget.selection;
     final copy = current == null ? null : radarPlaceCopy(current);
 
     return Material(
@@ -83,6 +110,7 @@ class RadarPlaceCard extends StatelessWidget {
               _PointPreview(
                 latitude: current.latitude,
                 longitude: current.longitude,
+                tileProvider: _tileProvider,
               ),
               const SizedBox(height: AppSpace.xs),
               Text(
@@ -99,7 +127,7 @@ class RadarPlaceCard extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: OutlinedButton(
-                onPressed: onChange,
+                onPressed: widget.onChange,
                 child: Text(current == null ? '选择位置' : '更换位置'),
               ),
             ),
@@ -139,10 +167,15 @@ class _SourceBadge extends StatelessWidget {
 }
 
 class _PointPreview extends StatelessWidget {
-  const _PointPreview({required this.latitude, required this.longitude});
+  const _PointPreview({
+    required this.latitude,
+    required this.longitude,
+    required this.tileProvider,
+  });
 
   final double latitude;
   final double longitude;
+  final CampusTileProvider tileProvider;
 
   @override
   Widget build(BuildContext context) {
@@ -168,7 +201,7 @@ class _PointPreview extends StatelessWidget {
               ),
               children: [
                 TileLayer(
-                  tileProvider: CampusTileProvider(),
+                  tileProvider: tileProvider,
                   urlTemplate: kAmapTileUrlTemplate,
                   subdomains: kAmapTileSubdomains,
                   userAgentPackageName: 'com.xmu.rollcall',

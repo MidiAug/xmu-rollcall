@@ -434,9 +434,9 @@ void main() {
         expect(find.text('已提交'), findsNothing);
         expect(find.text('0 分'), findsOneWidget);
         expect(find.textContaining(RegExp(r'^已截止\s*2$')), findsNWidgets(2));
-        expect(find.text('成绩未公布'), findsOneWidget);
+        expect(find.text('已批改'), findsOneWidget);
         // Finding a Text is insufficient: clipped labels remain in the tree.
-        for (final label in ['未提交', '成绩未公布', '0 分']) {
+        for (final label in ['未提交', '已批改', '0 分']) {
           for (final element in find.text(label).evaluate()) {
             final paragraph = element.renderObject! as RenderParagraph;
             expect(paragraph.didExceedMaxLines, isFalse, reason: label);
@@ -454,7 +454,7 @@ void main() {
           }
         }
         final zero = find.text('0 分');
-        final unpublished = find.text('成绩未公布');
+        final unpublished = find.text('已批改');
         expect(zero, findsOneWidget);
         expect(unpublished, findsOneWidget);
         expect(

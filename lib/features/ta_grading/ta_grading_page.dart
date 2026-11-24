@@ -22,12 +22,9 @@ class TaGradingPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final repository = ref.watch(taRepositoryProvider);
     final courses = ref.watch(currentTeachingCoursesProvider);
-    return PageScaffold(
-      onBack: Navigator.of(context).canPop()
-          ? () => Navigator.of(context).maybePop()
-          : null,
+    return SubpageScaffold(
       title: taIsMobile(context) ? '助教作业' : '修改作业',
-      child: repository.when(
+      body: repository.when(
         skipLoadingOnReload: repository.hasValue,
         skipLoadingOnRefresh: repository.hasValue,
         loading: () => const Center(child: CircularProgressIndicator()),

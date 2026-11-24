@@ -127,6 +127,8 @@ class PageScaffold extends StatelessWidget {
         child: child,
       );
     }
+    final compactBackHeader =
+        onBack != null && subtitle == null && subtitleWidget == null;
     // Canvas extends under the status bar; inset content only (R-23).
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _overlayForSurface(p.pageBackground(context)),
@@ -150,8 +152,11 @@ class PageScaffold extends StatelessWidget {
                       12,
                     ),
                     child: Row(
-                      // Top-align so title baseline is identical with/without trailing.
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      // Top-align so title baseline is identical with/without trailing;
+                      // single-line back headers center vertically against the back button.
+                      crossAxisAlignment: compactBackHeader
+                          ? CrossAxisAlignment.center
+                          : CrossAxisAlignment.start,
                       children: [
                         if (onBack != null) ...[
                           AppIconButton(
@@ -190,7 +195,7 @@ class PageScaffold extends StatelessWidget {
                                       ),
                                   child: subtitleWidget!,
                                 ),
-                              ] else ...[
+                              ] else if (!compactBackHeader) ...[
                                 const SizedBox(height: AppSpace.xxs),
                                 Text(
                                   subtitle ?? ' ',

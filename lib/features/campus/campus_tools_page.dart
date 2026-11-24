@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/features/browser/campus_website.dart';
 import 'package:xmu_rollcall/app/app_service_tile.dart';
 import 'campus_calendar_page.dart';
@@ -9,6 +10,7 @@ import 'package:xmu_rollcall/app/shell_tab_scope.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/grades/gpa_page.dart';
 import 'package:xmu_rollcall/features/exams/exam_page.dart';
+import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/location/campus_atlas_page.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_grading_page.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_widgets.dart';
@@ -66,13 +68,13 @@ List<CampusTool> get campusTools => <CampusTool>[
   ),
 ];
 
-class CampusToolsPage extends StatefulWidget {
+class CampusToolsPage extends ConsumerStatefulWidget {
   const CampusToolsPage({super.key});
   @override
-  State<CampusToolsPage> createState() => _CampusToolsPageState();
+  ConsumerState<CampusToolsPage> createState() => _CampusToolsPageState();
 }
 
-class _CampusToolsPageState extends State<CampusToolsPage>
+class _CampusToolsPageState extends ConsumerState<CampusToolsPage>
     with ShellTabAware<CampusToolsPage> {
   final _scroll = ScrollController();
   @override
@@ -90,9 +92,13 @@ class _CampusToolsPageState extends State<CampusToolsPage>
     final p = AppPalette.of(context);
     final tools = campusTools;
     final touch = AppMobileUi.useTouchChrome(context);
+    final topPadding = touch ? AppSpace.md : 20.0;
+    final hasTaCourses =
+        ref.watch(currentTeachingCoursesProvider).valueOrNull?.isNotEmpty ??
+        false;
     return PageScaffold(
       title: '工具',
-      showHeader: AppMobileUi.useTouchChrome(context),
+      showHeader: false,
       child: ColoredBox(
         color: p.pageBackground(context),
         child: AppPageViewport(
@@ -104,13 +110,13 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                   contentInsets +
                   EdgeInsets.fromLTRB(
                     AppSpace.pageXOf(context),
-                    20,
+                    topPadding,
                     AppSpace.pageXOf(context),
                     32,
                   ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  minHeight: (viewport.maxHeight - 52).clamp(
+                  minHeight: (viewport.maxHeight - topPadding - 32).clamp(
                     0.0,
                     double.infinity,
                   ),
@@ -145,9 +151,7 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                           children: [
                             for (final tool in entries)
                               SizedBox(
-                                width: touch && tool.id == 'ta-grading'
-                                    ? bounds.maxWidth
-                                    : tileWidth,
+                                width: tileWidth,
                                 child: AppServiceTile(
                                   key: ValueKey('tool-${tool.id}'),
                                   title:
@@ -161,9 +165,8 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                                             : '作业打包下载与批量评分'
                                       : tool.description,
                                   icon: tool.icon,
-                                  compact: !touch || tool.id == 'ta-grading',
-                                  showDescription:
-                                      !touch || tool.id == 'ta-grading',
+                                  compact: !touch,
+                                  showDescription: !touch,
                                   onPressed: () => AppPageRoutes.push(
                                     context,
                                     tool.page(context),
@@ -185,11 +188,13 @@ class _CampusToolsPageState extends State<CampusToolsPage>
                               '常用工具',
                               tools.where((t) => t.id != 'ta-grading'),
                             ),
-                            const SizedBox(height: AppSpace.xl),
-                            group(
-                              touch ? '助教' : '研究生',
-                              tools.where((t) => t.id == 'ta-grading'),
-                            ),
+                            if (hasTaCourses) ...[
+                              const SizedBox(height: AppSpace.xl),
+                              group(
+                                touch ? '助教' : '研究生',
+                                tools.where((t) => t.id == 'ta-grading'),
+                              ),
+                            ],
                           ],
                         ),
                         if (!touch)

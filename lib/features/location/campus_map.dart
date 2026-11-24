@@ -31,6 +31,8 @@ class CampusMap extends StatefulWidget {
     this.onZoomChanged,
     this.onMapReady,
     this.avoidLabelOverlap = false,
+    this.bounds,
+    this.minZoom,
   });
   final LatLng center;
   final List<SavedLocation> places;
@@ -49,21 +51,38 @@ class CampusMap extends StatefulWidget {
   final ValueChanged<double>? onZoomChanged;
   final VoidCallback? onMapReady;
   final bool avoidLabelOverlap;
+  final LatLngBounds? bounds;
+  final double? minZoom;
   @override
   State<CampusMap> createState() => _CampusMapState();
 }
 
 class _CampusMapState extends State<CampusMap> {
-  late final MapController _controller;
+  late MapController _controller;
+  late CampusTileProvider _tileProvider = CampusTileProvider();
+  late LatLngBounds _bounds;
   late List<ManagedBuilding> _groups;
   late int _reportedZoom;
   bool _tileError = false;
   int _tileRevision = 0;
+
+  LatLngBounds _boundsFor(CampusMap w) {
+    final target = w.bounds ?? kXmuMapBounds;
+    if (target.contains(w.center)) return target;
+    if (kXmuMapBounds.contains(w.center)) return kXmuMapBounds;
+    return LatLngBounds.fromPoints([
+      target.southWest,
+      target.northEast,
+      w.center,
+    ]);
+  }
+
   @override
   void initState() {
     super.initState();
     _controller = widget.controller ?? MapController();
-    _reportedZoom = widget.zoom.floor();
+    _bounds = _boundsFor(widget);
+    _reportedZoom = (widget.zoom * 2).floor();
     _groups = widget.groupBuildings
         ? mapBuildingGroups(widget.places)
         : const [];
@@ -78,7 +97,29 @@ class _CampusMapState extends State<CampusMap> {
           ? mapBuildingGroups(widget.places)
           : const [];
     }
-    if (oldWidget.center != widget.center) {
+    final nextBounds = _boundsFor(widget);
+    final boundsChanged = nextBounds != _bounds;
+    _bounds = nextBounds;
+    final controllerChanged = oldWidget.controller != widget.controller;
+    if (controllerChanged) {
+      final oldController = _controller;
+      _controller = widget.controller ?? MapController();
+      if (oldWidget.controller == null) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => oldController.dispose(),
+        );
+      }
+    } else if (widget.controller == null && boundsChanged) {
+      final oldController = _controller;
+      _controller = MapController();
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => oldController.dispose(),
+      );
+    }
+    if (boundsChanged) {
+      // ValueKey(_bounds) recreates FlutterMap/TileLayer, disposing the old provider.
+      _tileProvider = CampusTileProvider();
+    } else if (!controllerChanged && oldWidget.center != widget.center) {
       _controller.move(widget.center, _controller.camera.zoom);
     }
   }
@@ -90,6 +131,7 @@ class _CampusMapState extends State<CampusMap> {
   }
 
   double _labelWidth(BuildContext context, String label) {
+    final touch = AppMobileUi.useTouchChrome(context);
     final painter = TextPainter(
       text: TextSpan(
         text: label,
@@ -100,7 +142,9 @@ class _CampusMapState extends State<CampusMap> {
       textDirection: Directionality.of(context),
       textScaler: MediaQuery.textScalerOf(context),
     )..layout();
-    final width = (painter.width + 48).clamp(64.0, 380.0);
+    final width = touch
+        ? (painter.width + 34).clamp(52.0, 260.0)
+        : (painter.width + 48).clamp(64.0, 380.0);
     painter.dispose();
     return width;
   }
@@ -114,6 +158,7 @@ class _CampusMapState extends State<CampusMap> {
     required VoidCallback onTap,
   }) {
     final p = AppPalette.of(context);
+    final touch = AppMobileUi.useTouchChrome(context);
     final foreground = selected
         ? Theme.of(context).colorScheme.onPrimary
         : p.primary;
@@ -127,12 +172,16 @@ class _CampusMapState extends State<CampusMap> {
           backgroundColor: selected ? p.primary : p.surface,
           borderColor: p.primary.withValues(alpha: .35),
           borderRadius: BorderRadius.circular(18),
-          padding: const EdgeInsets.symmetric(horizontal: 9),
+          padding: EdgeInsets.symmetric(horizontal: touch ? 7 : 9),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(AppIcons.location, size: 15, color: foreground),
-              const SizedBox(width: 4),
+              Icon(
+                AppIcons.location,
+                size: touch ? 13 : 15,
+                color: foreground,
+              ),
+              SizedBox(width: touch ? 3 : 4),
               Flexible(
                 child: AppTruncatedText(
                   label,
@@ -150,6 +199,7 @@ class _CampusMapState extends State<CampusMap> {
   }
 
   Widget _buildingLayer(BuildContext context, bool expanded) {
+    final touch = AppMobileUi.useTouchChrome(context);
     return MarkerLayer(
       markers: [
         for (final entry in _groups.indexed)
@@ -185,7 +235,7 @@ class _CampusMapState extends State<CampusMap> {
                         ? entry.$2.name
                         : '${entry.$2.name} ${placeWing(item.name)}区',
                   ),
-                  height: 36,
+                  height: touch ? 30 : 36,
                   child: _mapLabel(
                     context,
                     placeWing(item.name) == null
@@ -203,6 +253,8 @@ class _CampusMapState extends State<CampusMap> {
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final touch = AppMobileUi.useTouchChrome(context);
+    final minZoom = widget.minZoom ?? kXmuMapMinZoom;
     // Marker descriptions and label measurements are independent of panning.
     final collapsed = widget.groupBuildings
         ? _buildingLayer(context, false)
@@ -218,122 +270,129 @@ class _CampusMapState extends State<CampusMap> {
       borderRadius: widget.borderRadius,
       child: Stack(
         children: [
-          FlutterMap(
-            mapController: _controller,
-            options: MapOptions(
-              initialCenter: widget.center,
-              initialZoom: widget.zoom.clamp(kXmuMapMinZoom, kAmapMaxZoom),
-              minZoom: kXmuMapMinZoom,
-              maxZoom: kAmapMaxZoom,
-              cameraConstraint: CameraConstraint.containCenter(
-                bounds: kXmuMapBounds,
+          RepaintBoundary(
+            child: FlutterMap(
+              key: ValueKey(_bounds),
+              mapController: _controller,
+              options: MapOptions(
+                initialCenter: widget.center,
+                initialZoom: widget.zoom.clamp(minZoom, kAmapMaxZoom),
+                minZoom: minZoom,
+                maxZoom: kAmapMaxZoom,
+                interactionOptions: kCampusMapInteractionOptions,
+                cameraConstraint: CameraConstraint.containCenter(
+                  bounds: _bounds,
+                ),
+                onPositionChanged: widget.onZoomChanged == null
+                    ? null
+                    : (camera, _) {
+                        final level = (camera.zoom * 2).floor();
+                        if (level == _reportedZoom) return;
+                        _reportedZoom = level;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            widget.onZoomChanged?.call(_controller.camera.zoom);
+                          }
+                        });
+                      },
+                backgroundColor: p.surfaceHigh,
+                onMapReady: widget.onMapReady,
+                onTap: widget.onTap == null
+                    ? null
+                    : (_, point) => widget.onTap?.call(point),
               ),
-              onPositionChanged: widget.onZoomChanged == null
-                  ? null
-                  : (camera, _) {
-                      final level = camera.zoom.floor();
-                      if (level == _reportedZoom) return;
-                      _reportedZoom = level;
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) {
-                          widget.onZoomChanged?.call(_controller.camera.zoom);
-                        }
-                      });
-                    },
-              backgroundColor: p.surfaceHigh,
-              onMapReady: widget.onMapReady,
-              onTap: widget.onTap == null
-                  ? null
-                  : (_, point) => widget.onTap?.call(point),
-            ),
-            children: [
-              TileLayer(
-                tileProvider: CampusTileProvider(),
-                key: ValueKey(_tileRevision),
-                maxNativeZoom: kAmapMaxNativeZoom,
-                minNativeZoom: 3,
-                errorTileCallback: (_, _, _) {
-                  if (_tileError) return;
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (mounted && !_tileError) {
-                      setState(() => _tileError = true);
-                    }
-                  });
-                },
-                urlTemplate: kAmapTileUrlTemplate,
-                subdomains: kAmapTileSubdomains,
-                userAgentPackageName: 'com.xmu.rollcall',
-              ),
-              if (widget.areas.isNotEmpty) PolygonLayer(polygons: widget.areas),
-              if (widget.groupBuildings)
-                Builder(
-                  builder: (context) {
-                    return MapCamera.of(context).zoom >= 18
-                        ? expanded!
-                        : collapsed!;
+              children: [
+                TileLayer(
+                  tileProvider: _tileProvider,
+                  key: ValueKey(_tileRevision),
+                  maxNativeZoom: kAmapMaxNativeZoom,
+                  minNativeZoom: 3,
+                  errorTileCallback: (_, _, _) {
+                    if (_tileError) return;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted && !_tileError) {
+                        setState(() => _tileError = true);
+                      }
+                    });
                   },
-                )
-              else
-                _PlaceMarkerLayer(
-                  avoidOverlap: widget.avoidLabelOverlap,
-                  markers: [
-                    for (final place in places)
-                      Marker(
-                        key: ValueKey('map-marker-${place.id}'),
-                        point: LatLng(place.latitude, place.longitude),
-                        width: widget.showPlaceLabels
-                            ? _labelWidth(context, place.note)
-                            : 36,
-                        height: 36,
-                        child: widget.showPlaceLabels
-                            ? _mapLabel(
-                                context,
-                                place.note,
-                                tooltip: place.note,
-                                selected: widget.selectedPlaceId == place.id,
-                                onTap: () => widget.onPlace?.call(place),
-                              )
-                            : Tooltip(
-                                message: place.note,
-                                child: AppHoverSurface(
+                  urlTemplate: kAmapTileUrlTemplate,
+                  subdomains: kAmapTileSubdomains,
+                  userAgentPackageName: 'com.xmu.rollcall',
+                ),
+                if (widget.areas.isNotEmpty)
+                  PolygonLayer(polygons: widget.areas),
+                if (widget.groupBuildings)
+                  Builder(
+                    builder: (context) {
+                      return MapCamera.of(context).zoom >= 18
+                          ? expanded!
+                          : collapsed!;
+                    },
+                  )
+                else
+                  _PlaceMarkerLayer(
+                    avoidOverlap: widget.avoidLabelOverlap,
+                    markers: [
+                      for (final place in places)
+                        Marker(
+                          key: ValueKey('map-marker-${place.id}'),
+                          point: LatLng(place.latitude, place.longitude),
+                          width: widget.showPlaceLabels
+                              ? _labelWidth(context, place.note)
+                              : 36,
+                          height: widget.showPlaceLabels
+                              ? (touch ? 30 : 36)
+                              : 36,
+                          child: widget.showPlaceLabels
+                              ? _mapLabel(
+                                  context,
+                                  place.note,
+                                  tooltip: place.note,
+                                  selected: widget.selectedPlaceId == place.id,
                                   onTap: () => widget.onPlace?.call(place),
-                                  backgroundColor: p.surface,
-                                  borderColor: p.primary.withValues(alpha: .3),
-                                  borderRadius: BorderRadius.circular(18),
-                                  padding: EdgeInsets.zero,
-                                  child: Center(
-                                    child: Icon(
-                                      place.id.startsWith('xmu:')
-                                          ? AppIcons.building
-                                          : AppIcons.location,
-                                      size: 18,
-                                      color: p.primary,
+                                )
+                              : Tooltip(
+                                  message: place.note,
+                                  child: AppHoverSurface(
+                                    onTap: () => widget.onPlace?.call(place),
+                                    backgroundColor: p.surface,
+                                    borderColor: p.primary.withValues(alpha: .3),
+                                    borderRadius: BorderRadius.circular(18),
+                                    padding: EdgeInsets.zero,
+                                    child: Center(
+                                      child: Icon(
+                                        place.id.startsWith('xmu:')
+                                            ? AppIcons.building
+                                            : AppIcons.location,
+                                        size: 18,
+                                        color: p.primary,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
+                        ),
+                    ],
+                  ),
+                MarkerLayer(
+                  markers: [
+                    if (widget.point != null)
+                      Marker(
+                        point: widget.point!,
+                        width: 44,
+                        height: 48,
+                        alignment: Alignment.topCenter,
+                        child: IgnorePointer(
+                          child: Icon(
+                            Icons.location_on,
+                            color: p.primary,
+                            size: 44,
+                          ),
+                        ),
                       ),
                   ],
                 ),
-              MarkerLayer(
-                markers: [
-                  if (widget.point != null)
-                    Marker(
-                      point: widget.point!,
-                      width: 44,
-                      height: 48,
-                      alignment: Alignment.topCenter,
-                      child: IgnorePointer(
-                        child: Icon(
-                          Icons.location_on,
-                          color: p.primary,
-                          size: 44,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
           if (_tileError)
             Positioned(
@@ -360,6 +419,7 @@ class _CampusMapState extends State<CampusMap> {
                           onPressed: () => setState(() {
                             _tileError = false;
                             _tileRevision++;
+                            _tileProvider = CampusTileProvider();
                           }),
                           child: const Text('重试'),
                         ),
@@ -369,12 +429,6 @@ class _CampusMapState extends State<CampusMap> {
                 ),
               ),
             ),
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: MapAttributionFooter(),
-          ),
           Positioned(
             top: widget.overlayInset,
             right: widget.overlayInset,
@@ -416,29 +470,9 @@ class _PlaceMarkerLayer extends StatelessWidget {
   }
 }
 
-/// Permanent attribution band shared by browsing and coordinate selection maps.
-class MapAttributionFooter extends StatelessWidget {
-  const MapAttributionFooter({super.key});
-  @override
-  Widget build(BuildContext context) => IgnorePointer(
-    child: Container(
-      constraints: const BoxConstraints(
-        minHeight: MapAttributionControls.footerHeight,
-      ),
-      alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      color: AppPalette.of(context).surface,
-      child: Text(
-        '© 高德地图',
-        style: TextStyle(color: AppPalette.of(context).muted, fontSize: 11),
-      ),
-    ),
-  );
-}
-
 /// Sibling of FlutterMap: controls and their padding never reach map gestures.
 class MapAttributionControls extends StatefulWidget {
-  static const footerHeight = 34.0;
+  static const footerHeight = 0.0;
   const MapAttributionControls({super.key});
   @override
   State<MapAttributionControls> createState() => _MapAttributionControlsState();

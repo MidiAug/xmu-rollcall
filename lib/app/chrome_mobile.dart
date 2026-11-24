@@ -186,7 +186,7 @@ class AppToolbarChoice<T> extends StatelessWidget {
   final String Function(T) labelOf;
   final String Function(T)? trailingOf;
   final ValueChanged<T>? onChanged;
-  final double width;
+  final double? width;
   final double? menuWidth;
   final bool alignMenuEnd;
   final bool expandLabel;
@@ -210,7 +210,9 @@ class AppToolbarChoice<T> extends StatelessWidget {
         onPressed: toggle,
         style: TextButton.styleFrom(
           minimumSize: Size(0, minHeight),
-          alignment: Alignment.centerLeft,
+          alignment: alignMenuEnd
+              ? Alignment.centerRight
+              : Alignment.centerLeft,
           padding: EdgeInsets.symmetric(horizontal: expandLabel ? 12 : 10),
           tapTargetSize: height != null || !touch
               ? MaterialTapTargetSize.shrinkWrap
@@ -220,6 +222,9 @@ class AppToolbarChoice<T> extends StatelessWidget {
         ),
         child: Row(
           mainAxisSize: expandLabel ? MainAxisSize.max : MainAxisSize.min,
+          mainAxisAlignment: alignMenuEnd
+              ? MainAxisAlignment.end
+              : MainAxisAlignment.start,
           children: [
             if (expandLabel)
               Expanded(

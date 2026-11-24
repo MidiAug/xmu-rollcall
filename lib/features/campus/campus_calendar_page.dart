@@ -48,7 +48,7 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
   String _name(AcademicTermDates term) => switch (term.term[4]) {
     '1' => '第一学期',
     '2' => '第二学期',
-    _ => '短学期',
+    _ => '小学期',
   };
 
   @override
@@ -58,61 +58,81 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
     final firstMonth = DateTime(_term.monday.year, _term.monday.month);
     final lastMonth = DateTime(_term.end.year, _term.end.month);
     final touch = AppMobileUi.useTouchChrome(context);
-    final controls = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        LayoutBuilder(
-          builder: (context, bounds) => Wrap(
+    final scale = MediaQuery.textScalerOf(context).scale(1);
+    final currentWeek = _today.difference(_term.monday).inDays ~/ 7 + 1;
+    final controls = LayoutBuilder(
+      builder: (context, bounds) {
+        final narrow = touch || bounds.maxWidth < 520;
+        final singleRow = narrow && bounds.maxWidth >= 280 && scale <= 1.25;
+        final compactYear = narrow && bounds.maxWidth < 360;
+        final yearWidth = singleRow
+            ? ((compactYear ? 108.0 : 128.0) * scale.clamp(1.0, 1.2)).clamp(
+                0.0,
+                bounds.maxWidth * 0.45,
+              )
+            : (188 * scale).clamp(0.0, bounds.maxWidth);
+        final yearSelect = AppShellSelect<int>(
+          plain: true,
+          compact: true,
+          key: const ValueKey('calendar-year'),
+          semanticLabel: '选择学年',
+          value: _year,
+          items: _years.reversed.toList(),
+          labelOf: (v) => narrow
+              ? (compactYear ? '$v-${v + 1}' : '$v-${v + 1}学年')
+              : '$v—${v + 1}学年',
+          menuLabelOf: (v) => '$v—${v + 1}学年',
+          width: yearWidth,
+          menuWidth: 220,
+          onChanged: (v) => setState(() {
+            _year = v;
+            _termCode = _initialTerm.term;
+            _month = _initialMonth(_term);
+          }),
+        );
+        final termControl = AppSegmentedControl<String>(
+          key: const ValueKey('calendar-term'),
+          trackOnTouch: true,
+          compact: true,
+          expanded: true,
+          value: _termCode,
+          segments: [
+            for (final t in _terms)
+              AppSegment(
+                value: t.term,
+                label: switch (t.term[4]) {
+                  '1' => '秋季',
+                  '2' => '春季',
+                  _ => '小学期',
+                },
+              ),
+          ],
+          onChanged: _selectTerm,
+        );
+        if (singleRow) {
+          return Row(
             key: const ValueKey('calendar-range'),
-            spacing: AppSpace.md,
-            runSpacing: AppSpace.sm,
-            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              AppShellSelect<int>(
-                plain: true,
-                compact: true,
-                key: const ValueKey('calendar-year'),
-                semanticLabel: '选择学年',
-                value: _year,
-                items: _years.reversed.toList(),
-                labelOf: (v) => '$v—${v + 1}学年',
-                width: (188 * MediaQuery.textScalerOf(context).scale(1)).clamp(
-                  0.0,
-                  bounds.maxWidth,
-                ),
-                menuWidth: 220,
-                onChanged: (v) => setState(() {
-                  _year = v;
-                  _termCode = _initialTerm.term;
-                  _month = _initialMonth(_term);
-                }),
-              ),
-              SizedBox(
-                width: bounds.maxWidth.clamp(0.0, 288.0),
-                child: AppSegmentedControl<String>(
-                  key: const ValueKey('calendar-term'),
-                  trackOnTouch: true,
-                  compact: true,
-                  expanded: true,
-                  value: _termCode,
-                  segments: [
-                    for (final t in _terms)
-                      AppSegment(
-                        value: t.term,
-                        label: switch (t.term[4]) {
-                          '1' => '秋季',
-                          '2' => '春季',
-                          _ => '短学期',
-                        },
-                      ),
-                  ],
-                  onChanged: _selectTerm,
-                ),
-              ),
+              yearSelect,
+              const SizedBox(width: 8),
+              Expanded(child: termControl),
             ],
-          ),
-        ),
-      ],
+          );
+        }
+        return Wrap(
+          key: const ValueKey('calendar-range'),
+          spacing: AppSpace.md,
+          runSpacing: AppSpace.sm,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            yearSelect,
+            SizedBox(
+              width: bounds.maxWidth.clamp(0.0, 288.0),
+              child: termControl,
+            ),
+          ],
+        );
+      },
     );
     final month = AppGlassSurface(
       key: const ValueKey('calendar-month-grid'),
@@ -306,30 +326,86 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
       );
     }
 
-    return PageScaffold(
-      title: '学年校历',
-      onBack: () => Navigator.of(context).maybePop(),
-      child: Material(
-        color: p.pageBackground(context),
-        child: AppPageViewport(
-          maxWidth: AppLayout.workspaceMaxWidth,
-          builder: (context, insets) => ListView(
-            padding:
-                insets +
-                EdgeInsets.fromLTRB(
-                  AppSpace.pageXOf(context),
-                  20,
-                  AppSpace.pageXOf(context),
-                  32,
-                ),
+    Widget buildMobileSummary() => Panel(
+      key: const ValueKey('calendar-summary-card'),
+      outlined: true,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              if (!_years.contains(_requestedYear))
-                Text('当前学年校历尚未维护，显示已收录学年。', style: TextStyle(color: p.muted)),
-              controls,
-              const SizedBox(height: 24),
-              LayoutBuilder(
-                builder: (context, bounds) => bounds.maxWidth >= 760
-                    ? IntrinsicHeight(
+              Text(
+                '${_date(_term.monday)} — ${_date(_term.end)}',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: p.ink,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              Text(
+                active
+                    ? '第 $currentWeek / ${_term.weeks} 周'
+                    : '共 ${_term.weeks} 周',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                  color: active ? p.dataAccent : p.muted,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          if (active) ...[
+            const SizedBox(height: 10),
+            LinearProgressIndicator(
+              value: (currentWeek / _term.weeks).clamp(0.0, 1.0),
+              minHeight: 6,
+              borderRadius: BorderRadius.circular(3),
+              color: p.primary,
+              backgroundColor: p.track,
+            ),
+          ],
+        ],
+      ),
+    );
+
+    return SubpageScaffold(
+      title: '学年校历',
+      body: AppPageViewport(
+        maxWidth: AppLayout.workspaceMaxWidth,
+        builder: (context, insets) => ListView(
+          padding:
+              insets +
+              EdgeInsets.fromLTRB(
+                AppSpace.pageXOf(context),
+                20,
+                AppSpace.pageXOf(context),
+                32,
+              ),
+          children: [
+            if (!_years.contains(_requestedYear))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  '当前学年校历尚未维护，显示已收录学年。',
+                  style: TextStyle(color: p.muted),
+                ),
+              ),
+            LayoutBuilder(
+              builder: (context, bounds) {
+                if (bounds.maxWidth >= 760) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      controls,
+                      const SizedBox(height: 24),
+                      IntrinsicHeight(
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
@@ -341,18 +417,23 @@ class _CampusCalendarPageState extends State<CampusCalendarPage> {
                             ),
                           ],
                         ),
-                      )
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          month,
-                          const SizedBox(height: 24),
-                          buildSchedule(expandTerms: false),
-                        ],
                       ),
-              ),
-            ],
-          ),
+                    ],
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    controls,
+                    const SizedBox(height: 12),
+                    buildMobileSummary(),
+                    const SizedBox(height: 16),
+                    month,
+                  ],
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -401,102 +482,124 @@ class _TeachingMonth extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         for (var row = 0; row < rows; row++)
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 3),
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            decoration: BoxDecoration(
-              color:
-                  DateUtils.dateOnly(
-                        today,
-                      ).isBefore(DateUtils.addDaysToDate(first, row * 7)) ||
-                      !DateUtils.dateOnly(today).isBefore(
-                        DateUtils.addDaysToDate(first, (row + 1) * 7),
-                      ) ||
-                      today.month != month.month
-                  ? null
-                  : p.accentSoft,
-              borderRadius: BorderRadius.circular(AppRadii.control),
-            ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 24,
-                  child: Builder(
-                    builder: (context) {
-                      final monday = DateUtils.addDaysToDate(first, row * 7);
-                      final week =
-                          monday.difference(term.monday).inDays ~/ 7 + 1;
-                      final inMonth =
-                          monday.month == month.month ||
-                          DateUtils.addDaysToDate(monday, 6).month ==
-                              month.month;
-                      return Text(
-                        inMonth && week >= 1 && week <= term.weeks
+          Builder(
+            builder: (context) {
+              final rowStart = DateUtils.addDaysToDate(first, row * 7);
+              final rowEnd = DateUtils.addDaysToDate(first, (row + 1) * 7);
+              final todayDate = DateUtils.dateOnly(today);
+              final inCurrentWeek =
+                  !todayDate.isBefore(rowStart) &&
+                  todayDate.isBefore(rowEnd) &&
+                  today.month == month.month;
+              final week = rowStart.difference(term.monday).inDays ~/ 7 + 1;
+              final rowInMonth =
+                  rowStart.month == month.month ||
+                  DateUtils.addDaysToDate(rowStart, 6).month == month.month;
+              return Container(
+                margin: const EdgeInsets.symmetric(vertical: 3),
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  color: inCurrentWeek ? p.accentSoft : null,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 24,
+                      child: Text(
+                        rowInMonth && week >= 1 && week <= term.weeks
                             ? '$week'
                             : '',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: p.muted, fontSize: 11),
-                      );
-                    },
-                  ),
-                ),
-                for (var column = 0; column < 7; column++)
-                  Expanded(
-                    child: Builder(
-                      builder: (context) {
-                        final day = DateUtils.addDaysToDate(
-                          first,
-                          row * 7 + column,
-                        );
-                        final inTerm =
-                            !day.isBefore(term.monday) &&
-                            !day.isAfter(term.end);
-                        final isToday = DateUtils.isSameDay(day, today);
-                        final week =
-                            day.difference(term.monday).inDays ~/ 7 + 1;
-                        return Semantics(
-                          key: ValueKey(
-                            'calendar-day-${day.year}-${day.month}-${day.day}',
-                          ),
-                          label:
-                              '${day.year}年${day.month}月${day.day}日${inTerm ? ' 第$week教学周' : ' 学期外'}${isToday ? ' 今天' : ''}',
-                          excludeSemantics: true,
-                          child: Center(
-                            child: Container(
-                              constraints: const BoxConstraints(minHeight: 38),
-                              width: 38,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: isToday ? p.dataAccent : null,
-                                borderRadius: BorderRadius.circular(
-                                  isToday ? 24 : AppRadii.control,
-                                ),
-                              ),
-                              child: Text(
-                                '${day.day}',
-                                style: TextStyle(
-                                  color: isToday
-                                      ? Theme.of(context).colorScheme.onPrimary
-                                      : inTerm && day.month == month.month
-                                      ? p.ink
-                                      : p.muted,
-                                  fontSize: 14,
-                                  fontWeight: isToday
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                  fontFeatures: const [
-                                    FontFeature.tabularFigures(),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+                        style: TextStyle(
+                          color: inCurrentWeek ? p.dataAccent : p.muted,
+                          fontSize: 11,
+                          fontWeight: inCurrentWeek ? FontWeight.w600 : null,
+                        ),
+                      ),
                     ),
-                  ),
-              ],
-            ),
+                    for (var column = 0; column < 7; column++)
+                      Expanded(
+                        child: Builder(
+                          builder: (context) {
+                            final day = DateUtils.addDaysToDate(
+                              first,
+                              row * 7 + column,
+                            );
+                            final inTerm =
+                                !day.isBefore(term.monday) &&
+                                !day.isAfter(term.end);
+                            final inMonth = day.month == month.month;
+                            final isWeekend = day.weekday >= 6;
+                            final isToday = DateUtils.isSameDay(day, today);
+                            final dayWeek =
+                                day.difference(term.monday).inDays ~/ 7 + 1;
+                            final Color dayColor;
+                            final FontWeight dayWeight;
+                            if (isToday) {
+                              dayColor = Theme.of(
+                                context,
+                              ).colorScheme.onPrimary;
+                              dayWeight = FontWeight.w700;
+                            } else if (!inMonth) {
+                              dayColor = isWeekend
+                                  ? p.dataAccent.withValues(
+                                      alpha: p.isDark ? 0.34 : 0.36,
+                                    )
+                                  : (p.isDark ? p.ink : p.muted).withValues(
+                                      alpha: p.isDark ? 0.28 : 0.32,
+                                    );
+                              dayWeight = FontWeight.w400;
+                            } else if (inTerm) {
+                              dayColor = isWeekend ? p.dataAccent : p.ink;
+                              dayWeight = FontWeight.w600;
+                            } else {
+                              dayColor = p.muted.withValues(
+                                alpha: p.isDark ? 0.58 : 0.65,
+                              );
+                              dayWeight = FontWeight.w500;
+                            }
+                            return Semantics(
+                              key: ValueKey(
+                                'calendar-day-${day.year}-${day.month}-${day.day}',
+                              ),
+                              label:
+                                  '${day.year}年${day.month}月${day.day}日${inTerm ? ' 第$dayWeek教学周' : ' 学期外'}${isToday ? ' 今天' : ''}',
+                              excludeSemantics: true,
+                              child: Center(
+                                child: Container(
+                                  constraints: const BoxConstraints(
+                                    minHeight: 38,
+                                  ),
+                                  width: 38,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(
+                                    color: isToday ? p.primary : null,
+                                    borderRadius: BorderRadius.circular(
+                                      isToday ? 10 : AppRadii.control,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '${day.day}',
+                                    style: TextStyle(
+                                      color: dayColor,
+                                      fontSize: 14,
+                                      fontWeight: dayWeight,
+                                      fontFeatures: const [
+                                        FontFeature.tabularFigures(),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
           ),
       ],
     );

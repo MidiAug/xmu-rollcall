@@ -54,7 +54,7 @@ class AppShellSelect<T> extends StatefulWidget {
 
   final Widget Function(BuildContext, bool, VoidCallback?, FocusNode)?
   triggerBuilder;
-  final double width;
+  final double? width;
   final double? menuWidth;
   final bool fixedMenuWidth;
   final bool wrapMenuLabels;
@@ -247,7 +247,7 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
           final overlaySize = info.overlaySize;
           final triggerWidth = info.childSize.width > 0
               ? info.childSize.width
-              : widget.width;
+              : (widget.width ?? 132);
           final defaultMaxWidth = triggerWidth > 320.0 ? triggerWidth : 320.0;
           final maxMenuWidth = (widget.menuWidth ?? defaultMaxWidth).clamp(
             0.0,
@@ -531,7 +531,9 @@ class _AppShellSelectState<T> extends State<AppShellSelect<T>>
                                     color: p.muted,
                                   )),
                         trailing: widget.trailing,
-                        compact: widget.compact || widget.width < 110,
+                        compact:
+                            widget.compact ||
+                            (widget.width != null && widget.width! < 110),
                         focusNode: _triggerFocus,
                         open: open,
                         onTap: widget.onChanged == null || widget.items.isEmpty
