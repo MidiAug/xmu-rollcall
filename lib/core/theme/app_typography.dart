@@ -2,9 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 abstract final class AppTypography {
-  static String get family => switch (defaultTargetPlatform) {
+  static String? get family => switch (defaultTargetPlatform) {
     TargetPlatform.windows => 'Microsoft YaHei UI',
     TargetPlatform.macOS || TargetPlatform.iOS => 'PingFang SC',
+    TargetPlatform.android => null,
     _ => 'Noto Sans CJK SC',
   };
   static const fallback = [
@@ -15,9 +16,11 @@ abstract final class AppTypography {
     'Segoe UI',
     'Roboto',
   ];
+  static List<String>? get fallbackForPlatform =>
+      family == null ? null : fallback;
   static TextStyle get pageTitle => TextStyle(
     fontFamily: family,
-    fontFamilyFallback: fallback,
+    fontFamilyFallback: fallbackForPlatform,
     fontSize: 26,
     height: 1.28,
     fontWeight: FontWeight.w600,
@@ -25,7 +28,7 @@ abstract final class AppTypography {
   );
   static TextStyle get cardTitle => TextStyle(
     fontFamily: family,
-    fontFamilyFallback: fallback,
+    fontFamilyFallback: fallbackForPlatform,
     fontSize: 20,
     height: 1.4,
     fontWeight: FontWeight.w600,
@@ -33,7 +36,7 @@ abstract final class AppTypography {
   );
   static TextStyle get sectionTitle => TextStyle(
     fontFamily: family,
-    fontFamilyFallback: fallback,
+    fontFamilyFallback: fallbackForPlatform,
     fontSize: 16,
     height: 1.4,
     fontWeight: FontWeight.w600,
@@ -41,7 +44,7 @@ abstract final class AppTypography {
   );
   static TextStyle get body => TextStyle(
     fontFamily: family,
-    fontFamilyFallback: fallback,
+    fontFamilyFallback: fallbackForPlatform,
     fontSize: 14,
     height: 1.5,
     fontWeight: FontWeight.w400,

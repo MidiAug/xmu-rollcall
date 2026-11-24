@@ -34,6 +34,7 @@ class AcademicSync {
     this.store, {
     AcademicTimetableReader Function(SecureStore)? createReader,
     this.onUpdated,
+    this.onSyncingChanged,
     this.currentSso,
     this.resolveIdentity,
     this.currentUserId,
@@ -44,12 +45,15 @@ class AcademicSync {
   final SecureStore store;
   final AcademicTimetableReader Function(SecureStore) createReader;
   final void Function(int uid)? onUpdated;
+  final void Function(int uid, bool syncing)? onSyncingChanged;
   final CookieJar? Function()? currentSso;
   final Future<AcademicIdentity?> Function(int uid)? resolveIdentity;
   final int? Function()? currentUserId;
   final bool periodic;
   Timer? _timer;
   bool _disposed = false;
+  bool get isDisposed => _disposed;
+  bool isSyncing(int uid) => _flights.containsKey(uid);
   void startPeriodic() {
     _timer ??= Timer.periodic(const Duration(hours: 12), (_) {
       unawaited(
@@ -109,7 +113,9 @@ class AcademicSync {
         }
       });
     }
-    return _flights[uid] ??=
+    if (existing != null) return existing;
+    late final Future<void> flight;
+    flight =
         _sync(
           uid,
           sso: sso,
@@ -118,7 +124,11 @@ class AcademicSync {
           force: force,
         ).whenComplete(() {
           _flights.remove(uid);
+          onSyncingChanged?.call(uid, false);
         });
+    _flights[uid] = flight;
+    onSyncingChanged?.call(uid, true);
+    return flight;
   }
 
   Future<void> _sync(

@@ -678,4 +678,44 @@ void main() {
       );
     }
   }
+
+  testWidgets('mobile GPA summary aligns badge and count flush right across all 4 tabs', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authControllerProvider.overrideWith((_) => Auth()),
+          gradeSnapshotProvider.overrideWith(Grades.new),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
+          home: const GpaPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    void expectFlushRight() {
+      final summary = find.byKey(const ValueKey('grade-summary'));
+      final badge = find.byKey(const ValueKey('grade-scope-badge'));
+      final count = find.byKey(const ValueKey('grade-included-count'));
+      final summaryRight = tester.getRect(summary).right;
+      expect((tester.getRect(badge).right - summaryRight).abs(), lessThan(1.0));
+      expect((tester.getRect(count).right - summaryRight).abs(), lessThan(1.0));
+      expect(tester.takeException(), isNull);
+    }
+
+    expectFlushRight();
+    for (final tab in ['学年', '近学期', '学期']) {
+      await tester.tap(find.text(tab));
+      await tester.pumpAndSettle();
+      expectFlushRight();
+    }
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }

@@ -119,6 +119,7 @@ class SettingsRow extends StatelessWidget {
     this.focusNode,
     required this.title,
     this.truncateTitle = false,
+    this.expandTitle = true,
     this.subtitle,
     this.subtitleMaxLines,
     this.subtitleWidget,
@@ -137,6 +138,7 @@ class SettingsRow extends StatelessWidget {
   final FocusNode? focusNode;
   final String title;
   final bool truncateTitle;
+  final bool expandTitle;
   final String? subtitle;
   final int? subtitleMaxLines;
 
@@ -257,103 +259,103 @@ class SettingsRow extends StatelessWidget {
               context,
             ).textTheme.bodySmall?.copyWith(fontSize: touch ? 13 : null),
           );
-    Widget buildContent(bool below) => AnimatedContainer(
-      duration: duration,
-      curve: AppMotion.fastCurve,
-      padding: padding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    Widget buildContent(bool below) {
+      final titleColumn = Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ConstrainedBox(
-            constraints: BoxConstraints(
-              minHeight: touch
-                  ? h
-                  : (h - padding.vertical).clamp(0.0, double.infinity),
+          if (truncateTitle)
+            AppTruncatedText(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: touch ? FontWeight.w400 : FontWeight.w500,
+                fontSize: touch ? 16 : null,
+                color: destructive
+                    ? p.danger
+                    : !enabled && onTap != null
+                    ? p.muted
+                    : null,
+              ),
+            )
+          else
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: touch ? FontWeight.w400 : FontWeight.w500,
+                fontSize: touch ? 16 : null,
+                color: destructive
+                    ? p.danger
+                    : !enabled && onTap != null
+                    ? p.muted
+                    : null,
+              ),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                if (leading != null) ...[
-                  if (leading is Icon)
-                    SizedBox.square(
-                      dimension: leadingExtent,
-                      child: IconTheme.merge(
-                        data: IconThemeData(size: 20, color: p.muted),
-                        child: leading!,
-                      ),
-                    )
-                  else
-                    SizedBox.square(
-                      dimension: leadingExtent,
-                      child: IconTheme.merge(
-                        data: IconThemeData(
-                          size: touch ? 20 : 18,
-                          color: p.muted,
-                        ),
-                        child: Center(child: leading!),
-                      ),
-                    ),
-                  SizedBox(width: gap),
-                ],
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (truncateTitle)
-                        AppTruncatedText(
-                          title,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w500,
-                                fontSize: touch ? 17 : null,
-                                color: destructive
-                                    ? p.danger
-                                    : !enabled && onTap != null
-                                    ? p.muted
-                                    : null,
-                              ),
-                        )
-                      else
-                        Text(
-                          title,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(
-                                fontWeight: FontWeight.w500,
-                                fontSize: touch ? 17 : null,
-                                color: destructive
-                                    ? p.danger
-                                    : !enabled && onTap != null
-                                    ? p.muted
-                                    : null,
-                              ),
-                        ),
-                      if (subtitleWidget != null) ...[
-                        const SizedBox(height: AppSpace.xs),
-                        subtitleWidget!,
-                      ],
-                      if (subtitle != null && !below) ...[
-                        SizedBox(
-                          height: subtitleWidget != null
-                              ? AppSpace.xxs
-                              : subtitleSpacing,
-                        ),
-                        subtitle,
-                      ],
-                    ],
-                  ),
-                ),
-                if (indicator != null) ...[SizedBox(width: gap), indicator],
-              ],
+          if (subtitleWidget != null) ...[
+            const SizedBox(height: AppSpace.xs),
+            subtitleWidget!,
+          ],
+          if (subtitle != null && !below) ...[
+            SizedBox(
+              height: subtitleWidget != null ? AppSpace.xxs : subtitleSpacing,
             ),
-          ),
-          if (subtitle != null && below) ...[
-            SizedBox(height: subtitleSpacing),
             subtitle,
           ],
         ],
-      ),
-    );
+      );
+      return AnimatedContainer(
+        duration: duration,
+        curve: AppMotion.fastCurve,
+        padding: padding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                minHeight: touch
+                    ? h
+                    : (h - padding.vertical).clamp(0.0, double.infinity),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (leading != null) ...[
+                    if (leading is Icon)
+                      SizedBox.square(
+                        dimension: leadingExtent,
+                        child: IconTheme.merge(
+                          data: IconThemeData(
+                            size: touch ? 22 : 20,
+                            color: p.muted,
+                          ),
+                          child: leading!,
+                        ),
+                      )
+                    else
+                      SizedBox.square(
+                        dimension: leadingExtent,
+                        child: IconTheme.merge(
+                          data: IconThemeData(
+                            size: touch ? 22 : 18,
+                            color: p.muted,
+                          ),
+                          child: Center(child: leading!),
+                        ),
+                      ),
+                    SizedBox(width: gap),
+                  ],
+                  if (expandTitle) Expanded(child: titleColumn) else titleColumn,
+                  if (indicator != null) ...[SizedBox(width: gap), indicator],
+                ],
+              ),
+            ),
+            if (subtitle != null && below) ...[
+              SizedBox(height: subtitleSpacing),
+              subtitle,
+            ],
+          ],
+        ),
+      );
+    }
     final content = stackSubtitleOnNarrow
         ? LayoutBuilder(
             builder: (context, constraints) =>

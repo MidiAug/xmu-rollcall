@@ -511,6 +511,7 @@ class _GpaPageState extends ConsumerState<GpaPage> {
     );
     final touch = AppMobileUi.useTouchChrome(context);
     final scopeBadge = Container(
+      key: const ValueKey('grade-scope-badge'),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
         color: p.subWell,
@@ -519,6 +520,7 @@ class _GpaPageState extends ConsumerState<GpaPage> {
       ),
       child: Text(
         scope,
+        textAlign: TextAlign.end,
         style: TextStyle(
           color: p.primary,
           fontSize: 12,
@@ -533,6 +535,8 @@ class _GpaPageState extends ConsumerState<GpaPage> {
     );
     final count = Text(
       '已计入 ${included.length} 门课程',
+      key: const ValueKey('grade-included-count'),
+      textAlign: touch ? TextAlign.end : TextAlign.start,
       style: TextStyle(color: p.muted, fontSize: 13),
     );
     return Column(
@@ -543,9 +547,9 @@ class _GpaPageState extends ConsumerState<GpaPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: primary),
+              primary,
               const SizedBox(width: 12),
-              Flexible(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [scopeBadge, const SizedBox(height: 10), count],
@@ -557,14 +561,17 @@ class _GpaPageState extends ConsumerState<GpaPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(
-                child: Text(
-                  '加权 GPA',
-                  style: TextStyle(color: p.muted, fontSize: 12),
-                ),
+              Text(
+                '加权 GPA',
+                style: TextStyle(color: p.muted, fontSize: 12),
               ),
               const SizedBox(width: 8),
-              scopeBadge,
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: scopeBadge,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 6),

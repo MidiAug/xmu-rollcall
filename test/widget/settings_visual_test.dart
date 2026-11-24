@@ -602,7 +602,7 @@ void main() {
       );
       expect(find.text('信息学院'), findsOneWidget);
       expect(find.byType(CircleAvatar), findsNothing);
-      expect(tester.widget<Text>(find.text('测试同学')).style?.fontSize, 17);
+      expect(tester.widget<Text>(find.text('测试同学')).style?.fontSize, 16);
       expect(find.text('退出'), findsNothing);
 
       final container = ProviderScope.containerOf(

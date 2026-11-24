@@ -584,8 +584,24 @@ void main() {
         'xa-main',
       );
       expect(kCampusScopedMinZoom, 13.5);
-      expect(kCampusMapInteractionOptions.enableMultiFingerGestureRace, isTrue);
-      expect(kCampusMapInteractionOptions.rotationThreshold, 32.0);
+      expect(
+        InteractiveFlag.hasFlag(
+          kCampusMapInteractionOptions.flags,
+          InteractiveFlag.rotate,
+        ),
+        isFalse,
+      );
+      expect(
+        InteractiveFlag.hasFlag(
+          kCampusMapInteractionOptions.flags,
+          InteractiveFlag.drag |
+              InteractiveFlag.pinchZoom |
+              InteractiveFlag.pinchMove |
+              InteractiveFlag.doubleTapZoom |
+              InteractiveFlag.scrollWheelZoom,
+        ),
+        isTrue,
+      );
       for (final campus in Campus.values) {
         final bounds = campusBoundsFor(campus);
         expect(kXmuMapBounds.containsBounds(bounds), isTrue);
@@ -975,4 +991,31 @@ void main() {
       );
     }
   }
+
+  testWidgets('campus atlas uses initialCameraFit instead of onMapReady and disables rotation', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
+        home: const CampusAtlasPage(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
+    expect(map.options.initialCameraFit, isNotNull);
+    expect(map.options.onMapReady, isNull);
+    expect(
+      InteractiveFlag.hasFlag(
+        map.options.interactionOptions.flags,
+        InteractiveFlag.rotate,
+      ),
+      isFalse,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }

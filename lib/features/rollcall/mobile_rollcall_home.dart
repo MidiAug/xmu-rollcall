@@ -29,6 +29,7 @@ class MobileRollcallHome extends ConsumerStatefulWidget {
     required this.scope,
     required this.updatedLabel,
     this.outsideDetectionWindow = false,
+    this.scheduleSyncing = false,
     required this.onHistory,
     required this.onSettings,
     required this.onTimetable,
@@ -43,6 +44,7 @@ class MobileRollcallHome extends ConsumerStatefulWidget {
   final int? scope;
   final String updatedLabel;
   final bool outsideDetectionWindow;
+  final bool scheduleSyncing;
   final VoidCallback onHistory,
       onSettings,
       onTimetable,
@@ -352,6 +354,7 @@ class _MobileRollcallHomeState extends ConsumerState<MobileRollcallHome>
                             mobile: true,
                             showHomework: !android,
                             loading: cached?.isLoading == true,
+                            scheduleSyncing: widget.scheduleSyncing,
                             onTimetable: onTimetable,
                             onHomework: onHomework,
                             onOpenHomework: onOpenHomework,

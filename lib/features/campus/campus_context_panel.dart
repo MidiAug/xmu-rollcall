@@ -2,9 +2,12 @@ import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
+import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/campus/campus_summary.dart';
 import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
 import 'package:xmu_rollcall/features/homework/homework_models.dart';
+import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
+import 'package:xmu_rollcall/features/schedule/academic_providers.dart';
 
 class CampusContextPanel extends ConsumerWidget {
   const CampusContextPanel({
@@ -17,6 +20,13 @@ class CampusContextPanel extends ConsumerWidget {
   final ValueChanged<HomeworkItem> onOpenHomework;
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final auth = ref.watch(authControllerProvider);
+    final scope = ref.watch(selectedRollcallAccountProvider);
+    final uid = scope ?? auth.profile?.id;
+    final scheduleSyncing =
+        auth.isSignedIn &&
+        uid != null &&
+        ref.watch(academicSyncingUidsProvider.select((s) => s.contains(uid)));
     final cached = ref.watch(campusCachedDataProvider);
     final now =
         ref.watch(campusClockProvider).valueOrNull ??
@@ -27,6 +37,7 @@ class CampusContextPanel extends ConsumerWidget {
           const CampusCachedData(),
       now: now,
       loading: cached.isLoading,
+      scheduleSyncing: scheduleSyncing,
       onTimetable: onTimetable,
       onHomework: onHomework,
       onOpenHomework: onOpenHomework,
@@ -44,6 +55,7 @@ class CampusContextView extends StatelessWidget {
     required this.onHomework,
     required this.onOpenHomework,
     this.loading = false,
+    this.scheduleSyncing = false,
     this.mobile = false,
     this.showHomework = true,
   });
@@ -52,6 +64,7 @@ class CampusContextView extends StatelessWidget {
   final VoidCallback onTimetable, onHomework;
   final ValueChanged<HomeworkItem> onOpenHomework;
   final bool loading;
+  final bool scheduleSyncing;
   final bool mobile;
   final bool showHomework;
   @override
@@ -99,7 +112,9 @@ class CampusContextView extends StatelessWidget {
                 const _CampusSummarySkeleton(course: true)
               else if (summary.visible.isEmpty)
                 Text(
-                  data.schedule == null ? '尚未获取教务课表' : '今天没有后续课程',
+                  data.schedule == null
+                      ? (scheduleSyncing ? '正在更新课表…' : '尚未获取教务课表')
+                      : '今天没有后续课程',
                   style: AppTypography.body.copyWith(color: p.muted),
                 )
               else

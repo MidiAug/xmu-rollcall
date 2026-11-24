@@ -682,10 +682,19 @@ class _CourseDetail extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = block.course;
     final p = AppPalette.of(context);
+    final touch = AppMobileUi.useTouchChrome(context);
+    final valueWeight = touch ? FontWeight.w400 : FontWeight.w500;
+    final classLabel = _separateClassLabel(c);
     final hasLocation = c.location?.isNotEmpty == true;
     final canOpenMap = hasLocation && onMap != null;
-    Widget value(String label, String value, {required AppSettingsGlyphKind glyph, bool singleLine = false}) => SettingsRow(
+    Widget value(
+      String label,
+      String value, {
+      required AppSettingsGlyphKind glyph,
+      bool singleLine = false,
+    }) => SettingsRow(
       title: label,
+      expandTitle: false,
       leading: AppSettingsGlyph(glyph),
       trailing: Expanded(
         child: singleLine
@@ -694,7 +703,7 @@ class _CourseDetail extends StatelessWidget {
                 textAlign: TextAlign.end,
                 style: AppTypography.body.copyWith(
                   color: p.ink,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: valueWeight,
                 ),
               )
             : SelectableText(
@@ -702,46 +711,53 @@ class _CourseDetail extends StatelessWidget {
                 textAlign: TextAlign.end,
                 style: AppTypography.body.copyWith(
                   color: p.ink,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: valueWeight,
                 ),
               ),
       ),
     );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      padding: touch
+          ? const EdgeInsets.fromLTRB(16, 4, 16, 16)
+          : const EdgeInsets.fromLTRB(20, 16, 20, 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  '课程详情',
-                  style: AppTypography.sectionTitle.copyWith(color: p.ink),
+                child: Padding(
+                  padding: EdgeInsets.only(top: touch ? 6 : 2),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SelectableText(
+                        c.title.trim().isEmpty ? '未命名课程' : c.title,
+                        style: AppTypography.cardTitle.copyWith(
+                          color: p.ink,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (classLabel != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          classLabel,
+                          style: AppTypography.body.copyWith(color: p.muted),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               const AppSheetCloseButton(
                 tooltip: '关闭课程详情',
               ),
             ],
           ),
           const SizedBox(height: 16),
-          SelectableText(
-            c.title.trim().isEmpty ? '未命名课程' : c.title,
-            style: AppTypography.cardTitle.copyWith(
-              color: p.ink,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (_separateClassLabel(c) != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              _separateClassLabel(c)!,
-              style: AppTypography.body.copyWith(color: p.muted),
-            ),
-          ],
-          const SizedBox(height: 20),
           SettingsSection(
             inset: true,
             padTop: false,
@@ -752,6 +768,7 @@ class _CourseDetail extends StatelessWidget {
               SettingsRow(
                 key: const ValueKey('course-location-map-link'),
                 title: '地点',
+                expandTitle: false,
                 leading: const AppSettingsGlyph(AppSettingsGlyphKind.mapPin),
                 onTap: canOpenMap ? onMap : null,
                 trailing: Expanded(
@@ -768,7 +785,7 @@ class _CourseDetail extends StatelessWidget {
                                 : hasLocation
                                 ? p.ink
                                 : p.muted,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: valueWeight,
                           ),
                         ),
                       ),
@@ -782,7 +799,7 @@ class _CourseDetail extends StatelessWidget {
               ),
               value(
                 '上课时间',
-                '${weekdayLabel(block.weekday)} ${block.block.sectionLabel}\n${formatHm(block.block.coreStart)}–${formatHm(block.block.coreEnd)}',
+                '${weekdayLabel(block.weekday)} ${block.block.sectionLabel} ${formatHm(block.block.coreStart)}–${formatHm(block.block.coreEnd)}',
                 glyph: AppSettingsGlyphKind.clock,
               ),
               if (block.weekLabel != null)

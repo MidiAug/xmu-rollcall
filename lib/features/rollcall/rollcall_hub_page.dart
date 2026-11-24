@@ -231,6 +231,11 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
     final roster = ref.watch(assistControllerProvider).identities;
     final selected = ref.watch(selectedRollcallAccountProvider);
     final scope = roster.any((e) => e.userId == selected) ? selected : null;
+    final uid = scope ?? auth.profile?.id;
+    final scheduleSyncing =
+        auth.isSignedIn &&
+        uid != null &&
+        ref.watch(academicSyncingUidsProvider.select((s) => s.contains(uid)));
     final planned = ref.watch(selectedDetectionWindowProvider);
     final window = planned.valueOrNull;
     final outsideWindow =
@@ -246,10 +251,12 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
     }
     final updatedLabel = outsideWindow
         ? (window.scheduleBased
-              ? detectionStatusLabel(
-                  window,
-                  ref.read(activeRollcallClockProvider)(),
-                )
+              ? (!window.hasSchedule && scheduleSyncing
+                    ? '正在更新课表…'
+                    : detectionStatusLabel(
+                        window,
+                        ref.read(activeRollcallClockProvider)(),
+                      ))
               : '时段外暂停获取签到（${window.label}）')
         : _switching
         ? '正在切换…'
@@ -462,6 +469,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
             ? CampusContextView(
                 data: cached ?? const CampusCachedData(),
                 loading: contextLoading,
+                scheduleSyncing: scheduleSyncing,
                 now: now,
                 onTimetable: () {
                   if (scope == null) {
@@ -547,6 +555,7 @@ class _RollcallHubPageState extends ConsumerState<RollcallHubPage>
           scope: scope,
           updatedLabel: updatedLabel,
           outsideDetectionWindow: outsideWindow,
+          scheduleSyncing: scheduleSyncing,
           switching: _switching,
           switchError: _switchError,
           onRetryIdentity: () => _selectIdentity(scope ?? 0),

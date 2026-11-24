@@ -65,7 +65,7 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
     super.dispose();
   }
 
-  void _fitCampus() {
+  CameraFit? _campusCameraFit() {
     final points = <LatLng>[
       for (final b in _buildings)
         for (final point in [
@@ -76,14 +76,17 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
       for (final g in _groups)
         for (final v in g.vertices) LatLng(v.latitude, v.longitude),
     ];
-    if (points.isEmpty) return;
-    _map.fitCamera(
-      CameraFit.bounds(
-        bounds: LatLngBounds.fromPoints(points),
-        padding: const EdgeInsets.fromLTRB(28, 60, 28, 180),
-        maxZoom: 16,
-      ),
+    if (points.isEmpty) return null;
+    return CameraFit.bounds(
+      bounds: LatLngBounds.fromPoints(points),
+      padding: const EdgeInsets.fromLTRB(28, 60, 28, 180),
+      maxZoom: 16,
     );
+  }
+
+  void _fitCampus() {
+    final fit = _campusCameraFit();
+    if (fit != null) _map.fitCamera(fit);
   }
 
   void _overview() {
@@ -326,7 +329,7 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
                                 places: points,
                                 showPlaceLabels: true,
                                 avoidLabelOverlap: true,
-                                onMapReady: _fitCampus,
+                                initialCameraFit: _campusCameraFit(),
                                 areas: polygons,
                                 selectedPlaceId: _level == 0 && group != null
                                     ? 'atlas-group:${group.id}'

@@ -39,6 +39,8 @@ import 'package:xmu_rollcall/features/homework/homework_models.dart';
 import 'package:xmu_rollcall/features/homework/homework_overview.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/homework/homework_submission.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window.dart';
+import 'package:xmu_rollcall/features/monitor/detection_window_setting.dart';
 import 'package:xmu_rollcall/features/rollcall/attendance_count.dart';
 import 'package:xmu_rollcall/features/rollcall/course_catalog_providers.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_models.dart';
@@ -101,6 +103,13 @@ class _Rollcalls extends ActiveRollcallsNotifier {
   Future<void> refresh({bool manual = true}) async {
     refreshes++;
   }
+}
+
+class _EmptyRollcalls extends ActiveRollcallsNotifier {
+  @override
+  Future<List<RollcallItem>> build(int? id) async => const [];
+  @override
+  Future<void> refresh({bool manual = true}) async {}
 }
 
 final now = DateTime(2026, 10, 28, 14, 50);
@@ -1084,6 +1093,92 @@ void main() {
           rendered.dispose();
         });
       }
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets(
+    'rollcall page shows updating schedule label while syncing instead of empty schedule labels',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
+          home: Scaffold(
+            body: CampusContextView(
+              data: const CampusCachedData(),
+              now: now,
+              scheduleSyncing: true,
+              onTimetable: () {},
+              onHomework: () {},
+              onOpenHomework: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('正在更新课表…'), findsOneWidget);
+      expect(find.text('尚未获取教务课表'), findsNothing);
+
+      final container = ProviderContainer(
+        overrides: [
+          secureStoreProvider.overrideWithValue(SecureStore.memory()),
+          authControllerProvider.overrideWith((ref) => _Auth()),
+          assistServiceProvider.overrideWith((ref) async => _Assist()),
+          assistControllerProvider.overrideWith(
+            (ref) => AssistController(
+              ref,
+              bootstrap: false,
+              initial: const AssistUiState(ready: true, identities: []),
+            ),
+          ),
+          activeRollcallsProvider.overrideWith(_EmptyRollcalls.new),
+          rollcallRepositoryForProvider(
+            null,
+          ).overrideWithValue(_Attendance()),
+          activeRollcallClockProvider.overrideWithValue(() => now),
+          selectedDetectionWindowProvider.overrideWith(
+            (ref) async => const DetectionWindow(
+              scheduleBased: true,
+              enabled: true,
+              intervals: [],
+            ),
+          ),
+          currentCourseHistoryProvider.overrideWithValue(const AsyncData([])),
+          campusCachedDataProvider.overrideWith(
+            (ref) async => const CampusCachedData(),
+          ),
+          campusClockProvider.overrideWith((ref) => Stream.value(now)),
+          academicSyncingUidsProvider.overrideWith((ref) => const {1}),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
+            home: const Scaffold(body: RollcallHubPage()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('正在更新课表…'), findsNWidgets(2));
+      expect(find.text('暂无课表'), findsNothing);
+      expect(find.text('尚未获取教务课表'), findsNothing);
+
+      container.read(academicSyncingUidsProvider.notifier).state = const {};
+      await tester.pumpAndSettle();
+
+      expect(find.text('正在更新课表…'), findsNothing);
+      expect(find.text('暂无课表'), findsOneWidget);
+      expect(find.text('尚未获取教务课表'), findsOneWidget);
+      expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

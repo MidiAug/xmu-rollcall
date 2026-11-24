@@ -831,4 +831,79 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'mobile course detail sheet leads with course title and keeps location and time single-line',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final course = CatalogCourse(
+        id: 'mobile-detail',
+        title: '云计算技术',
+        teachingClassName: '01',
+        instructorNames: const ['黄晨曦', '林凡'],
+        location: '坤銮楼（2号楼） A405',
+        timetables: {
+          2: [
+            TimetableSlot(
+              sequence: 5,
+              endSequence: 6,
+              start: DateTime(2000, 1, 4, 14, 30),
+              end: DateTime(2000, 1, 4, 16, 10),
+              weekLabel: '1-8周',
+            ),
+          ],
+        },
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            theme: AppTheme.dark().copyWith(platform: TargetPlatform.android),
+            home: Scaffold(
+              body: TimetableGridView(
+                courses: [course],
+                referenceDate: DateTime(2026, 11, 17),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('云计算技术'));
+      await tester.pumpAndSettle();
+
+      final flow = find.byKey(const ValueKey('course-detail-flow'));
+      expect(find.text('课程详情'), findsNothing);
+      expect(find.byTooltip('关闭课程详情'), findsOneWidget);
+      expect(
+        find.descendant(of: flow, matching: find.text('01')),
+        findsOneWidget,
+      );
+
+      final locationFinder = find.descendant(
+        of: find.byKey(const ValueKey('course-location-map-link')),
+        matching: find.text('坤銮楼（2号楼） A405'),
+      );
+      expect(locationFinder, findsOneWidget);
+      expect(
+        tester.renderObject<RenderParagraph>(locationFinder).didExceedMaxLines,
+        isFalse,
+      );
+      expect(tester.getSize(locationFinder).height, lessThan(28));
+
+      final timeFinder = find.descendant(
+        of: flow,
+        matching: find.text('周二 第5–6节 14:30–16:10'),
+      );
+      expect(timeFinder, findsOneWidget);
+      expect(tester.getSize(timeFinder).height, lessThan(28));
+
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

@@ -11,8 +11,10 @@ import 'academic_timetable_reader.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 
 final academicRevisionProvider = StateProvider<int>((ref) => 0);
+final academicSyncingUidsProvider = StateProvider<Set<int>>((ref) => const {});
 final academicSyncProvider = Provider<AcademicSync>((ref) {
-  final sync = AcademicSync(
+  late final AcademicSync sync;
+  sync = AcademicSync(
     ref.watch(secureStoreProvider),
     periodic: true,
     createReader: (_) =>
@@ -21,6 +23,18 @@ final academicSyncProvider = Provider<AcademicSync>((ref) {
     resolveIdentity: ref.watch(academicIdentityResolverProvider),
     onUpdated: (_) {
       ref.read(academicRevisionProvider.notifier).state++;
+    },
+    onSyncingChanged: (uid, syncing) {
+      Future.microtask(() {
+        if (sync.isDisposed) return;
+        final notifier = ref.read(academicSyncingUidsProvider.notifier);
+        final current = notifier.state;
+        if (syncing) {
+          if (!current.contains(uid)) notifier.state = {...current, uid};
+        } else if (current.contains(uid)) {
+          notifier.state = {...current}..remove(uid);
+        }
+      });
     },
   );
   ref.onDispose(sync.dispose);

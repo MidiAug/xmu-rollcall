@@ -23,16 +23,7 @@ const double kXmuMapMinZoom = 12;
 const double kCampusScopedMinZoom = 13.5;
 
 const InteractionOptions kCampusMapInteractionOptions = InteractionOptions(
-  flags: InteractiveFlag.all,
-  enableMultiFingerGestureRace: true,
-  rotationThreshold: 32.0,
-  pinchZoomThreshold: 0.25,
-  pinchMoveThreshold: 35.0,
-  pinchZoomWinGestures:
-      MultiFingerGesture.pinchZoom | MultiFingerGesture.pinchMove,
-  pinchMoveWinGestures:
-      MultiFingerGesture.pinchZoom | MultiFingerGesture.pinchMove,
-  rotationWinGestures: MultiFingerGesture.rotate,
+  flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
 );
 
 const List<String> kAmapTileSubdomains = ['1', '2', '3', '4'];

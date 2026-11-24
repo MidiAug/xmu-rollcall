@@ -52,12 +52,14 @@ abstract final class AppTheme {
         outline: p.border,
       ),
       fontFamily: AppTypography.family,
-      fontFamilyFallback: AppTypography.fallback,
-      textTheme: _textTheme(
-        p.ink,
-        p.muted,
-        p.inkBody,
-      ).apply(fontFamily: AppTypography.family),
+      fontFamilyFallback: AppTypography.fallbackForPlatform,
+      textTheme: AppTypography.family == null
+          ? _textTheme(p.ink, p.muted, p.inkBody)
+          : _textTheme(
+              p.ink,
+              p.muted,
+              p.inkBody,
+            ).apply(fontFamily: AppTypography.family),
       appBarTheme: AppBarTheme(
         backgroundColor: p.surface,
         foregroundColor: p.ink,

@@ -30,6 +30,7 @@ class CampusMap extends StatefulWidget {
     this.selectedPlaceId,
     this.onZoomChanged,
     this.onMapReady,
+    this.initialCameraFit,
     this.avoidLabelOverlap = false,
     this.bounds,
     this.minZoom,
@@ -50,6 +51,7 @@ class CampusMap extends StatefulWidget {
   final String? selectedPlaceId;
   final ValueChanged<double>? onZoomChanged;
   final VoidCallback? onMapReady;
+  final CameraFit? initialCameraFit;
   final bool avoidLabelOverlap;
   final LatLngBounds? bounds;
   final double? minZoom;
@@ -277,6 +279,7 @@ class _CampusMapState extends State<CampusMap> {
               options: MapOptions(
                 initialCenter: widget.center,
                 initialZoom: widget.zoom.clamp(minZoom, kAmapMaxZoom),
+                initialCameraFit: widget.initialCameraFit,
                 minZoom: minZoom,
                 maxZoom: kAmapMaxZoom,
                 interactionOptions: kCampusMapInteractionOptions,
