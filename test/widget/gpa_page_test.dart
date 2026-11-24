@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/core/theme/app_theme.dart';
 import 'package:xmu_rollcall/app/app_checkbox.dart';
+import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/auth/auth_controller.dart';
 import 'package:xmu_rollcall/features/auth/auth_models.dart';
@@ -54,6 +56,17 @@ class Grades extends GradeNotifier {
       }),
     ],
   );
+}
+
+class MenuGrades extends Grades {
+  final pending = Completer<GradeSnapshot>();
+  int refreshCalls = 0;
+
+  @override
+  Future<GradeSnapshot> refresh() {
+    refreshCalls++;
+    return pending.future;
+  }
 }
 
 class GraduateEmptyGrades extends GradeNotifier {
@@ -125,6 +138,7 @@ void main() {
   initializeDesktopUiCapture();
   setUpAll(() async {
     await loadDesktopPreviewFonts();
+    await loadDesktopUiCaptureFonts();
     final file = File(
       'D:/Dev/Flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
     );
@@ -135,6 +149,50 @@ void main() {
     }
   });
   setUp(() => SharedPreferences.setMockInitialValues({}));
+  for (final platform in [TargetPlatform.android, TargetPlatform.windows]) {
+    testWidgets(
+      'GPA menu refresh keeps cached time and prevents duplicate $platform',
+      (tester) async {
+        final grades = MenuGrades();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              authControllerProvider.overrideWith((_) => Auth()),
+              gradeSnapshotProvider.overrideWith(() => grades),
+            ],
+            child: MaterialApp(
+              theme: AppTheme.light().copyWith(platform: platform),
+              home: const GpaPage(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('更多 GPA 操作'));
+        await tester.pumpAndSettle();
+        expect(find.text('上次更新 2026-10-28 10:00'), findsOneWidget);
+        await tester.tap(find.text('更新成绩'));
+        await tester.pumpAndSettle();
+        expect(grades.refreshCalls, 1);
+        await tester.tap(find.byTooltip('更多 GPA 操作'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('正在更新成绩…'));
+        await tester.pumpAndSettle();
+        expect(grades.refreshCalls, 1);
+        grades.pending.completeError(StateError('offline'));
+        await tester.pumpAndSettle();
+        expect(find.text('3.33'), findsOneWidget);
+        expect(find.text('更新失败，请稍后重试；已有成绩仍保留'), findsOneWidget);
+        await tester.tap(find.byTooltip('更多 GPA 操作'));
+        await tester.pumpAndSettle();
+        expect(find.text('更新成绩'), findsOneWidget);
+        expect(find.text('上次更新 2026-10-28 10:00'), findsOneWidget);
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
   for (final width in [320.0, 960.0]) {
     for (final dark in [false, true]) {
       testWidgets(
@@ -151,19 +209,25 @@ void main() {
                 authControllerProvider.overrideWith((ref) => Auth()),
                 gradeSnapshotProvider.overrideWith(FourYearGrades.new),
               ],
-              child: MaterialApp(
-                theme: (dark ? AppTheme.dark() : AppTheme.light()).copyWith(
-                  platform: width < 600
-                      ? TargetPlatform.android
-                      : TargetPlatform.windows,
-                ),
-                builder: (context, child) => MediaQuery(
-                  data: MediaQuery.of(context).copyWith(
-                    textScaler: TextScaler.linear(width < 600 ? 1.5 : 1),
+              child: RepaintBoundary(
+                key: capture,
+                child: MaterialApp(
+                  theme:
+                      desktopCaptureTheme(
+                        dark ? AppTheme.dark() : AppTheme.light(),
+                      ).copyWith(
+                        platform: width < 600
+                            ? TargetPlatform.android
+                            : TargetPlatform.windows,
+                      ),
+                  builder: (context, child) => MediaQuery(
+                    data: MediaQuery.of(context).copyWith(
+                      textScaler: TextScaler.linear(width < 600 ? 1.5 : 1),
+                    ),
+                    child: child!,
                   ),
-                  child: child!,
+                  home: const GpaPage(),
                 ),
-                home: RepaintBoundary(key: capture, child: const GpaPage()),
               ),
             ),
           );
@@ -171,12 +235,29 @@ void main() {
           await tester.tap(find.text('学年'));
           await tester.pumpAndSettle();
           final calculation = find.byKey(const ValueKey('grade-calculation'));
-          final updated = find.byKey(const ValueKey('grade-updated-at'));
-          expect(
-            find.descendant(of: calculation, matching: updated),
-            findsOneWidget,
-          );
-          expect(find.text('成绩更新于 2026-10-31 00:11'), findsOneWidget);
+          expect(find.text('排除通识课程'), findsNothing);
+          expect(find.textContaining('2026-10-31 00:11'), findsNothing);
+          await tester.tap(find.byTooltip('更多 GPA 操作'));
+          await tester.pumpAndSettle();
+          expect(find.text('上次更新 2026-10-31 00:11'), findsOneWidget);
+          expect(find.text('更新成绩'), findsOneWidget);
+          expect(find.text('排除通识课程'), findsOneWidget);
+          if (Platform.environment['CAPTURE_GPA_UI'] == '1') {
+            await tester.runAsync(() async {
+              final im =
+                  await (capture.currentContext!.findRenderObject()!
+                          as RenderRepaintBoundary)
+                      .toImage();
+              final bytes = await im.toByteData(format: ui.ImageByteFormat.png);
+              await Directory('build/gpa-ui-review').create(recursive: true);
+              await File(
+                'build/gpa-ui-review/gpa-menu-$width-$dark.png',
+              ).writeAsBytes(bytes!.buffer.asUint8List());
+              im.dispose();
+            });
+          }
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
           expect(find.text('已选 0 门 / 可计 0 门'), findsOneWidget);
           for (final label in ['总绩点', '学年', '近学期', '学期']) {
             expect(
@@ -587,7 +668,7 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.text('3.33'), findsOneWidget);
-          expect(find.textContaining('2026-10-28 10:00'), findsOneWidget);
+          expect(find.textContaining('2026-10-28 10:00'), findsNothing);
           expect(tester.takeException(), isNull);
           Future<void> capture(String name) async {
             if (Platform.environment['CAPTURE_GPA_UI'] != '1') return;
@@ -656,9 +737,23 @@ void main() {
           expect(find.text('2.00'), findsOneWidget);
           await tester.tap(find.text('总绩点'));
           await tester.pumpAndSettle();
+          await tester.tap(find.byTooltip('更多 GPA 操作'));
+          await tester.pumpAndSettle();
           await tester.tap(find.text('排除通识课程'));
           await tester.pumpAndSettle();
           expect(find.text('4.00'), findsOneWidget);
+          await tester.tap(find.byTooltip('更多 GPA 操作'));
+          await tester.pumpAndSettle();
+          final select = tester.widgetList<AppMenuOption>(
+            find.byType(AppMenuOption),
+          );
+          expect(
+            select.singleWhere((option) => option.label == '排除通识课程').selected,
+            isTrue,
+          );
+          await capture('gpa-menu-excluded');
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
           await tester.ensureVisible(find.text('恢复默认选择'));
           await tester.tap(find.text('恢复默认选择'));
           await tester.pumpAndSettle();
@@ -679,43 +774,50 @@ void main() {
     }
   }
 
-  testWidgets('mobile GPA summary aligns badge and count flush right across all 4 tabs', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          authControllerProvider.overrideWith((_) => Auth()),
-          gradeSnapshotProvider.overrideWith(Grades.new),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
-          home: const GpaPage(),
+  testWidgets(
+    'mobile GPA summary aligns badge and count flush right across all 4 tabs',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            authControllerProvider.overrideWith((_) => Auth()),
+            gradeSnapshotProvider.overrideWith(Grades.new),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light().copyWith(platform: TargetPlatform.android),
+            home: const GpaPage(),
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    void expectFlushRight() {
-      final summary = find.byKey(const ValueKey('grade-summary'));
-      final badge = find.byKey(const ValueKey('grade-scope-badge'));
-      final count = find.byKey(const ValueKey('grade-included-count'));
-      final summaryRight = tester.getRect(summary).right;
-      expect((tester.getRect(badge).right - summaryRight).abs(), lessThan(1.0));
-      expect((tester.getRect(count).right - summaryRight).abs(), lessThan(1.0));
-      expect(tester.takeException(), isNull);
-    }
-
-    expectFlushRight();
-    for (final tab in ['学年', '近学期', '学期']) {
-      await tester.tap(find.text(tab));
+      );
       await tester.pumpAndSettle();
+
+      void expectFlushRight() {
+        final summary = find.byKey(const ValueKey('grade-summary'));
+        final badge = find.byKey(const ValueKey('grade-scope-badge'));
+        final count = find.byKey(const ValueKey('grade-included-count'));
+        final summaryRight = tester.getRect(summary).right;
+        expect(
+          (tester.getRect(badge).right - summaryRight).abs(),
+          lessThan(1.0),
+        );
+        expect(
+          (tester.getRect(count).right - summaryRight).abs(),
+          lessThan(1.0),
+        );
+        expect(tester.takeException(), isNull);
+      }
+
       expectFlushRight();
-    }
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
+      for (final tab in ['学年', '近学期', '学期']) {
+        await tester.tap(find.text(tab));
+        await tester.pumpAndSettle();
+        expectFlushRight();
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 }

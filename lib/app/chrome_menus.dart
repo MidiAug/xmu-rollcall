@@ -39,7 +39,7 @@ class AppShellSelect<T> extends StatefulWidget {
   final String Function(T)? menuLabelOf;
   final String Function(T)? menuTrailingOf;
   final Widget Function(T)? menuLeadingOf;
-  final String Function(T)? menuSubtitleOf;
+  final String? Function(T)? menuSubtitleOf;
   final String? menuTitle;
   final bool highlightSelection;
   final IconData Function(T)? iconOf;
@@ -752,17 +752,22 @@ class AppActionMenu<T> extends StatelessWidget {
     required this.actions,
     required this.onSelected,
     this.enabled = true,
+    this.selectedValue,
   });
   final String tooltip;
   final List<AppMenuAction<T>> actions;
   final ValueChanged<T> onSelected;
   final bool enabled;
+  final T? selectedValue;
   @override
   Widget build(BuildContext context) {
     return AppShellSelect<T?>(
-      value: null,
+      value: selectedValue,
+      menuTitle: tooltip,
       items: [for (final action in actions) action.value],
       labelOf: (value) => actions.firstWhere((a) => a.value == value).label,
+      menuSubtitleOf: (value) =>
+          actions.firstWhere((a) => a.value == value).subtitle,
       iconOf: (value) =>
           actions.firstWhere((a) => a.value == value).icon ?? AppIcons.more,
       width: AppMobileUi.useTouchChrome(context) ? AppMobileUi.target : 32,
@@ -786,8 +791,9 @@ class AppActionMenu<T> extends StatelessWidget {
 }
 
 class AppMenuAction<T> {
-  const AppMenuAction(this.value, this.label, {this.icon});
+  const AppMenuAction(this.value, this.label, {this.icon, this.subtitle});
   final T value;
   final String label;
   final IconData? icon;
+  final String? subtitle;
 }

@@ -28,7 +28,7 @@ Future<_ChoiceResult<T>?> _showChoiceSheet<T>(
   String Function(T)? trailingOf,
   IconData Function(T)? iconOf,
   Widget Function(T)? leadingOf,
-  String Function(T)? subtitleOf,
+  String? Function(T)? subtitleOf,
   required ValueChanged<BuildContext> onPresented,
   required ValueChanged<bool> onPointerMode,
   bool pointerAutofocus = false,

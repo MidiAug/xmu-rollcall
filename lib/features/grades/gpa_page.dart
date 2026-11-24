@@ -25,6 +25,7 @@ class _GpaPageState extends ConsumerState<GpaPage> {
   final _years = <int>{};
   int _recentCount = 2;
   bool _excludeGeneral = false;
+  bool _refreshing = false;
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
@@ -37,6 +38,7 @@ class _GpaPageState extends ConsumerState<GpaPage> {
       _range = GradeRange.all;
       _recentCount = 2;
       _excludeGeneral = false;
+      _refreshing = false;
       _error = null;
       _excluded.clear();
     }
@@ -44,28 +46,40 @@ class _GpaPageState extends ConsumerState<GpaPage> {
     return SubpageScaffold(
       title: 'GPA 计算器',
       actions: [
-        if (auth.isSignedIn)
-          AppRefreshButton(
-            tooltip: '更新成绩',
-            onRefresh: () async {
-              setState(() => _error = null);
-              try {
-                await ref.read(gradeSnapshotProvider.notifier).refresh();
-              } catch (_) {
-                if (mounted &&
-                    (ref.read(selectedRollcallAccountProvider) ??
-                            ref.read(authControllerProvider).profile?.id) ==
-                        uid) {
-                  setState(() => _error = '更新失败，请稍后重试；已有成绩仍保留');
-                }
-              }
-            },
-          ),
         AppActionMenu<String>(
           tooltip: '更多 GPA 操作',
-          actions: const [AppMenuAction('rules', '计算规则', icon: AppIcons.info)],
-          onSelected: (_) =>
-              _showRules(graduate: data?.valueOrNull?.education == 'graduate'),
+          selectedValue: _excludeGeneral ? 'exclude-general' : null,
+          actions: [
+            if (auth.isSignedIn) ...[
+              AppMenuAction(
+                'refresh',
+                _refreshing ? '正在更新成绩…' : '更新成绩',
+                icon: AppIcons.refresh,
+                subtitle: data?.valueOrNull == null
+                    ? '尚无成功更新时间'
+                    : '上次更新 ${data!.valueOrNull!.at.toLocal().toString().substring(0, 16)}',
+              ),
+              if (data?.hasValue == true)
+                const AppMenuAction(
+                  'exclude-general',
+                  '排除通识课程',
+                  icon: AppIcons.filter,
+                ),
+            ],
+            const AppMenuAction('rules', '计算规则', icon: AppIcons.info),
+          ],
+          onSelected: (action) {
+            switch (action) {
+              case 'refresh':
+                _refresh(uid);
+              case 'exclude-general':
+                setState(() => _excludeGeneral = !_excludeGeneral);
+              case 'rules':
+                _showRules(
+                  graduate: data?.valueOrNull?.education == 'graduate',
+                );
+            }
+          },
         ),
       ],
       body: !auth.isSignedIn
@@ -155,31 +169,15 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                             }
                           }),
                         );
-                        final general = SizedBox(
-                          width: 172,
-                          child: AppCheckboxRow(
-                            label: '排除通识课程',
-                            value: _excludeGeneral,
-                            onChanged: (v) =>
-                                setState(() => _excludeGeneral = v),
+                        return Align(
+                          alignment: Alignment.centerLeft,
+                          child: SizedBox(
+                            width: bounds.maxWidth >= 600
+                                ? 340
+                                : bounds.maxWidth,
+                            child: segments,
                           ),
                         );
-                        return bounds.maxWidth >= 600
-                            ? Row(
-                                children: [
-                                  SizedBox(width: 340, child: segments),
-                                  const Spacer(),
-                                  general,
-                                ],
-                              )
-                            : Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  segments,
-                                  const SizedBox(height: 8),
-                                  general,
-                                ],
-                              );
                       },
                     ),
                     if (_range == GradeRange.year && years.isNotEmpty) ...[
@@ -259,7 +257,6 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                         scopeLabel,
                         visible,
                         included,
-                        snapshot.at,
                       ),
                       if (_error != null ||
                           ref.read(gradeSnapshotProvider.notifier).warning !=
@@ -331,8 +328,7 @@ class _GpaPageState extends ConsumerState<GpaPage> {
                           ),
                         ),
                       ),
-                    ]
-                    else
+                    ] else
                       for (final term in [
                         ...gradeTerms(visible),
                         if (visible.any((r) => r.term.isEmpty)) '',
@@ -472,13 +468,37 @@ class _GpaPageState extends ConsumerState<GpaPage> {
     );
   }
 
+  Future<void> _refresh(int? uid) async {
+    if (_refreshing) return;
+    setState(() {
+      _refreshing = true;
+      _error = null;
+    });
+    try {
+      await ref.read(gradeSnapshotProvider.notifier).refresh();
+    } catch (_) {
+      if (mounted &&
+          (ref.read(selectedRollcallAccountProvider) ??
+                  ref.read(authControllerProvider).profile?.id) ==
+              uid) {
+        setState(() => _error = '更新失败，请稍后重试；已有成绩仍保留');
+      }
+    } finally {
+      if (mounted &&
+          (ref.read(selectedRollcallAccountProvider) ??
+                  ref.read(authControllerProvider).profile?.id) ==
+              uid) {
+        setState(() => _refreshing = false);
+      }
+    }
+  }
+
   Widget _summaryContent(
     BuildContext context,
     ({double credits, double? gpa, double? average}) summary,
     String scope,
     List<GradeRecord> visible,
     List<GradeRecord> included,
-    DateTime updatedAt,
   ) {
     final p = AppPalette.of(context);
     final gpaValue = summary.gpa?.toStringAsFixed(2) ?? '—';
@@ -528,11 +548,6 @@ class _GpaPageState extends ConsumerState<GpaPage> {
         ),
       ),
     );
-    final updated = Text(
-      '成绩更新于 ${updatedAt.toLocal().toString().substring(0, 16)}',
-      key: const ValueKey('grade-updated-at'),
-      style: Theme.of(context).textTheme.bodySmall,
-    );
     final count = Text(
       '已计入 ${included.length} 门课程',
       key: const ValueKey('grade-included-count'),
@@ -561,10 +576,7 @@ class _GpaPageState extends ConsumerState<GpaPage> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                '加权 GPA',
-                style: TextStyle(color: p.muted, fontSize: 12),
-              ),
+              Text('加权 GPA', style: TextStyle(color: p.muted, fontSize: 12)),
               const SizedBox(width: 8),
               Expanded(
                 child: Align(
@@ -602,8 +614,6 @@ class _GpaPageState extends ConsumerState<GpaPage> {
           const SizedBox(height: 24),
           _SemesterGpaChart(visible: visible, included: included),
         ],
-        const SizedBox(height: 20),
-        updated,
       ],
     );
   }
