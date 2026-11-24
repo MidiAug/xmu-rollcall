@@ -31,6 +31,10 @@ set(CMAKE_CXX_FLAGS_PROFILE "${CMAKE_CXX_FLAGS_RELEASE}")
 
 # Use Unicode for all projects.
 add_definitions(-DUNICODE -D_UNICODE)
+if(MSVC)
+  # Serialize parallel CL.exe writes to shared vc*.pdb files (prevents C1041).
+  add_compile_options(/FS)
+endif()
 
 # Compilation settings that should be applied to most targets.
 #
@@ -56,6 +60,13 @@ add_subdirectory("runner")
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
 include(flutter/generated_plugins.cmake)
+if(TARGET flutter_inappwebview_windows_plugin)
+  # MSVC 14.51+ (VS 18 BuildTools) turns <experimental/coroutine> into STL1011
+  # when compiled under the plugin's cxx_std_17 setting.
+  target_compile_definitions(flutter_inappwebview_windows_plugin PRIVATE
+    _SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS
+  )
+endif()
 
 
 # === Installation ===
