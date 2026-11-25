@@ -7,6 +7,8 @@ Future<void> clearRemoteCourseCache() async {
   final prefs = await SharedPreferences.getInstance();
   const prefixes = [
     'logistics_v1_',
+    'campus_card_v1_',
+    'life_v1_',
     'academic_schedule_v1_',
     'academic_attempt_',
     'academic_failure_',

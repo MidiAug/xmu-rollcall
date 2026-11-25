@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/campus_card/campus_card_providers.dart';
 import 'package:xmu_rollcall/core/cache/remote_course_cache.dart';
 import 'package:xmu_rollcall/features/logistics/logistics_provider.dart';
 import 'package:xmu_rollcall/core/cache/cache_revisions.dart';
@@ -16,6 +17,8 @@ import 'package:xmu_rollcall/features/ta_grading/ta_providers.dart';
 
 /// Auth transitions invalidate owner views without deleting disk snapshots.
 void invalidateOwnerRemoteMemory(Ref ref) {
+  ref.invalidate(campusCardInfoProvider);
+  ref.invalidate(campusCardCachedInfoProvider);
   ref.invalidate(courseCatalogProvider);
   ref.invalidate(courseHistoryProvider);
   ref.invalidate(homeworkTodosProvider);
@@ -30,6 +33,8 @@ Future<void> clearRemoteCourseData(WidgetRef ref) async {
   await clearRemoteCourseCache();
   if (!ref.context.mounted) return;
   ref.invalidate(logisticsProvider);
+  ref.invalidate(campusCardInfoProvider);
+  ref.invalidate(campusCardCachedInfoProvider);
   ref.invalidate(taRepositoryProvider);
   ref.invalidate(courseCatalogProvider);
   ref.invalidate(scopedCourseCatalogProvider);

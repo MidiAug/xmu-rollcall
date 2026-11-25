@@ -14,6 +14,7 @@ class AppServiceTile extends StatelessWidget {
     required this.onPressed,
     this.compact = false,
     this.showDescription = true,
+    this.trailing,
   });
   final String title, description;
   final IconData icon;
@@ -22,6 +23,9 @@ class AppServiceTile extends StatelessWidget {
   /// Horizontal desktop directory entry or the mobile teaching-assistant row.
   final bool compact;
   final bool showDescription;
+
+  /// 右侧摘要（例如生活服务的上次余额），放在箭头之前。
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +93,10 @@ class AppServiceTile extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: AppSpace.sm),
+                      if (trailing != null) ...[
+                        trailing!,
+                        const SizedBox(width: AppSpace.sm),
+                      ],
                       arrow,
                     ],
                   ),
@@ -110,7 +118,23 @@ class AppServiceTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Row(children: [symbol, const Spacer(), arrow]),
+                      Row(
+                        children: [
+                          symbol,
+                          if (trailing != null) ...[
+                            const SizedBox(width: AppSpace.xs),
+                            Expanded(
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: trailing!,
+                              ),
+                            ),
+                            const SizedBox(width: AppSpace.xs),
+                          ] else
+                            const Spacer(),
+                          arrow,
+                        ],
+                      ),
                       const SizedBox(height: AppSpace.sm),
                       label,
                       if (showDescription) ...[

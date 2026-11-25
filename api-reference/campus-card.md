@@ -1,0 +1,41 @@
+# 校园卡与宿舍电费
+
+2026-11-25 按本人本科、研究生两个账号只读核对 `https://ecardpay.xmu.edu.cn` 的响应及官方页面脚本。本文是观察到的实现协议，不是厂商正式 API。
+
+## 会话与数据边界
+
+独立 CookieJar；POST `/cassyno/index` 使用当前身份学号作为 ssoticketid，允许同源有限重定向。随后 `/User/GetCardInfo` 的 query_card 内 sno 必须与当前身份一致。外层 IsSucceed 可能为 false，卡信息以嵌套 retcode 为准；不能因外层状态把真实卡信息置零。每个请求发送前、返回后均验证当前身份，不复用主账号会话代查协助账号。
+
+请求为表单，带 json=true；学校页面 cookie 中的 pageToken 用于 X_REQUESTED_WITH。令牌、Cookie、原始身份响应和订单签名不写日志或仓库。接口失效按错误恢复，不更换身份兜底。
+
+| 能力 | 端点 | 作用域、单位与分页 |
+| --- | --- | --- |
+| 卡信息 | `/User/GetCardInfo` | 当前卡账户；余额为整数分，缺字段是解析失败 |
+| 子账户 | `/User/GetCardAccInfo` | 当前卡；余额为分，不补造不存在的零余额账户 |
+| 流水 | `/Report/GetPersonTrjn` | account、page，从1开始，每页15条；响应已有商户与金额，不逐条查详情 |
+| 全部账单 | `/Report/GetMyBill` | 同上；报表金额为元 |
+| 月账单分类 | `/report/getamtBypaytype` | 当前卡和月份；分类明细按需一次读 `/report/getMonthbillBytype` |
+| 免费米饭 | `/Tsm/GetRiceWate` | page=10、index 游标、最近一年日期范围；nextpage=0 仍须保留本页记录 |
+| 电费公共目录/房间核对 | `/Tsm/TsmCommon` | `synjones.onecard.query.*`，按应用、区域、楼栋、房间逐级查询；保留原始 ID，不从名称猜 ID |
+| 充值 | `/User/Account_Pay` | 本人卡 account；tranamt 为整数分、paytype=alipay、paymethod=4 |
+| 短信验证码 | `/GetPasswd/SendSMS` | 当前会话，outtime=120；仅用户点击发送 |
+| 查询密码重设 | `/User/MendQueryPasswd` | acc、pwd 为空、npwd 加密、vcode、key；仅实现已核实的短信路径 |
+| 挂失 | `/User/LostCard` | 当前 acc、加密 pwd、key；必须先确认 |
+
+改密和挂失先读 `/Common/GetRsaKey` 的指数、模数及临时 key；密码按官方脚本的 PKCS#1 v1.5 加密并传十六进制密文。密码和验证码不持久化。
+
+## 电费订单
+
+先读取 `/Page/Page` 的 flowID=31 电费页，跟随同源重定向取得 `/PPage/ComePage` 的当前账户、服务器时间及 SaveOrder 范围的 keyvalue/sign，仅在内存提取，不渲染网页、不硬编码授权值。
+
+核对房间后调用 `/Tsm/Elec_Pay_Gateway`，order_amount 为整数分；取得 query 对象的订单号后，按学校当前流程调用 `/T_Json/UpdataColsByJson` 保存 `s_h_order` 的固定订单字段。客户端只封装这一条订单用途，不暴露任意表更新能力。元数据保存失败、写请求超时或返回结构无法判断时，标记结果待核对，禁止自动重下单。
+
+返回的支付宝 HTTPS 地址或表单只提取签名字段，保留原查询参数及 HTML 实体值，不执行返回 HTML；仅允许支付宝域名。App 内完成金额、地点和确认，外部仅打开支付收银台。拉起失败复用同一订单继续付款，返回 App 后刷新余额不等同于付款成功。当前仅实现支付宝渠道。
+
+## 缓存及验证范围
+
+本地卡摘要按主账号/所选身份双重分区，5分钟内复用，手动更新尝试间隔15秒；失败不推进成功时间、不覆盖旧值。工具目录仅读本地摘要并标注“上次”，身份切换不保留旧金额。电费账户余额是钱包金额，不能当作宿舍剩余电量。
+
+两个真实账号都已通过生产客户端核对身份、流水、米饭、月账单分类、电费应用及区域目录。本科读取15条流水且可继续分页，研究生读取2条；目录均为37项区域。一次本科流水请求超时，手动重试成功。公共楼栋目录已只读核对；没有查询其他人的房间。
+
+协议测试覆盖生产解析器、HTTP 请求序列、分页边界、分单位、RSA 独立解密、并发写入拒绝及未知结果恢复；组件测试覆盖原生选择、确认/取消、收银台复用、短信冷却、身份切换及浅深色窄屏。真实充值、电费下单、短信发送、挂失、改密以及手机支付回跳均未实际执行，房间有效性以用户填写后学校核对为准。

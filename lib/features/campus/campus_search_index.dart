@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/lifestyle/life_services_page.dart';
 import 'package:xmu_rollcall/features/logistics/logistics_page.dart';
 import 'campus_calendar_page.dart';
 import 'package:flutter/material.dart';
@@ -39,6 +40,13 @@ bool campusSearchMatches(String query, String content) {
 }
 
 List<CampusSearchEntry> campusSearchFeatures(int? scope) => [
+  CampusSearchEntry(
+    '生活服务',
+    '校园卡、账单与宿舍电费',
+    '小灵龙 生活服务 校园卡 余额 充值 使用记录 流水 账单 免费米饭 电费 宿舍电费 挂失 查询密码',
+    AppIcons.serviceCard,
+    page: (_) => const LifeServicesPage(),
+  ),
   CampusSearchEntry(
     '智慧后勤',
     '我的报修、处理进度与意见反馈',

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/features/browser/campus_website.dart';
 import 'package:xmu_rollcall/app/app_service_tile.dart';
 import 'campus_calendar_page.dart';
+import 'package:xmu_rollcall/features/lifestyle/life_services_page.dart';
 import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/app/destinations.dart';
@@ -24,10 +25,12 @@ class CampusTool {
     required this.description,
     required this.icon,
     required this.page,
+    this.trailing,
   });
   final String id, title, description;
   final IconData icon;
   final WidgetBuilder page;
+  final Widget? trailing;
 }
 
 // A getter lets hot reload pick up newly added built-in tools as well.
@@ -59,6 +62,14 @@ List<CampusTool> get campusTools => <CampusTool>[
     description: '学期安排与教学周',
     icon: AppIcons.serviceCalendar,
     page: (_) => const CampusCalendarPage(),
+  ),
+  CampusTool(
+    id: 'life-services',
+    title: '生活服务',
+    description: '校园卡、账单与宿舍电费',
+    icon: AppIcons.serviceCard,
+    page: (_) => const LifeServicesPage(),
+    trailing: const LifeServiceBalancesTrailing(),
   ),
   CampusTool(
     id: 'logistics',
@@ -173,6 +184,7 @@ class _CampusToolsPageState extends ConsumerState<CampusToolsPage>
                                             : '作业打包下载与批量评分'
                                       : tool.description,
                                   icon: tool.icon,
+                                  trailing: tool.trailing,
                                   compact: !touch,
                                   showDescription: !touch,
                                   onPressed: () => AppPageRoutes.push(
@@ -192,9 +204,31 @@ class _CampusToolsPageState extends ConsumerState<CampusToolsPage>
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
+                            // 生活服务余额摘要在触屏目录保留完整读数。
+                            if (touch)
+                              for (final tool in tools.where(
+                                (t) => t.id == 'life-services',
+                              ))
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    bottom: AppSpace.sm,
+                                  ),
+                                  child: AppServiceTile(
+                                    key: ValueKey('tool-${tool.id}'),
+                                    title: tool.title,
+                                    description: tool.description,
+                                    icon: tool.icon,
+                                    trailing: tool.trailing,
+                                    onPressed: () => AppPageRoutes.push(
+                                      context,
+                                      tool.page(context),
+                                    ),
+                                  ),
+                                ),
                             group(
                               '常用工具',
-                              tools.where((t) => t.id != 'ta-grading'),
+                              tools.where((t) => t.id != 'ta-grading' &&
+                                  (!touch || t.id != 'life-services')),
                             ),
                             if (hasTaCourses) ...[
                               const SizedBox(height: AppSpace.xl),

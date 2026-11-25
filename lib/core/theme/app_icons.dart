@@ -9,6 +9,7 @@ abstract final class AppIcons {
   static const serviceGpa = CupertinoIcons.chart_bar_alt_fill;
   static const serviceCalendar = CupertinoIcons.calendar;
   static const serviceGrading = CupertinoIcons.doc_checkmark_fill;
+  static const serviceCard = CupertinoIcons.creditcard_fill;
   static const upload = CupertinoIcons.arrow_up_doc;
   static const externalLink = CupertinoIcons.arrow_up_right;
   static const archive = CupertinoIcons.archivebox;
