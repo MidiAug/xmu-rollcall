@@ -8,6 +8,7 @@ Map<String, dynamic> logisticsRepairFixture(int index) => {
   'projectName': '水/厕所设施设备',
   'content': '洗手池下水堵塞，请检查管道',
   'areaName': '翔安校区-学生公寓',
+  'areaId': 'building',
   'address': '测试楼101',
   'repairDeptName': '测试维修部',
   'workerName': '测试维修人员',
@@ -28,7 +29,10 @@ Map<String, dynamic> logisticsRepairFixture(int index) => {
 /// Only the network boundary is replaced; models, cache, pagination and UI
 /// continue through the production provider.
 class LogisticsFixtureClient extends LogisticsClient {
-  LogisticsFixtureClient({this.total = 1});
+  LogisticsFixtureClient({this.total = 1}) {
+    userName = '测试用户';
+    phone = '13800000000';
+  }
   final int total;
   bool fail = false;
   Completer<void>? pending;

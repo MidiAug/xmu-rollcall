@@ -48,7 +48,7 @@ class _LogisticsMessagesPageState extends ConsumerState<LogisticsMessagesPage>
       title: '后勤消息',
       actions: [AppRefreshButton(busy: busy, onRefresh: load)],
       body: AppPageViewport(
-        maxWidth: AppLayout.workspaceMaxWidth,
+        maxWidth: AppLayout.readingMaxWidth,
         builder: (context, insets) => ListView(
           padding: insets + EdgeInsets.all(AppSpace.pageXOf(context)),
           children: [
@@ -111,7 +111,7 @@ class _LogisticsMessagePageState extends ConsumerState<LogisticsMessagePage>
     return SubpageScaffold(
       title: '消息详情',
       body: AppPageViewport(
-        maxWidth: AppLayout.workspaceMaxWidth,
+        maxWidth: AppLayout.readingMaxWidth,
         builder: (context, insets) => ListView(
           padding: insets + EdgeInsets.all(AppSpace.pageXOf(context)),
           children: [
@@ -192,7 +192,7 @@ class _LogisticsFeedbackPageState extends ConsumerState<LogisticsFeedbackPage>
       title: '我的反馈',
       actions: [AppRefreshButton(busy: busy, onRefresh: load)],
       body: AppPageViewport(
-        maxWidth: AppLayout.workspaceMaxWidth,
+        maxWidth: AppLayout.readingMaxWidth,
         builder: (context, insets) => ListView(
           padding: insets + EdgeInsets.all(AppSpace.pageXOf(context)),
           children: [
@@ -225,7 +225,11 @@ class _LogisticsFeedbackPageState extends ConsumerState<LogisticsFeedbackPage>
                     SettingsRow(
                       title: row.title,
                       subtitle: '${row.type}\n${row.scope}',
-                      trailing: Text(row.deleted ? '已删除' : '${row.replies}条回复'),
+                      trailing: row.deleted
+                          ? const AppStatusBadge('已删除')
+                          : row.replies > 0
+                          ? AppStatusBadge('${row.replies}条回复')
+                          : null,
                       onTap: () async {
                         await AppPageRoutes.push<void>(
                           context,
@@ -320,7 +324,7 @@ class _LogisticsFeedbackDetailPageState
       title: '反馈详情',
       isBusy: () => busy,
       body: AppPageViewport(
-        maxWidth: AppLayout.workspaceMaxWidth,
+        maxWidth: AppLayout.readingMaxWidth,
         builder: (context, insets) => ListView(
           padding: insets + EdgeInsets.all(AppSpace.pageXOf(context)),
           children: [

@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
+import 'package:xmu_rollcall/app/app_page_routes.dart';
+import 'package:xmu_rollcall/app/app_hierarchy_choice_page.dart';
 import 'package:xmu_rollcall/app/app_checkbox.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
@@ -28,11 +30,14 @@ class _LogisticsRepairFormState extends ConsumerState<LogisticsRepairForm>
   List<LogisticsChoice>? areas;
   List<LogisticsChoice> projects = [];
   LogisticsChoice? area, project;
+  LogisticsRepairLocation? lastLocation;
+  LogisticsChoice? lastArea;
   Map<String, String> settings = {};
   Map<String, dynamic>? recipient;
   List<LogisticsAttachment> files = [];
   int quantity = 1;
   bool publish = true, unattended = false, uncertain = false, uploading = false;
+  bool editingContact = false;
   @override
   void initState() {
     super.initState();
@@ -59,14 +64,36 @@ class _LogisticsRepairFormState extends ConsumerState<LogisticsRepairForm>
           ),
         );
     if (!current) return;
+    final previous = await ref
+        .read(logisticsProvider.notifier)
+        .lastRepairLocation();
+    if (!current) return;
     areas = data.areas;
+    lastLocation = previous;
+    lastArea = areas!
+        .where((option) => option.id == previous?.areaId)
+        .firstOrNull;
     settings = data.settings;
     name.text = data.name ?? '';
     phone.text = data.phone ?? '';
+    editingContact =
+        name.text.isEmpty || logisticsPhone(phone.text, repair: true) != null;
   });
   Future<void> selectArea() async {
-    final chosen = await chooseLogistics(context, '故障区域', areas!);
+    final chosen = await AppPageRoutes.push<LogisticsChoice>(
+      context,
+      AppHierarchyChoicePage(
+        title: '故障区域',
+        items: areas!,
+        pathOf: (v) => v.path,
+        selected: area,
+      ),
+    );
     if (!current || chosen == null) return;
+    await useArea(chosen);
+  }
+
+  Future<void> useArea(LogisticsChoice chosen) async {
     setState(() {
       area = chosen;
       project = null;
@@ -86,7 +113,15 @@ class _LogisticsRepairFormState extends ConsumerState<LogisticsRepairForm>
       setState(() => error = '请先选择故障区域');
       return;
     }
-    final chosen = await chooseLogistics(context, '维修项目', projects);
+    final chosen = await AppPageRoutes.push<LogisticsChoice>(
+      context,
+      AppHierarchyChoicePage(
+        title: '维修项目',
+        items: projects,
+        pathOf: (v) => v.path,
+        selected: project,
+      ),
+    );
     if (!current || chosen == null) return;
     setState(() {
       project = chosen;
@@ -121,38 +156,34 @@ class _LogisticsRepairFormState extends ConsumerState<LogisticsRepairForm>
       title: '提交报修？',
       confirmLabel: '提交报修',
       message:
-          '${area!.label}\n${address.text.trim()}\n${project!.label}\n数量 $quantity\n收费类型 ${recipient!['dept']['payName'] ?? '待受理单位核对'}\n${publish ? '将在报修平台公开展示' : '不在报修平台公开展示'}',
+          '${area!.displayPath}\n${address.text.trim()}\n${project!.displayPath}\n数量 $quantity\n收费类型 ${recipient!['dept']['payName'] ?? '待受理单位核对'}\n${publish ? '将在报修平台公开展示' : '不在报修平台公开展示'}',
     );
     if (!current || !confirmed) return;
     await perform(() async {
       try {
-        await ref
-            .read(logisticsProvider.notifier)
-            .run(
-              (c) => c.submitRepair({
-                'type': '0',
-                'ifShielding': '1',
-                'areaId': area!.id,
-                'areaName': area!.label,
-                'address': address.text.trim(),
-                'addressDetail': address.text.trim(),
-                'projectId': project!.id,
-                'projectName': project!.label,
-                'bookTime': '',
-                'repairUserName': name.text.trim(),
-                'repairUserMobile': phone.text.trim(),
-                'repairDeptName': '',
-                'ifOnduty': unattended ? '1' : '0',
-                'repairNum': quantity,
-                'content': content.text.trim(),
-                'ifPublish': publish ? '1' : '0',
-                'ifUrgent': '0',
-                'id': '',
-                'resourcesVOS': files.map((f) => f.toRepairJson()).toList(),
-                'source': '1',
-                'ifRecord': 0,
-              }),
-            );
+        await ref.read(logisticsProvider.notifier).submitRepair({
+          'type': '0',
+          'ifShielding': '1',
+          'areaId': area!.id,
+          'areaName': area!.label,
+          'address': address.text.trim(),
+          'addressDetail': address.text.trim(),
+          'projectId': project!.id,
+          'projectName': project!.label,
+          'bookTime': '',
+          'repairUserName': name.text.trim(),
+          'repairUserMobile': phone.text.trim(),
+          'repairDeptName': '',
+          'ifOnduty': unattended ? '1' : '0',
+          'repairNum': quantity,
+          'content': content.text.trim(),
+          'ifPublish': publish ? '1' : '0',
+          'ifUrgent': '0',
+          'id': '',
+          'resourcesVOS': files.map((f) => f.toRepairJson()).toList(),
+          'source': '1',
+          'ifRecord': 0,
+        });
         if (mounted && current) Navigator.of(context).pop(true);
       } on LogisticsWriteUncertain {
         uncertain = true;
@@ -190,13 +221,29 @@ class _LogisticsRepairFormState extends ConsumerState<LogisticsRepairForm>
                       children: [
                         SettingsRow(
                           title: '故障区域',
-                          subtitle: area?.label ?? '选择校区与楼栋',
+                          subtitle: area?.displayPath ?? '选择校区与楼栋',
                           trailing: const Icon(AppIcons.right, size: 14),
                           onTap: busy ? null : selectArea,
                         ),
+                        if (lastLocation != null &&
+                            (area?.id != lastLocation!.areaId ||
+                                address.text.trim() != lastLocation!.address))
+                          SettingsRow(
+                            title: '上次报修地点',
+                            subtitle:
+                                '${lastArea?.displayPath ?? lastLocation!.areaName}\n${lastLocation!.address}',
+                            trailing: lastArea == null
+                                ? const Text('已停用')
+                                : const Icon(AppIcons.right, size: 14),
+                            enabled: !busy && lastArea != null,
+                            onTap: () async {
+                              address.text = lastLocation!.address;
+                              await useArea(lastArea!);
+                            },
+                          ),
                         SettingsRow(
                           title: '维修项目',
-                          subtitle: project?.label ?? '选择维修项目',
+                          subtitle: project?.displayPath ?? '选择维修项目',
                           trailing: const Icon(AppIcons.right, size: 14),
                           onTap: busy ? null : selectProject,
                         ),
@@ -214,20 +261,80 @@ class _LogisticsRepairFormState extends ConsumerState<LogisticsRepairForm>
                       ],
                     ),
                     const SizedBox(height: AppSpace.lg),
-                    LogisticsFormField(label: '详细地址', controller: address),
-                    LogisticsFormField(label: '报修人', controller: name),
-                    LogisticsFormField(
-                      label: '联系电话',
-                      controller: phone,
-                      phone: true,
-                      repairPhone: true,
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpace.md),
+                      child: TextFormField(
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        controller: address,
+                        onChanged: (_) => setState(() {}),
+                        decoration: const InputDecoration(
+                          labelText: '详细地址',
+                          alignLabelWithHint: true,
+                        ),
+                        validator: logisticsRequired,
+                      ),
                     ),
-                    LogisticsFormField(
-                      label: '故障描述',
-                      controller: content,
-                      lines: 4,
-                      limit: 200,
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpace.md),
+                      child: TextFormField(
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        controller: content,
+                        decoration: const InputDecoration(
+                          labelText: '故障描述',
+                          alignLabelWithHint: true,
+                        ),
+                        minLines: 4,
+                        maxLines: 6,
+                        keyboardType: TextInputType.multiline,
+                        maxLength: 200,
+                        validator: logisticsRequired,
+                      ),
                     ),
+                    SettingsSection(
+                      padTop: false,
+                      hasLeading: false,
+                      children: [
+                        if (!editingContact)
+                          SettingsRow(
+                            title: '联系信息',
+                            subtitle: '${name.text}  ${phone.text}',
+                            trailing: const Icon(AppIcons.right, size: 14),
+                            onTap: busy
+                                ? null
+                                : () => setState(() => editingContact = true),
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.all(AppSpace.md),
+                            child: Column(
+                              children: [
+                                TextFormField(
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
+                                  controller: name,
+                                  decoration: const InputDecoration(
+                                    labelText: '报修人',
+                                  ),
+                                  validator: logisticsRequired,
+                                ),
+                                const SizedBox(height: AppSpace.md),
+                                TextFormField(
+                                  autovalidateMode:
+                                      AutovalidateMode.onUserInteraction,
+                                  controller: phone,
+                                  decoration: const InputDecoration(
+                                    labelText: '联系电话',
+                                  ),
+                                  keyboardType: TextInputType.phone,
+                                  validator: (value) =>
+                                      logisticsPhone(value, repair: true),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpace.md),
                     SettingsRow(
                       title: '故障数量',
                       trailing: Row(
@@ -366,7 +473,7 @@ class _LogisticsFeedbackFormState extends ConsumerState<LogisticsFeedbackForm>
       title: '提交${type!.label}？',
       confirmLabel: '提交${type!.label}',
       message:
-          '${scope!.label}\n${title.text.trim()}\n反馈将发送至服务部门，并可能在服务监督平台展示。',
+          '${scope!.displayPath}\n${title.text.trim()}\n反馈将发送至服务部门，并可能在服务监督平台展示。',
     );
     if (!current || !ok) return;
     await perform(() async {
@@ -419,39 +526,38 @@ class _LogisticsFeedbackFormState extends ConsumerState<LogisticsFeedbackForm>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    AppSegmentedControl<LogisticsChoice>(
+                      segments: [
+                        for (final option in types)
+                          AppSegment(value: option, label: option.leafName),
+                      ],
+                      value: type!,
+                      enabled: !busy,
+                      expanded: true,
+                      onChanged: (value) => setState(() => type = value),
+                    ),
+                    const SizedBox(height: AppSpace.lg),
                     SettingsSection(
                       padTop: false,
                       hasLeading: false,
                       children: [
                         SettingsRow(
-                          title: '反馈类别',
-                          subtitle: type?.label ?? '请选择',
-                          trailing: const Icon(AppIcons.right, size: 14),
-                          onTap: busy
-                              ? null
-                              : () async {
-                                  final v = await chooseLogistics(
-                                    context,
-                                    '反馈类别',
-                                    types,
-                                  );
-                                  if (current && v != null) {
-                                    setState(() => type = v);
-                                  }
-                                },
-                        ),
-                        SettingsRow(
                           title: '服务类型',
-                          subtitle: scope?.label ?? '选择服务部门与事项',
+                          subtitle: scope?.displayPath ?? '选择服务部门与事项',
                           trailing: const Icon(AppIcons.right, size: 14),
                           onTap: busy
                               ? null
                               : () async {
-                                  final v = await chooseLogistics(
-                                    context,
-                                    '服务类型',
-                                    scopes!,
-                                  );
+                                  final v =
+                                      await AppPageRoutes.push<LogisticsChoice>(
+                                        context,
+                                        AppHierarchyChoicePage(
+                                          title: '服务类型',
+                                          items: scopes!,
+                                          pathOf: (v) => v.path,
+                                          selected: scope,
+                                        ),
+                                      );
                                   if (current && v != null) {
                                     setState(() => scope = v);
                                   }
@@ -460,26 +566,46 @@ class _LogisticsFeedbackFormState extends ConsumerState<LogisticsFeedbackForm>
                       ],
                     ),
                     const SizedBox(height: AppSpace.lg),
-                    LogisticsFormField(
-                      label: '标题',
-                      controller: title,
-                      limit: 50,
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpace.md),
+                      child: TextFormField(
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        controller: title,
+                        decoration: const InputDecoration(
+                          labelText: '标题',
+                          alignLabelWithHint: true,
+                        ),
+                        maxLength: 50,
+                        validator: logisticsRequired,
+                      ),
                     ),
-                    LogisticsFormField(
-                      label: '详细说明',
-                      controller: content,
-                      lines: 5,
-                      limit: 800,
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpace.md),
+                      child: TextFormField(
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        controller: content,
+                        decoration: const InputDecoration(
+                          labelText: '详细说明',
+                          alignLabelWithHint: true,
+                        ),
+                        minLines: 5,
+                        maxLines: 7,
+                        keyboardType: TextInputType.multiline,
+                        maxLength: 800,
+                        validator: logisticsRequired,
+                      ),
                     ),
-                    LogisticsFormField(
-                      label: '联系方式',
-                      controller: phone,
-                      phone: true,
-                    ),
-                    Text(
-                      '联系方式仅供管理员联系处理',
-                      style: AppTypography.caption.copyWith(
-                        color: AppPalette.of(context).muted,
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpace.md),
+                      child: TextFormField(
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        controller: phone,
+                        decoration: const InputDecoration(
+                          labelText: '联系方式',
+                          alignLabelWithHint: true,
+                        ),
+                        keyboardType: TextInputType.phone,
+                        validator: logisticsPhone,
                       ),
                     ),
                     AppCheckboxRow(
@@ -583,8 +709,8 @@ class _LogisticsEvaluationPageState
       title: '提交维修评价？',
       confirmLabel: '提交评价',
       message: lowScoreRework && score < 60
-          ? '当前为低分评价，学校配置可能据此触发返修。请核对评分与意见。'
-          : '评价提交后将发送至后勤服务平台，请核对评分与意见。',
+          ? '总评分 ${score.round()}分，提交后可能触发返修。'
+          : '总评分 ${score.round()}分',
     );
     if (!current || !ok) return;
     await perform(() async {
@@ -653,12 +779,20 @@ class _LogisticsEvaluationPageState
                     ],
                   ),
                 ),
-              LogisticsFormField(
-                label: '其他建议与意见',
-                controller: content,
-                lines: 3,
-                limit: 200,
-                optional: true,
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpace.md),
+                child: TextFormField(
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  controller: content,
+                  decoration: const InputDecoration(
+                    labelText: '其他建议与意见',
+                    alignLabelWithHint: true,
+                  ),
+                  minLines: 3,
+                  maxLines: 5,
+                  keyboardType: TextInputType.multiline,
+                  maxLength: 200,
+                ),
               ),
               for (final label in labels)
                 AppCheckboxRow(

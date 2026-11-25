@@ -2,13 +2,11 @@ import 'package:file_selector/file_selector.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:xmu_rollcall/app/app_page_routes.dart';
 import 'package:xmu_rollcall/app/app_dialogs.dart';
 import 'package:xmu_rollcall/app/app_toast.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/browser/browser_session.dart';
-import 'logistics_form_models.dart';
 import 'logistics_provider.dart';
 
 /// Forms and nested records share the same identity lifetime as their requests.
@@ -58,124 +56,6 @@ mixin LogisticsIdentityPage<T extends ConsumerStatefulWidget>
       if (current) setState(() => busy = false);
     }
   }
-}
-
-class LogisticsChoicePage extends StatefulWidget {
-  const LogisticsChoicePage({
-    super.key,
-    required this.title,
-    required this.choices,
-  });
-  final String title;
-  final List<LogisticsChoice> choices;
-  @override
-  State<LogisticsChoicePage> createState() => _LogisticsChoicePageState();
-}
-
-class _LogisticsChoicePageState extends State<LogisticsChoicePage> {
-  String query = '';
-  @override
-  Widget build(BuildContext context) {
-    final choices = widget.choices
-        .where(
-          (x) => x.label.toLowerCase().contains(query.trim().toLowerCase()),
-        )
-        .toList();
-    return SubpageScaffold(
-      title: widget.title,
-      body: AppPageViewport(
-        maxWidth: AppLayout.workspaceMaxWidth,
-        builder: (context, insets) => Column(
-          children: [
-            Padding(
-              padding: insets + const EdgeInsets.all(AppSpace.md),
-              child: AppSearchField(
-                hintText: '搜索${widget.title}',
-                onChanged: (v) => setState(() => query = v),
-              ),
-            ),
-            Expanded(
-              child: choices.isEmpty
-                  ? const Center(child: Text('没有匹配的选项'))
-                  : ListView.builder(
-                      padding:
-                          insets +
-                          const EdgeInsets.symmetric(horizontal: AppSpace.md),
-                      itemCount: choices.length,
-                      itemBuilder: (context, i) => SettingsRow(
-                        title: choices[i].label,
-                        onTap: () => Navigator.of(context).pop(choices[i]),
-                        trailing: const Icon(AppIcons.right, size: 14),
-                      ),
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-Future<LogisticsChoice?> chooseLogistics(
-  BuildContext context,
-  String title,
-  List<LogisticsChoice> choices,
-) => AppPageRoutes.push<LogisticsChoice>(
-  context,
-  LogisticsChoicePage(title: title, choices: choices),
-);
-
-class LogisticsFormField extends StatelessWidget {
-  const LogisticsFormField({
-    super.key,
-    required this.label,
-    required this.controller,
-    this.lines = 1,
-    this.limit,
-    this.phone = false,
-    this.optional = false,
-    this.repairPhone = false,
-  });
-  final String label;
-  final TextEditingController controller;
-  final int lines;
-  final int? limit;
-  final bool phone, optional;
-  final bool repairPhone;
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: AppSpace.md),
-    child: TextFormField(
-      controller: controller,
-      minLines: lines,
-      maxLines: lines == 1 ? 1 : lines + 2,
-      maxLength: limit,
-      keyboardType: phone
-          ? TextInputType.phone
-          : lines > 1
-          ? TextInputType.multiline
-          : TextInputType.text,
-      decoration: InputDecoration(
-        labelText: label,
-        alignLabelWithHint: lines > 1,
-      ),
-      validator: (value) {
-        final text = value?.trim() ?? '';
-        if (!optional && text.isEmpty) return '请填写$label';
-        if (phone && text.isNotEmpty) {
-          final valid = repairPhone
-              ? RegExp(r'^(0|[1-9]\d{5,10})$').hasMatch(text)
-              : text.length >= 5 &&
-                    (text.length <= 10 ||
-                        RegExp(
-                          r'^(1[3-9]\d{9}|0[1-9]\d{6,13})$',
-                        ).hasMatch(text));
-          if (!valid) return '请填写正确的联系电话';
-        }
-        return null;
-      },
-    ),
-  );
 }
 
 class LogisticsAttachment {

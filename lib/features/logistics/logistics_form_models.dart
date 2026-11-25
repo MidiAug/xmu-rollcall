@@ -9,6 +9,12 @@ class LogisticsChoice {
   final String id, label;
   final String name;
   final List<String> ids;
+  // Presentation is derived from the stable wire label rather than stored as
+  // another field on each option. Submission continues to use label and ids.
+  List<String> get path => [
+    for (final part in label.split('/')) ...part.split(RegExp(r'(?<=校区)[-－]')),
+  ];
+  String get displayPath => path.join(' / ');
   String get leafName => name.isEmpty ? label : name;
   final bool imageRequired;
 }
@@ -81,4 +87,18 @@ class LogisticsFeedback {
   final bool deleted;
   final int replies;
   final List<String> images;
+}
+
+String? logisticsRequired(String? value) =>
+    value == null || value.trim().isEmpty ? '请填写此项' : null;
+
+String? logisticsPhone(String? value, {bool repair = false}) {
+  final text = value?.trim() ?? '';
+  if (text.isEmpty) return '请填写联系电话';
+  final valid = repair
+      ? RegExp(r'^(0|[1-9]\d{5,10})$').hasMatch(text)
+      : text.length >= 5 &&
+            (text.length <= 10 ||
+                RegExp(r'^(1[3-9]\d{9}|0[1-9]\d{6,13})$').hasMatch(text));
+  return valid ? null : '请填写正确的联系电话';
 }

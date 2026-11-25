@@ -226,4 +226,27 @@ void main() {
     expect(choice.label, '服务部/公寓服务');
     expect(choice.imageRequired, isTrue);
   });
+  test(
+    'display paths split campus grouping without changing submission fields',
+    () {
+      final choice = logisticsChoices([
+        {
+          'id': 'district',
+          'name': '思明校区-教工住宅东区',
+          'children': [
+            {'id': 'building01', 'name': '海滨东区01'},
+          ],
+        },
+      ]).single;
+      expect(choice.path, ['思明校区', '教工住宅东区', '海滨东区01']);
+      // Old constructor-shaped options need no extra initialized display state.
+      const existing = LogisticsChoice('building01', '思明校区-教工住宅东区/海滨东区01');
+      expect(existing.path, choice.path);
+      expect(choice.label, '思明校区-教工住宅东区/海滨东区01');
+      expect(choice.ids, ['district', 'building01']);
+      expect(choice.id, 'building01');
+      expect(logisticsPhone('13800000000', repair: true), isNull);
+      expect(logisticsPhone('not-a-phone', repair: true), isNotNull);
+    },
+  );
 }

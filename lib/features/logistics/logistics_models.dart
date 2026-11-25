@@ -1,3 +1,23 @@
+class LogisticsRepairLocation {
+  const LogisticsRepairLocation({
+    required this.areaId,
+    required this.areaName,
+    required this.address,
+  });
+  factory LogisticsRepairLocation.fromJson(Map<String, dynamic> json) =>
+      LogisticsRepairLocation(
+        areaId: _required(json, 'areaId'),
+        areaName: _required(json, 'areaName'),
+        address: _required(json, 'address'),
+      );
+  final String areaId, areaName, address;
+  Map<String, String> toJson() => {
+    'areaId': areaId,
+    'areaName': areaName,
+    'address': address,
+  };
+}
+
 class LogisticsRepair {
   LogisticsRepair(Map<String, dynamic> json)
     : id = _required(json, 'id'),
@@ -5,13 +25,24 @@ class LogisticsRepair {
       project = _required(json, 'projectName'),
       content = _required(json, 'content'),
       area = _text(json['areaName']),
+      areaId = _text(json['areaId']),
       address = _text(json['address']),
       department = _text(json['repairDeptName']),
       worker = _text(json['workerName']),
       completed = '${json['ifComplete']}' == '1',
       evaluated = '${json['ifCommont']}' == '1',
       logs = _rows(json['logs']).map(LogisticsRepairLog.new).toList();
-  final String id, number, project, content, area, address, department, worker;
+  final String id,
+      number,
+      project,
+      content,
+      area,
+      areaId,
+      address,
+      department,
+      worker;
+  String get projectTitle => project.split('/').last;
+  String get areaLabel => area.replaceAll(RegExp(r'(?<=校区)[-－]'), ' ');
   final bool completed, evaluated;
   final List<LogisticsRepairLog> logs;
   String get status => completed && !evaluated
@@ -25,6 +56,7 @@ class LogisticsRepair {
     'projectName': project,
     'content': content,
     'areaName': area,
+    'areaId': areaId,
     'address': address,
     'repairDeptName': department,
     'workerName': worker,

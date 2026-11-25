@@ -200,4 +200,79 @@ void main() {
       expect(container.read(logisticsProvider).requireValue.total, 0);
     },
   );
+  test(
+    'last repair location persists only confirmed writes, is isolated and clears with cache',
+    () async {
+      final client = LogisticsFixtureClient(total: 0);
+      final container = _container(() => client);
+      addTearDown(container.dispose);
+      final sub = container.listen(logisticsProvider, (_, _) {});
+      addTearDown(sub.close);
+      await container.read(logisticsProvider.future);
+      final notifier = container.read(logisticsProvider.notifier);
+      expect(await notifier.lastRepairLocation(), isNull);
+      final form = {
+        'areaId': 'building',
+        'areaName': '翔安校区/测试楼',
+        'address': '101室',
+        'content': 'private content',
+        'repairUserMobile': '13800000000',
+      };
+      await notifier.submitRepair(form);
+      expect((await notifier.lastRepairLocation())?.address, '101室');
+      final prefs = await SharedPreferences.getInstance();
+      final key = logisticsLastLocationKey((
+        ownerId: 1,
+        userId: 1,
+        assistId: null,
+      ));
+      final saved = prefs.getString(key)!;
+      expect(jsonDecode(saved), {
+        'areaId': 'building',
+        'areaName': '翔安校区/测试楼',
+        'address': '101室',
+      });
+      client.submission = Completer<void>();
+      final uncertain = notifier.submitRepair({...form, 'address': '202室'});
+      final assertion = expectLater(
+        uncertain,
+        throwsA(isA<LogisticsWriteUncertain>()),
+      );
+      await Future<void>.delayed(Duration.zero);
+      client.submission!.completeError(const LogisticsWriteUncertain());
+      await assertion;
+      expect(prefs.getString(key), saved);
+      container.read(_identity.notifier).state = (
+        ownerId: 1,
+        userId: 2,
+        assistId: 2,
+      );
+      await container.read(logisticsProvider.future);
+      expect(
+        await container.read(logisticsProvider.notifier).lastRepairLocation(),
+        isNull,
+      );
+      expect(prefs.getString(key), saved);
+      await clearRemoteCourseCache();
+      expect(prefs.getString(key), isNull);
+    },
+  );
+  test(
+    'reuse can read the first existing personal repair without detail requests',
+    () async {
+      final client = LogisticsFixtureClient();
+      final container = _container(() => client);
+      addTearDown(container.dispose);
+      final sub = container.listen(logisticsProvider, (_, _) {});
+      addTearDown(sub.close);
+      await container.read(logisticsProvider.future);
+      final location = await container
+          .read(logisticsProvider.notifier)
+          .lastRepairLocation();
+      expect(location?.areaId, 'building');
+      expect(location?.address, '测试楼101');
+      expect(client.pages, [1]);
+      expect(client.messageRequests, 1);
+    },
+  );
 }

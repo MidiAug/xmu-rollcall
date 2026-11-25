@@ -5,7 +5,6 @@ import 'package:xmu_rollcall/app/app_settings_glyph.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/browser/browser_session.dart';
-import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'logistics_provider.dart';
 import 'logistics_forms.dart';
 import 'logistics_records.dart';
@@ -17,7 +16,6 @@ class LogisticsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final identity = ref.watch(browserIdentityProvider);
-    final name = ref.watch(rollcallAccountNameProvider);
     final data = identity.userId == null ? null : ref.watch(logisticsProvider);
     final notifier = identity.userId == null
         ? null
@@ -47,12 +45,10 @@ class LogisticsPage extends ConsumerWidget {
               detail: '查看本人的报修与后勤消息',
             )
           : AppPageViewport(
-              maxWidth: AppLayout.workspaceMaxWidth,
+              maxWidth: AppLayout.readingMaxWidth,
               builder: (context, insets) => ListView(
                 padding: insets + EdgeInsets.all(AppSpace.pageXOf(context)),
                 children: [
-                  Text(name, style: Theme.of(context).textTheme.titleMedium),
-                  const SizedBox(height: AppSpace.md),
                   Wrap(
                     spacing: AppSpace.sm,
                     runSpacing: AppSpace.sm,
@@ -113,10 +109,14 @@ class LogisticsPage extends ConsumerWidget {
                               style: TextStyle(color: p.muted),
                             ),
                           ),
-                        Text(
-                          '更新于 ${_date(snapshot.fetchedAt)}',
-                          style: AppTypography.caption.copyWith(color: p.muted),
-                        ),
+                        if (DateTime.now().difference(snapshot.fetchedAt) >=
+                            const Duration(minutes: 5))
+                          Text(
+                            '上次更新 ${_date(snapshot.fetchedAt)}',
+                            style: AppTypography.caption.copyWith(
+                              color: p.muted,
+                            ),
+                          ),
                         const SizedBox(height: AppSpace.sm),
                         SettingsSection(
                           header: '我的报修',
@@ -128,7 +128,7 @@ class LogisticsPage extends ConsumerWidget {
                             for (final repair in snapshot.repairs)
                               SettingsRow(
                                 key: ValueKey('repair-${repair.id}'),
-                                title: repair.project,
+                                title: repair.projectTitle,
                                 subtitleWidget: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -139,7 +139,7 @@ class LogisticsPage extends ConsumerWidget {
                                     ),
                                     const SizedBox(height: AppSpace.xs),
                                     Text(
-                                      repair.area,
+                                      repair.areaLabel,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: AppTypography.caption.copyWith(
@@ -148,18 +148,11 @@ class LogisticsPage extends ConsumerWidget {
                                     ),
                                   ],
                                 ),
-                                trailing: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      repair.status,
-                                      style: AppTypography.caption.copyWith(
-                                        color: p.muted,
-                                      ),
-                                    ),
-                                    const SizedBox(height: AppSpace.xs),
-                                    const Icon(AppIcons.right, size: 14),
-                                  ],
+                                trailing: AppStatusBadge(
+                                  repair.status,
+                                  tone: repair.completed && !repair.evaluated
+                                      ? AppStatusTone.accent
+                                      : AppStatusTone.neutral,
                                 ),
                                 onTap: () => AppPageRoutes.push(
                                   context,
@@ -193,7 +186,11 @@ class LogisticsPage extends ConsumerWidget {
                                 subtitleWidget: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(message.content),
+                                    Text(
+                                      message.content,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                     const SizedBox(height: AppSpace.xs),
                                     Text(
                                       message.time,
@@ -204,7 +201,10 @@ class LogisticsPage extends ConsumerWidget {
                                   ],
                                 ),
                                 trailing: message.unread
-                                    ? const Text('未读')
+                                    ? const AppStatusBadge(
+                                        '未读',
+                                        tone: AppStatusTone.accent,
+                                      )
                                     : null,
                                 onTap: () => AppPageRoutes.push<void>(
                                   context,
@@ -308,7 +308,7 @@ class _LogisticsRepairPageState extends ConsumerState<LogisticsRepairPage>
       isBusy: () => busy,
       actions: [AppRefreshButton(busy: busy, onRefresh: load)],
       body: AppPageViewport(
-        maxWidth: AppLayout.workspaceMaxWidth,
+        maxWidth: AppLayout.readingMaxWidth,
         builder: (context, insets) => ListView(
           padding: insets + EdgeInsets.all(AppSpace.pageXOf(context)),
           children: [
@@ -321,11 +321,30 @@ class _LogisticsRepairPageState extends ConsumerState<LogisticsRepairPage>
               padTop: false,
               hasLeading: false,
               children: [
-                SettingsRow(title: repair.project, subtitle: repair.status),
-                SettingsRow(title: '故障描述', subtitle: repair.content),
+                Padding(
+                  padding: const EdgeInsets.all(AppSpace.lg),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        repair.projectTitle,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: AppSpace.sm),
+                      AppStatusBadge(
+                        repair.status,
+                        tone: repair.completed && !repair.evaluated
+                            ? AppStatusTone.accent
+                            : AppStatusTone.neutral,
+                      ),
+                      const SizedBox(height: AppSpace.lg),
+                      SelectableText(repair.content),
+                    ],
+                  ),
+                ),
                 SettingsRow(
                   title: '故障地点',
-                  subtitle: '${repair.area}\n${repair.address}',
+                  subtitle: '${repair.areaLabel}\n${repair.address}',
                 ),
                 if (repair.department.isNotEmpty)
                   SettingsRow(title: '服务单位', subtitle: repair.department),
@@ -342,7 +361,10 @@ class _LogisticsRepairPageState extends ConsumerState<LogisticsRepairPage>
                     title: '维修费用',
                     subtitle: '${finished['totalCost']}元',
                   ),
-                SettingsRow(title: '报修单号', subtitle: repair.number),
+                AppDisclosure(
+                  title: '报修单号',
+                  children: [SelectableText(repair.number)],
+                ),
               ],
             ),
             if (images.isNotEmpty)

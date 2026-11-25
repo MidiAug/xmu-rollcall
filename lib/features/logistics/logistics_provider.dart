@@ -10,6 +10,8 @@ export 'logistics_models.dart';
 
 String logisticsCacheKey(BrowserIdentity identity) =>
     'logistics_v1_${identity.ownerId}_${identity.userId}';
+String logisticsLastLocationKey(BrowserIdentity identity) =>
+    '${logisticsCacheKey(identity)}_last_location';
 final logisticsClientFactoryProvider = Provider<LogisticsClient Function()>(
   (ref) => LogisticsClient.new,
 );
@@ -145,6 +147,55 @@ class LogisticsNotifier extends AutoDisposeAsyncNotifier<LogisticsSnapshot> {
   Future<void> afterMutation() async {
     _attempt = null;
     await refresh();
+  }
+
+  Future<LogisticsRepairLocation?> lastRepairLocation() async {
+    final revision = _revision;
+    final prefs = await SharedPreferences.getInstance();
+    if (!_current(revision)) throw StateError('账号已切换');
+    final raw = prefs.getString(logisticsLastLocationKey(_identity));
+    if (raw != null) {
+      try {
+        return LogisticsRepairLocation.fromJson(
+          jsonDecode(raw) as Map<String, dynamic>,
+        );
+      } catch (_) {
+        // Use the already loaded personal history when this local shortcut is invalid.
+      }
+    }
+    final previous = state.valueOrNull?.repairs.firstOrNull;
+    if (previous == null ||
+        previous.areaId.isEmpty ||
+        previous.area.isEmpty ||
+        previous.address.isEmpty) {
+      return null;
+    }
+    return LogisticsRepairLocation(
+      areaId: previous.areaId,
+      areaName: previous.area,
+      address: previous.address,
+    );
+  }
+
+  Future<String> submitRepair(Map<String, dynamic> form) async {
+    final revision = _revision;
+    final identity = _identity;
+    final location = LogisticsRepairLocation.fromJson(form);
+    final id = await run((client) => client.submitRepair(form));
+    // A local preference failure must never turn a confirmed server submission
+    // into a failed form that invites the user to submit the same repair again.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_current(revision)) {
+        await prefs.setString(
+          logisticsLastLocationKey(identity),
+          jsonEncode(location.toJson()),
+        );
+      }
+    } catch (_) {
+      // The repair succeeded; only the optional reuse shortcut was not saved.
+    }
+    return id;
   }
 
   Future<void> refresh({bool more = false}) {

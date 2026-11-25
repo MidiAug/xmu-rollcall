@@ -139,6 +139,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(LogisticsPage), findsOneWidget);
     expect(find.text('我的报修'), findsOneWidget);
+    expect(find.text('测试账号'), findsNothing);
     await captureDesktopUi(tester, 'logistics-one-order');
   });
   testWidgets('all primary actions stay inside native forms', (tester) async {
@@ -181,7 +182,17 @@ void main() {
   });
   Future<void> press(WidgetTester tester, Finder target) async {
     if (target.evaluate().isEmpty) {
-      await tester.scrollUntilVisible(target, 250, maxScrolls: 30);
+      await tester.scrollUntilVisible(
+        target,
+        250,
+        maxScrolls: 30,
+        scrollable: find
+            .descendant(
+              of: find.byType(ListView).last,
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
     }
     await tester.ensureVisible(target);
     await tester.tap(target);
@@ -216,10 +227,14 @@ void main() {
           await press(tester, find.widgetWithText(AppButton, '提交报修'));
           expect(client.writes, isEmpty);
           await press(tester, find.text('故障区域'));
-          await press(tester, find.text('翔安校区/测试楼'));
+          await press(tester, find.text('翔安校区'));
+          await press(tester, find.text('测试楼'));
           await press(tester, find.text('维修项目'));
-          await press(tester, find.text('水/管道维修'));
+          await press(tester, find.text('水'));
+          await press(tester, find.text('管道维修'));
           await fill(tester, '详细地址', '101室');
+          expect(find.widgetWithText(TextFormField, '报修人'), findsNothing);
+          await press(tester, find.text('联系信息'));
           await fill(tester, '报修人', '测试用户');
           await fill(tester, '联系电话', '13800000000');
           await fill(tester, '故障描述', '管道堵塞，请检查');
@@ -234,6 +249,31 @@ void main() {
           expect(client.lastForm!['areaId'], 'building');
           expect(client.lastForm!['ifPublish'], '1');
           expect(find.byType(LogisticsRepairForm), findsNothing);
+          await press(tester, find.text('我要报修'));
+          expect(find.text('上次报修地点'), findsOneWidget);
+          final addressField = find.widgetWithText(TextFormField, '详细地址');
+          expect(
+            tester.widget<TextFormField>(addressField).controller!.text,
+            isEmpty,
+          );
+          await captureDesktopUi(tester, 'logistics-reuse-place-$width-$dark');
+          await press(tester, find.text('上次报修地点'));
+          expect(
+            tester.widget<TextFormField>(addressField).controller!.text,
+            '101室',
+          );
+          expect(find.text('翔安校区 / 测试楼'), findsOneWidget);
+          // Reusing the location never reuses the previous fault or project.
+          expect(
+            tester
+                .widget<TextFormField>(
+                  find.widgetWithText(TextFormField, '故障描述'),
+                )
+                .controller!
+                .text,
+            isEmpty,
+          );
+          expect(find.text('选择维修项目'), findsOneWidget);
         },
       );
       testWidgets(
@@ -248,10 +288,10 @@ void main() {
             client: client,
           );
           await press(tester, find.text('意见反馈'));
-          await press(tester, find.text('反馈类别'));
           await press(tester, find.text('建议'));
           await press(tester, find.text('服务类型'));
-          await press(tester, find.text('测试服务部/公寓服务'));
+          await press(tester, find.text('测试服务部'));
+          await press(tester, find.text('公寓服务'));
           await fill(tester, '标题', '公寓服务建议');
           await fill(tester, '详细说明', '请改善服务');
           await fill(tester, '联系方式', '13800000000');
