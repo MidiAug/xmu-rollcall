@@ -51,6 +51,30 @@ void main() {
   }
 
   test(
+    'missing dorm explains empty readings without a network query',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      var calls = 0;
+      final c = ProviderContainer(
+        overrides: [
+          browserIdentityProvider.overrideWith((ref) => ref.watch(selection)),
+          electricityClientFactoryProvider.overrideWithValue(() {
+            calls++;
+            return _Client((_) async => throw StateError('unexpected query'));
+          }),
+        ],
+      );
+      addTearDown(c.dispose);
+      final sub = c.listen(electricityProvider, (_, _) {});
+      addTearDown(sub.close);
+      expect(await c.read(electricityProvider.future), isEmpty);
+      expect(c.read(electricityProvider.notifier).warning, '请先选择个人宿舍以查询电费');
+      await c.read(electricityProvider.notifier).refresh();
+      expect(c.read(electricityProvider.notifier).warning, '请先选择个人宿舍以查询电费');
+      expect(calls, 0);
+    },
+  );
+  test(
     'opening automatically queries both saved rooms and caches scoped readings',
     () async {
       await seed();

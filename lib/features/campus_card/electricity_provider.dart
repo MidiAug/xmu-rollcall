@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:xmu_rollcall/features/browser/browser_session.dart';
+import 'package:xmu_rollcall/core/logging/app_log.dart';
 import 'campus_card_providers.dart';
 import 'electricity_client.dart';
 export 'electricity_client.dart';
@@ -65,6 +66,14 @@ class ElectricityNotifier
         .read(campusCardInfoProvider.notifier)
         .savedElectricRooms();
     if (!_current(r)) throw StateError('账号已切换');
+    AppLog.event(
+      'electricity.restore',
+      fields: {'roomCount': rooms.length, 'cachedCount': cached.length},
+    );
+    if (rooms.isEmpty) {
+      warning = '请先选择个人宿舍以查询电费';
+      return {};
+    }
     final valid = <CardElectricRoomKind, ElectricReading>{};
     for (final entry in cached.entries) {
       final room = rooms[entry.key];
@@ -116,7 +125,21 @@ class ElectricityNotifier
         );
         ref.invalidate(cachedElectricityProvider);
       }
+      AppLog.event(
+        'electricity.query.success',
+        fields: {'readingCount': result.length},
+      );
       return result;
+    } catch (e) {
+      AppLog.event(
+        'electricity.query.failed',
+        level: 'W',
+        fields: {
+          'errorType': e.runtimeType.toString(),
+          'roomCount': rooms.length,
+        },
+      );
+      rethrow;
     } finally {
       c.close();
     }
@@ -141,6 +164,12 @@ class ElectricityNotifier
           .read(campusCardInfoProvider.notifier)
           .savedElectricRooms();
       if (!_current(r)) return;
+      if (rooms.isEmpty) {
+        warning = '请先选择个人宿舍以查询电费';
+        AppLog.event('electricity.rooms.missing');
+        state = const AsyncData({});
+        return;
+      }
       final value = await _fetch(r, rooms);
       if (_current(r)) state = AsyncData(value);
     } catch (e, st) {
