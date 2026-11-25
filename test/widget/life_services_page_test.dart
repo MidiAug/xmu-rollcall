@@ -30,6 +30,8 @@ void main() {
     bool seed = true,
     List<Uri>? launched,
     bool launch = true,
+    Map<CardElectricRoomKind, CardElectricRoom> rooms = const {},
+    Widget home = const LifeServicesPage(),
   }) async {
     tester.view.physicalSize = Size(width, 840);
     tester.view.devicePixelRatio = 1;
@@ -37,6 +39,11 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     SharedPreferences.setMockInitialValues({
+      if (rooms.isNotEmpty)
+        'campus_card_rooms_v1_1_1': jsonEncode({
+          for (final entry in rooms.entries)
+            entry.key.name: entry.value.toJson(),
+        }),
       if (seed)
         campusCardCacheKey(identity): jsonEncode({
           'card': client.value.toJson(),
@@ -77,7 +84,7 @@ void main() {
               child: child!,
             ),
           ),
-          home: const LifeServicesPage(),
+          home: home,
         ),
       ),
     );
@@ -174,6 +181,17 @@ void main() {
         launched: launched,
         launch: false,
       );
+      if (width > 500) {
+        expect(
+          tester
+              .widget<AppButton>(find.widgetWithText(AppButton, '充值'))
+              .onPressed,
+          isNull,
+        );
+        expect(find.text('请在手机端充值'), findsOneWidget);
+        expect(client.writes, isEmpty);
+        return;
+      }
       await press(tester, find.text('充值'));
       expect(find.byType(CampusCardPaymentPage), findsOneWidget);
       await fill(tester, '金额（元）', '50.25');
@@ -197,7 +215,7 @@ void main() {
   testWidgets('uncertain top-up cannot create a second order', (tester) async {
     final client = CampusCardFixtureClient()..uncertain = true;
     final launched = <Uri>[];
-    await pump(tester, client, launched: launched);
+    await pump(tester, client, width: 390, launched: launched);
     await press(tester, find.text('充值'));
     await fill(tester, '金额（元）', '10');
     await press(tester, find.widgetWithText(AppButton, '前往支付宝'));
@@ -224,6 +242,17 @@ void main() {
         expect(find.text('缴费房间 0301'), findsOneWidget);
         expect(client.writes, isEmpty);
         await captureDesktopUi(tester, 'native-card-electricity-$width');
+        if (width > 500) {
+          expect(
+            tester
+                .widget<AppButton>(find.widgetWithText(AppButton, '填写缴费金额'))
+                .onPressed,
+            isNull,
+          );
+          expect(find.text('请在手机端缴费'), findsOneWidget);
+          expect(client.writes, isEmpty);
+          return;
+        }
         await press(tester, find.text('填写缴费金额'));
         await fill(tester, '金额（元）', '20');
         await press(tester, find.widgetWithText(AppButton, '前往支付宝'));
@@ -234,6 +263,72 @@ void main() {
       },
     );
   }
+  testWidgets(
+    'reuse either saved room opens amount directly and allows manual editing',
+    (tester) async {
+      final client = CampusCardFixtureClient();
+      await pump(
+        tester,
+        client,
+        width: 390,
+        rooms: {
+          CardElectricRoomKind.personal: electricRoomFixture('0301'),
+          CardElectricRoomKind.shared: electricRoomFixture('0300'),
+        },
+      );
+      await press(tester, find.text('电费缴费'));
+      expect(find.text('上次选择的宿舍'), findsOneWidget);
+      await captureDesktopUi(tester, 'native-electricity-two-rooms');
+      await press(tester, find.text('个人房间').first);
+      expect(find.byType(CampusCardPaymentPage), findsOneWidget);
+      expect(find.textContaining('0301'), findsOneWidget);
+      expect(client.writes, isEmpty);
+      await press(tester, find.text('修改宿舍'));
+      expect(find.byType(CampusCardPaymentPage), findsNothing);
+      await press(tester, find.text('公共客厅').first);
+      expect(find.byType(CampusCardPaymentPage), findsOneWidget);
+      expect(find.textContaining('0300'), findsOneWidget);
+      await fill(tester, '金额（元）', '20');
+      await press(tester, find.widgetWithText(AppButton, '前往支付宝'));
+      expect(find.textContaining('公共客厅'), findsWidgets);
+      expect(client.writes, isEmpty);
+      await press(tester, find.text('取消'));
+    },
+  );
+  testWidgets('desktop direct payment route cannot create an order', (
+    tester,
+  ) async {
+    final client = CampusCardFixtureClient();
+    await pump(
+      tester,
+      client,
+      home: CampusCardPaymentPage(room: electricRoomFixture('0301')),
+    );
+    await fill(tester, '金额（元）', '20');
+    expect(
+      tester
+          .widget<AppButton>(find.widgetWithText(AppButton, '前往支付宝'))
+          .onPressed,
+      isNull,
+    );
+    expect(find.text('请在手机端缴费'), findsOneWidget);
+    expect(client.writes, isEmpty);
+  });
+  testWidgets(
+    'directory shows card and personal electricity only, without inventing a balance',
+    (tester) async {
+      await pump(
+        tester,
+        CampusCardFixtureClient(),
+        home: const Scaffold(
+          body: Center(child: LifeServiceBalancesTrailing()),
+        ),
+      );
+      expect(find.text('上次校园卡 ¥128.50'), findsOneWidget);
+      expect(find.text('个人电费 —'), findsOneWidget);
+      expect(find.textContaining('公共客厅'), findsNothing);
+    },
+  );
   testWidgets('native bills use monthly categories and transaction details', (
     tester,
   ) async {

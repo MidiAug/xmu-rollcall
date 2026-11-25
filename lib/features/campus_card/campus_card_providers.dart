@@ -85,6 +85,49 @@ class CampusCardNotifier extends AutoDisposeAsyncNotifier<CampusCardInfo> {
     return _fetch(revision);
   }
 
+  // These are user-confirmed destinations, never claimed as school dorm bindings.
+  String get _roomsKey =>
+      'campus_card_rooms_v1_${_identity.ownerId}_${_identity.userId}';
+  Future<Map<CardElectricRoomKind, CardElectricRoom>>
+  savedElectricRooms() async {
+    final revision = _revision;
+    final prefs = await SharedPreferences.getInstance();
+    if (!_current(revision)) throw StateError('账号已切换');
+    final raw = prefs.getString(_roomsKey);
+    if (raw == null) return {};
+    try {
+      final data = cardMap(raw);
+      return {
+        for (final kind in CardElectricRoomKind.values)
+          if (data[kind.name] != null)
+            kind: CardElectricRoom.fromJson(cardMap(data[kind.name])),
+      };
+    } on FormatException {
+      return {};
+    }
+  }
+
+  Future<void> rememberElectricRoom(
+    CardElectricRoomKind kind,
+    CardElectricRoom room,
+  ) async {
+    final revision = _revision;
+    final key = _roomsKey;
+    final previous = await savedElectricRooms();
+    previous[kind] = room;
+    final prefs = await SharedPreferences.getInstance();
+    if (!_current(revision)) throw StateError('账号已切换');
+    if (!await prefs.setString(
+      key,
+      jsonEncode({
+        for (final entry in previous.entries)
+          entry.key.name: entry.value.toJson(),
+      }),
+    )) {
+      throw const CampusCardException('宿舍记录未能保存，请重试');
+    }
+  }
+
   Future<CampusCardInfo> _connected(int revision, {bool force = false}) async {
     final access = await ref.read(academicIdentityResolverProvider)(
       _identity.userId!,

@@ -10,6 +10,7 @@ import 'package:xmu_rollcall/features/campus_card/campus_card_providers.dart';
 import 'package:xmu_rollcall/features/campus_card/campus_card_records.dart';
 import 'package:xmu_rollcall/features/campus_card/campus_card_forms.dart';
 import 'package:xmu_rollcall/features/campus_card/campus_card_power_page.dart';
+import 'package:xmu_rollcall/features/campus_card/campus_card_cashier.dart';
 
 class LifeServicesPage extends ConsumerWidget {
   const LifeServicesPage({super.key});
@@ -24,6 +25,7 @@ class LifeServicesPage extends ConsumerWidget {
         : ref.read(campusCardInfoProvider.notifier);
     void open(Widget page) => AppPageRoutes.push<void>(context, page);
     final palette = AppPalette.of(context);
+    final canPay = campusCardCanPayOn(Theme.of(context).platform);
     return SubpageScaffold(
       title: '生活服务',
       actions: [
@@ -108,16 +110,29 @@ class LifeServicesPage extends ConsumerWidget {
                               ),
                             ),
                           const SizedBox(height: AppSpace.lg),
+                          const AppMetric(label: '个人房间电费', value: '—'),
+                          const SizedBox(height: AppSpace.lg),
                           AppButton(
                             label: '充值',
                             icon: AppIcons.add,
-                            onPressed: () =>
-                                open(const CampusCardPaymentPage()),
+                            onPressed: canPay
+                                ? () => open(const CampusCardPaymentPage())
+                                : null,
                           ),
                         ],
                       ),
                     ),
                   ),
+                  if (!canPay)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpace.sm),
+                      child: Text(
+                        '请在手机端充值',
+                        style: AppTypography.caption.copyWith(
+                          color: palette.muted,
+                        ),
+                      ),
+                    ),
                   if (notifier!.warning != null)
                     Padding(
                       padding: const EdgeInsets.only(top: AppSpace.sm),
@@ -221,11 +236,21 @@ class LifeServiceBalancesTrailing extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final snapshot = ref.watch(campusCardCachedInfoProvider);
     final card = snapshot.isReloading ? null : snapshot.valueOrNull;
-    return Text(
-      card == null ? '—' : '上次 ¥${card.balanceYuan.toStringAsFixed(2)}',
-      style: AppTypography.caption.copyWith(
-        color: AppPalette.of(context).muted,
-      ),
+    final style = AppTypography.caption.copyWith(
+      color: AppPalette.of(context).muted,
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Text(
+          card == null
+              ? '校园卡 —'
+              : '上次校园卡 ¥${card.balanceYuan.toStringAsFixed(2)}',
+          style: style,
+        ),
+        Text('个人电费 —', style: style),
+      ],
     );
   }
 }

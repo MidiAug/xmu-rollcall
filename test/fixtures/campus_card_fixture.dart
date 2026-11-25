@@ -138,3 +138,11 @@ class CampusCardFixtureClient extends CampusCardClient {
     writes.add('password');
   }
 }
+
+CardElectricRoom electricRoomFixture(String room) => CardElectricRoom(
+  application: const CardChoice('elec', '宿舍电费'),
+  area: const CardChoice('area', '思明校区芙蓉区'),
+  building: const CardChoice('building', '测试楼'),
+  id: room,
+  name: room,
+);

@@ -183,6 +183,14 @@ class CardChoice {
   }
 }
 
+enum CardElectricRoomKind {
+  personal('个人房间'),
+  shared('公共客厅');
+
+  const CardElectricRoomKind(this.label);
+  final String label;
+}
+
 class CardElectricRoom {
   const CardElectricRoom({
     required this.application,
@@ -193,6 +201,32 @@ class CardElectricRoom {
   });
   final CardChoice application, area, building;
   final String id, name;
+  String get address => '${area.name} ${building.name} $name';
+  Map<String, dynamic> toJson() => {
+    'application': {'id': application.id, 'name': application.name},
+    'area': {'id': area.id, 'name': area.name},
+    'building': {'id': building.id, 'name': building.name},
+    'id': id,
+    'name': name,
+  };
+  factory CardElectricRoom.fromJson(Map<String, dynamic> json) {
+    CardChoice choice(String key) {
+      final row = cardMap(json[key]);
+      final id = cardText(row['id']), name = cardText(row['name']);
+      if (id.isEmpty || name.isEmpty) throw const FormatException('宿舍记录不完整');
+      return CardChoice(id, name);
+    }
+
+    final id = cardText(json['id']), name = cardText(json['name']);
+    if (id.isEmpty || name.isEmpty) throw const FormatException('宿舍记录不完整');
+    return CardElectricRoom(
+      application: choice('application'),
+      area: choice('area'),
+      building: choice('building'),
+      id: id,
+      name: name,
+    );
+  }
   Map<String, String> get paymentFields => {
     'aid': application.id,
     'areaid': area.id,

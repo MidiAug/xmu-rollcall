@@ -134,10 +134,50 @@ void main() {
     },
   );
   test(
+    'personal and shared rooms persist separately and never cross identities',
+    () async {
+      final c = container(CampusCardFixtureClient.new);
+      addTearDown(c.dispose);
+      final sub = c.listen(campusCardInfoProvider, (_, _) {});
+      addTearDown(sub.close);
+      await c.read(campusCardInfoProvider.future);
+      var notifier = c.read(campusCardInfoProvider.notifier);
+      await notifier.rememberElectricRoom(
+        CardElectricRoomKind.personal,
+        electricRoomFixture('0301'),
+      );
+      await notifier.rememberElectricRoom(
+        CardElectricRoomKind.shared,
+        electricRoomFixture('0300'),
+      );
+      final saved = await notifier.savedElectricRooms();
+      expect(saved[CardElectricRoomKind.personal]!.id, '0301');
+      expect(saved[CardElectricRoomKind.shared]!.id, '0300');
+      c.read(selection.notifier).state = (ownerId: 1, userId: 2, assistId: 2);
+      await c.read(campusCardInfoProvider.future);
+      notifier = c.read(campusCardInfoProvider.notifier);
+      expect(await notifier.savedElectricRooms(), isEmpty);
+      c.read(selection.notifier).state = (
+        ownerId: 1,
+        userId: 1,
+        assistId: null,
+      );
+      await c.read(campusCardInfoProvider.future);
+      expect(
+        (await c
+                .read(campusCardInfoProvider.notifier)
+                .savedElectricRooms())[CardElectricRoomKind.personal]!
+            .id,
+        '0301',
+      );
+    },
+  );
+  test(
     'clear action removes new and legacy card caches while keeping handwritten data',
     () async {
       SharedPreferences.setMockInitialValues({
         'campus_card_v1_1_1': 'snapshot',
+        'campus_card_rooms_v1_1_1': 'rooms',
         'life_v1_1': 'old',
         'personal_meeting': 'keep',
       });
@@ -145,6 +185,7 @@ void main() {
       final p = await SharedPreferences.getInstance();
       expect(p.getString('campus_card_v1_1_1'), isNull);
       expect(p.getString('life_v1_1'), isNull);
+      expect(p.getString('campus_card_rooms_v1_1_1'), isNull);
       expect(p.getString('personal_meeting'), 'keep');
     },
   );

@@ -8,6 +8,7 @@ import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'campus_card_providers.dart';
 import 'campus_card_page_session.dart';
 import 'campus_card_forms.dart';
+import 'campus_card_cashier.dart';
 
 class CampusCardPowerPage extends ConsumerStatefulWidget {
   const CampusCardPowerPage({super.key});
@@ -24,6 +25,8 @@ class _CampusCardPowerPageState extends ConsumerState<CampusCardPowerPage>
   List<CardChoice> areas = [], buildings = [];
   CardChoice? application, area, building;
   CardElectricRoom? resolved;
+  CardElectricRoomKind kind = CardElectricRoomKind.personal;
+  Map<CardElectricRoomKind, CardElectricRoom> saved = {};
   @override
   void initState() {
     super.initState();
@@ -37,6 +40,11 @@ class _CampusCardPowerPageState extends ConsumerState<CampusCardPowerPage>
   }
 
   Future<void> load() => perform(() async {
+    final previous = await ref
+        .read(campusCardInfoProvider.notifier)
+        .savedElectricRooms();
+    if (!current) return;
+    saved = previous;
     final result = await ref
         .read(campusCardInfoProvider.notifier)
         .run((c) => c.electricApplications());
@@ -126,13 +134,64 @@ class _CampusCardPowerPageState extends ConsumerState<CampusCardPowerPage>
               roomNumber.text.trim().padLeft(4, '0'),
             ),
           );
-      if (current) resolved = result;
+      if (!current) return;
+      await ref
+          .read(campusCardInfoProvider.notifier)
+          .rememberElectricRoom(kind, result);
+      if (!current) return;
+      resolved = result;
+      saved[kind] = result;
     });
+  }
+
+  Future<void> reuse(
+    CardElectricRoomKind targetKind,
+    CardElectricRoom room,
+  ) async {
+    await perform(() async {
+      final checked = await ref
+          .read(campusCardInfoProvider.notifier)
+          .run(
+            (c) => c.electricRoom(
+              room.application,
+              room.area,
+              room.building,
+              room.id,
+            ),
+          );
+      if (!current) return;
+      await ref
+          .read(campusCardInfoProvider.notifier)
+          .rememberElectricRoom(targetKind, checked);
+      if (!current) return;
+      kind = targetKind;
+      application = checked.application;
+      area = checked.area;
+      building = checked.building;
+      roomNumber.text = checked.id;
+      resolved = checked;
+      saved[kind] = checked;
+      // Reload dependent choices so editing a reused room uses the same picker.
+      areas = await ref
+          .read(campusCardInfoProvider.notifier)
+          .run((c) => c.electricAreas(application!));
+      if (!current) return;
+      buildings = await ref
+          .read(campusCardInfoProvider.notifier)
+          .run((c) => c.electricBuildings(application!, area!));
+    });
+    if (mounted && current && error == null && resolved != null) {
+      await AppPageRoutes.push<void>(
+        context,
+        CampusCardPaymentPage(room: resolved, roomKind: kind),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     watchSession();
+    final canPay = campusCardCanPayOn(Theme.of(context).platform);
     return SubpageScaffold(
       title: '宿舍电费',
       isBusy: () => busy,
@@ -148,6 +207,36 @@ class _CampusCardPowerPageState extends ConsumerState<CampusCardPowerPage>
             ] else if (applications!.isEmpty)
               const EmptyHint(icon: AppIcons.info, title: '暂无可用的电费服务')
             else ...[
+              if (saved.isNotEmpty)
+                SettingsSection(
+                  header: '上次选择的宿舍',
+                  hasLeading: false,
+                  children: [
+                    for (final entry in saved.entries)
+                      SettingsRow(
+                        title: entry.key.label,
+                        subtitle: entry.value.address,
+                        trailing: const Icon(AppIcons.right, size: 14),
+                        enabled: !busy,
+                        onTap: () => reuse(entry.key, entry.value),
+                      ),
+                  ],
+                ),
+              AppSegmentedControl<CardElectricRoomKind>(
+                segments: [
+                  for (final value in CardElectricRoomKind.values)
+                    AppSegment(value: value, label: value.label),
+                ],
+                value: kind,
+                expanded: true,
+                enabled: !busy,
+                onChanged: (value) => setState(() {
+                  kind = value;
+                  resolved = null;
+                  roomNumber.clear();
+                }),
+              ),
+              const SizedBox(height: AppSpace.lg),
               SettingsSection(
                 padTop: false,
                 hasLeading: false,
@@ -210,16 +299,31 @@ class _CampusCardPowerPageState extends ConsumerState<CampusCardPowerPage>
                   alignment: Alignment.centerLeft,
                   child: AppButton(
                     label: '填写缴费金额',
-                    onPressed: () => AppPageRoutes.push<void>(
-                      context,
-                      CampusCardPaymentPage(room: resolved),
-                    ),
+                    onPressed: canPay
+                        ? () => AppPageRoutes.push<void>(
+                            context,
+                            CampusCardPaymentPage(
+                              room: resolved,
+                              roomKind: kind,
+                            ),
+                          )
+                        : null,
                   ),
                 ),
               ] else
                 Align(
                   alignment: Alignment.centerLeft,
                   child: AppButton(label: '核对宿舍', busy: busy, onPressed: check),
+                ),
+              if (!canPay)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpace.sm),
+                  child: Text(
+                    '请在手机端缴费',
+                    style: AppTypography.caption.copyWith(
+                      color: AppPalette.of(context).muted,
+                    ),
+                  ),
                 ),
             ],
           ],

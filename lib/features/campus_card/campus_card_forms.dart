@@ -10,8 +10,9 @@ import 'campus_card_page_session.dart';
 import 'campus_card_cashier.dart';
 
 class CampusCardPaymentPage extends ConsumerStatefulWidget {
-  const CampusCardPaymentPage({super.key, this.room});
+  const CampusCardPaymentPage({super.key, this.room, this.roomKind});
   final CardElectricRoom? room;
+  final CardElectricRoomKind? roomKind;
   @override
   ConsumerState<CampusCardPaymentPage> createState() =>
       _CampusCardPaymentPageState();
@@ -30,6 +31,7 @@ class _CampusCardPaymentPageState extends ConsumerState<CampusCardPaymentPage>
   }
 
   Future<void> pay() async {
+    if (!campusCardCanPayOn(Theme.of(context).platform)) return;
     int? cents;
     if (order == null) {
       if (!form.currentState!.validate()) return;
@@ -48,7 +50,7 @@ class _CampusCardPaymentPageState extends ConsumerState<CampusCardPaymentPage>
             : '缴纳电费 ¥${(cents / 100).toStringAsFixed(2)}？',
         message: room == null
             ? '校园卡 ${info.account}\n将在支付宝完成付款。'
-            : '${room.area.name}\n${room.building.name}\n房间 ${room.name}\n将在支付宝完成付款。',
+            : '${widget.roomKind?.label ?? '宿舍'}\n${room.area.name}\n${room.building.name}\n房间 ${room.name}\n将在支付宝完成付款。',
         confirmLabel: '前往支付宝',
       );
       if (!mounted || !current || !confirmed) return;
@@ -87,6 +89,7 @@ class _CampusCardPaymentPageState extends ConsumerState<CampusCardPaymentPage>
   Widget build(BuildContext context) {
     watchSession();
     final room = widget.room;
+    final canPay = campusCardCanPayOn(Theme.of(context).platform);
     return SubpageScaffold(
       title: room == null ? '校园卡充值' : '电费缴费',
       isBusy: () => busy,
@@ -102,8 +105,18 @@ class _CampusCardPaymentPageState extends ConsumerState<CampusCardPaymentPage>
                 hasLeading: false,
                 children: [
                   SettingsRow(
-                    title: room.area.name,
-                    subtitle: '${room.building.name}\n${room.name}',
+                    title: widget.roomKind?.label ?? '缴费宿舍',
+                    subtitle: room.address,
+                    trailing: order == null && !uncertain
+                        ? AppButton(
+                            label: '修改宿舍',
+                            kind: AppButtonKind.secondary,
+                            compact: true,
+                            onPressed: busy
+                                ? null
+                                : () => Navigator.of(context).pop(),
+                          )
+                        : null,
                   ),
                 ],
               ),
@@ -167,9 +180,21 @@ class _CampusCardPaymentPageState extends ConsumerState<CampusCardPaymentPage>
                           Navigator.of(context).pop();
                         }
                       })
-                    : pay,
+                    : canPay
+                    ? pay
+                    : null,
               ),
             ),
+            if (!canPay)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpace.sm),
+                child: Text(
+                  room == null ? '请在手机端充值' : '请在手机端缴费',
+                  style: AppTypography.caption.copyWith(
+                    color: AppPalette.of(context).muted,
+                  ),
+                ),
+              ),
             if (order != null)
               Padding(
                 padding: const EdgeInsets.only(top: AppSpace.md),

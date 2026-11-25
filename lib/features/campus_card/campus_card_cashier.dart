@@ -1,6 +1,10 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+bool campusCardCanPayOn(TargetPlatform platform) =>
+    platform == TargetPlatform.android || platform == TargetPlatform.iOS;
 
 /// Launches the signed payment-provider cashier returned by the native card
 /// client. No school business page or WebView participates in this transition.
@@ -8,6 +12,7 @@ final campusCardCashierLauncherProvider = Provider<Future<bool> Function(Uri)>(
   (ref) => launchNativeCardCashier,
 );
 Future<bool> launchNativeCardCashier(Uri cashier) async {
+  if (!Platform.isAndroid && !Platform.isIOS) return false;
   if (cashier.scheme != 'https' ||
       !(cashier.host == 'alipay.com' || cashier.host.endsWith('.alipay.com'))) {
     return false;
