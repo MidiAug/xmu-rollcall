@@ -47,6 +47,23 @@ class _CampusCardPowerPageState extends ConsumerState<CampusCardPowerPage>
         .savedElectricRooms();
     if (!current) return;
     saved = previous;
+    final personal = previous[CardElectricRoomKind.personal];
+    if (personal != null) {
+      kind = CardElectricRoomKind.personal;
+      application = personal.application;
+      area = personal.area;
+      building = personal.building;
+      roomNumber.text = personal.id;
+      resolved = personal;
+      applications = [personal.application];
+      areas = [personal.area];
+      buildings = [personal.building];
+      editingRoom = false;
+      return;
+    }
+    await loadChoices();
+  });
+  Future<void> loadChoices() async {
     final result = await ref
         .read(campusCardInfoProvider.notifier)
         .run((c) => c.electricApplications());
@@ -59,19 +76,21 @@ class _CampusCardPowerPageState extends ConsumerState<CampusCardPowerPage>
           .run((c) => c.electricAreas(application!));
       if (!current) return;
       areas = values;
-      final personal = saved[CardElectricRoomKind.personal];
-      if (personal != null &&
-          personal.application.id == application!.id &&
-          areas.any((v) => v.id == personal.area.id)) {
-        kind = CardElectricRoomKind.personal;
-        area = personal.area;
-        building = personal.building;
-        roomNumber.text = personal.id;
-        resolved = personal;
-        editingRoom = false;
-      }
     }
-  });
+  }
+
+  Future<void> beginEditing() async {
+    setState(() => editingRoom = true);
+    await perform(() async {
+      await loadChoices();
+      if (!current || application == null || area == null) return;
+      final values = await ref
+          .read(campusCardInfoProvider.notifier)
+          .run((c) => c.electricBuildings(application!, area!));
+      if (current) buildings = values;
+    });
+  }
+
   Future<CardChoice?> choose(
     String title,
     List<CardChoice> choices,
@@ -266,9 +285,7 @@ class _CampusCardPowerPageState extends ConsumerState<CampusCardPowerPage>
                         label: '修改宿舍',
                         compact: true,
                         kind: AppButtonKind.secondary,
-                        onPressed: busy
-                            ? null
-                            : () => setState(() => editingRoom = true),
+                        onPressed: busy ? null : beginEditing,
                       ),
                     ),
                   ],

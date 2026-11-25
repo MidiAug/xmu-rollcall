@@ -35,6 +35,7 @@ class CampusCardFixtureClient extends CampusCardClient {
   CampusCardInfo value = cardFixture();
   bool fail = false, uncertain = false, failLaunch = false;
   int fetchCount = 0;
+  int electricDirectoryReads = 0;
   Completer<CampusCardInfo>? pending;
   Completer<void>? pendingWrite;
   final writes = <String>[];
@@ -73,9 +74,11 @@ class CampusCardFixtureClient extends CampusCardClient {
   @override
   Future<List<({String name, double balance})>> accounts() async => [];
   @override
-  Future<List<CardChoice>> electricApplications() async => [
-    const CardChoice('elec', '宿舍电费'),
-  ];
+  Future<List<CardChoice>> electricApplications() async {
+    electricDirectoryReads++;
+    return [const CardChoice('elec', '宿舍电费')];
+  }
+
   @override
   Future<List<CardChoice>> electricAreas(CardChoice app) async => [
     const CardChoice('area', '思明校区芙蓉区'),

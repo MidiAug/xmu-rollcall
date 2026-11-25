@@ -282,6 +282,9 @@ void main() {
       );
       await press(tester, find.text('电费缴费'));
       expect(find.text('上次选择的宿舍'), findsOneWidget);
+      expect(client.electricDirectoryReads, 0);
+      expect(find.text('园区'), findsNothing);
+      expect(find.text('缴费宿舍'), findsOneWidget);
       expect(find.textContaining('42.50'), findsOneWidget);
       expect(find.textContaining('58.25'), findsOneWidget);
       await captureDesktopUi(tester, 'native-electricity-two-rooms');
