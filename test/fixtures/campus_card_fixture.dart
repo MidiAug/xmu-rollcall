@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:xmu_rollcall/features/campus_card/campus_card_client.dart';
+import 'package:xmu_rollcall/features/campus_card/electricity_client.dart';
 
 CampusCardInfo cardFixture({String account = '900001', bool lost = false}) =>
     CampusCardInfo(
@@ -146,3 +147,18 @@ CardElectricRoom electricRoomFixture(String room) => CardElectricRoom(
   id: room,
   name: room,
 );
+
+class ElectricityFixtureClient extends ElectricityClient {
+  final calls = <String>[];
+  @override
+  Future<ElectricReading> read(CardElectricRoom room) async {
+    calls.add(room.id);
+    return ElectricReading(
+      room: room,
+      balance: room.id.endsWith('00') ? 58.25 : 42.50,
+      kwh: 100,
+      checkedAt: DateTime.now(),
+      reportedAt: '2026-11-24',
+    );
+  }
+}

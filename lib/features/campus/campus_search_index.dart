@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/classrooms/classroom_page.dart';
 import 'package:xmu_rollcall/features/lifestyle/life_services_page.dart';
 import 'package:xmu_rollcall/features/logistics/logistics_page.dart';
 import 'campus_calendar_page.dart';
@@ -40,6 +41,7 @@ bool campusSearchMatches(String query, String content) {
 }
 
 List<CampusSearchEntry> campusSearchFeatures(int? scope) => [
+  CampusSearchEntry('厦大教室', '预约、自习、讲座与教室服务', '厦大教室 座位预约 研讨室预约 自习 空教室 讲座 楼层 教室介绍 失物招领 意见建议', AppIcons.building, page: (_) => const ClassroomsPage()),
   CampusSearchEntry(
     '生活服务',
     '校园卡、账单与宿舍电费',

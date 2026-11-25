@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/classrooms/classroom_page.dart';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/features/logistics/logistics_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -63,6 +64,7 @@ List<CampusTool> get campusTools => <CampusTool>[
     icon: AppIcons.serviceCalendar,
     page: (_) => const CampusCalendarPage(),
   ),
+  CampusTool(id: 'classrooms', title: '厦大教室', description: '预约、自习、讲座与教室服务', icon: AppIcons.building, page: (_) => const ClassroomsPage()),
   CampusTool(
     id: 'life-services',
     title: '生活服务',
@@ -143,7 +145,7 @@ class _CampusToolsPageState extends ConsumerState<CampusToolsPage>
                 child: LayoutBuilder(
                   builder: (context, bounds) {
                     final columns = touch || bounds.maxWidth >= 580 ? 2 : 1;
-                    final gap = touch ? AppSpace.sm : AppSpace.lg;
+                    final gap = touch ? AppSpace.sm : AppSpace.md;
                     final tileWidth =
                         (bounds.maxWidth - gap * (columns - 1)) / columns;
                     Widget group(

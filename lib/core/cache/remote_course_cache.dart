@@ -8,6 +8,8 @@ Future<void> clearRemoteCourseCache() async {
   const prefixes = [
     'logistics_v1_',
     'campus_card_v1_',
+    'campus_electricity_v1_',
+    'classrooms_v1_',
     'campus_card_rooms_v1_',
     'life_v1_',
     'academic_schedule_v1_',

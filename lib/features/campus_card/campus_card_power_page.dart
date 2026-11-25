@@ -9,6 +9,7 @@ import 'campus_card_providers.dart';
 import 'campus_card_page_session.dart';
 import 'campus_card_forms.dart';
 import 'campus_card_cashier.dart';
+import 'electricity_provider.dart';
 
 class CampusCardPowerPage extends ConsumerStatefulWidget {
   const CampusCardPowerPage({super.key});
@@ -25,6 +26,7 @@ class _CampusCardPowerPageState extends ConsumerState<CampusCardPowerPage>
   List<CardChoice> areas = [], buildings = [];
   CardChoice? application, area, building;
   CardElectricRoom? resolved;
+  bool editingRoom = true;
   CardElectricRoomKind kind = CardElectricRoomKind.personal;
   Map<CardElectricRoomKind, CardElectricRoom> saved = {};
   @override
@@ -55,7 +57,19 @@ class _CampusCardPowerPageState extends ConsumerState<CampusCardPowerPage>
       final values = await ref
           .read(campusCardInfoProvider.notifier)
           .run((c) => c.electricAreas(application!));
-      if (current) areas = values;
+      if (!current) return;
+      areas = values;
+      final personal = saved[CardElectricRoomKind.personal];
+      if (personal != null &&
+          personal.application.id == application!.id &&
+          areas.any((v) => v.id == personal.area.id)) {
+        kind = CardElectricRoomKind.personal;
+        area = personal.area;
+        building = personal.building;
+        roomNumber.text = personal.id;
+        resolved = personal;
+        editingRoom = false;
+      }
     }
   });
   Future<CardChoice?> choose(
@@ -164,6 +178,7 @@ class _CampusCardPowerPageState extends ConsumerState<CampusCardPowerPage>
           .read(campusCardInfoProvider.notifier)
           .rememberElectricRoom(targetKind, checked);
       if (!current) return;
+      editingRoom = false;
       kind = targetKind;
       application = checked.application;
       area = checked.area;
@@ -191,9 +206,17 @@ class _CampusCardPowerPageState extends ConsumerState<CampusCardPowerPage>
   @override
   Widget build(BuildContext context) {
     watchSession();
+    final readings = ref.watch(electricityProvider);
+    final electricity = readings.isReloading ? null : readings.valueOrNull;
     final canPay = campusCardCanPayOn(Theme.of(context).platform);
     return SubpageScaffold(
       title: '宿舍电费',
+      actions: [
+        AppRefreshButton(
+          busy: ref.read(electricityProvider.notifier).updating,
+          onRefresh: () => ref.read(electricityProvider.notifier).refresh(),
+        ),
+      ],
       isBusy: () => busy,
       body: AppPageViewport(
         maxWidth: AppLayout.readingMaxWidth,
@@ -215,85 +238,116 @@ class _CampusCardPowerPageState extends ConsumerState<CampusCardPowerPage>
                     for (final entry in saved.entries)
                       SettingsRow(
                         title: entry.key.label,
-                        subtitle: entry.value.address,
+                        subtitle:
+                            '${entry.value.address}${electricity?[entry.key] == null ? '' : '\n剩余 ¥${electricity![entry.key]!.balance.toStringAsFixed(2)}    ${electricity[entry.key]!.kwh.toStringAsFixed(2)} 度${electricity[entry.key]!.reportedAt == null ? '' : '\n数据截至 ${electricity[entry.key]!.reportedAt}'}'}',
                         trailing: const Icon(AppIcons.right, size: 14),
                         enabled: !busy,
                         onTap: () => reuse(entry.key, entry.value),
                       ),
                   ],
                 ),
-              AppSegmentedControl<CardElectricRoomKind>(
-                segments: [
-                  for (final value in CardElectricRoomKind.values)
-                    AppSegment(value: value, label: value.label),
-                ],
-                value: kind,
-                expanded: true,
-                enabled: !busy,
-                onChanged: (value) => setState(() {
-                  kind = value;
-                  resolved = null;
-                  roomNumber.clear();
-                }),
-              ),
-              const SizedBox(height: AppSpace.lg),
-              SettingsSection(
-                padTop: false,
-                hasLeading: false,
-                children: [
-                  if (applications!.length > 1)
-                    SettingsRow(
-                      title: '电费服务',
-                      subtitle: application?.name ?? '请选择',
-                      trailing: const Icon(AppIcons.right, size: 14),
-                      onTap: busy ? null : selectApplication,
-                    ),
-                  SettingsRow(
-                    title: '园区',
-                    subtitle: area?.name ?? '选择校区与园区',
-                    trailing: const Icon(AppIcons.right, size: 14),
-                    enabled: application != null && !busy,
-                    onTap: selectArea,
+              if (readings.hasError ||
+                  ref.read(electricityProvider.notifier).warning != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpace.md),
+                  child: Text(
+                    ref.read(electricityProvider.notifier).warning ??
+                        '电费暂未读到，请检查校园网络后更新',
                   ),
-                  SettingsRow(
-                    title: '楼栋',
-                    subtitle: building?.name ?? '选择楼栋',
-                    trailing: const Icon(AppIcons.right, size: 14),
-                    enabled: area != null && !busy,
-                    onTap: selectBuilding,
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpace.lg),
-              Form(
-                key: form,
-                child: TextFormField(
-                  controller: roomNumber,
-                  enabled: !busy,
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: '房间号',
-                    hintText: '例如0301',
-                  ),
-                  onChanged: (_) => setState(() => resolved = null),
-                  validator: (v) =>
-                      RegExp(r'^\d{1,4}$').hasMatch(v?.trim() ?? '')
-                      ? null
-                      : '请输入房间号，最多四位数字',
                 ),
-              ),
-              const SizedBox(height: AppSpace.lg),
+              if (!editingRoom && resolved != null)
+                SettingsSection(
+                  hasLeading: false,
+                  children: [
+                    SettingsRow(
+                      title: '缴费宿舍',
+                      subtitle: '${kind.label}\n${resolved!.address}',
+                      trailing: AppButton(
+                        label: '修改宿舍',
+                        compact: true,
+                        kind: AppButtonKind.secondary,
+                        onPressed: busy
+                            ? null
+                            : () => setState(() => editingRoom = true),
+                      ),
+                    ),
+                  ],
+                ),
+              if (editingRoom) ...[
+                AppSegmentedControl<CardElectricRoomKind>(
+                  segments: [
+                    for (final value in CardElectricRoomKind.values)
+                      AppSegment(value: value, label: value.label),
+                  ],
+                  value: kind,
+                  expanded: true,
+                  enabled: !busy,
+                  onChanged: (value) => setState(() {
+                    kind = value;
+                    resolved = null;
+                    roomNumber.clear();
+                  }),
+                ),
+                const SizedBox(height: AppSpace.lg),
+                SettingsSection(
+                  padTop: false,
+                  hasLeading: false,
+                  children: [
+                    if (applications!.length > 1)
+                      SettingsRow(
+                        title: '电费服务',
+                        subtitle: application?.name ?? '请选择',
+                        trailing: const Icon(AppIcons.right, size: 14),
+                        onTap: busy ? null : selectApplication,
+                      ),
+                    SettingsRow(
+                      title: '园区',
+                      subtitle: area?.name ?? '选择校区与园区',
+                      trailing: const Icon(AppIcons.right, size: 14),
+                      enabled: application != null && !busy,
+                      onTap: selectArea,
+                    ),
+                    SettingsRow(
+                      title: '楼栋',
+                      subtitle: building?.name ?? '选择楼栋',
+                      trailing: const Icon(AppIcons.right, size: 14),
+                      enabled: area != null && !busy,
+                      onTap: selectBuilding,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpace.lg),
+                Form(
+                  key: form,
+                  child: TextFormField(
+                    controller: roomNumber,
+                    enabled: !busy,
+                    autovalidateMode: AutovalidateMode.onUserInteraction,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '房间号',
+                      hintText: '例如0301',
+                    ),
+                    onChanged: (_) => setState(() => resolved = null),
+                    validator: (v) =>
+                        RegExp(r'^\d{1,4}$').hasMatch(v?.trim() ?? '')
+                        ? null
+                        : '请输入房间号，最多四位数字',
+                  ),
+                ),
+                const SizedBox(height: AppSpace.lg),
+              ],
               if (error != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: AppSpace.md),
                   child: Text(error!),
                 ),
               if (resolved != null) ...[
-                Text(
-                  '缴费房间 ${resolved!.name}',
-                  style: Theme.of(context).textTheme.titleSmall,
-                ),
+                if (editingRoom)
+                  Text(
+                    '缴费房间 ${resolved!.name}',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
                 const SizedBox(height: AppSpace.md),
                 Align(
                   alignment: Alignment.centerLeft,

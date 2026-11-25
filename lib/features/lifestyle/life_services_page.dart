@@ -11,6 +11,7 @@ import 'package:xmu_rollcall/features/campus_card/campus_card_records.dart';
 import 'package:xmu_rollcall/features/campus_card/campus_card_forms.dart';
 import 'package:xmu_rollcall/features/campus_card/campus_card_power_page.dart';
 import 'package:xmu_rollcall/features/campus_card/campus_card_cashier.dart';
+import 'package:xmu_rollcall/features/campus_card/electricity_provider.dart';
 
 class LifeServicesPage extends ConsumerWidget {
   const LifeServicesPage({super.key});
@@ -24,6 +25,12 @@ class LifeServicesPage extends ConsumerWidget {
         ? null
         : ref.read(campusCardInfoProvider.notifier);
     void open(Widget page) => AppPageRoutes.push<void>(context, page);
+    final electricity = identity.userId == null
+        ? null
+        : ref.watch(electricityProvider);
+    final personal = electricity?.isReloading == true
+        ? null
+        : electricity?.valueOrNull?[CardElectricRoomKind.personal];
     final palette = AppPalette.of(context);
     final canPay = campusCardCanPayOn(Theme.of(context).platform);
     return SubpageScaffold(
@@ -32,7 +39,12 @@ class LifeServicesPage extends ConsumerWidget {
         if (notifier != null)
           AppRefreshButton(
             busy: notifier.updating,
-            onRefresh: () => notifier.refresh(),
+            onRefresh: () async {
+              await Future.wait([
+                notifier.refresh(),
+                ref.read(electricityProvider.notifier).refresh(),
+              ]);
+            },
           ),
       ],
       body: identity.userId == null
@@ -110,7 +122,12 @@ class LifeServicesPage extends ConsumerWidget {
                               ),
                             ),
                           const SizedBox(height: AppSpace.lg),
-                          const AppMetric(label: '个人房间电费', value: '—'),
+                          AppMetric(
+                            label: '个人房间电费',
+                            value: personal == null
+                                ? '—'
+                                : '¥${personal.balance.toStringAsFixed(2)}',
+                          ),
                           const SizedBox(height: AppSpace.lg),
                           AppButton(
                             label: '充值',
@@ -236,6 +253,10 @@ class LifeServiceBalancesTrailing extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final snapshot = ref.watch(campusCardCachedInfoProvider);
     final card = snapshot.isReloading ? null : snapshot.valueOrNull;
+    final electricity = ref.watch(cachedElectricityProvider);
+    final personal = electricity.isReloading
+        ? null
+        : electricity.valueOrNull?[CardElectricRoomKind.personal];
     final style = AppTypography.caption.copyWith(
       color: AppPalette.of(context).muted,
     );
@@ -249,7 +270,12 @@ class LifeServiceBalancesTrailing extends ConsumerWidget {
               : '上次校园卡 ¥${card.balanceYuan.toStringAsFixed(2)}',
           style: style,
         ),
-        Text('个人电费 —', style: style),
+        Text(
+          personal == null
+              ? '个人电费 —'
+              : '个人电费 ¥${personal.balance.toStringAsFixed(2)}',
+          style: style,
+        ),
       ],
     );
   }

@@ -16,6 +16,7 @@ import 'package:xmu_rollcall/features/campus_card/campus_card_records.dart';
 import 'package:xmu_rollcall/features/campus_card/campus_card_cashier.dart';
 import 'package:xmu_rollcall/features/lifestyle/life_services_page.dart';
 import '../fixtures/campus_card_fixture.dart';
+import 'package:xmu_rollcall/features/campus_card/electricity_provider.dart';
 import '../fixtures/desktop_ui_capture.dart';
 
 const identity = (ownerId: 1, userId: 1, assistId: null);
@@ -55,6 +56,9 @@ void main() {
         overrides: [
           browserIdentityProvider.overrideWithValue(identity),
           campusCardClientFactoryProvider.overrideWithValue(() => client),
+          electricityClientFactoryProvider.overrideWithValue(
+            ElectricityFixtureClient.new,
+          ),
           academicIdentityResolverProvider.overrideWithValue(
             (uid) async => AcademicIdentity(
               username: '20260000000001',
@@ -278,6 +282,8 @@ void main() {
       );
       await press(tester, find.text('电费缴费'));
       expect(find.text('上次选择的宿舍'), findsOneWidget);
+      expect(find.textContaining('42.50'), findsOneWidget);
+      expect(find.textContaining('58.25'), findsOneWidget);
       await captureDesktopUi(tester, 'native-electricity-two-rooms');
       await press(tester, find.text('个人房间').first);
       expect(find.byType(CampusCardPaymentPage), findsOneWidget);

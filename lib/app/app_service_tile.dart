@@ -70,7 +70,7 @@ class AppServiceTile extends StatelessWidget {
           outlined: false,
           backgroundColor: Colors.transparent,
           borderRadius: radius,
-          padding: EdgeInsets.all(touch ? AppSpace.md : AppSpace.xl),
+          padding: EdgeInsets.all(touch || compact ? AppSpace.md : AppSpace.xl),
           onTap: onPressed,
           child: compact
               ? ConstrainedBox(

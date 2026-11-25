@@ -8,6 +8,8 @@ import 'package:xmu_rollcall/features/browser/browser_session.dart';
 import 'campus_card_client.dart';
 export 'campus_card_models.dart';
 
+final campusCardRoomRevisionProvider = StateProvider<int>((ref) => 0);
+
 String campusCardCacheKey(BrowserIdentity identity) =>
     'campus_card_v1_${identity.ownerId}_${identity.userId}';
 final campusCardClientFactoryProvider = Provider<CampusCardClient Function()>(
@@ -125,6 +127,9 @@ class CampusCardNotifier extends AutoDisposeAsyncNotifier<CampusCardInfo> {
       }),
     )) {
       throw const CampusCardException('宿舍记录未能保存，请重试');
+    }
+    if (_current(revision)) {
+      ref.read(campusCardRoomRevisionProvider.notifier).state++;
     }
   }
 
