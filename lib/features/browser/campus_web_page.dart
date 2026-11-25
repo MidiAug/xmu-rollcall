@@ -15,9 +15,18 @@ bool isWebPageUrl(Uri uri) =>
     uri.userInfo.isEmpty;
 
 class CampusWebPage extends ConsumerStatefulWidget {
-  const CampusWebPage({super.key, required this.title, required this.url});
+  const CampusWebPage({
+    super.key,
+    required this.title,
+    required this.url,
+    this.completeAuthorization,
+  });
   final String title;
   final Uri url;
+
+  /// A login-only consumer can finish before navigating to business content.
+  /// Null means this URL is still part of authorization; true means connected.
+  final Future<bool?> Function(Uri, CookieManager)? completeAuthorization;
   @override
   ConsumerState<CampusWebPage> createState() => _CampusWebPageState();
 }
@@ -31,6 +40,31 @@ class _CampusWebPageState extends ConsumerState<CampusWebPage> {
   String? _error;
   late String _title;
   double _progress = 0;
+  bool _checkingAuthorization = false;
+
+  Future<bool> _finishAuthorization(Uri uri) async {
+    final complete = widget.completeAuthorization;
+    if (complete == null || _checkingAuthorization || !_current) return false;
+    _checkingAuthorization = true;
+    try {
+      final done = await complete(
+        uri,
+        CookieManager.instance(webViewEnvironment: _environment),
+      );
+      if (done == true && mounted && _current) {
+        Navigator.of(context).pop(true);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      if (_current) {
+        setState(() => _error = e is FormatException ? e.message : '授权未完成，请重试');
+      }
+      return true;
+    } finally {
+      _checkingAuthorization = false;
+    }
+  }
 
   @override
   void initState() {
@@ -138,7 +172,7 @@ class _CampusWebPageState extends ConsumerState<CampusWebPage> {
               ),
               onWebViewCreated: (controller) => _controller = controller,
               onTitleChanged: (_, title) {
-                if (_current) {
+                if (_current && widget.completeAuthorization == null) {
                   setState(
                     () => _title = title?.trim().isNotEmpty == true
                         ? title!
@@ -157,7 +191,9 @@ class _CampusWebPageState extends ConsumerState<CampusWebPage> {
                   });
                 }
               },
-              onLoadStop: (_, _) {
+              onLoadStop: (_, url) async {
+                final uri = Uri.tryParse(url?.toString() ?? '');
+                if (uri != null && await _finishAuthorization(uri)) return;
                 if (_current) setState(() => _progress = 1);
               },
               onReceivedError: (_, request, error) {
@@ -170,6 +206,9 @@ class _CampusWebPageState extends ConsumerState<CampusWebPage> {
               shouldOverrideUrlLoading: (_, action) async {
                 if (!_current) return NavigationActionPolicy.CANCEL;
                 final uri = Uri.tryParse(action.request.url?.toString() ?? '');
+                if (uri != null && await _finishAuthorization(uri)) {
+                  return NavigationActionPolicy.CANCEL;
+                }
                 if (uri != null && isWebPageUrl(uri)) {
                   return NavigationActionPolicy.ALLOW;
                 }

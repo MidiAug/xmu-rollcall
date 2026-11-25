@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/core/text/html_plain_text.dart';
+
 /// Read-only homework models (TronClass todos / homework-activities).
 class HomeworkItem {
   const HomeworkItem({
@@ -239,37 +241,4 @@ List<HomeworkAttachment> parseHomeworkAttachments(Map<String, dynamic> data) {
 
 /// Readable plain text for the platform's HTML descriptions. No HTML execution,
 /// image requests or third-party embeds when a detail page is opened.
-String homeworkDescriptionText(String source) {
-  var text = source.replaceAll(
-    RegExp(
-      r'<(script|style)[^>]*>.*?</\1>',
-      caseSensitive: false,
-      dotAll: true,
-    ),
-    '',
-  );
-  text = text.replaceAll(
-    RegExp(r'<br\s*/?>|</(?:p|div|li|h[1-6])>', caseSensitive: false),
-    '\n',
-  );
-  text = text.replaceAll(RegExp(r'<[^>]+>'), '');
-  const entities = {
-    '&nbsp;': ' ',
-    '&lt;': '<',
-    '&gt;': '>',
-    '&quot;': '"',
-    '&#39;': "'",
-    '&amp;': '&',
-  };
-  for (final e in entities.entries) {
-    text = text.replaceAll(e.key, e.value);
-  }
-  text = text.replaceAllMapped(RegExp(r'&#(x[0-9a-fA-F]+|[0-9]+);'), (m) {
-    final raw = m[1]!;
-    final n = raw.startsWith('x')
-        ? int.tryParse(raw.substring(1), radix: 16)
-        : int.tryParse(raw);
-    return n != null && n > 0 && n <= 0x10ffff ? String.fromCharCode(n) : m[0]!;
-  });
-  return text.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
-}
+String homeworkDescriptionText(String source) => readableHtmlText(source);

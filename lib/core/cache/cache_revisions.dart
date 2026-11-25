@@ -4,3 +4,5 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 final homeworkCacheRevisionProvider = StateProvider<int>((ref) => 0);
 
 final homeworkSubmissionRevisionProvider = StateProvider<int>((ref) => 0);
+
+final lectureCacheRevisionProvider = StateProvider<int>((ref) => 0);

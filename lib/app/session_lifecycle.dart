@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/lectures/lecture_provider.dart';
+import 'package:xmu_rollcall/features/lectures/lecture_requirement_provider.dart';
 import 'package:xmu_rollcall/features/classrooms/classroom_providers.dart';
 import 'package:xmu_rollcall/features/campus_card/electricity_provider.dart';
 import 'package:xmu_rollcall/features/campus_card/campus_card_providers.dart';
@@ -21,6 +23,8 @@ import 'package:xmu_rollcall/features/ta_grading/ta_providers.dart';
 void invalidateOwnerRemoteMemory(Ref ref) {
   ref.invalidate(campusCardInfoProvider);
   ref.invalidate(classroomProvider);
+  ref.invalidate(lectureProvider);
+  ref.invalidate(lectureRequirementProvider);
   ref.invalidate(electricityProvider);
   ref.invalidate(cachedElectricityProvider);
   ref.invalidate(campusCardCachedInfoProvider);
@@ -40,6 +44,8 @@ Future<void> clearRemoteCourseData(WidgetRef ref) async {
   ref.invalidate(logisticsProvider);
   ref.invalidate(campusCardInfoProvider);
   ref.invalidate(classroomProvider);
+  ref.invalidate(lectureProvider);
+  ref.invalidate(lectureRequirementProvider);
   ref.invalidate(electricityProvider);
   ref.invalidate(cachedElectricityProvider);
   ref.invalidate(campusCardCachedInfoProvider);
@@ -57,6 +63,7 @@ Future<void> clearRemoteCourseData(WidgetRef ref) async {
   ref.read(seenInProgressCourseIdsProvider.notifier).state = {};
   ref.read(academicRevisionProvider.notifier).state++;
   ref.read(homeworkCacheRevisionProvider.notifier).state++;
+  ref.read(lectureCacheRevisionProvider.notifier).state++;
   ref.invalidate(campusCachedDataProvider);
   ref.invalidate(homeworkOverviewProvider);
   ref.invalidate(homeworkSubmissionProvider);

@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/lectures/lecture_page.dart';
 import 'package:xmu_rollcall/features/classrooms/classroom_page.dart';
 import 'package:xmu_rollcall/features/lifestyle/life_services_page.dart';
 import 'package:xmu_rollcall/features/logistics/logistics_page.dart';
@@ -9,7 +10,7 @@ import 'package:xmu_rollcall/features/exams/exam_page.dart';
 import 'package:xmu_rollcall/features/history/history_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_hub_page.dart';
 import 'package:xmu_rollcall/features/location/saved_locations_page.dart';
-import 'package:xmu_rollcall/features/location/campus_atlas_page.dart';
+import 'package:xmu_rollcall/features/location/account_campus_atlas_page.dart';
 import 'package:xmu_rollcall/features/monitor/monitor_page.dart';
 import 'package:xmu_rollcall/features/settings/courses_page.dart';
 import 'package:xmu_rollcall/features/settings/notification_settings_page.dart';
@@ -66,11 +67,18 @@ List<CampusSearchEntry> campusSearchFeatures(int? scope) => [
   ),
 
   CampusSearchEntry(
+    '学术讲座',
+    '已参加的讲座记录与培养要求',
+    '信息学院 讲座 学术活动 完成情况',
+    AppIcons.calendar,
+    page: (_) => const LecturesPage(),
+  ),
+  CampusSearchEntry(
     '校园地图',
     '三个校区的楼群、楼宇与分区',
     '地图 校园 楼群 楼宇 分区 思明 翔安 漳州',
     AppIcons.map,
-    page: (_) => const CampusAtlasPage(),
+    page: (_) => const AccountCampusAtlasPage(),
     help: '按校区和目录浏览已维护的地点，支持楼名、别名搜索和分区定位；这里仅浏览，不修改个人地点。',
   ),
   CampusSearchEntry(

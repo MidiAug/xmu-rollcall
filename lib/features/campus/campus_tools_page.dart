@@ -1,3 +1,5 @@
+import 'package:xmu_rollcall/features/lectures/lecture_summary.dart';
+import 'package:xmu_rollcall/features/lectures/lecture_page.dart';
 import 'package:xmu_rollcall/features/classrooms/classroom_page.dart';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/features/logistics/logistics_page.dart';
@@ -14,7 +16,7 @@ import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/grades/gpa_page.dart';
 import 'package:xmu_rollcall/features/exams/exam_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
-import 'package:xmu_rollcall/features/location/campus_atlas_page.dart';
+import 'package:xmu_rollcall/features/location/account_campus_atlas_page.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_grading_page.dart';
 import 'package:xmu_rollcall/features/ta_grading/ta_widgets.dart';
 
@@ -41,7 +43,7 @@ List<CampusTool> get campusTools => <CampusTool>[
     title: '校园地图',
     description: '三校区楼宇与地点',
     icon: AppIcons.serviceMap,
-    page: (_) => const CampusAtlasPage(),
+    page: (_) => const AccountCampusAtlasPage(),
   ),
   CampusTool(
     id: 'exams',
@@ -63,6 +65,14 @@ List<CampusTool> get campusTools => <CampusTool>[
     description: '学期安排与教学周',
     icon: AppIcons.serviceCalendar,
     page: (_) => const CampusCalendarPage(),
+  ),
+  CampusTool(
+    id: 'lectures',
+    title: '学术讲座',
+    description: '',
+    icon: AppIcons.calendar,
+    page: (_) => const LecturesPage(),
+    trailing: const LectureProgressTrailing(),
   ),
   CampusTool(id: 'classrooms', title: '厦大教室', description: '预约、自习、讲座与教室服务', icon: AppIcons.building, page: (_) => const ClassroomsPage()),
   CampusTool(
@@ -188,7 +198,7 @@ class _CampusToolsPageState extends ConsumerState<CampusToolsPage>
                                   icon: tool.icon,
                                   trailing: tool.trailing,
                                   compact: !touch,
-                                  showDescription: !touch,
+                                  showDescription: !touch && tool.description.isNotEmpty,
                                   onPressed: () => AppPageRoutes.push(
                                     context,
                                     tool.page(context),

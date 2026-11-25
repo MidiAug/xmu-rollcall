@@ -13,6 +13,8 @@ void main() {
         'local_course_meetings_1_10': 'manual meetings',
         'saved_locations_1': 'user places',
         'grades_v1_1_1': 'grade cache',
+        'lectures_v1_1_1': 'lecture cache',
+        'lecture_requirement_v1_1_2': 'plan requirement cache',
         'grade_attempt_1_1': 10,
         'exams_v1_1_1_20261': 'exam cache',
         'exams_v1_1_2_20261_attempt': 10,
@@ -47,6 +49,8 @@ void main() {
       expect(prefs.getString('local_course_meetings_1_10'), 'manual meetings');
       expect(prefs.getString('saved_locations_1'), 'user places');
       expect(prefs.containsKey('grades_v1_1_1'), isFalse);
+      expect(prefs.containsKey('lectures_v1_1_1'), isFalse);
+      expect(prefs.containsKey('lecture_requirement_v1_1_2'), isFalse);
       expect(prefs.containsKey('grade_attempt_1_1'), isFalse);
       expect(prefs.containsKey('exams_v1_1_1_20261'), isFalse);
       expect(prefs.containsKey('exams_v1_1_2_20261_attempt'), isFalse);

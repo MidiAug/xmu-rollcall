@@ -19,17 +19,47 @@ bool _mapGroup(TeachingGroup group) => !group.id.startsWith('independent-');
 
 /// Public maintained directory. No account providers, edits or location binding.
 class CampusAtlasPage extends StatefulWidget {
-  const CampusAtlasPage({super.key});
+  const CampusAtlasPage({super.key, this.initialCampus = Campus.xiangan});
+  final Campus initialCampus;
   @override
   State<CampusAtlasPage> createState() => _CampusAtlasPageState();
 }
 
 class _CampusAtlasPageState extends State<CampusAtlasPage> {
   MapController _map = MapController();
-  Campus _campus = Campus.xiangan;
+  late Campus _campus;
+  bool _manualCampus = false;
   String? _groupId, _buildingId, _regionId;
   int _level = 0;
   int _mapSelectionRevision = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _campus = widget.initialCampus;
+  }
+
+  @override
+  void didUpdateWidget(covariant CampusAtlasPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!_manualCampus && oldWidget.initialCampus != widget.initialCampus) {
+      _switchCampus(widget.initialCampus);
+    }
+  }
+
+  void _switchCampus(Campus campus) {
+    if (_campus == campus) return;
+    final previous = _map;
+    setState(() {
+      _campus = campus;
+      _map = MapController();
+      _groupId = null;
+      _buildingId = null;
+      _regionId = null;
+      _level = 0;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+  }
 
   List<TeachingBuilding> get _buildings =>
       teachingBuildings.where((b) => '${b.campus}校区' == _campus.label).toList();
@@ -289,19 +319,8 @@ class _CampusAtlasPageState extends State<CampusAtlasPage> {
                   ),
                   maxWidth: mobile ? double.infinity : 344,
                   onChanged: (c) {
-                    if (c == _campus) return;
-                    final previous = _map;
-                    setState(() {
-                      _campus = c;
-                      _map = MapController();
-                      _groupId = null;
-                      _buildingId = null;
-                      _regionId = null;
-                      _level = 0;
-                    });
-                    WidgetsBinding.instance.addPostFrameCallback(
-                      (_) => previous.dispose(),
-                    );
+                    _manualCampus = true;
+                    _switchCampus(c);
                   },
                 ),
                 Expanded(
