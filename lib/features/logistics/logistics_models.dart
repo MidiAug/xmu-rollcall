@@ -8,8 +8,8 @@ class LogisticsRepair {
       address = _text(json['address']),
       department = _text(json['repairDeptName']),
       worker = _text(json['workerName']),
-      completed = json['ifComplete'] == '1',
-      evaluated = json['ifCommont'] == '1',
+      completed = '${json['ifComplete']}' == '1',
+      evaluated = '${json['ifCommont']}' == '1',
       logs = _rows(json['logs']).map(LogisticsRepairLog.new).toList();
   final String id, number, project, content, area, address, department, worker;
   final bool completed, evaluated;
@@ -49,13 +49,15 @@ class LogisticsRepairLog {
 
 class LogisticsMessage {
   LogisticsMessage(Map<String, dynamic> json)
-    : title = _required(json, 'title'),
+    : id = _text(json['id']),
+      title = _required(json, 'title'),
       content = _text(json['content']),
       time = _text(json['sendTime']),
       unread = json['status'] == 0;
-  final String title, content, time;
+  final String id, title, content, time;
   final bool unread;
   Map<String, dynamic> toJson() => {
+    'id': id,
     'title': title,
     'content': content,
     'sendTime': time,

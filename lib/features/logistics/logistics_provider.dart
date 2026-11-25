@@ -75,21 +75,7 @@ class LogisticsNotifier extends AutoDisposeAsyncNotifier<LogisticsSnapshot> {
     LogisticsSnapshot? previous,
   }) async {
     final identity = _identity;
-    final access = await ref.read(academicIdentityResolverProvider)(
-      identity.userId!,
-    );
-    if (!_current(revision)) throw StateError('账号已切换');
-    if (access == null || access.username == null) {
-      throw const FormatException('请重新登录所选账号以连接后勤');
-    }
-    final client = _client ??= ref.read(logisticsClientFactoryProvider)();
-    client.identityGuard = () async =>
-        _current(revision) && await access.isCurrent();
-    await client.connect(
-      username: access.username!,
-      password: access.password,
-      sso: access.sso,
-    );
+    final client = await _connected(revision);
     final page = previous == null ? 1 : previous.page + 1;
     final list = await client.repairs(page);
     final messages = previous == null ? await client.messages() : null;
@@ -112,7 +98,7 @@ class LogisticsNotifier extends AutoDisposeAsyncNotifier<LogisticsSnapshot> {
       page: page,
       fetchedAt: previous?.fetchedAt ?? DateTime.now(),
     );
-    if (!_current(revision) || !await access.isCurrent()) {
+    if (!_current(revision) || !await client.identityGuard!()) {
       throw StateError('账号已切换');
     }
     final prefs = await SharedPreferences.getInstance();
@@ -124,6 +110,41 @@ class LogisticsNotifier extends AutoDisposeAsyncNotifier<LogisticsSnapshot> {
       throw const FormatException('后勤数据未能保存，请稍后重试');
     }
     return result;
+  }
+
+  Future<LogisticsClient> _connected(int revision) async {
+    final identity = _identity;
+    final access = await ref.read(academicIdentityResolverProvider)(
+      identity.userId!,
+    );
+    if (!_current(revision)) throw StateError('账号已切换');
+    if (access == null || access.username == null) {
+      throw const FormatException('请重新登录所选账号以连接后勤');
+    }
+    final client = _client ??= ref.read(logisticsClientFactoryProvider)();
+    client.identityGuard = () async =>
+        _current(revision) && await access.isCurrent();
+    await client.connect(
+      username: access.username!,
+      password: access.password,
+      sso: access.sso,
+    );
+    return client;
+  }
+
+  Future<T> run<T>(Future<T> Function(LogisticsClient client) action) async {
+    final revision = _revision;
+    final client = await _connected(revision);
+    final result = await action(client);
+    if (!_current(revision) || !await client.identityGuard!()) {
+      throw StateError('账号已切换');
+    }
+    return result;
+  }
+
+  Future<void> afterMutation() async {
+    _attempt = null;
+    await refresh();
   }
 
   Future<void> refresh({bool more = false}) {

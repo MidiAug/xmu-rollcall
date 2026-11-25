@@ -34,6 +34,10 @@ class LogisticsFixtureClient extends LogisticsClient {
   Completer<void>? pending;
   final pages = <int>[];
   int messageRequests = 0;
+  final writes = <String>[];
+  Map<String, dynamic>? lastForm;
+  bool deleted = false;
+  Completer<void>? submission;
   @override
   Future<void> connect({
     required String username,
@@ -64,11 +68,163 @@ class LogisticsFixtureClient extends LogisticsClient {
         if (total != 0)
           {
             'title': '报修服务进度提醒',
+            'id': 'fixture-message',
             'content': '您的单据已完工，请及时评价！',
             'sendTime': '2026-11-12 17:59',
             'status': 0,
           },
       ],
     };
+  }
+
+  @override
+  Future<Object?> areas() async => [
+    {
+      'id': 'campus',
+      'name': '翔安校区',
+      'children': [
+        {'id': 'building', 'name': '测试楼'},
+      ],
+    },
+  ];
+  @override
+  Future<Object?> projects(String area) async => [
+    {
+      'value': 'water',
+      'label': '水',
+      'children': [
+        {'value': 'pipe', 'label': '管道维修'},
+      ],
+    },
+  ];
+  @override
+  Future<Object?> repairSettings() async => [
+    {'code': '011', 'value': '[]'},
+    {'code': '521', 'value': '1'},
+  ];
+  @override
+  Future<Map<String, dynamic>> repairRecipient(
+    String area,
+    String project,
+  ) async => {
+    'dept': {'deptId': 'unit', 'deptName': '测试维修部', 'payName': '无偿'},
+    'users': [],
+  };
+  @override
+  Future<Map<String, dynamic>> repairDetail(String id) async => {
+    ...logisticsRepairFixture(0),
+    'id': id,
+    'status': '4',
+    'logVOS': logisticsRepairFixture(0)['logs'],
+    'finishedInfo': {
+      'paymentTypeName': '无偿',
+      'workerList': [],
+      'beforeImg': '',
+      'afterImg': '',
+    },
+  };
+  @override
+  Future<bool> canWithdraw(String id) async => false;
+  @override
+  Future<String> submitRepair(Map<String, dynamic> form) async {
+    writes.add('repair');
+    lastForm = form;
+    await submission?.future;
+    return 'created-repair';
+  }
+
+  @override
+  Future<Object?> feedbackScopes() async => [
+    {
+      'id': 'unit',
+      'name': '测试服务部',
+      'children': [
+        {'id': 'service', 'name': '公寓服务'},
+      ],
+    },
+  ];
+  @override
+  Future<Object?> feedbackTypes() async => [
+    {'id': '2', 'name': '咨询'},
+    {'id': '1', 'name': '建议'},
+    {'id': '3', 'name': '表扬'},
+    {'id': '0', 'name': '投诉'},
+  ];
+  @override
+  Future<String> submitFeedback(Map<String, dynamic> form) async {
+    writes.add('feedback');
+    lastForm = form;
+    await submission?.future;
+    return 'created-feedback';
+  }
+
+  Map<String, dynamic> get feedbackRow => {
+    'id': 'post',
+    'postTitle': '测试服务反馈',
+    'content': '请改善公寓服务',
+    'serviceScopeName': '公寓服务',
+    'typeName': '建议',
+    'createTime': '2026-11-25 11:00',
+    'ifDelete': deleted ? 1 : 0,
+    'replyCount': 1,
+    'images': '',
+  };
+  @override
+  Future<Map<String, dynamic>> feedbackPosts(int page) async => {
+    'total': 1,
+    'rows': [feedbackRow],
+  };
+  @override
+  Future<Map<String, dynamic>> feedbackDetail(String id) async => {
+    ...feedbackRow,
+    'allowDeleteTime': '2099-01-01 00:00:00',
+  };
+  @override
+  Future<Object?> feedbackReplies(String id) async => {
+    'total': 1,
+    'rows': [
+      {
+        'id': 'reply',
+        'ifOfficial': 1,
+        'status': '1',
+        'replyUserName': '服务部门',
+        'content': '我们已经收到建议',
+        'createTime': '2026-11-25 11:01',
+      },
+    ],
+  };
+  @override
+  Future<void> deleteFeedback(String id, String reason) async {
+    writes.add('delete');
+    deleted = true;
+  }
+
+  @override
+  Future<Map<String, dynamic>> messagePage(
+    int page, {
+    String status = '',
+  }) async => messages();
+  @override
+  Future<void> markMessageRead(String id) async {
+    writes.add('read');
+  }
+
+  @override
+  Future<Object?> evaluationFields() async => [
+    for (final item in ['服务态度', '服务质量', '维修质量', '维修速度'])
+      {'id': item, 'name': item, 'weight': 25, 'star': null},
+  ];
+  @override
+  Future<Object?> evaluationLabels() async => [
+    {'id': 'label', 'name': '维修速度很快'},
+  ];
+  @override
+  Future<void> evaluate(
+    String id,
+    List<Map<String, dynamic>> scores,
+    String content,
+    List<String> labels,
+  ) async {
+    writes.add('evaluate');
   }
 }

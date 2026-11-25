@@ -13,6 +13,9 @@ import 'package:xmu_rollcall/features/campus/campus_tools_page.dart';
 import 'package:xmu_rollcall/features/homework/homework_providers.dart';
 import 'package:xmu_rollcall/features/logistics/logistics_page.dart';
 import 'package:xmu_rollcall/features/logistics/logistics_provider.dart';
+import 'package:xmu_rollcall/features/logistics/logistics_forms.dart';
+import 'package:xmu_rollcall/app/app_dialogs.dart';
+import 'package:xmu_rollcall/app/app_form_controls.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import '../fixtures/desktop_ui_capture.dart';
 import '../fixtures/logistics_fixture.dart';
@@ -138,39 +141,34 @@ void main() {
     expect(find.text('我的报修'), findsOneWidget);
     await captureDesktopUi(tester, 'logistics-one-order');
   });
-  testWidgets(
-    'empty result and official actions preserve URLs without credentials',
-    (tester) async {
-      final launched = <Uri>[];
-      await pump(tester, total: 0, launched: launched);
-      expect(find.text('暂无报修记录'), findsOneWidget);
-      expect(find.text('暂无后勤消息'), findsOneWidget);
-      await tester.tap(find.text('我要报修'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('意见反馈'));
-      await tester.pumpAndSettle();
-      expect(launched, [
-        logisticsWebsite('repairCatalogue'),
-        logisticsWebsite('service/catalogue'),
-      ]);
-      await captureDesktopUi(tester, 'logistics-empty');
-    },
-  );
-  testWidgets('network failure keeps official recovery available', (
+  testWidgets('all primary actions stay inside native forms', (tester) async {
+    final launched = <Uri>[];
+    await pump(tester, total: 0, launched: launched);
+    expect(find.text('暂无报修记录'), findsOneWidget);
+    await tester.tap(find.text('我要报修'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LogisticsRepairForm), findsOneWidget);
+    expect(find.text('故障描述'), findsOneWidget);
+    await captureDesktopUi(tester, 'logistics-repair-form');
+    await tester.tap(find.byTooltip('返回'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('意见反馈'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LogisticsFeedbackForm), findsOneWidget);
+    await captureDesktopUi(tester, 'logistics-feedback-form');
+    expect(launched, isEmpty);
+  });
+  testWidgets('network failure retains native retry without website fallback', (
     tester,
   ) async {
-    final launched = <Uri>[];
     await pump(
       tester,
       seed: false,
       client: LogisticsFixtureClient()..fail = true,
-      launched: launched,
     );
     expect(find.text('暂时无法读取后勤数据'), findsOneWidget);
-    await tester.tap(find.text('打开官方报修'));
-    await tester.pumpAndSettle();
-    expect(launched.single, logisticsWebsite('myRepairList'));
-    await captureDesktopUi(tester, 'logistics-error');
+    expect(find.text('重试'), findsOneWidget);
+    expect(find.textContaining('官方'), findsNothing);
   });
   testWidgets('cold loading does not invent zero orders', (tester) async {
     final client = LogisticsFixtureClient()..pending = Completer<void>();
@@ -180,5 +178,140 @@ void main() {
     client.pending!.complete();
     await tester.pumpAndSettle();
     expect(find.text('待评价'), findsOneWidget);
+  });
+  Future<void> press(WidgetTester tester, Finder target) async {
+    if (target.evaluate().isEmpty) {
+      await tester.scrollUntilVisible(target, 250, maxScrolls: 30);
+    }
+    await tester.ensureVisible(target);
+    await tester.tap(target);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> fill(WidgetTester tester, String label, String value) async {
+    final field = find.widgetWithText(TextFormField, label);
+    await tester.ensureVisible(field);
+    await tester.enterText(field, value);
+    await tester.pumpAndSettle();
+  }
+
+  Finder confirm(String label) => find.descendant(
+    of: find.byType(AppDialogFrame),
+    matching: find.widgetWithText(FilledButton, label),
+  );
+  for (final width in [320.0, 1104.0]) {
+    for (final dark in [false, true]) {
+      testWidgets(
+        'native repair validates, cancels confirmation and submits once $width $dark',
+        (tester) async {
+          final client = LogisticsFixtureClient(total: 0);
+          await pump(
+            tester,
+            width: width,
+            dark: dark,
+            client: client,
+            total: 0,
+          );
+          await press(tester, find.text('我要报修'));
+          await press(tester, find.widgetWithText(AppButton, '提交报修'));
+          expect(client.writes, isEmpty);
+          await press(tester, find.text('故障区域'));
+          await press(tester, find.text('翔安校区/测试楼'));
+          await press(tester, find.text('维修项目'));
+          await press(tester, find.text('水/管道维修'));
+          await fill(tester, '详细地址', '101室');
+          await fill(tester, '报修人', '测试用户');
+          await fill(tester, '联系电话', '13800000000');
+          await fill(tester, '故障描述', '管道堵塞，请检查');
+          await captureDesktopUi(tester, 'native-repair-filled-$width-$dark');
+          await press(tester, find.widgetWithText(AppButton, '提交报修'));
+          expect(find.text('提交报修？'), findsOneWidget);
+          await press(tester, find.text('取消'));
+          expect(client.writes, isEmpty);
+          await press(tester, find.widgetWithText(AppButton, '提交报修'));
+          await press(tester, confirm('提交报修'));
+          expect(client.writes, ['repair']);
+          expect(client.lastForm!['areaId'], 'building');
+          expect(client.lastForm!['ifPublish'], '1');
+          expect(find.byType(LogisticsRepairForm), findsNothing);
+        },
+      );
+      testWidgets(
+        'native feedback preserves type scope and confirmation $width $dark',
+        (tester) async {
+          final client = LogisticsFixtureClient(total: 0);
+          await pump(
+            tester,
+            width: width,
+            dark: dark,
+            total: 0,
+            client: client,
+          );
+          await press(tester, find.text('意见反馈'));
+          await press(tester, find.text('反馈类别'));
+          await press(tester, find.text('建议'));
+          await press(tester, find.text('服务类型'));
+          await press(tester, find.text('测试服务部/公寓服务'));
+          await fill(tester, '标题', '公寓服务建议');
+          await fill(tester, '详细说明', '请改善服务');
+          await fill(tester, '联系方式', '13800000000');
+          await captureDesktopUi(tester, 'native-feedback-filled-$width-$dark');
+          await press(tester, find.widgetWithText(AppButton, '提交反馈'));
+          expect(client.writes, isEmpty);
+          await press(tester, confirm('提交建议'));
+          expect(client.writes, ['feedback']);
+          expect(client.lastForm!['serverType'], 1);
+          expect(client.lastForm!['projectName'], ['unit', 'service']);
+          expect(client.lastForm!['serviceScopeName'], '公寓服务');
+        },
+      );
+    }
+  }
+  testWidgets(
+    'native evaluation warns before low scores and does not auto submit',
+    (tester) async {
+      final client = LogisticsFixtureClient();
+      await pump(tester, client: client);
+      await press(tester, find.byKey(const ValueKey('repair-fixture-0')));
+      await press(tester, find.widgetWithText(AppButton, '评价维修'));
+      for (final name in ['服务态度', '服务质量', '维修质量', '维修速度']) {
+        await press(tester, find.byTooltip('$name 1星'));
+      }
+      await captureDesktopUi(tester, 'native-evaluation');
+      await press(tester, find.widgetWithText(AppButton, '提交评价'));
+      expect(find.textContaining('触发返修'), findsOneWidget);
+      expect(client.writes, isEmpty);
+      await press(tester, find.text('取消'));
+      expect(client.writes, isEmpty);
+    },
+  );
+  testWidgets(
+    'native feedback detail reads replies and deletion keeps a deleted record',
+    (tester) async {
+      final client = LogisticsFixtureClient();
+      await pump(tester, client: client);
+      await press(tester, find.text('我的反馈'));
+      await press(tester, find.text('测试服务反馈'));
+      expect(find.text('我们已经收到建议'), findsOneWidget);
+      await press(tester, find.widgetWithText(AppButton, '删除反馈'));
+      await tester.enterText(find.byType(TextField).last, '测试删除');
+      await tester.pump();
+      await press(tester, confirm('删除反馈'));
+      expect(client.writes, ['delete']);
+      expect(find.text('已删除'), findsOneWidget);
+    },
+  );
+  testWidgets('native messages can be read without navigating to a website', (
+    tester,
+  ) async {
+    final client = LogisticsFixtureClient();
+    final launched = <Uri>[];
+    await pump(tester, client: client, launched: launched);
+    await press(tester, find.text('全部消息'));
+    await press(tester, find.text('报修服务进度提醒'));
+    await press(tester, find.widgetWithText(AppButton, '标为已读'));
+    expect(client.writes, ['read']);
+    expect(find.text('已读'), findsOneWidget);
+    expect(launched, isEmpty);
   });
 }

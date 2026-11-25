@@ -5,12 +5,12 @@ import 'package:xmu_rollcall/app/app_settings_glyph.dart';
 import 'package:xmu_rollcall/app/chrome.dart';
 import 'package:xmu_rollcall/core/theme/app_tokens.dart';
 import 'package:xmu_rollcall/features/browser/browser_session.dart';
-import 'package:xmu_rollcall/features/browser/campus_website.dart';
 import 'package:xmu_rollcall/features/rollcall/rollcall_account.dart';
 import 'logistics_provider.dart';
-
-Uri logisticsWebsite(String path) =>
-    Uri.https('xdhq.xmu.edu.cn', '/ihome/$path');
+import 'logistics_forms.dart';
+import 'logistics_records.dart';
+import 'logistics_form_widgets.dart';
+import 'package:xmu_rollcall/app/app_dialogs.dart';
 
 class LogisticsPage extends ConsumerWidget {
   const LogisticsPage({super.key});
@@ -22,8 +22,13 @@ class LogisticsPage extends ConsumerWidget {
     final notifier = identity.userId == null
         ? null
         : ref.read(logisticsProvider.notifier);
-    Future<void> official(String path, String title) =>
-        openCampusWebsite(context, title: title, url: logisticsWebsite(path));
+    Future<void> form(Widget page) async {
+      final changed = await AppPageRoutes.push<bool>(context, page);
+      if (context.mounted && changed == true) {
+        await ref.read(logisticsProvider.notifier).afterMutation();
+      }
+    }
+
     final p = AppPalette.of(context);
     return SubpageScaffold(
       title: '智慧后勤',
@@ -55,12 +60,12 @@ class LogisticsPage extends ConsumerWidget {
                       AppButton(
                         label: '我要报修',
                         icon: AppIcons.add,
-                        onPressed: () => official('repairCatalogue', '我要报修'),
+                        onPressed: () => form(const LogisticsRepairForm()),
                       ),
                       AppButton(
                         label: '意见反馈',
                         kind: AppButtonKind.secondary,
-                        onPressed: () => official('service/catalogue', '意见反馈'),
+                        onPressed: () => form(const LogisticsFeedbackForm()),
                       ),
                     ],
                   ),
@@ -91,12 +96,6 @@ class LogisticsPage extends ConsumerWidget {
                                 label: '重试',
                                 kind: AppButtonKind.secondary,
                                 onPressed: () => notifier!.refresh(),
-                              ),
-                              AppButton(
-                                label: '打开官方报修',
-                                kind: AppButtonKind.quiet,
-                                onPressed: () =>
-                                    official('myRepairList', '我的报修'),
                               ),
                             ],
                           ),
@@ -207,6 +206,10 @@ class LogisticsPage extends ConsumerWidget {
                                 trailing: message.unread
                                     ? const Text('未读')
                                     : null,
+                                onTap: () => AppPageRoutes.push<void>(
+                                  context,
+                                  LogisticsMessagePage(message: message),
+                                ),
                               ),
                           ],
                         ),
@@ -222,7 +225,10 @@ class LogisticsPage extends ConsumerWidget {
                           AppSettingsGlyphKind.bell,
                         ),
                         trailing: const Icon(AppIcons.right, size: 14),
-                        onTap: () => official('messageList', '后勤消息'),
+                        onTap: () => AppPageRoutes.push<void>(
+                          context,
+                          const LogisticsMessagesPage(),
+                        ),
                       ),
                       SettingsRow(
                         title: '我的反馈',
@@ -230,7 +236,10 @@ class LogisticsPage extends ConsumerWidget {
                           AppSettingsGlyphKind.fileText,
                         ),
                         trailing: const Icon(AppIcons.right, size: 14),
-                        onTap: () => official('service/myService', '我的反馈'),
+                        onTap: () => AppPageRoutes.push<void>(
+                          context,
+                          const LogisticsFeedbackPage(),
+                        ),
                       ),
                     ],
                   ),
@@ -241,29 +250,73 @@ class LogisticsPage extends ConsumerWidget {
   }
 }
 
-class LogisticsRepairPage extends ConsumerWidget {
+class LogisticsRepairPage extends ConsumerStatefulWidget {
   const LogisticsRepairPage({super.key, required this.repair});
   final LogisticsRepair repair;
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // A detail opened for one identity must never remain visible after switching.
-    ref.listen(browserIdentityProvider, (previous, next) {
-      if (previous == next) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!context.mounted) return;
-        final route = ModalRoute.of(context);
-        if (route != null && route.isActive) {
-          Navigator.of(context).removeRoute(route);
-        }
-      });
+  ConsumerState<LogisticsRepairPage> createState() =>
+      _LogisticsRepairPageState();
+}
+
+class _LogisticsRepairPageState extends ConsumerState<LogisticsRepairPage>
+    with LogisticsIdentityPage<LogisticsRepairPage> {
+  Map<String, dynamic>? detail;
+  LogisticsRepair? latest;
+  bool withdrawable = false;
+  @override
+  void initState() {
+    super.initState();
+    load();
+  }
+
+  Future<void> load() => perform(() async {
+    final data = await ref
+        .read(logisticsProvider.notifier)
+        .run(
+          (c) async => (
+            detail: await c.repairDetail(widget.repair.id),
+            canWithdraw: await c.canWithdraw(widget.repair.id),
+          ),
+        );
+    final parsed = LogisticsRepair({
+      ...data.detail,
+      'logs': data.detail['logVOS'] ?? [],
+      'workerName':
+          ((data.detail['finishedInfo'] as Map?)?['workerList'] as List? ?? [])
+              .map((w) => w['workerName'])
+              .join('、'),
+      'repairDeptName':
+          data.detail['acceptDeptName'] ?? data.detail['repairDeptName'],
     });
+    if (current) {
+      detail = data.detail;
+      latest = parsed;
+      withdrawable = data.canWithdraw;
+    }
+  });
+  @override
+  Widget build(BuildContext context) {
+    watchIdentity();
+    final repair = latest ?? widget.repair;
+    final finished = detail?['finishedInfo'] as Map?;
+    final images = [
+      for (final item in detail?['resourcesVOS'] as List? ?? [])
+        if (item is Map && item['fileUrl'] is String) item['fileUrl'] as String,
+    ];
     return SubpageScaffold(
       title: '报修详情',
+      isBusy: () => busy,
+      actions: [AppRefreshButton(busy: busy, onRefresh: load)],
       body: AppPageViewport(
         maxWidth: AppLayout.workspaceMaxWidth,
         builder: (context, insets) => ListView(
           padding: insets + EdgeInsets.all(AppSpace.pageXOf(context)),
           children: [
+            if (error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpace.md),
+                child: Text(error!),
+              ),
             SettingsSection(
               padTop: false,
               hasLeading: false,
@@ -278,9 +331,40 @@ class LogisticsRepairPage extends ConsumerWidget {
                   SettingsRow(title: '服务单位', subtitle: repair.department),
                 if (repair.worker.isNotEmpty)
                   SettingsRow(title: '维修人员', subtitle: repair.worker),
+                if (finished?['paymentTypeName'] is String)
+                  SettingsRow(
+                    title: '收费类型',
+                    subtitle: finished!['paymentTypeName'] as String,
+                  ),
+                if (finished?['totalCost'] is num &&
+                    (finished!['totalCost'] as num) > 0)
+                  SettingsRow(
+                    title: '维修费用',
+                    subtitle: '${finished['totalCost']}元',
+                  ),
                 SettingsRow(title: '报修单号', subtitle: repair.number),
               ],
             ),
+            if (images.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpace.md),
+                child: LogisticsImages(paths: images),
+              ),
+            for (final kind in ['beforeImg', 'afterImg'])
+              if (finished?[kind] is String &&
+                  (finished![kind] as String).isNotEmpty)
+                SettingsSection(
+                  header: kind == 'beforeImg' ? '维修前' : '维修后',
+                  hasLeading: false,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(AppSpace.md),
+                      child: LogisticsImages(
+                        paths: (finished[kind] as String).split(','),
+                      ),
+                    ),
+                  ],
+                ),
             SettingsSection(
               header: '工单进度',
               hasLeading: false,
@@ -297,20 +381,57 @@ class LogisticsRepairPage extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: AppSpace.lg),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: AppButton(
-                label: repair.completed && !repair.evaluated
-                    ? '前往官方页面评价'
-                    : '打开官方报修',
-                kind: AppButtonKind.secondary,
-                onPressed: () => openCampusWebsite(
-                  context,
-                  title: '我的报修',
-                  url: logisticsWebsite('myRepairList'),
+            if (repair.completed && !repair.evaluated)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: AppButton(
+                  label: '评价维修',
+                  onPressed: busy
+                      ? null
+                      : () async {
+                          final changed = await AppPageRoutes.push<bool>(
+                            context,
+                            LogisticsEvaluationPage(repairId: repair.id),
+                          );
+                          if (current && changed == true) {
+                            await ref
+                                .read(logisticsProvider.notifier)
+                                .afterMutation();
+                            await load();
+                          }
+                        },
                 ),
               ),
-            ),
+            if (withdrawable)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: AppButton(
+                  label: '撤销报修',
+                  kind: AppButtonKind.secondary,
+                  busy: busy,
+                  onPressed: () async {
+                    final ok = await showAppConfirmDialog(
+                      context,
+                      title: '撤销这条报修？',
+                      message: '撤销后服务部门将不再按此单继续处理。',
+                      confirmLabel: '撤销报修',
+                      destructive: true,
+                    );
+                    if (!current || !ok) return;
+                    await perform(() async {
+                      await ref
+                          .read(logisticsProvider.notifier)
+                          .run((c) => c.withdraw(repair.id));
+                      if (current) {
+                        await ref
+                            .read(logisticsProvider.notifier)
+                            .afterMutation();
+                      }
+                    });
+                    if (current) await load();
+                  },
+                ),
+              ),
           ],
         ),
       ),
