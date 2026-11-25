@@ -1,3 +1,4 @@
+import 'package:xmu_rollcall/features/logistics/logistics_page.dart';
 import 'campus_calendar_page.dart';
 import 'package:flutter/material.dart';
 import 'package:xmu_rollcall/core/theme/app_icons.dart';
@@ -38,6 +39,13 @@ bool campusSearchMatches(String query, String content) {
 }
 
 List<CampusSearchEntry> campusSearchFeatures(int? scope) => [
+  CampusSearchEntry(
+    '智慧后勤',
+    '我的报修、处理进度与意见反馈',
+    '报修 后勤 宿舍维修 水电维修 工单 维修进度 投诉 建议 咨询 表扬 后勤消息',
+    AppIcons.building,
+    page: (_) => const LogisticsPage(),
+  ),
   CampusSearchEntry(
     '学年校历',
     '学期安排与教学周',

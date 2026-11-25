@@ -1,4 +1,5 @@
 import 'package:xmu_rollcall/core/cache/remote_course_cache.dart';
+import 'package:xmu_rollcall/features/logistics/logistics_provider.dart';
 import 'package:xmu_rollcall/core/cache/cache_revisions.dart';
 import 'package:xmu_rollcall/features/campus/campus_summary_providers.dart';
 import 'package:xmu_rollcall/features/exams/exam_providers.dart';
@@ -28,6 +29,7 @@ void invalidateOwnerRemoteMemory(Ref ref) {
 Future<void> clearRemoteCourseData(WidgetRef ref) async {
   await clearRemoteCourseCache();
   if (!ref.context.mounted) return;
+  ref.invalidate(logisticsProvider);
   ref.invalidate(taRepositoryProvider);
   ref.invalidate(courseCatalogProvider);
   ref.invalidate(scopedCourseCatalogProvider);

@@ -179,7 +179,10 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          expect(find.byType(AppServiceTile), findsNWidgets(5));
+          expect(
+            find.byType(AppServiceTile),
+            findsNWidgets(campusTools.length),
+          );
           final pageScroll = find.byWidgetPredicate(
             (w) =>
                 w is SingleChildScrollView &&
@@ -255,7 +258,7 @@ void main() {
           final exam = tester.getSize(find.byKey(const ValueKey('tool-exams')));
           expect(map, exam);
           if (width >= 760) {
-            for (final id in ['gpa', 'calendar', 'ta-grading']) {
+            for (final id in ['gpa', 'calendar', 'logistics', 'ta-grading']) {
               expect(tester.getSize(find.byKey(ValueKey('tool-$id'))), map);
             }
           }
@@ -307,7 +310,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(AppServiceTile), findsNWidgets(4));
+      expect(
+        find.byType(AppServiceTile),
+        findsNWidgets(campusTools.length - 1),
+      );
       expect(find.byKey(const ValueKey('tool-ta-grading')), findsNothing);
       expect(find.text('助教'), findsNothing);
       expect(find.text('研究生'), findsNothing);
@@ -366,7 +372,10 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('service-symbol')), findsNWidgets(5));
+      expect(
+        find.byKey(const ValueKey('service-symbol')),
+        findsNWidgets(campusTools.length),
+      );
       expect(find.byType(BackdropFilter), findsNothing);
       final map = tester.getRect(find.byKey(const ValueKey('tool-campus-map')));
       final grading = tester.getRect(

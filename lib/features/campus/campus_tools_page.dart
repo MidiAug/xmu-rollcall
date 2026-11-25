@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:xmu_rollcall/features/logistics/logistics_page.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xmu_rollcall/features/browser/campus_website.dart';
 import 'package:xmu_rollcall/app/app_service_tile.dart';
@@ -58,6 +59,13 @@ List<CampusTool> get campusTools => <CampusTool>[
     description: '学期安排与教学周',
     icon: AppIcons.serviceCalendar,
     page: (_) => const CampusCalendarPage(),
+  ),
+  CampusTool(
+    id: 'logistics',
+    title: '智慧后勤',
+    description: '我的报修、处理进度与意见反馈',
+    icon: AppIcons.building,
+    page: (_) => const LogisticsPage(),
   ),
   CampusTool(
     id: 'ta-grading',
